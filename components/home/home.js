@@ -385,13 +385,86 @@ export default function Homepage() {
         }
       })}
 
+      {/* <section class="home-sec-2 sc-pt-80 sc-pb-80">
+        <div class="container">
+          <div class="home-sec-2-top">
+            <div class="row">
+              <div class="col-md-12">
+                <div class="common-header common-white-header">
+                  <h6>How It Works</h6>
+                  <h2><strong id="docs-internal-guid-d79099ed-7fff-2386-0654-f8c1c2ad4c3d">Find the right vendors and Workwise!</strong></h2>
+                </div>
+                <div class="home-overview-l">&nbsp;</div>
+              </div>
+            </div>
+          </div>
+          <div class="home-sec-2-btm sc-pt-50 ">
+            <div class="row">
+              <div class="col-md-3">
+                <div class="banner-bottom-area bg-light ">
+                  <a href="#">
+                    
+                    <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
+                      01
+                      <div className="mb-3">
+                        <h6 className="h1">Explore</h6>
+                        <p className="h6">Explore database of 10,000+ Vendors</p>
+                      </div>
+                    </div>
+                  </a></div>
+              </div>
+              <div class="col-md-3">
+                <div class="banner-bottom-area bg-light">
+                  <a href="https://api.letsworkwise.com/user_document/1712148446176-d6bf26aa-4e5e-48fa-be55-70225bb41925.png">
+                    
+                    <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
+                      02
+                      <div className="mb-3">
+                        <h6 className="h1">Shortlist</h6>
+                        <p className="h6">Shortlist approved vendors of industry leaders</p>
+                      </div>
+                    </div>
+                  </a></div>
+              </div>
+              <div class="col-md-3">
+                <div class="banner-bottom-area bg-light"><a href="#">
+                  
+                  <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
+                    03
+                    <div className="mb-3">
+                      <h6 className="h1">Send</h6>
+                      <p className="h6">Send RFQs to all vendors in just 1 click</p>
+                    </div>
+                  </div>
+
+                </a></div>
+              </div>
+              <div class="col-md-3">
+                <div class="banner-bottom-area bg-light"><a href="#">
+                  
+                  <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
+                    03
+                    <div className="mb-3">
+                      <h6 className="h1">Get</h6>
+                      <p className="h6">⁠Get AI generated rate comparison chart</p>
+                    </div>
+                  </div>
+
+                </a></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section> */}
+
+
       {/* Testimonials */}
       {testimonials && (
-        <section className="home-sec-3 sc-pb-80 nobgimg">
+        <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg">
           <div className="container">
-            <div className="home-sec-3-btm">
-            <h6>What Customers Say About Us</h6>
-            <h2>Testimonials</h2>
+            <div className="home-sec-3-btm common-header">
+              <h6>What Customers Say About Us</h6>
+              <h2>Testimonials</h2>
               <Slider {...customerslider}>
                 {testimonials.map((item) => {
                   return (
@@ -483,7 +556,7 @@ export default function Homepage() {
                         <div className="customer-con">
                           <div className="common-header">
 
-                            <h2>{item?.title}</h2>
+                            {/* <h2>{item?.title}</h2> */}
                           </div>
                           <div className="customer-text">
                             <p>{item?.description}</p>
@@ -500,7 +573,7 @@ export default function Homepage() {
                               <Image
                                 src={
                                   item?.created_image_url == "" ||
-                                  item?.created_image_url == null
+                                    item?.created_image_url == null
                                     ? "/assets/images/products-1.jpg"
                                     : item?.created_image_url
                                 }
@@ -511,6 +584,7 @@ export default function Homepage() {
                               />
                             </div>
                             <div className="client-con">
+                              <p className="opacity-75" style={{ fontSize: "16px" }}>{item?.title}</p>
                               <p>
                                 {item?.created_name}{" "}
                                 {/* <span>Dat pretium augue</span> */}
@@ -741,7 +815,7 @@ export default function Homepage() {
 
       {/* blogs start */}
 
-      {blogs.length>0 && (
+      {blogs.length > 0 && (
         <section className="home-sec-7 sc-pt-80 faq-sec">
           <div className="container">
             {showHomeLists1.map((item) => {
@@ -753,7 +827,7 @@ export default function Homepage() {
         </section>
       )}
 
-      {blogs.length>0 && (
+      {blogs.length > 0 && (
         <section className="home-sec-7 sc-pb-80 faq-sec">
           <div className="container">
             <div className="home-sec-resource">
@@ -856,8 +930,8 @@ export default function Homepage() {
               </div>
             </div>
           </div>
-        </section>
-      )}
+        </section>        
+      )}      
 
       {/* OTHER SECTIONS */}
       {showHomeLists1.map((item) => {

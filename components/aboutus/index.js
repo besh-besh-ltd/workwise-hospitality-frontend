@@ -122,6 +122,10 @@ const Aboutus = (props) => {
 
       {/* {bod && <PersonalProfiles profiles={bod}/>}
       		{kp &&<PersonalProfiles pb={80} title="Other key Personnel" subtitle="International Subsidiaries" profiles={kp}/>} */}
+      
+      <section className="about-sec-slogan container text-center sc-pb-80 ">
+        <p>Join us in shaping the future of the heavy industry. Together, let's build a more efficient, connected, and prosperous ecosystem</p>
+      </section>
       <ToastContainer />
     </>
   );
