@@ -274,15 +274,16 @@ export default function Homepage() {
         setBlogs(response.data);
       })
       .catch((error) => {
-        if (error.message.response?.status === 400) {
-          toast.error(error.message.response.data.message, {
-            position: "top-center",
-          });
-        } else {
-          toast.error(error.message.message, {
-            position: "top-center",
-          });
-        }
+        console.log(error)
+        // if (error.message.response?.status === 400) {
+        //   toast.error(error.message.response.data.message, {
+        //     position: "top-center",
+        //   });
+        // } else {
+        //   toast.error(error.message.message, {
+        //     position: "top-center",
+        //   });
+        // }
       });
   };
 
@@ -309,15 +310,16 @@ export default function Homepage() {
         setCompanies(response.data);
       })
       .catch((error) => {
-        if (error.message.response?.status === 400) {
-          toast.error(error.message.response.data.message, {
-            position: "top-center",
-          });
-        } else {
-          toast.error(error.message.message, {
-            position: "top-center",
-          });
-        }
+        console.log("")
+        // if (error.message.response?.status === 400) {
+        //   toast.error(error.message.response.data.message, {
+        //     position: "top-center",
+        //   });
+        // } else {
+        //   toast.error(error.message.message, {
+        //     position: "top-center",
+        //   });
+        // }
       });
   };
   const getTestimonialsList = () => {
@@ -388,6 +390,8 @@ export default function Homepage() {
         <section className="home-sec-3 sc-pb-80 nobgimg">
           <div className="container">
             <div className="home-sec-3-btm">
+            <h6>What Customers Say About Us</h6>
+            <h2>Testimonials</h2>
               <Slider {...customerslider}>
                 {testimonials.map((item) => {
                   return (
@@ -396,7 +400,7 @@ export default function Homepage() {
                       key={`testimonial ${item.id}`}
                     >
                       <div className="customer-panel">
-                        <div className="customer-img">
+                        {/* <div className="customer-img">
                           <div className="customer-vdo">
                             <p>
                               Watch <br />
@@ -475,10 +479,10 @@ export default function Homepage() {
                               priority={true}
                             />
                           </figure>
-                        </div>
+                        </div> */}
                         <div className="customer-con">
                           <div className="common-header">
-                            <h6>What Customers Say About Us</h6>
+
                             <h2>{item?.title}</h2>
                           </div>
                           <div className="customer-text">
@@ -671,8 +675,8 @@ export default function Homepage() {
                   </div>
                 </div>
               </Modal>
-              <figure className="image-area">
-                {video?.thumbnail_url.includes("http://") ? (
+              <figure className="image-area" style={{ maxHeight: '500px' }}>
+                {video?.thumbnail_url.includes("https://") ? (
                   <Image
                     src={video?.thumbnail_url}
                     alt="Play"
@@ -737,7 +741,7 @@ export default function Homepage() {
 
       {/* blogs start */}
 
-      {blogs && (
+      {blogs.length>0 && (
         <section className="home-sec-7 sc-pt-80 faq-sec">
           <div className="container">
             {showHomeLists1.map((item) => {
@@ -749,7 +753,7 @@ export default function Homepage() {
         </section>
       )}
 
-      {blogs && (
+      {blogs.length>0 && (
         <section className="home-sec-7 sc-pb-80 faq-sec">
           <div className="container">
             <div className="home-sec-resource">
