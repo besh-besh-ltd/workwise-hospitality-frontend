@@ -24,8 +24,8 @@ const mainNavs = [
   "/",
   "/aboutus",
   "/contactus",
-  "/for-vendors",
-  "/for-buyers",
+  // "/for-vendors",
+  // "/for-buyers",
   //"/products",
   "/validate-otp",
   "/forget-password",
@@ -315,7 +315,7 @@ const Header = () => {
 											>
 												<Link href="/products">Products</Link>
 											</li> */}
-                      <li
+                      {/* <li
                         className={
                           router.pathname == "/for-buyers" ? "active" : ""
                         }
@@ -328,7 +328,7 @@ const Header = () => {
                         }
                       >
                         <Link href="/for-vendors">For Vendors</Link>
-                      </li>
+                      </li> */}
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""
