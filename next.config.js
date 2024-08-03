@@ -15,8 +15,7 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "encrypted-tbn0.gstatic.com",
-        // port: "8112",
+        hostname: "api.letsworkwise.com",
       },
     ],
   },
