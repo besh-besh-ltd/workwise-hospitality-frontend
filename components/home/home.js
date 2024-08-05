@@ -385,78 +385,6 @@ export default function Homepage() {
         }
       })}
 
-      {/* <section class="home-sec-2 sc-pt-80 sc-pb-80">
-        <div class="container">
-          <div class="home-sec-2-top">
-            <div class="row">
-              <div class="col-md-12">
-                <div class="common-header common-white-header">
-                  <h6>How It Works</h6>
-                  <h2><strong id="docs-internal-guid-d79099ed-7fff-2386-0654-f8c1c2ad4c3d">Find the right vendors and Workwise!</strong></h2>
-                </div>
-                <div class="home-overview-l">&nbsp;</div>
-              </div>
-            </div>
-          </div>
-          <div class="home-sec-2-btm sc-pt-50 ">
-            <div class="row">
-              <div class="col-md-3">
-                <div class="banner-bottom-area bg-light ">
-                  <a href="#">
-                    
-                    <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
-                      01
-                      <div className="mb-3">
-                        <h6 className="h1">Explore</h6>
-                        <p className="h6">Explore database of 10,000+ Vendors</p>
-                      </div>
-                    </div>
-                  </a></div>
-              </div>
-              <div class="col-md-3">
-                <div class="banner-bottom-area bg-light">
-                  <a href="https://api.letsworkwise.com/user_document/1712148446176-d6bf26aa-4e5e-48fa-be55-70225bb41925.png">
-                    
-                    <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
-                      02
-                      <div className="mb-3">
-                        <h6 className="h1">Shortlist</h6>
-                        <p className="h6">Shortlist approved vendors of industry leaders</p>
-                      </div>
-                    </div>
-                  </a></div>
-              </div>
-              <div class="col-md-3">
-                <div class="banner-bottom-area bg-light"><a href="#">
-                  
-                  <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
-                    03
-                    <div className="mb-3">
-                      <h6 className="h1">Send</h6>
-                      <p className="h6">Send RFQs to all vendors in just 1 click</p>
-                    </div>
-                  </div>
-
-                </a></div>
-              </div>
-              <div class="col-md-3">
-                <div class="banner-bottom-area bg-light"><a href="#">
-                  
-                  <div class=" h5 banner-bottom-con text-dark d-flex flex-column justify-content-between">
-                    03
-                    <div className="mb-3">
-                      <h6 className="h1">Get</h6>
-                      <p className="h6">⁠Get AI generated rate comparison chart</p>
-                    </div>
-                  </div>
-
-                </a></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section> */}
-
 
       {/* Testimonials */}
       {testimonials && (
@@ -930,8 +858,8 @@ export default function Homepage() {
               </div>
             </div>
           </div>
-        </section>        
-      )}      
+        </section>
+      )}
 
       {/* OTHER SECTIONS */}
       {showHomeLists1.map((item) => {
