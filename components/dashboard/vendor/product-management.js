@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import _ from 'lodash';
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -15,6 +16,7 @@ import axiosFormData from "@/lib/axiosFormData";
 import { useRouter } from "next/router";
 import { ToastContainer, toast } from "react-toastify";
 import { Image } from "react-bootstrap";
+import Pagination from "@/components/shared/Pagination";
 
 const ProductManagement = () => {
   const router = useRouter();
@@ -24,6 +26,7 @@ const ProductManagement = () => {
   const [vendorApproveList, setVendorApproveList] = useState([]);
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
+  const [inputValue, setInputValue] = useState(page);
   const [totalPages, setTotalPages] = useState(null);
   const [selectedVendor, setSelectedVendor] = useState("");
   const [search, setSearch] = useState("");
@@ -194,6 +197,26 @@ const ProductManagement = () => {
     router.push(`/dashboard/vendor/edit-products/${item.id}`);
   };
 
+  // const debouncedSetPage = _.debounce((inputPage) => {
+  //   if (inputPage >= 1 && inputPage <= totalPages) {
+  //     setPage(inputPage);
+  //   } else {
+  //     setPage(1);
+  //   }
+  // }, 300);
+
+  const handlePageChange = (event) => {
+    const newValue = event.target.value;
+      if(newValue >= 1 || newValue <= totalPages || newValue)
+        setPage(newValue)
+      else 
+        setPage(1)
+
+    // setInputValue(newValue);
+    // setPage(event.target.value)
+    // debouncedSetPage(parseInt(newValue, 10));
+  };
+
   useEffect(() => {
     getProducts();
     getVendorApproveLists();
@@ -217,14 +240,14 @@ const ProductManagement = () => {
               <div className="vendor-mngt-con">
                 {/* Content for Manage RFQs tab */}
                 <span className="title">Add New Products</span>
-                
+
 
                 {/* <div className="action-btm"> */}
                 {/* <button className="btn dummy-excel">Search</button> */}
                 {/* </div> */}
                 <div className="filter">
                   {!enableBulkUpload && (
-                    
+
                     <div className="row ">
                       <div className="col-5">
                         <div className="d-flex">
@@ -246,8 +269,8 @@ const ProductManagement = () => {
                             <span className="text-sm">(By Uploading Excel File)</span>
                           </button>
                         </div>
-                        
-                        
+
+
                         <div className="row mt-1">
                           <div className="col"></div>
                           <a
@@ -270,10 +293,10 @@ const ProductManagement = () => {
                             </span>
                           </a>
                         </div>
-                        
+
 
                       </div>
-                      </div>
+                    </div>
                   )}
                   {enableBulkUpload && (
                     <div className="row">
@@ -372,7 +395,7 @@ const ProductManagement = () => {
                       <Link
                         href="#"
                         className="btn btn-primary "
-                        style={{width: "35%"}}
+                        style={{ width: "35%" }}
                         onClick={() => {
                           exportProducts();
                         }}
@@ -427,7 +450,7 @@ const ProductManagement = () => {
                                     <span className="badge badge-warning">
                                       {item.product_categories.length > 0
                                         ? item.product_categories[0]
-                                            .category_name
+                                          .category_name
                                         : "-"}
                                     </span>
                                   </td>
@@ -435,7 +458,7 @@ const ProductManagement = () => {
                                     {getSubCats(item)}
                                   </td>
                                   <td>
-                                  <span className="me-2">
+                                    <span className="me-2">
                                       <FontAwesomeIcon icon={faEdit} />
                                     </span>
                                     <span
@@ -486,9 +509,10 @@ const ProductManagement = () => {
                     )}
 
                     <span>Page</span>
-                    <input type="number" value={page} />
-                    <span> of {Math.ceil(totalPages / limit)}</span>
+                    <input type="number" min={1} max={totalPages} value={page} onChange={handlePageChange} />
+                    <span> of {totalPages}</span>
                   </div>
+                  {/* <Pagination pageNo={page} totalPages={totalPages} /> */}
                 </div>
               </div>
             </div>

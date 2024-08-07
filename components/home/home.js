@@ -588,7 +588,7 @@ export default function Homepage() {
       )}
 
       {/* video media start */}
-
+      
       {video && (
         <section className="home-sec-5 sc-pt-80 media-sec-home">
           <div className="container">

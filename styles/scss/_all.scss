@@ -1083,11 +1083,13 @@ textarea {
   }
 }
 
-.home-sec-1 {
+.home-sec-1,
+.for-vendors-common-sec {
   background-color: #eef3f5;
   margin-top: -8px;
 
-  .home-sec-1-con {
+  .home-sec-1-con,
+  .for-vendors-common-sec-con {
     p {
       font-size: 1.2rem;
       color: var(--primary-color);
@@ -1096,7 +1098,8 @@ textarea {
     }
   }
 
-  .home-sec-1-img {
+  .home-sec-1-img,
+  .for-vendors-common-sec-img {
     position: relative;
     padding-right: 20px;
 
@@ -1164,7 +1167,9 @@ textarea {
   }
 
   .home-sec-2-btm {
-    .banner-bottom-area {
+
+    .banner-bottom-area,
+    .for-vendor-card {
       position: relative;
       min-height: 15rem;
       border-radius: 20px;
@@ -1238,6 +1243,10 @@ textarea {
           transform: scale(1.1);
         }
       }
+    }
+
+    .for-vendor-card {
+      height: 340px;
     }
   }
 }
@@ -2099,8 +2108,11 @@ textarea {
   }
 }
 
-.about-sec-4 {
-  .about-sec-4-con {
+.about-sec-4,
+.for-vendors-sec-2 {
+
+  .about-sec-4-con,
+  .for-vendors-sec-2-con {
     background: transparent url(../../public/assets/images/mission-bg.webp) no-repeat 0 0;
     padding-top: 50px;
 
@@ -2134,6 +2146,44 @@ textarea {
         color: #4f4f4f;
       }
     }
+  }
+
+  .for-vendor-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background-size: cover;
+    height: 450px;
+    border-radius: 20px;
+    padding: 30px;
+    color: white;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+
+    &::before {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      content: "";
+      z-index: 1;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      background: rgb(31, 31, 36);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    &:hover {
+      transform: scale(1.02);
+    }
+  }
+
+  .for-vendor-card>* {
+    position: relative;
+    z-index: 2;
+    /* Ensure content is above the pseudo-element */
   }
 
   .about-sec-4-img {
@@ -2301,7 +2351,7 @@ textarea {
   }
 }
 
-.about-sec-slogan {
+.title-text {
   font-size: 1.2rem;
   color: var(--primary-color);
   font-weight: 600;
