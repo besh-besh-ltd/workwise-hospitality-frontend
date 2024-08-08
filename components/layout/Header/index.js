@@ -156,6 +156,7 @@ const Header = () => {
           userType = "other";
         }
         storageInstance.setStorage("current-user-type", userType);
+        storageInstance.setStorage("current-user-name", response.user_detail[0].name);
 
         handleChange(setOpenAuthModal(false));
         if (redirect && redirect != "") {
@@ -235,6 +236,7 @@ const Header = () => {
             userType = "vendor";
           }
           storageInstance.setStorage("current-user-type", userType);
+          storageInstance.setStorage("current-user-name", response.user_detail[0].name);
           handleChange(setOpenAuthModal(false));
           if (userType == "buyer") {
             router.push(`/products`);
