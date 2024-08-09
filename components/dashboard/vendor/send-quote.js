@@ -78,7 +78,6 @@ const SendQuotePageComp = () => {
   ) => {
     let value = e.target.value;
     let d = quoteProducts.map((item) => {
-      console.log(item);
       if (item.id == item_id && item.product_id == product_id) {
         if (valueType == "integer") {
           item[type] = parseFloat(value);
@@ -90,7 +89,7 @@ const SendQuotePageComp = () => {
         let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
         let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
 
-        let total_with_fpt = total_without_fpt + FP + PP;
+        let total_with_fpt = total_without_fpt + (FP > 0 ? FP : 0) + PP;
         let T = (total_without_fpt * parseFloat(item.tax)) / 100;
 
         let getTotalPrice = +total_with_fpt + +T;
@@ -572,7 +571,7 @@ const SendQuotePageComp = () => {
                             Taxes <small>(In %)</small>
                           </th>
                           <th>Total</th>
-                          <th>Vendor Comments</th>
+                          <th>Product Specific Comments</th>
                           <th>
                             Delivery Period <small>(In Weeks)</small>
                           </th>
@@ -619,12 +618,13 @@ const SendQuotePageComp = () => {
                                     />
                                   </td>
 
-                                  <td>
+                                  <td>                                   
                                     <input
                                       value={
                                         getValue(item.product_id).freight_price
                                       }
                                       type="number"
+                                      min={0}
                                       name=""
                                       id=""
                                       placeholder="%"
