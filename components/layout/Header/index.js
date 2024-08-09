@@ -325,6 +325,13 @@ const Header = () => {
  */}
                       <li
                         className={
+                          router.pathname == "/for-buyers" ? "active" : ""
+                        }
+                      >
+                        <Link href="/for-buyers">For Buyers</Link>
+                      </li>
+                      <li
+                        className={
                           router.pathname == "/for-vendors" ? "active" : ""
                         }
                       >
