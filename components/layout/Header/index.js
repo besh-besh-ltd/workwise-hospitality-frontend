@@ -24,7 +24,7 @@ const mainNavs = [
   "/",
   "/aboutus",
   "/contactus",
-  // "/for-vendors",
+  "/for-vendors",
   // "/for-buyers",
   //"/products",
   "/validate-otp",
@@ -141,7 +141,7 @@ const Header = () => {
           .then((res) => {
             console.log("PUSH SENT");
           })
-          .catch((err) => {});
+          .catch((err) => { });
         setloading(false);
         toast.success(response.message, {
           position: "top-center",
@@ -220,7 +220,7 @@ const Header = () => {
             .then((res) => {
               console.log("PUSH SENT");
             })
-            .catch((err) => {});
+            .catch((err) => { });
           setloading(false);
           toast.success(response.message, {
             position: "top-center",
@@ -322,13 +322,14 @@ const Header = () => {
                       >
                         <Link href="/for-buyers">For Buyers</Link>
                       </li>
+ */}
                       <li
                         className={
                           router.pathname == "/for-vendors" ? "active" : ""
                         }
                       >
                         <Link href="/for-vendors">For Vendors</Link>
-                      </li> */}
+                      </li>
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""
@@ -358,9 +359,8 @@ const Header = () => {
 
                   {/* {!loggedinUser && !loggedinUser?.name && ( */}
                   <div
-                    className={`extra-buttons hideDesktop ${
-                      loggedinUser && loggedinUser?.name && "hasloggedinuser"
-                    }`}
+                    className={`extra-buttons hideDesktop ${loggedinUser && loggedinUser?.name && "hasloggedinuser"
+                      }`}
                   >
                     {/* FOR LOGGED IN */}
                     {loggedinUser && loggedinUser?.name && (
@@ -454,7 +454,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/vendor/product-management"
+                                "/dashboard/vendor/product-management"
                                 ? "active"
                                 : ""
                             }
@@ -467,7 +467,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/vendor/product-review"
+                                "/dashboard/vendor/product-review"
                                 ? "active"
                                 : ""
                             }
@@ -480,7 +480,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/vendor/inquiries-received"
+                                "/dashboard/vendor/inquiries-received"
                                 ? "active"
                                 : ""
                             }
@@ -493,7 +493,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/vendor/reviews-ratings"
+                                "/dashboard/vendor/reviews-ratings"
                                 ? "active"
                                 : ""
                             }
@@ -540,7 +540,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/buyer/rfq-management"
+                                "/dashboard/buyer/rfq-management"
                                 ? "active"
                                 : ""
                             }
@@ -553,7 +553,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/buyer/quote-compare"
+                                "/dashboard/buyer/quote-compare"
                                 ? "active"
                                 : ""
                             }
@@ -626,7 +626,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/other/rfq-management"
+                                "/dashboard/other/rfq-management"
                                 ? "active"
                                 : ""
                             }
@@ -639,7 +639,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/other/quote-compare"
+                                "/dashboard/other/quote-compare"
                                 ? "active"
                                 : ""
                             }
@@ -652,7 +652,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/other/product-management"
+                                "/dashboard/other/product-management"
                                 ? "active"
                                 : ""
                             }
@@ -665,7 +665,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/other/product-review"
+                                "/dashboard/other/product-review"
                                 ? "active"
                                 : ""
                             }
@@ -677,7 +677,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/other/inquiries-received"
+                                "/dashboard/other/inquiries-received"
                                 ? "active"
                                 : ""
                             }
@@ -690,7 +690,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              "/dashboard/other/reviews-ratings"
+                                "/dashboard/other/reviews-ratings"
                                 ? "active"
                                 : ""
                             }
@@ -742,9 +742,8 @@ const Header = () => {
                       </ul>
                     </div>
                     <div
-                      className={`menu-ctrl ${
-                        menuClass ? "button-active" : ""
-                      }`}
+                      className={`menu-ctrl ${menuClass ? "button-active" : ""
+                        }`}
                     >
                       <label
                         onClick={() => handleChange(setMenuClass(!menuClass))}
@@ -781,7 +780,7 @@ const Header = () => {
                         <li
                           className={
                             router.pathname ==
-                            "/dashboard/vendor/communication-setting"
+                              "/dashboard/vendor/communication-setting"
                               ? "active"
                               : ""
                           }
@@ -833,7 +832,7 @@ const Header = () => {
                         <li
                           className={
                             router.pathname ==
-                            "/dashboard/other/communication-setting"
+                              "/dashboard/other/communication-setting"
                               ? "active"
                               : ""
                           }
@@ -870,7 +869,7 @@ const Header = () => {
                         <li
                           className={
                             router.pathname ==
-                            `/dashboard/${currentUserType}/editprofile`
+                              `/dashboard/${currentUserType}/editprofile`
                               ? "active"
                               : ""
                           }
@@ -886,7 +885,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              `/dashboard/${currentUserType}/subscription`
+                                `/dashboard/${currentUserType}/subscription`
                                 ? "active"
                                 : ""
                             }
@@ -903,7 +902,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              `/dashboard/${currentUserType}/product-management`
+                                `/dashboard/${currentUserType}/product-management`
                                 ? "active"
                                 : ""
                             }
@@ -917,7 +916,7 @@ const Header = () => {
                           <li
                             className={
                               router.pathname ==
-                              `/dashboard/${currentUserType}/rfq-report`
+                                `/dashboard/${currentUserType}/rfq-report`
                                 ? "active"
                                 : ""
                             }
