@@ -3,13 +3,14 @@ import Link from "next/link";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
-import { useRouter } from "next/router";
-import { closeRFQ, getRFQById } from "@/services/rfq";
+import { Router, useRouter } from "next/router";
+import { closeRFQ, getRFQById, sendQuotation } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import FullLoader from "@/components/shared/FullLoader";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
+import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -19,6 +20,8 @@ const RfqManagementPreview = () => {
   const [enableBuyerView, setEnableBuyerView] = useState(false);
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [productleftforbid, setproductleftforbid] = useState(true);
+  const [regretModal, setregretModal] = useState(false);
+  const [submitLoading, setsubmitLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -74,6 +77,30 @@ const RfqManagementPreview = () => {
     }
   };
 
+  const handleRegretQuote = ({ reqret_reason }, resetForm) => {
+
+    let payload = {
+      rfq_id: rfqDetails.id,
+      rfq_no: rfqDetails.rfq_no,
+      status: 1,
+      products: rfqDetails?.products,
+      is_regret: 1,
+      regret_reason: reqret_reason,
+      globalPaymentTerms: "",
+      globalComment: "",
+    };
+    sendQuotation(payload)
+      .then((res) => {
+        setsubmitLoading(false);
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}`); 
+        Router.reload();       
+      })
+      .catch((err) => {
+        setsubmitLoading(false);
+      })
+      .finally(()=> setregretModal(false));
+    }
+
   return (
     <>
       {loading && (
@@ -115,7 +142,7 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size specifications & Quantity</th>
                               <th>TDS</th>
-                              <th>QAP</th>
+                              <th>Quality Assurance Plan (QAP)</th>
                               <th>Comments</th>
                               <th>Selected vendors</th>
                             </tr>
@@ -1004,16 +1031,32 @@ const RfqManagementPreview = () => {
                                 productleftforbid &&
                                 rfqDetails.quotations.length <= 0 &&
                                 rfqDetails?.status == 1 && (
-                                  <Link
-                                    href={`/dashboard/vendor/send-quote?id=${id}`}
-                                  >
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                    >
-                                      Send Quote
-                                    </button>
-                                  </Link>
+                                  <div className="row w-50">
+                                    <div className="col-md-6 ps-4">
+                                      <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          setregretModal(true)
+                                        }}
+                                      >
+                                        Regret Quote
+                                      </button>                                      
+                                    </div>
+                                    <div className="col-md-6 d-flex justify-content-end p-0">
+                                    <Link
+                                        href={`/dashboard/vendor/send-quote?id=${id}`}
+                                      >
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary"
+                                        >
+                                          Send Quote
+                                        </button>
+                                      </Link>
+                                    </div>
+                                  </div>
                                 )}
                             </>
                           )}
@@ -1034,6 +1077,13 @@ const RfqManagementPreview = () => {
           </div>
         </section>
       )}
+      <RegretQuoteReasonModal
+        handleRegretReason={handleRegretQuote}
+        showModal={regretModal}
+        closeModal={() => {
+          setregretModal(false);
+        }}
+      />
     </>
   );
 };
