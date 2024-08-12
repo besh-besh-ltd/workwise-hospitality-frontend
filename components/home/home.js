@@ -385,13 +385,14 @@ export default function Homepage() {
         }
       })}
 
+
       {/* Testimonials */}
       {testimonials && (
-        <section className="home-sec-3 sc-pb-80 nobgimg">
+        <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg">
           <div className="container">
-            <div className="home-sec-3-btm">
-            <h6>What Customers Say About Us</h6>
-            <h2>Testimonials</h2>
+            <div className="home-sec-3-btm common-header">
+              <h6>What Customers Say About Us</h6>
+              <h2>Testimonials</h2>
               <Slider {...customerslider}>
                 {testimonials.map((item) => {
                   return (
@@ -483,7 +484,7 @@ export default function Homepage() {
                         <div className="customer-con">
                           <div className="common-header">
 
-                            <h2>{item?.title}</h2>
+                            {/* <h2>{item?.title}</h2> */}
                           </div>
                           <div className="customer-text">
                             <p>{item?.description}</p>
@@ -500,7 +501,7 @@ export default function Homepage() {
                               <Image
                                 src={
                                   item?.created_image_url == "" ||
-                                  item?.created_image_url == null
+                                    item?.created_image_url == null
                                     ? "/assets/images/products-1.jpg"
                                     : item?.created_image_url
                                 }
@@ -511,6 +512,7 @@ export default function Homepage() {
                               />
                             </div>
                             <div className="client-con">
+                              <p className="opacity-75" style={{ fontSize: "16px" }}>{item?.title}</p>
                               <p>
                                 {item?.created_name}{" "}
                                 {/* <span>Dat pretium augue</span> */}
@@ -586,7 +588,7 @@ export default function Homepage() {
       )}
 
       {/* video media start */}
-
+      
       {video && (
         <section className="home-sec-5 sc-pt-80 media-sec-home">
           <div className="container">
@@ -741,7 +743,7 @@ export default function Homepage() {
 
       {/* blogs start */}
 
-      {blogs.length>0 && (
+      {blogs.length > 0 && (
         <section className="home-sec-7 sc-pt-80 faq-sec">
           <div className="container">
             {showHomeLists1.map((item) => {
@@ -753,7 +755,7 @@ export default function Homepage() {
         </section>
       )}
 
-      {blogs.length>0 && (
+      {blogs.length > 0 && (
         <section className="home-sec-7 sc-pb-80 faq-sec">
           <div className="container">
             <div className="home-sec-resource">

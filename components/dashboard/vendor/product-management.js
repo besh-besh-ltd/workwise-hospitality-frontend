@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import _ from 'lodash';
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronLeft,
   faChevronRight,
   faMagnifyingGlass,
+  faEdit
 } from "@fortawesome/free-solid-svg-icons";
 import { exportProduct, vendorProductList } from "@/services/products";
 import Loader from "@/components/shared/Loader";
@@ -14,6 +16,7 @@ import axiosFormData from "@/lib/axiosFormData";
 import { useRouter } from "next/router";
 import { ToastContainer, toast } from "react-toastify";
 import { Image } from "react-bootstrap";
+import Pagination from "@/components/shared/Pagination";
 
 const ProductManagement = () => {
   const router = useRouter();
@@ -23,6 +26,7 @@ const ProductManagement = () => {
   const [vendorApproveList, setVendorApproveList] = useState([]);
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
+  const [inputValue, setInputValue] = useState(page);
   const [totalPages, setTotalPages] = useState(null);
   const [selectedVendor, setSelectedVendor] = useState("");
   const [search, setSearch] = useState("");
@@ -193,6 +197,26 @@ const ProductManagement = () => {
     router.push(`/dashboard/vendor/edit-products/${item.id}`);
   };
 
+  // const debouncedSetPage = _.debounce((inputPage) => {
+  //   if (inputPage >= 1 && inputPage <= totalPages) {
+  //     setPage(inputPage);
+  //   } else {
+  //     setPage(1);
+  //   }
+  // }, 300);
+
+  const handlePageChange = (event) => {
+    const newValue = event.target.value;
+      if(newValue >= 1 || newValue <= totalPages || newValue)
+        setPage(newValue)
+      else 
+        setPage(1)
+
+    // setInputValue(newValue);
+    // setPage(event.target.value)
+    // debouncedSetPage(parseInt(newValue, 10));
+  };
+
   useEffect(() => {
     getProducts();
     getVendorApproveLists();
@@ -215,96 +239,62 @@ const ProductManagement = () => {
             <div className="col-md-12">
               <div className="vendor-mngt-con">
                 {/* Content for Manage RFQs tab */}
-                <span className="title">Products</span>
-                <a
-                  title="Download this sample Excel and fill all the mandatory red columns."
-                  className="title dummy-excel"
-                  href={
-                    "http://143.110.242.57:8112/user_document/1716462955635-82ae96ef-559e-4d17-82a6-16cbcf3d02fb.xlsx"
-                  }
-                  //   target="_blank"
-                >
-                  <span>
-                    <Image
-                      src="/assets/images/download-icon.png"
-                      alt="Workwise"
-                      width={16}
-                      height={16}
-                      priority={true}
-                    />
-                  </span>
-                </a>
+                <span className="title">Add New Products</span>
+
 
                 {/* <div className="action-btm"> */}
                 {/* <button className="btn dummy-excel">Search</button> */}
                 {/* </div> */}
                 <div className="filter">
                   {!enableBulkUpload && (
-                    <div className="row">
-                      <div className="col-md-5">
-                        <div className="filter-options">
-                          <input
-                            type="search"
-                            name="search"
-                            placeholder="Ex. PVC Pipe"
-                            defaultValue={search}
-                            onChange={(e) =>
-                              setSearch(e.target.value ? e.target.value : "")
-                            }
-                          />
-                          <Select
-                            id={id}
-                            options={vendorApproveList}
-                            placeholder="Approved by"
-                            styles={customSelectStyles}
-                            isClearable={true}
-                            // id="long-value-select"
-                            instanceId="long-value-select"
-                            onChange={(e) =>
-                              setSelectedVendor(e ? e.value : "")
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="col-md-7">
-                        <div className="action-btm">
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => {
-                              getProducts();
-                            }}
-                          >
-                            Search
-                          </button>
 
+                    <div className="row ">
+                      <div className="col-5">
+                        <div className="d-flex">
                           <Link
                             href="add-products"
-                            className="btn btn-secondary"
+                            className="btn btn-secondary d-flex align-items-center justify-content-center "
                           >
-                            Add Product
+                            Add Single Product
                           </Link>
-
-                          <Link
-                            href="#"
-                            className="btn btn-primary"
-                            onClick={() => {
-                              exportProducts();
-                            }}
-                          >
-                            Export
-                          </Link>
-
                           <button
                             type="button"
-                            className="btn btn-primary"
+                            className="btn btn-primary d-flex flex-column justify-content-center align-items-center"
                             onClick={() => {
                               setuploadProgress(0);
                               setEnableBulkUpload(!enableBulkUpload);
                             }}
                           >
-                            Import
+                            Add Bulk Products
+                            <span className="text-sm">(By Uploading Excel File)</span>
                           </button>
                         </div>
+
+
+                        <div className="row mt-1">
+                          <div className="col"></div>
+                          <a
+                            title="Download this sample Excel and fill all the mandatory red columns."
+                            className="col d-flex justify-content-center align-items-center gap-1 p-0 me-3 "
+                            href={
+                              "http://143.110.242.57:8112/user_document/1716462955635-82ae96ef-559e-4d17-82a6-16cbcf3d02fb.xlsx"
+                            }
+                          //   target="_blank"
+                          >
+                            <span className="text-sm download-sample-excel-text">Download Sample Excel Format</span>
+                            <span>
+                              <Image
+                                src="/assets/images/download-icon.png"
+                                alt="Workwise"
+                                width={13}
+                                height={13}
+                                priority={true}
+                              />
+                            </span>
+                          </a>
+                        </div>
+
+
                       </div>
                     </div>
                   )}
@@ -362,8 +352,59 @@ const ProductManagement = () => {
                   )}
                 </div>
 
-                <div className="details-table">
+                <span className="title pt-5 pb-2">Your Product List</span>
+                <div className="details-table p-4 ">
                   {loading && <Loader />}
+                  <div className="table-header row mb-4">
+                    <div className="filter-options col-7 align-items-center">
+                      <input
+                        type="search"
+                        name="search"
+                        placeholder="Ex. PVC Pipe"
+                        defaultValue={search}
+                        onChange={(e) =>
+                          setSearch(e.target.value ? e.target.value : "")
+                        }
+                      />
+                      <Select
+                        id={id}
+                        options={vendorApproveList}
+                        placeholder="Approved by"
+                        styles={customSelectStyles}
+                        isClearable={true}
+                        // id="long-value-select"
+                        instanceId="long-value-select"
+                        onChange={(e) =>
+                          setSelectedVendor(e ? e.value : "")
+                        }
+                      />
+
+                      <div className="action-btm ">
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => {
+                            getProducts();
+                          }}
+                        >
+                          Search
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="col-5 d-flex justify-content-end ">
+                      <Link
+                        href="#"
+                        className="btn btn-primary "
+                        style={{ width: "35%" }}
+                        onClick={() => {
+                          exportProducts();
+                        }}
+                      >
+                        Export
+                      </Link>
+                    </div>
+
+                  </div>
                   <div className="table-responsive">
                     <table className="table table-striped">
                       <thead>
@@ -409,7 +450,7 @@ const ProductManagement = () => {
                                     <span className="badge badge-warning">
                                       {item.product_categories.length > 0
                                         ? item.product_categories[0]
-                                            .category_name
+                                          .category_name
                                         : "-"}
                                     </span>
                                   </td>
@@ -417,6 +458,9 @@ const ProductManagement = () => {
                                     {getSubCats(item)}
                                   </td>
                                   <td>
+                                    <span className="me-2">
+                                      <FontAwesomeIcon icon={faEdit} />
+                                    </span>
                                     <span
                                       role="button"
                                       className="cursor-pointer"
@@ -465,9 +509,10 @@ const ProductManagement = () => {
                     )}
 
                     <span>Page</span>
-                    <input type="number" value={page} />
-                    <span> of {Math.ceil(totalPages / limit)}</span>
+                    <input type="number" min={1} max={totalPages} value={page} onChange={handlePageChange} />
+                    <span> of {totalPages}</span>
                   </div>
+                  {/* <Pagination pageNo={page} totalPages={totalPages} /> */}
                 </div>
               </div>
             </div>
