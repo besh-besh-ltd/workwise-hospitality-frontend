@@ -79,16 +79,42 @@ const RfqManagementPreview = () => {
 
   const handleRegretQuote = ({ reqret_reason }, resetForm) => {
 
+    let bidProducts = [];
+    if (rfqDetails.products.length > 0) {
+      rfqDetails.products.map((item, index) => {
+        bidProducts.push({
+          id: item.id,
+          product_id: item.product_id,
+          quantity: item?.product_specs[2]?.value,
+          product_name: item.product_details
+            ? item.product_details[0].name
+            : "",
+          unit_price: 0,
+          package_price: 0,
+          tax: 18,
+          freight_price: 0,
+          total_price: 0,
+          comment: "",
+          delivery_period: "",
+        });
+      });
+    }
+
     let payload = {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
       status: 1,
       products: rfqDetails?.products,
+      products: bidProducts,
       is_regret: 1,
       regret_reason: reqret_reason,
       globalPaymentTerms: "",
       globalComment: "",
+      regret_reason: reqret_reason || "hardcoded regret reason",
+      globalPaymentTerms: "hardcoded payment terms",
+      globalComment: "hardcoded global comments",
     };
+
     sendQuotation(payload)
       .then((res) => {
         setsubmitLoading(false);
@@ -435,9 +461,9 @@ const RfqManagementPreview = () => {
                               let si = 0;
                               let sp = si + 1;
                               let qu = sp + 1;
-                              console.log(
-                                `item ${index} - size - ${si}, spec ${sp}, quantity ${qu}`
-                              );
+                              // console.log(
+                              //   `item ${index} - size - ${si}, spec ${sp}, quantity ${qu}`
+                              // );
                               return (
                                 <tr key={`${item.product_id}`}>
                                   <td>{item?.product_details[0]?.name}</td>
