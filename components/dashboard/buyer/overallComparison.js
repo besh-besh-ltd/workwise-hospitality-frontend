@@ -206,20 +206,6 @@ const OverallComparison = ({ rfq_id }) => {
                       );
                     })}
                 </tr>
-                <tr>
-                  {allvendors &&
-                    allvendors.length > 0 &&
-                    allvendors.map((item) => {
-                      return (
-                        <th key={`tp_${item.id}`}>
-                          <small>
-                            Total Amount
-                            {/* <small>(Incl. Packaging , Freight & GST)</small> */}
-                          </small>
-                        </th>
-                      );
-                    })}
-                </tr>
               </thead>
               <tbody className="last_row">
                 {data &&

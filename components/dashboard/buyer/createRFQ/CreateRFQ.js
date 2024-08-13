@@ -200,8 +200,8 @@ const CreateRFQ = () => {
                     <th>Size specifications & Quantity</th>
                     {/* <th>Select Datasheet</th> */}
                     <th className="w200">TDS</th>
-                    <th className="w200">QAP</th>
-                    <th>Comments</th>
+                    <th className="w200">Quality Assurance Plan(QAP)</th>
+                    <th>Product Comments</th>
                     <th>Selected vendors</th>
                     <th>Action</th>
                   </tr>
