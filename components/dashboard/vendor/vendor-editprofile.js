@@ -47,12 +47,12 @@ const VendorProfile = () => {
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); 
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     setshowbackBtn(false);
     if (id != "") {
-      // getVendorProfile();
+      getVendorProfile();
     }
     if (origin && origin == "create-rfq") {
       setshowbackBtn(true);
@@ -60,30 +60,114 @@ const VendorProfile = () => {
   }, [router]);
 
   useEffect(() => {
+    if (localStorage.getItem('token'))
+      setIsLoggedIn(true)
+    else
+      setIsLoggedIn(false)
     // getVendorPastRfq();
     // canSubmitReview();
     // calculateReviews();
   }, [vendorDetails]);
 
-  useEffect(() => {
-    if (localStorage.getItem('token'))
-      setIsLoggedIn(true)
-    else
-      setIsLoggedIn(false)
-  }, [])
+  // useEffect(() => {
+  //   if (localStorage.getItem('token'))
+  //     setIsLoggedIn(true)
+  //   else
+  //     setIsLoggedIn(false)
+  // }, [])
 
-    // Set State Change
-    const handleChange = (setState) => (event) => {
-      setState(event);
-    };
+  // Set State Change
+  const handleChange = (setState) => (event) => {
+    setState(event);
+  };
 
-    const swSubscription = useSelector((data) => data.swSubscription);
+  const swSubscription = useSelector((data) => data.swSubscription);
 
-    const loginSubmitHandler = (values, isFromOtherModal = false) => {
-      setloading(true);
-      LoginService(values, isFromOtherModal)
+  const loginSubmitHandler = (values, isFromOtherModal = false) => {
+    setloading(true);
+    LoginService(values, isFromOtherModal)
+      .then((response) => {
+        if (isFromOtherModal) {
+          handleClose();
+        }
+        // subscribe to SW
+        SWSubscribe({ subscription: swSubscription, token: response.token })
+          .then((res) => {
+            console.log("PUSH SENT");
+          })
+          .catch((err) => { });
+        setloading(false);
+        toast.success(response.message, {
+          position: "top-center",
+        });
+
+        let userType = "";
+        if (response.user_detail[0].user_type == 2) {
+          userType = "buyer";
+        } else if (response.user_detail[0].user_type == 3) {
+          userType = "vendor";
+        } else if (response.user_detail[0].user_type == 4) {
+          userType = "other";
+        }
+        storageInstance.setStorage("current-user-type", userType);
+
+        handleChange(setOpenAuthModal(false));
+        if (redirect && redirect != "") {
+          router.push(window.atob(redirect));
+          return;
+        } else {
+          setIsLoggedIn(true)
+          if (userType == "buyer") {
+            location.reload();
+          } else {
+            router.push(`/dashboard/${userType}`);
+          }
+        }
+        //router.push(`/dashboard`);
+      })
+      .catch((error) => {
+        setloading(false);
+        if (
+          error?.message?.response?.status === 400 &&
+          error?.message?.response?.data?.status === 4
+        ) {
+          toast.error(error?.message?.response?.data?.message, {
+            position: "top-center",
+          });
+          setTimeout(() => {
+            handleChange(setOpenAuthModal(false));
+          }, 2000);
+
+          setTimeout(() => {
+            setLoginWith("email");
+            handleOtherDeviceLoginModalOpen();
+          }, 1000);
+        } else if (error?.message?.response?.data) {
+          toast.error(error?.message?.response?.data?.message, {
+            position: "top-center",
+          });
+        }
+
+        if (error?.response?.status === 400) {
+        } else {
+          toast.error(error?.message, {
+            position: "top-center",
+          });
+        }
+      });
+  };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      handleSocialLogin(
+        {
+          login_type: "google",
+          access_token: tokenResponse.access_token,
+        },
+        loginWith ? true : false
+      )
         .then((response) => {
-          if (isFromOtherModal) {
+          if (loginWith === "google") {
             handleClose();
           }
           // subscribe to SW
@@ -96,29 +180,22 @@ const VendorProfile = () => {
           toast.success(response.message, {
             position: "top-center",
           });
-  
+          console.log(response, "response *");
+          console.log(response?.profile?.user_type, "response type *");
+
           let userType = "";
-          if (response.user_detail[0].user_type == 2) {
+          if (response?.profile?.user_type == 2) {
             userType = "buyer";
-          } else if (response.user_detail[0].user_type == 3) {
+          } else if (response?.profile?.user_type == 3) {
             userType = "vendor";
-          } else if (response.user_detail[0].user_type == 4) {
-            userType = "other";
           }
           storageInstance.setStorage("current-user-type", userType);
-  
           handleChange(setOpenAuthModal(false));
-          if (redirect && redirect != "") {
-            router.push(window.atob(redirect));
-            return;
+          if (userType == "buyer") {
+            router.push(`/products`);
           } else {
-            if (userType == "buyer") {
-              router.push(`/products`);
-            } else {
-              router.push(`/dashboard/${userType}`);
-            }
+            router.push(`/dashboard/${userType}`);
           }
-          //router.push(`/dashboard`);
         })
         .catch((error) => {
           setloading(false);
@@ -132,9 +209,9 @@ const VendorProfile = () => {
             setTimeout(() => {
               handleChange(setOpenAuthModal(false));
             }, 2000);
-  
+
             setTimeout(() => {
-              setLoginWith("email");
+              setLoginWith("google");
               handleOtherDeviceLoginModalOpen();
             }, 1000);
           } else if (error?.message?.response?.data) {
@@ -142,84 +219,12 @@ const VendorProfile = () => {
               position: "top-center",
             });
           }
-  
-          if (error?.response?.status === 400) {
-          } else {
-            toast.error(error?.message, {
-              position: "top-center",
-            });
-          }
         });
-    };
-
-    const loginWithGoogle = useGoogleLogin({
-      onSuccess: (tokenResponse) => {
-        handleSocialLogin(
-          {
-            login_type: "google",
-            access_token: tokenResponse.access_token,
-          },
-          loginWith ? true : false
-        )
-          .then((response) => {
-            if (loginWith === "google") {
-              handleClose();
-            }
-            // subscribe to SW
-            SWSubscribe({ subscription: swSubscription, token: response.token })
-              .then((res) => {
-                console.log("PUSH SENT");
-              })
-              .catch((err) => { });
-            setloading(false);
-            toast.success(response.message, {
-              position: "top-center",
-            });
-            console.log(response, "response *");
-            console.log(response?.profile?.user_type, "response type *");
-  
-            let userType = "";
-            if (response?.profile?.user_type == 2) {
-              userType = "buyer";
-            } else if (response?.profile?.user_type == 3) {
-              userType = "vendor";
-            }
-            storageInstance.setStorage("current-user-type", userType);
-            handleChange(setOpenAuthModal(false));
-            if (userType == "buyer") {
-              router.push(`/products`);
-            } else {
-              router.push(`/dashboard/${userType}`);
-            }
-          })
-          .catch((error) => {
-            setloading(false);
-            if (
-              error?.message?.response?.status === 400 &&
-              error?.message?.response?.data?.status === 4
-            ) {
-              toast.error(error?.message?.response?.data?.message, {
-                position: "top-center",
-              });
-              setTimeout(() => {
-                handleChange(setOpenAuthModal(false));
-              }, 2000);
-  
-              setTimeout(() => {
-                setLoginWith("google");
-                handleOtherDeviceLoginModalOpen();
-              }, 1000);
-            } else if (error?.message?.response?.data) {
-              toast.error(error?.message?.response?.data?.message, {
-                position: "top-center",
-              });
-            }
-          });
-      },
-      onError: (error) => {
-        setloading(false);
-      },
-    });
+    },
+    onError: (error) => {
+      setloading(false);
+    },
+  });
 
   const getVendorPastRfq = () => {
     if (id) {
@@ -436,91 +441,91 @@ const VendorProfile = () => {
                 {pastRFQs.length == 0 && <p>No past details yet!</p>}
               </div>
 
-              {isLoggedin && 
+              {isLoggedin &&
                 <div className="user-profile hasFullLoader mb-4">
-                {loading && <FullLoader />}
-                {reviewLoading && <FullLoader />}
-                <h3>Rating & Review</h3>
-                {vendorDetails?.reviews.length == 0 && <p>No reviews yet!</p>}
-                {vendorDetails?.reviews.length > 0 && (
-                  <>
-                    <StarRating
-                      totalStars={5}
-                      onRatingChange={handleRatingChange}
-                      value={avgRating}
-                    />
-                    <p>
-                      {avgRating.toFixed(1)} / 5 based on{" "}
-                      {vendorDetails?.reviews.length} reviews
-                    </p>
-                    <ul className="reviewList">
-                      {vendorDetails?.reviews.map((review, index) => {
-                        if (
-                          currentUserProfile &&
-                          currentUserProfile.id == review.reviewed_by
-                        ) {
-                          return (
-                            <li key={index}>
-                              <div className="imagearea">
-                                <img
-                                  src={currentUserProfile?.profile_image}
-                                  alt={currentUserProfile?.company_name}
-                                />
-                              </div>
-                              <div className="reviewarea">
-                                <div className="ratingArea">
-                                  <p>
-                                    <strong>{review.buyer}</strong>
-                                  </p>
-                                  <small>
-                                    {review.rating}/5
-                                    <StarRating
-                                      totalStars={5}
-                                      onRatingChange={null}
-                                      value={review.rating}
-                                    />
-                                  </small>
-                                </div>
-                                <p>{review.description}</p>
-                              </div>
-                            </li>
-                          );
-                        }
-                      })}
-                    </ul>
-                  </>
-                )}
-                {1 == 1 && (
-                  <>
-                    <div>
+                  {loading && <FullLoader />}
+                  {reviewLoading && <FullLoader />}
+                  <h3>Rating & Review</h3>
+                  {vendorDetails?.reviews.length == 0 && <p>No reviews yet!</p>}
+                  {vendorDetails?.reviews.length > 0 && (
+                    <>
                       <StarRating
                         totalStars={5}
                         onRatingChange={handleRatingChange}
+                        value={avgRating}
                       />
-                    </div>
-                    <p>Share more about your experience</p>
-                    <textarea
-                      style={{ width: "100%" }}
-                      name="review"
-                      id="review"
-                      rows="5"
-                      onChange={(e) => setreviewText(e.target.value)}
-                      placeholder="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy lorem text."
-                    ></textarea>
-                    <div>
-                      {
-                        <Link
-                          href=""
-                          onClick={submitReview}
-                          className="page-link btn btn-primary"
-                        >
-                          Submit Now
-                        </Link>
-                      }
-                    </div>
-                  </>
-                )}
-              </div>}
+                      <p>
+                        {avgRating.toFixed(1)} / 5 based on{" "}
+                        {vendorDetails?.reviews.length} reviews
+                      </p>
+                      <ul className="reviewList">
+                        {vendorDetails?.reviews.map((review, index) => {
+                          if (
+                            currentUserProfile &&
+                            currentUserProfile.id == review.reviewed_by
+                          ) {
+                            return (
+                              <li key={index}>
+                                <div className="imagearea">
+                                  <img
+                                    src={currentUserProfile?.profile_image}
+                                    alt={currentUserProfile?.company_name}
+                                  />
+                                </div>
+                                <div className="reviewarea">
+                                  <div className="ratingArea">
+                                    <p>
+                                      <strong>{review.buyer}</strong>
+                                    </p>
+                                    <small>
+                                      {review.rating}/5
+                                      <StarRating
+                                        totalStars={5}
+                                        onRatingChange={null}
+                                        value={review.rating}
+                                      />
+                                    </small>
+                                  </div>
+                                  <p>{review.description}</p>
+                                </div>
+                              </li>
+                            );
+                          }
+                        })}
+                      </ul>
+                    </>
+                  )}
+                  {1 == 1 && (
+                    <>
+                      <div>
+                        <StarRating
+                          totalStars={5}
+                          onRatingChange={handleRatingChange}
+                        />
+                      </div>
+                      <p>Share more about your experience</p>
+                      <textarea
+                        style={{ width: "100%" }}
+                        name="review"
+                        id="review"
+                        rows="5"
+                        onChange={(e) => setreviewText(e.target.value)}
+                        placeholder="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy lorem text."
+                      ></textarea>
+                      <div>
+                        {
+                          <Link
+                            href=""
+                            onClick={submitReview}
+                            className="page-link btn btn-primary"
+                          >
+                            Submit Now
+                          </Link>
+                        }
+                      </div>
+                    </>
+                  )}
+                </div>}
             </div>
 
             <div className="col-md-9 ">
@@ -570,7 +575,7 @@ const VendorProfile = () => {
                         <b>Certification</b> : {vendorDetails?.certifications}
                       </p>
                     )}
-                    {!isLoggedin && <>
+                    {isLoggedin && <>
                       {vendorDetails?.mobile && (
                         <p>
                           <FontAwesomeIcon icon={faPhone} /> +91{" "}
@@ -632,19 +637,21 @@ const VendorProfile = () => {
                         </div>
                       )}
                   </div>
-                  <div className="w-100 d-flex justify-content-center align-items-center">
+                  {!isLoggedin &&
+                    <div className="w-100 d-flex justify-content-center align-items-center">
 
-                    <button
-                      type="button"
-                      className="w-50 btn btn-secondary my-3"
-                      onClick={()=> {
-                        handleChange(setActiveAuthTab("register"))
-                        handleChange(setOpenAuthModal(true))                     
-                      }}
-                    >
-                      Signup to get Contact Information
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        className="w-50 btn btn-secondary my-3"
+                        onClick={() => {
+                          handleChange(setActiveAuthTab("register"))
+                          handleChange(setOpenAuthModal(true))
+                        }}
+                      >
+                        Signup to get Contact Information
+                      </button>
+                    </div>
+                    }
                 </div>
 
 
@@ -728,20 +735,20 @@ const VendorProfile = () => {
           </div>
         </div>
         {/* ------------- Auth Modal ------------- */}
-      <AuthModal
-        showModal={openAuthModal}
-        closeModal={() => {
-          handleChange(setOpenAuthModal(false));
-        }}
-        activeTab={activeAuthTab}
-        setActiveTab={handleChange(setActiveAuthTab)}
-        setEmail={setEmail}
-        setPassword={setPassword}
-        loading={loading}
-        setloading={setloading}
-        loginSubmitHandler={loginSubmitHandler}
-        loginWithGoogle={loginWithGoogle}
-      />
+        <AuthModal
+          showModal={openAuthModal}
+          closeModal={() => {
+            handleChange(setOpenAuthModal(false));
+          }}
+          activeTab={activeAuthTab}
+          setActiveTab={handleChange(setActiveAuthTab)}
+          setEmail={setEmail}
+          setPassword={setPassword}
+          loading={loading}
+          setloading={setloading}
+          loginSubmitHandler={loginSubmitHandler}
+          loginWithGoogle={loginWithGoogle}
+        />
       </section>
     </>
   );
