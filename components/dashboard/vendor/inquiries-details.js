@@ -461,17 +461,15 @@ const RfqManagementPreview = () => {
                               let si = 0;
                               let sp = si + 1;
                               let qu = sp + 1;
-                              // console.log(
-                              //   `item ${index} - size - ${si}, spec ${sp}, quantity ${qu}`
-                              // );
+
                               return (
                                 <tr key={`${item.product_id}`}>
                                   <td>{item?.product_details[0]?.name}</td>
                                   <td>
-                                    <div className="size-specification vendor-view-rfq">
+                                    <div className="size-specification ">
                                       {item?.product_specs.map(
                                         (spec_item, index) => {
-                                          if (index >= si && index <= qu) {
+
                                             return (
                                               <input
                                                 key={`rfq_d_spec_itm_${index}`}
@@ -483,12 +481,11 @@ const RfqManagementPreview = () => {
                                                   "_" +
                                                   spec_item?.title.toLowerCase()
                                                 }
-                                                placeholder="Size"
+                                                placeholder={spec_item?.title.toLowerCase()}
                                                 value={spec_item?.value}
                                                 disabled
                                               />
                                             );
-                                          }
                                         }
                                       )}
 
