@@ -53,6 +53,10 @@ export const rfqProductsSlice = createSlice({
             title: "Quantity",
             value: "",
           },
+          {
+            title: "Unit",
+            value: "",
+          },
         ],
         vendors: [],
         comment: "",

@@ -69,7 +69,7 @@ const CreateRFQ = () => {
   };
 
   const setRFQProductsFromStore = () => {
-    console.log(rfqProductsFromStore);
+    // console.log(rfqProductsFromStore);
     let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
     setRfqProducts(fp);
   };
@@ -197,11 +197,12 @@ const CreateRFQ = () => {
                 <thead>
                   <tr>
                     <th>Name of product</th>
-                    <th>Size specifications & Quantity</th>
+                    <th>Size & specifications</th>
+                    <th>Quantity</th>
                     {/* <th>Select Datasheet</th> */}
                     <th className="w200">TDS</th>
-                    <th className="w200">QAP</th>
-                    <th>Comments</th>
+                    <th className="w200">Quality Assurance Plan(QAP)</th>
+                    <th>Product Comments</th>
                     <th>Selected vendors</th>
                     <th>Action</th>
                   </tr>

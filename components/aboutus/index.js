@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getAboutProfiles, getCmsData, getPageBanner } from "@/services/cms";
+import { HomeLists1Service } from "@/services/Home";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { toast, ToastContainer } from "react-toastify";
 import PersonalProfiles from "./PersonalProfiles";
@@ -14,12 +15,14 @@ const Aboutus = (props) => {
   ];
   const [cmsdata, setCmsdata] = useState([]);
   const [bannerdata, setBanner] = useState(null);
+  const [showHomeLists1, setHomeLists1] = useState([]);
 
   const [bod, setbod] = useState([]);
   const [kp, setkp] = useState([]);
 
   useEffect(() => {
     getCmsSections();
+    getHomeLists1();
     getBanner();
     getBod();
     getKp();
@@ -34,6 +37,25 @@ const Aboutus = (props) => {
       })
       .catch((error) => {
         console.log(error);
+      });
+  };
+
+  // ----------- Why Choose Us / Process Overview  -----------
+  const getHomeLists1 = () => {
+    HomeLists1Service()
+      .then((response) => {
+        handleChange(setHomeLists1(response.data));
+      })
+      .catch((error) => {
+        if (error.message.response?.status === 400) {
+          toast.error(error.message.response.data.message, {
+            position: "top-center",
+          });
+        } else {
+          toast.error(error.message.message, {
+            position: "top-center",
+          });
+        }
       });
   };
 
@@ -63,6 +85,11 @@ const Aboutus = (props) => {
         }
       });
   };
+
+    // Set State Change
+    const handleChange = (setState) => (event) => {
+      setState(event);
+    };
 
   const getBod = () => {
     getAboutProfiles(1).then((response) => {
@@ -120,8 +147,19 @@ const Aboutus = (props) => {
           return <DynamicSection content={item.content} key={item.id} />;
         })}
 
+      {/* --------- Why Choose Us / Process Overview --------- */}
+      {showHomeLists1.map((item) => {
+        if (item.id === 4) {
+          return <DynamicSection content={item.content} key={item.id} />;
+        }
+      })}
+
       {/* {bod && <PersonalProfiles profiles={bod}/>}
       		{kp &&<PersonalProfiles pb={80} title="Other key Personnel" subtitle="International Subsidiaries" profiles={kp}/>} */}
+
+      <section className="title-text container text-center sc-pt-80 sc-pb-80 ">
+        <p>Join us in shaping the future of the heavy industry. Together, let's build a more efficient, connected, and prosperous ecosystem</p>
+      </section>
       <ToastContainer />
     </>
   );

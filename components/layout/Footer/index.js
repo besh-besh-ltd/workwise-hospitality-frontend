@@ -54,7 +54,7 @@ const Footer = ({ cmsdata, showModal = false, setshowModal, fromType }) => {
               return <DynamicSection content={item.content} key={item.id} />;
             }
           })}
-        <div className="footer-top sc-pt-80 sc-pb-80">
+        {/* <div className="footer-top sc-pt-80 sc-pb-80">
           <div className="container">
             <div className="row">
               <div className="footer-col col-md-3">
@@ -165,7 +165,7 @@ const Footer = ({ cmsdata, showModal = false, setshowModal, fromType }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
         <div className="footer-copyright">
           <div className="container d-md-flex justify-content-md-between">
             <p>
@@ -177,13 +177,16 @@ const Footer = ({ cmsdata, showModal = false, setshowModal, fromType }) => {
             </p>
             <ul>
               <li>
-                <Link href="#">Verified Vendors</Link>
+              <Link href="/privacypolicy">Privacy Policy</Link>
               </li>
               <li>
-                <Link href="#">Global Network</Link>
+              <Link href="/terms-of-use">Terms of Use</Link>
               </li>
               <li>
-                <Link href="#">Help Centre</Link>
+              <Link href="https://www.linkedin.com/company/workwise11/" target="_blank">
+                        <FontAwesomeIcon icon={faLinkedin} />{" "}
+                        <span>Linkedin</span>
+                      </Link>
               </li>
             </ul>
           </div>

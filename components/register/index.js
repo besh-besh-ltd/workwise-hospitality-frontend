@@ -203,7 +203,7 @@ const Register = (props) => {
                 <Field as="select" id="register_as" name="register_as">
                   <option value="2">Buyer</option>
                   <option value="3">Vendor</option>
-                  <option value="4">Other user</option>
+                  {/* <option value="4">Other user</option> */}
                 </Field>
                 {touched.register_as && errors.register_as && (
                   <div className="form-error">{errors.register_as}</div>
