@@ -28,6 +28,7 @@ import { getProfile } from "@/services/Auth";
 import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
 import AuthModal from "@/components/modal/AuthModal";
+import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -77,6 +78,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
+  const [openAuthModal, setOpenAuthModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [loginWith, setLoginWith] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const handleClose = () => {
+    setShowModal(false);
+    setLoginWith("");
+  };
+
+  const handleRedirect = (e) => {
+    if(!vendorMetaData?.logged_In) 
+      setOpenAuthModal(true);
+    else if(!vendorMetaData?.subscription)
+      router.push('dashboard/buyer/subscription');
+  }
 
   useEffect(() => {
     if (s && s != "") {
@@ -129,6 +146,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     cat_id,
     selectedState,
     selectedCity,
+    isLoggedIn
   ]);
 
   useEffect(() => {
@@ -998,6 +1016,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 key={`product-item-${item.id}`}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
+                                setOpenAuthModal={setOpenAuthModal}
                               />
                             );
                           })}
@@ -1006,8 +1025,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
                           <p>Total Vendors Found - {vendorMetaData?.total}</p>
-                          <button className="btn btn-primary w-50">
-                            Register to view all vendors
+                          <button 
+                          type="button"
+                          className="btn btn-primary w-50"
+                          onClick={handleRedirect}
+                          >
+                            {!vendorMetaData?.logged_In ? 'Register to view all vendors' : 'Please Buy Subscription to View All Vendors'}
                           </button>
                         </div>
                       }
@@ -1026,6 +1049,21 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             </div>
           </div>
         </div>
+
+        {/* ------------- Auth Modal ------------- */}
+      <AuthModal
+        showModal={openAuthModal}
+        closeModal={() => {
+          setOpenAuthModal(false);
+        }}
+        loading={loading}
+        setOpenAuthModal={setOpenAuthModal}
+      />
+      <LoginWithOtherDeviceModal
+        show={showModal}
+        onHide={handleClose}
+        loginWith={loginWith}
+      />
 
       </section>
     </>

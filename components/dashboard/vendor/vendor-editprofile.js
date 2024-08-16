@@ -510,7 +510,7 @@ const VendorProfile = () => {
                         id="review"
                         rows="5"
                         onChange={(e) => setreviewText(e.target.value)}
-                        placeholder="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy lorem text."
+                        placeholder="Tell us something about your experience."
                       ></textarea>
                       <div>
                         {
@@ -738,16 +738,10 @@ const VendorProfile = () => {
         <AuthModal
           showModal={openAuthModal}
           closeModal={() => {
-            handleChange(setOpenAuthModal(false));
+            setOpenAuthModal(false);
           }}
-          activeTab={activeAuthTab}
-          setActiveTab={handleChange(setActiveAuthTab)}
-          setEmail={setEmail}
-          setPassword={setPassword}
           loading={loading}
-          setloading={setloading}
-          loginSubmitHandler={loginSubmitHandler}
-          loginWithGoogle={loginWithGoogle}
+          setOpenAuthModal={setOpenAuthModal}
         />
       </section>
     </>

@@ -10,6 +10,7 @@ import { toast } from "react-toastify";
 
 const SearchItem = ({
   data,
+  setOpenAuthModal,
   vendorMetaData,
   type,
   bulkRFQProducts,
@@ -17,10 +18,10 @@ const SearchItem = ({
   selectedProduct = false,
   currentSelectedProduct = {},
   handleRemoveCurrentSelected,
+  handleRedirect
 }) => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const addToRFQ = (item) => {
     if (type == "products") {
@@ -63,15 +64,6 @@ const SearchItem = ({
       setbulkRFQProducts(p);
     }
   };
-
-  const handleRedirect = (e) => {
-    if(!vendorMetaData?.logged_In) 
-      setShowAuthModal(true);
-    else if(!vendorMetaData?.subscription)
-      router.push('dashboard/buyer/subscription');
-    else
-      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`);
-  }
 
   return (
     <>
@@ -155,14 +147,12 @@ const SearchItem = ({
                       </p>
                     )}
                     <p>
-                      <button
-                        type="button"
-                        // href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                      <Link
+                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
                         className="btn btn-primary"
-                        onClick={handleRedirect}
                       >
                         Show Contact Info
-                      </button>
+                      </Link>
                     </p>
                   </>
                 )}
@@ -230,22 +220,23 @@ const SearchItem = ({
             </div>
             {!selectedProduct && (
               <div className="col-md-2">
-                <button
-                  type="button"
-                  // href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                <Link
+                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
-                  onClick={handleRedirect}
                 >
                   View Details
-                </button>
+                </Link>
                 <Link
                   href="#"
-                  className={`btn btn-primary custom_primary_btn has_primary-bg ${
-                    !data.sp ? `disabled` : ``
-                  }`}
+                  className={`btn btn-primary custom_primary_btn has_primary-bg `}
                   onClick={(e) => {
                     e.preventDefault();
-                    addToRFQ(data);
+                    if (!vendorMetaData.logged_In)
+                      setOpenAuthModal(true);
+                    else if(!vendorMetaData.subscription)
+                      router.push('dashboard/buyer/subscription');
+                    else
+                      addToRFQ(data);
                   }}
                 >
                   Add To RFQ

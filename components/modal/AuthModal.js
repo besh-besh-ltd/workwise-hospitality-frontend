@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "react-modal";
 import Login from "../login";
 import Register from "../register";
@@ -16,6 +16,7 @@ const AuthModal = (props) => {
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [loading, setloading] = useState(false)
+	const urlRef = useRef(router.asPath)
 
 	const swSubscription = useSelector((data) => data.swSubscription);
 
@@ -52,7 +53,11 @@ const AuthModal = (props) => {
 					router.push(window.atob(redirect));
 					return;
 				} else {
-					if (userType == "buyer") {
+					if(urlRef.current.includes('/dashboard') || urlRef.current.includes('/products')) {
+						router.push(urlRef.current)
+						location.reload()
+					}
+					else if (userType == "buyer") {
 						router.push(`/products`);
 					} else {
 						router.push(`/dashboard/${userType}`);
