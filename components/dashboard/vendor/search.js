@@ -27,6 +27,7 @@ import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
 import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
+import AuthModal from "@/components/modal/AuthModal";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -58,6 +59,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [bulkRFQProducts, setbulkRFQProducts] = useState([]);
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [vendorMetaData, setVendorMetaData] = useState({});
   const [parentCategories, setParentCategories] = useState([]);
   const [levelZeroCat, setlevelZeroCat] = useState([]);
   const [levelOneCat, setlevelOneCat] = useState([]);
@@ -201,12 +203,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       "vendors"
     )
       .then((rsp) => {
+        console.log(rsp)
         setloading(false);
         let d = rsp.data.map((item) => {
           item.selected = false;
           return item;
         });
         setVendors(d);
+        setVendorMetaData(rsp)
         currentSelectedProduct
           ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
           : null;
@@ -933,16 +937,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           </label>
                         </div>
                         <div className="col-md-10">
-                          {userProfile.subscription_plan_id && (
+                          {userProfile?.subscription_plan_id && (
                             <div className="actions">
                               {bulkRFQProducts.length > 0 && (
                                 <Link
                                   href="#"
-                                  className={`btn btn-primary ${
-                                    !userProfile.subscription_plan_id
+                                  className={`btn btn-primary ${!userProfile.subscription_plan_id
                                       ? `disabled`
                                       : ``
-                                  }`}
+                                    }`}
                                   onClick={handleBulkAddToRFQ}
                                 >
                                   Add To All RFQs
@@ -950,19 +953,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               )}
                               <Link
                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                className={`btn btn-primary ${
-                                  !userProfile.subscription_plan_id
+                                className={`btn btn-primary ${!userProfile.subscription_plan_id
                                     ? `disabled`
                                     : ``
-                                }`}
+                                  }`}
                               >
                                 View All RFQs{" "}
                                 {rfqProductsFromStore.length > 0 && (
                                   <small style={{ display: "none" }}>
                                     ({rfqProductsFromStore.length}{" "}
-                                    {`item${
-                                      rfqProductsFromStore.length > 1 ? "s" : ""
-                                    }`}
+                                    {`item${rfqProductsFromStore.length > 1 ? "s" : ""
+                                      }`}
                                     )
                                   </small>
                                 )}
@@ -996,10 +997,20 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 type={"vendors"}
                                 key={`product-item-${item.id}`}
                                 data={item}
+                                vendorMetaData={vendorMetaData}
                               />
                             );
                           })}
                       </div>
+
+                      {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
+                        <div className="container text-center my-4 ">
+                          <p>Total Vendors Found - {vendorMetaData?.total}</p>
+                          <button className="btn btn-primary w-50">
+                            Register to view all vendors
+                          </button>
+                        </div>
+                      }
                     </div>
                   </div>
                 )}
@@ -1015,6 +1026,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             </div>
           </div>
         </div>
+
       </section>
     </>
   );

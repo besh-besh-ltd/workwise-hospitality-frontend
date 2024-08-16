@@ -3,12 +3,14 @@ import { faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
-import React from "react";
+import { useRouter } from "next/router";
+import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 
 const SearchItem = ({
   data,
+  vendorMetaData,
   type,
   bulkRFQProducts,
   setbulkRFQProducts,
@@ -17,6 +19,8 @@ const SearchItem = ({
   handleRemoveCurrentSelected,
 }) => {
   const dispatch = useDispatch();
+  const router = useRouter();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const addToRFQ = (item) => {
     if (type == "products") {
@@ -59,6 +63,15 @@ const SearchItem = ({
       setbulkRFQProducts(p);
     }
   };
+
+  const handleRedirect = (e) => {
+    if(!vendorMetaData?.logged_In) 
+      setShowAuthModal(true);
+    else if(!vendorMetaData?.subscription)
+      router.push('dashboard/buyer/subscription');
+    else
+      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`);
+  }
 
   return (
     <>
@@ -142,13 +155,14 @@ const SearchItem = ({
                       </p>
                     )}
                     <p>
-                      <Link
-                        target="_blank"
-                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                      <button
+                        type="button"
+                        // href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
                         className="btn btn-primary"
+                        onClick={handleRedirect}
                       >
                         Show Contact Info
-                      </Link>
+                      </button>
                     </p>
                   </>
                 )}
@@ -216,13 +230,14 @@ const SearchItem = ({
             </div>
             {!selectedProduct && (
               <div className="col-md-2">
-                <Link
-                  target="_blank"
-                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                <button
+                  type="button"
+                  // href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
+                  onClick={handleRedirect}
                 >
                   View Details
-                </Link>
+                </button>
                 <Link
                   href="#"
                   className={`btn btn-primary custom_primary_btn has_primary-bg ${
