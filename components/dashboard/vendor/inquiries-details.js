@@ -14,7 +14,7 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
-  const { id, type } = router.query;
+  const { id, type, token } = router.query;
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
@@ -34,7 +34,8 @@ const RfqManagementPreview = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id)
+    getRFQById(id,token)
+
       .then((res) => {
         setloading(false);
         setrfqDetails(res.data);
@@ -115,10 +116,10 @@ const RfqManagementPreview = () => {
       globalComment: "hardcoded global comments",
     };
 
-    sendQuotation(payload)
+    sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}`); 
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`); 
         Router.reload();       
       })
       .catch((err) => {
@@ -1072,7 +1073,7 @@ const RfqManagementPreview = () => {
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
                                     <Link
-                                        href={`/dashboard/vendor/send-quote?id=${id}`}
+                                        href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}
                                       >
                                         <button
                                           type="button"
