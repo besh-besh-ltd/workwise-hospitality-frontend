@@ -11,7 +11,7 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 
 const SendQuotePageComp = () => {
   const router = useRouter();
-  const { id } = router.query;
+  const { id, token } = router.query;
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
@@ -36,7 +36,7 @@ const SendQuotePageComp = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id)
+    getRFQById(id, token)
       .then((res) => {
         setloading(false);
         if (res.data.products.length > 0) {
@@ -154,10 +154,10 @@ const SendQuotePageComp = () => {
     };
 
     setsubmitLoading(true);
-    sendQuotation(payload)
+    sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}`);
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
       })
       .catch((err) => {
         setsubmitLoading(false);
@@ -213,10 +213,10 @@ const SendQuotePageComp = () => {
       globalPaymentTerms,
       globalComment,
     };
-    sendQuotation(payload)
+    sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}`);
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
       })
       .catch((err) => {
         setsubmitLoading(false);
