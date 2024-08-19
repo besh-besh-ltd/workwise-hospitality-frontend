@@ -1,11 +1,68 @@
-import React, { useState } from 'react'
+import AddVendorModal from '@/components/modal/AddVendorModal';
+import Loader from '@/components/shared/Loader';
+import { addPrivateVendor, privateVendorList } from '@/services/privateVendors';
+import { faEdit } from '@fortawesome/free-regular-svg-icons';
+import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react'
+import { ToastContainer, toast } from "react-toastify";
 
 const VendorManagement = () => {
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(null);
-    const [products, setProducts] = useState([]);
+    const [totalPages, setTotalPages] = useState(1);
+    const [privateVendors, setPrivateVendors] = useState([]);
+    const [enableBulkUpload, setEnableBulkUpload] = useState(false);
+    const [file, setFile] = useState(null);
+    const [uploadProgress, setuploadProgress] = useState(0);
+
+    const [openAddVendorModal, setOpenAddVendorModal] = useState(false);
+
+    const handleAddVendor = (values, resetForm) => {
+        setLoading(true);
+        let payload = values;
+        console.log(values);
+
+        addPrivateVendor(payload)
+            .then((res) => {        
+                toast.success(res.message, { position: "top-right", });
+                router.push("/dashboard/buyer/vendor-management");
+            })
+            .catch((error) => {
+                toast.error(error.message?.response?.data?.message, { position: "top-right", });                      
+                console.log(error)          
+            })
+            .finally(()=> {
+                resetForm();
+                setOpenAddVendorModal(false);
+                setLoading(false);
+            })     
+    }
+
+    const getPrivateVendorList = async ()=> {
+        setLoading(true);
+        privateVendorList(limit, page)
+            .then((res)=> {
+                setLoading(false)
+                let totalVendors = res.data?.length || 0;
+                setTotalPages(Math.ceil(totalVendors/limit));
+                setPrivateVendors(res.data);
+
+            })
+            .catch((error)=> {
+                setLoading(false);
+                console.log(error);
+            })
+    }
+
+    useEffect(()=> {
+        getPrivateVendorList();
+    }, []);
 
     return (
         <>
@@ -20,25 +77,22 @@ const VendorManagement = () => {
                     <div className="row">
                         <div className="col-md-12">
                             <div className="vendor-mngt-con">
-                                {/* Content for Manage RFQs tab */}
+                                {/* Vendor add buttons */}
                                 <span className="title">Add New Vendors</span>
 
-
-                                {/* <div className="action-btm"> */}
-                                {/* <button className="btn dummy-excel">Search</button> */}
-                                {/* </div> */}
                                 <div className="filter">
-                                    {/* {!enableBulkUpload && (
+                                    {!enableBulkUpload && (
 
                                         <div className="row ">
                                             <div className="col-5">
                                                 <div className="d-flex">
-                                                    <Link
-                                                        href="add-products"
+                                                    <button
+                                                        type="button"
                                                         className="btn btn-secondary d-flex align-items-center justify-content-center "
+                                                        onClick={() => setOpenAddVendorModal(true)}
                                                     >
-                                                        Add Single Product
-                                                    </Link>
+                                                        Add Single Vendor
+                                                    </button>
                                                     <button
                                                         type="button"
                                                         className="btn btn-primary d-flex flex-column justify-content-center align-items-center"
@@ -47,7 +101,7 @@ const VendorManagement = () => {
                                                             setEnableBulkUpload(!enableBulkUpload);
                                                         }}
                                                     >
-                                                        Add Bulk Products
+                                                        Add Bulk Vendors
                                                         <span className="text-sm">(By Uploading Excel File)</span>
                                                     </button>
                                                 </div>
@@ -55,13 +109,12 @@ const VendorManagement = () => {
 
                                                 <div className="row mt-1">
                                                     <div className="col"></div>
-                                                    <a
+                                                    <Link
                                                         title="Download this sample Excel and fill all the mandatory red columns."
                                                         className="col d-flex justify-content-center align-items-center gap-1 p-0 me-3 "
                                                         href={
                                                             "http://143.110.242.57:8112/user_document/1716462955635-82ae96ef-559e-4d17-82a6-16cbcf3d02fb.xlsx"
                                                         }
-                                                    //   target="_blank"
                                                     >
                                                         <span className="text-sm download-sample-excel-text">Download Sample Excel Format</span>
                                                         <span>
@@ -73,7 +126,7 @@ const VendorManagement = () => {
                                                                 priority={true}
                                                             />
                                                         </span>
-                                                    </a>
+                                                    </Link>
                                                 </div>
 
 
@@ -131,7 +184,7 @@ const VendorManagement = () => {
                                             </div>
                                             <div className="col-md-4"></div>
                                         </div>
-                                    )} */}
+                                    )}
                                 </div>
 
                                 <span className="title pt-5 pb-2">Your vendors List</span>
@@ -142,64 +195,41 @@ const VendorManagement = () => {
                                         <table className="table table-striped">
                                             <thead>
                                                 <tr>
-                                                    <th scope="col">Name of product</th>
-                                                    <th scope="col">Product Status</th>
-                                                    <th scope="col">Category</th>
-                                                    <th scope="col">Sub Category</th>
-                                                    <th scope="col">Action</th>
+                                                    <th scope='col'>Sl No.</th>
+                                                    <th scope="col">Name of vendor</th>
+                                                    <th scope="col">Email Id</th>
+                                                    <th scope="col">Phone No.</th>
+                                                    <th scope="col">Product List</th>
+                                                    <th scope="col">Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {products &&
-                                                    products.map((item) => {
+                                                {privateVendors &&
+                                                    privateVendors.map((item, index) => {
                                                         return (
                                                             <>
                                                                 <tr key={item.id}>
+                                                                    <td>{(page-1)*10 + index + 1}</td>
+                                                                    <td>{item.vendor_name}</td>
+                                                                    <td>{item.email}</td>
+                                                                    <td>{item.phone}</td>
+                                                                    <td>{item.product_list}</td>
                                                                     <td>
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            name="select_product"
-                                                                            checked={item.isChecked}
-                                                                            value=""
-                                                                            onClick={(e) => selectProduct(e, item)}
-                                                                        />
-                                                                    </td>
-                                                                    <td>{item.name}</td>
-                                                                    <td>
-                                                                        {item.is_approve == 1
-                                                                            ? "Active"
-                                                                            : "Inactive"}
-                                                                    </td>
-                                                                    <td className="subcatstd">
-                                                                        <span className="badge badge-warning">
-                                                                            {item.product_categories.length > 0
-                                                                                ? item.product_categories[0]
-                                                                                    .category_name
-                                                                                : "-"}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="subcatstd">
-                                                                        {getSubCats(item)}
-                                                                    </td>
-                                                                    <td>
-                                                                        <span className="me-2">
-                                                                            <FontAwesomeIcon icon={faEdit} />
-                                                                        </span>
-                                                                        <span
-                                                                            role="button"
-                                                                            className="cursor-pointer"
-                                                                            onClick={() => handleUpdateProducts(item)}
-                                                                        >
-                                                                            Edit
+                                                                        <span className={`badge ${item.status === 0 ? 'badge-warning' : item.status === 1 ? 'badge-danger' : 'badge-success'}`}>
+                                                                            {
+                                                                                item.status === 0 ? "Pending"
+                                                                                : item.status === 1 ? "Rejected"
+                                                                                : "Reviewed"
+                                                                            }
                                                                         </span>
                                                                     </td>
                                                                 </tr>
                                                             </>
                                                         );
                                                     })}
-                                                {products.length == 0 && (
+                                                {privateVendors.length == 0 && (
                                                     <tr>
-                                                        <td colSpan="6">No products found.</td>
+                                                        <td colSpan="6">No Private Vendors found.</td>
                                                     </tr>
                                                 )}
                                             </tbody>
@@ -233,7 +263,7 @@ const VendorManagement = () => {
                                         )}
 
                                         <span>Page</span>
-                                        <input type="number" min={1} max={totalPages} value={page} onChange={()=> {}} />
+                                        <input type="number" min={1} max={totalPages} value={page} onChange={() => { }} />
                                         <span> of {totalPages}</span>
                                     </div>
                                     {/* <Pagination pageNo={page} totalPages={totalPages} /> */}
@@ -242,7 +272,15 @@ const VendorManagement = () => {
                         </div>
                     </div>
                 </div>
+                {openAddVendorModal &&
+                    <AddVendorModal
+                        openAddVendorModal={openAddVendorModal}
+                        closeModal={() => setOpenAddVendorModal(false)}
+                        handleAddVendor={handleAddVendor}
+                    />
+                }
             </section>
+            <ToastContainer />
         </>
     )
 }
