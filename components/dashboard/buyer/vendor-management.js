@@ -6,12 +6,10 @@ import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react'
 import { ToastContainer, toast } from "react-toastify";
 
 const VendorManagement = () => {
-    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
@@ -29,38 +27,38 @@ const VendorManagement = () => {
         console.log(values);
 
         addPrivateVendor(payload)
-            .then((res) => {        
+            .then((res) => {
                 toast.success(res.message, { position: "top-right", });
-                router.push("/dashboard/buyer/vendor-management");
+                getPrivateVendorList();
             })
             .catch((error) => {
-                toast.error(error.message?.response?.data?.message, { position: "top-right", });                      
-                console.log(error)          
+                toast.error(error.message?.response?.data?.message, { position: "top-right", });
+                console.log(error)
             })
-            .finally(()=> {
+            .finally(() => {
                 resetForm();
                 setOpenAddVendorModal(false);
                 setLoading(false);
-            })     
+            })
     }
 
-    const getPrivateVendorList = async ()=> {
+    const getPrivateVendorList = async () => {
         setLoading(true);
         privateVendorList(limit, page)
-            .then((res)=> {
+            .then((res) => {
                 setLoading(false)
                 let totalVendors = res.data?.length || 0;
-                setTotalPages(Math.ceil(totalVendors/limit));
+                setTotalPages(Math.ceil(totalVendors / limit));
                 setPrivateVendors(res.data);
 
             })
-            .catch((error)=> {
+            .catch((error) => {
                 setLoading(false);
                 console.log(error);
             })
     }
 
-    useEffect(()=> {
+    useEffect(() => {
         getPrivateVendorList();
     }, []);
 
@@ -109,7 +107,7 @@ const VendorManagement = () => {
 
                                                 <div className="row mt-1">
                                                     <div className="col"></div>
-                                                    <Link
+                                                    <a
                                                         title="Download this sample Excel and fill all the mandatory red columns."
                                                         className="col d-flex justify-content-center align-items-center gap-1 p-0 me-3 "
                                                         href={
@@ -126,7 +124,7 @@ const VendorManagement = () => {
                                                                 priority={true}
                                                             />
                                                         </span>
-                                                    </Link>
+                                                    </a>
                                                 </div>
 
 
@@ -199,7 +197,6 @@ const VendorManagement = () => {
                                                     <th scope="col">Name of vendor</th>
                                                     <th scope="col">Email Id</th>
                                                     <th scope="col">Phone No.</th>
-                                                    <th scope="col">Product List</th>
                                                     <th scope="col">Status</th>
                                                 </tr>
                                             </thead>
@@ -209,17 +206,18 @@ const VendorManagement = () => {
                                                         return (
                                                             <>
                                                                 <tr key={item.id}>
-                                                                    <td>{(page-1)*10 + index + 1}</td>
-                                                                    <td>{item.vendor_name}</td>
+                                                                    <td>{(page - 1) * 10 + index + 1}</td>
+                                                                    <td>{item.name}</td>
                                                                     <td>{item.email}</td>
-                                                                    <td>{item.phone}</td>
-                                                                    <td>{item.product_list}</td>
+                                                                    <td>{item.mobile}</td>
                                                                     <td>
-                                                                        <span className={`badge ${item.status === 0 ? 'badge-warning' : item.status === 1 ? 'badge-danger' : 'badge-success'}`}>
+                                                                        <span className={`badge ${item.status == -1 ? "text-bg-warning"
+                                                                                : item.status == 1 ? "text-bg-success"
+                                                                                : item.status == 2 ? "text-bg-danger" : "text-bg-primary"}`}>
                                                                             {
-                                                                                item.status === 0 ? "Pending"
-                                                                                : item.status === 1 ? "Rejected"
-                                                                                : "Reviewed"
+                                                                                item.status == -1 ? "Pending"
+                                                                                    : item.status == 1 ? "Approved"
+                                                                                    : item.status == 2 ? "Rejected" : "Reviewed"
                                                                             }
                                                                         </span>
                                                                     </td>
