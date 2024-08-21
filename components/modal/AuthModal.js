@@ -47,6 +47,7 @@ const AuthModal = (props) => {
 					userType = "other";
 				}
 				storageInstance.setStorage("current-user-type", userType);
+				storageInstance.setStorage("current-user-name", response.user_detail[0].name);
 
 				props.setOpenAuthModal(false);
 				if (redirect && redirect != "") {
