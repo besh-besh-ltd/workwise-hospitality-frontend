@@ -920,18 +920,33 @@ const Header = () => {
                           </li>
                         )}
                         {currentUserType == "buyer" && (
-                          <li
-                            className={
-                              router.pathname ==
-                                `/dashboard/${currentUserType}/rfq-report`
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/rfq-report">
-                              RFQ Report
-                            </Link>
-                          </li>
+                          <>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/rfq-report`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link href="/dashboard/buyer/rfq-report">
+                                RFQ Report
+                              </Link>
+                            </li>
+
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/vendor-management`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link href="/dashboard/buyer/vendor-management">
+                                Vendor Management
+                              </Link>
+                            </li>
+                          </>
                         )}
                         {/* <li className="">
 													<Link href="/#">Messages</Link>
@@ -982,9 +997,9 @@ const Header = () => {
         // setPassword={setPassword}
         loading={loading}
         setOpenAuthModal={setOpenAuthModal}
-        // setloading={setloading}
-        // loginSubmitHandler={loginSubmitHandler}
-        // loginWithGoogle={loginWithGoogle}
+      // setloading={setloading}
+      // loginSubmitHandler={loginSubmitHandler}
+      // loginWithGoogle={loginWithGoogle}
       />
       <LoginWithOtherDeviceModal
         show={showModal}
