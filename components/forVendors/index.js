@@ -34,7 +34,7 @@ const ForVendors = (props) => {
 	};
 
 	const getTestimonialsList = () => {
-		getTestimonials()
+		getTestimonials(6)
 			.then((response) => {
 				setTestimonials(response.data);
 			})
@@ -52,7 +52,7 @@ const ForVendors = (props) => {
 	};
 
 	const getMedioVideo = () => {
-		getHomeMediaVideo()
+		getHomeMediaVideo(6)
 			.then((response) => {
 				setVideo(response.data);
 			})
@@ -187,13 +187,6 @@ const ForVendors = (props) => {
 													</div>
 													<div className="client-arewa">
 														<div className="client-img">
-															{/* <Image
-                                src="/assets/images/client.jpg"
-                                alt="Workwise"
-                                width={72}
-                                height={72}
-                                priority={true}
-                              /> */}
 															<Image
 																src={
 																	item?.created_image_url == "" ||
@@ -211,7 +204,6 @@ const ForVendors = (props) => {
 															<p className="opacity-75" style={{ fontSize: "16px" }}>{item?.title}</p>
 															<p>
 																{item?.created_name}{" "}
-																{/* <span>Dat pretium augue</span> */}
 															</p>
 														</div>
 													</div>
