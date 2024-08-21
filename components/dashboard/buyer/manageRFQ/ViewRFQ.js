@@ -66,78 +66,11 @@ const ViewRFQ = ({ data }) => {
                                 placeholder="Quantity"
                                 disabled
                               />
-                              <FontAwesomeIcon icon={faEye} />
-                            </div>
-                          </td>
-
-                          <td>
-                            <div>
-                              <span>
-                                <FontAwesomeIcon icon={faEye} />
-                              </span>
-                              <span>
-                                <Image
-                                  src="/assets/images/download-icon.png"
-                                  alt="Workwise"
-                                  width={16}
-                                  height={16}
-                                  priority={true}
-                                />
-                              </span>
-                            </div>
-                          </td>
-                          <td>
-                            <div>
-                              <span>
-                                <FontAwesomeIcon icon={faEye} />
-                              </span>
-                              <span>
-                                <Image
-                                  src="/assets/images/download-icon.png"
-                                  alt="Workwise"
-                                  width={16}
-                                  height={16}
-                                  priority={true}
-                                />
-                              </span>
-                            </div>
-                          </td>
-                          <td>Lorem ipsum placeholder</td>
-                          <td>
-                            <span>
-                              <Link
-                                href="rfq-management-vendor"
-                                className="page-link"
-                              >
-                                View
-                              </Link>
-                            </span>
-                          </td>
-                        </tr>
-
-                        <tr>
-                          <td>Carbon steel pipes</td>
-                          <td>
-                            <div className="size-specification">
                               <input
                                 type="text"
-                                name="size"
-                                id="size"
-                                placeholder="Size"
-                                disabled
-                              />
-                              <input
-                                type="text"
-                                name="spec"
-                                id="spec"
-                                placeholder="Spec"
-                                disabled
-                              />
-                              <input
-                                type="text"
-                                name="qty"
-                                id="qty"
-                                placeholder="Quantity"
+                                name="unit"
+                                id="unit"
+                                placeholder="Unit"
                                 disabled
                               />
                               <FontAwesomeIcon icon={faEye} />
@@ -214,6 +147,13 @@ const ViewRFQ = ({ data }) => {
                                 placeholder="Quantity"
                                 disabled
                               />
+                              <input
+                                type="text"
+                                name="unit"
+                                id="unit"
+                                placeholder="Unit"
+                                disabled
+                              />
                               <FontAwesomeIcon icon={faEye} />
                             </div>
                           </td>
@@ -286,6 +226,94 @@ const ViewRFQ = ({ data }) => {
                                 name="qty"
                                 id="qty"
                                 placeholder="Quantity"
+                                disabled
+                              />
+                              <input
+                                type="text"
+                                name="unit"
+                                id="unit"
+                                placeholder="Unit"
+                                disabled
+                              />
+                              <FontAwesomeIcon icon={faEye} />
+                            </div>
+                          </td>
+
+                          <td>
+                            <div>
+                              <span>
+                                <FontAwesomeIcon icon={faEye} />
+                              </span>
+                              <span>
+                                <Image
+                                  src="/assets/images/download-icon.png"
+                                  alt="Workwise"
+                                  width={16}
+                                  height={16}
+                                  priority={true}
+                                />
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div>
+                              <span>
+                                <FontAwesomeIcon icon={faEye} />
+                              </span>
+                              <span>
+                                <Image
+                                  src="/assets/images/download-icon.png"
+                                  alt="Workwise"
+                                  width={16}
+                                  height={16}
+                                  priority={true}
+                                />
+                              </span>
+                            </div>
+                          </td>
+                          <td>Lorem ipsum placeholder</td>
+                          <td>
+                            <span>
+                              <Link
+                                href="rfq-management-vendor"
+                                className="page-link"
+                              >
+                                View
+                              </Link>
+                            </span>
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td>Carbon steel pipes</td>
+                          <td>
+                            <div className="size-specification">
+                              <input
+                                type="text"
+                                name="size"
+                                id="size"
+                                placeholder="Size"
+                                disabled
+                              />
+                              <input
+                                type="text"
+                                name="spec"
+                                id="spec"
+                                placeholder="Spec"
+                                disabled
+                              />
+                              <input
+                                type="text"
+                                name="qty"
+                                id="qty"
+                                placeholder="Quantity"
+                                disabled
+                              />
+                              <input
+                                type="text"
+                                name="unit"
+                                id="unit"
+                                placeholder="Unit"
                                 disabled
                               />
                               <FontAwesomeIcon icon={faEye} />

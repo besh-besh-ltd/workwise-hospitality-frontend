@@ -55,10 +55,10 @@ export const getBLOGS = (type) => {
 	});
 };
 
-export const getHomeMediaVideo = (type) => {  
+export const getHomeMediaVideo = (pageId=1) => {  
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/cms/media-section`);
+			let response = await axiosInstance.get(`/cms/media-section/${pageId}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
@@ -77,10 +77,10 @@ export const getHomeCompanies = (type) => {
 	});
 };
 
-export const getTestimonials = (type) => {  
+export const getTestimonials = (pageId=1) => {  
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/cms/testimonial-list`);
+			let response = await axiosInstance.get(`/cms/testimonial-list/${pageId}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
