@@ -303,6 +303,13 @@ const Header = () => {
                       </li>
                       <li
                         className={
+                          router.pathname == "/for-vendors" ? "active" : ""
+                        }
+                      >
+                        <Link href="/for-vendors">For Vendors</Link>
+                      </li>
+                      <li
+                        className={
                           router.pathname == "/aboutus" ? "active" : ""
                         }
                       >
@@ -323,20 +330,13 @@ const Header = () => {
                         <Link href="/for-buyers">For Buyers</Link>
                       </li>
  */}
-                      <li
+                      {/* <li
                         className={
                           router.pathname == "/for-buyers" ? "active" : ""
                         }
                       >
                         <Link href="/for-buyers">For Buyers</Link>
-                      </li>
-                      <li
-                        className={
-                          router.pathname == "/for-vendors" ? "active" : ""
-                        }
-                      >
-                        <Link href="/for-vendors">For Vendors</Link>
-                      </li>
+                      </li> */}                      
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""
