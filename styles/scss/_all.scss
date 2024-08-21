@@ -3672,6 +3672,23 @@ textarea {
       .details-table {
         margin-top: 20px;
 
+        button {
+          border: none;
+          font-weight: 500;
+          font-size: 16px;
+          line-height: 24px;
+        }
+
+        .btn {
+          width: 190px;
+          padding: 15px 0;
+        }
+
+        .btn-primary {
+          background-color: var(--primary-color);
+          color: white;
+        }
+
         table {
           width: 100%;
           border-spacing: 0;
@@ -3934,7 +3951,7 @@ textarea {
           font-size: 14px;
           line-height: 24px;
           color: #525252;
-          margin-right: 50px;
+          // margin-right: 50px;
         }
 
         .table-container {
@@ -6214,6 +6231,15 @@ textarea {
           margin: 20px;
         }
 
+        .truncate-2-lines {
+          display: -webkit-box;
+          max-height: 50px;
+          overflow: hidden;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          text-overflow: ellipsis;
+        }
+
         .btn-primary {
           background-color: var(--white-color);
           border: 1px solid var(--primary-color);
@@ -6266,7 +6292,7 @@ textarea {
 }
 
 .all-products-wrap {
-  height: 600px;
+  max-height: 600px;
   overflow: auto;
 }
 

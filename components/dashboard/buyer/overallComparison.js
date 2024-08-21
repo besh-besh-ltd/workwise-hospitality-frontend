@@ -184,7 +184,10 @@ const OverallComparison = ({ rfq_id }) => {
                     Sl. No
                   </th>
                   <th scope="col" className="description" rowSpan={2}>
-                    Description
+                    Product Name
+                  </th>
+                  <th scope="col" className="description" rowSpan={2}>
+                    Product Variant Details (specification)
                   </th>
                   <th scope="col" className="sl_no" rowSpan={2}>
                     Qty<small>(Nos.)</small>
@@ -203,20 +206,6 @@ const OverallComparison = ({ rfq_id }) => {
                       );
                     })}
                 </tr>
-                <tr>
-                  {allvendors &&
-                    allvendors.length > 0 &&
-                    allvendors.map((item) => {
-                      return (
-                        <th key={`tp_${item.id}`}>
-                          <small>
-                            Total Amount
-                            {/* <small>(Incl. Packaging , Freight & GST)</small> */}
-                          </small>
-                        </th>
-                      );
-                    })}
-                </tr>
               </thead>
               <tbody className="last_row">
                 {data &&
@@ -228,6 +217,11 @@ const OverallComparison = ({ rfq_id }) => {
                         <td>
                           {item.product_details.length > 0
                             ? item.product_details[0].name
+                            : "-"}
+                        </td>
+                        <td>
+                          {item.quotations.length > 0
+                            ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
                             : "-"}
                         </td>
                         <td>{getQty(item)}</td>
