@@ -203,6 +203,12 @@ const RfqManagementPreview = () => {
                                     width={50}
                                     height={10}
                                   />
+                                  <PlaceholderLoading
+                                    className="mr-4"
+                                    shape="rect"
+                                    width={50}
+                                    height={10}
+                                  />
 
                                   <FontAwesomeIcon icon={faEye} />
                                 </div>
@@ -459,9 +465,6 @@ const RfqManagementPreview = () => {
                           </thead>
                           <tbody>
                             {rfqDetails?.products?.map((item, index) => {
-                              let si = 0;
-                              let sp = si + 1;
-                              let qu = sp + 1;
 
                               return (
                                 <tr key={`${item.product_id}`}>

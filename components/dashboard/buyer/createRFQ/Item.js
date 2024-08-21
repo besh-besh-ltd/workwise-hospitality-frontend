@@ -44,15 +44,22 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
   useEffect(() => {
     // console.log("data", data);
     data.spec.map((item) => {
-      if (item.title == "Size") {
-        setspecSize(item.value);
-      }
-      if (item.title == "Spec") {
-        setspecSpec(item.value);
-      }
-      if (item.title == "Quantity") {
-        setquantity(item.value);
-      }
+      switch(item.title) {
+        case 'Size':  
+          setspecSize(item.value);
+          break;
+        case 'Spec':  
+          setspecSpec(item.value);
+          break;
+        case 'Quantity':  
+          setquantity(item.value);
+          break;
+        case 'Unit':
+          setUnit(item.value);
+          break;
+        default:
+          console.log('Invalid Title');
+      }      
     });
   }, []);
 
@@ -217,7 +224,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               value={specSpec}
               onChange={(e) => handleSpecValue("spec", e.target.value)}
               name="Spec"
-              id={`spec_${data.product_id}_spec`}
+              id={`spec_${data.product_id}_${data.variant}_spec`}
               placeholder="Grade, Material and other Specs"
               className="w-100"
             />
@@ -227,7 +234,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
                 value={specSize}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 name="Size"
-                id={`spec_${data.product_id}_size`}
+                id={`spec_${data.product_id}_${data.variant}_size`}
                 placeholder="Size"
                 className="w-100"
               />
@@ -268,13 +275,13 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               value={quantity}
               onChange={(e) => handleSpecValue("quantity", e.target.value)}
               name="Quantity"
-              id={`spec_${data.product_id}_quantity`}
+              id={`spec_${data.product_id}_${data.variant}_quantity`}
               placeholder="Quantity"
               class="form-control me-0"
               aria-label="Quantity input with dropdown button"
             />
             <input type="text" name="Unit"
-              id={`spec_${data.product_id}_unit`}
+              id={`spec_${data.product_id}_${data.variant}_unit`}
               onChange={(e) => handleSpecValue("unit", e.target.value)}
               placeholder="Unit"
               class="form-control me-0"

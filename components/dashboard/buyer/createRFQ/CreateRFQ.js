@@ -58,6 +58,7 @@ const CreateRFQ = () => {
     getVendorApproveList();
     getAllStates();
   }, []);
+
   const getAllStates = () => {
     getStates().then((res) => {
       let d = [];
@@ -209,10 +210,10 @@ const CreateRFQ = () => {
                 </thead>
                 <tbody>
                   {rfqProducts &&
-                    rfqProducts.map((product, index) => {
+                    rfqProducts.map((product) => {
                       return (
                         <Item
-                          key={`rfqpp_${index}`}
+                          key={`rfqpp_${product?.product_id}_${product?.variant}`}
                           vendorApprovedList={vendorApprovedList}
                           handleProductSpec={handleProductSpec}
                           data={product}
