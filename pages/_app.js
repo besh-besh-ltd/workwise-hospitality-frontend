@@ -14,12 +14,15 @@ import "react-toastify/dist/ReactToastify.css";
 import "@fortawesome/fontawesome-svg-core/styles.css";
 
 import { config } from "@fortawesome/fontawesome-svg-core";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Loader from "@/components/shared/Loader";
 import { ToastContainer } from "react-toastify";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Providers } from "@/redux/provider";
+import LogRocket from 'logrocket';
+import storageInstance from "@/utils/storageInstance";
+
 
 
 // Tell Font Awesome to skip adding the CSS automatically
@@ -29,9 +32,25 @@ config.autoAddCss = false;
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
- 
+  const isLogRocketInitialized = useRef(false);
 
   useEffect(() => {
+
+    // record user session
+    if (!isLogRocketInitialized.current) {
+      LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
+        dom: {
+          inputSanitizer: true, // Mask input fields
+        },
+      });
+      isLogRocketInitialized.current = true;
+    }
+
+    // Identify user if available
+    const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
+    LogRocket.identify(userId);
+
+
     const handleStart = () => setLoading(true);
     const handleComplete = () => {
       setTimeout(() => {
@@ -50,7 +69,6 @@ export default function App({ Component, pageProps }) {
     };
   }, [router]);
 
- 
 
   return (
     <>
@@ -59,7 +77,7 @@ export default function App({ Component, pageProps }) {
       <Providers>
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
           <Layout>
-            
+
             <Component {...pageProps} />
           </Layout>
         </GoogleOAuthProvider>
