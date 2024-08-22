@@ -129,147 +129,147 @@ const Header = () => {
 
   const swSubscription = useSelector((data) => data.swSubscription);
 
-  const loginSubmitHandler = (values, isFromOtherModal = false) => {
-    setloading(true);
-    LoginService(values, isFromOtherModal)
-      .then((response) => {
-        if (isFromOtherModal) {
-          handleClose();
-        }
-        // subscribe to SW
-        SWSubscribe({ subscription: swSubscription, token: response.token })
-          .then((res) => {
-            console.log("PUSH SENT");
-          })
-          .catch((err) => { });
-        setloading(false);
-        toast.success(response.message, {
-          position: "top-center",
-        });
+  // const loginSubmitHandler = (values, isFromOtherModal = false) => {
+  //   setloading(true);
+  //   LoginService(values, isFromOtherModal)
+  //     .then((response) => {
+  //       if (isFromOtherModal) {
+  //         handleClose();
+  //       }
+  //       // subscribe to SW
+  //       SWSubscribe({ subscription: swSubscription, token: response.token })
+  //         .then((res) => {
+  //           console.log("PUSH SENT");
+  //         })
+  //         .catch((err) => { });
+  //       setloading(false);
+  //       toast.success(response.message, {
+  //         position: "top-center",
+  //       });
 
-        let userType = "";
-        if (response.user_detail[0].user_type == 2) {
-          userType = "buyer";
-        } else if (response.user_detail[0].user_type == 3) {
-          userType = "vendor";
-        } else if (response.user_detail[0].user_type == 4) {
-          userType = "other";
-        }
-        storageInstance.setStorage("current-user-type", userType);
+  //       let userType = "";
+  //       if (response.user_detail[0].user_type == 2) {
+  //         userType = "buyer";
+  //       } else if (response.user_detail[0].user_type == 3) {
+  //         userType = "vendor";
+  //       } else if (response.user_detail[0].user_type == 4) {
+  //         userType = "other";
+  //       }
+  //       storageInstance.setStorage("current-user-type", userType);
 
-        handleChange(setOpenAuthModal(false));
-        if (redirect && redirect != "") {
-          router.push(window.atob(redirect));
-          return;
-        } else {
-          if (userType == "buyer") {
-            router.push(`/products`);
-          } else {
-            router.push(`/dashboard/${userType}`);
-          }
-        }
-        //router.push(`/dashboard`);
-      })
-      .catch((error) => {
-        setloading(false);
-        if (
-          error?.message?.response?.status === 400 &&
-          error?.message?.response?.data?.status === 4
-        ) {
-          toast.error(error?.message?.response?.data?.message, {
-            position: "top-center",
-          });
-          setTimeout(() => {
-            handleChange(setOpenAuthModal(false));
-          }, 2000);
+  //       handleChange(setOpenAuthModal(false));
+  //       if (redirect && redirect != "") {
+  //         router.push(window.atob(redirect));
+  //         return;
+  //       } else {
+  //         if (userType == "buyer") {
+  //           router.push(`/products`);
+  //         } else {
+  //           router.push(`/dashboard/${userType}`);
+  //         }
+  //       }
+  //       //router.push(`/dashboard`);
+  //     })
+  //     .catch((error) => {
+  //       setloading(false);
+  //       if (
+  //         error?.message?.response?.status === 400 &&
+  //         error?.message?.response?.data?.status === 4
+  //       ) {
+  //         toast.error(error?.message?.response?.data?.message, {
+  //           position: "top-center",
+  //         });
+  //         setTimeout(() => {
+  //           handleChange(setOpenAuthModal(false));
+  //         }, 2000);
 
-          setTimeout(() => {
-            setLoginWith("email");
-            handleOtherDeviceLoginModalOpen();
-          }, 1000);
-        } else if (error?.message?.response?.data) {
-          toast.error(error?.message?.response?.data?.message, {
-            position: "top-center",
-          });
-        }
+  //         setTimeout(() => {
+  //           setLoginWith("email");
+  //           handleOtherDeviceLoginModalOpen();
+  //         }, 1000);
+  //       } else if (error?.message?.response?.data) {
+  //         toast.error(error?.message?.response?.data?.message, {
+  //           position: "top-center",
+  //         });
+  //       }
 
-        if (error?.response?.status === 400) {
-        } else {
-          toast.error(error?.message, {
-            position: "top-center",
-          });
-        }
-      });
-  };
+  //       if (error?.response?.status === 400) {
+  //       } else {
+  //         toast.error(error?.message, {
+  //           position: "top-center",
+  //         });
+  //       }
+  //     });
+  // };
 
-  const loginWithGoogle = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      handleSocialLogin(
-        {
-          login_type: "google",
-          access_token: tokenResponse.access_token,
-        },
-        loginWith ? true : false
-      )
-        .then((response) => {
-          if (loginWith === "google") {
-            handleClose();
-          }
-          // subscribe to SW
-          SWSubscribe({ subscription: swSubscription, token: response.token })
-            .then((res) => {
-              console.log("PUSH SENT");
-            })
-            .catch((err) => { });
-          setloading(false);
-          toast.success(response.message, {
-            position: "top-center",
-          });
-          console.log(response, "response *");
-          console.log(response?.profile?.user_type, "response type *");
+  // const loginWithGoogle = useGoogleLogin({
+  //   onSuccess: (tokenResponse) => {
+  //     handleSocialLogin(
+  //       {
+  //         login_type: "google",
+  //         access_token: tokenResponse.access_token,
+  //       },
+  //       loginWith ? true : false
+  //     )
+  //       .then((response) => {
+  //         if (loginWith === "google") {
+  //           handleClose();
+  //         }
+  //         // subscribe to SW
+  //         SWSubscribe({ subscription: swSubscription, token: response.token })
+  //           .then((res) => {
+  //             console.log("PUSH SENT");
+  //           })
+  //           .catch((err) => { });
+  //         setloading(false);
+  //         toast.success(response.message, {
+  //           position: "top-center",
+  //         });
+  //         console.log(response, "response *");
+  //         console.log(response?.profile?.user_type, "response type *");
 
-          let userType = "";
-          if (response?.profile?.user_type == 2) {
-            userType = "buyer";
-          } else if (response?.profile?.user_type == 3) {
-            userType = "vendor";
-          }
-          storageInstance.setStorage("current-user-type", userType);
-          handleChange(setOpenAuthModal(false));
-          if (userType == "buyer") {
-            router.push(`/products`);
-          } else {
-            router.push(`/dashboard/${userType}`);
-          }
-        })
-        .catch((error) => {
-          setloading(false);
-          if (
-            error?.message?.response?.status === 400 &&
-            error?.message?.response?.data?.status === 4
-          ) {
-            toast.error(error?.message?.response?.data?.message, {
-              position: "top-center",
-            });
-            setTimeout(() => {
-              handleChange(setOpenAuthModal(false));
-            }, 2000);
+  //         let userType = "";
+  //         if (response?.profile?.user_type == 2) {
+  //           userType = "buyer";
+  //         } else if (response?.profile?.user_type == 3) {
+  //           userType = "vendor";
+  //         }
+  //         storageInstance.setStorage("current-user-type", userType);
+  //         handleChange(setOpenAuthModal(false));
+  //         if (userType == "buyer") {
+  //           router.push(`/products`);
+  //         } else {
+  //           router.push(`/dashboard/${userType}`);
+  //         }
+  //       })
+  //       .catch((error) => {
+  //         setloading(false);
+  //         if (
+  //           error?.message?.response?.status === 400 &&
+  //           error?.message?.response?.data?.status === 4
+  //         ) {
+  //           toast.error(error?.message?.response?.data?.message, {
+  //             position: "top-center",
+  //           });
+  //           setTimeout(() => {
+  //             handleChange(setOpenAuthModal(false));
+  //           }, 2000);
 
-            setTimeout(() => {
-              setLoginWith("google");
-              handleOtherDeviceLoginModalOpen();
-            }, 1000);
-          } else if (error?.message?.response?.data) {
-            toast.error(error?.message?.response?.data?.message, {
-              position: "top-center",
-            });
-          }
-        });
-    },
-    onError: (error) => {
-      setloading(false);
-    },
-  });
+  //           setTimeout(() => {
+  //             setLoginWith("google");
+  //             handleOtherDeviceLoginModalOpen();
+  //           }, 1000);
+  //         } else if (error?.message?.response?.data) {
+  //           toast.error(error?.message?.response?.data?.message, {
+  //             position: "top-center",
+  //           });
+  //         }
+  //       });
+  //   },
+  //   onError: (error) => {
+  //     setloading(false);
+  //   },
+  // });
 
   return (
     <>
@@ -303,6 +303,13 @@ const Header = () => {
                       </li>
                       <li
                         className={
+                          router.pathname == "/for-vendors" ? "active" : ""
+                        }
+                      >
+                        <Link href="/for-vendors">For Vendors</Link>
+                      </li>
+                      <li
+                        className={
                           router.pathname == "/aboutus" ? "active" : ""
                         }
                       >
@@ -323,13 +330,13 @@ const Header = () => {
                         <Link href="/for-buyers">For Buyers</Link>
                       </li>
  */}
-                      <li
+                      {/* <li
                         className={
-                          router.pathname == "/for-vendors" ? "active" : ""
+                          router.pathname == "/for-buyers" ? "active" : ""
                         }
                       >
-                        <Link href="/for-vendors">For Vendors</Link>
-                      </li>
+                        <Link href="/for-buyers">For Buyers</Link>
+                      </li> */}                      
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""
@@ -913,18 +920,33 @@ const Header = () => {
                           </li>
                         )}
                         {currentUserType == "buyer" && (
-                          <li
-                            className={
-                              router.pathname ==
-                                `/dashboard/${currentUserType}/rfq-report`
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/rfq-report">
-                              RFQ Report
-                            </Link>
-                          </li>
+                          <>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/rfq-report`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link href="/dashboard/buyer/rfq-report">
+                                RFQ Report
+                              </Link>
+                            </li>
+
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/vendor-management`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link href="/dashboard/buyer/vendor-management">
+                                Vendor Management
+                              </Link>
+                            </li>
+                          </>
                         )}
                         {/* <li className="">
 													<Link href="/#">Messages</Link>
@@ -969,22 +991,23 @@ const Header = () => {
         closeModal={() => {
           handleChange(setOpenAuthModal(false));
         }}
-        activeTab={activeAuthTab}
-        setActiveTab={handleChange(setActiveAuthTab)}
-        setEmail={setEmail}
-        setPassword={setPassword}
+        // activeTab={activeAuthTab}
+        // setActiveTab={handleChange(setActiveAuthTab)}
+        // setEmail={setEmail}
+        // setPassword={setPassword}
         loading={loading}
-        setloading={setloading}
-        loginSubmitHandler={loginSubmitHandler}
-        loginWithGoogle={loginWithGoogle}
+        setOpenAuthModal={setOpenAuthModal}
+      // setloading={setloading}
+      // loginSubmitHandler={loginSubmitHandler}
+      // loginWithGoogle={loginWithGoogle}
       />
       <LoginWithOtherDeviceModal
         show={showModal}
         onHide={handleClose}
         email={email}
         password={password}
-        loginSubmitHandler={loginSubmitHandler}
-        loginWithGoogle={loginWithGoogle}
+        // loginSubmitHandler={loginSubmitHandler}
+        // loginWithGoogle={loginWithGoogle}
         loginWith={loginWith}
       />
     </>

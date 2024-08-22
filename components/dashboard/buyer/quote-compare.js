@@ -965,10 +965,18 @@ const QuoteCompare = () => {
                             className="quote-sec-table-sub"
                             key={`qq_${index}`}
                           >
-                            <span className="sub-heading">
-                              <b>Product</b> :{" "}
-                              {item?.product_details[0]?.product_name}
-                            </span>
+                            <div className="row">
+                              <div className="col-12">
+                                <p className="sub-heading mb-0">
+                                  <b>Product</b> :{" "}
+                                  {item?.product_details[0]?.product_name}
+                                </p>
+                                <p className="sub-heading mb-0">
+                                  <b>Product Specification</b> :{" "}
+                                  {item?.product_details[0]?.rfq_details[1]?.value}
+                                </p>
+                              </div>
+                            </div>
                             <span className="sub-heading">
                               {/*  <b>Requested Quantity </b>:{" "}
                               {calculateTotalQuantity(

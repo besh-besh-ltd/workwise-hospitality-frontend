@@ -288,7 +288,7 @@ export default function Homepage() {
   };
 
   const getMedioVideo = () => {
-    getHomeMediaVideo()
+    getHomeMediaVideo(1)
       .then((response) => {
         setVideo(response.data);
       })
@@ -323,7 +323,7 @@ export default function Homepage() {
       });
   };
   const getTestimonialsList = () => {
-    getTestimonials()
+    getTestimonials(1)
       .then((response) => {
         setTestimonials(response.data);
       })
@@ -588,7 +588,7 @@ export default function Homepage() {
       )}
 
       {/* video media start */}
-      
+
       {video && (
         <section className="home-sec-5 sc-pt-80 media-sec-home">
           <div className="container">
