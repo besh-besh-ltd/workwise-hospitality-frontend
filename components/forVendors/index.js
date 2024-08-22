@@ -2,7 +2,7 @@ import { getCmsData, getPageBanner } from "@/services/cms";
 import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "react-modal";
 import Slider from "react-slick";
 import { toast } from "react-toastify";
@@ -15,6 +15,7 @@ const ForVendors = (props) => {
 	const [testimonials, setTestimonials] = useState([]);
 	const [video, setVideo] = useState(null);
 	const [modal2IsOpen, setModal2IsOpen] = useState(false);
+	const pageRef = useRef(6);
 
 	var customerslider = {
 		infinite: true,
@@ -34,7 +35,7 @@ const ForVendors = (props) => {
 	};
 
 	const getTestimonialsList = () => {
-		getTestimonials(6)
+		getTestimonials(pageRef.current)
 			.then((response) => {
 				setTestimonials(response.data);
 			})
@@ -52,7 +53,7 @@ const ForVendors = (props) => {
 	};
 
 	const getMedioVideo = () => {
-		getHomeMediaVideo(6)
+		getHomeMediaVideo(pageRef.current)
 			.then((response) => {
 				setVideo(response.data);
 			})
