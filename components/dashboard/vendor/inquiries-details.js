@@ -14,7 +14,7 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
-  const { id, type } = router.query;
+  const { id, type, token } = router.query;
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
@@ -34,7 +34,8 @@ const RfqManagementPreview = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id)
+    getRFQById(id,token)
+
       .then((res) => {
         setloading(false);
         setrfqDetails(res.data);
@@ -115,10 +116,10 @@ const RfqManagementPreview = () => {
       globalComment: "hardcoded global comments",
     };
 
-    sendQuotation(payload)
+    sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}`); 
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`); 
         Router.reload();       
       })
       .catch((err) => {
@@ -184,6 +185,12 @@ const RfqManagementPreview = () => {
                               </td>
                               <td>
                                 <div className="size-specification">
+                                  <PlaceholderLoading
+                                    className="mr-4"
+                                    shape="rect"
+                                    width={50}
+                                    height={10}
+                                  />
                                   <PlaceholderLoading
                                     className="mr-4"
                                     shape="rect"
@@ -458,20 +465,15 @@ const RfqManagementPreview = () => {
                           </thead>
                           <tbody>
                             {rfqDetails?.products?.map((item, index) => {
-                              let si = 0;
-                              let sp = si + 1;
-                              let qu = sp + 1;
-                              // console.log(
-                              //   `item ${index} - size - ${si}, spec ${sp}, quantity ${qu}`
-                              // );
+
                               return (
                                 <tr key={`${item.product_id}`}>
                                   <td>{item?.product_details[0]?.name}</td>
                                   <td>
-                                    <div className="size-specification vendor-view-rfq">
+                                    <div className="size-specification ">
                                       {item?.product_specs.map(
                                         (spec_item, index) => {
-                                          if (index >= si && index <= qu) {
+
                                             return (
                                               <input
                                                 key={`rfq_d_spec_itm_${index}`}
@@ -483,12 +485,11 @@ const RfqManagementPreview = () => {
                                                   "_" +
                                                   spec_item?.title.toLowerCase()
                                                 }
-                                                placeholder="Size"
+                                                placeholder={spec_item?.title.toLowerCase()}
                                                 value={spec_item?.value}
                                                 disabled
                                               />
                                             );
-                                          }
                                         }
                                       )}
 
@@ -1072,7 +1073,7 @@ const RfqManagementPreview = () => {
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
                                     <Link
-                                        href={`/dashboard/vendor/send-quote?id=${id}`}
+                                        href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}
                                       >
                                         <button
                                           type="button"
