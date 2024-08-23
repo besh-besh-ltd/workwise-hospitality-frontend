@@ -747,6 +747,7 @@ const QuoteCompare = () => {
       product_id: proditem.product_id,
       vendor_id: item.quote_details.created_by,
       quote_id: item.quote_id,
+      variant: proditem.variant
     };
     console.log("payload", payload);
     finalizeQuotation(payload)
