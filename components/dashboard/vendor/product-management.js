@@ -16,7 +16,6 @@ import axiosFormData from "@/lib/axiosFormData";
 import { useRouter } from "next/router";
 import { ToastContainer, toast } from "react-toastify";
 import { Image } from "react-bootstrap";
-import Pagination from "@/components/shared/Pagination";
 
 const ProductManagement = () => {
   const router = useRouter();

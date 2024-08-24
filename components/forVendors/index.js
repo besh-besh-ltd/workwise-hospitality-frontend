@@ -2,7 +2,7 @@ import { getCmsData, getPageBanner } from "@/services/cms";
 import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "react-modal";
 import Slider from "react-slick";
 import { toast } from "react-toastify";
@@ -15,6 +15,7 @@ const ForVendors = (props) => {
 	const [testimonials, setTestimonials] = useState([]);
 	const [video, setVideo] = useState(null);
 	const [modal2IsOpen, setModal2IsOpen] = useState(false);
+	const pageRef = useRef(6);
 
 	var customerslider = {
 		infinite: true,
@@ -34,7 +35,7 @@ const ForVendors = (props) => {
 	};
 
 	const getTestimonialsList = () => {
-		getTestimonials()
+		getTestimonials(pageRef.current)
 			.then((response) => {
 				setTestimonials(response.data);
 			})
@@ -52,7 +53,7 @@ const ForVendors = (props) => {
 	};
 
 	const getMedioVideo = () => {
-		getHomeMediaVideo()
+		getHomeMediaVideo(pageRef.current)
 			.then((response) => {
 				setVideo(response.data);
 			})
@@ -187,13 +188,6 @@ const ForVendors = (props) => {
 													</div>
 													<div className="client-arewa">
 														<div className="client-img">
-															{/* <Image
-                                src="/assets/images/client.jpg"
-                                alt="Workwise"
-                                width={72}
-                                height={72}
-                                priority={true}
-                              /> */}
 															<Image
 																src={
 																	item?.created_image_url == "" ||
@@ -211,7 +205,6 @@ const ForVendors = (props) => {
 															<p className="opacity-75" style={{ fontSize: "16px" }}>{item?.title}</p>
 															<p>
 																{item?.created_name}{" "}
-																{/* <span>Dat pretium augue</span> */}
 															</p>
 														</div>
 													</div>

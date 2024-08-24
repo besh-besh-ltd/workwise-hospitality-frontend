@@ -3,20 +3,25 @@ import { faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
-import React from "react";
+import { useRouter } from "next/router";
+import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 
 const SearchItem = ({
   data,
+  setOpenAuthModal,
+  vendorMetaData,
   type,
   bulkRFQProducts,
   setbulkRFQProducts,
   selectedProduct = false,
   currentSelectedProduct = {},
   handleRemoveCurrentSelected,
+  handleRedirect
 }) => {
   const dispatch = useDispatch();
+  const router = useRouter();
 
   const addToRFQ = (item) => {
     if (type == "products") {
@@ -143,9 +148,15 @@ const SearchItem = ({
                     )}
                     <p>
                       <Link
-                        target="_blank"
-                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                        href="#"
                         className="btn btn-primary"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!vendorMetaData.logged_In)
+                            setOpenAuthModal(true);
+                          else
+                            router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
+                        }}
                       >
                         Show Contact Info
                       </Link>
@@ -217,20 +228,29 @@ const SearchItem = ({
             {!selectedProduct && (
               <div className="col-md-2">
                 <Link
-                  target="_blank"
-                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                  href="#"
                   className="btn btn-primary custom_primary_btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!vendorMetaData.logged_In)
+                      setOpenAuthModal(true);
+                    else
+                      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
+                  }}
                 >
                   View Details
                 </Link>
                 <Link
                   href="#"
-                  className={`btn btn-primary custom_primary_btn has_primary-bg ${
-                    !data.sp ? `disabled` : ``
-                  }`}
+                  className="btn btn-primary custom_primary_btn has_primary-bg"
                   onClick={(e) => {
                     e.preventDefault();
-                    addToRFQ(data);
+                    if (!vendorMetaData.logged_In)
+                      setOpenAuthModal(true);
+                    else if(!vendorMetaData.subscription)
+                      router.push('dashboard/buyer/subscription');
+                    else
+                      addToRFQ(data);
                   }}
                 >
                   Add To RFQ

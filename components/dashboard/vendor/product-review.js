@@ -84,6 +84,20 @@ const ProductReview = () => {
   };
 
   useEffect(() => {
+    const bootstrap = require('bootstrap/dist/js/bootstrap.bundle.min.js'); // Import Bootstrap JS
+
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(
+      tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl)
+    );
+
+    // Cleanup tooltips on component unmount
+    return () => {
+      tooltipList.forEach(tooltip => tooltip.dispose());
+    };
+  }, []);
+
+  useEffect(() => {
     handleGetProductReview();
   }, [page]);
   return (
@@ -99,7 +113,7 @@ const ProductReview = () => {
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
-                <div className="row justify-content-end">
+                {/* <div className="row justify-content-end">
                   <div className="col-sm-2 mb-4">
                     <button
                       type="button"
@@ -109,8 +123,8 @@ const ProductReview = () => {
                       Review
                     </button>
                   </div>
-                </div>
-                <div className="details-table">
+                </div> */}
+                <div className="details-table mb-4">
                   <div className="table-responsive">
                     <table className="table table-striped">
                       <thead>
@@ -128,7 +142,7 @@ const ProductReview = () => {
                           <th>Name</th>
                           <th>Manufacturer</th>
                           <th>Vendor Name</th>
-                          <th>Review Status</th>
+                          {/* <th>Review Status</th> */}
                           <th>Availability</th>
                           <th>Product Categories</th>
                           <th>Action</th>
@@ -155,11 +169,11 @@ const ProductReview = () => {
                                     : ""}
                                 </td>
                                 <td>{item?.vendor_name}</td>
-                                <td>
+                                {/* <td>
                                   {item?.is_review === 1
                                     ? "Reviewed"
                                     : "Not Reviewed"}
-                                </td>
+                                </td> */}
                                 <td>
                                   {item?.availability === 1
                                     ? "Available"
@@ -232,6 +246,21 @@ const ProductReview = () => {
                         })}
                       </ul>
                     </nav>
+                  </div>
+                </div>
+
+                <div className="row justify-content-end">
+                  <div className="col-sm-2">
+                    <button
+                      type="button"
+                      onClick={() => handleReviewProduct()}
+                      className="btn btn-primary mr-2"
+                      data-bs-toggle="tooltip" data-bs-placement="top"
+                      data-bs-custom-class="custom-tooltip"
+                      data-bs-title="Select some products to publish."
+                    >
+                      Publish
+                    </button>
                   </div>
                 </div>
               </div>

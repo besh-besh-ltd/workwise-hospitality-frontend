@@ -27,6 +27,8 @@ import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
 import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
+import AuthModal from "@/components/modal/AuthModal";
+import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -58,6 +60,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [bulkRFQProducts, setbulkRFQProducts] = useState([]);
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [vendorMetaData, setVendorMetaData] = useState({});
   const [parentCategories, setParentCategories] = useState([]);
   const [levelZeroCat, setlevelZeroCat] = useState([]);
   const [levelOneCat, setlevelOneCat] = useState([]);
@@ -75,6 +78,28 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
+  const [openAuthModal, setOpenAuthModal] = useState(false);
+  const [activeAuthTab, setActiveAuthTab] = useState("login");
+  const [showModal, setShowModal] = useState(false);
+  const [loginWith, setLoginWith] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const handleClose = () => {
+    setShowModal(false);
+    setLoginWith("");
+  };
+
+  // Set State Change
+  const handleChange = (setState) => (event) => {
+    setState(event);
+  };
+
+  const handleRedirect = (e) => {
+    if (!vendorMetaData?.logged_In)
+      setOpenAuthModal(true);
+    else if (!vendorMetaData?.subscription)
+      router.push('dashboard/buyer/subscription');
+  }
 
   useEffect(() => {
     if (s && s != "") {
@@ -127,6 +152,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     cat_id,
     selectedState,
     selectedCity,
+    isLoggedIn
   ]);
 
   useEffect(() => {
@@ -201,12 +227,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       "vendors"
     )
       .then((rsp) => {
+        console.log(rsp)
         setloading(false);
         let d = rsp.data.map((item) => {
           item.selected = false;
           return item;
         });
         setVendors(d);
+        setVendorMetaData(rsp)
         currentSelectedProduct
           ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
           : null;
@@ -681,7 +709,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       </Link>
                     )}
                     <select
-                      onChange={(e) => handleStateChange(e)}
+                      onChange={(e) => {
+                        if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
+                          setOpenAuthModal(true)
+                        else
+                          handleStateChange(e)
+                      }}
                       value={selectedState}
                     >
                       <option value={0}>Select State</option>
@@ -727,11 +760,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           id="vab"
                           value={selectedVbaa}
                           onChange={(e) => {
-                            localStorage.setItem(
-                              "selected_vab",
-                              e.target.value
-                            );
-                            setselectedVbaa(e.target.value);
+                            if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
+                              setOpenAuthModal(true)
+                            else {
+                              localStorage.setItem(
+                                "selected_vab",
+                                e.target.value
+                              );
+                              setselectedVbaa(e.target.value);
+                            }
                           }}
                         >
                           <option value="">Select Vendor</option>
@@ -792,18 +829,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           value={levelZeroCat}
                           styles={customSelectStyles}
                           onChange={(e) => {
-                            setLevelZeroValue(e.value);
-                            setlevelOneCat([]);
-                            setlevelTwoCat([]);
-                            setlevelThreeCat([]);
-                            setlevelFourCat([]);
-                            setlevelFiveCat([]);
-                            setlevelSixCat([]);
-                            getChildCategories(e.value, "1");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
+                            if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
+                              setOpenAuthModal(true)
+                            else {
+                              setLevelZeroValue(e.value);
+                              setlevelOneCat([]);
+                              setlevelTwoCat([]);
+                              setlevelThreeCat([]);
+                              setlevelFourCat([]);
+                              setlevelFiveCat([]);
+                              setlevelSixCat([]);
+                              getChildCategories(e.value, "1");
+                              if (e && e.value) {
+                                setCat_id(e.value);
+                              } else {
+                                setCat_id("");
+                              }
                             }
                           }}
                         />
@@ -933,16 +974,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           </label>
                         </div>
                         <div className="col-md-10">
-                          {userProfile.subscription_plan_id && (
+                          {userProfile?.subscription_plan_id && (
                             <div className="actions">
                               {bulkRFQProducts.length > 0 && (
                                 <Link
                                   href="#"
-                                  className={`btn btn-primary ${
-                                    !userProfile.subscription_plan_id
-                                      ? `disabled`
-                                      : ``
-                                  }`}
+                                  className={`btn btn-primary ${!userProfile.subscription_plan_id
+                                    ? `disabled`
+                                    : ``
+                                    }`}
                                   onClick={handleBulkAddToRFQ}
                                 >
                                   Add To All RFQs
@@ -950,19 +990,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               )}
                               <Link
                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                className={`btn btn-primary ${
-                                  !userProfile.subscription_plan_id
-                                    ? `disabled`
-                                    : ``
-                                }`}
+                                className={`btn btn-primary ${!userProfile.subscription_plan_id
+                                  ? `disabled`
+                                  : ``
+                                  }`}
                               >
                                 View All RFQs{" "}
                                 {rfqProductsFromStore.length > 0 && (
                                   <small style={{ display: "none" }}>
                                     ({rfqProductsFromStore.length}{" "}
-                                    {`item${
-                                      rfqProductsFromStore.length > 1 ? "s" : ""
-                                    }`}
+                                    {`item${rfqProductsFromStore.length > 1 ? "s" : ""
+                                      }`}
                                     )
                                   </small>
                                 )}
@@ -996,10 +1034,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 type={"vendors"}
                                 key={`product-item-${item.id}`}
                                 data={item}
+                                vendorMetaData={vendorMetaData}
+                                setOpenAuthModal={setOpenAuthModal}
                               />
                             );
                           })}
                       </div>
+
+                      {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
+                        <div className="container text-center my-4 ">
+                          {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
+                          <button
+                            type="button"
+                            className="btn btn-primary w-50"
+                            onClick={handleRedirect}
+                          >
+                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 && vendorMetaData?.total} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 && vendorMetaData?.total} more Vendors`}
+                          </button>
+                        </div>
+                      }
                     </div>
                   </div>
                 )}
@@ -1015,6 +1068,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             </div>
           </div>
         </div>
+
+        {/* ------------- Auth Modal ------------- */}
+        <AuthModal
+          showModal={openAuthModal}
+          closeModal={() => {
+            setOpenAuthModal(false);
+          }}
+          activeTab={activeAuthTab}
+          setActiveTab={handleChange(setActiveAuthTab)}
+          setIsLoggedIn={setIsLoggedIn}
+          loading={loading}
+          setOpenAuthModal={setOpenAuthModal}
+        />
+        <LoginWithOtherDeviceModal
+          show={showModal}
+          onHide={handleClose}
+          loginWith={loginWith}
+        />
+
       </section>
     </>
   );

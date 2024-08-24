@@ -69,10 +69,10 @@ export const getRFQS = (payload) => {
     }
   });
 };
-export const getRFQById = (id) => {
+export const getRFQById = (id,token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/getRfqById/${id}`);
+      let response = await axiosInstance.get(`/rfq/getRfqById/${id}${token !== undefined ? `?token=${token}` : ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -113,10 +113,10 @@ export const getVendorRfqList = (payload) => {
   });
 };
 
-export const sendQuotation = (payload) => {
+export const sendQuotation = (payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/quote/create`,payload);
+      let response = await axiosInstance.post(`/rfq/quote/create${token !== undefined ? `?token=${token}` : ''}`,payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });

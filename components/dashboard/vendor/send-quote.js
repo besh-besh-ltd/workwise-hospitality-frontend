@@ -11,7 +11,7 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 
 const SendQuotePageComp = () => {
   const router = useRouter();
-  const { id } = router.query;
+  const { id, token } = router.query;
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
@@ -21,12 +21,8 @@ const SendQuotePageComp = () => {
   const [globalFreight, setglobalFreight] = useState(3);
   const [globalPackaging, setglobalPackaging] = useState(4);
   const [globalTax, setglobalTax] = useState(18);
-  const [globalPaymentTerms, setglobalPaymentTerms] = useState(
-    "100% Against Proforma Invoice"
-  );
-  const [globalComment, setglobalComment] = useState(
-    "Placeholder text for global comment"
-  );
+  const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
+  const [globalComment, setglobalComment] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -36,7 +32,7 @@ const SendQuotePageComp = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id)
+    getRFQById(id, token)
       .then((res) => {
         setloading(false);
         if (res.data.products.length > 0) {
@@ -45,6 +41,7 @@ const SendQuotePageComp = () => {
             bidProducts.push({
               id: item.id,
               product_id: item.product_id,
+              variant: item.variant,
               quantity: item?.product_specs[2]?.value,
               product_name: item.product_details
                 ? item.product_details[0].name
@@ -72,13 +69,14 @@ const SendQuotePageComp = () => {
     item_id,
     e,
     product_id,
+    variant,
     type,
     valueType = "integer",
     total_qty
   ) => {
     let value = e.target.value;
     let d = quoteProducts.map((item) => {
-      if (item.id == item_id && item.product_id == product_id) {
+      if (item.id == item_id && item.product_id == product_id && item.variant == variant) {
         if (valueType == "integer") {
           item[type] = parseFloat(value);
         } else {
@@ -154,10 +152,10 @@ const SendQuotePageComp = () => {
     };
 
     setsubmitLoading(true);
-    sendQuotation(payload)
+    sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}`);
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
       })
       .catch((err) => {
         setsubmitLoading(false);
@@ -192,17 +190,6 @@ const SendQuotePageComp = () => {
       }
     });
 
-    // filteredquoteProducts.map((item) => {
-    //   if (item.total_price <= 0) {
-    //     isEmpty = true;
-    //   }
-    // });
-    // if (isEmpty) {
-    //   toast.error("One or more product's total amount is 0");
-    //   return;
-    // }
-
-    // setsubmitLoading(true);
     let payload = {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
@@ -213,19 +200,19 @@ const SendQuotePageComp = () => {
       globalPaymentTerms,
       globalComment,
     };
-    sendQuotation(payload)
+    sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}`);
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
       })
       .catch((err) => {
         setsubmitLoading(false);
       });
   };
 
-  const getValue = (pid) => {
-    let item = quoteProducts.filter((i) => i.product_id == pid);
-    return item[0];
+  const getValue = (rfq_pid) => {
+    let itemRow = quoteProducts.filter((item) => item.id == rfq_pid);
+    return itemRow[0];
   };
 
   useEffect(() => {
@@ -308,7 +295,6 @@ const SendQuotePageComp = () => {
                       <thead>
                         <tr>
                           <th>Sl No.</th>
-                          <th>HSN Code</th>
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
@@ -503,6 +489,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               value={globalFreight}
                               onChange={(e) => setglobalFreight(e.target.value)}
+                              onWheel={(e) => e.target.blur()}
                             />
                           </div>
                           <div className="inputBox form-group col-4">
@@ -511,9 +498,8 @@ const SendQuotePageComp = () => {
                               type="number"
                               className="form-control"
                               value={globalPackaging}
-                              onChange={(e) =>
-                                setglobalPackaging(e.target.value)
-                              }
+                              onChange={(e) => setglobalPackaging(e.target.value)}
+                              onWheel={(e) => e.target.blur()}
                             />
                           </div>
                           <div className="inputBox form-group col-4">
@@ -523,6 +509,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               value={globalTax}
                               onChange={(e) => setglobalTax(e.target.value)}
+                              onWheel={(e) => e.target.blur()}
                             />
                           </div>
                         </div>
@@ -533,6 +520,7 @@ const SendQuotePageComp = () => {
                               type="text"
                               className="form-control"
                               value={globalPaymentTerms}
+                              placeholder="100% Against Proforma Invoice"
                               onChange={(e) =>
                                 setglobalPaymentTerms(e.target.value)
                               }
@@ -544,6 +532,7 @@ const SendQuotePageComp = () => {
                               type="text"
                               className="form-control"
                               value={globalComment}
+                              placeholder="Placeholder text for global comment"
                               onChange={(e) => setglobalComment(e.target.value)}
                             />
                           </div>
@@ -556,7 +545,6 @@ const SendQuotePageComp = () => {
                       <thead>
                         <tr>
                           <th>Sl No.</th>
-                          <th>HSN Code</th>
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
@@ -583,9 +571,8 @@ const SendQuotePageComp = () => {
                           rfqDetails.products.map((item, index) => {
                             if (isAvailableForQuote(item)) {
                               return (
-                                <tr key={`q_${index}`}>
+                                <tr key={`q_${item.id}_${item.product_id}_${item.variant}`}>
                                   <td>{index + 1}</td>
-                                  <td>HSN Code</td>
                                   <td>
                                     {item?.product_details[0]?.name}-
                                     {item?.product_specs[0]?.value}
@@ -610,18 +597,20 @@ const SendQuotePageComp = () => {
                                           item.id,
                                           e,
                                           item.product_id,
+                                          item.variant,
                                           "unit_price",
                                           "",
                                           item?.product_specs[2]?.value
                                         )
                                       }
+                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
 
                                   <td>                                   
                                     <input
                                       value={
-                                        getValue(item.product_id).freight_price
+                                        getValue(item.id).freight_price
                                       }
                                       type="number"
                                       min={0}
@@ -633,18 +622,20 @@ const SendQuotePageComp = () => {
                                           item.id,
                                           e,
                                           item.product_id,
+                                          item.variant,
                                           "freight_price",
                                           "",
                                           item?.product_specs[2]?.value
                                         )
                                       }
+                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
 
                                   <td>
                                     <input
                                       value={
-                                        getValue(item.product_id).package_price
+                                        getValue(item.id).package_price
                                       }
                                       type="number"
                                       name=""
@@ -655,17 +646,19 @@ const SendQuotePageComp = () => {
                                           item.id,
                                           e,
                                           item.product_id,
+                                          item.variant,
                                           "package_price",
                                           "",
                                           item?.product_specs[2]?.value
                                         )
                                       }
+                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
 
                                   <td>
                                     <input
-                                      value={getValue(item.product_id).tax}
+                                      value={getValue(item.id).tax}
                                       type="number"
                                       name=""
                                       id=""
@@ -675,11 +668,13 @@ const SendQuotePageComp = () => {
                                           item.id,
                                           e,
                                           item.product_id,
+                                          item.variant,
                                           "tax",
                                           "",
                                           item?.product_specs[2]?.value
                                         )
                                       }
+                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
 
@@ -696,11 +691,13 @@ const SendQuotePageComp = () => {
                                           item.id,
                                           e,
                                           item.product_id,
+                                          item.variant,
                                           "total_price",
                                           "",
                                           item?.product_specs[2]?.value
                                         )
                                       }
+                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
                                   <td>
@@ -716,6 +713,7 @@ const SendQuotePageComp = () => {
                                               item.id,
                                               e,
                                               item.product_id,
+                                              item.variant,
                                               "comment",
                                               "string",
                                               item?.product_specs[2]?.value
@@ -742,11 +740,13 @@ const SendQuotePageComp = () => {
                                           item.id,
                                           e,
                                           item.product_id,
+                                          item.variant,
                                           "delivery_period",
                                           "string",
                                           item?.product_specs[2]?.value
                                         )
                                       }
+                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
                                 </tr>

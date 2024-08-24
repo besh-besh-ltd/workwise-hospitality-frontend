@@ -58,6 +58,7 @@ const CreateRFQ = () => {
     getVendorApproveList();
     getAllStates();
   }, []);
+
   const getAllStates = () => {
     getStates().then((res) => {
       let d = [];
@@ -69,7 +70,7 @@ const CreateRFQ = () => {
   };
 
   const setRFQProductsFromStore = () => {
-    console.log(rfqProductsFromStore);
+    // console.log(rfqProductsFromStore);
     let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
     setRfqProducts(fp);
   };
@@ -197,21 +198,22 @@ const CreateRFQ = () => {
                 <thead>
                   <tr>
                     <th>Name of product</th>
-                    <th>Size specifications & Quantity</th>
+                    <th>Size & specifications</th>
+                    <th>Quantity</th>
                     {/* <th>Select Datasheet</th> */}
                     <th className="w200">TDS</th>
-                    <th className="w200">QAP</th>
-                    <th>Comments</th>
+                    <th className="w200">Quality Assurance Plan(QAP)</th>
+                    <th>Product Comments</th>
                     <th>Selected vendors</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rfqProducts &&
-                    rfqProducts.map((product, index) => {
+                    rfqProducts.map((product) => {
                       return (
                         <Item
-                          key={`rfqpp_${index}`}
+                          key={`rfqpp_${product?.product_id}_${product?.variant}`}
                           vendorApprovedList={vendorApprovedList}
                           handleProductSpec={handleProductSpec}
                           data={product}
@@ -293,6 +295,7 @@ const CreateRFQ = () => {
                       <Form className="add-your-term-form">
                         <FormikField
                           label="Add your own Terms"
+                          placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
                           type="textarea"
                           rows="5"
                           isRequired={true}
