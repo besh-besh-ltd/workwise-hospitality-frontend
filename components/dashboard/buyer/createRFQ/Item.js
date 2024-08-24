@@ -462,9 +462,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
         <td>
           <span>
             <Link
-              href={`rfq-management-vendor?vendors=${selectedVendors
-                .map((approved) => approved.user_id)
-                .join(",")}&productid=${data.product_id}`}
+              href={`rfq-management-vendor?vendors=${selectedVendors.map((approved) => approved.user_id).join(",")}&productid=${data.product_id}&variant=${data.variant}`}
               className="page-link"
             >
               View selected vendors ({selectedVendors.length})

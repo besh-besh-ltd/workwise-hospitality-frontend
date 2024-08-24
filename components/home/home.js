@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Slider from "react-slick";
@@ -60,6 +60,7 @@ export default function Homepage() {
   const LINKEDIN_CALLBACK_URL = "http://localhost:8111";
   const router = useRouter();
   const { code } = router.query;
+  const pageRef = useRef(1);
 
   useEffect(() => {
     if (code) {
@@ -288,7 +289,7 @@ export default function Homepage() {
   };
 
   const getMedioVideo = () => {
-    getHomeMediaVideo(1)
+    getHomeMediaVideo(pageRef.current)
       .then((response) => {
         setVideo(response.data);
       })
@@ -311,19 +312,10 @@ export default function Homepage() {
       })
       .catch((error) => {
         console.log("")
-        // if (error.message.response?.status === 400) {
-        //   toast.error(error.message.response.data.message, {
-        //     position: "top-center",
-        //   });
-        // } else {
-        //   toast.error(error.message.message, {
-        //     position: "top-center",
-        //   });
-        // }
       });
   };
   const getTestimonialsList = () => {
-    getTestimonials(1)
+    getTestimonials(pageRef.current)
       .then((response) => {
         setTestimonials(response.data);
       })

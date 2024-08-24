@@ -82,13 +82,15 @@ export const rfqProductsSlice = createSlice({
       console.log(state.rfqProducts);
 
       let remainingProducts = state.rfqProducts.filter((pitem) => {
-        if ( pitem.product_id != action.payload.product_id &&
-          pitem.variant != action.payload.variant ) 
-        {
-          return pitem
+        if (
+          pitem.product_id == action.payload.product_id &&
+          pitem.variant == action.payload.variant
+        ) {
+
+        } else {
+          return pitem;
         }
       });
-
       state.rfqProducts = remainingProducts;
     },
 
@@ -184,11 +186,12 @@ export const rfqProductsSlice = createSlice({
     },
     removeVendor: (state, action) => {
       if (action?.payload?.product_id) {
+        
         let updatedProducts = state.rfqProducts.map((product) => {
-          let v = product.vendors.filter(
-            (vendor) => vendor.user_id != action.payload.vendor_id
-          );
-          product.vendors = v;
+          if(product.product_id == action.payload.product_id && product.variant == action.payload.variant) {
+            let v = product.vendors.filter((vendor) => vendor.user_id != action.payload.vendor_id);
+            product.vendors = v;
+          }          
           return product;
         });
         state.rfqProducts = updatedProducts;

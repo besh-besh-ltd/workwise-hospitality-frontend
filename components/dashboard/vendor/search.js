@@ -79,6 +79,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
+  const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [showModal, setShowModal] = useState(false);
   const [loginWith, setLoginWith] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -88,10 +89,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setLoginWith("");
   };
 
+  // Set State Change
+  const handleChange = (setState) => (event) => {
+    setState(event);
+  };
+
   const handleRedirect = (e) => {
-    if(!vendorMetaData?.logged_In) 
+    if (!vendorMetaData?.logged_In)
       setOpenAuthModal(true);
-    else if(!vendorMetaData?.subscription)
+    else if (!vendorMetaData?.subscription)
       router.push('dashboard/buyer/subscription');
   }
 
@@ -703,7 +709,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       </Link>
                     )}
                     <select
-                      onChange={(e) => handleStateChange(e)}
+                      onChange={(e) => {
+                        if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
+                          setOpenAuthModal(true)
+                        else
+                          handleStateChange(e)
+                      }}
                       value={selectedState}
                     >
                       <option value={0}>Select State</option>
@@ -749,11 +760,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           id="vab"
                           value={selectedVbaa}
                           onChange={(e) => {
-                            localStorage.setItem(
-                              "selected_vab",
-                              e.target.value
-                            );
-                            setselectedVbaa(e.target.value);
+                            if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
+                              setOpenAuthModal(true)
+                            else {
+                              localStorage.setItem(
+                                "selected_vab",
+                                e.target.value
+                              );
+                              setselectedVbaa(e.target.value);
+                            }
                           }}
                         >
                           <option value="">Select Vendor</option>
@@ -814,18 +829,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           value={levelZeroCat}
                           styles={customSelectStyles}
                           onChange={(e) => {
-                            setLevelZeroValue(e.value);
-                            setlevelOneCat([]);
-                            setlevelTwoCat([]);
-                            setlevelThreeCat([]);
-                            setlevelFourCat([]);
-                            setlevelFiveCat([]);
-                            setlevelSixCat([]);
-                            getChildCategories(e.value, "1");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
+                            if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
+                              setOpenAuthModal(true)
+                            else {
+                              setLevelZeroValue(e.value);
+                              setlevelOneCat([]);
+                              setlevelTwoCat([]);
+                              setlevelThreeCat([]);
+                              setlevelFourCat([]);
+                              setlevelFiveCat([]);
+                              setlevelSixCat([]);
+                              getChildCategories(e.value, "1");
+                              if (e && e.value) {
+                                setCat_id(e.value);
+                              } else {
+                                setCat_id("");
+                              }
                             }
                           }}
                         />
@@ -961,8 +980,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 <Link
                                   href="#"
                                   className={`btn btn-primary ${!userProfile.subscription_plan_id
-                                      ? `disabled`
-                                      : ``
+                                    ? `disabled`
+                                    : ``
                                     }`}
                                   onClick={handleBulkAddToRFQ}
                                 >
@@ -972,8 +991,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               <Link
                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
                                 className={`btn btn-primary ${!userProfile.subscription_plan_id
-                                    ? `disabled`
-                                    : ``
+                                  ? `disabled`
+                                  : ``
                                   }`}
                               >
                                 View All RFQs{" "}
@@ -1024,13 +1043,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                       {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
-                          <p>Total Vendors Found - {vendorMetaData?.total}</p>
-                          <button 
-                          type="button"
-                          className="btn btn-primary w-50"
-                          onClick={handleRedirect}
+                          {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
+                          <button
+                            type="button"
+                            className="btn btn-primary w-50"
+                            onClick={handleRedirect}
                           >
-                            {!vendorMetaData?.logged_In ? 'Register to view all vendors' : 'Please Buy Subscription to View All Vendors'}
+                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 && vendorMetaData?.total} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 && vendorMetaData?.total} more Vendors`}
                           </button>
                         </div>
                       }
@@ -1051,19 +1070,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         </div>
 
         {/* ------------- Auth Modal ------------- */}
-      <AuthModal
-        showModal={openAuthModal}
-        closeModal={() => {
-          setOpenAuthModal(false);
-        }}
-        loading={loading}
-        setOpenAuthModal={setOpenAuthModal}
-      />
-      <LoginWithOtherDeviceModal
-        show={showModal}
-        onHide={handleClose}
-        loginWith={loginWith}
-      />
+        <AuthModal
+          showModal={openAuthModal}
+          closeModal={() => {
+            setOpenAuthModal(false);
+          }}
+          activeTab={activeAuthTab}
+          setActiveTab={handleChange(setActiveAuthTab)}
+          setIsLoggedIn={setIsLoggedIn}
+          loading={loading}
+          setOpenAuthModal={setOpenAuthModal}
+        />
+        <LoginWithOtherDeviceModal
+          show={showModal}
+          onHide={handleClose}
+          loginWith={loginWith}
+        />
 
       </section>
     </>

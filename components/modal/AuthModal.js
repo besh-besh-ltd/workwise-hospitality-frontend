@@ -12,7 +12,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 const AuthModal = (props) => {
 	const router = useRouter();
 	const { type, user_registered, redirect } = router.query;
-	const [activeTab, setActiveTab] = useState('login')
+	// const [activeTab, setActiveTab] = useState('login')
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [loading, setloading] = useState(false)
@@ -48,17 +48,14 @@ const AuthModal = (props) => {
 				}
 				storageInstance.setStorage("current-user-type", userType);
 				storageInstance.setStorage("current-user-name", response.user_detail[0].name);
-
+				
 				props.setOpenAuthModal(false);
 				if (redirect && redirect != "") {
 					router.push(window.atob(redirect));
 					return;
 				} else {
-					if(urlRef.current.includes('/dashboard') || urlRef.current.includes('/products')) {
-						router.push(urlRef.current)
-						location.reload()
-					}
-					else if (userType == "buyer") {
+					props.setIsLoggedIn && props.setIsLoggedIn(true)
+					if (userType == "buyer") {
 						router.push(`/products`);
 					} else {
 						router.push(`/dashboard/${userType}`);
@@ -220,21 +217,21 @@ const AuthModal = (props) => {
 			<div className="modal-body" style={{}}>
 				<div className="tabs-container">
 					<button
-						onClick={() => setActiveTab("login")}
-						className={activeTab === "login" ? "active" : ""}
+						onClick={() => props.setActiveTab("login")}
+						className={props.activeTab === "login" ? "active" : ""}
 					>
 						Login
 					</button>
 					<button
-						onClick={() => setActiveTab("register")}
-						className={activeTab === "register" ? "active" : ""}
+						onClick={() => props.setActiveTab("register")}
+						className={props.activeTab === "register" ? "active" : ""}
 					>
 						Register
 					</button>
 				</div>
-				{activeTab === "login" ? (
+				{props.activeTab === "login" ? (
 					<Login
-						setActiveTab={setActiveTab}
+						setActiveTab={props.setActiveTab}
 						closeModal={props.closeModal}
 						setEmail={setEmail}
 						setPassword={setPassword}
