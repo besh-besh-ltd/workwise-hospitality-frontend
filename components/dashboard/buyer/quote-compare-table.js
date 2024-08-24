@@ -12,20 +12,30 @@ const QuoteCompareTable = ({
   quantity,
   handleFinalize,
   proditem,
+  alreadyFinalized
 }) => {
-  var alreadyFinalized = [];
+  // var alreadyFinalized = [];
 
-  useEffect(() => {}, []);
-  alreadyFinalized = quotations.filter((item) => item.finalization != null);
+  useEffect(() => {console.log(proditem) }, []);
+  // alreadyFinalized = proditem.quotations.filter((item) => item.finalization != null);
 
   const getLowestQuote = () => {
-    let fq = quotations.filter((item) => item?.quote_details?.is_regret == 0);
+    // let fq = quotations.filter((item) => item?.quote_details?.is_regret == 0);
+
+    const quoteWithLowestPrice = quotations?.reduce((lowest, quote) => {
+      return (lowest.total_price < quote.total_price) ? lowest : quote;
+    });
+
+    // console.log(fq)
+    // console.log(quoteWithLowestPrice)
+    const fq = [quoteWithLowestPrice];
     return fq.length > 0 ? fq : null;
+
   };
 
   return (
     <>
-      <div className="table-content">
+      <div className="table-content" key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}>
         <div className="table-elements">
           <div className="table-row">
             <div className="table-col">
@@ -125,7 +135,7 @@ const QuoteCompareTable = ({
         </div>
       </div>
       {/* Lowest bid area */}
-      {alreadyFinalized.length == 0 ? (
+      {alreadyFinalized?.length == 0 ? (
         <div className="quote-sec-bottom">
           {getLowestQuote() != null && (
             <div className="quote-sec-bottom-con">
@@ -176,7 +186,7 @@ const QuoteCompareTable = ({
             <span>
               <b>Finalized vendor</b> :{" "}
               {
-                alreadyFinalized[0].finalization?.winning_vendor
+                alreadyFinalized[0]?.finalization?.winning_vendor
                   ?.organization_name
               }
             </span>
@@ -184,7 +194,7 @@ const QuoteCompareTable = ({
               <Link
                 href={
                   "mailto:" +
-                  alreadyFinalized[0].finalization?.winning_vendor?.email
+                  alreadyFinalized[0]?.finalization?.winning_vendor?.email
                 }
               >
                 <FontAwesomeIcon icon={faEnvelope} />
@@ -195,7 +205,7 @@ const QuoteCompareTable = ({
               <Link
                 href={
                   "tel:+91" +
-                  alreadyFinalized[0].finalization?.winning_vendor?.mobile
+                  alreadyFinalized[0]?.finalization?.winning_vendor?.mobile
                 }
               >
                 <FontAwesomeIcon icon={faPhone} />

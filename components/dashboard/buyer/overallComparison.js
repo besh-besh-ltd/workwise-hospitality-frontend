@@ -212,7 +212,7 @@ const OverallComparison = ({ rfq_id }) => {
                   data.length > 0 &&
                   data.map((item, index) => {
                     return (
-                      <tr>
+                      <tr key={item.id}>
                         <td>{index + 1} </td>
                         <td>
                           {item.product_details.length > 0
@@ -221,6 +221,7 @@ const OverallComparison = ({ rfq_id }) => {
                         </td>
                         <td>
                           {item.quotations.length > 0
+                            && item.quotations[0].quote_details[0]?.rfq_details
                             ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
                             : "-"}
                         </td>

@@ -295,6 +295,7 @@ const CreateRFQ = () => {
                       <Form className="add-your-term-form">
                         <FormikField
                           label="Add your own Terms"
+                          placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
                           type="textarea"
                           rows="5"
                           isRequired={true}

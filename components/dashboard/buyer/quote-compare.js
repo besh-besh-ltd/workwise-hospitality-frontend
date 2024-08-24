@@ -974,7 +974,7 @@ const QuoteCompare = () => {
                                 </p>
                                 <p className="sub-heading mb-0">
                                   <b>Product Specification</b> :{" "}
-                                  {item?.product_details[0]?.rfq_details[1]?.value}
+                                  {item?.product_details[0]?.rfq_details && item?.product_details[0]?.rfq_details[1]?.value}
                                 </p>
                               </div>
                             </div>
@@ -999,9 +999,11 @@ const QuoteCompare = () => {
                                     handleFinalize={handleFinalize}
                                     quotations={item?.quotations}
                                     quantity={
-                                      item?.product_details[0]?.rfq_details[2]
-                                        ?.value
+                                      item?.product_details[0]?.rfq_details
+                                      ? item?.product_details[0]?.rfq_details[2]?.value
+                                      : "-"
                                     }
+                                    alreadyFinalized={item?.quotations?.filter((item)=> item.finalization != null)}                                    
                                   />
                                 </>
                               )}

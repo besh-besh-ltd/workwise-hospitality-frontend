@@ -86,6 +86,7 @@ const RfqManagementPreview = () => {
         bidProducts.push({
           id: item.id,
           product_id: item.product_id,
+          variant: item.variant,
           quantity: item?.product_specs[2]?.value,
           product_name: item.product_details
             ? item.product_details[0].name
