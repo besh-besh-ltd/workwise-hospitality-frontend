@@ -20,17 +20,17 @@ import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import { useGoogleLogin } from "@react-oauth/google";
 
-const mainNavs = [
+const initialMainNavs = [
   "/",
   "/aboutus",
   "/contactus",
   "/for-vendors",
   // "/for-buyers",
-  //"/products",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
   "/terms-of-use",
+  "/products",
 ];
 
 const Header = () => {
@@ -50,6 +50,7 @@ const Header = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginWith, setLoginWith] = useState("");
+  const [mainNavs, setMainNavs] = useState(initialMainNavs);
 
   const handleClose = () => {
     setShowModal(false);
@@ -117,7 +118,19 @@ const Header = () => {
       handleChange(setActiveAuthTab("login"));
       handleChange(setOpenAuthModal(true));
     }
+
+    if (localStorage.getItem('token')) {
+      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
+      setMainNavs(revisedNavs);
+    }
+    else if (pathname === '/products') {
+      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
+      revisedNavs.push('/products');
+      setMainNavs(revisedNavs)
+    }
+
   }, [router]);
+
 
   const handleLogout = (e) => {
     e.preventDefault();
@@ -336,7 +349,7 @@ const Header = () => {
                         }
                       >
                         <Link href="/for-buyers">For Buyers</Link>
-                      </li> */}                      
+                      </li> */}
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""
@@ -991,8 +1004,8 @@ const Header = () => {
         closeModal={() => {
           handleChange(setOpenAuthModal(false));
         }}
-        // activeTab={activeAuthTab}
-        // setActiveTab={handleChange(setActiveAuthTab)}
+        activeTab={activeAuthTab}
+        setActiveTab={handleChange(setActiveAuthTab)}
         // setEmail={setEmail}
         // setPassword={setPassword}
         loading={loading}

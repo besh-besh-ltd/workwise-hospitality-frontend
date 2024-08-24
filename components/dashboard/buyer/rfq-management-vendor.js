@@ -17,7 +17,7 @@ import { ToastContainer, toast } from "react-toastify";
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { vendors, productid } = router.query;
+  const { vendors, productid, variant } = router.query;
   const [loading, setloading] = useState(false);
   const [vendorsList, setvendors] = useState([]);
 
@@ -49,6 +49,7 @@ const RfqManagementVendorPage = () => {
       removeVendor({
         vendor_id: item.id,
         product_id: productid,
+        variant
       })
     );
     toast.success("Vendor removed from this product!");

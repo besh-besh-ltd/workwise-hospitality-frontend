@@ -148,8 +148,15 @@ const SearchItem = ({
                     )}
                     <p>
                       <Link
-                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                        href="#"
                         className="btn btn-primary"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!vendorMetaData.logged_In)
+                            setOpenAuthModal(true);
+                          else
+                            router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
+                        }}
                       >
                         Show Contact Info
                       </Link>
@@ -221,14 +228,21 @@ const SearchItem = ({
             {!selectedProduct && (
               <div className="col-md-2">
                 <Link
-                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                  href="#"
                   className="btn btn-primary custom_primary_btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!vendorMetaData.logged_In)
+                      setOpenAuthModal(true);
+                    else
+                      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
+                  }}
                 >
                   View Details
                 </Link>
                 <Link
                   href="#"
-                  className={`btn btn-primary custom_primary_btn has_primary-bg `}
+                  className="btn btn-primary custom_primary_btn has_primary-bg"
                   onClick={(e) => {
                     e.preventDefault();
                     if (!vendorMetaData.logged_In)
