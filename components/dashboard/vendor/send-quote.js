@@ -578,7 +578,7 @@ const SendQuotePageComp = () => {
                                   <td>{index + 1}</td>
                                   <td className="w-350">
                                     <p className="mb-1">{item?.product_details[0]?.name} - {item?.product_specs[0]?.value}</p>
-                                    <p className="mb-1 text-sm">{item?.product_specs[1]?.value}</p>
+                                    <p className="mb-1 text-sm truncate-2-lines">{item?.product_specs[1]?.value}</p>
                                   </td>
                                   <td>
                                     {item?.product_specs[2]?.value}

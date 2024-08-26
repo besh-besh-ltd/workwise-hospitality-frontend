@@ -427,11 +427,11 @@ const RfqManagementPreview = () => {
             <div className="container-fluid">
               {!enableBuyerView && (
                 <Link
-                  href="/dashboard/vendor/inquiries-received"
+                  href={localStorage.getItem('token') ? "/dashboard/vendor/inquiries-received" : "/"}
                   className="page-link backBtn"
                 >
                   {" "}
-                  <FontAwesomeIcon icon={faArrowLeft} /> Go back
+                  <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
                 </Link>
               )}
               {enableBuyerView && (
@@ -460,7 +460,7 @@ const RfqManagementPreview = () => {
                               <th>Size specifications & Quantity</th>
                               <th>TDS</th>
                               <th>QAP</th>
-                              <th>Comments</th>
+                              <th >Comments</th>
                               {/* <th>Selected vendors</th> */}
                             </tr>
                           </thead>
@@ -472,7 +472,7 @@ const RfqManagementPreview = () => {
                                   <td>{item?.product_details[0]?.name}</td>
                                   <td>
                                     <div className="size-specification ">
-                                      <div className="row">
+                                      {/* <div className="row g-2">
                                         <div className="col-12">
                                           <input
                                             className="full"
@@ -532,11 +532,10 @@ const RfqManagementPreview = () => {
                                             disabled
                                           />
                                         </div>
-                                      </div>
+                                      </div> */}
 
-                                      {/* {item?.product_specs.map(
+                                      {item?.product_specs.map(
                                         (spec_item, index) => {
-                                          if (index != 1) {
                                             return (
                                               <input
                                                 key={`rfq_d_spec_itm_${index}`}
@@ -553,9 +552,8 @@ const RfqManagementPreview = () => {
                                                 disabled
                                               />
                                             );
-                                          }
                                         }
-                                      )} */}
+                                      )}
 
                                       {item?.spec_file &&
                                         item?.spec_file != "" && (
