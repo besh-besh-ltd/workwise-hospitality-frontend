@@ -34,7 +34,7 @@ const RfqManagementPreview = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id,token)
+    getRFQById(id, token)
 
       .then((res) => {
         setloading(false);
@@ -120,14 +120,14 @@ const RfqManagementPreview = () => {
     sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`); 
-        Router.reload();       
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
+        Router.reload();
       })
       .catch((err) => {
         setsubmitLoading(false);
       })
-      .finally(()=> setregretModal(false));
-    }
+      .finally(() => setregretModal(false));
+  }
 
   return (
     <>
@@ -466,15 +466,77 @@ const RfqManagementPreview = () => {
                           </thead>
                           <tbody>
                             {rfqDetails?.products?.map((item, index) => {
-
+                              console.log(item)
                               return (
-                                <tr key={`${item.product_id}`}>
+                                <tr key={`${item?.id}_${item?.product_id}_${item?.variant}`}>
                                   <td>{item?.product_details[0]?.name}</td>
                                   <td>
                                     <div className="size-specification ">
-                                      {item?.product_specs.map(
-                                        (spec_item, index) => {
+                                      <div className="row">
+                                        <div className="col-12">
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[1]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[1]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[1]?.title.toLowerCase()}
+                                            value={item?.product_specs[1]?.value}
+                                            disabled
+                                          />
+                                        </div>
 
+                                        <div className="col-6">
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[0]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[0]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[0]?.title.toLowerCase()}
+                                            value={item?.product_specs[0]?.value}
+                                            disabled
+                                          />
+                                        </div>
+                                        <div className="col-6">
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[2]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[2]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[2]?.title.toLowerCase()}
+                                            value={item?.product_specs[2]?.value}
+                                            disabled
+                                          />
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[3]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[3]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[3]?.title.toLowerCase()}
+                                            value={item?.product_specs[3]?.value}
+                                            disabled
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* {item?.product_specs.map(
+                                        (spec_item, index) => {
+                                          if (index != 1) {
                                             return (
                                               <input
                                                 key={`rfq_d_spec_itm_${index}`}
@@ -491,8 +553,9 @@ const RfqManagementPreview = () => {
                                                 disabled
                                               />
                                             );
+                                          }
                                         }
-                                      )}
+                                      )} */}
 
                                       {item?.spec_file &&
                                         item?.spec_file != "" && (
@@ -1070,10 +1133,10 @@ const RfqManagementPreview = () => {
                                         }}
                                       >
                                         Regret Quote
-                                      </button>                                      
+                                      </button>
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
-                                    <Link
+                                      <Link
                                         href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}
                                       >
                                         <button
