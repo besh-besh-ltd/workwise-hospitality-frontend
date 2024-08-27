@@ -30,7 +30,6 @@ export const rfqProductsSlice = createSlice({
   initialState,
   reducers: {
     addRfqProduct: (state, action) => {
-      console.log("PAYLOAD RFQ ADD", action.payload)
       let alreadyExistsProduct = state.rfqProducts.filter(
         (item) => item.product_id == action.payload.product_id
       );
