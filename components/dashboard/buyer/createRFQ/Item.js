@@ -280,9 +280,11 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               class="form-control me-0"
               aria-label="Quantity input with dropdown button"
             />
-            <input type="text" name="Unit"
-              id={`spec_${data.product_id}_${data.variant}_unit`}
+            <input type="text" 
+              value={unit}
               onChange={(e) => handleSpecValue("unit", e.target.value)}
+              name="Unit"
+              id={`spec_${data.product_id}_${data.variant}_unit`}
               placeholder="Unit"
               class="form-control me-0"
               aria-label="Unit Details"

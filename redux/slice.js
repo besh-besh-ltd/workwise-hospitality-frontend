@@ -30,9 +30,6 @@ export const rfqProductsSlice = createSlice({
   initialState,
   reducers: {
     addRfqProduct: (state, action) => {
-      let alreadyExistsProduct = state.rfqProducts.filter(
-        (item) => item.product_id == action.payload.product_id
-      );
       let data = {
         product_id: action.payload.product_id,
         predefined_tds_file: action.payload.pd_tds_file_url ? action.payload.pd_tds_file_url : "",
@@ -68,13 +65,34 @@ export const rfqProductsSlice = createSlice({
         user_selected_predefined_tds: false,
         user_selected_predefined_qap: false,
       };
-      if (true) {
-        // removing condition for varient integration [ranit 27-05-24] alreadyExistsProduct.length <= 0
-        data.variant = alreadyExistsProduct.length;
-        data.vendors = action.payload?.vendors?.length > 0 ? action.payload?.vendors : [];
-        state.rfqProducts.push(data)
-        // state.rfqProducts.push(data);
+
+      // Changes made by Imtiaj [28/08/2024]
+      let alreadyExistsProducts = state.rfqProducts.filter(
+        (item) => item.product_id == action.payload.product_id
+      );
+
+      let maxVariant = 0;
+      if (alreadyExistsProducts.length > 0) {
+        const maxVariantProduct = alreadyExistsProducts.reduce((max, product) => {
+          return (product.variant > max.variant) ? product : max;
+        })
+        maxVariant = parseInt(maxVariantProduct?.variant) + 1;
       }
+
+      data.variant = maxVariant;
+      data.vendors = action.payload?.vendors?.length > 0 ? action.payload?.vendors : [];
+      state.rfqProducts.push(data)
+
+      // if (true) {
+      //   // removing condition for varient integration [ranit 27-05-24] alreadyExistsProduct.length <= 0        
+      //   const maxVariantProduct = alreadyExistsProducts.reduce((max, product)=> {
+      //     return (product.variant > max.variant) ? product : max;
+      //   })
+
+      //   data.variant = maxVariantProduct.variant + 1;
+      //   data.vendors = action.payload?.vendors?.length > 0 ? action.payload?.vendors : [];
+      //   state.rfqProducts.push(data)
+      // }
     },
 
     removeRfqProduct: (state, action) => {
@@ -185,12 +203,12 @@ export const rfqProductsSlice = createSlice({
     },
     removeVendor: (state, action) => {
       if (action?.payload?.product_id) {
-        
+
         let updatedProducts = state.rfqProducts.map((product) => {
-          if(product.product_id == action.payload.product_id && product.variant == action.payload.variant) {
+          if (product.product_id == action.payload.product_id && product.variant == action.payload.variant) {
             let v = product.vendors.filter((vendor) => vendor.user_id != action.payload.vendor_id);
             product.vendors = v;
-          }          
+          }
           return product;
         });
         state.rfqProducts = updatedProducts;

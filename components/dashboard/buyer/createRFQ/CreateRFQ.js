@@ -97,7 +97,10 @@ const CreateRFQ = () => {
     getTerms()
       .then((res) => {
         setTerms(res.data);
-        setSelectedTerms(res.data);
+        const terms = res.data?.map((item)=> {
+          return {id: item.id};
+        })
+        setSelectedTerms(terms);
         dispatch(setAllTerms(res.data));
       })
       .catch((err) => {
@@ -127,7 +130,7 @@ const CreateRFQ = () => {
             <b>RFQ #{res.data.rfq_no}:</b> Successfully created!
           </h6>,
           {
-            position: "bottom-right",
+            position: "top-right",
           }
         );
         resetForm();
