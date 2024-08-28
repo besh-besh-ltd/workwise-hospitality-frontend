@@ -192,6 +192,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleBulkAddToRFQ = (e) => {
     e.preventDefault();
+    dispatch(addRfqProduct(currentSelectedProduct));
+
     if (bulkRFQProducts.length > 0) {
       bulkRFQProducts.map((item) => {
         dispatch(
@@ -227,7 +229,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       "vendors"
     )
       .then((rsp) => {
-        console.log(rsp)
+
         setloading(false);
         let d = rsp.data.map((item) => {
           item.selected = false;
@@ -327,9 +329,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setSearch_key(item.product_name);
     //dispatch(removeRfqProduct(currentSelectedProduct));
     setcurrentSelectedProduct(null);
-
     setcurrentSelectedProduct(item);
-    dispatch(addRfqProduct(item));
   };
 
   const getChildCategories = (id, level) => {
@@ -397,7 +397,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   return (
     <>
-      <ToastContainer />
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
@@ -672,7 +671,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
-          {currentSelectedProduct && (
+          {/* {currentSelectedProduct && (
             <div className=" col-md-12">
               <div className="search-sec-3-mdl">
                 <div className="search-sec-3-mdl-con ">
@@ -688,7 +687,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">

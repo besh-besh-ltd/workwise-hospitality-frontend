@@ -11,6 +11,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
+import ReadMore from "@/components/shared/ReadMore";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -466,7 +467,6 @@ const RfqManagementPreview = () => {
                           </thead>
                           <tbody>
                             {rfqDetails?.products?.map((item, index) => {
-                              console.log(item)
                               return (
                                 <tr key={`${item?.id}_${item?.product_id}_${item?.variant}`}>
                                   <td>{item?.product_details[0]?.name}</td>
@@ -771,9 +771,11 @@ const RfqManagementPreview = () => {
                                         )}
                                     </div>
                                   </td>
-                                  <td>
+                                  <td style={{maxWidth: "400px"}}>
                                     {item?.comment && item?.comment != ""
-                                      ? item.comment
+                                      ? item?.comment?.length > 100 
+                                      ? <ReadMore content={item.comment} maxLength={100} textSmall={true} />
+                                      : item.comment
                                       : "N/A"}
                                   </td>
                                   {/* <td>

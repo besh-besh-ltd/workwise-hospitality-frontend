@@ -92,7 +92,6 @@ const RFQItem = ({ data }) => {
           </span>
         </td>
       </tr>
-      <ToastContainer />
     </>
   );
 };

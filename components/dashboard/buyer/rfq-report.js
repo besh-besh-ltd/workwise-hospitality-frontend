@@ -312,7 +312,6 @@ const ProductManagement = () => {
           </div>
         </div>
       </section>
-      <ToastContainer />
     </>
   );
 };

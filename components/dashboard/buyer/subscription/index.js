@@ -299,7 +299,6 @@ const Subscription = () => {
         handleCpuponCode={handleCpuponCode}
         couponCode={couponCode}
       />
-      <ToastContainer />
     </>
   );
 };

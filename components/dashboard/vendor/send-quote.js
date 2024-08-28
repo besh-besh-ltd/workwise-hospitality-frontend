@@ -8,6 +8,7 @@ import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast, ToastContainer } from "react-toastify";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
+import ReadMore from "@/components/shared/ReadMore";
 
 const SendQuotePageComp = () => {
   const router = useRouter();
@@ -577,8 +578,11 @@ const SendQuotePageComp = () => {
                                 <tr key={`q_${item.id}_${item.product_id}_${item.variant}`}>
                                   <td>{index + 1}</td>
                                   <td className="w-350">
-                                    <p className="mb-1">{item?.product_details[0]?.name} - {item?.product_specs[0]?.value}</p>
-                                    <p className="mb-1 text-sm truncate-2-lines">{item?.product_specs[1]?.value}</p>
+                                    <p className="mb-1"><strong>{item?.product_details[0]?.name}</strong> - {item?.product_specs[0]?.value}</p>
+                                    {item?.product_specs[1]?.value?.length > 70
+                                      ? <ReadMore content={item?.product_specs[1]?.value} maxLength={70} textSmall={true} />
+                                      : <p className="mb-1 text-sm">{item?.product_specs[1]?.value}</p>
+                                    }
                                   </td>
                                   <td>
                                     {item?.product_specs[2]?.value}
@@ -609,7 +613,7 @@ const SendQuotePageComp = () => {
                                     />
                                   </td>
 
-                                  <td>                                   
+                                  <td>
                                     <input
                                       value={
                                         getValue(item.id).freight_price
@@ -787,7 +791,6 @@ const SendQuotePageComp = () => {
               </div>
             </div>
           </div>
-          <ToastContainer />
         </section>
       )}
       <RegretQuoteReasonModal

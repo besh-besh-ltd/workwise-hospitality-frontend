@@ -370,7 +370,6 @@ const EditProductReview = () => {
   }, [id]);
   return (
     <>
-      <ToastContainer />
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
           <h1 className="heading">Product Management</h1>
