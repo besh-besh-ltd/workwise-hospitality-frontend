@@ -31,6 +31,7 @@ const initialMainNavs = [
   "/privacypolicy",
   "/terms-of-use",
   "/products",
+  "/dashboard/vendor/inquiries-details"
 ];
 
 const Header = () => {
@@ -44,7 +45,7 @@ const Header = () => {
   const [popoverVisible, setPopoverVisible] = useState(false);
   const popoverRef = useRef(null);
   const [loggedinUser, setLoggedinUser] = useState(null);
-  const [currentUserType, setcurrentUserType] = useState("buyer");
+  const [currentUserType, setcurrentUserType] = useState("vendor");
   const [loading, setloading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [email, setEmail] = useState("");
@@ -120,13 +121,23 @@ const Header = () => {
     }
 
     if (localStorage.getItem('token')) {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
+      let revisedNavs = mainNavs.filter((navItem) => {
+        if(navItem == "/products" || navItem == "/dashboard/vendor/inquiries-details") {}
+        else return navItem;
+      })
       setMainNavs(revisedNavs);
     }
-    else if (pathname === '/products') {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
-      revisedNavs.push('/products');
-      setMainNavs(revisedNavs)
+    else {
+      if (pathname === '/products') {
+        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
+        revisedNavs.push('/products');
+        setMainNavs(revisedNavs)
+      } 
+      else if (pathname.includes("/dashboard/vendor/inquiries-details")) {
+        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
+        revisedNavs.push("/dashboard/vendor/inquiries-details");
+        setMainNavs(revisedNavs)
+      }
     }
 
   }, [router]);

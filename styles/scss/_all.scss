@@ -5396,18 +5396,44 @@ textarea {
             border-collapse: separate;
             border-spacing: 1px;
 
-            thead {
-              tr {
-                th {
-                  padding: 15px;
-                  background-color: #263843;
-                  color: var(--white-color);
-                  font-weight: 500;
-                  font-size: 14px;
-                  border-right: 1px solid #a5a5a5;
-                  text-transform: capitalize;
-                }
-              }
+            // thead {
+            //   tr {
+            //     th {
+            //       padding: 15px;
+            //       background-color: #263843;
+            //       color: var(--white-color);
+            //       font-weight: 500;
+            //       font-size: 14px;
+            //       border-right: 1px solid #a5a5a5;
+            //       text-transform: capitalize;
+            //     }                
+            //   }
+
+            //   tr > th:first-child {
+            //     border-radius: 20px 0px 0px 0px;
+            //   }
+
+            //   tr > th:last-child {
+            //     border-radius: 0px 20px 0px 0px;
+            //   }
+            // }
+
+            thead th {
+              padding: 15px;
+              background-color: #263843;
+              color: var(--white-color);
+              font-weight: 500;
+              font-size: 14px;
+              border-right: 1px solid #a5a5a5;
+              text-transform: capitalize;
+            }
+
+            thead th:first-child {
+              border-radius: 20px 0 0 0;
+            }
+
+            thead th:last-child {
+              border-radius: 0 20px 0 0;
             }
 
             tbody {
@@ -6237,15 +6263,6 @@ textarea {
 
         p {
           margin: 20px;
-        }
-
-        .truncate-2-lines {
-          display: -webkit-box;
-          max-height: 50px;
-          overflow: hidden;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          text-overflow: ellipsis;
         }
 
         .btn-primary {
@@ -7337,6 +7354,19 @@ td:hover .tooltip_custom {
 
 .w200 {
   width: 200px !important;
+}
+
+.w-350 {
+  width: 350px;
+}
+
+.truncate-2-lines {
+  display: -webkit-box;
+  max-height: 50px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
 }
 
 .w200 p {
