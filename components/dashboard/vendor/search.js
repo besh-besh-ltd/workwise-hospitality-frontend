@@ -192,6 +192,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleBulkAddToRFQ = (e) => {
     e.preventDefault();
+    dispatch(addRfqProduct(currentSelectedProduct));
+
     if (bulkRFQProducts.length > 0) {
       bulkRFQProducts.map((item) => {
         dispatch(
@@ -227,7 +229,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       "vendors"
     )
       .then((rsp) => {
-        console.log(rsp)
+
         setloading(false);
         let d = rsp.data.map((item) => {
           item.selected = false;
@@ -327,9 +329,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setSearch_key(item.product_name);
     //dispatch(removeRfqProduct(currentSelectedProduct));
     setcurrentSelectedProduct(null);
-
     setcurrentSelectedProduct(item);
-    dispatch(addRfqProduct(item));
   };
 
   const getChildCategories = (id, level) => {
