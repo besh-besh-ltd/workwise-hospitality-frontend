@@ -133,7 +133,6 @@ const EditProfile = () => {
           <h1 className="heading">Edit profile</h1>
         </div>
       </section>
-      <ToastContainer />
 
       <section className="buyer-edit-sec-1">
         {mainLoading && <Loader />}

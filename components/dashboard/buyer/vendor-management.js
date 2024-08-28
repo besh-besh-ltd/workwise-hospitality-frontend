@@ -278,7 +278,6 @@ const VendorManagement = () => {
                     />
                 }
             </section>
-            <ToastContainer />
         </>
     )
 }

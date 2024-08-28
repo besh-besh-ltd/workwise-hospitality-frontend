@@ -787,7 +787,6 @@ const SendQuotePageComp = () => {
               </div>
             </div>
           </div>
-          <ToastContainer />
         </section>
       )}
       <RegretQuoteReasonModal

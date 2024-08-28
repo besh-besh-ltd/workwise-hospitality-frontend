@@ -266,7 +266,6 @@ const Register = (props) => {
           )}
         </Formik>
       </div>
-      <ToastContainer />
     </>
   );
 };

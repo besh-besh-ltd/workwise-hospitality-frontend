@@ -216,6 +216,9 @@ export const rfqProductsSlice = createSlice({
       state.rfqObjData.ownTerm = action.payload;
       state.rfqFormData.comment = action.payload
     },
+    setCompanyName: (state, action) => {
+      state.rfqFormData.company_name = action.payload
+    },
     setLocation: (state, action) => {
       state.rfqFormData.location = action.payload
     },
@@ -266,6 +269,7 @@ export const {
   setDefaultVAB,
   setCustomTerms,
   setCustomTermsText,
+  setCompanyName,
   setLocation,
   setBidEndDate,
   setAllTerms,

@@ -268,7 +268,6 @@ const ProductReview = () => {
           </div>
         </div>
       </section>
-      <ToastContainer />
     </>
   );
 };

@@ -15,6 +15,7 @@ import {
   setBidEndDate,
   setCustomTerms,
   setCustomTermsText,
+  setCompanyName,
   setLocation,
   setRfqFormData,
 } from "@/redux/slice";
@@ -96,6 +97,7 @@ const CreateRFQ = () => {
     getTerms()
       .then((res) => {
         setTerms(res.data);
+        setSelectedTerms(res.data);
         dispatch(setAllTerms(res.data));
       })
       .catch((err) => {
@@ -153,6 +155,9 @@ const CreateRFQ = () => {
 
   const handleChange = (e) => {
     dispatch(setCustomTermsText(e.target.value));
+  };
+  const handleCompanyNameChange = (e) => {
+    dispatch(setCompanyName(e.target.value));
   };
   const handleLocationChange = (e) => {
     dispatch(setLocation(e.target.value));
@@ -284,7 +289,7 @@ const CreateRFQ = () => {
                       bid_end_date: rfqFormData.bid_end_date,
                       company_name: userProfile?.company_name
                         ? userProfile?.company_name
-                        : "",
+                        : rfqFormData?.company_name,
                     }}
                     validationSchema={CreateRFQSchema}
                     onSubmit={(values, { resetForm }) =>
@@ -350,6 +355,9 @@ const CreateRFQ = () => {
                           <div className="col-md-6">
                             <FormikField
                               label="Company Name"
+                              value={rfqFormData.location}
+                              enableHandleChange={true}
+                              handleChange={handleCompanyNameChange}
                               type="text"
                               isRequired={true}
                               name="company_name"
@@ -410,7 +418,6 @@ const CreateRFQ = () => {
             </div>
           )}
       </div>
-      <ToastContainer />
     </>
   );
 };

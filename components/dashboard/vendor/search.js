@@ -397,7 +397,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   return (
     <>
-      <ToastContainer />
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
@@ -672,7 +671,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
-          {currentSelectedProduct && (
+          {/* {currentSelectedProduct && (
             <div className=" col-md-12">
               <div className="search-sec-3-mdl">
                 <div className="search-sec-3-mdl-con ">
@@ -688,7 +687,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">

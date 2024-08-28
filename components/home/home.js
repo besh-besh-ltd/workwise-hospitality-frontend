@@ -869,7 +869,6 @@ export default function Homepage() {
       })}
 
       {/* FAQ end */}
-      <ToastContainer />
     </>
   );
 }
