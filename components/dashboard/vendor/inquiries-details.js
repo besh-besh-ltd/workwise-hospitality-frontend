@@ -11,6 +11,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
+import ReadMore from "@/components/shared/ReadMore";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -34,7 +35,7 @@ const RfqManagementPreview = () => {
 
   const getRFQdetails = () => {
     setloading(true);
-    getRFQById(id,token)
+    getRFQById(id, token)
 
       .then((res) => {
         setloading(false);
@@ -120,14 +121,14 @@ const RfqManagementPreview = () => {
     sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`); 
-        Router.reload();       
+        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
+        Router.reload();
       })
       .catch((err) => {
         setsubmitLoading(false);
       })
-      .finally(()=> setregretModal(false));
-    }
+      .finally(() => setregretModal(false));
+  }
 
   return (
     <>
@@ -427,11 +428,11 @@ const RfqManagementPreview = () => {
             <div className="container-fluid">
               {!enableBuyerView && (
                 <Link
-                  href="/dashboard/vendor/inquiries-received"
+                  href={localStorage.getItem('token') ? "/dashboard/vendor/inquiries-received" : "/"}
                   className="page-link backBtn"
                 >
                   {" "}
-                  <FontAwesomeIcon icon={faArrowLeft} /> Go back
+                  <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
                 </Link>
               )}
               {enableBuyerView && (
@@ -460,21 +461,81 @@ const RfqManagementPreview = () => {
                               <th>Size specifications & Quantity</th>
                               <th>TDS</th>
                               <th>QAP</th>
-                              <th>Comments</th>
+                              <th >Comments</th>
                               {/* <th>Selected vendors</th> */}
                             </tr>
                           </thead>
                           <tbody>
                             {rfqDetails?.products?.map((item, index) => {
-
                               return (
-                                <tr key={`${item.product_id}`}>
+                                <tr key={`${item?.id}_${item?.product_id}_${item?.variant}`}>
                                   <td>{item?.product_details[0]?.name}</td>
                                   <td>
                                     <div className="size-specification ">
+                                      {/* <div className="row g-2">
+                                        <div className="col-12">
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[1]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[1]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[1]?.title.toLowerCase()}
+                                            value={item?.product_specs[1]?.value}
+                                            disabled
+                                          />
+                                        </div>
+
+                                        <div className="col-6">
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[0]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[0]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[0]?.title.toLowerCase()}
+                                            value={item?.product_specs[0]?.value}
+                                            disabled
+                                          />
+                                        </div>
+                                        <div className="col-6">
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[2]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[2]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[2]?.title.toLowerCase()}
+                                            value={item?.product_specs[2]?.value}
+                                            disabled
+                                          />
+                                          <input
+                                            className="full"
+                                            type="text"
+                                            name={item?.product_specs[3]?.title.toLowerCase()}
+                                            id={
+                                              item?.product_id +
+                                              "_" +
+                                              item?.product_specs[3]?.title.toLowerCase()
+                                            }
+                                            placeholder={item?.product_specs[3]?.title.toLowerCase()}
+                                            value={item?.product_specs[3]?.value}
+                                            disabled
+                                          />
+                                        </div>
+                                      </div> */}
+
                                       {item?.product_specs.map(
                                         (spec_item, index) => {
-
                                             return (
                                               <input
                                                 key={`rfq_d_spec_itm_${index}`}
@@ -710,9 +771,11 @@ const RfqManagementPreview = () => {
                                         )}
                                     </div>
                                   </td>
-                                  <td>
+                                  <td style={{maxWidth: "400px"}}>
                                     {item?.comment && item?.comment != ""
-                                      ? item.comment
+                                      ? item?.comment?.length > 100 
+                                      ? <ReadMore content={item.comment} maxLength={100} textSmall={true} />
+                                      : item.comment
                                       : "N/A"}
                                   </td>
                                   {/* <td>
@@ -1070,10 +1133,10 @@ const RfqManagementPreview = () => {
                                         }}
                                       >
                                         Regret Quote
-                                      </button>                                      
+                                      </button>
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
-                                    <Link
+                                      <Link
                                         href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}
                                       >
                                         <button

@@ -8,6 +8,7 @@ import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast, ToastContainer } from "react-toastify";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
+import ReadMore from "@/components/shared/ReadMore";
 
 const SendQuotePageComp = () => {
   const router = useRouter();
@@ -487,6 +488,7 @@ const SendQuotePageComp = () => {
                             <input
                               type="number"
                               className="form-control"
+                              min={0}
                               value={globalFreight}
                               onChange={(e) => setglobalFreight(e.target.value)}
                               onWheel={(e) => e.target.blur()}
@@ -497,6 +499,7 @@ const SendQuotePageComp = () => {
                             <input
                               type="number"
                               className="form-control"
+                              min={0}
                               value={globalPackaging}
                               onChange={(e) => setglobalPackaging(e.target.value)}
                               onWheel={(e) => e.target.blur()}
@@ -507,6 +510,7 @@ const SendQuotePageComp = () => {
                             <input
                               type="number"
                               className="form-control"
+                              min={0}
                               value={globalTax}
                               onChange={(e) => setglobalTax(e.target.value)}
                               onWheel={(e) => e.target.blur()}
@@ -573,10 +577,12 @@ const SendQuotePageComp = () => {
                               return (
                                 <tr key={`q_${item.id}_${item.product_id}_${item.variant}`}>
                                   <td>{index + 1}</td>
-                                  <td>
-                                    {item?.product_details[0]?.name}-
-                                    {item?.product_specs[0]?.value}
-                                    {/* {item?.product_specs[index * 3]?.value} */}
+                                  <td className="w-350">
+                                    <p className="mb-1"><strong>{item?.product_details[0]?.name}</strong> - {item?.product_specs[0]?.value}</p>
+                                    {item?.product_specs[1]?.value?.length > 70
+                                      ? <ReadMore content={item?.product_specs[1]?.value} maxLength={70} textSmall={true} />
+                                      : <p className="mb-1 text-sm">{item?.product_specs[1]?.value}</p>
+                                    }
                                   </td>
                                   <td>
                                     {item?.product_specs[2]?.value}
@@ -591,7 +597,7 @@ const SendQuotePageComp = () => {
                                       name=""
                                       id=""
                                       placeholder="₹"
-                                      // item?.product_specs[index * 3 + 2]?.value
+                                      min={0}
                                       onChange={(e) =>
                                         handleUpdateData(
                                           item.id,
@@ -607,7 +613,7 @@ const SendQuotePageComp = () => {
                                     />
                                   </td>
 
-                                  <td>                                   
+                                  <td>
                                     <input
                                       value={
                                         getValue(item.id).freight_price
@@ -638,6 +644,7 @@ const SendQuotePageComp = () => {
                                         getValue(item.id).package_price
                                       }
                                       type="number"
+                                      min={0}
                                       name=""
                                       id=""
                                       placeholder="%"
@@ -660,6 +667,7 @@ const SendQuotePageComp = () => {
                                     <input
                                       value={getValue(item.id).tax}
                                       type="number"
+                                      min={0}
                                       name=""
                                       id=""
                                       placeholder="%"
@@ -783,7 +791,6 @@ const SendQuotePageComp = () => {
               </div>
             </div>
           </div>
-          <ToastContainer />
         </section>
       )}
       <RegretQuoteReasonModal

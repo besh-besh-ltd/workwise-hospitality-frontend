@@ -1,12 +1,5 @@
 "use client";
-import AuthModal from "@/components/modal/AuthModal";
-import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
-import {
-  LoginService,
-  SWSubscribe,
-  getUserDetails,
-  handleSocialLogin,
-} from "@/services/Auth";
+import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
 import { faBell, faUser } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
@@ -17,8 +10,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
-import { useGoogleLogin } from "@react-oauth/google";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
 
 const initialMainNavs = [
   "/",
@@ -31,12 +23,13 @@ const initialMainNavs = [
   "/privacypolicy",
   "/terms-of-use",
   "/products",
+  "/dashboard/vendor/inquiries-details"
 ];
 
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { type, user_registered, redirect } = router.query;
+  const { user_registered } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [sticky, setSticky] = useState("");
@@ -44,21 +37,10 @@ const Header = () => {
   const [popoverVisible, setPopoverVisible] = useState(false);
   const popoverRef = useRef(null);
   const [loggedinUser, setLoggedinUser] = useState(null);
-  const [currentUserType, setcurrentUserType] = useState("buyer");
+  const [currentUserType, setcurrentUserType] = useState("vendor");
   const [loading, setloading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginWith, setLoginWith] = useState("");
   const [mainNavs, setMainNavs] = useState(initialMainNavs);
 
-  const handleClose = () => {
-    setShowModal(false);
-    setLoginWith("");
-  };
-  const handleOtherDeviceLoginModalOpen = () => {
-    setShowModal(true);
-  };
   const togglePopover = () => {
     setPopoverVisible(!popoverVisible);
   };
@@ -120,13 +102,23 @@ const Header = () => {
     }
 
     if (localStorage.getItem('token')) {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
+      let revisedNavs = mainNavs.filter((navItem) => {
+        if (navItem == "/products" || navItem == "/dashboard/vendor/inquiries-details") { }
+        else return navItem;
+      })
       setMainNavs(revisedNavs);
     }
-    else if (pathname === '/products') {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
-      revisedNavs.push('/products');
-      setMainNavs(revisedNavs)
+    else {
+      if (pathname === '/products') {
+        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
+        revisedNavs.push('/products');
+        setMainNavs(revisedNavs)
+      }
+      else if (pathname.includes("/dashboard/vendor/inquiries-details")) {
+        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
+        revisedNavs.push("/dashboard/vendor/inquiries-details");
+        setMainNavs(revisedNavs)
+      }
     }
 
   }, [router]);
@@ -135,154 +127,10 @@ const Header = () => {
   const handleLogout = (e) => {
     e.preventDefault();
     storageInstance.removeStorege("token");
-    //storageInstance.removeStorege("current-user-type");
+    storageInstance.removeStorege("current-user-type");
     setPopoverVisible(false);
     router.push("/");
   };
-
-  const swSubscription = useSelector((data) => data.swSubscription);
-
-  // const loginSubmitHandler = (values, isFromOtherModal = false) => {
-  //   setloading(true);
-  //   LoginService(values, isFromOtherModal)
-  //     .then((response) => {
-  //       if (isFromOtherModal) {
-  //         handleClose();
-  //       }
-  //       // subscribe to SW
-  //       SWSubscribe({ subscription: swSubscription, token: response.token })
-  //         .then((res) => {
-  //           console.log("PUSH SENT");
-  //         })
-  //         .catch((err) => { });
-  //       setloading(false);
-  //       toast.success(response.message, {
-  //         position: "top-center",
-  //       });
-
-  //       let userType = "";
-  //       if (response.user_detail[0].user_type == 2) {
-  //         userType = "buyer";
-  //       } else if (response.user_detail[0].user_type == 3) {
-  //         userType = "vendor";
-  //       } else if (response.user_detail[0].user_type == 4) {
-  //         userType = "other";
-  //       }
-  //       storageInstance.setStorage("current-user-type", userType);
-
-  //       handleChange(setOpenAuthModal(false));
-  //       if (redirect && redirect != "") {
-  //         router.push(window.atob(redirect));
-  //         return;
-  //       } else {
-  //         if (userType == "buyer") {
-  //           router.push(`/products`);
-  //         } else {
-  //           router.push(`/dashboard/${userType}`);
-  //         }
-  //       }
-  //       //router.push(`/dashboard`);
-  //     })
-  //     .catch((error) => {
-  //       setloading(false);
-  //       if (
-  //         error?.message?.response?.status === 400 &&
-  //         error?.message?.response?.data?.status === 4
-  //       ) {
-  //         toast.error(error?.message?.response?.data?.message, {
-  //           position: "top-center",
-  //         });
-  //         setTimeout(() => {
-  //           handleChange(setOpenAuthModal(false));
-  //         }, 2000);
-
-  //         setTimeout(() => {
-  //           setLoginWith("email");
-  //           handleOtherDeviceLoginModalOpen();
-  //         }, 1000);
-  //       } else if (error?.message?.response?.data) {
-  //         toast.error(error?.message?.response?.data?.message, {
-  //           position: "top-center",
-  //         });
-  //       }
-
-  //       if (error?.response?.status === 400) {
-  //       } else {
-  //         toast.error(error?.message, {
-  //           position: "top-center",
-  //         });
-  //       }
-  //     });
-  // };
-
-  // const loginWithGoogle = useGoogleLogin({
-  //   onSuccess: (tokenResponse) => {
-  //     handleSocialLogin(
-  //       {
-  //         login_type: "google",
-  //         access_token: tokenResponse.access_token,
-  //       },
-  //       loginWith ? true : false
-  //     )
-  //       .then((response) => {
-  //         if (loginWith === "google") {
-  //           handleClose();
-  //         }
-  //         // subscribe to SW
-  //         SWSubscribe({ subscription: swSubscription, token: response.token })
-  //           .then((res) => {
-  //             console.log("PUSH SENT");
-  //           })
-  //           .catch((err) => { });
-  //         setloading(false);
-  //         toast.success(response.message, {
-  //           position: "top-center",
-  //         });
-  //         console.log(response, "response *");
-  //         console.log(response?.profile?.user_type, "response type *");
-
-  //         let userType = "";
-  //         if (response?.profile?.user_type == 2) {
-  //           userType = "buyer";
-  //         } else if (response?.profile?.user_type == 3) {
-  //           userType = "vendor";
-  //         }
-  //         storageInstance.setStorage("current-user-type", userType);
-  //         handleChange(setOpenAuthModal(false));
-  //         if (userType == "buyer") {
-  //           router.push(`/products`);
-  //         } else {
-  //           router.push(`/dashboard/${userType}`);
-  //         }
-  //       })
-  //       .catch((error) => {
-  //         setloading(false);
-  //         if (
-  //           error?.message?.response?.status === 400 &&
-  //           error?.message?.response?.data?.status === 4
-  //         ) {
-  //           toast.error(error?.message?.response?.data?.message, {
-  //             position: "top-center",
-  //           });
-  //           setTimeout(() => {
-  //             handleChange(setOpenAuthModal(false));
-  //           }, 2000);
-
-  //           setTimeout(() => {
-  //             setLoginWith("google");
-  //             handleOtherDeviceLoginModalOpen();
-  //           }, 1000);
-  //         } else if (error?.message?.response?.data) {
-  //           toast.error(error?.message?.response?.data?.message, {
-  //             position: "top-center",
-  //           });
-  //         }
-  //       });
-  //   },
-  //   onError: (error) => {
-  //     setloading(false);
-  //   },
-  // });
 
   return (
     <>
@@ -998,30 +846,15 @@ const Header = () => {
           </div>
         </div>
       </header>
+
       {/* ------------- Auth Modal ------------- */}
-      <AuthModal
-        showModal={openAuthModal}
-        closeModal={() => {
-          handleChange(setOpenAuthModal(false));
-        }}
-        activeTab={activeAuthTab}
-        setActiveTab={handleChange(setActiveAuthTab)}
-        // setEmail={setEmail}
-        // setPassword={setPassword}
+      <LoginContainer
         loading={loading}
+        setloading={setloading}
+        openAuthModal={openAuthModal}
         setOpenAuthModal={setOpenAuthModal}
-      // setloading={setloading}
-      // loginSubmitHandler={loginSubmitHandler}
-      // loginWithGoogle={loginWithGoogle}
-      />
-      <LoginWithOtherDeviceModal
-        show={showModal}
-        onHide={handleClose}
-        email={email}
-        password={password}
-        // loginSubmitHandler={loginSubmitHandler}
-        // loginWithGoogle={loginWithGoogle}
-        loginWith={loginWith}
+        activeAuthTab={activeAuthTab}
+        setActiveAuthTab={setActiveAuthTab}
       />
     </>
   );

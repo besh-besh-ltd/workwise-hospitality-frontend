@@ -85,9 +85,9 @@ const Layout = (props) => {
 
   return (
     <>
-      <div onClick={handleContainerClick}>
+      <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
         <Header />
-        {props.children}
+        <main className="flex-grow-1 ">{props.children}</main>
         <Footer
           cmsdata={cmsdata}
           showModal={showModal}

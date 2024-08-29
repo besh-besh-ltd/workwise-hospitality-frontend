@@ -376,7 +376,6 @@ const AddProducts = () => {
           </Link>
         </div>
       </section>
-      <ToastContainer />
       <section className="add-prod-sec-1">
         {mainLoading && <Loader />}
         <div className="container-fluid">

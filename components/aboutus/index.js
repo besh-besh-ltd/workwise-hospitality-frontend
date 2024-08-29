@@ -160,7 +160,6 @@ const Aboutus = (props) => {
       <section className="title-text container text-center sc-pt-80 sc-pb-80 ">
         <p>Join us in shaping the future of the heavy industry. Together, let's build a more efficient, connected, and prosperous ecosystem</p>
       </section>
-      <ToastContainer />
     </>
   );
 };

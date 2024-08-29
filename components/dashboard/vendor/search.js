@@ -3,13 +3,10 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
-  faLocation,
-  faLocationDot,
   faMagnifyingGlass,
   faPlus,
 } from "@fortawesome/free-solid-svg-icons";
-import Image from "next/image";
-import { searchProducts, searchProductsV2 } from "@/services/products";
+import { searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, vendorApproveList } from "@/services/rfq";
@@ -21,14 +18,12 @@ import {
   removeRfqProduct,
   setDefaultVAB,
 } from "@/redux/slice";
-import { ToastContainer, toast } from "react-toastify";
-import Loader from "@/components/shared/Loader";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
 import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
-import AuthModal from "@/components/modal/AuthModal";
-import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import { toast } from "react-toastify";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -80,19 +75,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
-  const [showModal, setShowModal] = useState(false);
-  const [loginWith, setLoginWith] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const handleClose = () => {
-    setShowModal(false);
-    setLoginWith("");
-  };
-
-  // Set State Change
-  const handleChange = (setState) => (event) => {
-    setState(event);
-  };
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -108,7 +92,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         searchRef.current.focus();
         searchLabelRef.current.click();
       }, 1000);
-
       // getProducts();
     }
   }, [router]);
@@ -192,6 +175,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleBulkAddToRFQ = (e) => {
     e.preventDefault();
+    dispatch(addRfqProduct(currentSelectedProduct));
+
     if (bulkRFQProducts.length > 0) {
       bulkRFQProducts.map((item) => {
         dispatch(
@@ -216,6 +201,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getVendors = () => {
     setloading(true);
     setVendors([]);
+
+    // changes by mukul jatav 29-08-2024 
+    setbulkRFQProducts([]);
+    
     searchProductsV2(
       {
         cat_id,
@@ -227,7 +216,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       "vendors"
     )
       .then((rsp) => {
-        console.log(rsp)
+
         setloading(false);
         let d = rsp.data.map((item) => {
           item.selected = false;
@@ -327,9 +316,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setSearch_key(item.product_name);
     //dispatch(removeRfqProduct(currentSelectedProduct));
     setcurrentSelectedProduct(null);
-
     setcurrentSelectedProduct(item);
-    dispatch(addRfqProduct(item));
   };
 
   const getChildCategories = (id, level) => {
@@ -397,7 +384,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   return (
     <>
-      <ToastContainer />
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
@@ -449,7 +435,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             </p>
                           )}
                           {!loading && products.length == 0 && (
-                            <p className="mb-0">No Products found!</p>
+                              search_key.length >= 3
+                              ? <p className="mb-0">No Products found!</p>
+                              : <p className="mb-0">Please Enter atleast 3 characters</p>
                           )}
                           {!loading && products.length > 0 && (
                             <ul>
@@ -672,7 +660,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
-          {currentSelectedProduct && (
+          {/* {currentSelectedProduct && (
             <div className=" col-md-12">
               <div className="search-sec-3-mdl">
                 <div className="search-sec-3-mdl-con ">
@@ -688,7 +676,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
@@ -1070,21 +1058,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         </div>
 
         {/* ------------- Auth Modal ------------- */}
-        <AuthModal
-          showModal={openAuthModal}
-          closeModal={() => {
-            setOpenAuthModal(false);
-          }}
-          activeTab={activeAuthTab}
-          setActiveTab={handleChange(setActiveAuthTab)}
-          setIsLoggedIn={setIsLoggedIn}
+        <LoginContainer
           loading={loading}
+          setloading={setloading}
+          openAuthModal={openAuthModal}
           setOpenAuthModal={setOpenAuthModal}
-        />
-        <LoginWithOtherDeviceModal
-          show={showModal}
-          onHide={handleClose}
-          loginWith={loginWith}
+          activeAuthTab={activeAuthTab}
+          setActiveAuthTab={setActiveAuthTab}
+          setIsLoggedIn={setIsLoggedIn}
         />
 
       </section>

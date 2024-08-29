@@ -6,6 +6,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
 import { faPhone } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
+import CommonModal from "@/components/modal/CommonModal";
+import ReadMore from "@/components/shared/ReadMore";
 
 const QuoteCompareTable = ({
   quotations,
@@ -15,8 +17,10 @@ const QuoteCompareTable = ({
   alreadyFinalized
 }) => {
   // var alreadyFinalized = [];
+  const [openCommonModal, setOpenCommonModal] = useState(false);
+  const [vendorData, setVendorData] = useState({});
 
-  useEffect(() => {console.log(proditem) }, []);
+  useEffect(() => { console.log(proditem) }, []);
   // alreadyFinalized = proditem.quotations.filter((item) => item.finalization != null);
 
   const getLowestQuote = () => {
@@ -32,6 +36,11 @@ const QuoteCompareTable = ({
     return fq.length > 0 ? fq : null;
 
   };
+
+  const handleNegotiate = (item) => {
+    setVendorData(item?.quote_details?.vendor_details);
+    setOpenCommonModal(true);
+  }
 
   return (
     <>
@@ -53,8 +62,9 @@ const QuoteCompareTable = ({
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
+                console.log(item)
                 return (
-                  <div className="table-col" key={`tab_qq_${index}`}>
+                  <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
                     {/* {console.log("item ==>>>>>>>", item)} */}
                     {item?.quote_details?.is_regret == 1 && (
                       <div className="vendor_regreted_quote">
@@ -79,12 +89,13 @@ const QuoteCompareTable = ({
                           {item?.quote_details?.is_regret == 0 &&
                             !item.finalization && (
                               <Dropdown.Item
-                                href={
-                                  "tel:+91" +
-                                  quotations[0]?.quote_details?.vendor_details
-                                    ?.mobile
-                                }
+                                // href={
+                                //   "tel:+91" +
+                                //   quotations[0]?.quote_details?.vendor_details
+                                //     ?.mobile
+                                // }                                
                                 className="negotiate-link"
+                                onClick={() => handleNegotiate(item)}
                               >
                                 Negotiate
                               </Dropdown.Item>
@@ -127,7 +138,19 @@ const QuoteCompareTable = ({
                         ? `${item.delivery_period} Week`
                         : `${item.delivery_period} Weeks`}
                     </div>
-                    <div className="table-si-row">{item.comment}</div>
+                    <div className="table-si-row">
+                      {item?.comment.length > 60 
+                        ? <ReadMore content={item?.comment} maxLength={60} textSmall={false} />
+                        : item.comment
+                      }
+                      {/* {
+                        <ReadMore
+                          content={"All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable."}
+                          maxLength={60}
+                          textSmall={false}
+                        />
+                      } */}
+                    </div>
                   </div>
                 );
               })}
@@ -215,6 +238,18 @@ const QuoteCompareTable = ({
         </div>
       )}
       {/* Lowest bid area end */}
+
+      {/* ------------- Show Vendors contact info in Modal ------------- */}
+      {openCommonModal &&
+        <CommonModal
+          data={{
+            title: "Contact Information",
+            vendorData
+          }}
+          openCommonModal={openCommonModal}
+          closeModal={() => setOpenCommonModal(false)}
+        />
+      }
     </>
   );
 };

@@ -158,7 +158,6 @@ const RfqManagementVendorPage = () => {
           </div>
         </div>
       </section>
-      <ToastContainer />
     </>
   );
 };
