@@ -57,13 +57,13 @@ const VendorProfile = () => {
 
     if(localStorage.getItem('token')) setIsLoggedIn(true)
     else setIsLoggedIn(false)
-  
+
   }, [router]);
 
   useEffect(() => {
-    getVendorPastRfq();
-    canSubmitReview();
-    calculateReviews();
+    // getVendorPastRfq();
+    // canSubmitReview();
+    // calculateReviews();
   }, [vendorDetails]);
 
 
