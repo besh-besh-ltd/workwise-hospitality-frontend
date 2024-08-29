@@ -6263,9 +6263,10 @@ textarea {
     padding: 20px;
     border: 1px solid #e1e1e1;
     margin-bottom: 20px;
+    height: 300px;
 
     .col-md-3 {
-      padding: 20px;
+      padding: 12px;
 
       .vendor-img {
         text-align: center;
@@ -6279,6 +6280,7 @@ textarea {
           background-color: var(--white-color);
           border: 1px solid var(--primary-color);
           color: var(--primary-color);
+          padding: 10px;
         }
       }
     }

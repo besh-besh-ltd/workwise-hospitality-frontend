@@ -24,6 +24,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import { toast } from "react-toastify";
 import { getProfile } from "@/services/Auth";
 import Head from "next/head";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
 
 
 const VendorProfile = () => {
@@ -53,6 +54,10 @@ const VendorProfile = () => {
     if (origin && origin == "create-rfq") {
       setshowbackBtn(true);
     }
+
+    if(localStorage.getItem('token')) setIsLoggedIn(true)
+    else setIsLoggedIn(false)
+  
   }, [router]);
 
   useEffect(() => {
@@ -94,6 +99,10 @@ const VendorProfile = () => {
 
   const handleRatingChange = (newRating) => {
     setrating(newRating);
+  };
+
+  const handleChange = (setState) => (event) => {
+    setState(event);
   };
 
   const submitReview = (e) => {

@@ -142,7 +142,7 @@ const SearchItem = ({
                     />
 
                     {data.address && (
-                      <p>
+                      <p className="truncate-2-lines">
                         <FontAwesomeIcon icon={faLocationDot} /> {data.address}
                       </p>
                     )}
