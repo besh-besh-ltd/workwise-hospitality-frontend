@@ -1037,7 +1037,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             className="btn btn-primary w-50"
                             onClick={handleRedirect}
                           >
-                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 && vendorMetaData?.total} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 && vendorMetaData?.total} more Vendors`}
+                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more Vendors`}
                           </button>
                         </div>
                       }
