@@ -6642,7 +6642,8 @@ h2.pdf-icon {
           }
         }
         .table-si-row:last-child {
-          height: 80px;
+          height: 100px;
+          overflow-y: auto;
         }
       }
     }
