@@ -142,7 +142,7 @@ const SearchItem = ({
                     />
 
                     {data.address && (
-                      <p>
+                      <p className="truncate-2-lines">
                         <FontAwesomeIcon icon={faLocationDot} /> {data.address}
                       </p>
                     )}
@@ -228,15 +228,8 @@ const SearchItem = ({
             {!selectedProduct && (
               <div className="col-md-2">
                 <Link
-                  href="#"
-                  className="btn btn-primary custom_primary_btn"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!vendorMetaData.logged_In)
-                      setOpenAuthModal(true);
-                    else
-                      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
-                  }}
+                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                  className="btn btn-primary custom_primary_btn"                  
                 >
                   View Details
                 </Link>

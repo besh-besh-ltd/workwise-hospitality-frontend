@@ -7,6 +7,7 @@ import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
 import { faPhone } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
+import ReadMore from "@/components/shared/ReadMore";
 
 const QuoteCompareTable = ({
   quotations,
@@ -19,7 +20,7 @@ const QuoteCompareTable = ({
   const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
 
-  useEffect(() => {console.log(proditem) }, []);
+  useEffect(() => { console.log(proditem) }, []);
   // alreadyFinalized = proditem.quotations.filter((item) => item.finalization != null);
 
   const getLowestQuote = () => {
@@ -36,7 +37,7 @@ const QuoteCompareTable = ({
 
   };
 
-  const handleNegotiate = (item)=> {
+  const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
     setOpenCommonModal(true);
   }
@@ -137,7 +138,19 @@ const QuoteCompareTable = ({
                         ? `${item.delivery_period} Week`
                         : `${item.delivery_period} Weeks`}
                     </div>
-                    <div className="table-si-row truncate-2-lines">{item.comment}</div>
+                    <div className="table-si-row">
+                      {item?.comment.length > 60 
+                        ? <ReadMore content={item?.comment} maxLength={60} textSmall={false} />
+                        : item.comment
+                      }
+                      {/* {
+                        <ReadMore
+                          content={"All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable."}
+                          maxLength={60}
+                          textSmall={false}
+                        />
+                      } */}
+                    </div>
                   </div>
                 );
               })}
@@ -228,13 +241,13 @@ const QuoteCompareTable = ({
 
       {/* ------------- Show Vendors contact info in Modal ------------- */}
       {openCommonModal &&
-        <CommonModal 
+        <CommonModal
           data={{
             title: "Contact Information",
             vendorData
           }}
           openCommonModal={openCommonModal}
-          closeModal={()=> setOpenCommonModal(false)}
+          closeModal={() => setOpenCommonModal(false)}
         />
       }
     </>
