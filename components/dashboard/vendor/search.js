@@ -201,6 +201,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getVendors = () => {
     setloading(true);
     setVendors([]);
+
+    // changes by mukul jatav 29-08-2024 
+    setbulkRFQProducts([]);
+    
     searchProductsV2(
       {
         cat_id,
