@@ -82,16 +82,16 @@ const VendorManagement = () => {
                                     {!enableBulkUpload && (
 
                                         <div className="row ">
-                                            <div className="col-5">
+                                            <div className="col-3">
                                                 <div className="d-flex">
                                                     <button
                                                         type="button"
                                                         className="btn btn-secondary d-flex align-items-center justify-content-center "
                                                         onClick={() => setOpenAddVendorModal(true)}
                                                     >
-                                                        Add Single Vendor
+                                                        Add Vendor
                                                     </button>
-                                                    <button
+                                                    {/* <button
                                                         type="button"
                                                         className="btn btn-primary d-flex flex-column justify-content-center align-items-center"
                                                         onClick={() => {
@@ -101,10 +101,10 @@ const VendorManagement = () => {
                                                     >
                                                         Add Bulk Vendors
                                                         <span className="text-sm">(By Uploading Excel File)</span>
-                                                    </button>
+                                                    </button> */}
                                                 </div>
 
-
+                                                {/* 
                                                 <div className="row mt-1">
                                                     <div className="col"></div>
                                                     <a
@@ -125,7 +125,7 @@ const VendorManagement = () => {
                                                             />
                                                         </span>
                                                     </a>
-                                                </div>
+                                                </div> */}
 
 
                                             </div>
@@ -212,12 +212,12 @@ const VendorManagement = () => {
                                                                     <td>{item.mobile}</td>
                                                                     <td>
                                                                         <span className={`badge ${item.status == -1 ? "text-bg-warning"
-                                                                                : item.status == 1 ? "text-bg-success"
+                                                                            : item.status == 1 ? "text-bg-success"
                                                                                 : item.status == 2 ? "text-bg-danger" : "text-bg-primary"}`}>
                                                                             {
                                                                                 item.status == -1 ? "Pending"
                                                                                     : item.status == 1 ? "Approved"
-                                                                                    : item.status == 2 ? "Rejected" : "Reviewed"
+                                                                                        : item.status == 2 ? "Rejected" : "Reviewed"
                                                                             }
                                                                         </span>
                                                                     </td>
