@@ -1,4 +1,3 @@
-import { addRfqProduct, addVendor } from "@/redux/slice";
 import { faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
@@ -6,62 +5,31 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
-import { toast } from "react-toastify";
 
 const SearchItem = ({
   data,
   setOpenAuthModal,
   vendorMetaData,
   type,
-  bulkRFQProducts,
-  setbulkRFQProducts,
+  bulkRFQVendors,
+  setbulkRFQVendors,
   selectedProduct = false,
   currentSelectedProduct = {},
   handleRemoveCurrentSelected,
+  addToRFQ,
   handleRedirect
 }) => {
   const dispatch = useDispatch();
   const router = useRouter();
 
-  const addToRFQ = (item) => {
-    if (type == "products") {
-      dispatch(addRfqProduct(item));
-      toast.success(
-        <h6>
-          <b>{item.product_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-    } else {
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-    }
-  };
-
-  const handleBulkRFQ = (e, item) => {
-    console.log(bulkRFQProducts, item);
+  const handleSelectVendor = (e, item) => {
     if (e.target.checked) {
       item.selected = true;
-      setbulkRFQProducts((oldArray) => [...oldArray, item]);
+      setbulkRFQVendors((oldArray) => [...oldArray, item]);
     } else {
       item.selected = false;
-      let p = bulkRFQProducts.filter((product) => product.id != item.id);
-      setbulkRFQProducts(p);
+      let p = bulkRFQVendors.filter((vendor) => vendor.id != item.id);
+      setbulkRFQVendors(p);
     }
   };
 
@@ -74,7 +42,7 @@ const SearchItem = ({
             <label>
               <input
                 type="checkbox"
-                onClick={(e) => handleBulkRFQ(e, data)}
+                onClick={(e) => handleSelectVendor(e, data)}
                 checked={data.selected}
               />
               {type == "products" && (
@@ -229,7 +197,7 @@ const SearchItem = ({
               <div className="col-md-2">
                 <Link
                   href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
-                  className="btn btn-primary custom_primary_btn"                  
+                  className="btn btn-primary custom_primary_btn"
                 >
                   View Details
                 </Link>
@@ -240,7 +208,7 @@ const SearchItem = ({
                     e.preventDefault();
                     if (!vendorMetaData.logged_In)
                       setOpenAuthModal(true);
-                    else if(!vendorMetaData.subscription)
+                    else if (!vendorMetaData.subscription)
                       router.push('dashboard/buyer/subscription');
                     else
                       addToRFQ(data);

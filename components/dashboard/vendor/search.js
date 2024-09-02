@@ -18,14 +18,12 @@ import {
   removeRfqProduct,
   setDefaultVAB,
 } from "@/redux/slice";
-import { ToastContainer, toast } from "react-toastify";
-import Loader from "@/components/shared/Loader";
+import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
 import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
-import AuthModal from "@/components/modal/AuthModal";
-import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -54,7 +52,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedVbaa, setselectedVbaa] = useState("");
   const [catloading, setcatloading] = useState(false);
   const [vabloading, setvabloading] = useState(false);
-  const [bulkRFQProducts, setbulkRFQProducts] = useState([]);
+  const [bulkRFQVendors, setbulkRFQVendors] = useState([]);
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
@@ -77,19 +75,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
-  const [showModal, setShowModal] = useState(false);
-  const [loginWith, setLoginWith] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const tempProdRef = useRef(null);
 
-  const handleClose = () => {
-    setShowModal(false);
-    setLoginWith("");
-  };
-
-  // Set State Change
-  const handleChange = (setState) => (event) => {
-    setState(event);
-  };
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -187,12 +175,52 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
+  const addToRFQ = (item) => {
+    if (currentSelectedProduct.product_id == tempProdRef.current?.product_id) {
+      dispatch(
+        addVendor({
+          product_id: currentSelectedProduct.product_id,
+          id: item.id,
+          name: item.vendor_name,
+        })
+      );
+      toast.success(
+        <h6>
+          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
+        </h6>,
+        {
+          position: "top-right",
+        }
+      );
+    } else {
+      dispatch(addRfqProduct(currentSelectedProduct));
+      dispatch(
+        addVendor({
+          product_id: currentSelectedProduct.product_id,
+          id: item.id,
+          name: item.vendor_name,
+        })
+      );
+      toast.success(
+        <h6>
+          <b>{currentSelectedProduct.product_name}:</b> Successfully added to RFQ list!
+        </h6>,
+        {
+          position: "top-right",
+        }
+      );
+      tempProdRef.current = currentSelectedProduct;
+    }
+  };
+
   const handleBulkAddToRFQ = (e) => {
     e.preventDefault();
-    dispatch(addRfqProduct(currentSelectedProduct));
 
-    if (bulkRFQProducts.length > 0) {
-      bulkRFQProducts.map((item) => {
+    if (currentSelectedProduct.product_id != tempProdRef.current?.product_id)
+      dispatch(addRfqProduct(currentSelectedProduct));
+
+    if (bulkRFQVendors.length > 0) {
+      bulkRFQVendors.map((item) => {
         dispatch(
           addVendor({
             product_id: currentSelectedProduct.product_id,
@@ -203,7 +231,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
       toast.success(
         <h6>
-          <b>{bulkRFQProducts.length} vendors</b> Successfully added to RFQ
+          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ
           list!
         </h6>,
         {
@@ -211,14 +239,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         }
       );
     }
+    tempProdRef.current = currentSelectedProduct;
   };
   const getVendors = () => {
     setloading(true);
     setVendors([]);
 
     // changes by mukul jatav 29-08-2024 
-    setbulkRFQProducts([]);
-    
+    setbulkRFQVendors([]);
+
     searchProductsV2(
       {
         cat_id,
@@ -316,22 +345,26 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         item.selected = true;
         return item;
       });
-      setbulkRFQProducts(d);
+      setbulkRFQVendors(d);
     } else {
       let d = items.map((item) => {
         item.selected = false;
         return item;
       });
-      setbulkRFQProducts([]);
+      setbulkRFQVendors([]);
     }
   };
 
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
+    if(item.product_name == currentSelectedProduct?.product_name)
+      return 0
+
     setSearch_key(item.product_name);
     //dispatch(removeRfqProduct(currentSelectedProduct));
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
+    tempProdRef.current = null;
   };
 
   const getChildCategories = (id, level) => {
@@ -680,8 +713,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   <SearchItem
                     handleRemoveCurrentSelected={handleRemoveCurrentSelected}
                     selectedProduct={true}
-                    setbulkRFQProducts={setbulkRFQProducts}
-                    bulkRFQProducts={bulkRFQProducts}
+                    setbulkRFQVendors={setbulkRFQVendors}
+                    bulkRFQVendors={bulkRFQVendors}
                     type={type}
                     key={`product-item-${currentSelectedProduct.id}`}
                     data={currentSelectedProduct}
@@ -977,7 +1010,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         <div className="col-md-10">
                           {userProfile?.subscription_plan_id && (
                             <div className="actions">
-                              {bulkRFQProducts.length > 0 && (
+                              {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
                                   className={`btn btn-primary ${!userProfile.subscription_plan_id
@@ -1030,13 +1063,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   handleRemoveCurrentSelected
                                 }
                                 currentSelectedProduct={currentSelectedProduct}
-                                setbulkRFQProducts={setbulkRFQProducts}
-                                bulkRFQProducts={bulkRFQProducts}
+                                setbulkRFQVendors={setbulkRFQVendors}
+                                bulkRFQVendors={bulkRFQVendors}
                                 type={"vendors"}
                                 key={`product-item-${item.id}`}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
                                 setOpenAuthModal={setOpenAuthModal}
+                                addToRFQ={addToRFQ}
                               />
                             );
                           })}
@@ -1071,21 +1105,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         </div>
 
         {/* ------------- Auth Modal ------------- */}
-        <AuthModal
-          showModal={openAuthModal}
-          closeModal={() => {
-            setOpenAuthModal(false);
-          }}
-          activeTab={activeAuthTab}
-          setActiveTab={handleChange(setActiveAuthTab)}
-          setIsLoggedIn={setIsLoggedIn}
+        <LoginContainer
           loading={loading}
+          setloading={setloading}
+          openAuthModal={openAuthModal}
           setOpenAuthModal={setOpenAuthModal}
-        />
-        <LoginWithOtherDeviceModal
-          show={showModal}
-          onHide={handleClose}
-          loginWith={loginWith}
+          activeAuthTab={activeAuthTab}
+          setActiveAuthTab={setActiveAuthTab}
+          setIsLoggedIn={setIsLoggedIn}
         />
 
       </section>
