@@ -140,7 +140,7 @@ const Header = () => {
         <div className="container-fluid">
           <div className="header-container">
             <div className="logo">
-              <Link href="/">
+              <Link href={loggedinUser ? currentUserType === "vendor" ? "/dashboard/vendor" : "/dashboard/buyer" : "/"}>
                 <Image
                   src="/assets/images/logo.png"
                   alt="Workwise"

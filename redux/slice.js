@@ -164,8 +164,21 @@ export const rfqProductsSlice = createSlice({
       state.rfqProducts = d;
     },
     addVendor: (state, action) => {
+      // Changes made by Imtiaj [31/08/2024]
+      let alreadyExistsProducts = state.rfqProducts.filter(
+        (item) => item.product_id == action.payload.product_id
+      );
+
+      let maxVariant = 0;
+      if (alreadyExistsProducts.length > 0) {
+        const maxVariantProduct = alreadyExistsProducts.reduce((max, product) => {
+          return (product.variant > max.variant) ? product : max;
+        })
+        maxVariant = parseInt(maxVariantProduct?.variant);
+      }
+
       let d = state.rfqProducts.map((item) => {
-        if (item.product_id == action.payload.product_id) {
+        if (item.product_id == action.payload.product_id && item.variant == maxVariant) {
           if (item.vendors.length > 0) {
             let existsVendor = item.vendors.filter((vendor) => {
               if (vendor.user_id == action.payload.id) {
