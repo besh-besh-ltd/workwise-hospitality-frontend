@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 const SearchItem = ({
@@ -57,7 +57,7 @@ const SearchItem = ({
             </label>
           )}
         </div>
-        <div className="mdl-con-btm">
+        <div className="mdl-con-btm mb-4">
           {data.id == "**" && !data.sp && (
             <div className="list_item_disabled">
               <span>You need to purchase subscription to view this vendor</span>
@@ -72,7 +72,7 @@ const SearchItem = ({
             </button>
           )}
           <div className="row">
-            <div className="col-md-3">
+            {/* <div className="col-md-3">
               <div className="vendor-img">
                 {type == "products" && data.image_url ? (
                   <>
@@ -132,11 +132,17 @@ const SearchItem = ({
                   </>
                 )}
               </div>
-            </div>
-            <div className="col-md-7">
+            </div> */}
+            <div className="ps-5 col-md-9 ">
+              <h3 className="h3 mt-3 mb-3">{data.vendor_name}</h3>
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
+                    {data.address && (
+                      <p>
+                        <b>Location :</b> {data.city_name}, {data.state_name}
+                      </p>
+                    )}
                     {data.about && (
                       <p>
                         <b>About :</b> {data.about}
@@ -194,7 +200,7 @@ const SearchItem = ({
               )}
             </div>
             {!selectedProduct && (
-              <div className="col-md-2">
+              <div className="col-md-3 d-flex flex-column gap-3 my-auto pe-5">
                 <Link
                   href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
@@ -215,6 +221,19 @@ const SearchItem = ({
                   }}
                 >
                   Add To RFQ
+                </Link>
+                <Link
+                  href="#"
+                  className="btn btn-primary custom_primary_btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!vendorMetaData.logged_In)
+                      setOpenAuthModal(true);
+                    else
+                      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
+                  }}
+                >
+                  Contact Info
                 </Link>
 
                 {type != "products" && (

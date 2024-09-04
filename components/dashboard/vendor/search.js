@@ -357,7 +357,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
-    if(item.product_name == currentSelectedProduct?.product_name)
+    if (item.product_name == currentSelectedProduct?.product_name)
       return 0
 
     setSearch_key(item.product_name);
@@ -453,7 +453,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 <form onSubmit={handleSearch}>
                   <div className="row filter">
                     <div className="col-md-2"></div>
-                    <div className="col-md-5 searchbox " ref={searchRef}>
+                    <div className="col-md-6 searchbox " ref={searchRef}>
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
@@ -486,6 +486,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && products.length > 0 && (
+                            <>
+                            <p className="text-center fw-bold " style={{color: "#ffa500"}}>Select an option from dropdown</p>
                             <ul>
                               {products.map((item, index) => {
                                 return (
@@ -512,6 +514,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 );
                               })}
                             </ul>
+                            </>
                           )}
                         </div>
                       )}
@@ -547,16 +550,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <option value="">Vendor Approved By</option>
                             {approved_by &&
                               approved_by.map((item) => {
-                                return (
-                                  <option value={item.id} key={`va_${item.id}`}>
-                                    {item.vendor_approve}
-                                  </option>
-                                );
+                                if (item.show_in_website == 1) {
+                                  return (
+                                    <option value={item.id} key={`va_${item.id}`}>
+                                      {item.vendor_approve}
+                                    </option>
+                                  );
+                                }
                               })}
                           </select>
                         )}
 
-                        <span>
+                        {/* <span>
                           <Link
                             href="#"
                             className="btn btn-secondary mt-0 mb-0"
@@ -564,7 +569,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           >
                             Search
                           </Link>
-                        </span>
+                        </span> */}
                       </div>
                     </div>
                   </div>
