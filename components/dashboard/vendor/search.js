@@ -6,7 +6,7 @@ import {
   faMagnifyingGlass,
   faPlus,
 } from "@fortawesome/free-solid-svg-icons";
-import { searchProductsV2 } from "@/services/products";
+import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, vendorApproveList } from "@/services/rfq";
@@ -18,12 +18,12 @@ import {
   removeRfqProduct,
   setDefaultVAB,
 } from "@/redux/slice";
+import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
 import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
-import { toast } from "react-toastify";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -52,7 +52,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedVbaa, setselectedVbaa] = useState("");
   const [catloading, setcatloading] = useState(false);
   const [vabloading, setvabloading] = useState(false);
-  const [bulkRFQProducts, setbulkRFQProducts] = useState([]);
+  const [bulkRFQVendors, setbulkRFQVendors] = useState([]);
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
@@ -76,6 +76,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const tempProdRef = useRef(null);
 
 
   const handleRedirect = (e) => {
@@ -92,6 +93,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         searchRef.current.focus();
         searchLabelRef.current.click();
       }, 1000);
+
       // getProducts();
     }
   }, [router]);
@@ -173,12 +175,52 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
+  const addToRFQ = (item) => {
+    if (currentSelectedProduct.product_id == tempProdRef.current?.product_id) {
+      dispatch(
+        addVendor({
+          product_id: currentSelectedProduct.product_id,
+          id: item.id,
+          name: item.vendor_name,
+        })
+      );
+      toast.success(
+        <h6>
+          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
+        </h6>,
+        {
+          position: "top-right",
+        }
+      );
+    } else {
+      dispatch(addRfqProduct(currentSelectedProduct));
+      dispatch(
+        addVendor({
+          product_id: currentSelectedProduct.product_id,
+          id: item.id,
+          name: item.vendor_name,
+        })
+      );
+      toast.success(
+        <h6>
+          <b>{currentSelectedProduct.product_name}:</b> Successfully added to RFQ list!
+        </h6>,
+        {
+          position: "top-right",
+        }
+      );
+      tempProdRef.current = currentSelectedProduct;
+    }
+  };
+
   const handleBulkAddToRFQ = (e) => {
     e.preventDefault();
-    dispatch(addRfqProduct(currentSelectedProduct));
 
-    if (bulkRFQProducts.length > 0) {
-      bulkRFQProducts.map((item) => {
+    if (currentSelectedProduct.product_id != tempProdRef.current?.product_id)
+      dispatch(addRfqProduct(currentSelectedProduct));
+
+    if (bulkRFQVendors.length > 0) {
+      bulkRFQVendors.map((item) => {
         dispatch(
           addVendor({
             product_id: currentSelectedProduct.product_id,
@@ -189,7 +231,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
       toast.success(
         <h6>
-          <b>{bulkRFQProducts.length} vendors</b> Successfully added to RFQ
+          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ
           list!
         </h6>,
         {
@@ -197,14 +239,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         }
       );
     }
+    tempProdRef.current = currentSelectedProduct;
   };
   const getVendors = () => {
     setloading(true);
     setVendors([]);
 
     // changes by mukul jatav 29-08-2024 
-    setbulkRFQProducts([]);
-    
+    setbulkRFQVendors([]);
+
     searchProductsV2(
       {
         cat_id,
@@ -230,6 +273,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       })
       .catch((error) => {
         setloading(false);
+        setVendorMetaData(error?.response?.data)
         console.log(error);
       });
   };
@@ -301,22 +345,26 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         item.selected = true;
         return item;
       });
-      setbulkRFQProducts(d);
+      setbulkRFQVendors(d);
     } else {
       let d = items.map((item) => {
         item.selected = false;
         return item;
       });
-      setbulkRFQProducts([]);
+      setbulkRFQVendors([]);
     }
   };
 
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
+    if (item.product_name == currentSelectedProduct?.product_name)
+      return 0
+
     setSearch_key(item.product_name);
     //dispatch(removeRfqProduct(currentSelectedProduct));
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
+    tempProdRef.current = null;
   };
 
   const getChildCategories = (id, level) => {
@@ -405,7 +453,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 <form onSubmit={handleSearch}>
                   <div className="row filter">
                     <div className="col-md-2"></div>
-                    <div className="col-md-5 searchbox " ref={searchRef}>
+                    <div className="col-md-6 searchbox " ref={searchRef}>
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
@@ -414,7 +462,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         type="search"
                         name="search"
                         id="search"
-                        placeholder="Ex. Deluge Valve"
+                        placeholder="Ex. Flanges"
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
@@ -435,11 +483,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             </p>
                           )}
                           {!loading && products.length == 0 && (
-                              search_key.length >= 3
-                              ? <p className="mb-0">No Products found!</p>
-                              : <p className="mb-0">Please Enter atleast 3 characters</p>
+                            <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && products.length > 0 && (
+                            <>
+                            <p className="text-center fw-bold " style={{color: "#ffa500"}}>Select an option from dropdown</p>
                             <ul>
                               {products.map((item, index) => {
                                 return (
@@ -466,6 +514,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 );
                               })}
                             </ul>
+                            </>
                           )}
                         </div>
                       )}
@@ -501,16 +550,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <option value="">Vendor Approved By</option>
                             {approved_by &&
                               approved_by.map((item) => {
-                                return (
-                                  <option value={item.id} key={`va_${item.id}`}>
-                                    {item.vendor_approve}
-                                  </option>
-                                );
+                                if (item.show_in_website == 1) {
+                                  return (
+                                    <option value={item.id} key={`va_${item.id}`}>
+                                      {item.vendor_approve}
+                                    </option>
+                                  );
+                                }
                               })}
                           </select>
                         )}
 
-                        <span>
+                        {/* <span>
                           <Link
                             href="#"
                             className="btn btn-secondary mt-0 mb-0"
@@ -518,7 +569,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           >
                             Search
                           </Link>
-                        </span>
+                        </span> */}
                       </div>
                     </div>
                   </div>
@@ -667,8 +718,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   <SearchItem
                     handleRemoveCurrentSelected={handleRemoveCurrentSelected}
                     selectedProduct={true}
-                    setbulkRFQProducts={setbulkRFQProducts}
-                    bulkRFQProducts={bulkRFQProducts}
+                    setbulkRFQVendors={setbulkRFQVendors}
+                    bulkRFQVendors={bulkRFQVendors}
                     type={type}
                     key={`product-item-${currentSelectedProduct.id}`}
                     data={currentSelectedProduct}
@@ -964,7 +1015,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         <div className="col-md-10">
                           {userProfile?.subscription_plan_id && (
                             <div className="actions">
-                              {bulkRFQProducts.length > 0 && (
+                              {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
                                   className={`btn btn-primary ${!userProfile.subscription_plan_id
@@ -1017,13 +1068,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   handleRemoveCurrentSelected
                                 }
                                 currentSelectedProduct={currentSelectedProduct}
-                                setbulkRFQProducts={setbulkRFQProducts}
-                                bulkRFQProducts={bulkRFQProducts}
+                                setbulkRFQVendors={setbulkRFQVendors}
+                                bulkRFQVendors={bulkRFQVendors}
                                 type={"vendors"}
                                 key={`product-item-${item.id}`}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
                                 setOpenAuthModal={setOpenAuthModal}
+                                addToRFQ={addToRFQ}
                               />
                             );
                           })}
@@ -1037,7 +1089,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             className="btn btn-primary w-50"
                             onClick={handleRedirect}
                           >
-                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 && vendorMetaData?.total} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 && vendorMetaData?.total} more Vendors`}
+                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more Vendors`}
                           </button>
                         </div>
                       }

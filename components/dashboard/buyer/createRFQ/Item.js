@@ -42,7 +42,6 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
 
   useEffect(() => {
-    // console.log("data", data);
     data.spec.map((item) => {
       switch(item.title) {
         case 'Size':  
@@ -279,6 +278,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               placeholder="Quantity"
               class="form-control me-0"
               aria-label="Quantity input with dropdown button"
+              onWheel={(e) => e.target.blur()}
             />
             <input type="text" 
               value={unit}
