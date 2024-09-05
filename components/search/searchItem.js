@@ -144,7 +144,7 @@ const SearchItem = ({
                       </p>
                     )}
                     {data.about && (
-                      <p>
+                      <p className="truncate-text " style={{maxHeight: "100px", WebkitLineClamp: 3}}>
                         <b>About :</b> {data.about}
                       </p>
                     )}

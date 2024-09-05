@@ -6263,7 +6263,7 @@ textarea {
     padding: 20px;
     border: 1px solid #e1e1e1;
     margin-bottom: 20px;
-    height: 260px;
+    height: 240px;
 
     .col-md-3 {
       padding: 12px;
@@ -7384,11 +7384,9 @@ td:hover .tooltip_custom {
   width: 350px;
 }
 
-.truncate-2-lines {
+.truncate-text {
   display: -webkit-box;
-  max-height: 80px;
   overflow: hidden;
-  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   text-overflow: ellipsis;
 }
