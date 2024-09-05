@@ -6263,7 +6263,7 @@ textarea {
     padding: 20px;
     border: 1px solid #e1e1e1;
     margin-bottom: 20px;
-    height: 300px;
+    height: 260px;
 
     .col-md-3 {
       padding: 12px;
@@ -6934,6 +6934,14 @@ a.btn.disabled {
       color: #fff;
       text-align: center;
     }
+  }
+
+  .table-si-row:nth-child(2) {
+    border-radius: 24px 0 0 0;
+  }
+
+  .table-si-row:last-child {
+    border-radius: 0 24px 0 0;
   }
 }
 

@@ -53,11 +53,12 @@ const CreateRFQ = () => {
   }, [rfqProductsFromStore]);
 
   useEffect(() => {
-    getTermsData();
     getProfileDetails();
     setRFQProductsFromStore();
     getVendorApproveList();
     getAllStates();
+    if(stateTerms.length == 0)
+        getTermsData();
   }, []);
 
   const getAllStates = () => {
@@ -93,7 +94,7 @@ const CreateRFQ = () => {
   };
 
   const getTermsData = () => {
-    setTerms(stateTerms);
+    // setTerms(stateTerms);
     getTerms()
       .then((res) => {
         setTerms(res.data);

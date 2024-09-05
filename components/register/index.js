@@ -148,7 +148,7 @@ const Register = (props) => {
                   type="text"
                   id="name"
                   name="name"
-                  placeholder="Ex. Manoj Kumar"
+                  placeholder="Ex. Rahul Patil"
                 />
                 {touched.name && errors.name && (
                   <div className="form-error">{errors.name}</div>

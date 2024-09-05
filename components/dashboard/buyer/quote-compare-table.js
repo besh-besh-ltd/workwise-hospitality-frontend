@@ -62,10 +62,8 @@ const QuoteCompareTable = ({
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
-                console.log(item)
                 return (
                   <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
-                    {/* {console.log("item ==>>>>>>>", item)} */}
                     {item?.quote_details?.is_regret == 1 && (
                       <div className="vendor_regreted_quote">
                         {" "}
