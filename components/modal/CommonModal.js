@@ -1,5 +1,4 @@
-import { Field, Form, Formik } from 'formik';
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Modal from "react-modal";
 
 
@@ -9,6 +8,10 @@ const CommonModal = ({
     closeModal
 }) => {
 
+    useEffect(()=> {
+        console.log(data)
+    }, []);
+    
     return (
         <>
             <Modal
@@ -55,12 +58,12 @@ const CommonModal = ({
                                 <section className="d-flex justify-content-center align-items-center my-5">
                                     <div className="w-75">
                                         <div class="input-group mb-3">
-                                            <span class="input-group-text" id={`mobile_${data?.vendorData?.mobile}`}>Mobile</span>
-                                            <input type="text" class="form-control" aria-label="Mobile data section" aria-describedby={`mobile_${data?.vendorData?.mobile}`} value={`+91 ${data?.vendorData?.mobile}`} disabled />
+                                            <span class="input-group-text" id={`mobile_${data?.mobile}`}>Mobile</span>
+                                            <input type="text" class="form-control" aria-label="Mobile data section" aria-describedby={`mobile_${data?.mobile}`} value={`+91 ${data?.mobile}`} disabled />
                                         </div>
                                         <div class="input-group mb-3">
-                                            <span class="input-group-text" id={`email${data?.vendorData?.email}`}>Email</span>
-                                            <input type="text" class="form-control" aria-label="Email section" aria-describedby={`email${data?.vendorData?.email}`} value={`${data?.vendorData?.email}`} disabled />
+                                            <span class="input-group-text" id={`email${data?.email}`}>Email</span>
+                                            <input type="text" class="form-control" aria-label="Email section" aria-describedby={`email${data?.email}`} value={`${data?.email}`} disabled />
                                         </div>
                                     </div>
                                 </section>

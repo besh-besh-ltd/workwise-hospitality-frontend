@@ -438,6 +438,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           <Link
             href="/dashboard/buyer/rfq-management?tab=create-rfq"
             className="page-link backBtn"
+            onClick={(e)=> {
+              e.preventDefault();
+              router.back()}
+            }
           >
             {" "}
             <FontAwesomeIcon icon={faArrowLeft} /> Go back
@@ -482,38 +486,41 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               Fetching..
                             </p>
                           )}
-                          {!loading && products.length == 0 && (
+                          {!loading && search_key === "" && (
+                            <p className="mb-0">Start Typing Product Name...</p>
+                          )}
+                          {!loading && search_key !== "" && products.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && products.length > 0 && (
                             <>
-                            <p className="text-center fw-bold " style={{color: "#ffa500"}}>Select an option from dropdown</p>
-                            <ul>
-                              {products.map((item, index) => {
-                                return (
-                                  <li
-                                    key={`mp_${index}`}
-                                    onClick={() =>
-                                      handleAutocompleteClick(item)
-                                    }
-                                    title={`${item.product_name} - ${item.description}`}
-                                  >
-                                    <i>
-                                      <FontAwesomeIcon icon={faPlus} />
-                                    </i>
-                                    <div>
-                                      <h4>{item.product_name}</h4>
-                                      <p>
-                                        <small>
-                                          <b>{item.category_name} </b> |{" "}
-                                          {item.description}
-                                        </small>
-                                      </p>
-                                    </div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
+                              <p className="text-center fw-bold " style={{ color: "#ffa500" }}>Select an option from dropdown</p>
+                              <ul>
+                                {products.map((item, index) => {
+                                  return (
+                                    <li
+                                      key={`mp_${index}`}
+                                      onClick={() =>
+                                        handleAutocompleteClick(item)
+                                      }
+                                      title={`${item.product_name} - ${item.description}`}
+                                    >
+                                      <i>
+                                        <FontAwesomeIcon icon={faPlus} />
+                                      </i>
+                                      <div>
+                                        <h4>{item.product_name}</h4>
+                                        <p>
+                                          <small>
+                                            <b>{item.category_name} </b> |{" "}
+                                            {item.description}
+                                          </small>
+                                        </p>
+                                      </div>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
                             </>
                           )}
                         </div>
@@ -999,7 +1006,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
               <div className="row">
                 {currentSelectedProduct && (
-                  <div className="col-md-12">
+                  <div className="col-md-12">                    
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
                         {currentSelectedProduct && <h4>Available Vendors</h4>}
@@ -1052,6 +1059,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     <hr />
 
+                    {loading && <FullLoader />}
+
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
@@ -1081,7 +1090,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           })}
                       </div>
 
-                      {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
+                      {!loading && (!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
                           {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
                           <button
