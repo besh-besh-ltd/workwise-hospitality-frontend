@@ -179,6 +179,17 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+export const MagicRFQService = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/magic-search-rfq-create`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getPastRFQS = (id) => {
   return new Promise(async (resolve, reject) => {
     try {
