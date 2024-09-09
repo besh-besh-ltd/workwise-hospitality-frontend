@@ -246,6 +246,10 @@ const SendQuotePageComp = () => {
             <Link
               href={`/dashboard/vendor/inquiries-details?id=${id}`}
               className="page-link backBtn"
+              onClick={(e)=> {
+                e.preventDefault();
+                router.back()}
+              }
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back

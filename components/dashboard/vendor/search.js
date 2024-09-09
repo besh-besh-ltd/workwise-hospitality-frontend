@@ -5,6 +5,7 @@ import {
   faArrowLeft,
   faMagnifyingGlass,
   faPlus,
+  faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
@@ -435,13 +436,34 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
+          <div className="d-flex justify-content-between">
+
+          
           <Link
             href="/dashboard/buyer/rfq-management?tab=create-rfq"
             className="page-link backBtn"
+            onClick={(e)=> {
+              e.preventDefault();
+              router.back()}
+            }
           >
             {" "}
             <FontAwesomeIcon icon={faArrowLeft} /> Go back
           </Link>
+
+          <Link
+            href="/dashboard/buyer/magic-search"
+            className="page-link backBtn btn btn-secondary text-white px-2 "
+            style={{minWidth: "280px"}}
+            onClick={(e)=> {
+              e.preventDefault();
+              router.back()}
+            }
+          >
+            {" "}
+            <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
+          </Link>
+          </div>
         </div>
       </section>
 
@@ -482,38 +504,41 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               Fetching..
                             </p>
                           )}
-                          {!loading && products.length == 0 && (
+                          {!loading && search_key === "" && (
+                            <p className="mb-0">Start Typing Product Name...</p>
+                          )}
+                          {!loading && search_key !== "" && products.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && products.length > 0 && (
                             <>
-                            <p className="text-center fw-bold " style={{color: "#ffa500"}}>Select an option from dropdown</p>
-                            <ul>
-                              {products.map((item, index) => {
-                                return (
-                                  <li
-                                    key={`mp_${index}`}
-                                    onClick={() =>
-                                      handleAutocompleteClick(item)
-                                    }
-                                    title={`${item.product_name} - ${item.description}`}
-                                  >
-                                    <i>
-                                      <FontAwesomeIcon icon={faPlus} />
-                                    </i>
-                                    <div>
-                                      <h4>{item.product_name}</h4>
-                                      <p>
-                                        <small>
-                                          <b>{item.category_name} </b> |{" "}
-                                          {item.description}
-                                        </small>
-                                      </p>
-                                    </div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
+                              <p className="text-center fw-bold " style={{ color: "#ffa500" }}>Select an option from dropdown</p>
+                              <ul>
+                                {products.map((item, index) => {
+                                  return (
+                                    <li
+                                      key={`mp_${index}`}
+                                      onClick={() =>
+                                        handleAutocompleteClick(item)
+                                      }
+                                      title={`${item.product_name} - ${item.description}`}
+                                    >
+                                      <i>
+                                        <FontAwesomeIcon icon={faPlus} />
+                                      </i>
+                                      <div>
+                                        <h4>{item.product_name}</h4>
+                                        <p>
+                                          <small>
+                                            <b>{item.category_name} </b> |{" "}
+                                            {item.description}
+                                          </small>
+                                        </p>
+                                      </div>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
                             </>
                           )}
                         </div>
@@ -999,7 +1024,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
               <div className="row">
                 {currentSelectedProduct && (
-                  <div className="col-md-12">
+                  <div className="col-md-12">                    
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
                         {currentSelectedProduct && <h4>Available Vendors</h4>}
@@ -1052,6 +1077,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     <hr />
 
+                    {loading && <FullLoader />}
+
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
@@ -1081,7 +1108,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           })}
                       </div>
 
-                      {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
+                      {!loading && (!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
                           {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
                           <button
