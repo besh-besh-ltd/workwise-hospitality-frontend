@@ -47,10 +47,6 @@ const LoginContainer = (props) => {
                 props.setloading(false);
                 handleChange(props.setOpenAuthModal(false));
                 
-                if(props.setIsLoggedIn) {
-                    props.setIsLoggedIn(true)
-                }
-
                 toast.success(response.message, {
                     position: "top-center",
                 });
@@ -70,7 +66,7 @@ const LoginContainer = (props) => {
                     return;
                 } else {
                     if (userType == "buyer") {
-                        router.push(`/products`);
+                        router.push(`/products?loggedin=true`);
                     } else {
                         router.push(`/dashboard/${userType}`);
                     }

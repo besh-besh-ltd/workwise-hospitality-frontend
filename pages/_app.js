@@ -72,7 +72,7 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
-      <ToastContainer />
+      <ToastContainer style={{ zIndex: 10000 }} />
       {loading && <Loader />}
       <Providers>
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">

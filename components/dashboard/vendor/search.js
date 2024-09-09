@@ -36,7 +36,7 @@ const customSelectStyles = {
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
-  const { s } = router.query;
+  const { s, loggedin } = router.query;
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -97,7 +97,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
       // getProducts();
     }
-  }, [router]);
+    if (loggedin === 'true') {
+      setIsLoggedIn(true);
+    }
+  }, [router, loggedin]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1140,7 +1143,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           setOpenAuthModal={setOpenAuthModal}
           activeAuthTab={activeAuthTab}
           setActiveAuthTab={setActiveAuthTab}
-          setIsLoggedIn={setIsLoggedIn}
         />
 
       </section>
