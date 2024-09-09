@@ -5,6 +5,7 @@ import {
   faArrowLeft,
   faMagnifyingGlass,
   faPlus,
+  faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
@@ -435,6 +436,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
+          <div className="d-flex justify-content-between">
+
+          
           <Link
             href="/dashboard/buyer/rfq-management?tab=create-rfq"
             className="page-link backBtn"
@@ -446,6 +450,20 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             {" "}
             <FontAwesomeIcon icon={faArrowLeft} /> Go back
           </Link>
+
+          <Link
+            href="/dashboard/buyer/magic-search"
+            className="page-link backBtn btn btn-secondary text-white px-2 "
+            style={{minWidth: "280px"}}
+            onClick={(e)=> {
+              e.preventDefault();
+              router.back()}
+            }
+          >
+            {" "}
+            <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
+          </Link>
+          </div>
         </div>
       </section>
 
