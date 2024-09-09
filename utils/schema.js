@@ -126,7 +126,7 @@ export const contactFormSchema = yup.object().shape({
       "please enter valid mobile number"
     )
     .min(10, "Min 10 digit is required")
-    .max(11, "Mobile number not more than 8 digit long")
+    .max(12, "Mobile number not more than 8 digit long")
     .required("Mobile number is required"),
   subject: yup.string().required("Subject is required"),
   comment: yup.string().required("Comment is required"),

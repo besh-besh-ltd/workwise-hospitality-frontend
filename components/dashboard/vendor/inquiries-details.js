@@ -439,6 +439,11 @@ const RfqManagementPreview = () => {
                 <Link
                   href="/dashboard/buyer/rfq-management"
                   className="page-link backBtn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.back()
+                  }
+                  }
                 >
                   {" "}
                   <FontAwesomeIcon icon={faArrowLeft} /> Go back
@@ -536,22 +541,22 @@ const RfqManagementPreview = () => {
 
                                       {item?.product_specs.map(
                                         (spec_item, index) => {
-                                            return (
-                                              <input
-                                                key={`rfq_d_spec_itm_${index}`}
-                                                className="full"
-                                                type="text"
-                                                name={spec_item?.title.toLowerCase()}
-                                                id={
-                                                  item?.product_id +
-                                                  "_" +
-                                                  spec_item?.title.toLowerCase()
-                                                }
-                                                placeholder={spec_item?.title.toLowerCase()}
-                                                value={spec_item?.value}
-                                                disabled
-                                              />
-                                            );
+                                          return (
+                                            <input
+                                              key={`rfq_d_spec_itm_${index}`}
+                                              className="full"
+                                              type="text"
+                                              name={spec_item?.title.toLowerCase()}
+                                              id={
+                                                item?.product_id +
+                                                "_" +
+                                                spec_item?.title.toLowerCase()
+                                              }
+                                              placeholder={spec_item?.title.toLowerCase()}
+                                              value={spec_item?.value}
+                                              disabled
+                                            />
+                                          );
                                         }
                                       )}
 
@@ -771,11 +776,11 @@ const RfqManagementPreview = () => {
                                         )}
                                     </div>
                                   </td>
-                                  <td style={{maxWidth: "400px"}}>
+                                  <td style={{ maxWidth: "400px" }}>
                                     {item?.comment && item?.comment != ""
-                                      ? item?.comment?.length > 100 
-                                      ? <ReadMore content={item.comment} maxLength={100} textSmall={true} />
-                                      : item.comment
+                                      ? item?.comment?.length > 100
+                                        ? <ReadMore content={item.comment} maxLength={100} textSmall={true} />
+                                        : item.comment
                                       : "N/A"}
                                   </td>
                                   {/* <td>

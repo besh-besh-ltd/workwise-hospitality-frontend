@@ -33,7 +33,7 @@ const AddVendorModal = ({
                 "please enter valid mobile number"
             )
             .min(10, "Min 10 digit is required")
-            .max(11, "Mobile number not more than 11 digit long")
+            .max(12, "Mobile number not more than 11 digit long")
             .required("Mobile number is required"),
         productList: yup.string().required("product List is Required")
             .min(2, "product Name not less than 2 characters short")

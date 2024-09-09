@@ -1,10 +1,10 @@
-import { faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useDispatch } from "react-redux";
+import CommonModal from "../modal/CommonModal";
 
 const SearchItem = ({
   data,
@@ -21,6 +21,7 @@ const SearchItem = ({
 }) => {
   const dispatch = useDispatch();
   const router = useRouter();
+  const [openCommonModal, setOpenCommonModal] = useState(false);
 
   const handleSelectVendor = (e, item) => {
     if (e.target.checked) {
@@ -140,11 +141,11 @@ const SearchItem = ({
                   <div className="mdl-con-text">
                     {data.address && (
                       <p>
-                        <b>Location :</b> {data.city_name}, {data.state_name}
+                        <b>Location :</b> {data.city_name ? `${data.city_name}, ${data.state_name}` : data.state_name ? data.state_name : ''}
                       </p>
                     )}
                     {data.about && (
-                      <p>
+                      <p className="truncate-text " style={{ maxHeight: "100px", WebkitLineClamp: 3 }}>
                         <b>About :</b> {data.about}
                       </p>
                     )}
@@ -175,16 +176,6 @@ const SearchItem = ({
                     <p className="mb-0">
                       <b>Description :</b> {data.description}
                     </p>
-                    {/* <p>
-                  <b>About :</b> Lorem Ipsum is simply dummy text of the
-                  printing and typesetting industry. Lorem Ipsum has been the
-                  industry's standard.
-                </p>
-                
-                <p>
-                  <b>Products :</b> Pipes, Alloy Steel, Carbon Steel & 8 more
-                </p> */}
-                    {/* */}
                     {type != "products" && (
                       <>
                         <p>
@@ -204,6 +195,7 @@ const SearchItem = ({
                 <Link
                   href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
+                  target="_blank"
                 >
                   View Details
                 </Link>
@@ -230,7 +222,7 @@ const SearchItem = ({
                     if (!vendorMetaData.logged_In)
                       setOpenAuthModal(true);
                     else
-                      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
+                      setOpenCommonModal(true);
                   }}
                 >
                   Contact Info
@@ -261,6 +253,19 @@ const SearchItem = ({
           </div>
         </div>
       </div>
+
+      {/* ------------- Show Vendors contact info in Modal ------------- */}
+      {openCommonModal &&
+        <CommonModal
+          data={{
+            title: "Contact Information",
+            email: data.email,
+            mobile: data.mobile
+          }}
+          openCommonModal={openCommonModal}
+          closeModal={() => setOpenCommonModal(false)}
+        />
+      }
     </>
   );
 };

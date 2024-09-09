@@ -242,7 +242,8 @@ const QuoteCompareTable = ({
         <CommonModal
           data={{
             title: "Contact Information",
-            vendorData
+            email: vendorData.email,
+            mobile: vendorData.mobile
           }}
           openCommonModal={openCommonModal}
           closeModal={() => setOpenCommonModal(false)}
