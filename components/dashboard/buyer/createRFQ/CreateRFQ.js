@@ -291,8 +291,8 @@ const CreateRFQ = () => {
                         : userProfile?.mobile,
                       location: rfqFormData.location,
                       bid_end_date: rfqFormData.bid_end_date,
-                      company_name: userProfile?.company_name
-                        ? userProfile?.company_name
+                      company_name: userProfile?.organization_name
+                        ? userProfile?.organization_name
                         : rfqFormData?.company_name,
                     }}
                     validationSchema={CreateRFQSchema}

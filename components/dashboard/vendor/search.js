@@ -287,7 +287,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       {
         cat_id,
         search_key: s_key,
-        approved_by: selectedVbaa,
+        // approved_by: selectedVbaa,
       },
       type
     )
@@ -529,8 +529,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                         <h4>{item.product_name}</h4>
                                         <p>
                                           <small>
-                                            <b>{item.category_name} </b> |{" "}
-                                            {item.description}
+                                            <b>{item.category_name} </b> {(item.description && item.description != 'null') && `| ${item.description}`}
                                           </small>
                                         </p>
                                       </div>
