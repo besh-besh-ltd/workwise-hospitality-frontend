@@ -96,7 +96,6 @@ export const rfqProductsSlice = createSlice({
     },
 
     removeRfqProduct: (state, action) => {
-      console.log(state.rfqProducts);
 
       let remainingProducts = state.rfqProducts.filter((pitem) => {
         if (

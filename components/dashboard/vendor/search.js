@@ -278,7 +278,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       .catch((error) => {
         setloading(false);
         setVendorMetaData(error?.response?.data)
-        console.log(error);
       });
   };
   const getProducts = (s_key = search_key) => {
@@ -301,7 +300,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       })
       .catch((error) => {
         setloading(false);
-        console.log(error);
       });
   };
   const getCategories = () => {

@@ -127,8 +127,6 @@ const LoginContainer = (props) => {
                     toast.success(response.message, {
                         position: "top-center",
                     });
-                    console.log(response, "response *");
-                    console.log(response?.profile?.user_type, "response type *");
 
                     let userType = "";
                     if (response?.profile?.user_type == 2) {

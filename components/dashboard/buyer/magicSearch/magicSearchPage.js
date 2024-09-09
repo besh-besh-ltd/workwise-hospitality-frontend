@@ -84,7 +84,6 @@ function MagicSearchPage() {
             }, 2000 * (messages.length-currentMessageIndex));
 
         } catch (error) {
-            console.log(error);
             toast.error(error.message);
             setLoading(false);
             setFileName('');
@@ -369,7 +368,6 @@ function MagicSearchPage() {
                                         <tbody>
                                             {
                                                 validationErrors?.map((item, index) => {
-                                                    console.log(item)
                                                     return (
                                                         <tr key={item?.row}>
                                                             <td>{index + 1}</td>

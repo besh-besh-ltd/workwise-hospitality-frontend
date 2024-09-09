@@ -72,7 +72,6 @@ const CreateRFQ = () => {
   };
 
   const setRFQProductsFromStore = () => {
-    // console.log(rfqProductsFromStore);
     let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
     setRfqProducts(fp);
   };
@@ -140,7 +139,6 @@ const CreateRFQ = () => {
       })
       .catch((err) => {
         setMainLoading(false);
-        console.log(err);
       });
   };
 
