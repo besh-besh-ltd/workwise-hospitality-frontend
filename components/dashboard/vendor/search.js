@@ -455,10 +455,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             href="/dashboard/buyer/magic-search"
             className="page-link backBtn btn btn-secondary text-white px-2 "
             style={{minWidth: "280px"}}
-            onClick={(e)=> {
-              e.preventDefault();
-              router.back()}
-            }
           >
             {" "}
             <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
