@@ -72,7 +72,6 @@ const CreateRFQ = () => {
   };
 
   const setRFQProductsFromStore = () => {
-    // console.log(rfqProductsFromStore);
     let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
     setRfqProducts(fp);
   };
@@ -140,7 +139,6 @@ const CreateRFQ = () => {
       })
       .catch((err) => {
         setMainLoading(false);
-        console.log(err);
       });
   };
 
@@ -291,8 +289,8 @@ const CreateRFQ = () => {
                         : userProfile?.mobile,
                       location: rfqFormData.location,
                       bid_end_date: rfqFormData.bid_end_date,
-                      company_name: userProfile?.company_name
-                        ? userProfile?.company_name
+                      company_name: userProfile?.organization_name
+                        ? userProfile?.organization_name
                         : rfqFormData?.company_name,
                     }}
                     validationSchema={CreateRFQSchema}
