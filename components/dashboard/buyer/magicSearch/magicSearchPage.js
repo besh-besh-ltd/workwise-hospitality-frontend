@@ -20,11 +20,13 @@ function MagicSearchPage() {
     const [file, setFile] = useState(null);
     const [fileName, setFileName] = useState('');
     const [loading, setLoading] = useState(false); // Set true for loading UI
+    const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [receivedData, setReceivedData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
     const [states, setstates] = useState([]);
-    const [formData, setFormData] = useState(initialFormData)
+    const [formData, setFormData] = useState(initialFormData);
     const tableRef = useRef(null);
+    const apiDataRef = useRef(null);
 
     // Message rotation state for loading UI
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -64,42 +66,25 @@ function MagicSearchPage() {
             toast.error("Please select a file!");
             return;
         }
-        console.log(formData)
 
         try {
             setLoading(true);
             const response = await axiosFormData.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/rfq/magic-search-rfq-create`,
                 formData
-            )
+            );
 
-            // Handle successful response
-            if (response.status == 1 && response.validation_errors?.length == 0) {
-                toast.success("We have Successfully created your RFQ");
-            }
-            setReceivedData(response.data);
+            apiDataRef.current = response;
 
-            // Handle partial validation errors
-            if (response.validation_errors) {
-                toast.warning("We are able to Partially create your RFQ");
-                setValidationErrors(response.validation_errors);
-            }
-
-            // Scroll to table if rendered
+            // Delay the state update until all messages are shown
             setTimeout(() => {
-                if (typeof window !== "undefined" && tableRef.current) {
-                    tableRef.current.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                    });
-                }
-            }, 300)
+                setLoading(false);
+                setFileName('');
+                setFormData(initialFormData);
+            }, 2000 * (messages.length-currentMessageIndex));
 
         } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-
-        } finally {
+            toast.error(error.message);
             setLoading(false);
             setFileName('');
             setFormData(initialFormData);
@@ -128,26 +113,64 @@ function MagicSearchPage() {
         getAllStates();
     }, []);
 
-    // Rotating messages logic for loader
+    // Display messages in a rotating fashion
     useEffect(() => {
         let messageInterval;
+        let messageDisplayTime = 2000; // 2 seconds per message
+        let messageCount = 0;
 
-        if (loading) {
+        if (loading && !messagesDisplayed) {
             messageInterval = setInterval(() => {
                 setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % messages.length);
-            }, 2000); // Rotate every 2 seconds
+                if (messageCount < messages.length) {
+                    messageCount++;
+                } else {
+                    setMessagesDisplayed(true);
+                    clearInterval(messageInterval);
+                }
+            }, messageDisplayTime);
         }
 
-        // Clean up interval on component unmount
         return () => {
             clearInterval(messageInterval);
         };
-    }, [loading, messages.length]);
+    }, [loading, messagesDisplayed]);
 
+    // Handle API response and state update after all messages are shown
+    useEffect(() => {
+        if (messagesDisplayed && !loading && apiDataRef.current) {
+            const { status, validation_errors, data } = apiDataRef.current;
+
+            // Handle successful response
+            if (status === 1 && validation_errors?.length === 0) {
+                toast.success("We have Successfully created your RFQ");
+            }
+
+            setReceivedData(data);
+
+            // Handle partial validation errors
+            if (validation_errors) {
+                toast.warning("We are able to Partially create your RFQ");
+                setValidationErrors(validation_errors);
+            }
+
+            // Scroll to table if rendered
+            setTimeout(() => {
+                if (typeof window !== "undefined" && tableRef.current) {
+                    tableRef.current.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                    });
+                }
+            }, 300);
+
+            apiDataRef.current = null;
+            setMessagesDisplayed(false); // Reset the state for future uploads
+        }
+    }, [messagesDisplayed, loading]);
 
     return (
         <>
-
             {loading && (
                 <div
                     style={{
@@ -169,7 +192,6 @@ function MagicSearchPage() {
                     <p>{messages[currentMessageIndex]}</p>
                 </div>
             )}
-
 
             {/* Header Section */}
             <section className="vendor-common-header sc-pt-80">
@@ -216,7 +238,7 @@ function MagicSearchPage() {
                         <div className="col-md-8 mx-auto mt-2">
                             <a
                                 title="Download this sample Excel and fill all the columns."
-                                href="/magic_search_sample.xlsx"
+                                href="/Sample BOQ File Format.xlsx"
                                 className="d-flex justify-content-end gap-2 "
                                 style={{ cursor: "pointer" }}>
                                 <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
@@ -346,7 +368,6 @@ function MagicSearchPage() {
                                         <tbody>
                                             {
                                                 validationErrors?.map((item, index) => {
-                                                    console.log(item)
                                                     return (
                                                         <tr key={item?.row}>
                                                             <td>{index + 1}</td>

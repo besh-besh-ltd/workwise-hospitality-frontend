@@ -46,7 +46,7 @@ export const searchProductsV2 = (values, type = "products") => {
     let payload = {
       category_id: values.cat_id,
       search_key: values.search_key,
-      approved_by_id: values.approved_by,
+      // approved_by_id: values.approved_by,
     };
 
     return new Promise(async (resolve, reject) => {
