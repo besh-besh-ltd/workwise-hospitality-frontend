@@ -71,7 +71,7 @@ export const rfqProductsSlice = createSlice({
         (item) => item.product_id == action.payload.product_id
       );
 
-      let maxVariant = 0;
+      let maxVariant = 0, vendorList = [];
       if (alreadyExistsProducts.length > 0) {
         const maxVariantProduct = alreadyExistsProducts.reduce((max, product) => {
           return (product.variant > max.variant) ? product : max;
@@ -80,7 +80,10 @@ export const rfqProductsSlice = createSlice({
       }
 
       data.variant = maxVariant;
-      data.vendors = action.payload?.vendors?.length > 0 ? action.payload?.vendors : [];
+      if(data.vendors.length != 0) {
+        vendorList = action.payload.vendors.filter((vendor)=> vendor.selected === true)
+      }
+      data.vendors = vendorList;
       state.rfqProducts.push(data)
 
       // if (true) {

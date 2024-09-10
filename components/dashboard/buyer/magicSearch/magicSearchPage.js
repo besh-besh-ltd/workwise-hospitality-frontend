@@ -238,7 +238,7 @@ function MagicSearchPage() {
                         <div className="col-md-8 mx-auto mt-2">
                             <a
                                 title="Download this sample Excel and fill all the columns."
-                                href="/magic_search_sample.xlsx"
+                                href="/Sample BOQ File Format.xlsx"
                                 className="d-flex justify-content-end gap-2 "
                                 style={{ cursor: "pointer" }}>
                                 <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>

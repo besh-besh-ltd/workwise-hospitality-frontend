@@ -102,7 +102,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       console.log("set logged in")
       setIsLoggedIn(true);
     }
-    if(redirectAfterLogin) {
+    if (redirectAfterLogin) {
       const url = redirectAfterLogin;
       router.push(url);
     }
@@ -214,7 +214,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       );
       toast.success(
         <h6>
-          <b>{currentSelectedProduct.product_name}:</b> Successfully added to RFQ list!
+          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
         </h6>,
         {
           position: "top-right",
@@ -446,35 +446,36 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           <h1 className="heading">{title}</h1>
           <div className="d-flex justify-content-between">
 
-          
-          <Link
-            href="/dashboard/buyer/rfq-management?tab=create-rfq"
-            className="page-link backBtn"
-            onClick={(e)=> {
-              e.preventDefault();
-              router.back()}
-            }
-          >
-            {" "}
-            <FontAwesomeIcon icon={faArrowLeft} /> Go back
-          </Link>
 
-          <Link
-            href="#"
-            className="page-link backBtn btn btn-secondary text-white px-2 "
-            style={{minWidth: "280px"}}
-            onClick={(e)=> {
-              e.preventDefault();
-              if(!isLoggedIn) {
-                setOpenAuthModal(true)
-                setRedirectAfterLogin("/dashboard/buyer/magic-search")
+            <Link
+              href="/dashboard/buyer/rfq-management?tab=create-rfq"
+              className="page-link backBtn"
+              onClick={(e) => {
+                e.preventDefault();
+                router.back()
               }
-              else router.push("/dashboard/buyer/magic-search")
-            }}
-          >
-            {" "}
-            <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
-          </Link>
+              }
+            >
+              {" "}
+              <FontAwesomeIcon icon={faArrowLeft} /> Go back
+            </Link>
+
+            <Link
+              href="#"
+              className="page-link backBtn btn btn-secondary text-white px-2 "
+              style={{ minWidth: "280px" }}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!isLoggedIn) {
+                  setOpenAuthModal(true)
+                  setRedirectAfterLogin("/dashboard/buyer/magic-search")
+                }
+                else router.push("/dashboard/buyer/magic-search")
+              }}
+            >
+              {" "}
+              <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
+            </Link>
           </div>
         </div>
       </section>
@@ -849,11 +850,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           <option value="">Select Vendor</option>
                           {approved_by &&
                             approved_by.map((item) => {
-                              return (
-                                <option value={item.id} key={`va_${item.id}`}>
-                                  {item.vendor_approve}
-                                </option>
-                              );
+                              if (item.vendor_approve && item.vendor_approve != 'null') {
+                                return (
+                                  <option value={item.id} key={`va_${item.id}`}>
+                                    {item.vendor_approve}
+                                  </option>
+                                );
+                              }
                             })}
                         </select>
                       )}
@@ -1035,7 +1038,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
               <div className="row">
                 {currentSelectedProduct && (
-                  <div className="col-md-12">                    
+                  <div className="col-md-12">
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
                         {currentSelectedProduct && <h4>Available Vendors</h4>}
@@ -1049,12 +1052,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           </label>
                         </div>
                         <div className="col-md-10">
-                          {userProfile?.subscription_plan_id && (
+                          {vendorMetaData.subscription && (
                             <div className="actions">
                               {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
-                                  className={`btn btn-primary ${!userProfile.subscription_plan_id
+                                  className={`btn btn-primary ${!vendorMetaData.subscription
                                     ? `disabled`
                                     : ``
                                     }`}
@@ -1065,7 +1068,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               )}
                               <Link
                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                className={`btn btn-primary ${!userProfile.subscription_plan_id
+                                className={`btn btn-primary ${!vendorMetaData.subscription
                                   ? `disabled`
                                   : ``
                                   }`}
@@ -1102,14 +1105,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           vendors.map((item) => {
                             return (
                               <SearchItem
-                                handleRemoveCurrentSelected={
-                                  handleRemoveCurrentSelected
-                                }
+                                handleRemoveCurrentSelected={handleRemoveCurrentSelected}
                                 currentSelectedProduct={currentSelectedProduct}
                                 setbulkRFQVendors={setbulkRFQVendors}
                                 bulkRFQVendors={bulkRFQVendors}
                                 type={"vendors"}
-                                key={`product-item-${item.id}`}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
                                 setOpenAuthModal={setOpenAuthModal}
