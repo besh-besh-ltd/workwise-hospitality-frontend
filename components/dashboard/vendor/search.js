@@ -77,6 +77,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const tempProdRef = useRef(null);
 
 
@@ -97,9 +98,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
       // getProducts();
     }
-    if (loggedin === 'true') {
+    if (localStorage.getItem("token")) {
+      console.log("set logged in")
       setIsLoggedIn(true);
     }
+    if(redirectAfterLogin) {
+      const url = redirectAfterLogin;
+      router.push(url);
+    }
+    setRedirectAfterLogin(null);
   }, [router, loggedin]);
 
   useEffect(() => {
@@ -453,9 +460,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           </Link>
 
           <Link
-            href="/dashboard/buyer/magic-search"
+            href="#"
             className="page-link backBtn btn btn-secondary text-white px-2 "
             style={{minWidth: "280px"}}
+            onClick={(e)=> {
+              e.preventDefault();
+              if(!isLoggedIn) {
+                setOpenAuthModal(true)
+                setRedirectAfterLogin("/dashboard/buyer/magic-search")
+              }
+              else router.push("/dashboard/buyer/magic-search")
+            }}
           >
             {" "}
             <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
