@@ -36,20 +36,19 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => {
 
-    // record user session
-    // if (!isLogRocketInitialized.current) {
-    //   LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
-    //     dom: {
-    //       inputSanitizer: true, // Mask input fields
-    //     },
-    //   });
-    //   isLogRocketInitialized.current = true;
-    // }
-
-    // Identify user if available
-    const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
-    LogRocket.identify(userId);
-
+     // Identify user if available
+     const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
+     LogRocket.identify(userId);
+ 
+     // record user session
+     if (!isLogRocketInitialized.current) {
+       LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
+         dom: {
+           inputSanitizer: true, // Mask input fields
+         },
+       });
+       isLogRocketInitialized.current = true;
+     }
 
     const handleStart = () => setLoading(true);
     const handleComplete = () => {
