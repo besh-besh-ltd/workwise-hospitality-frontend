@@ -576,6 +576,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           <select
                             name="vab"
                             id="vab"
+                            value={selectedVbaa}
                             onChange={(e) => {
                               localStorage.setItem(
                                 "selected_vab",
@@ -587,13 +588,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <option value="">Vendor Approved By</option>
                             {approved_by &&
                               approved_by.map((item) => {
-                                if (item.show_in_website == 1) {
+                                if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
                                   return (
                                     <option value={item.id} key={`va_${item.id}`}>
                                       {item.vendor_approve}
                                     </option>
                                   );
-                                }
+                                }                              
                               })}
                           </select>
                         )}
@@ -850,7 +851,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           <option value="">Select Vendor</option>
                           {approved_by &&
                             approved_by.map((item) => {
-                              if (item.vendor_approve && item.vendor_approve != 'null') {
+                              if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
                                 return (
                                   <option value={item.id} key={`va_${item.id}`}>
                                     {item.vendor_approve}
