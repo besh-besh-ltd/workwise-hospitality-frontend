@@ -86,10 +86,10 @@ const Aboutus = (props) => {
       });
   };
 
-    // Set State Change
-    const handleChange = (setState) => (event) => {
-      setState(event);
-    };
+  // Set State Change
+  const handleChange = (setState) => (event) => {
+    setState(event);
+  };
 
   const getBod = () => {
     getAboutProfiles(1).then((response) => {
@@ -108,6 +108,8 @@ const Aboutus = (props) => {
         <title>Workwise | About us</title>
       </Head>
       <section
+        title="About Us Banner"
+        aria-label="about-us"
         className="about-sec-1 sc-pt-80"
         style={{
           backgroundImage: "url(" + bannerdata?.image_url + ")",
@@ -129,11 +131,11 @@ const Aboutus = (props) => {
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="#" className="p-bread" title="">
+                <a href="/" className="p-bread" title="Home Nav">
                   Home
                 </a>{" "}
                 /{" "}
-                <a href="#" className="c-bread" title="">
+                <a href="/aboutus" className="c-bread" title="About Us Nav">
                   About Us
                 </a>
               </div>
@@ -142,12 +144,13 @@ const Aboutus = (props) => {
         </div>
       </section>
 
+      {/* --------- About Us - Our Mission --------- */}
       {cmsdata &&
         cmsdata.map((item) => {
           return <DynamicSection content={item.content} key={item.id} />;
         })}
 
-      {/* --------- Why Choose Us / Process Overview --------- */}
+      {/* --------- Who We Are ----------- */}
       {showHomeLists1.map((item) => {
         if (item.id === 4) {
           return <DynamicSection content={item.content} key={item.id} />;
@@ -157,9 +160,9 @@ const Aboutus = (props) => {
       {/* {bod && <PersonalProfiles profiles={bod}/>}
       		{kp &&<PersonalProfiles pb={80} title="Other key Personnel" subtitle="International Subsidiaries" profiles={kp}/>} */}
 
-      <section className="title-text container text-center sc-pt-80 sc-pb-80 ">
+      <div className="title-text container text-center sc-pt-80 sc-pb-80 ">
         <p>Join us in shaping the future of the heavy industry. Together, let's build a more efficient, connected, and prosperous ecosystem</p>
-      </section>
+      </div>
     </>
   );
 };

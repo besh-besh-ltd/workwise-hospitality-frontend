@@ -29,7 +29,7 @@ const rgbDataURL = (r, g, b) =>
 
   return (
     <>
-      <section className="home-banner">
+      <section className="home-banner" title="Home Banner" aria-label="home-banner">
         <div className="home-banner-content">
           <div className="container">
             {props.bannerContent.map((item) => {

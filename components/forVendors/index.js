@@ -122,6 +122,8 @@ const ForVendors = (props) => {
 				<title>Workwise | For Vendors</title>
 			</Head>
 			<section
+				title="For Vendors Page"
+				aria-label="for-vendor-page-banner"
 				className="about-sec-1 sc-pt-80"
 				style={{
 					backgroundImage: "url(" + bannerdata?.image_url + ")",
@@ -138,23 +140,24 @@ const ForVendors = (props) => {
 				</div>
 			</section>
 
-			<section className="breadcrumbs">
+			<section className="breadcrumbs" title="Page Path" aria-label="page-path">
 				<div className="container">
 					<div className="row">
 						<div className="col-md-12">
 							<div className="breadcrumbs-con">
-								<a href="#" className="p-bread" title="">
+								<a href="/" className="p-bread" title="Home Nav" rel="noreferer">
 									Home
 								</a>{" "}
 								/{" "}
-								<a href="/for-vendors" className="c-bread" title="">
-									For Vendors
+								<a href="/for-vendors" className="c-bread" title="For Vendors Nav">
+									For vendors
 								</a>
 							</div>
 						</div>
 					</div>
 				</div>
 			</section>
+
 
 			{cmsdata &&
 				cmsdata.map((item) => {
@@ -164,10 +167,13 @@ const ForVendors = (props) => {
 
 			{/* Testimonials */}
 			{testimonials && (
-				<section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg">
+				<section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" title="Vendor Testimonials" aria-label="vendor-testimonials">
 					<div className="container">
 						<div className="home-sec-3-btm common-header">
-							<h6>What Our Vendors Say About Us</h6>
+							<h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
+								What Our Vendors Say About Us
+								<span style={{ width: "48px", height: "3px", display: "block", backgroundColor: "var(--primary-color)", marginLeft: "10px" }}></span>
+							</h2>
 							<h2>Testimonials</h2>
 							<Slider {...customerslider}>
 								{testimonials.map((item) => {
@@ -222,19 +228,15 @@ const ForVendors = (props) => {
 
 			{/* video media start */}
 			{video && (
-				<section className="home-sec-5 sc-pt-80 media-sec-home">
+				<section className="home-sec-5 sc-pt-80 sc-pb-80 media-sec-home" title="Portal Demo Video" aria-label="portal-demo-video">
 					<div className="container">
 						<div className="common-header">
-							<h6>Portal Demo</h6>
+							<h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
+								Portal Demo
+								<span style={{ width: "48px", height: "3px", display: "block", backgroundColor: "var(--primary-color)", marginLeft: "10px" }}></span>
+							</h2>
 							<h2>See Our Platform in Action</h2>
 						</div>
-					</div>
-				</section>
-			)}
-
-			{video && (
-				<section className="home-sec-5 sc-pb-80">
-					<div className="container">
 						<div className="search-vdo">
 							<div className="watch-vdo">
 								<span>Watch Video on</span>
@@ -334,12 +336,12 @@ const ForVendors = (props) => {
 			{/* video media end */}
 
 			{/* For-vendors Section-end */}
-			<section className="container sc-pb-80 sc-pt-80 ">
+			<div className="container sc-pb-80 sc-pt-80 ">
 				<div className="text-center">
 					<p dir="ltr" className="title-text">Join Workwise Today</p>
 					<p dir="ltr" className="common-header"><strong>Ready to elevate your business? Sign up now and unlock premium opportunities and seamless growth with Workwise.</strong></p>
 				</div>
-			</section>
+			</div>
 		</>
 	);
 };
