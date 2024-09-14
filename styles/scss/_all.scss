@@ -6420,8 +6420,6 @@ span.mproducts {
 
 .search_results_autocomplete {
   box-shadow: 0 4px 6px rgba(32, 33, 36, 0.28);
-  max-height: 300px;
-  overflow: auto;
   position: absolute;
   background: #fff;
   width: calc(100% - 30px);
@@ -6431,6 +6429,15 @@ span.mproducts {
   box-sizing: border-box;
   border: 1px solid #ddd;
   border-radius: 0 0 15px 15px;
+
+  .container {
+    max-height: 300px;
+    overflow-y: scroll;    
+  }
+
+  .container > h4 {
+    background-color: var(--primary-color);
+  }
 
   ul {
     list-style: none;

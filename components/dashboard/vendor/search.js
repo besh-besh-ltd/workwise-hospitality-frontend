@@ -10,7 +10,7 @@ import {
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, vendorApproveList } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList } from "@/services/rfq";
 import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -79,6 +79,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const tempProdRef = useRef(null);
+  const [searchCategories, setSearchCategories] = useState([]);
+  const [searchSubCategories, setSearchSubCategories] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  const categoryLvlRef = useRef(new Map());
 
 
   const handleRedirect = (e) => {
@@ -289,6 +293,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
   const getProducts = (s_key = search_key) => {
     setloading(true);
+    categoryLvlRef.current = new Map();
     searchProductsV2(
       {
         cat_id,
@@ -304,11 +309,31 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           return item;
         });
         setProducts(d);
+        setSearchCategories(rsp.categoryData);
       })
       .catch((error) => {
         setloading(false);
       });
   };
+
+  const getCategoriesById = (category_id, category_name) => {
+    setloading(true)
+    categoryLvlRef.current.set(category_id, category_name)
+
+    categoryListById({ category_id })
+      .then((res) => {
+        setProductsList(res.productList);
+        setSearchSubCategories(res.subCategoryList);
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .finally(() => {
+        setloading(false)
+        setIsOpen(false);
+      })
+  };
+
   const getCategories = () => {
     setcatloading(true);
     categoryList()
@@ -329,6 +354,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setcatloading(false);
       });
   };
+
   const getVendorApprovedby = () => {
     setvabloading(true);
     vendorApproveList()
@@ -487,8 +513,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="vendor-mngt-con">
                 <form onSubmit={handleSearch}>
                   <div className="row filter">
-                    <div className="col-md-2"></div>
-                    <div className="col-md-6 searchbox " ref={searchRef}>
+                    <div className="col-md-1"></div>
+                    <div className="col-md-8 searchbox " ref={searchRef}>
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
@@ -520,37 +546,75 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading && search_key !== "" && products.length == 0 && (
+                          {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
-                          {!loading && products.length > 0 && (
+                          {!loading && (products.length > 0 || searchCategories.length > 0) && (
                             <>
                               <p className="text-center fw-bold " style={{ color: "#ffa500" }}>Select an option from dropdown</p>
-                              <ul>
-                                {products.map((item, index) => {
-                                  return (
-                                    <li
-                                      key={`mp_${index}`}
-                                      onClick={() =>
-                                        handleAutocompleteClick(item)
-                                      }
-                                      title={`${item.product_name} - ${item.description}`}
-                                    >
-                                      <i>
-                                        <FontAwesomeIcon icon={faPlus} />
-                                      </i>
-                                      <div>
-                                        <h4>{item.product_name}</h4>
-                                        <p>
-                                          <small>
-                                            <b>{item.category_name} </b> {(item.description && item.description != 'null') && `| ${item.description}`}
-                                          </small>
-                                        </p>
-                                      </div>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
+                              <div className="row">
+                                <div className="col-7">
+                                  <div className="container">
+                                    <h4 className="fw-semibold text-center text-white py-1 rounded-2">Product List</h4>
+                                    <ul>
+                                      {products.map((item, index) => {
+                                        return (
+                                          <li
+                                            key={`mp_${index}`}
+                                            onClick={() =>
+                                              handleAutocompleteClick(item)
+                                            }
+                                            title={`${item.product_name} - ${item.description}`}
+                                          >
+                                            <i>
+                                              <FontAwesomeIcon icon={faPlus} />
+                                            </i>
+                                            <div>
+                                              <h4>{item.product_name}</h4>
+                                              <p>
+                                                <small>
+                                                  <b>{item.category_name} </b> |{" "}
+                                                  {item.description}
+                                                </small>
+                                              </p>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                                <div className="col-5">
+                                  <div className="container">
+                                    <h4 className="fw-semibold text-center text-white py-1 rounded-2">Category List</h4>
+                                    <ul>
+                                      {searchCategories.map((item, index) => {
+                                        return (
+                                          <li
+                                            key={`search_cat_${index}`}
+                                            onClick={() =>
+                                              getCategoriesById(item.category_id, item.category_name)
+                                            }
+                                            title={`${item.category_name}`}
+                                          >
+                                            <i>
+                                              <FontAwesomeIcon icon={faPlus} />
+                                            </i>
+                                            <div>
+                                              <h4>{item.category_name}</h4>
+                                              <p>
+                                                <small>
+                                                  <b>{item.parent_category_name} </b>
+                                                </small>
+                                              </p>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
                             </>
                           )}
                         </div>
@@ -565,7 +629,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
 
-                    <div className="col-md-4 hasNoBlur">
+                    <div className="col-md-3 hasNoBlur">
                       <div className="action-top mb-0">
                         {vabloading && (
                           <select>
@@ -594,7 +658,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                       {item.vendor_approve}
                                     </option>
                                   );
-                                }                              
+                                }
                               })}
                           </select>
                         )}
@@ -749,23 +813,59 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
-          {/* {currentSelectedProduct && (
-            <div className=" col-md-12">
-              <div className="search-sec-3-mdl">
+          {searchSubCategories.length > 0 && (
+            <div className=" col-md-12 bg-white rounded-5 p-4">
+              <div className="search-sec-3-mdl my-3">
                 <div className="search-sec-3-mdl-con ">
-                  <SearchItem
-                    handleRemoveCurrentSelected={handleRemoveCurrentSelected}
-                    selectedProduct={true}
-                    setbulkRFQVendors={setbulkRFQVendors}
-                    bulkRFQVendors={bulkRFQVendors}
-                    type={type}
-                    key={`product-item-${currentSelectedProduct.id}`}
-                    data={currentSelectedProduct}
-                  />
+                  <div className="container">
+                    <h3>Sub Categories List</h3>
+                    <div className="parent-categories">
+                      {
+                        Array.from(categoryLvlRef.current.entries()).map(([category_id, category_name], index) => {
+                          const isLastItem = index === categoryLvlRef.current.size - 1;
+                          return (
+                            <p
+                              role="button"
+                              key={category_id}
+                              className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
+                              onClick={() => {
+                                setSearch_key(category_name)
+                                getProducts(category_name)
+                              }}
+                            >
+                              {category_name}
+                              <span className="ms-1">{!isLastItem ? " > " : ""}</span>
+                            </p>
+                          );
+                        })
+                      }
+                    </div>
+                    {loading && <FullLoader />}
+                    {!loading && searchSubCategories.length <= 1 ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
+                      : searchSubCategories.map((item) => {
+                        if (!categoryLvlRef.current.has(item.id)) {
+                          return (
+                            <p
+                              role="button"
+                              className="badge text-bg-primary mx-1 px-3 py-2 "
+                              onClick={() => getCategoriesById(item.id, item.title)}
+                            >
+                              {item.title}
+                            </p>
+                          )
+                        }
+                      })}
+
+                    {
+                      productsList.length > 0 &&
+                      <h3>Product List</h3>
+                      
+                    }
+                  </div>
                 </div>
               </div>
             </div>
-          )} */}
+          )}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
