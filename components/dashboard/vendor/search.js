@@ -259,6 +259,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getVendors = () => {
     setloading(true);
     setVendors([]);
+    setSearchSubCategories([]);
 
     // changes by mukul jatav 29-08-2024 
     setbulkRFQVendors([]);
@@ -555,7 +556,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               <div className="row">
                                 <div className="col-7">
                                   <div className="container">
-                                    <h4 className="fw-semibold text-center text-white py-1 rounded-2">Product List</h4>
+                                    <h4 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Product List</h4>
                                     <ul>
                                       {products.map((item, index) => {
                                         return (
@@ -586,7 +587,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 </div>
                                 <div className="col-5">
                                   <div className="container">
-                                    <h4 className="fw-semibold text-center text-white py-1 rounded-2">Category List</h4>
+                                    <h4 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Category List</h4>
                                     <ul>
                                       {searchCategories.map((item, index) => {
                                         return (
@@ -830,6 +831,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
                               onClick={() => {
                                 setSearch_key(category_name)
+                                setIsOpen(true)
                                 getProducts(category_name)
                               }}
                             >
@@ -840,13 +842,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         })
                       }
                     </div>
-                    {loading && <FullLoader />}
+                    {loading && !currentSelectedProduct && <FullLoader />}
                     {!loading && searchSubCategories.length <= 1 ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
                       : searchSubCategories.map((item) => {
                         if (!categoryLvlRef.current.has(item.id)) {
                           return (
                             <p
                               role="button"
+                              key={item.id}
                               className="badge text-bg-primary mx-1 px-3 py-2 "
                               onClick={() => getCategoriesById(item.id, item.title)}
                             >
@@ -856,11 +859,27 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         }
                       })}
 
-                    {
-                      productsList.length > 0 &&
-                      <h3>Product List</h3>
-                      
-                    }
+                    {productsList.length > 0 && (
+                      <>
+                        <h3 className="mt-4">Product List</h3>
+                        <div className="row">
+                          {productsList.map((item, index) => {
+                            return (
+                              <div className="col-md-6 col-lg-4">
+                                <p
+                                  role="button"
+                                  key={`srch_prod_${index}`}
+                                  className="border border-2 rounded-3 px-3 py-2 "
+                                  onClick={() => handleAutocompleteClick(item)}
+                                >
+                                  {item.product_name}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
