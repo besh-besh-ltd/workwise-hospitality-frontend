@@ -20,7 +20,7 @@ const QuoteCompareTable = ({
   const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
 
-  useEffect(() => { console.log(proditem) }, []);
+  useEffect(() => { }, []);
   // alreadyFinalized = proditem.quotations.filter((item) => item.finalization != null);
 
   const getLowestQuote = () => {
@@ -138,7 +138,7 @@ const QuoteCompareTable = ({
                     </div>
                     <div className="table-si-row">
                       {item?.comment.length > 60 
-                        ? <ReadMore content={item?.comment} maxLength={60} textSmall={false} />
+                        ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
                         : item.comment
                       }
                       {/* {

@@ -6662,37 +6662,47 @@ h2.pdf-icon {
         .table-si-row:first-child {
           border-left: 1px solid #fff;
         }
-
+    
         .table-si-row:nth-child(2) {
           border-top: 1px solid #e7e7e7;
           border-radius: 24px 0 0 0;
         }
-
+    
         .table-si-row:last-child {
           border-radius: 0 0 0 24px;
         }
       }
-
-      &:nth-child(2) {
+    
+      &:nth-child(2):not(:last-child) {
         .table-si-row:first-child {
-          border-radius: 24px 0 0 0;
+          border-radius: 24px 0 0 0; 
         }
       }
-
+    
       &:last-child {
         .table-si-row {
           border-right: 1px solid #e7e7e7;
         }
-
+    
         .table-si-row:first-child {
           border-radius: 0 24px 0 0;
         }
-
+    
         .table-si-row:last-child {
           border-radius: 0 0 24px 0;
         }
       }
-
+    
+      &:nth-child(2):last-child {
+        .table-si-row:first-child {
+          border-radius: 24px 24px 0 0; 
+        }
+    
+        .table-si-row:last-child {
+          border-radius: 0 0 24px 0; 
+        }
+      }
+    
       .table-si-row:last-child {
         border-bottom: 1px solid #e7e7e7;
       }
@@ -6943,9 +6953,9 @@ a.btn.disabled {
     }
   }
 
-  .table-si-row:nth-child(2) {
-    border-radius: 24px 0 0 0;
-  }
+  // .table-si-row:nth-child(2) {
+  //   border-radius: 24px 0 0 0;
+  // }
 
   .table-si-row:last-child {
     border-radius: 0 24px 0 0;

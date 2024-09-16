@@ -216,6 +216,8 @@ const VendorProfile = () => {
                     <p>
                       <FontAwesomeIcon icon={faLocation} />{" "}
                       {vendorDetails?.address}
+                      {vendorDetails?.city_name && `, ${vendorDetails?.city_name}`}
+                      {vendorDetails?.state_name && `, ${vendorDetails?.state_name}`}
                     </p>
                   )}
                   {vendorDetails?.gstin && (
@@ -423,14 +425,12 @@ const VendorProfile = () => {
                     {isLoggedin && <>
                       {vendorDetails?.mobile && (
                         <p>
-                          <FontAwesomeIcon icon={faPhone} /> +91{" "}
-                          {vendorDetails?.mobile}
+                          <FontAwesomeIcon icon={faPhone} /> {" "}{vendorDetails?.mobile}
                         </p>
                       )}
                       {vendorDetails?.email && (
                         <p>
-                          <FontAwesomeIcon icon={faEnvelope} />{" "}
-                          {vendorDetails?.email}
+                          <FontAwesomeIcon icon={faEnvelope} />{" "}{vendorDetails?.email}
                         </p>
                       )}
                     </>

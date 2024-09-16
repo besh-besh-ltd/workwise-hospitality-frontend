@@ -466,6 +466,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setselectedCity(0);
   };
 
+  const mapEntries = Array.from(categoryLvlRef.current.entries());
+
   return (
     <>
       <section className="vendor-common-header sc-pt-80">
@@ -552,7 +554,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           )}
                           {!loading && (products.length > 0 || searchCategories.length > 0) && (
                             <>
-                              <p className="text-center fw-bold " style={{ color: "#ffa500" }}>Select an option from dropdown</p>
+                              <p className="text-center fw-bold " style={{ color: "var(--secondary-color)" }}>Select an option from dropdown</p>
                               <div className="row">
                                 <div className="col-7">
                                   <div className="container">
@@ -574,8 +576,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               <h4>{item.product_name}</h4>
                                               <p>
                                                 <small>
-                                                  <b>{item.category_name} </b> |{" "}
-                                                  {item.description}
+                                                  <b>{item.category_name} </b>
+                                                  {(item.description && item.description != 'null') ? `| ${item.description}` : ""}
                                                 </small>
                                               </p>
                                             </div>
@@ -822,17 +824,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     <h3>Sub Categories List</h3>
                     <div className="parent-categories">
                       {
-                        Array.from(categoryLvlRef.current.entries()).map(([category_id, category_name], index) => {
-                          const isLastItem = index === categoryLvlRef.current.size - 1;
+                        mapEntries?.map(([category_id, category_name], index) => {
+                          const isLastItem = index === mapEntries?.size - 1;
                           return (
                             <p
                               role="button"
                               key={category_id}
                               className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
                               onClick={() => {
-                                setSearch_key(category_name)
-                                setIsOpen(true)
-                                getProducts(category_name)
+                                categoryLvlRef.current = new Map(mapEntries.slice(0, index + 1));
+                                getCategoriesById(category_id, category_name)
                               }}
                             >
                               {category_name}
@@ -843,7 +844,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       }
                     </div>
                     {loading && !currentSelectedProduct && <FullLoader />}
-                    {!loading && searchSubCategories.length <= 1 ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
+                    {!loading && searchSubCategories.length <= 1 && productsList.length == 0
+                      ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
                       : searchSubCategories.map((item) => {
                         if (!categoryLvlRef.current.has(item.id)) {
                           return (
@@ -869,7 +871,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 <p
                                   role="button"
                                   key={`srch_prod_${index}`}
-                                  className="border border-2 rounded-3 px-3 py-2 "
+                                  className={`border border-2 rounded-3 px-3 py-2 ${item.product_name == (tempProdRef.current?.product_name || currentSelectedProduct?.product_name) ? "bg-success border-success text-white" : ""}`}
+
                                   onClick={() => handleAutocompleteClick(item)}
                                 >
                                   {item.product_name}

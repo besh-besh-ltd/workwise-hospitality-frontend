@@ -53,7 +53,9 @@ const RfqManagementVendorPage = () => {
       })
     );
     toast.success("Vendor removed from this product!");
-    router.push("rfq-management?tab=create-rfq");
+    const remVendors = vendorsList.filter((venItem) => venItem.id != item.id);
+    const newLink = `rfq-management-vendor?vendors=${remVendors.map((rVendor) => rVendor.id).join(",")}&productid=${productid}&variant=${variant}`;
+    router.push(newLink);
   };
 
   return (
@@ -73,7 +75,10 @@ const RfqManagementVendorPage = () => {
                 {/* Content for Manage RFQs tab */}
                 <span className="title">
                   {" "}
-                  <Link href="rfq-management?tab=create-rfq" className="mr-4">
+                  <Link
+                    href="rfq-management?tab=create-rfq"
+                    className="mr-4"
+                  >
                     <FontAwesomeIcon icon={faArrowLeft} /> Back
                   </Link>{" "}
                   Vendors List
