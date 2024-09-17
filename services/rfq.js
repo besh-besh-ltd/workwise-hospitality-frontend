@@ -47,6 +47,17 @@ export const categoryList = (values) => {
   });
 };
 
+export const categoryListById = (values) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`rfq/search-product-by-category`, values);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const createRfq = (values) => {
 
   return new Promise(async (resolve, reject) => {
