@@ -865,9 +865,9 @@ const RfqManagementPreview = () => {
                                     id="wapp"
                                     className="form-control"
                                     name="wapp"
-                                    placeholder="+91 1234567890"
+                                    placeholder="1234567890"
                                     disabled
-                                    value={`+91 ${rfqDetails?.contact_number}`}
+                                    value={`${rfqDetails?.contact_number}`}
                                   />
                                 </div>
                               </div>

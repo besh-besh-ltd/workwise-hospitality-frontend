@@ -436,7 +436,7 @@ const ViewRFQ = ({ data }) => {
                             id="wapp"
                             className="form-control"
                             name="wapp"
-                            placeholder="+91 1234567890"
+                            placeholder="1234567890"
                             disabled
                           />
                         </div>

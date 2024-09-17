@@ -564,14 +564,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                         return (
                                           <li
                                             key={`mp_${index}`}
+                                            className="ps-2"
                                             onClick={() =>
                                               handleAutocompleteClick(item)
                                             }
                                             title={`${item.product_name} - ${item.description}`}
                                           >
-                                            <i>
+                                            {/* <i>
                                               <FontAwesomeIcon icon={faPlus} />
-                                            </i>
+                                            </i> */}
                                             <div>
                                               <h4>{item.product_name}</h4>
                                               <p>

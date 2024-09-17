@@ -88,7 +88,7 @@ const QuoteCompareTable = ({
                             !item.finalization && (
                               <Dropdown.Item
                                 // href={
-                                //   "tel:+91" +
+                                //   "tel: " +
                                 //   quotations[0]?.quote_details?.vendor_details
                                 //     ?.mobile
                                 // }                                
@@ -181,7 +181,7 @@ const QuoteCompareTable = ({
               <span>
                 <Link
                   href={
-                    "tel:+91" +
+                    "tel: " +
                     getLowestQuote()[0]?.quote_details?.vendor_details?.mobile
                   }
                 >
@@ -225,7 +225,7 @@ const QuoteCompareTable = ({
             <span>
               <Link
                 href={
-                  "tel:+91" +
+                  "tel: " +
                   alreadyFinalized[0]?.finalization?.winning_vendor?.mobile
                 }
               >

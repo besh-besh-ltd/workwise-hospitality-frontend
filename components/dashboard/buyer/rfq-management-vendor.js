@@ -105,7 +105,7 @@ const RfqManagementVendorPage = () => {
                                 <tr key={`vendor-${item.name}`}>
                                   <td>{item.name}</td>
                                   <td>{item.address}</td>
-                                  <td>+91 {item.mobile}</td>
+                                  <td>{item.mobile}</td>
                                   <td>
                                     {item.organization_name
                                       ? item.organization_name
