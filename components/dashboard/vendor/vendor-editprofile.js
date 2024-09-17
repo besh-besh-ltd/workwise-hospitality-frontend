@@ -216,6 +216,8 @@ const VendorProfile = () => {
                     <p>
                       <FontAwesomeIcon icon={faLocation} />{" "}
                       {vendorDetails?.address}
+                      {vendorDetails?.city_name && `, ${vendorDetails?.city_name}`}
+                      {vendorDetails?.state_name && `, ${vendorDetails?.state_name}`}
                     </p>
                   )}
                   {vendorDetails?.gstin && (
@@ -423,14 +425,12 @@ const VendorProfile = () => {
                     {isLoggedin && <>
                       {vendorDetails?.mobile && (
                         <p>
-                          <FontAwesomeIcon icon={faPhone} /> +91{" "}
-                          {vendorDetails?.mobile}
+                          <FontAwesomeIcon icon={faPhone} /> {" "}{vendorDetails?.mobile}
                         </p>
                       )}
                       {vendorDetails?.email && (
                         <p>
-                          <FontAwesomeIcon icon={faEnvelope} />{" "}
-                          {vendorDetails?.email}
+                          <FontAwesomeIcon icon={faEnvelope} />{" "}{vendorDetails?.email}
                         </p>
                       )}
                     </>
@@ -499,82 +499,69 @@ const VendorProfile = () => {
                   }
                 </div>
 
-
                 <hr />
-                {/* <div className="row vendor-profile-sec-con-3 hasFullLoader">
-                  {loading && <FullLoader />}
-                  <h3 className="title">vendor’s Products</h3>
-                  <p>
-                    Lorem Ipsum is simply dummy text of the printing and
-                    typesetting industry. Lorem Ipsum has been the industry's
-                    standard dummy text ever since the 1500s, when an unknown
-                    printer took.
-                  </p>
-                </div>
-                <hr /> */}
+
                 <div className="vendor-profile-sec-con-3 hasFullLoader">
                   {loading && <FullLoader />}
                   <h3 className="title">vendor’s Products</h3>
-                  {vendorDetails?.product_images &&
-                    vendorDetails?.product_images.length > 0 &&
-                    !vendorDetails?.product_images[0].product_image_url && (
-                      <p>No information to show!</p>
-                    )}
-                  {vendorDetails?.product_images &&
-                    vendorDetails?.product_images.length > 0 && (
+
+                  {vendorDetails?.product_list ? (
+                    vendorDetails.product_list.length > 0 ? (
                       <div className="product-gallery row">
-                        {vendorDetails?.product_images.map((item) => {
-                          return (
-                            <div
-                              key={`product-item.product_image_url`}
-                              className="col-md-4 gallery-con"
-                            >
-                              {item?.product_image_url && (
-                                <img
-                                  src={item?.product_image_url}
-                                  alt={item?.product_image}
-                                  width={255}
-                                  height={212}
-                                  priority={true}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
+                        {vendorDetails.product_list.map((item, index) => (
+                          <div key={item?.product_name || index} className="col-md-12">
+                            {item?.product_name && (
+                              <ul>
+                                <li>{item.product_name}</li>
+                              </ul>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    ) : (
+                      <p>No product found</p> // If product_list is empty
+                    )
+                  ) : (
+                    <p>No product found</p> // If product_list is undefined or null
+                  )}
+
                 </div>
                 <hr />
                 <div className="vendor-profile-sec-con-4 hasFullLoader">
                   {loading && <FullLoader />}
                   <h3 className="title">Vendor Approved By</h3>
-                  {vendorDetails?.vendor_approve &&
-                    vendorDetails?.vendor_approve.length == 0 && (
-                      <p>No information to show!</p>
-                    )}
-                  {vendorDetails?.vendor_approve &&
-                    vendorDetails?.vendor_approve.length > 0 && (
-                      <div className="client-gallery">
-                        {vendorDetails?.vendor_approve.map((item) => {
-                          return (
-                            <div
-                              key={`vendor-approve-${item.id}`}
-                              className="col-md-3 gallery-con"
-                              title={item.vendor_approve}
-                            >
-                              <Image
-                                src={item.vendor_approve_url}
-                                alt={item.vendor_approve}
-                                width={140}
-                                height={106}
-                                priority={true}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+
+                  {vendorDetails?.product_list && vendorDetails.product_list.length === 0 ? (
+                    <p>No information to show!</p>
+                  ) : (
+                    (() => {
+                      // Filter products to include only those with at least one approved_by vendor
+                      const approvedProducts = vendorDetails?.product_list?.filter(item => item.approved_by.length > 0) || [];
+
+                      if (approvedProducts.length > 0) {
+                        return (
+                          <ul className="client-gallery row">
+                            {approvedProducts.map((item) => (
+                              <li key={`vendor-approve-${item.product_id}`}>
+                                <span  >{item.product_name}</span> 
+                                <strong className="p-2" >:</strong>
+                                {item.approved_by.map((element, index) => (
+                                  <span className="fw-semibold" key={index}>
+                                    {element.vendor_name}
+                                    {index < item.approved_by.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      } else {
+                        return <p>No product is approved</p>;
+                      }
+                    })()
+                  )}
                 </div>
+
               </div>
             </div>
           </div>
