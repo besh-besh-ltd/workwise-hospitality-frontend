@@ -5,16 +5,13 @@ import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
 import { setSwSubscription } from "@/redux/slice";
 import { SWSubscribe } from "@/services/Auth";
-import { useRouter } from "next/router";
-import Head from "next/head";
 
 const Layout = (props) => {
   const [cmsdata, setCmsdata] = useState([]);
   const [showModal, setshowModal] = useState(false);
   const [fromType, setFromType] = useState();
   const dispatch = useDispatch();
-  const router = useRouter();
-
+  
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       async function fetchData() {
@@ -90,11 +87,6 @@ const Layout = (props) => {
 
   return (
     <>
-
-    {/*  set canonical tag accros all the pages */}
-      <Head>
-        <link rel="canonical" href={`https://letsworkwise.com${router.asPath}`} />
-      </Head>
 
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
         <Header />

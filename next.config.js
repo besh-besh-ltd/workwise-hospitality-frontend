@@ -19,13 +19,6 @@ const nextConfig = {
       },
     ],
   },
-  async rewrites() {
-    return [
-      { source: '/sitemap.xml', destination: '/api/sitemap.xml' },
-      { source: '/sitemap-website.xml', destination: '/api/sitemap-website.xml' },
-      { source: '/sitemap-vendors.xml.js', destination: '/api/sitemap-vendors.xml.js' },
-    ]
-  },
 };
 
 module.exports = nextConfig;
