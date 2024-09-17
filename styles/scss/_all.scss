@@ -3284,17 +3284,17 @@ textarea {
                 border: none;
                 border-bottom: 1px solid #d9d9d9;
 
+                .page-link {
+                  font-weight: 500;
+                  font-size: 14px;
+                  line-height: 24px;
+                  text-decoration-line: underline;
+                  color: #000080;
+                }
+
                 &:last-child {
                   display: flex;
-                  justify-content: space-between;
-
-                  .page-link {
-                    font-weight: 500;
-                    font-size: 14px;
-                    line-height: 24px;
-                    text-decoration-line: underline;
-                    color: #000080;
-                  }
+                  justify-content: space-between;                  
 
                   .page-link-btn {
                     background: var(--secondary-color);

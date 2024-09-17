@@ -60,6 +60,7 @@ const ManageRFQ = () => {
                     <th>Published Date</th>
                     <th>End Date</th>
                     <th>Status</th>
+                    <th>Selected Vendors</th>
                     <th>Action</th>
                   </tr>
                 </thead>
