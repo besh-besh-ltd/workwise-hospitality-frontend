@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
-import { faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faAward, faPhone } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
@@ -73,7 +73,7 @@ const QuoteCompareTable = ({
                     <div className="table-si-row table-dark-row">
                       <span>
                         {item?.quote_details?.vendor_details?.organization_name}
-                      </span>
+                      </span>                      
                       <Dropdown className="dots-nav-anchor">
                         <Dropdown.Toggle className="dots-nav">
                           <Image
@@ -128,8 +128,14 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">{item.package_price} %</div>
                     <div className="table-si-row">{item.freight_price} %</div>
                     <div className="table-si-row">{item.tax} %</div>
-                    <div className="table-si-row  table-yellow-row">
+                    <div className={`table-si-row  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-yellow-row"}`}>
                       {item.total_price}
+                      {item.is_lowest &&
+                        <span className="d-flex align-items-center gap-2 border border-light rounded-3 text-white px-3 py-2" >
+                          <FontAwesomeIcon icon={faAward} fontSize={16} />
+                          Lowest
+                        </span>
+                      }
                     </div>
                     <div className="table-si-row">
                       {parseInt(item.delivery_period) <= 1
@@ -137,7 +143,7 @@ const QuoteCompareTable = ({
                         : `${item.delivery_period} Weeks`}
                     </div>
                     <div className="table-si-row">
-                      {item?.comment.length > 60 
+                      {item?.comment.length > 60
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
                         : item.comment
                       }
