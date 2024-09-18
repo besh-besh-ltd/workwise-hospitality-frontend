@@ -66,9 +66,7 @@ const QuoteCompare = () => {
     setquotes([]);
     getQuotes(rfq)
       .then((res) => {
-        setquotesLoading(false);
-        const updated_quotes = calculateLowestQuote(res.data);
-        setquotes(updated_quotes);
+        setquotes(res.data);
       })
       .catch((err) => {
       })
@@ -77,8 +75,8 @@ const QuoteCompare = () => {
       })
   };
 
-  const calculateLowestQuote = (res_quotes) => {
-    res_quotes.map((item) => {
+  const calculateLowestQuote = () => {
+    quotes.map((item) => {
       lowest = item.quotations.reduce((lowest, currentItem) => {
         return currentItem.total_price < lowest.total_price ? currentItem : lowest;
       }, item.quotations[0]);
@@ -88,7 +86,7 @@ const QuoteCompare = () => {
         q.is_lowest = q.quote_id === lowest?.quote_id || false;
       });
     });
-    return res_quotes;
+    setquotes(quotes);
   };
 
   const handleDownloadQuote = (e) => {

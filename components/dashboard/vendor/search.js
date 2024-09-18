@@ -369,6 +369,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
   const handleSearchChange = (e) => {
     setSearch_key(e.target.value);
+    setProductsList([]);
+    setSearchCategories([]);
     getProducts(e.target.value);
   };
   const handleSearch = (e) => {
@@ -552,7 +554,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
-                          {!loading && (products.length > 0 || searchCategories.length > 0) && (
+                          {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
                             <>
                               <p className="text-center fw-bold " style={{ color: "var(--secondary-color)" }}>Select an option from dropdown</p>
                               <div className="row">
