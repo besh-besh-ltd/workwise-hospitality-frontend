@@ -5,14 +5,13 @@ import { getVendorsByID } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faAngleLeft,
   faArrowLeft,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { removeVendor } from "@/redux/slice";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
@@ -129,7 +128,7 @@ const RfqManagementVendorPage = () => {
                                       </Link>
                                     </span>
 
-                                    {type != "rfqVendorList" &&
+                                    {type != "rfqVendorList" && type != "buyer-view" &&
                                       <span>
                                         <Link
                                           href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item.id}&origin=create-rfq&vendors=${vendors}`}

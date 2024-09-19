@@ -1,14 +1,12 @@
-import Loader from "@/components/shared/Loader";
 import { sendReminder } from "@/services/rfq";
 import moment from "moment";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import React, { useState } from "react";
+import { toast } from "react-toastify";
 
 const RFQItem = ({ data }) => {
   const [loading, setloading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [selectedVendors, setSelectedVendors] = useState([]);
 
   const list_products = () => {
     let productTitles = [];
@@ -31,24 +29,6 @@ const RFQItem = ({ data }) => {
     }
   };
 
-  const listVendors = () => {
-    let vendorListset = new Set();
-
-    if (data?.products && data?.products?.length > 0) {
-      data.products.map((item) => {
-        item.vendor_details.map((vendor) => {
-          vendorListset.add(vendor.user_id);
-        })
-      })
-    }
-    
-    let vendorList = [];
-    vendorListset.forEach((value)=> {
-      vendorList.push(value);
-    })
-    setSelectedVendors(vendorList);
-  }
-
   const handlereminder = (e) => {
     e.preventDefault();
     setloading(true);
@@ -67,15 +47,10 @@ const RFQItem = ({ data }) => {
   };
   const isRecievedFromAll = data.vendors[0].total_vendors == data.vendors[0].quote_received;
 
-  useEffect(()=> {
-    listVendors()
-  }, [])
-
   return (
     <>
       <tr>
         <td>{data?.rfq_no}</td>
-        {/* <td>Piping</td> */}
         <td>{list_products()}</td>
         <td>{moment(data.timestamp).format("DD/MM/YYYY")}</td>
         <td>
@@ -84,16 +59,6 @@ const RFQItem = ({ data }) => {
             : "--"}
         </td>
         <td>{data.status == 1 ? "Open" : "Closed"}</td>
-        <td>
-          <span>
-            <Link
-              href={`rfq-management-vendor?type=rfqVendorList&vendors=${selectedVendors.map((vendorIds) => vendorIds).join(",")}`}
-              className="page-link "
-            >
-              Selected Vendors ({selectedVendors.length})
-            </Link>
-          </span>
-        </td>
         <td className="d-flex align-items-center">
           <span>
             <Link
