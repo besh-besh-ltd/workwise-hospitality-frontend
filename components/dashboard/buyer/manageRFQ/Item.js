@@ -39,7 +39,10 @@ const RFQItem = ({ data }) => {
         }
       })
       .catch((err) => {
-        toast.error(err.message)
+        if(err?.message?.response?.status === 403)
+          toast.warning(err?.message?.response?.data?.message);
+        else
+          toast.error(err?.message?.response?.data?.message);
       })
       .finally(() => {
         setloading(false);
