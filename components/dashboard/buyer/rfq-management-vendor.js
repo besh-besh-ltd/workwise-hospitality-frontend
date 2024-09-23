@@ -5,19 +5,18 @@ import { getVendorsByID } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faAngleLeft,
   faArrowLeft,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { removeVendor } from "@/redux/slice";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { vendors, productid, variant } = router.query;
+  const { vendors, productid, variant, type } = router.query;
   const [loading, setloading] = useState(false);
   const [vendorsList, setvendors] = useState([]);
 
@@ -76,7 +75,7 @@ const RfqManagementVendorPage = () => {
                 <span className="title">
                   {" "}
                   <Link
-                    href="rfq-management?tab=create-rfq"
+                    href={`rfq-management?tab=${(type && type == "rfqVendorList") ? "rfqVendorList" : "create-rfq"}`}
                     className="mr-4"
                   >
                     <FontAwesomeIcon icon={faArrowLeft} /> Back
@@ -105,7 +104,7 @@ const RfqManagementVendorPage = () => {
                                 <tr key={`vendor-${item.name}`}>
                                   <td>{item.name}</td>
                                   <td>{item.address}</td>
-                                  <td>+91 {item.mobile}</td>
+                                  <td>{item.mobile}</td>
                                   <td>
                                     {item.organization_name
                                       ? item.organization_name
@@ -129,18 +128,19 @@ const RfqManagementVendorPage = () => {
                                       </Link>
                                     </span>
 
-                                    <span>
-                                      <Link
-                                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item.id}&origin=create-rfq&vendors=${vendors}`}
-                                        className="page-linkd remove-icon"
-                                        onClick={(e) =>
-                                          handleRemoveVendor(e, item)
-                                        }
-                                      >
-                                        <FontAwesomeIcon icon={faTrash} />
-                                        Remove
-                                      </Link>
-                                    </span>
+                                    {type != "rfqVendorList" && type != "buyer-view" &&
+                                      <span>
+                                        <Link
+                                          href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item.id}&origin=create-rfq&vendors=${vendors}`}
+                                          className="page-linkd remove-icon"
+                                          onClick={(e) =>
+                                            handleRemoveVendor(e, item)
+                                          }
+                                        >
+                                          <FontAwesomeIcon icon={faTrash} />
+                                          Remove
+                                        </Link>
+                                      </span>}
                                   </td>
                                 </tr>
                               </>

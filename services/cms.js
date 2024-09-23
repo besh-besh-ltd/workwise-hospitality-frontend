@@ -113,14 +113,13 @@ export const getStates = () => {
 export const getCities = (id) => {  
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/general/cities/${id}`);
+			let response = await axiosInstance.get(`general/cities/${id ? id : ""}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
 		}
 	});
 };
-
 
 export const getVendorDashboardData = () => {  
 	return new Promise(async (resolve, reject) => {
