@@ -1,4 +1,4 @@
-import { getAllCitiesService, getStates } from "@/services/cms";
+import { getCities, getStates } from "@/services/cms";
 import React, { useEffect, useRef, useState } from "react";
 
 const LocationFilter = ({ selectedState, selectedCity, setselectedState, setselectedCity, vendorMetaData, setOpenAuthModal }) => {
@@ -62,7 +62,7 @@ const LocationFilter = ({ selectedState, selectedCity, setselectedState, setsele
 
     const getAllCities = () => {
         setcitiesLoading(true);
-        getAllCitiesService().
+        getCities().
             then((res) => {
                 setcitiesLoading(false);
                 setcities(res.data);
