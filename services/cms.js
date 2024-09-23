@@ -113,18 +113,7 @@ export const getStates = () => {
 export const getCities = (id) => {  
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/general/cities/${id}`);
-			resolve(response);
-		} catch (error) {
-			reject({ message: error });
-		}
-	});
-};
-
-export const getAllCitiesService = () => {  
-	return new Promise(async (resolve, reject) => {
-		try {
-			let response = await axiosInstance.get(`/general/cities`);
+			let response = await axiosInstance.get(`general/cities/${id ? id : ""}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
