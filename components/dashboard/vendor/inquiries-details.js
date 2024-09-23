@@ -113,9 +113,9 @@ const RfqManagementPreview = () => {
       regret_reason: reqret_reason,
       globalPaymentTerms: "",
       globalComment: "",
-      regret_reason: reqret_reason || "hardcoded regret reason",
-      globalPaymentTerms: "hardcoded payment terms",
-      globalComment: "hardcoded global comments",
+      regret_reason: reqret_reason || "",
+      globalPaymentTerms: "",
+      globalComment: "",
     };
 
     sendQuotation(payload, token)
