@@ -68,7 +68,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>
@@ -88,7 +88,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>
@@ -108,7 +108,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>
@@ -128,7 +128,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>
@@ -148,7 +148,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>
@@ -168,7 +168,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>
@@ -188,7 +188,7 @@ const PrefferedVendors = () => {
                       <tr>
                         <td>Vendor’s Name</td>
                         <td>Kolkata</td>
-                        <td>+91 1234567890</td>
+                        <td>1234567890</td>
                         <td>Mechanical</td>
                         <td>Pipes, Alloy steel, Carbon steel & 8 more</td>
                         <td>

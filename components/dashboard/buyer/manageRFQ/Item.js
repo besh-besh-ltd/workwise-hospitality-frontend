@@ -1,12 +1,13 @@
-import Loader from "@/components/shared/Loader";
 import { sendReminder } from "@/services/rfq";
 import moment from "moment";
 import Link from "next/link";
 import React, { useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 
 const RFQItem = ({ data }) => {
   const [loading, setloading] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
   const list_products = () => {
     let productTitles = [];
 
@@ -27,26 +28,32 @@ const RFQItem = ({ data }) => {
       );
     }
   };
+
   const handlereminder = (e) => {
     e.preventDefault();
     setloading(true);
     sendReminder(data.id)
       .then((res) => {
-        setloading(false);
-        //alert(res.message)
         if (res.message && res.message != "") {
           toast.success(res.message);
         }
       })
       .catch((err) => {
+        if(err?.message?.response?.status === 403)
+          toast.warning(err?.message?.response?.data?.message);
+        else
+          toast.error(err?.message?.response?.data?.message);
+      })
+      .finally(() => {
         setloading(false);
-      });
+      })
   };
+  const isRecievedFromAll = data.vendors[0].total_vendors == data.vendors[0].quote_received;
+
   return (
     <>
       <tr>
         <td>{data?.rfq_no}</td>
-        {/* <td>Piping</td> */}
         <td>{list_products()}</td>
         <td>{moment(data.timestamp).format("DD/MM/YYYY")}</td>
         <td>
@@ -55,7 +62,7 @@ const RFQItem = ({ data }) => {
             : "--"}
         </td>
         <td>{data.status == 1 ? "Open" : "Closed"}</td>
-        <td>
+        <td className="d-flex align-items-center">
           <span>
             <Link
               href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
@@ -64,31 +71,35 @@ const RFQItem = ({ data }) => {
               View
             </Link>
           </span>
-          <span>
-            {data.vendors.length > 0 &&
-              data.vendors[0].total_vendors >
-                data.vendors[0].quote_received && (
-                <Link
-                  href="#"
-                  onClick={handlereminder}
-                  className="page-link-btn"
-                >
-                  {!loading &&
-                    `Send Reminder For Quote (${
-                      data.vendors[0].total_vendors -
-                      data.vendors[0].quote_received
-                    }/${data.vendors[0].total_vendors})`}
-                  {loading && (
-                    <>
-                      <span
-                        className="spinner-border spinner-border-sm"
-                        role="status"
-                      ></span>{" "}
-                      Processing request...
-                    </>
-                  )}
-                </Link>
-              )}
+          <span className="d-flex">
+            {data.vendors.length > 0 && (
+              <button
+                type="button"
+                onClick={!isRecievedFromAll && handlereminder}
+                className={`page-link-btn border-0 ${isRecievedFromAll ? "btn disabled" : ""}`}
+                role="button"
+                disabled={isRecievedFromAll}
+                aria-disabled={isRecievedFromAll}
+                style={{ width: "260px", backgroundColor: isRecievedFromAll ? "var(--primary-color)" : isHovered ? "var(--primary-color)" : "var(--secondary-color)" }}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+              >
+                {loading ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm"
+                      role="status"
+                    ></span>{" "}
+                    Processing request...
+                  </>
+                ) : (
+                  isRecievedFromAll
+                    ? "Quote Received From All Vendors"
+                    : `Send Reminder For Quote (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
+                )
+                }
+              </button>
+            )}
           </span>
         </td>
       </tr>

@@ -121,6 +121,16 @@ export const getCities = (id) => {
 	});
 };
 
+export const getAllCitiesService = () => {  
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/general/cities`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
 
 export const getVendorDashboardData = () => {  
 	return new Promise(async (resolve, reject) => {

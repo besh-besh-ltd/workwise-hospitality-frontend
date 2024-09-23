@@ -1,6 +1,5 @@
 import FullLoader from "@/components/shared/FullLoader";
 import { getRFQS } from "@/services/rfq";
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import RFQItem from "./Item";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -55,7 +54,6 @@ const ManageRFQ = () => {
                 <thead>
                   <tr>
                     <th>Group RFQ Code</th>
-                    {/* <th>Category</th> */}
                     <th>Products</th>
                     <th>Published Date</th>
                     <th>End Date</th>
