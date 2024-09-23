@@ -23,7 +23,8 @@ const initialMainNavs = [
   "/privacypolicy",
   "/terms-of-use",
   "/products",
-  "/dashboard/vendor/inquiries-details"
+  "/dashboard/vendor/inquiries-details",
+  "/dashboard/buyer/rfq-management-vendor/vendor-profile"
 ];
 
 const Header = () => {

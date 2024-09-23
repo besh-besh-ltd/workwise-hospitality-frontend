@@ -1,16 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import Modal from "react-modal";
 
-
-const CommonModal = ({
-    data,
-    openCommonModal,
-    closeModal
-}) => {
-
-    useEffect(()=> {
-        console.log(data)
-    }, []);
+const CommonModal = ({ data, openCommonModal, closeModal }) => {
     
     return (
         <>
@@ -59,7 +50,7 @@ const CommonModal = ({
                                     <div className="w-75">
                                         <div class="input-group mb-3">
                                             <span class="input-group-text" id={`mobile_${data?.mobile}`}>Mobile</span>
-                                            <input type="text" class="form-control" aria-label="Mobile data section" aria-describedby={`mobile_${data?.mobile}`} value={`+91 ${data?.mobile}`} disabled />
+                                            <input type="text" class="form-control" aria-label="Mobile data section" aria-describedby={`mobile_${data?.mobile}`} value={`${data?.mobile}`} disabled />
                                         </div>
                                         <div class="input-group mb-3">
                                             <span class="input-group-text" id={`email${data?.email}`}>Email</span>

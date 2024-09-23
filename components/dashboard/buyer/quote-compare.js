@@ -8,14 +8,10 @@ import {
   getQuotes,
   getRFQS,
 } from "@/services/rfq";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
-import { faPhone } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
-import { toast } from "react-toastify";
 import OverallComparison from "./overallComparison";
 
 const QuoteCompare = () => {
@@ -70,12 +66,27 @@ const QuoteCompare = () => {
     setquotes([]);
     getQuotes(rfq)
       .then((res) => {
-        setquotesLoading(false);
         setquotes(res.data);
       })
       .catch((err) => {
+      })
+      .finally(() => {
         setquotesLoading(false);
+      })
+  };
+
+  const calculateLowestQuote = () => {
+    quotes.map((item) => {
+      lowest = item.quotations.reduce((lowest, currentItem) => {
+        return currentItem.total_price < lowest.total_price ? currentItem : lowest;
+      }, item.quotations[0]);
+
+      // Mark the lowest quotation
+      item.quotations.map((q) => {
+        q.is_lowest = q.quote_id === lowest?.quote_id || false;
       });
+    });
+    setquotes(quotes);
   };
 
   const handleDownloadQuote = (e) => {
@@ -235,9 +246,8 @@ const QuoteCompare = () => {
           );
           temp_arr.push(
             q.quote_details.length > 0
-              ? `${q.quote_details[0].total_price} ${
-                  q.is_lowest ? "(Lowest)" : ""
-                }`
+              ? `${q.quote_details[0].total_price} ${q.is_lowest ? "(Lowest)" : ""
+              }`
               : "-"
           );
         }
@@ -265,11 +275,10 @@ const QuoteCompare = () => {
 
       deliveryArray.push(
         item?.quoted_products && item?.quoted_products?.length == 1
-          ? `Within ${
-              item.quoted_products[0] == 1
-                ? item.quoted_products[0] || 0 + "Week"
-                : item.quoted_products[0] || 0 + " Weeks"
-            }`
+          ? `Within ${item.quoted_products[0] == 1
+            ? item.quoted_products[0] || 0 + "Week"
+            : item.quoted_products[0] || 0 + " Weeks"
+          }`
           : `${getDeliveryRange(item.quoted_products)}`
       );
       deliveryArray.push("");
@@ -922,9 +931,8 @@ const QuoteCompare = () => {
                     </Link>
                     <Link
                       href="#"
-                      className={`tab ${
-                        !showOverallComparison ? "active" : ""
-                      }`}
+                      className={`tab ${!showOverallComparison ? "active" : ""
+                        }`}
                       onClick={handleOverallComparisonTab}
                     >
                       Overall Comparison
@@ -1000,10 +1008,10 @@ const QuoteCompare = () => {
                                     quotations={item?.quotations}
                                     quantity={
                                       item?.product_details[0]?.rfq_details
-                                      ? item?.product_details[0]?.rfq_details[2]?.value
-                                      : "-"
+                                        ? item?.product_details[0]?.rfq_details[2]?.value
+                                        : "-"
                                     }
-                                    alreadyFinalized={item?.quotations?.filter((item)=> item.finalization != null)}                                    
+                                    alreadyFinalized={item?.quotations?.filter((item) => item.finalization != null)}
                                   />
                                 </>
                               )}

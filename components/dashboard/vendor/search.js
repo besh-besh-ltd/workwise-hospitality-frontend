@@ -22,9 +22,9 @@ import {
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
-import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import LocationFilter from "@/components/shared/LocationFilter";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -67,12 +67,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [levelSixCat, setlevelSixCat] = useState([]);
   const [userProfile, setuserProfile] = useState(null);
 
-  const [statesLoading, setstatesLoading] = useState(false);
-  const [states, setstates] = useState([]);
   const [selectedState, setselectedState] = useState(0);
 
-  const [citiesLoading, setcitiesLoading] = useState(false);
-  const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -103,7 +99,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       // getProducts();
     }
     if (localStorage.getItem("token")) {
-      console.log("set logged in")
       setIsLoggedIn(true);
     }
     if (redirectAfterLogin) {
@@ -135,14 +130,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProducts();
     getCategories();
     getVendorApprovedby();
-    getAllStates();
   }, []);
 
-  useEffect(() => {
-    if (selectedState) {
-      getAllCities();
-    }
-  }, [selectedState]);
 
   useEffect(() => {
     getVendors();
@@ -171,22 +160,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProfile().then((res) => {
       setloading(true);
       setuserProfile(res.data);
-    });
-  };
-
-  const getAllStates = () => {
-    setstatesLoading(true);
-    getStates().then((res) => {
-      setstatesLoading(false);
-      setstates(res.data);
-    });
-  };
-
-  const getAllCities = () => {
-    setcitiesLoading(true);
-    getCities(selectedState).then((res) => {
-      setcitiesLoading(false);
-      setcities(res.data);
     });
   };
 
@@ -369,6 +342,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
   const handleSearchChange = (e) => {
     setSearch_key(e.target.value);
+    setProductsList([]);
+    setSearchCategories([]);
     getProducts(e.target.value);
   };
   const handleSearch = (e) => {
@@ -453,15 +428,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
-  const handleStateChange = (e) => {
-    setcities([]);
-    setselectedState(e.target.value);
-  };
-  const handleCityChange = (e) => {
-    setselectedCity(e.target.value);
-  };
-  const clearLocationFilter = (e) => {
-    setcities([]);
+  const clearLocationFilter = () => {
     setselectedState(0);
     setselectedCity(0);
   };
@@ -552,7 +519,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
-                          {!loading && (products.length > 0 || searchCategories.length > 0) && (
+                          {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
                             <>
                               <p className="text-center fw-bold " style={{ color: "var(--secondary-color)" }}>Select an option from dropdown</p>
                               <div className="row">
@@ -564,14 +531,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                         return (
                                           <li
                                             key={`mp_${index}`}
+                                            className="ps-2"
                                             onClick={() =>
                                               handleAutocompleteClick(item)
                                             }
                                             title={`${item.product_name} - ${item.description}`}
                                           >
-                                            <i>
+                                            {/* <i>
                                               <FontAwesomeIcon icon={faPlus} />
-                                            </i>
+                                            </i> */}
                                             <div>
                                               <h4>{item.product_name}</h4>
                                               <p>
@@ -907,43 +875,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         <FontAwesomeIcon icon={faTimesCircle} /> clear
                       </Link>
                     )}
-                    <select
-                      onChange={(e) => {
-                        if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
-                          setOpenAuthModal(true)
-                        else
-                          handleStateChange(e)
-                      }}
-                      value={selectedState}
-                    >
-                      <option value={0}>Select State</option>
-                      {states &&
-                        states.map((item) => {
-                          return (
-                            <option key={item.id} value={item.id}>
-                              {item.state_name}
-                            </option>
-                          );
-                        })}
-                    </select>
+
                     <div className="hasFullLoader">
-                      {citiesLoading && <FullLoader />}
-                      <select
-                        onChange={(e) => handleCityChange(e)}
-                        value={selectedCity}
-                        className="mt-2"
-                      >
-                        <option value={0}>Select City</option>
-                        {cities &&
-                          cities.map((item) => {
-                            return (
-                              <option key={item.id} value={item.id}>
-                                {item.city_name}
-                              </option>
-                            );
-                          })}
-                      </select>
+                      <LocationFilter
+                        selectedState={selectedState}
+                        setselectedState={setselectedState}
+                        selectedCity={selectedCity}
+                        setselectedCity={setselectedCity}
+                        vendorMetaData={vendorMetaData}
+                        setOpenAuthModal={setOpenAuthModal}
+                      />
                     </div>
+
                   </div>
                   <div className="search-con-right-1">
                     <p>Vendor Approved By</p>
