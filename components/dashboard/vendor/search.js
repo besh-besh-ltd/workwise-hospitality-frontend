@@ -305,6 +305,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       .finally(() => {
         setloading(false)
         setIsOpen(false);
+
+        // Update the URL to include the selected product's name
+        const newUrl = `/vendor/${category_name}`;
+        window.history.pushState(null, null, newUrl);
+
       })
   };
 
@@ -368,14 +373,19 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
-    if (item.product_name == currentSelectedProduct?.product_name)
-      return 0
 
+    // Check if the clicked product is already selected
+    if (item.product_name === currentSelectedProduct?.product_name) return;
+
+    // Set the search key and update the selected product
     setSearch_key(item.product_name);
-    //dispatch(removeRfqProduct(currentSelectedProduct));
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
     tempProdRef.current = null;
+
+    // Update the URL to include the selected product's name
+    const newUrl = `/vendor/${item.product_name}`;
+    window.history.pushState(null, null, newUrl);
   };
 
   const getChildCategories = (id, level) => {
