@@ -11,6 +11,7 @@ const Layout = (props) => {
   const [showModal, setshowModal] = useState(false);
   const [fromType, setFromType] = useState();
   const dispatch = useDispatch();
+  
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       async function fetchData() {
@@ -83,8 +84,10 @@ const Layout = (props) => {
     }
   };
 
+
   return (
     <>
+
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
         <Header />
         <main className="flex-grow-1 ">{props.children}</main>

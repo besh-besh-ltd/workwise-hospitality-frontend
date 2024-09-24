@@ -10,7 +10,7 @@ import {
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, vendorApproveList } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList } from "@/services/rfq";
 import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -22,9 +22,9 @@ import {
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
 import { getProfile } from "@/services/Auth";
-import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import LocationFilter from "@/components/shared/LocationFilter";
 
 const customSelectStyles = {
   control: (base) => ({
@@ -67,18 +67,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [levelSixCat, setlevelSixCat] = useState([]);
   const [userProfile, setuserProfile] = useState(null);
 
-  const [statesLoading, setstatesLoading] = useState(false);
-  const [states, setstates] = useState([]);
   const [selectedState, setselectedState] = useState(0);
 
-  const [citiesLoading, setcitiesLoading] = useState(false);
-  const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const tempProdRef = useRef(null);
+  const [searchCategories, setSearchCategories] = useState([]);
+  const [searchSubCategories, setSearchSubCategories] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  const categoryLvlRef = useRef(new Map());
 
 
   const handleRedirect = (e) => {
@@ -99,7 +99,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       // getProducts();
     }
     if (localStorage.getItem("token")) {
-      console.log("set logged in")
       setIsLoggedIn(true);
     }
     if (redirectAfterLogin) {
@@ -131,14 +130,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProducts();
     getCategories();
     getVendorApprovedby();
-    getAllStates();
   }, []);
 
-  useEffect(() => {
-    if (selectedState) {
-      getAllCities();
-    }
-  }, [selectedState]);
 
   useEffect(() => {
     getVendors();
@@ -167,22 +160,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProfile().then((res) => {
       setloading(true);
       setuserProfile(res.data);
-    });
-  };
-
-  const getAllStates = () => {
-    setstatesLoading(true);
-    getStates().then((res) => {
-      setstatesLoading(false);
-      setstates(res.data);
-    });
-  };
-
-  const getAllCities = () => {
-    setcitiesLoading(true);
-    getCities(selectedState).then((res) => {
-      setcitiesLoading(false);
-      setcities(res.data);
     });
   };
 
@@ -255,6 +232,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getVendors = () => {
     setloading(true);
     setVendors([]);
+    setSearchSubCategories([]);
 
     // changes by mukul jatav 29-08-2024 
     setbulkRFQVendors([]);
@@ -289,6 +267,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
   const getProducts = (s_key = search_key) => {
     setloading(true);
+    categoryLvlRef.current = new Map();
     searchProductsV2(
       {
         cat_id,
@@ -304,11 +283,31 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           return item;
         });
         setProducts(d);
+        setSearchCategories(rsp.categoryData);
       })
       .catch((error) => {
         setloading(false);
       });
   };
+
+  const getCategoriesById = (category_id, category_name) => {
+    setloading(true)
+    categoryLvlRef.current.set(category_id, category_name)
+
+    categoryListById({ category_id })
+      .then((res) => {
+        setProductsList(res.productList);
+        setSearchSubCategories(res.subCategoryList);
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .finally(() => {
+        setloading(false)
+        setIsOpen(false);
+      })
+  };
+
   const getCategories = () => {
     setcatloading(true);
     categoryList()
@@ -329,6 +328,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setcatloading(false);
       });
   };
+
   const getVendorApprovedby = () => {
     setvabloading(true);
     vendorApproveList()
@@ -342,6 +342,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
   const handleSearchChange = (e) => {
     setSearch_key(e.target.value);
+    setProductsList([]);
+    setSearchCategories([]);
     getProducts(e.target.value);
   };
   const handleSearch = (e) => {
@@ -426,18 +428,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
-  const handleStateChange = (e) => {
-    setcities([]);
-    setselectedState(e.target.value);
-  };
-  const handleCityChange = (e) => {
-    setselectedCity(e.target.value);
-  };
-  const clearLocationFilter = (e) => {
-    setcities([]);
+  const clearLocationFilter = () => {
     setselectedState(0);
     setselectedCity(0);
   };
+
+  const mapEntries = Array.from(categoryLvlRef.current.entries());
 
   return (
     <>
@@ -487,8 +483,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="vendor-mngt-con">
                 <form onSubmit={handleSearch}>
                   <div className="row filter">
-                    <div className="col-md-2"></div>
-                    <div className="col-md-6 searchbox " ref={searchRef}>
+                    <div className="col-md-1"></div>
+                    <div className="col-md-8 searchbox " ref={searchRef}>
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
@@ -520,37 +516,76 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading && search_key !== "" && products.length == 0 && (
+                          {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
-                          {!loading && products.length > 0 && (
+                          {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
                             <>
-                              <p className="text-center fw-bold " style={{ color: "#ffa500" }}>Select an option from dropdown</p>
-                              <ul>
-                                {products.map((item, index) => {
-                                  return (
-                                    <li
-                                      key={`mp_${index}`}
-                                      onClick={() =>
-                                        handleAutocompleteClick(item)
-                                      }
-                                      title={`${item.product_name} - ${item.description}`}
-                                    >
-                                      <i>
-                                        <FontAwesomeIcon icon={faPlus} />
-                                      </i>
-                                      <div>
-                                        <h4>{item.product_name}</h4>
-                                        <p>
-                                          <small>
-                                            <b>{item.category_name} </b> {(item.description && item.description != 'null') && `| ${item.description}`}
-                                          </small>
-                                        </p>
-                                      </div>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
+                              <p className="text-center fw-bold " style={{ color: "var(--secondary-color)" }}>Select an option from dropdown</p>
+                              <div className="row">
+                                <div className="col-7">
+                                  <div className="container">
+                                    <h4 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Product List</h4>
+                                    <ul>
+                                      {products.map((item, index) => {
+                                        return (
+                                          <li
+                                            key={`mp_${index}`}
+                                            className="ps-2"
+                                            onClick={() =>
+                                              handleAutocompleteClick(item)
+                                            }
+                                            title={`${item.product_name} - ${item.description}`}
+                                          >
+                                            {/* <i>
+                                              <FontAwesomeIcon icon={faPlus} />
+                                            </i> */}
+                                            <div>
+                                              <h4>{item.product_name}</h4>
+                                              <p>
+                                                <small>
+                                                  <b>{item.category_name} </b>
+                                                  {(item.description && item.description != 'null') ? `| ${item.description}` : ""}
+                                                </small>
+                                              </p>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                                <div className="col-5">
+                                  <div className="container">
+                                    <h4 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Category List</h4>
+                                    <ul>
+                                      {searchCategories.map((item, index) => {
+                                        return (
+                                          <li
+                                            key={`search_cat_${index}`}
+                                            onClick={() =>
+                                              getCategoriesById(item.category_id, item.category_name)
+                                            }
+                                            title={`${item.category_name}`}
+                                          >
+                                            <i>
+                                              <FontAwesomeIcon icon={faPlus} />
+                                            </i>
+                                            <div>
+                                              <h4>{item.category_name}</h4>
+                                              <p>
+                                                <small>
+                                                  <b>{item.parent_category_name} </b>
+                                                </small>
+                                              </p>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
                             </>
                           )}
                         </div>
@@ -565,7 +600,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
 
-                    <div className="col-md-4 hasNoBlur">
+                    <div className="col-md-3 hasNoBlur">
                       <div className="action-top mb-0">
                         {vabloading && (
                           <select>
@@ -594,7 +629,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                       {item.vendor_approve}
                                     </option>
                                   );
-                                }                              
+                                }
                               })}
                           </select>
                         )}
@@ -749,23 +784,78 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
-          {/* {currentSelectedProduct && (
-            <div className=" col-md-12">
-              <div className="search-sec-3-mdl">
+          {searchSubCategories.length > 0 && (
+            <div className=" col-md-12 bg-white rounded-5 p-4">
+              <div className="search-sec-3-mdl my-3">
                 <div className="search-sec-3-mdl-con ">
-                  <SearchItem
-                    handleRemoveCurrentSelected={handleRemoveCurrentSelected}
-                    selectedProduct={true}
-                    setbulkRFQVendors={setbulkRFQVendors}
-                    bulkRFQVendors={bulkRFQVendors}
-                    type={type}
-                    key={`product-item-${currentSelectedProduct.id}`}
-                    data={currentSelectedProduct}
-                  />
+                  <div className="container">
+                    <h3>Sub Categories List</h3>
+                    <div className="parent-categories">
+                      {
+                        mapEntries?.map(([category_id, category_name], index) => {
+                          const isLastItem = index === mapEntries?.size - 1;
+                          return (
+                            <p
+                              role="button"
+                              key={category_id}
+                              className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
+                              onClick={() => {
+                                categoryLvlRef.current = new Map(mapEntries.slice(0, index + 1));
+                                getCategoriesById(category_id, category_name)
+                              }}
+                            >
+                              {category_name}
+                              <span className="ms-1">{!isLastItem ? " > " : ""}</span>
+                            </p>
+                          );
+                        })
+                      }
+                    </div>
+                    {loading && !currentSelectedProduct && <FullLoader />}
+                    {!loading && searchSubCategories.length <= 1 && productsList.length == 0
+                      ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
+                      : searchSubCategories.map((item) => {
+                        if (!categoryLvlRef.current.has(item.id)) {
+                          return (
+                            <p
+                              role="button"
+                              key={item.id}
+                              className="badge text-bg-primary mx-1 px-3 py-2 "
+                              onClick={() => getCategoriesById(item.id, item.title)}
+                            >
+                              {item.title}
+                            </p>
+                          )
+                        }
+                      })}
+
+                    {productsList.length > 0 && (
+                      <>
+                        <h3 className="mt-4">Product List</h3>
+                        <div className="row">
+                          {productsList.map((item, index) => {
+                            return (
+                              <div className="col-md-6 col-lg-4">
+                                <p
+                                  role="button"
+                                  key={`srch_prod_${index}`}
+                                  className={`border border-2 rounded-3 px-3 py-2 ${item.product_name == (tempProdRef.current?.product_name || currentSelectedProduct?.product_name) ? "bg-success border-success text-white" : ""}`}
+
+                                  onClick={() => handleAutocompleteClick(item)}
+                                >
+                                  {item.product_name}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          )} */}
+          )}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
@@ -785,43 +875,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         <FontAwesomeIcon icon={faTimesCircle} /> clear
                       </Link>
                     )}
-                    <select
-                      onChange={(e) => {
-                        if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
-                          setOpenAuthModal(true)
-                        else
-                          handleStateChange(e)
-                      }}
-                      value={selectedState}
-                    >
-                      <option value={0}>Select State</option>
-                      {states &&
-                        states.map((item) => {
-                          return (
-                            <option key={item.id} value={item.id}>
-                              {item.state_name}
-                            </option>
-                          );
-                        })}
-                    </select>
+
                     <div className="hasFullLoader">
-                      {citiesLoading && <FullLoader />}
-                      <select
-                        onChange={(e) => handleCityChange(e)}
-                        value={selectedCity}
-                        className="mt-2"
-                      >
-                        <option value={0}>Select City</option>
-                        {cities &&
-                          cities.map((item) => {
-                            return (
-                              <option key={item.id} value={item.id}>
-                                {item.city_name}
-                              </option>
-                            );
-                          })}
-                      </select>
+                      <LocationFilter
+                        selectedState={selectedState}
+                        setselectedState={setselectedState}
+                        selectedCity={selectedCity}
+                        setselectedCity={setselectedCity}
+                        vendorMetaData={vendorMetaData}
+                        setOpenAuthModal={setOpenAuthModal}
+                      />
                     </div>
+
                   </div>
                   <div className="search-con-right-1">
                     <p>Vendor Approved By</p>

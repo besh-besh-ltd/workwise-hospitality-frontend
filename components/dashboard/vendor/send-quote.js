@@ -477,7 +477,7 @@ const SendQuotePageComp = () => {
                         )}
                         {rfqDetails?.contact_number && (
                           <p>
-                            <b>Contact Number</b> : +91-
+                            <b>Contact Number</b> :
                             {rfqDetails?.contact_number}
                           </p>
                         )}

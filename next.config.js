@@ -9,9 +9,8 @@ const nextConfig = {
         port: "3000",
       },
       {
-        protocol: "http",
-        hostname: "143.110.242.57",
-        port: "8112",
+        protocol: "https",
+        hostname: "https://workwise-backend-ff68.onrender.com",
       },
       {
         protocol: "https",

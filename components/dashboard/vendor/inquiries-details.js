@@ -113,9 +113,9 @@ const RfqManagementPreview = () => {
       regret_reason: reqret_reason,
       globalPaymentTerms: "",
       globalComment: "",
-      regret_reason: reqret_reason || "hardcoded regret reason",
-      globalPaymentTerms: "hardcoded payment terms",
-      globalComment: "hardcoded global comments",
+      regret_reason: reqret_reason || "",
+      globalPaymentTerms: "",
+      globalComment: "",
     };
 
     sendQuotation(payload, token)
@@ -414,28 +414,17 @@ const RfqManagementPreview = () => {
         <>
           <section className="buyer-common-header sc-pt-80">
             <div className="container-fluid">
-              {!enableBuyerView && (
-                <h1 className="heading">
-                  Inquiry from {rfqDetails.company_name}. (RFQ #
-                  {rfqDetails.rfq_no})
+              {enableBuyerView ? <h1 className="heading">RFQ Management</h1>
+                : <h1 className="heading">
+                  Inquiry from {rfqDetails.company_name}. (RFQ #{rfqDetails.rfq_no})
                 </h1>
-              )}
-              {enableBuyerView && <h1 className="heading">RFQ Management</h1>}
+              }
             </div>
           </section>
 
           <section className="buyer-rfq-det-sec-1">
             <div className="container-fluid">
-              {!enableBuyerView && (
-                <Link
-                  href={localStorage.getItem('token') ? "/dashboard/vendor/inquiries-received" : "/"}
-                  className="page-link backBtn"
-                >
-                  {" "}
-                  <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
-                </Link>
-              )}
-              {enableBuyerView && (
+              {enableBuyerView ? (
                 <Link
                   href="/dashboard/buyer/rfq-management"
                   className="page-link backBtn"
@@ -447,6 +436,14 @@ const RfqManagementPreview = () => {
                 >
                   {" "}
                   <FontAwesomeIcon icon={faArrowLeft} /> Go back
+                </Link>
+              ) : (
+                <Link
+                  href={localStorage.getItem('token') ? "/dashboard/vendor/inquiries-received" : "/"}
+                  className="page-link backBtn"
+                >
+                  {" "}
+                  <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
                 </Link>
               )}
               <div className="row">
@@ -463,103 +460,48 @@ const RfqManagementPreview = () => {
                           <thead>
                             <tr>
                               <th>Name of product</th>
-                              <th>Size specifications & Quantity</th>
+                              <th>Size & specifications</th>
+                              <th>Quantity</th>
                               <th>TDS</th>
                               <th>QAP</th>
                               <th >Comments</th>
-                              {/* <th>Selected vendors</th> */}
+                              {type == "buyer-view" ? <th>Selected vendors</th> : null}
                             </tr>
                           </thead>
                           <tbody>
-                            {rfqDetails?.products?.map((item, index) => {
+                            {rfqDetails?.products?.map((item) => {
+                              let size, spec, qty, unit;
+                              item?.product_specs?.map((p_spec) => {
+                                switch (p_spec.title) {
+                                  case 'Size':
+                                    size = p_spec.value
+                                    break;
+                                  case 'Spec':
+                                    spec = p_spec.value
+                                    break;
+                                  case 'Quantity':
+                                    qty = p_spec.value
+                                    break;
+                                  case 'Unit':
+                                    unit = p_spec.value
+                                    break;
+                                  default:
+                                    break;
+                                }
+                              })
                               return (
                                 <tr key={`${item?.id}_${item?.product_id}_${item?.variant}`}>
                                   <td>{item?.product_details[0]?.name}</td>
-                                  <td>
-                                    <div className="size-specification ">
-                                      {/* <div className="row g-2">
-                                        <div className="col-12">
-                                          <input
-                                            className="full"
-                                            type="text"
-                                            name={item?.product_specs[1]?.title.toLowerCase()}
-                                            id={
-                                              item?.product_id +
-                                              "_" +
-                                              item?.product_specs[1]?.title.toLowerCase()
-                                            }
-                                            placeholder={item?.product_specs[1]?.title.toLowerCase()}
-                                            value={item?.product_specs[1]?.value}
-                                            disabled
-                                          />
-                                        </div>
-
-                                        <div className="col-6">
-                                          <input
-                                            className="full"
-                                            type="text"
-                                            name={item?.product_specs[0]?.title.toLowerCase()}
-                                            id={
-                                              item?.product_id +
-                                              "_" +
-                                              item?.product_specs[0]?.title.toLowerCase()
-                                            }
-                                            placeholder={item?.product_specs[0]?.title.toLowerCase()}
-                                            value={item?.product_specs[0]?.value}
-                                            disabled
-                                          />
-                                        </div>
-                                        <div className="col-6">
-                                          <input
-                                            className="full"
-                                            type="text"
-                                            name={item?.product_specs[2]?.title.toLowerCase()}
-                                            id={
-                                              item?.product_id +
-                                              "_" +
-                                              item?.product_specs[2]?.title.toLowerCase()
-                                            }
-                                            placeholder={item?.product_specs[2]?.title.toLowerCase()}
-                                            value={item?.product_specs[2]?.value}
-                                            disabled
-                                          />
-                                          <input
-                                            className="full"
-                                            type="text"
-                                            name={item?.product_specs[3]?.title.toLowerCase()}
-                                            id={
-                                              item?.product_id +
-                                              "_" +
-                                              item?.product_specs[3]?.title.toLowerCase()
-                                            }
-                                            placeholder={item?.product_specs[3]?.title.toLowerCase()}
-                                            value={item?.product_specs[3]?.value}
-                                            disabled
-                                          />
-                                        </div>
-                                      </div> */}
-
-                                      {item?.product_specs.map(
-                                        (spec_item, index) => {
-                                          return (
-                                            <input
-                                              key={`rfq_d_spec_itm_${index}`}
-                                              className="full"
-                                              type="text"
-                                              name={spec_item?.title.toLowerCase()}
-                                              id={
-                                                item?.product_id +
-                                                "_" +
-                                                spec_item?.title.toLowerCase()
-                                              }
-                                              placeholder={spec_item?.title.toLowerCase()}
-                                              value={spec_item?.value}
-                                              disabled
-                                            />
-                                          );
-                                        }
-                                      )}
-
+                                  <td style={{ minWidth: "300px", maxWidth: "500px" }}>
+                                    <div className="row">
+                                      {<p className="col-12 mb-1" >
+                                        <strong>Size: </strong>
+                                        {size || "----"}
+                                      </p>}
+                                      {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                                        <strong>Spec: </strong>
+                                        {spec || "----"}
+                                      </p>}
                                       {item?.spec_file &&
                                         item?.spec_file != "" && (
                                           <Link
@@ -571,6 +513,8 @@ const RfqManagementPreview = () => {
                                         )}
                                     </div>
                                   </td>
+
+                                  <td>{`${qty} - ${unit}`}</td>
 
                                   <td>
                                     <div>
@@ -776,20 +720,25 @@ const RfqManagementPreview = () => {
                                         )}
                                     </div>
                                   </td>
-                                  <td style={{ maxWidth: "400px" }}>
+                                  <td style={{ minWidth: "250px", maxWidth: "400px" }}>
                                     {item?.comment && item?.comment != ""
                                       ? item?.comment?.length > 100
-                                        ? <ReadMore content={item.comment} maxLength={100} textSmall={true} />
+                                        ? <ReadMore content={item.comment} maxLength={70} textSmall={true} />
                                         : item.comment
                                       : "N/A"}
                                   </td>
-                                  {/* <td>
-                                  <span>
-                                    <Link href="#" className="page-link">
-                                      View
-                                    </Link>
-                                  </span>
-                                </td> */}
+                                  {type == "buyer-view" &&
+                                    <td>
+                                      <span>
+                                        <Link
+                                          href={`rfq-management-vendor?type=buyer-view&vendors=${item.vendor_details?.map((ven_item) => ven_item.user_id).join(",")}&productid=${item.product_id}&variant=${item.variant}`}
+                                          className="page-link"
+                                        >
+                                          View selected vendors ({item.vendor_details?.length})
+                                        </Link>
+                                      </span>
+                                    </td>
+                                  }
                                 </tr>
                               );
                             })}
@@ -865,9 +814,9 @@ const RfqManagementPreview = () => {
                                     id="wapp"
                                     className="form-control"
                                     name="wapp"
-                                    placeholder="+91 1234567890"
+                                    placeholder="1234567890"
                                     disabled
-                                    value={`+91 ${rfqDetails?.contact_number}`}
+                                    value={`${rfqDetails?.contact_number}`}
                                   />
                                 </div>
                               </div>
@@ -1084,7 +1033,7 @@ const RfqManagementPreview = () => {
                                 <div className="form-group">
                                   <textarea
                                     id="comment"
-                                    className="form-control"
+                                    className="form-control text-sm fw-normal"
                                     name="comment"
                                     placeholder="comment here"
                                     rows={5}

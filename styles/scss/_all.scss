@@ -167,8 +167,8 @@ p {
 
 .text-sm {
   font-weight: 400;
-  font-size: 0.85rem;
-  line-height: 1.25rem;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 /* Padding Style*/
@@ -3039,6 +3039,32 @@ textarea {
         color: var(--white-color);
       }
     }
+
+    tbody {
+      tr {
+        td {
+          .page-link-btn {
+            background: var(--secondary-color);
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            font-size: 14px;
+            line-height: 21px;
+            text-align: center;
+            color: var(--white-color);
+            padding: 10px;
+
+            &:hover {
+              background: var(--primary-color);
+            }
+          }
+
+          &:last-child {
+            display: flex;
+            justify-content: space-between;
+          }
+        }
+      }
+    }
   }
 }
 
@@ -3284,17 +3310,17 @@ textarea {
                 border: none;
                 border-bottom: 1px solid #d9d9d9;
 
+                .page-link {
+                  font-weight: 500;
+                  font-size: 14px;
+                  line-height: 24px;
+                  text-decoration-line: underline;
+                  color: #000080;
+                }
+
                 &:last-child {
                   display: flex;
                   justify-content: space-between;
-
-                  .page-link {
-                    font-weight: 500;
-                    font-size: 14px;
-                    line-height: 24px;
-                    text-decoration-line: underline;
-                    color: #000080;
-                  }
 
                   .page-link-btn {
                     background: var(--secondary-color);
@@ -3722,7 +3748,7 @@ textarea {
             tr {
               th {
                 background-color: #263843;
-                padding: 5px 10px;
+                padding: 10px;
                 color: var(--white-color);
                 font-weight: 500;
                 font-size: 14px;
@@ -3743,6 +3769,7 @@ textarea {
             tr {
               td {
                 padding: 15px;
+                min-width: 100px;
                 font-weight: 400;
                 font-size: 14px;
                 line-height: 24px;
@@ -3846,8 +3873,6 @@ textarea {
             font-weight: 400;
             font-size: 14px;
             line-height: 22px;
-            /* or 157% */
-
             color: #5b5b5b;
             margin-bottom: 20px;
           }
@@ -6420,8 +6445,6 @@ span.mproducts {
 
 .search_results_autocomplete {
   box-shadow: 0 4px 6px rgba(32, 33, 36, 0.28);
-  max-height: 300px;
-  overflow: auto;
   position: absolute;
   background: #fff;
   width: calc(100% - 30px);
@@ -6431,6 +6454,15 @@ span.mproducts {
   box-sizing: border-box;
   border: 1px solid #ddd;
   border-radius: 0 0 15px 15px;
+
+  .container {
+    max-height: 300px;
+    overflow-y: scroll;
+  }
+
+  .container > h4 {
+    background-color: var(--primary-color);
+  }
 
   ul {
     list-style: none;
@@ -6666,7 +6698,7 @@ h2.pdf-icon {
         }
       }
 
-      &:nth-child(2) {
+      &:nth-child(2):not(:last-child) {
         .table-si-row:first-child {
           border-radius: 24px 0 0 0;
         }
@@ -6679,6 +6711,16 @@ h2.pdf-icon {
 
         .table-si-row:first-child {
           border-radius: 0 24px 0 0;
+        }
+
+        .table-si-row:last-child {
+          border-radius: 0 0 24px 0;
+        }
+      }
+
+      &:nth-child(2):last-child {
+        .table-si-row:first-child {
+          border-radius: 24px 24px 0 0;
         }
 
         .table-si-row:last-child {
@@ -6856,7 +6898,7 @@ aside {
     color: #f00;
   }
 
-  select {
+  select, .autocomplete input {
     width: 100%;
     height: 52px;
     border: 1px solid #a5a5a5;
@@ -6866,6 +6908,28 @@ aside {
     font-size: 14px;
     color: #525252;
     margin-right: 20px;
+  }
+
+  .dropdown {
+    position: absolute;
+    background-color: var(--white-color);
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    width: 100%;
+    padding: 5px;
+    font-size: 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+  
+  .dropdown-item {
+    padding: 8px;
+    cursor: pointer;
+  }
+  
+  .dropdown-item:hover {
+    background-color: #f1f1f1;
   }
 }
 
@@ -6936,9 +7000,9 @@ a.btn.disabled {
     }
   }
 
-  .table-si-row:nth-child(2) {
-    border-radius: 24px 0 0 0;
-  }
+  // .table-si-row:nth-child(2) {
+  //   border-radius: 24px 0 0 0;
+  // }
 
   .table-si-row:last-child {
     border-radius: 0 24px 0 0;
