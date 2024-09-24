@@ -29,7 +29,7 @@ const initialMainNavs = [
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user_registered } = router.query;
+  const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [sticky, setSticky] = useState("");
@@ -60,6 +60,7 @@ const Header = () => {
   }, [router]);
 
   useEffect(() => {
+    setUserDetails();
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -87,7 +88,7 @@ const Header = () => {
     handleChange(setSticky(stickyClass));
   };
 
-  useEffect(() => {
+  const setUserDetails = () => {
     const user = getUserDetails();
     if (user?.name) {
       setLoggedinUser(user);
@@ -95,22 +96,25 @@ const Header = () => {
       setLoggedinUser(null);
     }
     setcurrentUserType(storageInstance.getStorage("current-user-type"));
+  }
 
+  useEffect(() => {
+    setUserDetails();
     if (user_registered == 1) {
       toast.success("Now login to get started!");
       handleChange(setActiveAuthTab("login"));
       handleChange(setOpenAuthModal(true));
     }
 
-    if (localStorage.getItem('token')) {
-      let revisedNavs = mainNavs.filter((navItem) => {
-        if (navItem == "/products" || navItem == "/dashboard/vendor/inquiries-details" || "/dashboard/buyer/rfq-management-vendor/vendor-profile") { }
-        else return navItem;
-      })
+    if (localStorage.getItem('token') || loggedin == 'true') {
+      let revisedNavs = mainNavs.filter((navItem) =>
+        navItem != "/products" &&
+        navItem != "/dashboard/vendor/inquiries-details" &&
+        navItem != "/dashboard/buyer/rfq-management-vendor/vendor-profile");
       setMainNavs(revisedNavs);
     }
     else {
-      let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
+      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products" && navItem != "/dashboard/vendor/inquiries-details");
       if (pathname === '/products') {
         revisedNavs.push('/products');
       }
@@ -191,306 +195,306 @@ const Header = () => {
             {/* User Specific Navs */}
             {loggedinUser && loggedinUser?.name && pathname != '/dashboard/admin' && (
               <>
-              {!mainNavs.includes(pathname) && (
-                <div className="header-right header-center align-items-center forLoggedIn">
-                  <nav className="main-menu">
+                {!mainNavs.includes(pathname) && (
+                  <div className="header-right header-center align-items-center forLoggedIn">
+                    <nav className="main-menu">
 
-                    {/* Vendor Specific Navs */}
-                    {currentUserType == "vendor" && (
-                      <ul>
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/vendor/product-management"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/vendor/product-management">
-                            Product management
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/vendor/product-review"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/vendor/product-review">
-                            Product Review
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/vendor/inquiries-received"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/vendor/inquiries-received">
-                            Received inquiries
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/vendor/reviews-ratings"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/vendor/reviews-ratings">
-                            Reviews & Ratings
-                          </Link>
-                        </li>
-                        <li
-                          className={
-                            router.pathname == "/change-password"
-                              ? "active hideDesktopItem"
-                              : "hideDesktopItem"
-                          }
-                        >
-                          <Link
-                            href={`/change-password?redirect_url=${window.location.pathname}`}
-                            onClick={() => setPopoverVisible(false)}
+                      {/* Vendor Specific Navs */}
+                      {currentUserType == "vendor" && (
+                        <ul>
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/vendor/product-management"
+                                ? "active"
+                                : ""
+                            }
                           >
-                            Change Password
-                          </Link>
-                        </li>
-                      </ul>
-                    )}
+                            <Link href="/dashboard/vendor/product-management">
+                              Product management
+                            </Link>
+                          </li>
 
-                    {/* Buyer Specific Navs */}
-                    {currentUserType == "buyer" && (
-                      <ul>
-                        <li
-                          className={
-                            router.pathname == "/dashboard/buyer"
-                              ? "active hideDesktopItemr"
-                              : "hideDesktopItemr"
-                          }
-                        >
-                          <Link href="/dashboard/buyer">Dashboard</Link>
-                        </li>
-                        <li
-                          className={
-                            router.pathname == "/products" ? "active " : ""
-                          }
-                        >
-                          <Link href="/products">Search Vendor</Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/buyer/rfq-management"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/buyer/rfq-management">
-                            RFQ management
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/buyer/quote-compare"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/buyer/quote-compare">
-                            Compare received quotes
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname == "/dashboard/buyer/subscription"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/buyer/subscription">
-                            Subscription
-                          </Link>
-                        </li>
-                      </ul>
-                    )}
-
-                    {/* Others Navs */}
-                    {currentUserType == "other" && (
-                      <ul>
-                        <li
-                          className={
-                            router.pathname == "/dashboard/buyer"
-                              ? "active hideDesktopItem"
-                              : "hideDesktopItem"
-                          }
-                        >
-                          <Link href="/dashboard/buyer">Dashboard</Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname == "/products" ? "active " : ""
-                          }
-                        >
-                          <Link href="/products">Search Vendor</Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/other/rfq-management"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/other/rfq-management">
-                            RFQ management
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/other/quote-compare"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/other/quote-compare">
-                            Compare received quotes
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/other/product-management"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/other/product-management">
-                            Product Management
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/other/product-review"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/other/product-review">
-                            Product Review
-                          </Link>
-                        </li>
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/other/inquiries-received"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/other/inquiries-received">
-                            Received inquiries
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname ==
-                              "/dashboard/other/reviews-ratings"
-                              ? "active"
-                              : ""
-                          }
-                        >
-                          <Link href="/dashboard/other/reviews-ratings">
-                            Reviews & Ratings
-                          </Link>
-                        </li>
-
-                        <li
-                          className={
-                            router.pathname == "/change-password"
-                              ? "active hideDesktopItem"
-                              : "hideDesktopItem"
-                          }
-                        >
-                          <Link
-                            href={`/change-password?redirect_url=${window.location.pathname}`}
-                            onClick={() => setPopoverVisible(false)}
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/vendor/product-review"
+                                ? "active"
+                                : ""
+                            }
                           >
-                            Change Password
+                            <Link href="/dashboard/vendor/product-review">
+                              Product Review
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/vendor/inquiries-received"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/vendor/inquiries-received">
+                              Received inquiries
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/vendor/reviews-ratings"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/vendor/reviews-ratings">
+                              Reviews & Ratings
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/change-password"
+                                ? "active hideDesktopItem"
+                                : "hideDesktopItem"
+                            }
+                          >
+                            <Link
+                              href={`/change-password?redirect_url=${window.location.pathname}`}
+                              onClick={() => setPopoverVisible(false)}
+                            >
+                              Change Password
+                            </Link>
+                          </li>
+                        </ul>
+                      )}
+
+                      {/* Buyer Specific Navs */}
+                      {currentUserType == "buyer" && (
+                        <ul>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer"
+                                ? "active hideDesktopItemr"
+                                : "hideDesktopItemr"
+                            }
+                          >
+                            <Link href="/dashboard/buyer">Dashboard</Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/products" ? "active " : ""
+                            }
+                          >
+                            <Link href="/products">Search Vendor</Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/buyer/rfq-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/rfq-management">
+                              RFQ management
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/buyer/quote-compare"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/quote-compare">
+                              Compare received quotes
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/subscription"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/subscription">
+                              Subscription
+                            </Link>
+                          </li>
+                        </ul>
+                      )}
+
+                      {/* Others Navs */}
+                      {currentUserType == "other" && (
+                        <ul>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer"
+                                ? "active hideDesktopItem"
+                                : "hideDesktopItem"
+                            }
+                          >
+                            <Link href="/dashboard/buyer">Dashboard</Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname == "/products" ? "active " : ""
+                            }
+                          >
+                            <Link href="/products">Search Vendor</Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/other/rfq-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/other/rfq-management">
+                              RFQ management
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/other/quote-compare"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/other/quote-compare">
+                              Compare received quotes
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/other/product-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/other/product-management">
+                              Product Management
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/other/product-review"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/other/product-review">
+                              Product Review
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/other/inquiries-received"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/other/inquiries-received">
+                              Received inquiries
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/other/reviews-ratings"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/other/reviews-ratings">
+                              Reviews & Ratings
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname == "/change-password"
+                                ? "active hideDesktopItem"
+                                : "hideDesktopItem"
+                            }
+                          >
+                            <Link
+                              href={`/change-password?redirect_url=${window.location.pathname}`}
+                              onClick={() => setPopoverVisible(false)}
+                            >
+                              Change Password
+                            </Link>
+                          </li>
+                        </ul>
+                      )}
+                    </nav>
+
+                    <div className="extra-buttons dashboard-area-buttons hideDesktop">
+                      <ul>
+                        <li
+                          className="login"
+                          onClick={() => {
+                            router.push(
+                              `/dashboard/${currentUserType}/editprofile`
+                            );
+                          }}
+                        >
+                          <Link href="">
+                            {" "}
+                            <FontAwesomeIcon icon={faUser} />{" "}
+                            <span>My Profile</span>
+                          </Link>
+                        </li>
+                        <li className="signup" onClick={handleLogout}>
+                          <Link href="">
+                            <FontAwesomeIcon icon={faSignOut} />{" "}
+                            <span>Logout</span>
                           </Link>
                         </li>
                       </ul>
-                    )}
-                  </nav>
-
-                  <div className="extra-buttons dashboard-area-buttons hideDesktop">
-                    <ul>
-                      <li
-                        className="login"
-                        onClick={() => {
-                          router.push(
-                            `/dashboard/${currentUserType}/editprofile`
-                          );
-                        }}
-                      >
-                        <Link href="">
-                          {" "}
-                          <FontAwesomeIcon icon={faUser} />{" "}
-                          <span>My Profile</span>
-                        </Link>
-                      </li>
-                      <li className="signup" onClick={handleLogout}>
-                        <Link href="">
-                          <FontAwesomeIcon icon={faSignOut} />{" "}
-                          <span>Logout</span>
-                        </Link>
-                      </li>
-                    </ul>
-                  </div>
-                  <div
-                    className={`menu-ctrl ${menuClass ? "button-active" : ""
-                      }`}
-                  >
-                    <label
-                      onClick={() => handleChange(setMenuClass(!menuClass))}
+                    </div>
+                    <div
+                      className={`menu-ctrl ${menuClass ? "button-active" : ""
+                        }`}
                     >
-                      <svg
-                        width="100"
-                        height="100"
-                        xmlns="http://www.w3.org/2000/svg"
+                      <label
+                        onClick={() => handleChange(setMenuClass(!menuClass))}
                       >
-                        <path
-                          className="line--1"
-                          d="M0 40h62c13 0 6 28-4 18L35 35"
-                        />
-                        <path className="line--2" d="M0 50h70" />
-                        <path
-                          className="line--3"
-                          d="M0 60h62c13 0 6-28-4-18L35 65"
-                        />
-                      </svg>
-                    </label>
+                        <svg
+                          width="100"
+                          height="100"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            className="line--1"
+                            d="M0 40h62c13 0 6 28-4 18L35 35"
+                          />
+                          <path className="line--2" d="M0 50h70" />
+                          <path
+                            className="line--3"
+                            d="M0 60h62c13 0 6-28-4-18L35 65"
+                          />
+                        </svg>
+                      </label>
+                    </div>
                   </div>
-                </div>
                 )}
               </>
             )}

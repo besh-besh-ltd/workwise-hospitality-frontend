@@ -7,9 +7,11 @@ import { useSelector } from 'react-redux';
 import AuthModal from '../modal/AuthModal';
 import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import storageInstance from '@/utils/storageInstance';
+import { usePathname } from 'next/navigation';
 
 const LoginContainer = (props) => {
     const router = useRouter();
+    const pathname = usePathname();
     const { redirect } = router.query;
     const [showModal, setShowModal] = useState(false);
     const [email, setEmail] = useState("");
@@ -46,7 +48,7 @@ const LoginContainer = (props) => {
                     .catch((err) => { });
                 props.setloading(false);
                 handleChange(props.setOpenAuthModal(false));
-                
+
                 toast.success(response.message, {
                     position: "top-center",
                 });
@@ -65,7 +67,9 @@ const LoginContainer = (props) => {
                     router.push(window.atob(redirect));
                     return;
                 } else {
-                    if (userType == "buyer") {
+                    if (pathname.includes("/dashboard/buyer/rfq-management-vendor/vendor-profile")) {
+                        router.reload();
+                    } else if (userType == "buyer") {
                         router.push(`/products?loggedin=true`);
                     } else {
                         router.push(`/dashboard/${userType}?loggedin=true`);
