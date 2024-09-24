@@ -68,7 +68,7 @@ const LoginContainer = (props) => {
                     if (userType == "buyer") {
                         router.push(`/products?loggedin=true`);
                     } else {
-                        router.push(`/dashboard/${userType}`);
+                        router.push(`/dashboard/${userType}?loggedin=true`);
                     }
                 }
                 //router.push(`/dashboard`);
