@@ -22,6 +22,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Providers } from "@/redux/provider";
 import LogRocket from 'logrocket';
 import storageInstance from "@/utils/storageInstance";
+import Script from "next/script";
 
 
 
@@ -36,19 +37,22 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => {
 
-     // Identify user if available
-     const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
-     LogRocket.identify(userId);
- 
-     // record user session
-     if (!isLogRocketInitialized.current) {
-       LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
-         dom: {
-           inputSanitizer: true, // Mask input fields
-         },
-       });
-       isLogRocketInitialized.current = true;
-     }
+    // initialize log rocket only in prod mode
+    if (process.env.NEXT_PUBLIC_ENV === 'production') {
+      // Identify user if available
+      const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
+      LogRocket.identify(userId);
+
+      // record user session
+      if (!isLogRocketInitialized.current) {
+        LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
+          dom: {
+            inputSanitizer: true, // Mask input fields
+          },
+        });
+        isLogRocketInitialized.current = true;
+      }
+    }
 
     const handleStart = () => setLoading(true);
     const handleComplete = () => {
@@ -77,7 +81,23 @@ export default function App({ Component, pageProps }) {
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
           <Layout>
 
+            {/* Only load Google Analytics script in production */}
+            {process.env.NEXT_PUBLIC_ENV === 'production' && (
+              <>
+                {/* Google tag (gtag.js) */}
+                <Script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID}`}></Script>
+                <Script id='google-analytics'> {`
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('js', new Date());
+                    gtag('config', '${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID}');
+                  `}
+                </Script>
+              </>
+            )}
+
             <Component {...pageProps} />
+
           </Layout>
         </GoogleOAuthProvider>
       </Providers>
