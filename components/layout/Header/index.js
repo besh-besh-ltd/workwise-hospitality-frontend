@@ -114,17 +114,14 @@ const Header = () => {
       setMainNavs(revisedNavs);
     }
     else {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products" && navItem != "/dashboard/vendor/inquiries-details");
+      let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
       if (pathname === '/products') {
-        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
         revisedNavs.push('/products');
-        setMainNavs(revisedNavs)
       }
       else if (pathname.includes("/dashboard/vendor/inquiries-details")) {
-        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
         revisedNavs.push("/dashboard/vendor/inquiries-details");
-        setMainNavs(revisedNavs)
       }
+      setMainNavs(revisedNavs)
     }
 
   }, [router]);
@@ -135,6 +132,8 @@ const Header = () => {
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
     setPopoverVisible(false);
+    setLoggedinUser(null);
+    setMainNavs(initialMainNavs);
     router.push("/");
   };
 
@@ -323,8 +322,6 @@ const Header = () => {
                 {!mainNavs.includes(pathname) && (
                   <div className="header-right header-center align-items-center forLoggedIn">
                     <nav className="main-menu">
-
-                      {/* Vendor Specific Navs */}
                       {currentUserType == "vendor" && (
                         <ul>
                           <li
@@ -352,31 +349,7 @@ const Header = () => {
                               Product Review
                             </Link>
                           </li>
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/vendor/product-review"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/vendor/product-review">
-                              Product Review
-                            </Link>
-                          </li>
 
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/vendor/inquiries-received"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/vendor/inquiries-received">
-                              Received inquiries
-                            </Link>
-                          </li>
                           <li
                             className={
                               router.pathname ==
@@ -418,8 +391,6 @@ const Header = () => {
                           </li>
                         </ul>
                       )}
-
-                      {/* Buyer Specific Navs */}
                       {currentUserType == "buyer" && (
                         <ul>
                           <li
@@ -451,18 +422,6 @@ const Header = () => {
                               RFQ management
                             </Link>
                           </li>
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/buyer/rfq-management"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/rfq-management">
-                              RFQ management
-                            </Link>
-                          </li>
 
                           <li
                             className={
@@ -476,45 +435,7 @@ const Header = () => {
                               Compare received quotes
                             </Link>
                           </li>
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/buyer/quote-compare"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/quote-compare">
-                              Compare received quotes
-                            </Link>
-                          </li>
 
-                          <li
-                            className={
-                              router.pathname == "/dashboard/buyer/subscription"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/subscription">
-                              Subscription
-                            </Link>
-                          </li>
-                        </ul>
-                      )}
-
-                      {/* Others Navs */}
-                      {currentUserType == "other" && (
-                        <ul>
-                          <li
-                            className={
-                              router.pathname == "/dashboard/buyer"
-                                ? "active hideDesktopItem"
-                                : "hideDesktopItem"
-                            }
-                          >
-                            <Link href="/dashboard/buyer">Dashboard</Link>
-                          </li>
                           <li
                             className={
                               router.pathname == "/dashboard/buyer/subscription"
@@ -574,26 +495,7 @@ const Header = () => {
                           >
                             <Link href="/products">Search Vendor</Link>
                           </li>
-                          <li
-                            className={
-                              router.pathname == "/products" ? "active " : ""
-                            }
-                          >
-                            <Link href="/products">Search Vendor</Link>
-                          </li>
 
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/other/rfq-management"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/other/rfq-management">
-                              RFQ management
-                            </Link>
-                          </li>
                           <li
                             className={
                               router.pathname ==
@@ -619,31 +521,7 @@ const Header = () => {
                               Compare received quotes
                             </Link>
                           </li>
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/other/quote-compare"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/other/quote-compare">
-                              Compare received quotes
-                            </Link>
-                          </li>
 
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/other/product-management"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/other/product-management">
-                              Product Management
-                            </Link>
-                          </li>
                           <li
                             className={
                               router.pathname ==
@@ -681,43 +559,7 @@ const Header = () => {
                               Received inquiries
                             </Link>
                           </li>
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/other/product-review"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/other/product-review">
-                              Product Review
-                            </Link>
-                          </li>
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/other/inquiries-received"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/other/inquiries-received">
-                              Received inquiries
-                            </Link>
-                          </li>
 
-                          <li
-                            className={
-                              router.pathname ==
-                                "/dashboard/other/reviews-ratings"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/other/reviews-ratings">
-                              Reviews & Ratings
-                            </Link>
-                          </li>
                           <li
                             className={
                               router.pathname ==
@@ -748,7 +590,6 @@ const Header = () => {
                         </ul>
                       )}
                     </nav>
-
                     <div className="extra-buttons dashboard-area-buttons hideDesktop">
                       <ul>
                         <li
@@ -799,8 +640,6 @@ const Header = () => {
                     </div>
                   </div>
                 )}
-              </>
-            )}
 
                 <div className="header-right align-items-center forLoggedIn hidemobile">
                   <nav className="main-menu">
