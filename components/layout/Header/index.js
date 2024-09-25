@@ -30,7 +30,7 @@ const initialMainNavs = [
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user_registered } = router.query;
+  const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [sticky, setSticky] = useState("");
@@ -60,6 +60,7 @@ const Header = () => {
     setMenuClass(false);
   }, [router]);
   useEffect(() => {
+    setUserDetails();
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -87,7 +88,7 @@ const Header = () => {
     handleChange(setSticky(stickyClass));
   };
 
-  useEffect(() => {
+  const setUserDetails = () => {
     const user = getUserDetails();
     if (user?.name) {
       setLoggedinUser(user);
@@ -95,31 +96,32 @@ const Header = () => {
       setLoggedinUser(null);
     }
     setcurrentUserType(storageInstance.getStorage("current-user-type"));
+  }
 
+  useEffect(() => {
+    setUserDetails();
     if (user_registered == 1) {
       toast.success("Now login to get started!");
       handleChange(setActiveAuthTab("login"));
       handleChange(setOpenAuthModal(true));
     }
 
-    if (localStorage.getItem('token')) {
-      let revisedNavs = mainNavs.filter((navItem) => {
-        if (navItem == "/products" || navItem == "/dashboard/vendor/inquiries-details") { }
-        else return navItem;
-      })
+    if (localStorage.getItem('token') || loggedin == 'true') {
+      let revisedNavs = mainNavs.filter((navItem) =>
+        navItem != "/products" &&
+        navItem != "/dashboard/vendor/inquiries-details" &&
+        navItem != "/dashboard/buyer/rfq-management-vendor/vendor-profile");
       setMainNavs(revisedNavs);
     }
     else {
+      let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
       if (pathname === '/products') {
-        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
         revisedNavs.push('/products');
-        setMainNavs(revisedNavs)
       }
       else if (pathname.includes("/dashboard/vendor/inquiries-details")) {
-        let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
         revisedNavs.push("/dashboard/vendor/inquiries-details");
-        setMainNavs(revisedNavs)
       }
+      setMainNavs(revisedNavs)
     }
 
   }, [router]);
@@ -130,6 +132,8 @@ const Header = () => {
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
     setPopoverVisible(false);
+    setLoggedinUser(null);
+    setMainNavs(initialMainNavs);
     router.push("/");
   };
 
