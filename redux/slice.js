@@ -11,9 +11,10 @@ const initialState = {
     response_email: "",
     contact_name: "",
     contact_number: "",
-    location: "",
-    bid_end_date: "",
     company_name: "",
+    rfq_type: "",
+    bid_end_date: "",
+    location: "",
   },
   rfqObjData: {
     terms: [],
@@ -245,14 +246,9 @@ export const rfqProductsSlice = createSlice({
       state.rfqObjData.ownTerm = action.payload;
       state.rfqFormData.comment = action.payload
     },
-    setCompanyName: (state, action) => {
-      state.rfqFormData.company_name = action.payload
-    },
-    setLocation: (state, action) => {
-      state.rfqFormData.location = action.payload
-    },
-    setBidEndDate: (state, action) => {
-      state.rfqFormData.bid_end_date = action.payload
+    setOtherFormFields: (state, action) => {
+      const { field_name, value } = action.payload;
+      state.rfqFormData[field_name] = value;
     },
     setAllTerms: (state, action) => {
       state.allTerms = action.payload
@@ -298,9 +294,7 @@ export const {
   setDefaultVAB,
   setCustomTerms,
   setCustomTermsText,
-  setCompanyName,
-  setLocation,
-  setBidEndDate,
+  setOtherFormFields,
   setAllTerms,
   setUserSelectedDefaultFile
 } = rfqProductsSlice.actions;

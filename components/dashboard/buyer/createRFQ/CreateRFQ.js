@@ -12,16 +12,15 @@ import {
   addProductSpec,
   clearState,
   setAllTerms,
-  setBidEndDate,
   setCustomTerms,
   setCustomTermsText,
-  setCompanyName,
-  setLocation,
   setRfqFormData,
+  setOtherFormFields,
 } from "@/redux/slice";
 import Link from "next/link";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import { getStates } from "@/services/cms";
+
 
 const CreateRFQ = () => {
   const router = useRouter();
@@ -57,8 +56,8 @@ const CreateRFQ = () => {
     setRFQProductsFromStore();
     getVendorApproveList();
     getAllStates();
-    if(stateTerms.length == 0)
-        getTermsData();
+    if (stateTerms.length == 0)
+      getTermsData();
   }, []);
 
   const getAllStates = () => {
@@ -97,8 +96,8 @@ const CreateRFQ = () => {
     getTerms()
       .then((res) => {
         setTerms(res.data);
-        const terms = res.data?.map((item)=> {
-          return {id: item.id};
+        const terms = res.data?.map((item) => {
+          return { id: item.id };
         })
         setSelectedTerms(terms);
         dispatch(setAllTerms(res.data));
@@ -158,15 +157,6 @@ const CreateRFQ = () => {
   const handleChange = (e) => {
     dispatch(setCustomTermsText(e.target.value));
   };
-  const handleCompanyNameChange = (e) => {
-    dispatch(setCompanyName(e.target.value));
-  };
-  const handleLocationChange = (e) => {
-    dispatch(setLocation(e.target.value));
-  };
-  const handleDateChange = (e) => {
-    dispatch(setBidEndDate(e.target.value));
-  };
   const isAlreadySelected = (id) => {
     if (allSelectedTermsFromState.length > 0) {
       let isItThere = allSelectedTermsFromState.filter((item) => item.id == id);
@@ -174,13 +164,22 @@ const CreateRFQ = () => {
     }
   };
 
+  const getFutureDate = (days = 30) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);     // Add days as per need
+    return date.toISOString().slice(0, 10);  // Format as 'YYYY-MM-DD'
+  };
+
+  const handleFormFieldChange = (e) => {
+    const { name, value } = e.target;
+    dispatch(setOtherFormFields({ field_name: name, value }));
+  }
+
   return (
     <>
-      {/* <ToastContainer/> */}
       {mainLoading && <Loader />}
       <div className="create-rfq-con">
         {/* Content for Create RFQs tab */}
-        {/* <span className="title">Create RFQs</span> */}
         {userProfile && !userProfile?.subscription_plan_id && (
           <div class="subscription_required">
             <span>
@@ -207,7 +206,6 @@ const CreateRFQ = () => {
                     <th>Name of product</th>
                     <th>Size & specifications</th>
                     <th>Quantity</th>
-                    {/* <th>Select Datasheet</th> */}
                     <th className="w200">Technical Datasheet (TDS)</th>
                     <th className="w200">Quality Assurance Plan(QAP)</th>
                     <th>Product Comments</th>
@@ -287,11 +285,12 @@ const CreateRFQ = () => {
                       contact_number: rfqFormData.contact_number
                         ? rfqFormData.contact_number
                         : userProfile?.mobile,
-                      location: rfqFormData.location,
-                      bid_end_date: rfqFormData.bid_end_date,
                       company_name: userProfile?.organization_name
-                        ? userProfile?.organization_name
-                        : rfqFormData?.company_name,
+                        || userProfile?.name
+                        || rfqFormData?.company_name,
+                      rfq_type: rfqFormData.rfq_type,
+                      bid_end_date: rfqFormData.bid_end_date || getFutureDate(),
+                      location: rfqFormData.location,
                     }}
                     validationSchema={CreateRFQSchema}
                     onSubmit={(values, { resetForm }) =>
@@ -313,17 +312,7 @@ const CreateRFQ = () => {
                           handleChange={handleChange}
                         />
 
-                        {/* <div className="form-group">
-                        <h4>Add your own Terms</h4>
-                        <textarea
-                        id="addterm"
-                        name="addterm"
-                        placeholder="Enter here"
-                        rows="5"
-                        />
-                    </div> */}
-
-                        <div className="row my-2">
+                        <div className="row mt-2">
                           <div className="col-md-6">
                             <FormikField
                               label="Email"
@@ -359,7 +348,7 @@ const CreateRFQ = () => {
                               label="Company Name"
                               value={rfqFormData.location}
                               enableHandleChange={true}
-                              handleChange={handleCompanyNameChange}
+                              handleChange={handleFormFieldChange}
                               type="text"
                               isRequired={true}
                               name="company_name"
@@ -368,13 +357,26 @@ const CreateRFQ = () => {
                             />
                           </div>
                         </div>
-                        <div className="row my-2">
-                          <div className="col-md-3">
+
+                        <div className="row mb-2">
+                          <div className="col-md-4">
+                            <FormikField
+                              label="Bid end date"
+                              type="date"
+                              isRequired={true}
+                              name="bid_end_date"
+                              touched={touched}
+                              errors={errors}
+                              enableHandleChange={true}
+                              handleChange={handleFormFieldChange}
+                            />
+                          </div>
+                          <div className="col-md-4">
                             <FormikField
                               label="Delivery location"
                               value={rfqFormData.location}
                               enableHandleChange={true}
-                              handleChange={handleLocationChange}
+                              handleChange={handleFormFieldChange}
                               type="select"
                               selectOptions={[
                                 { label: "Select Location", value: 0 },
@@ -386,23 +388,29 @@ const CreateRFQ = () => {
                               errors={errors}
                             />
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-md-4">
                             <FormikField
-                              label="Bid end date"
-                              type="date"
+                              label="RFQ Type"
+                              value={rfqFormData.rfq_type}
+                              enableHandleChange={true}
+                              handleChange={handleFormFieldChange}
+                              type="select"
+                              selectOptions={[
+                                { label: "Select RFQ Type", value: '' },
+                                { label: "Budgetary", value: 'budgetary' },
+                                { label: "Firm", value: 'firm' }
+                              ]}
                               isRequired={false}
-                              name="bid_end_date"
+                              name="rfq_type"
                               touched={touched}
                               errors={errors}
-                              enableHandleChange={true}
-                              handleChange={handleDateChange}
                             />
                           </div>
                         </div>
 
                         <button
                           type="submit"
-                          className="btn btn-secondary"
+                          className="btn btn-secondary mt-2"
                           //onClick={handlePreviewButtonClick}
                           disabled={!isValid}
                         >
