@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { faEye } from "@fortawesome/free-regular-svg-icons";
+import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
 import { closeRFQ, getRFQById, sendQuotation } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
-import FullLoader from "@/components/shared/FullLoader";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
@@ -129,6 +128,15 @@ const RfqManagementPreview = () => {
       })
       .finally(() => setregretModal(false));
   }
+
+  const addCommasToNumber = (number) => {
+    let numberString = number.toString();
+    let parts = numberString.split(".");
+
+    // Add commas to the integer part
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.join(".");
+  };
 
   return (
     <>
@@ -414,10 +422,9 @@ const RfqManagementPreview = () => {
         <>
           <section className="buyer-common-header sc-pt-80">
             <div className="container-fluid">
-              {enableBuyerView ? <h1 className="heading">RFQ Management</h1>
-                : <h1 className="heading">
-                  Inquiry from {rfqDetails.company_name}. (RFQ #{rfqDetails.rfq_no})
-                </h1>
+              {enableBuyerView
+                ? <h1 className="heading">RFQ Management</h1>
+                : <h1 className="heading">Inquiry from {rfqDetails.company_name}. (RFQ #{rfqDetails.rfq_no})</h1>
               }
             </div>
           </section>
@@ -449,10 +456,24 @@ const RfqManagementPreview = () => {
               <div className="row">
                 <div className="col-md-12">
                   <div className="manage-rfq-con">
+
                     {/* Content for Manage RFQs tab */}
-                    <span className="title">
-                      RFQ #{rfqDetails.rfq_no} details
-                    </span>
+                    {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret == 0 ?
+                      <div className="d-flex justify-content-between">
+                        <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
+                        <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary m-0"
+                            style={{ width: "240px" }}
+                          >
+                            <FontAwesomeIcon icon={faEdit} className="me-2" />
+                            Update Your Quote
+                          </button>
+                        </Link>
+                      </div>
+                      : <span className="title">RFQ #{rfqDetails.rfq_no} details</span>
+                    }
 
                     <div className="details-table">
                       <div className="table-responsive">
@@ -462,6 +483,7 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
+                              {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
                               <th>TDS</th>
                               <th>QAP</th>
                               <th >Comments</th>
@@ -515,6 +537,7 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty} - ${unit}`}</td>
+                                  {item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : null}
 
                                   <td>
                                     <div>
@@ -896,7 +919,7 @@ const RfqManagementPreview = () => {
                                     rfqDetails.quotations[0].is_regret == 0 && (
                                       <div className="submitted-quotation">
                                         <h4>
-                                          You've aready submitted a quotation on{" "}
+                                          You've already submitted a quotation on{" "}
                                           {moment(
                                             new Date(
                                               parseInt(
@@ -908,6 +931,17 @@ const RfqManagementPreview = () => {
                                             "DD/MM/YYYY - HH:mm:ss A"
                                           )}{" "}
                                         </h4>
+
+                                        <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary m-0"
+                                            style={{ width: "240px" }}
+                                          >
+                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                            Update Your Quote
+                                          </button>
+                                        </Link>
                                         {/* <div className="noborder-table">
                                           <div className="table-responsive">
                                             <table>

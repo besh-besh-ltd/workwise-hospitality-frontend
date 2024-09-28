@@ -135,6 +135,17 @@ export const sendQuotation = (payload, token) => {
   });
 };
 
+export const updateQuotation = (quote_id, payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getQuotes = (id) => {
   return new Promise(async (resolve, reject) => {
     try {

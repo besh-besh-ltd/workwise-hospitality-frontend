@@ -3,12 +3,13 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/router";
-import { getRFQById, sendQuotation } from "@/services/rfq";
+import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
+
 
 const SendQuotePageComp = () => {
   const router = useRouter();
@@ -24,6 +25,7 @@ const SendQuotePageComp = () => {
   const [globalTax, setglobalTax] = useState(18);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
+  const [alreadyQuoted, setalreadyQuoted] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -36,29 +38,43 @@ const SendQuotePageComp = () => {
     getRFQById(id, token)
       .then((res) => {
         setloading(false);
+
+        // Array to store each quote
+        let bidProducts = [];
+
+        // Map to store already quoted data if exists
+        const quotationsMap = new Map();
+        res.data.quotations[0]?.products?.forEach((quoteItem) => {
+          const key = `${quoteItem.product_id}_${quoteItem.variant}`;
+          quotationsMap[key] = quoteItem;
+        });
+
         if (res.data.products.length > 0) {
-          let bidProducts = [];
-          res.data.products.map((item, index) => {
+          res.data.products.map((productItem) => {
+            const key = `${productItem.product_id}_${productItem.variant}`;
+            const quoteItem = quotationsMap[key] || {}; // Fallback to empty if not found
+
             bidProducts.push({
-              id: item.id,
-              product_id: item.product_id,
-              variant: item.variant,
-              quantity: item?.product_specs[2]?.value,
-              product_name: item.product_details
-                ? item.product_details[0].name
+              id: productItem.id,
+              product_id: productItem.product_id,
+              variant: productItem.variant,
+              quantity: productItem?.product_specs[2]?.value || "",
+              product_name: productItem.product_details
+                ? productItem.product_details[0].name
                 : "",
-              unit_price: 0,
-              package_price: globalPackaging,
-              tax: globalTax,
-              freight_price: globalFreight,
-              total_price: 0,
-              comment: "",
-              delivery_period: "",
+              unit_price: quoteItem.unit_price || "",
+              package_price: quoteItem.package_price || globalPackaging,
+              tax: quoteItem.tax || globalTax,
+              freight_price: quoteItem.freight_price || globalFreight,
+              total_price: quoteItem.total_price || 0,
+              comment: quoteItem.comment || "",
+              delivery_period: quoteItem.delivery_period || ""
             });
           });
           setquoteProducts(bidProducts);
+          if (res.data.quotations.length > 0)
+            setalreadyQuoted(res.data.quotations)
         }
-
         setrfqDetails(res.data);
       })
       .catch((error) => {
@@ -122,45 +138,63 @@ const SendQuotePageComp = () => {
   };
 
   const handleSendQuote = () => {
-    let isEmpty = false;
-    let allFinalizedProducts = [];
-    rfqDetails.finalizations.map((item) =>
-      allFinalizedProducts.push(item.product_id)
-    );
-    let filteredquoteProducts = quoteProducts.filter((item) => {
-      if (!allFinalizedProducts.includes(item.product_id)) {
-        return item;
-      }
-    });
-
-    filteredquoteProducts.map((item) => {
-      if (item.total_price <= 0) {
-        isEmpty = true;
-      }
-    });
-    if (isEmpty) {
-      toast.error("One or more product's total amount is 0");
-      return;
-    }
-
     let payload = {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
       status: 1,
-      products: filteredquoteProducts,
+      products: [],
       globalPaymentTerms,
-      globalComment,
+      globalComment
     };
 
-    setsubmitLoading(true);
-    sendQuotation(payload, token)
-      .then((res) => {
-        setsubmitLoading(false);
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
-      })
-      .catch((err) => {
-        setsubmitLoading(false);
+    if (alreadyQuoted) {
+      let quote_id = rfqDetails.quotations[0].id;
+      payload = {...payload, products: quoteProducts};
+
+      setsubmitLoading(true);
+      updateQuotation(quote_id, payload)
+        .then((res) => {
+          setsubmitLoading(false);
+          router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
+        })
+        .catch((error) => {
+          setsubmitLoading(false)
+        })
+    }
+    else {
+      let isEmpty = false;
+      let allFinalizedProducts = [];
+      rfqDetails.finalizations.map((item) =>
+        allFinalizedProducts.push(item.product_id)
+      );
+      let filteredquoteProducts = quoteProducts.filter((item) => {
+        if (!allFinalizedProducts.includes(item.product_id)) {
+          return item;
+        }
       });
+
+      filteredquoteProducts.map((item) => {
+        if (item.total_price <= 0) {
+          isEmpty = true;
+        }
+      });
+      if (isEmpty) {
+        toast.error("One or more product's total amount is 0");
+        return;
+      }
+
+      payload = { ...payload, products: filteredquoteProducts };
+
+      setsubmitLoading(true);
+      sendQuotation(payload, token)
+        .then((res) => {
+          setsubmitLoading(false);
+          router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
+        })
+        .catch((err) => {
+          setsubmitLoading(false);
+        });
+    }
   };
 
   const isAvailableForQuote = (item) => {
@@ -173,10 +207,6 @@ const SendQuotePageComp = () => {
     } else {
       return true;
     }
-  };
-
-  const handleRegretReason = ({ reqret_reason }, resetForm) => {
-    console.log(reqret_reason);
   };
 
   const handleRegretQuote = ({ reqret_reason }, resetForm) => {
@@ -211,11 +241,6 @@ const SendQuotePageComp = () => {
       });
   };
 
-  const getValue = (rfq_pid) => {
-    let itemRow = quoteProducts.filter((item) => item.id == rfq_pid);
-    return itemRow[0];
-  };
-
   useEffect(() => {
     let p = quoteProducts.map((item) => {
       item["freight_price"] = globalFreight;
@@ -246,10 +271,10 @@ const SendQuotePageComp = () => {
             <Link
               href={`/dashboard/vendor/inquiries-details?id=${id}`}
               className="page-link backBtn"
-              onClick={(e)=> {
+              onClick={(e) => {
                 e.preventDefault();
-                router.back()}
-              }
+                router.back()
+              }}
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
@@ -567,6 +592,7 @@ const SendQuotePageComp = () => {
                             Taxes <small>(In %)</small>
                           </th>
                           <th>Total</th>
+                          {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
                           <th>Product Specific Comments</th>
                           <th>
                             Delivery Period <small>(In Weeks)</small>
@@ -577,6 +603,7 @@ const SendQuotePageComp = () => {
                         {rfqDetails.products &&
                           rfqDetails.products.length > 0 &&
                           rfqDetails.products.map((item, index) => {
+
                             if (isAvailableForQuote(item)) {
                               return (
                                 <tr key={`q_${item.id}_${item.product_id}_${item.variant}`}>
@@ -590,17 +617,14 @@ const SendQuotePageComp = () => {
                                   </td>
                                   <td>
                                     {item?.product_specs[2]?.value}
-                                    {/* {item?.product_specs[index * 3 + 2]?.value} */}
                                   </td>
-                                  {/*  <td>
-                                    {item?.product_specs[index * 3 + 2]?.value}
-                                  </td> */}
                                   <td>
                                     <input
                                       type="number"
                                       name=""
                                       id=""
                                       placeholder="₹"
+                                      value={quoteProducts[index].unit_price}
                                       min={0}
                                       onChange={(e) =>
                                         handleUpdateData(
@@ -619,14 +643,12 @@ const SendQuotePageComp = () => {
 
                                   <td>
                                     <input
-                                      value={
-                                        getValue(item.id).freight_price
-                                      }
                                       type="number"
                                       min={0}
                                       name=""
                                       id=""
                                       placeholder="%"
+                                      value={quoteProducts[index].freight_price}
                                       onChange={(e) =>
                                         handleUpdateData(
                                           item.id,
@@ -644,14 +666,12 @@ const SendQuotePageComp = () => {
 
                                   <td>
                                     <input
-                                      value={
-                                        getValue(item.id).package_price
-                                      }
                                       type="number"
                                       min={0}
                                       name=""
                                       id=""
                                       placeholder="%"
+                                      value={quoteProducts[index].package_price}
                                       onChange={(e) =>
                                         handleUpdateData(
                                           item.id,
@@ -669,12 +689,12 @@ const SendQuotePageComp = () => {
 
                                   <td>
                                     <input
-                                      value={getValue(item.id).tax}
                                       type="number"
                                       min={0}
                                       name=""
                                       id=""
                                       placeholder="%"
+                                      value={quoteProducts[index].tax}
                                       onChange={(e) =>
                                         handleUpdateData(
                                           item.id,
@@ -692,26 +712,28 @@ const SendQuotePageComp = () => {
 
                                   <td>
                                     <input
-                                      value={quoteProducts[index].total_price}
                                       type="number"
                                       name=""
                                       id=""
                                       placeholder="₹"
+                                      value={quoteProducts[index].total_price}
                                       disabled
-                                      onChange={(e) =>
-                                        handleUpdateData(
-                                          item.id,
-                                          e,
-                                          item.product_id,
-                                          item.variant,
-                                          "total_price",
-                                          "",
-                                          item?.product_specs[2]?.value
-                                        )
-                                      }
-                                      onWheel={(e) => e.target.blur()}
                                     />
                                   </td>
+                                  {
+                                    rfqDetails?.products[index]?.lowest_quotation ? 
+                                    <td>
+                                    <input
+                                      type="number"
+                                      name=""
+                                      id=""
+                                      placeholder="₹"
+                                      value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
+                                      disabled
+                                    />
+                                  </td>
+                                  : null
+                                  }
                                   <td>
                                     <div className="comment">
                                       <div className="comment-group">
@@ -720,6 +742,7 @@ const SendQuotePageComp = () => {
                                           id="comment"
                                           cols="30"
                                           rows="3"
+                                          value={quoteProducts[index].comment}
                                           onChange={(e) =>
                                             handleUpdateData(
                                               item.id,
@@ -747,6 +770,7 @@ const SendQuotePageComp = () => {
                                       id="delivery_period"
                                       type="number"
                                       placeholder="E.g. 7"
+                                      value={quoteProducts[index].delivery_period}
                                       onChange={(e) =>
                                         handleUpdateData(
                                           item.id,

@@ -94,7 +94,6 @@ const QuoteCompare = () => {
     setDownloadLoading(true);
     downloadQuotesDetails(rfq)
       .then((res) => {
-        console.log(res);
         generateExcelFile(res.data);
       })
       .catch((err) => {
@@ -592,7 +591,6 @@ const QuoteCompare = () => {
           const cellValue = ws[cellAddressTemp] ? ws[cellAddressTemp].v : 0; // Cell value
 
           if (parseInt(cellValue) > 0) {
-            console.log("cellValue", cellValue);
             let total_cell = `${excelColumnName(col)}${row_numb}`;
             row_cols.push(total_cell);
           }
@@ -758,7 +756,7 @@ const QuoteCompare = () => {
       quote_id: item.quote_id,
       variant: proditem.variant
     };
-    console.log("payload", payload);
+
     finalizeQuotation(payload)
       .then((res) => {
         setfinalizeLoading(false);

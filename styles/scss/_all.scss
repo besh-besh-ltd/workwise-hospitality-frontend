@@ -171,6 +171,14 @@ p {
   line-height: 22px;
 }
 
+.buyer-individual-quote-compare-text-strike {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 18px;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
 /* Padding Style*/
 .container-fluid {
   padding-left: 50px;
@@ -3679,6 +3687,9 @@ textarea {
 
     .submitted-quotation {
       margin-top: 25px;
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
     }
 
     .tabs-container {
@@ -6678,6 +6689,9 @@ h2.pdf-icon {
         .table-si-row:last-child {
           height: 100px;
           overflow-y: auto;
+        }
+        .table-si-row:nth-child(n+3):nth-child(-n+9) {
+          height: 70px;
         }
       }
     }
