@@ -11,15 +11,14 @@ import {
 import { Form, Formik } from "formik";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import * as yup from "yup";
-import Select, { components } from "react-select";
+import { components } from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
 import { getCities, getStates } from "@/services/cms";
 
 const EditProfile = () => {
-  const id = Date.now().toString();
   const [countryList, setcountryList] = useState([
     { label: "Select Country", value: "" },
     { label: "India", value: "1" },
@@ -55,7 +54,7 @@ const EditProfile = () => {
 
   const validationSchema = yup.object().shape({
     name: yup.string().required("Vendor name is required"),
-    address: yup.string().required("Registered address is required"),
+    address: yup.string(),
     mobile: yup.string().required("Mobile is required"),
     email: yup
       .string()
@@ -65,15 +64,15 @@ const EditProfile = () => {
         "please enter valid email address"
       )
       .required("Email is required"),
-    nature_of_business: yup.string().required("Nature of business is required"),
-    type_of_business: yup.string().required("Type of business is required"),
-    turnover: yup.number().required("Turnover is required"),
-    no_of_employess: yup.string().required("No of employees is required"),
-    gstin: yup.string().required("GSTin is required"),
-    import_export_code: yup.string().required("Import export code is required"),
-    certifications: yup.string().required("Certifications is required"),
+    nature_of_business: yup.string(),
+    type_of_business: yup.string(),
+    turnover: yup.number(),
+    no_of_employess: yup.string(),
+    gstin: yup.string(),
+    import_export_code: yup.string(),
+    certifications: yup.string(),
     cin: yup.string().optional(""),
-    profile: yup.string().required("Profile is required"),
+    profile: yup.string(),
     vendor_approve: yup.array().optional(""),
   });
 
@@ -121,7 +120,6 @@ const EditProfile = () => {
   }, []);
 
   const handleCountryChange = (e) => {
-    // console.log("edit profile===>>>>>", e.target.value);
     setselectedCountry(e.target.value);
   };
 
@@ -164,31 +162,34 @@ const EditProfile = () => {
     }
   }, [vendorApproveList, userDetails]);
 
-  const getProfileDetails = () => {
-    setMainLoading(true);
-    getProfile().then((res) => {
+  const getProfileDetails = async () => {
+    try {
+      setMainLoading(true);
+      const res = await getProfile();
       setMainLoading(false);
       setUserDetails({
-        name: res.data.name,
-        address: res.data.address,
-        mobile: res.data.mobile,
-        email: res.data.email,
-        nature_of_business: res.data.nature_of_business,
-        type_of_business: res.data.type_of_business,
-        turnover: res.data.turnover,
-        no_of_employess: res.data.no_of_employess,
-        gstin: res.data.gstin,
-        certifications: res.data.certifications,
-        cin: res.data.cin,
-        profile: res.data.profile,
-        import_export_code: res.data.import_export_code,
-        profile_image: res.data.profile_image,
-        vendor_approve: res.data.vendor_approve,
+        name: res.data.name || "",
+        address: res.data.address || "",
+        mobile: res.data.mobile || "",
+        email: res.data.email || "",
+        nature_of_business: res.data.nature_of_business || "",
+        type_of_business: res.data.type_of_business || "",
+        turnover: res.data.turnover || "",
+        no_of_employess: res.data.no_of_employess || "",
+        gstin: res.data.gstin || "",
+        certifications: res.data.certifications || "",
+        cin: res.data.cin || "",
+        profile: res.data.profile || "",
+        import_export_code: res.data.import_export_code || "",
+        profile_image: res.data.profile_image || "",
+        vendor_approve: res.data.vendor_approve || ""
       });
       setselectedCountry(res.data?.country || "");
       setselectedState(res.data?.state || "");
       setselectedCity(res.data?.city || "");
-    });
+    } catch (error) {
+      setMainLoading(false);
+    }
   };
 
   const getVendorApproveLists = () => {
@@ -392,8 +393,7 @@ const EditProfile = () => {
                             <div className="form-group">
                               <FormikField
                                 label="Registered Address"
-                                placeholder="Ex. SaltLake, Sector 5, Kolkata, West Bangal, Inida"
-                                isRequired={true}
+                                placeholder="Ex. SaltLake, Sector 5, Kolkata, West Bangal, India"
                                 name="address"
                                 touched={touched}
                                 errors={errors}
@@ -431,10 +431,10 @@ const EditProfile = () => {
                           <div className="col-md-4">
                             <FormikField
                               label="Country"
-                              isRequired={true}
                               type="select"
+                              isRequired={true}
                               name="country"
-                              value={selectedCountry}
+                              value={1}
                               selectOptions={countryList}
                               touched={touched}
                               errors={errors}
@@ -499,7 +499,6 @@ const EditProfile = () => {
                               <FormikField
                                 label="Nature of Business"
                                 placeholder="Ex. Manufacturer, Dealer, Trader"
-                                isRequired={true}
                                 name="nature_of_business"
                                 touched={touched}
                                 errors={errors}
@@ -511,7 +510,6 @@ const EditProfile = () => {
                             <div className="form-group">
                               <FormikField
                                 label="Type of Business"
-                                isRequired={true}
                                 name="type_of_business"
                                 touched={touched}
                                 errors={errors}
@@ -524,7 +522,6 @@ const EditProfile = () => {
                               <FormikField
                                 label="Turnover"
                                 placeholder="Ex. 50 cr"
-                                isRequired={true}
                                 name="turnover"
                                 touched={touched}
                                 errors={errors}
@@ -536,7 +533,6 @@ const EditProfile = () => {
                             <div className="form-group">
                               <FormikField
                                 label="Number of Employees"
-                                isRequired={true}
                                 type="select"
                                 name="no_of_employess"
                                 selectOptions={employeeNumberOption}
@@ -551,7 +547,6 @@ const EditProfile = () => {
                               <FormikField
                                 label="GSTin"
                                 placeholder="GST Number"
-                                isRequired={true}
                                 name="gstin"
                                 touched={touched}
                                 errors={errors}
@@ -563,7 +558,6 @@ const EditProfile = () => {
                             <div className="form-group">
                               <FormikField
                                 label="Import Export Code"
-                                isRequired={true}
                                 name="import_export_code"
                                 touched={touched}
                                 errors={errors}
@@ -575,7 +569,6 @@ const EditProfile = () => {
                             <div className="form-group">
                               <FormikField
                                 label="Certifications"
-                                isRequired={true}
                                 name="certifications"
                                 touched={touched}
                                 errors={errors}
@@ -587,7 +580,6 @@ const EditProfile = () => {
                               <FormikField
                                 label="CIN"
                                 placeholder="Enter CIN Number"
-                                isRequired={false}
                                 name="cin"
                                 touched={touched}
                                 errors={errors}
@@ -608,7 +600,6 @@ const EditProfile = () => {
                                 nolabel="true"
                                 placeholder="Write somthing about the company "
                                 type="textarea"
-                                isRequired={true}
                                 name="profile"
                                 touched={touched}
                                 errors={errors}

@@ -237,33 +237,35 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     // changes by mukul jatav 29-08-2024 
     setbulkRFQVendors([]);
 
-    searchProductsV2(
-      {
-        cat_id,
-        search_key,
-        approved_by: selectedVbaa,
-        state: selectedState,
-        city: selectedCity,
-      },
-      "vendors"
-    )
-      .then((rsp) => {
+    if (search_key != "") {
+      searchProductsV2(
+        {
+          cat_id,
+          search_key,
+          approved_by: selectedVbaa,
+          state: selectedState,
+          city: selectedCity,
+        },
+        "vendors"
+      )
+        .then((rsp) => {
 
-        setloading(false);
-        let d = rsp.data.map((item) => {
-          item.selected = false;
-          return item;
+          setloading(false);
+          let d = rsp.data.map((item) => {
+            item.selected = false;
+            return item;
+          });
+          setVendors(d);
+          setVendorMetaData(rsp)
+          currentSelectedProduct
+            ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
+            : null;
+        })
+        .catch((error) => {
+          setloading(false);
+          setVendorMetaData(error?.response?.data)
         });
-        setVendors(d);
-        setVendorMetaData(rsp)
-        currentSelectedProduct
-          ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
-          : null;
-      })
-      .catch((error) => {
-        setloading(false);
-        setVendorMetaData(error?.response?.data)
-      });
+    }
   };
   const getProducts = (s_key = search_key) => {
     setloading(true);
