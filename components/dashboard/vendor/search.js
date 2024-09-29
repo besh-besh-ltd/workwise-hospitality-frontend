@@ -26,6 +26,7 @@ import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 
+
 const customSelectStyles = {
   control: (base) => ({
     ...base,
@@ -36,7 +37,7 @@ const customSelectStyles = {
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
-  const { s, loggedin } = router.query;
+  const { slug, s, loggedin } = router.query;
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -79,6 +80,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [searchSubCategories, setSearchSubCategories] = useState([]);
   const [productsList, setProductsList] = useState([]);
   const categoryLvlRef = useRef(new Map());
+  const [firstVisit, setFirstVisit] = useState(true);
 
 
   const handleRedirect = (e) => {
@@ -114,7 +116,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setIsOpen(false);
       }
     };
-
+    
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -127,7 +129,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   useEffect(() => {
     getProfileDetails();
-    getProducts();
+    getProducts(slug);
     getCategories();
     getVendorApprovedby();
   }, []);
@@ -154,6 +156,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       );
     }
   }, [selectedVbaa]);
+
+  const cleanAndAddHyphen = (input) => {
+    let lowerCaseString = input.toLowerCase();
+    let cleanedString = lowerCaseString.replace(/[\s\-\/()]+/g, ' ').trim();
+    return cleanedString.replace(/\s+/g, '-');
+  }
 
   const getProfileDetails = () => {
     setloading(true);
@@ -284,8 +292,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           item.selected = false;
           return item;
         });
-        setProducts(d);
-        setSearchCategories(rsp.categoryData);
+        if (slug && slug != "all" && firstVisit) {
+          handleAutocompleteClick(d[0])
+          setFirstVisit(false);
+        } else {
+          setProducts(d);
+          setSearchCategories(rsp.categoryData);
+        }
       })
       .catch((error) => {
         setloading(false);
@@ -309,7 +322,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setIsOpen(false);
 
         // Update the URL to include the selected product's name
-        const newUrl = `/vendor/${category_name}`;
+        const newUrl = `/vendor/${cleanAndAddHyphen(category_name)}`;
         window.history.pushState(null, null, newUrl);
 
       })
@@ -386,7 +399,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Update the URL to include the selected product's name
-    const newUrl = `/vendor/${item.product_name}`;
+    const newUrl = `/vendor/${cleanAndAddHyphen(item.product_name)}`;
     window.history.pushState(null, null, newUrl);
   };
 
