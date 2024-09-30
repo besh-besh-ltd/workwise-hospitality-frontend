@@ -27,7 +27,6 @@ const InquiriesReceived = ({pageType = 0}) => {
   };
 
   const getProductsList = (item) => {
-    console.log("prod", item.products);
     if (item.products.length > 0) {
       let p = [];
       item.products.map((product) => {

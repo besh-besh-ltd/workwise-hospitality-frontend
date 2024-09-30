@@ -1,11 +1,8 @@
 import FullLoader from "@/components/shared/FullLoader";
-import Loader from "@/components/shared/Loader";
 import { downloadQuotesDetails } from "@/services/rfq";
-import { faEye } from "@fortawesome/free-regular-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import "react-tooltip/dist/react-tooltip.css";
-import { Tooltip } from "react-tooltip";
+
 
 const OverallComparison = ({ rfq_id }) => {
   const [loading, setloading] = useState(false);
@@ -13,6 +10,7 @@ const OverallComparison = ({ rfq_id }) => {
   const [data, setdata] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
+
   useEffect(() => {
     handleDownloadQuote();
   }, [rfq_id]);
@@ -40,10 +38,8 @@ const OverallComparison = ({ rfq_id }) => {
   };
 
   const getQty = (item, index) => {
-    // console.log("item====>>>>>>>>>>>>>", item);
     let qq = item.quotations.filter((qi) => qi.id != null);
     if (qq.length > 0) {
-      // return qq[0].quote_details[0].rfq_details[2]?.value;
       return qq[0].quote_details[0].quantity;
     } else {
       return "-";
@@ -112,6 +108,7 @@ const OverallComparison = ({ rfq_id }) => {
       getDeliveryDetails();
     }
   }, [data]);
+  
   const addCommasToNumber = (number) => {
     // Convert number to string
     let numberString = number.toString();
@@ -201,7 +198,7 @@ const OverallComparison = ({ rfq_id }) => {
                           className="all_vendors"
                           scope="col"
                         >
-                          {item.organization_name}
+                          {item.organization_name || item.name}
                         </th>
                       );
                     })}

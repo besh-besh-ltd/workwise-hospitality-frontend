@@ -57,6 +57,10 @@ const QuoteCompareTable = ({
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
+
+                // Check if the quote is updated
+                let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
+
                 return (
                   <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
                     <div className="table-si-row table-dark-row">
@@ -113,15 +117,29 @@ const QuoteCompareTable = ({
                       </Dropdown>
                     </div>
                     <div className="table-si-row">{item.quantity}</div>
-                    <div className="table-si-row">{item.unit_price}</div>
-                    <div className="table-si-row table-grey-row">
-                      {item.quantity * item.unit_price}
+                    <div className="table-si-row">
+                      {item.unit_price}
+                      {itemUpdated && (itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.unit_price}</span>}
                     </div>
-                    <div className="table-si-row">{item.package_price} %</div>
-                    <div className="table-si-row">{item.freight_price} %</div>
-                    <div className="table-si-row">{item.tax} %</div>
-                    <div className={`table-si-row  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-yellow-row"}`}>
+                    <div className="table-si-row table-grey-row" >
+                      {item.quantity * item.unit_price}
+                      {itemUpdated && (itemUpdated.quantity != item.quantity || itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.quantity * itemUpdated?.unit_price}</span>}
+                    </div>
+                    <div className="table-si-row">
+                      {item.package_price} %
+                      {itemUpdated && (itemUpdated.package_price != item.package_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.package_price} %</span>}
+                    </div>
+                    <div className="table-si-row">
+                      {item.freight_price} %
+                      {itemUpdated && (itemUpdated.freight_price != item.freight_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.freight_price} %</span>}
+                    </div>
+                    <div className="table-si-row">
+                      {item.tax} %
+                      {itemUpdated && (itemUpdated.tax != item.tax) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.tax} %</span>}
+                    </div>
+                    <div className={`table-si-row  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-yellow-row"}`} >
                       {item.total_price}
+                      {itemUpdated && (itemUpdated.total_price != item.total_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.total_price}</span>}
                       {item.is_lowest &&
                         <span className="d-flex align-items-center gap-2 border border-light rounded-3 text-white px-3 py-2" >
                           <FontAwesomeIcon icon={faAward} fontSize={16} />
@@ -133,6 +151,13 @@ const QuoteCompareTable = ({
                       {parseInt(item.delivery_period) <= 1
                         ? `${item.delivery_period} Week`
                         : `${item.delivery_period} Weeks`}
+                      {itemUpdated && (itemUpdated.delivery_period != item.delivery_period) &&
+                        <span className="d-block buyer-individual-quote-compare-text-strike ">
+                          {parseInt(itemUpdated.delivery_period) <= 1
+                            ? `${itemUpdated.delivery_period} Week`
+                            : `${itemUpdated.delivery_period} Weeks`}
+                        </span>
+                      }
                     </div>
                     <div className="table-si-row">
                       {item?.comment.length > 60
