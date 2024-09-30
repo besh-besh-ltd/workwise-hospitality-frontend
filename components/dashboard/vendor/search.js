@@ -25,6 +25,7 @@ import { getProfile } from "@/services/Auth";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
+import storageInstance from "@/utils/storageInstance";
 
 
 const customSelectStyles = {
@@ -399,8 +400,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Update the URL to include the selected product's name
-    const newUrl = `/vendor/${cleanAndAddHyphen(item.product_name)}`;
+    const prod_name = cleanAndAddHyphen(item.product_name)
+    const newUrl = `/vendor/${prod_name}`;
     window.history.pushState(null, null, newUrl);
+    storageInstance.setStorage("product_name", prod_name);
   };
 
   const getChildCategories = (id, level) => {

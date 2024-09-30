@@ -197,7 +197,7 @@ function MagicSearchPage() {
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid text-center">
                     <h1 className="heading">Magic Search</h1>
-                    <Link href="/products" className="page-link backBtn">
+                    <Link href="/vendor/all" className="page-link backBtn">
                         <FontAwesomeIcon icon={faArrowLeft} /> Go back
                     </Link>
                 </div>

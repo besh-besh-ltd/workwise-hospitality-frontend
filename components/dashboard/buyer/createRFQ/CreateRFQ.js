@@ -108,7 +108,7 @@ const CreateRFQ = () => {
   };
 
   const gotoAddMoreProducts = () => {
-    router.push("/products");
+    router.push("/vendor/all");
   };
   const handleGotoPreferredVendors = () => {
     router.push("/vendors");
@@ -193,7 +193,7 @@ const CreateRFQ = () => {
             !loading &&
             userProfile?.subscription_plan_id && (
               <div className="text-center">
-                <Link href="/products" className="btn btn-primary">
+                <Link href="/vendor/all" className="btn btn-primary">
                   Add Products
                 </Link>
               </div>
