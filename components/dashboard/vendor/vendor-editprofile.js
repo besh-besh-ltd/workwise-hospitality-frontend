@@ -38,6 +38,10 @@ const VendorProfile = () => {
   const [pastRFQs, setpastRFQs] = useState([]);
   const [reviewText, setreviewText] = useState("");
   const [rating, setrating] = useState(0);
+  const [qualityOfWork, setqualityOfWork] = useState(0);
+  const [onTimeDelivery, setOnTimeDelivery] = useState(0);
+  const [trustWorthy, setTrustWorthy] = useState(0);
+  const [overallRating, setOverallRating] = useState(0);
   const [canSubReviewUser, setcanSubReviewUser] = useState(true);
   const [avgRating, setavgRating] = useState(0);
   const [currentUserProfile, setcurrentUserProfile] = useState(null);
@@ -55,15 +59,17 @@ const VendorProfile = () => {
       setshowbackBtn(true);
     }
 
-    if(localStorage.getItem('token')) setIsLoggedIn(true)
+    if (localStorage.getItem('token')) setIsLoggedIn(true)
     else setIsLoggedIn(false)
 
   }, [router]);
 
   useEffect(() => {
-    // getVendorPastRfq();
-    // canSubmitReview();
-    // calculateReviews();
+    if (isLoggedin) {
+      getVendorPastRfq();
+      canSubmitReview();
+      calculateReviews();
+    }
   }, [vendorDetails]);
 
 
@@ -97,8 +103,22 @@ const VendorProfile = () => {
     }
   };
 
-  const handleRatingChange = (newRating) => {
-    setrating(newRating);
+  const handleRatingChange = (type, newRating) => {
+    switch (type) {
+      case 'qualityOfWork':
+        setqualityOfWork(newRating);
+        break;
+      case 'onTimeDelivery':
+        setOnTimeDelivery(newRating);
+        break;
+      case 'trustWorthy':
+        setTrustWorthy(newRating);
+        break;
+      case 'overallRating':
+        setOverallRating(newRating);
+        break;
+      default: setrating(newRating);
+    }
   };
 
   const handleChange = (setState) => (event) => {
@@ -110,8 +130,11 @@ const VendorProfile = () => {
     e.preventDefault();
     provideReview({
       reviewed_to: id,
-      rating: rating,
       description: reviewText,
+      quality_of_work: qualityOfWork,
+      on_time_delivery: onTimeDelivery,
+      trustworthiness_reliability: trustWorthy,
+      overall_rating: overallRating
     })
       .then((res) => {
         setreviewLoading(false);
@@ -144,9 +167,7 @@ const VendorProfile = () => {
     vendorDetails?.reviews.map((item) => {
       totalRating = totalRating + item.rating;
     });
-
     let avgRating = parseFloat(totalRating) / vendorDetails?.reviews.length;
-
     setavgRating(avgRating);
   };
 
@@ -298,59 +319,30 @@ const VendorProfile = () => {
                     <>
                       <StarRating
                         totalStars={5}
-                        onRatingChange={handleRatingChange}
                         value={avgRating}
                       />
                       <p>
                         {avgRating.toFixed(1)} / 5 based on{" "}
                         {vendorDetails?.reviews.length} reviews
                       </p>
-                      <ul className="reviewList">
-                        {vendorDetails?.reviews.map((review, index) => {
-                          if (
-                            currentUserProfile &&
-                            currentUserProfile.id == review.reviewed_by
-                          ) {
-                            return (
-                              <li key={index}>
-                                <div className="imagearea">
-                                  <img
-                                    src={currentUserProfile?.profile_image}
-                                    alt={currentUserProfile?.company_name}
-                                  />
-                                </div>
-                                <div className="reviewarea">
-                                  <div className="ratingArea">
-                                    <p>
-                                      <strong>{review.buyer}</strong>
-                                    </p>
-                                    <small>
-                                      {review.rating}/5
-                                      <StarRating
-                                        totalStars={5}
-                                        onRatingChange={null}
-                                        value={review.rating}
-                                      />
-                                    </small>
-                                  </div>
-                                  <p>{review.description}</p>
-                                </div>
-                              </li>
-                            );
-                          }
-                        })}
-                      </ul>
-                    </>
-                  )}
-                  {1 == 1 && (
-                    <>
-                      <div>
-                        <StarRating
-                          totalStars={5}
-                          onRatingChange={handleRatingChange}
-                        />
+
+                      <div className="d-flex justify-content-between mx-4 mb-2">
+                        <span>Quality of Work</span>
+                        <StarRating type={'qualityOfWork'} totalStars={5} onRatingChange={handleRatingChange} />
                       </div>
-                      <p>Share more about your experience</p>
+                      <div className="d-flex justify-content-between mx-4 mb-2">
+                        <span>On Time Delivery</span>
+                        <StarRating type={'onTimeDelivery'} totalStars={5} onRatingChange={handleRatingChange} />
+                      </div>
+                      <div className="d-flex justify-content-between mx-4 mb-2">
+                        <span>Trustworthiness</span>
+                        <StarRating type={'trustWorthy'} totalStars={5} onRatingChange={handleRatingChange} />
+                      </div>
+                      <div className="d-flex justify-content-between mx-4 mb-2">
+                        <span>Overall Rating</span>
+                        <StarRating type={'overallRating'} totalStars={5} onRatingChange={handleRatingChange} />
+                      </div>
+                      <p className="mt-3 fw-bold">Share more about your experience</p>
                       <textarea
                         style={{ width: "100%" }}
                         name="review"
@@ -369,6 +361,44 @@ const VendorProfile = () => {
                             Submit Now
                           </Link>
                         }
+                      </div>
+
+                      <div className="review-container " >
+                        <ul className="reviewList">
+                          {vendorDetails?.reviews.map((review, index) => {
+                            if (
+                              currentUserProfile &&
+                              currentUserProfile.id == review.reviewed_by
+                            ) {
+                              return (
+                                <li className="rounded-3" key={index}>
+                                  <div className="imagearea">
+                                    <img
+                                      src={currentUserProfile?.profile_image}
+                                      alt={currentUserProfile?.company_name}
+                                    />
+                                  </div>
+                                  <div className="reviewarea">
+                                    <div className="ratingArea flex-column">
+                                      <p>
+                                        <strong>{review.buyer}</strong>
+                                      </p>
+                                      <small>
+                                        {review.rating}/5
+                                        <StarRating
+                                          totalStars={5}
+                                          onRatingChange={null}
+                                          value={review.rating}
+                                        />
+                                      </small>
+                                    </div>
+                                    <p className="text-sm">{review.description}</p>
+                                  </div>
+                                </li>
+                              );
+                            }
+                          })}
+                        </ul>
                       </div>
                     </>
                   )}
@@ -543,7 +573,7 @@ const VendorProfile = () => {
                           <ul className="client-gallery row">
                             {approvedProducts.map((item) => (
                               <li key={`vendor-approve-${item.product_id}`}>
-                                <span  >{item.product_name}</span> 
+                                <span  >{item.product_name}</span>
                                 <strong className="p-2" >:</strong>
                                 {item.approved_by.map((element, index) => (
                                   <span className="fw-semibold" key={index}>
