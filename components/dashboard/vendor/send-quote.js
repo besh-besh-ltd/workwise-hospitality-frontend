@@ -199,11 +199,8 @@ const SendQuotePageComp = () => {
 
   const isAvailableForQuote = (item) => {
     if (rfqDetails.finalizations && rfqDetails.finalizations.length > 0) {
-      let allFinalizedProducts = [];
-      rfqDetails.finalizations.map((item) =>
-        allFinalizedProducts.push(item.product_id)
-      );
-      return !allFinalizedProducts.includes(item.product_id);
+      let itemFound = rfqDetails.finalizations.find((f_item) => f_item.product_id == item.product_id && f_item.variant == item.variant);
+      return itemFound ? false : true;
     } else {
       return true;
     }

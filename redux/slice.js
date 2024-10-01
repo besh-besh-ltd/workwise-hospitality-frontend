@@ -13,7 +13,7 @@ const initialState = {
     contact_number: "",
     company_name: "",
     rfq_type: "",
-    bid_end_date: "",
+    bid_end_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().slice(0, 10),
     location: "",
   },
   rfqObjData: {
@@ -206,6 +206,9 @@ export const rfqProductsSlice = createSlice({
     setRfqFormData: (state, action) => {
       state.rfqFormData = action.payload;
     },
+    setBidEndDate: (state, action) => {
+      state.rfqFormData.bid_end_date = action.payload
+    },
     clearState: (state, action) => {
       state.rfqFormData = initialState.rfqFormData;
       state.rfqProducts = initialState.rfqProducts;
@@ -295,6 +298,7 @@ export const {
   setCustomTerms,
   setCustomTermsText,
   setOtherFormFields,
+  setBidEndDate,
   setAllTerms,
   setUserSelectedDefaultFile
 } = rfqProductsSlice.actions;
