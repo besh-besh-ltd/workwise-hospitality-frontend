@@ -6471,7 +6471,7 @@ span.mproducts {
     overflow-y: scroll;
   }
 
-  .container > h4 {
+  .container>h4 {
     background-color: var(--primary-color);
   }
 
@@ -6912,7 +6912,8 @@ aside {
     color: #f00;
   }
 
-  select, .autocomplete input {
+  select,
+  .autocomplete input {
     width: 100%;
     height: 52px;
     border: 1px solid #a5a5a5;
@@ -6936,12 +6937,12 @@ aside {
     overflow-y: auto;
     z-index: 1000;
   }
-  
+
   .dropdown-item {
     padding: 8px;
     cursor: pointer;
   }
-  
+
   .dropdown-item:hover {
     background-color: #f1f1f1;
   }
@@ -7023,52 +7024,58 @@ a.btn.disabled {
   }
 }
 
-.reviewList {
-  padding: 0;
+.review-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
 
-  li {
-    background: #f2f4f7;
-    padding: 10px;
-    list-style-type: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin: 0 0 10px 0;
+  .reviewList {
+    padding: 0;
 
-    .imagearea {
-      width: 50px;
-      height: 50px;
-      overflow: hidden;
-      border-radius: 50%;
+    li {
+      background: #f2f4f7;
+      padding: 10px;
+      list-style-type: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin: 0 0 10px 0;
 
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
+      .imagearea {
+        width: 50px;
+        height: 50px;
+        overflow: hidden;
+        border-radius: 50%;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
       }
-    }
 
-    .reviewarea {
-      width: calc(100% - 50px);
-      padding-left: 10px;
+      .reviewarea {
+        width: calc(100% - 50px);
+        padding-left: 10px;
 
-      .ratingArea {
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
+        .ratingArea {
+          margin-bottom: 10px;
+          display: flex;
+          justify-content: space-between;
+
+          p {
+            margin-bottom: 0;
+          }
+
+          small {
+            display: flex;
+            column-gap: 10px;
+          }
+        }
 
         p {
-          margin-bottom: 0;
+          text-align: left;
         }
-
-        small {
-          display: flex;
-          column-gap: 10px;
-        }
-      }
-
-      p {
-        text-align: left;
       }
     }
   }
