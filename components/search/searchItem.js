@@ -193,7 +193,7 @@ const SearchItem = ({
             {!selectedProduct && (
               <div className="col-md-3 d-flex flex-column gap-3 my-auto pe-5">
                 <Link
-                  href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`}
+                  href={`/vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
                   target="_blank"
                 >

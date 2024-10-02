@@ -157,7 +157,7 @@ const Header = () => {
             </div>
             {/* for Login Users only */}
 
-            {mainNavs.includes(pathname) && (
+            {(mainNavs.includes(pathname) || (!loggedinUser && pathname.startsWith("/vendor"))) && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   <nav className="main-menu">
@@ -407,7 +407,7 @@ const Header = () => {
                               router.pathname == "/products" ? "active " : ""
                             }
                           >
-                            <Link href="/products">Search Vendor</Link>
+                            <Link href="/vendor/all">Search Vendor</Link>
                           </li>
 
                           <li
@@ -493,7 +493,7 @@ const Header = () => {
                               router.pathname == "/products" ? "active " : ""
                             }
                           >
-                            <Link href="/products">Search Vendor</Link>
+                            <Link href="/vendor/all">Search Vendor</Link>
                           </li>
 
                           <li

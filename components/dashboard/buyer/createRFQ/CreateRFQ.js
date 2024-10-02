@@ -16,6 +16,7 @@ import {
   setCustomTermsText,
   setRfqFormData,
   setOtherFormFields,
+  setBidEndDate,
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -108,7 +109,7 @@ const CreateRFQ = () => {
   };
 
   const gotoAddMoreProducts = () => {
-    router.push("/products");
+    router.push("/vendor/all");
   };
   const handleGotoPreferredVendors = () => {
     router.push("/vendors");
@@ -164,11 +165,9 @@ const CreateRFQ = () => {
     }
   };
 
-  const getFutureDate = (days = 30) => {
-    const date = new Date();
-    date.setDate(date.getDate() + days);     // Add days as per need
-    return date.toISOString().slice(0, 10);  // Format as 'YYYY-MM-DD'
-  };
+  const handleDateChange = (e)=> {
+    dispatch(setBidEndDate(e.target.value));
+  }
 
   const handleFormFieldChange = (e) => {
     const { name, value } = e.target;
@@ -193,7 +192,7 @@ const CreateRFQ = () => {
             !loading &&
             userProfile?.subscription_plan_id && (
               <div className="text-center">
-                <Link href="/products" className="btn btn-primary">
+                <Link href="/vendor/all" className="btn btn-primary">
                   Add Products
                 </Link>
               </div>
@@ -289,7 +288,7 @@ const CreateRFQ = () => {
                         || userProfile?.name
                         || rfqFormData?.company_name,
                       rfq_type: rfqFormData.rfq_type,
-                      bid_end_date: rfqFormData.bid_end_date || getFutureDate(),
+                      bid_end_date: rfqFormData.bid_end_date,
                       location: rfqFormData.location,
                     }}
                     validationSchema={CreateRFQSchema}
@@ -362,13 +361,14 @@ const CreateRFQ = () => {
                           <div className="col-md-4">
                             <FormikField
                               label="Bid end date"
+                              value={rfqFormData.bid_end_date}
+                              enableHandleChange={true}
+                              handleChange={handleDateChange}
                               type="date"
                               isRequired={true}
                               name="bid_end_date"
                               touched={touched}
                               errors={errors}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
                             />
                           </div>
                           <div className="col-md-4">
