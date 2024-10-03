@@ -101,6 +101,12 @@ function MagicSearchPage() {
         }));
     }
 
+    const getFuturedate = (days = 30)=> {
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        return date.toISOString().slice(0, 10);
+    }
+
     const getAllStates = () => {
         getStates().then((res) => {
             let d = [];
@@ -299,7 +305,7 @@ function MagicSearchPage() {
                                         name="bid_end_date"
                                         id="bid_end_date"
                                         className="form-control border border-black"
-                                        value={formData?.bid_end_date}
+                                        value={formData?.bid_end_date || getFuturedate()}
                                         onChange={handleChange} />
                                 </div>
 
