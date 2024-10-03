@@ -367,13 +367,13 @@ const AddProducts = () => {
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
           <h1 className="heading">Product Management</h1>
-          <Link
+          {/* <Link
             href="/dashboard/vendor/product-management"
             className="page-link backBtn"
           >
             {" "}
             <FontAwesomeIcon icon={faArrowLeft} /> Go back
-          </Link>
+          </Link> */}
         </div>
       </section>
       <section className="add-prod-sec-1">

@@ -265,7 +265,7 @@ const SendQuotePageComp = () => {
       {loading && (
         <section className="quote-send-sec-1">
           <div className="container-fluid">
-            <Link
+            {/* <Link
               href={`/dashboard/vendor/inquiries-details?id=${id}`}
               className="page-link backBtn"
               onClick={(e) => {
@@ -275,7 +275,7 @@ const SendQuotePageComp = () => {
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link>
+            </Link> */}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">
@@ -464,13 +464,13 @@ const SendQuotePageComp = () => {
       {!loading && rfqDetails && (
         <section className="quote-send-sec-1">
           <div className="container-fluid">
-            <Link
+            {/* <Link
               href={`/dashboard/vendor/inquiries-details?id=${id}`}
               className="page-link backBtn"
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link>
+            </Link> */}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">

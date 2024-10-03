@@ -188,7 +188,7 @@ const VendorProfile = () => {
           <div className="row">
             <div className="col-md-3">
               <div className="user-profile hasFullLoader mb-4">
-                {showbackBtn && (
+                {/* {showbackBtn && (
                   <Link
                     href={`/dashboard/buyer/rfq-management-vendor?vendors=${vendors}`}
                     className="page-link"
@@ -196,7 +196,7 @@ const VendorProfile = () => {
                     {" "}
                     <FontAwesomeIcon icon={faAngleLeft} /> Go Back
                   </Link>
-                )}
+                )} */}
                 {loading && <FullLoader />}
                 <div className="user-img">
                   {!vendorDetails?.profile_image_url && (

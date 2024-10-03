@@ -431,7 +431,7 @@ const RfqManagementPreview = () => {
 
           <section className="buyer-rfq-det-sec-1">
             <div className="container-fluid">
-              {enableBuyerView ? (
+              {/* {enableBuyerView ? (
                 <Link
                   href="/dashboard/buyer/rfq-management"
                   className="page-link backBtn"
@@ -452,7 +452,7 @@ const RfqManagementPreview = () => {
                   {" "}
                   <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
                 </Link>
-              )}
+              )} */}
               <div className="row">
                 <div className="col-md-12">
                   <div className="manage-rfq-con">
