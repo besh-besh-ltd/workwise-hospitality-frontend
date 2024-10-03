@@ -157,7 +157,7 @@ const Header = () => {
             </div>
             {/* for Login Users only */}
 
-            {(mainNavs.includes(pathname) || (!loggedinUser && pathname.startsWith("/vendor"))) && (
+            {(mainNavs.includes(pathname) || (!loggedinUser && pathname?.startsWith("/vendor"))) && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   <nav className="main-menu">

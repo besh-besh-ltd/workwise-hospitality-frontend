@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: http://localhost:8111
+Host: https://letsworkwise.com
 
 # Sitemaps
-Sitemap: http://localhost:8111/sitemap.xml
+Sitemap: https://letsworkwise.com/sitemap.xml
