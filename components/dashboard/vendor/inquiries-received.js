@@ -4,7 +4,7 @@ import { getVendorRfqList } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 import moment from "moment";
 
-const InquiriesReceived = ({pageType = 0}) => {
+const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(10);
   const [rfqList, setrfqList] = useState([]);
@@ -78,7 +78,7 @@ const InquiriesReceived = ({pageType = 0}) => {
       <section className="vendor-mngt-sec-1 hasFullLoader">
         {loading && <FullLoader />}
 
-        <div className={`container-fluid ${pageType == 1?'nopaddingtop':''}`} >    
+        <div className={`container-fluid ${pageType == 1 ? 'nopaddingtop' : ''}`} >
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
@@ -88,10 +88,10 @@ const InquiriesReceived = ({pageType = 0}) => {
                   </p>
                 )}
                 {/* Content for Manage RFQs tab */}
-                
+
                 {!loading && rfqList.length > 0 && (
                   <span className="title">
-                   
+
                     {pageType == 0 && <>You have received {rfqList.length} Inquiries</>}
                     {pageType == 1 && <>{rfqList.length} Latest Received Inquiries </>}
                   </span>
@@ -107,8 +107,10 @@ const InquiriesReceived = ({pageType = 0}) => {
                             {/* <th style={{ width: 300 }}>Category</th> */}
                             <th>Products</th>
                             <th>Company</th>
-                            <th>End Date</th>
                             <th>Received Date</th>
+                            <th>End Date</th>
+                            <th>Quote Sent</th>
+                            <th>RFQ Status</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -123,18 +125,30 @@ const InquiriesReceived = ({pageType = 0}) => {
                                   <td>{getProductsList(item)}</td>
                                   <td>{item.company_name}</td>
                                   <td>
-                                    {item.bid_end_date != ""
-                                      ? moment(item.bid_end_date).format(
-                                          "DD/MM/YYYY"
-                                        )
+                                    {item.timestamp != ""
+                                      ? moment(item.timestamp).format(
+                                        "DD/MM/YYYY"
+                                      )
                                       : "--"}
                                   </td>
                                   <td>
-                                    {item.timestamp != ""
-                                      ? moment(item.timestamp).format(
-                                          "DD/MM/YYYY"
-                                        )
+                                    {item.bid_end_date != ""
+                                      ? moment(item.bid_end_date).format(
+                                        "DD/MM/YYYY"
+                                      )
                                       : "--"}
+                                  </td>
+                                  <td>
+                                    {item.quote_sent ?
+                                      <span class="badge rounded-pill text-bg-success">Sent</span> :
+                                      <span class="badge rounded-pill text-bg-warning">Pending</span>
+                                    }
+                                  </td>
+                                  <td>
+                                    {item.status == 1 ?
+                                      <span className="fw-medium">Open</span> :
+                                      <span className="fw-semibold text-danger">Closed</span>
+                                    }
                                   </td>
                                   <td>
                                     <span>
