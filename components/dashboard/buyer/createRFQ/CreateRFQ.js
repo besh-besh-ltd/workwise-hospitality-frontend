@@ -15,8 +15,7 @@ import {
   setCustomTerms,
   setCustomTermsText,
   setRfqFormData,
-  setOtherFormFields,
-  setBidEndDate,
+  setOtherFormFields
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -165,10 +164,6 @@ const CreateRFQ = () => {
     }
   };
 
-  const handleDateChange = (e)=> {
-    dispatch(setBidEndDate(e.target.value));
-  }
-
   const handleFormFieldChange = (e) => {
     const { name, value } = e.target;
     dispatch(setOtherFormFields({ field_name: name, value }));
@@ -290,6 +285,7 @@ const CreateRFQ = () => {
                       rfq_type: rfqFormData.rfq_type,
                       bid_end_date: rfqFormData.bid_end_date,
                       location: rfqFormData.location,
+                      reverse_auction: rfqFormData.reverse_auction
                     }}
                     validationSchema={CreateRFQSchema}
                     onSubmit={(values, { resetForm }) =>
@@ -345,9 +341,6 @@ const CreateRFQ = () => {
                           <div className="col-md-6">
                             <FormikField
                               label="Company Name"
-                              value={rfqFormData.location}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
                               type="text"
                               isRequired={true}
                               name="company_name"
@@ -363,7 +356,7 @@ const CreateRFQ = () => {
                               label="Bid end date"
                               value={rfqFormData.bid_end_date}
                               enableHandleChange={true}
-                              handleChange={handleDateChange}
+                              handleChange={handleFormFieldChange}
                               type="date"
                               isRequired={true}
                               name="bid_end_date"
@@ -402,6 +395,23 @@ const CreateRFQ = () => {
                               ]}
                               isRequired={false}
                               name="rfq_type"
+                              touched={touched}
+                              errors={errors}
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <FormikField
+                              label="Reverse Auction"
+                              value={rfqFormData.reverse_auction}
+                              enableHandleChange={true}
+                              handleChange={handleFormFieldChange}
+                              type="select"
+                              selectOptions={[
+                                { label: "On", value: 1 },
+                                { label: "Off", value: 0 }
+                              ]}
+                              isRequired={true}
+                              name="reverse_auction"
                               touched={touched}
                               errors={errors}
                             />
