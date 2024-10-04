@@ -1,7 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/router";
 import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
