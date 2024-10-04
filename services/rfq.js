@@ -47,6 +47,17 @@ export const categoryList = (values) => {
   });
 };
 
+export const getProductPriceStats = (values) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/product-price-stats`, values);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const categoryListById = (values) => {
   return new Promise(async (resolve, reject) => {
     try {

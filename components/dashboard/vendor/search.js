@@ -813,6 +813,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
+
+          {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
               <div className="search-sec-3-mdl my-3">
@@ -885,19 +887,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               </div>
             </div>
           )}
-          {currentSelectedProduct &&
+
+          {/* Product Price Stats Section */}
+          {currentSelectedProduct && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
-              <div className="search-sec-3-mdl my-3">
+              <div className="search-sec-3-mdl mt-2 mb-0">
                 <div className="search-sec-3-mdl-con ">
                   <div className="container">
-                    <h3>Product Overview</h3>  
-                    <ProductOverview data={currentSelectedProduct} />                  
+                    <h3>Product Overview</h3>
+                    <ProductOverview data={currentSelectedProduct} />
                   </div>
                 </div>
-
               </div>
             </div>
-          }
+          )}
+
+          {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
