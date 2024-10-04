@@ -5,7 +5,7 @@ import axios from "axios";
 
 const getVendors = async () => {
   // Fetch your vendor data from the database
-  const response = await axios.get(`${API_URL}/admin/seo/products/slug`)
+  const response = await axios.get(`${API_URL}/seo/products/slug`)
     .then((data) => {
       return data.data
     })

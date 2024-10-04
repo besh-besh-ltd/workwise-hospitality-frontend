@@ -12,6 +12,8 @@ import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 const initialFormData = {
     file: null,
     comment: '',
+    reverse_auction: 1,
+    rfq_type: '',
     delivery_location: '',
     bid_end_date: ''
 }
@@ -81,7 +83,7 @@ function MagicSearchPage() {
                 setLoading(false);
                 setFileName('');
                 setFormData(initialFormData);
-            }, 2000 * (messages.length-currentMessageIndex));
+            }, 2000 * (messages.length - currentMessageIndex));
 
         } catch (error) {
             toast.error(error.message);
@@ -97,6 +99,12 @@ function MagicSearchPage() {
             ...prevState,
             [name]: value
         }));
+    }
+
+    const getFuturedate = (days = 30)=> {
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        return date.toISOString().slice(0, 10);
     }
 
     const getAllStates = () => {
@@ -197,9 +205,9 @@ function MagicSearchPage() {
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid text-center">
                     <h1 className="heading">Magic Search</h1>
-                    <Link href="/vendor/all" className="page-link backBtn">
+                    {/* <Link href="/vendor/all" className="page-link backBtn">
                         <FontAwesomeIcon icon={faArrowLeft} /> Go back
-                    </Link>
+                    </Link> */}
                 </div>
             </section>
 
@@ -260,33 +268,58 @@ function MagicSearchPage() {
                         {/* Delivery location part */}
                         <div className="col-md-8 mx-auto mt-4">
                             <div className="row">
-                                <div className="col-md-6">
-                                    <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
+
+                                <div className="col-md-4">
+                                    <label htmlFor="reverse_auction" className="form-label fw-semibold mb-2">Reverse Auction</label>
                                     <select
+                                        name="reverse_auction"
+                                        id="reverse_auction"
                                         className="form-control border border-black"
-                                        id="delivery_location"
-                                        name="delivery_location"
-                                        value={formData?.location}
+                                        value={formData?.reverse_auction}
                                         onChange={handleChange}
-                                        style={{ backgroundImage: "none !important" }}
                                     >
-                                        <option value="" disabled selected>Select Location</option>
-                                        {states.map((state) => (
-                                            <option key={state.value} value={state.value}>
-                                                {state.label}
-                                            </option>
-                                        ))}
+                                        <option value={1}>On</option>
+                                        <option value={0}>Off</option>
                                     </select>
                                 </div>
-                                <div className="col-md-6">
+
+                                <div className="col-md-4">
+                                    <label htmlFor="rfq_type" className="form-label fw-semibold mb-2">RFQ Type</label>
+                                    <select
+                                        name="rfq_type"
+                                        id="rfq_type"
+                                        className="form-control border border-black"
+                                        value={formData?.rfq_type}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="">Select RFQ Type</option>
+                                        <option value="budgetary">Budgetary</option>
+                                        <option value="firm">Firm</option>
+                                    </select>
+                                </div>
+
+                                <div className="col-md-4">
                                     <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Bid End Date</label>
                                     <input
                                         type="date"
                                         name="bid_end_date"
                                         id="bid_end_date"
                                         className="form-control border border-black"
-                                        value={formData?.bid_end_date}
+                                        value={formData?.bid_end_date || getFuturedate()}
                                         onChange={handleChange} />
+                                </div>
+
+                                <div className="col-md-12 mt-3">
+                                    <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
+                                    <input
+                                        type="text"
+                                        name="delivery_location"
+                                        id="delivery_location"
+                                        className="form-control border border-black"
+                                        placeholder="Enter Delivery Location"
+                                        value={formData?.location}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -295,7 +328,7 @@ function MagicSearchPage() {
                             <div className="row">
                                 <div className="col-7"></div>
                                 <div className="col-5 d-flex">
-                                    <Button variant="secondary" className="ms-auto" style={{ width: "280px" }} onClick={uploadToServer}>Automatically Generate RFQ's</Button>
+                                    <Button variant="secondary" className="ms-auto border-0" style={{ width: "280px" }} onClick={uploadToServer}>Automatically Generate RFQ's</Button>
                                 </div>
                             </div>
                         </div>

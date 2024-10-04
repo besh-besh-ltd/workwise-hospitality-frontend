@@ -468,10 +468,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
-          <div className="d-flex justify-content-between">
+          <div className="d-flex justify-content-end">
 
 
-            <Link
+            {/* <Link
               href="/dashboard/buyer/rfq-management?tab=create-rfq"
               className="page-link backBtn"
               onClick={(e) => {
@@ -482,7 +482,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link>
+            </Link> */}
 
             <Link
               href="#"
