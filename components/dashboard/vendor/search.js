@@ -26,6 +26,7 @@ import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
+import ProductOverview from "@/components/shared/ProductOverview";
 
 
 const customSelectStyles = {
@@ -117,7 +118,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setIsOpen(false);
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -884,6 +885,19 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               </div>
             </div>
           )}
+          {currentSelectedProduct &&
+            <div className=" col-md-12 bg-white rounded-5 p-4">
+              <div className="search-sec-3-mdl my-3">
+                <div className="search-sec-3-mdl-con ">
+                  <div className="container">
+                    <h3>Product Overview</h3>  
+                    <ProductOverview data={currentSelectedProduct} />                  
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          }
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
