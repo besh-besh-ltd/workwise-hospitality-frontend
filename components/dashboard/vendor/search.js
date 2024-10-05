@@ -21,6 +21,7 @@ import {
 } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
+import { faLightbulb as faSolidLightbulb } from '@fortawesome/free-solid-svg-icons';
 import { getProfile } from "@/services/Auth";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
@@ -894,7 +895,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="search-sec-3-mdl mt-2 mb-0">
                 <div className="search-sec-3-mdl-con ">
                   <div className="container">
-                    <h3>Product Overview</h3>
+                    <h3>
+                      Product Insight{"  "}
+                      <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
+                    </h3>
                     <ProductOverview data={currentSelectedProduct} />
                   </div>
                 </div>

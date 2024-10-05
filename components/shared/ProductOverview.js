@@ -8,7 +8,7 @@ for (let i = 0; i < DATA_COUNT; ++i) {
     labels.push(i.toString());
 }
 
-const data = {
+const chartData = {
     labels: labels,
     datasets: [
         {
@@ -38,7 +38,7 @@ const data = {
 
 const config = {
     type: 'line',
-    data: data,
+    data: chartData,
     options: {
         responsive: true,
         plugins: {
@@ -94,16 +94,23 @@ const ProductOverview = ({ data }) => {
         // Ensure the timestamp is a valid number
         const validTimestamp = Number(timestamp);
         if (isNaN(validTimestamp)) {
-            console.log("Invalid timestamp provided.");
             return;
         }
 
         const date = new Date(validTimestamp);
         if (isNaN(date.getTime())) {
-            console.log("Invalid date after conversion.");
             return;
         }
         return date.toUTCString().slice(0, 16);
+    }
+
+    const formatPrice = (price)=> {
+        const formattedPrice = new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2
+        }).format(price);
+        return formattedPrice;
     }
 
     useEffect(() => {
@@ -120,30 +127,40 @@ const ProductOverview = ({ data }) => {
     // }, [prodStats]);
 
     return (
-        // <div className="row mt-4">
-        <div className="d-flex justify-content-between mt-4">
-                <p>
-                    <strong>Minimum Price : </strong>
-                    {productOverview?.min_price}
-                </p>
-                <p>
-                    <strong>Maximum Price : </strong>
-                    {productOverview?.max_price}
-                </p>
-                <p>
-                    <strong>Average Price : </strong>
-                    {productOverview?.avg_price?.toFixed(2)}
-                </p>
-                <p>
-                    <strong>Last Purchase Price : </strong>
-                    {productOverview?.last_purchase_price}
-                </p>
-                <p>
-                    <strong>Last Purchase Date : </strong>
-                    {decodeDate(productOverview?.last_purchase_date)}
-                </p>
+        <div className="row mt-4">
 
             {/* overview section */}
+            <div className="col-6 p-2">
+                <h6 className='fw-medium'>Based on Our Market Intelligence</h6>
+                <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
+                    <div>
+                        <span>Minimum Price </span>
+                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.min_price) || "---"}</span>
+                    </div>
+                    <div>
+                        <span>Maximum Price </span>
+                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.max_price) || "---"}</span>
+                    </div>
+                    <div>
+                        <span>Average Price </span>
+                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.avg_price?.toFixed(2)) || "---"}</span>
+                    </div>
+                </div>
+            </div>
+            <div className="col-6 p-2">
+                <h6 className='fw-medium'>Your Last Purchase Details</h6>
+                <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
+                    <div>
+                        <span>Last Purchase Price </span>
+                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.last_purchase_price) || "---"}</span>
+                    </div>
+                    <div>
+                        <span>Last Purchase Date </span>
+                        <span className="d-block fw-medium text-muted text-sm mt-1">{decodeDate(productOverview?.last_purchase_date) || "---"}</span>
+                    </div>
+                </div>
+            </div>
+
             {/* <div className="col-md-6">
                 {productOverview && (
                     <>
@@ -176,22 +193,20 @@ const ProductOverview = ({ data }) => {
             </div> */}
 
             {/* stats section */}
-            {/* <div className="col-md-6">
-                {prodStats && prodStats.length > 0 && (
-                    <div className="buy-stats">
-                        <div className="d-flex justify-content-between align-items-center p-4 border-bottom">
-                            <h4 className="fs-4 fw-semibold mb-0">Product Statistics</h4>
-                            <select name="buyer-chart-select" id="buyer_chart_select" className="w-25 px-3 py-2 rounded-2" >
-                                <option value="weekly" selected>Weekly</option>
-                                <option value="monthly" >Monthly</option>
-                                <option value="yearly" >Yearly</option>
-                            </select>
-                        </div>
-                        <div className="buy-stats-container position-relative d-flex justify-content-center align-items-center p-4">
-                            <canvas id="bar_chart_prod"></canvas>
-                        </div>
+            {/* <div className="col-md-7">
+                <div className="buy-stats">
+                    <div className="d-flex justify-content-between align-items-center p-4 border-bottom">
+                        <h3 className="fs-5 fw-semibold mb-0">Pricing Insights</h3>
+                        <select name="buyer-chart-select" id="buyer_chart_select" className="w-25 px-3 py-2 rounded-2" >
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="monthly" >Monthly</option>
+                            <option value="yearly" >Yearly</option>
+                        </select>
                     </div>
-                )}
+                    <div className="buy-stats-container position-relative d-flex justify-content-center align-items-center p-4">
+                        <canvas id="bar_chart_prod"></canvas>
+                    </div>
+                </div>
             </div> */}
 
         </div>

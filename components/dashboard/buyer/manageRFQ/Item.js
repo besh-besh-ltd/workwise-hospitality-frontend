@@ -61,7 +61,9 @@ const RFQItem = ({ data }) => {
             ? moment(data.bid_end_date).format("DD/MM/YYYY")
             : "--"}
         </td>
+        <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : data.rfq_type}</td>
         <td>{data.status == 1 ? "Open" : "Closed"}</td>
+        <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td className="d-flex align-items-center">
           <span>
             <Link

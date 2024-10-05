@@ -22,6 +22,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
       .then((res) => {
         setloading(false);
         setrfqList(res.data);
+        setTotalData(res.totalRFQ?.count)
       })
       .catch((err) => {
         setloading(false);
@@ -172,13 +173,10 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                         : "--"}
                                     </td>
                                     <td>
-                                      {item.quote_status && <span class={`fw-semibold ${item.quote_status == "sent" ? 'text-success' : item.quote_status == "regret" ? 'text-danger' : 'text-warning'}`}>{textCapitalize(item.quote_status)}</span>}
+                                      {item.quote_status && textCapitalize(item.quote_status)}
                                     </td>
                                     <td>
-                                      {item.status == 1 ?
-                                        <span className="fw-medium">Open</span> :
-                                        <span className="fw-semibold text-danger">Closed</span>
-                                      }
+                                      {item.status == 1 ? "Open" : "Closed"}
                                     </td>
                                     <td>
                                       <span>
