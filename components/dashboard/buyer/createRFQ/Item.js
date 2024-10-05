@@ -274,6 +274,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               value={quantity}
               onChange={(e) => handleSpecValue("quantity", e.target.value)}
               name="Quantity"
+              min={0}
               id={`spec_${data.product_id}_${data.variant}_quantity`}
               placeholder="Quantity"
               class="form-control me-0"

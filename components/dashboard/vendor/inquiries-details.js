@@ -7,7 +7,7 @@ import { Router, useRouter } from "next/router";
 import { closeRFQ, getRFQById, sendQuotation } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
@@ -431,7 +431,7 @@ const RfqManagementPreview = () => {
 
           <section className="buyer-rfq-det-sec-1">
             <div className="container-fluid">
-              {enableBuyerView ? (
+              {/* {enableBuyerView ? (
                 <Link
                   href="/dashboard/buyer/rfq-management"
                   className="page-link backBtn"
@@ -452,7 +452,7 @@ const RfqManagementPreview = () => {
                   {" "}
                   <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
                 </Link>
-              )}
+              )} */}
               <div className="row">
                 <div className="col-md-12">
                   <div className="manage-rfq-con">
@@ -464,11 +464,20 @@ const RfqManagementPreview = () => {
                         <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                           <button
                             type="button"
-                            className="btn btn-secondary m-0"
+                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0`}
                             style={{ width: "240px" }}
+                            disabled={rfqDetails.status == 2}
                           >
-                            <FontAwesomeIcon icon={faEdit} className="me-2" />
-                            Update Your Quote
+                            {rfqDetails.status == 2 ?
+                              <>
+                                <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                RFQ Closed
+                              </>
+                              : <>
+                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                Update Your Quote
+                              </>
+                            }
                           </button>
                         </Link>
                       </div>
@@ -935,11 +944,20 @@ const RfqManagementPreview = () => {
                                         <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                                           <button
                                             type="button"
-                                            className="btn btn-secondary m-0"
+                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0`}
                                             style={{ width: "240px" }}
+                                            disabled={rfqDetails.status == 2}
                                           >
-                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                            Update Your Quote
+                                            {rfqDetails.status == 2 ?
+                                              <>
+                                                <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                                RFQ Closed
+                                              </>
+                                              : <>
+                                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                Update Your Quote
+                                              </>
+                                            }
                                           </button>
                                         </Link>
                                         {/* <div className="noborder-table">

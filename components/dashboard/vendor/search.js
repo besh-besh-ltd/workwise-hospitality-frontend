@@ -21,11 +21,13 @@ import {
 } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
+import { faLightbulb as faSolidLightbulb } from '@fortawesome/free-solid-svg-icons';
 import { getProfile } from "@/services/Auth";
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
+import ProductOverview from "@/components/shared/ProductOverview";
 
 
 const customSelectStyles = {
@@ -117,7 +119,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setIsOpen(false);
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -468,10 +470,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
-          <div className="d-flex justify-content-between">
+          <div className="d-flex justify-content-end">
 
 
-            <Link
+            {/* <Link
               href="/dashboard/buyer/rfq-management?tab=create-rfq"
               className="page-link backBtn"
               onClick={(e) => {
@@ -482,7 +484,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link>
+            </Link> */}
 
             <Link
               href="#"
@@ -812,6 +814,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       </section>
       <section className="search-sec-2">
         <div className="container-fluid">
+
+          {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
               <div className="search-sec-3-mdl my-3">
@@ -884,6 +888,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               </div>
             </div>
           )}
+
+          {/* Product Price Stats Section */}
+          {currentSelectedProduct && (
+            <div className=" col-md-12 bg-white rounded-5 p-4">
+              <div className="search-sec-3-mdl mt-2 mb-0">
+                <div className="search-sec-3-mdl-con ">
+                  <div className="container">
+                    <h3>
+                      Product Insight{"  "}
+                      <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
+                    </h3>
+                    <ProductOverview data={currentSelectedProduct} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">

@@ -1,7 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/router";
 import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
@@ -265,7 +262,7 @@ const SendQuotePageComp = () => {
       {loading && (
         <section className="quote-send-sec-1">
           <div className="container-fluid">
-            <Link
+            {/* <Link
               href={`/dashboard/vendor/inquiries-details?id=${id}`}
               className="page-link backBtn"
               onClick={(e) => {
@@ -275,7 +272,7 @@ const SendQuotePageComp = () => {
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link>
+            </Link> */}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">
@@ -464,13 +461,13 @@ const SendQuotePageComp = () => {
       {!loading && rfqDetails && (
         <section className="quote-send-sec-1">
           <div className="container-fluid">
-            <Link
+            {/* <Link
               href={`/dashboard/vendor/inquiries-details?id=${id}`}
               className="page-link backBtn"
             >
               {" "}
               <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link>
+            </Link> */}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">
