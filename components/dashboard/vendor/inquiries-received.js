@@ -4,6 +4,7 @@ import { getVendorRfqList } from "@/services/rfq";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
+import { textCapitalize } from "@/utils/sharedFunctions";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -68,11 +69,6 @@ const InquiriesReceived = ({ pageType = 0 }) => {
     }
   };
 
-  const textCapitalize = (str) => {
-    if (!str) return str;
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  }
-
   return (
     <>
       {pageType == 0 && (
@@ -116,12 +112,14 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                             <th>Received Date</th>
                             <th>End Date</th>
                             <th>Quote Sent</th>
+                            <th>Reverse Auction</th>
                             <th>RFQ Status</th>
                             <th>Action</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                             <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                             <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                             <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
@@ -145,6 +143,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                               <th>Received Date</th>
                               <th>End Date</th>
                               <th>Quote Sent</th>
+                              <th>Reverse Auction</th>
                               <th>RFQ Status</th>
                               <th>Action</th>
                             </tr>
@@ -175,8 +174,9 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                     <td>
                                       {item.quote_status && textCapitalize(item.quote_status)}
                                     </td>
+                                    <td>{item.reverse_auction === 1 ? "Enabled" : "Disabled"}</td>
                                     <td>
-                                      {item.status == 1 ? "Open" : "Closed"}
+                                      {item.status === 1 ? "Open" : "Closed"}
                                     </td>
                                     <td>
                                       <span>
@@ -184,7 +184,14 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
                                           className="page-link"
                                         >
-                                          View
+                                          {
+                                            item.quote_status === "pending" && item.status === 1
+                                              ? <span>Send Quote</span>
+                                              : item.quote_status === "sent" && item.status === 1
+                                                ? <span>Modify Quote</span>
+                                                : <span>View Quote</span>
+                                          }
+
                                         </Link>
                                       </span>
                                     </td>

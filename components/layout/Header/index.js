@@ -211,7 +211,7 @@ const Header = () => {
                         <Link href="/contactus">Contact Us</Link>
                       </li>
 
-                      <li
+                      {/* <li
                         className={
                           router.pathname == "/login" ? "active login" : "login"
                         }
@@ -226,7 +226,7 @@ const Header = () => {
                         }
                       >
                         <Link href="/register">Register</Link>
-                      </li>
+                      </li> */}
                     </ul>
                   </nav>
 

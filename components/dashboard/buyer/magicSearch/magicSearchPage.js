@@ -1,6 +1,5 @@
-import { faArrowLeft, faCloudArrowUp, faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Link from 'next/link';
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -8,6 +7,7 @@ import axiosFormData from "@/lib/axiosFormData";
 import { toast } from "react-toastify";
 import { getStates } from "@/services/cms";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
+import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialFormData = {
     file: null,
@@ -99,12 +99,6 @@ function MagicSearchPage() {
             ...prevState,
             [name]: value
         }));
-    }
-
-    const getFuturedate = (days = 30)=> {
-        const date = new Date();
-        date.setDate(date.getDate() + days);
-        return date.toISOString().slice(0, 10);
     }
 
     const getAllStates = () => {

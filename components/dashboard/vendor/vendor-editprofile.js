@@ -410,7 +410,7 @@ const VendorProfile = () => {
                 <div className="row vendor-profile-sec-con-1 hasFullLoader">
                   {loading && <FullLoader />}
                   <h3 className="title">
-                    About ({vendorDetails?.vendor_name})
+                    {vendorDetails?.vendor_name}
                   </h3>
                   {vendorDetails?.profile && <p>{vendorDetails?.profile}</p>}
                   {!vendorDetails?.profile && <p>No description to show!</p>}
