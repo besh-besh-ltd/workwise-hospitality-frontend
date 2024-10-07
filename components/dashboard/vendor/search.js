@@ -405,8 +405,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Update the URL to include the selected product's slug
-    const newUrl = `/vendor/${item.slug}`;
-    window.history.pushState(null, null, newUrl);
+    // const newUrl = `/vendor/${item.slug}`;
+    router.push(`/vendor/${item.slug}`);
+    // window.history.pushState(null, null, newUrl);
     storageInstance.setStorage("product_name", slug);
   };
 
