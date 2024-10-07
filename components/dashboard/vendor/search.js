@@ -84,6 +84,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [productsList, setProductsList] = useState([]);
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
+  const [showInsights, setShowInsights] = useState(false);
 
 
   const handleRedirect = (e) => {
@@ -315,6 +316,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     categoryListById({ category_id })
       .then((res) => {
         setProductsList(res.productList);
+        setcurrentSelectedProduct(null);
         setSearchSubCategories(res.subCategoryList);
       })
       .catch((error) => {
@@ -399,13 +401,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setSearch_key(item.product_name);
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
+    setShowInsights(true);
     tempProdRef.current = null;
 
-    // Update the URL to include the selected product's name
-    const prod_name = cleanAndAddHyphen(item.product_name)
-    const newUrl = `/vendor/${prod_name}`;
+    // Update the URL to include the selected product's slug
+    const newUrl = `/vendor/${item.slug}`;
     window.history.pushState(null, null, newUrl);
-    storageInstance.setStorage("product_name", prod_name);
+    storageInstance.setStorage("product_name", slug);
   };
 
   const getChildCategories = (id, level) => {
@@ -890,7 +892,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           )}
 
           {/* Product Price Stats Section */}
-          {currentSelectedProduct && (
+          {isLoggedIn && currentSelectedProduct && showInsights && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
               <div className="search-sec-3-mdl mt-2 mb-0">
                 <div className="search-sec-3-mdl-con ">
@@ -899,7 +901,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       Product Insight{"  "}
                       <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
                     </h3>
-                    <ProductOverview data={currentSelectedProduct} />
+                    <ProductOverview data={currentSelectedProduct} setShowInsights={setShowInsights} />
                   </div>
                 </div>
               </div>

@@ -1,6 +1,8 @@
 import { getProductPriceStats } from '@/services/rfq';
+import { formatPrice } from '@/utils/sharedFunctions';
 import { Chart } from 'chart.js';
 import React, { useEffect, useState } from 'react'
+import PlaceholderLoading from 'react-placeholder-loading';
 
 const DATA_COUNT = 6;
 const labels = [];
@@ -70,7 +72,7 @@ const config = {
     },
 };
 
-const ProductOverview = ({ data }) => {
+const ProductOverview = ({ data, setShowInsights }) => {
     const [productOverview, setProductOverview] = useState(null);
     const [prodStats, setProdStats] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -79,8 +81,13 @@ const ProductOverview = ({ data }) => {
         setLoading(true)
         getProductPriceStats({ search_key: data?.product_name })
             .then((res) => {
-                setProductOverview(res.data[0])
-                setProdStats(res.data[0]?.monthly_price_stats)
+                if (res.data.length == 0) {
+                    setShowInsights(false)
+                }
+                else {
+                    setProductOverview(res.data[0])
+                    setProdStats(res.data[0]?.monthly_price_stats)
+                }
             })
             .catch((error) => {
                 console.log(error)
@@ -102,15 +109,6 @@ const ProductOverview = ({ data }) => {
             return;
         }
         return date.toUTCString().slice(0, 16);
-    }
-
-    const formatPrice = (price)=> {
-        const formattedPrice = new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 2
-        }).format(price);
-        return formattedPrice;
     }
 
     useEffect(() => {
@@ -135,15 +133,24 @@ const ProductOverview = ({ data }) => {
                 <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
                     <div>
                         <span>Minimum Price </span>
-                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.min_price) || "---"}</span>
+                        {loading
+                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.min_price) || "---"}</span>
+                        }
                     </div>
                     <div>
                         <span>Maximum Price </span>
-                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.max_price) || "---"}</span>
+                        {loading
+                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.max_price) || "---"}</span>
+                        }
                     </div>
                     <div>
                         <span>Average Price </span>
-                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.avg_price?.toFixed(2)) || "---"}</span>
+                        {loading
+                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.avg_price?.toFixed(2)) || "---"}</span>
+                        }
                     </div>
                 </div>
             </div>
@@ -152,11 +159,17 @@ const ProductOverview = ({ data }) => {
                 <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
                     <div>
                         <span>Last Purchase Price </span>
-                        <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.last_purchase_price) || "---"}</span>
+                        {loading
+                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.last_purchase_price) || "---"}</span>
+                        }
                     </div>
                     <div>
                         <span>Last Purchase Date </span>
-                        <span className="d-block fw-medium text-muted text-sm mt-1">{decodeDate(productOverview?.last_purchase_date) || "---"}</span>
+                        {loading
+                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{decodeDate(productOverview?.last_purchase_date) || "---"}</span>
+                        }
                     </div>
                 </div>
             </div>
