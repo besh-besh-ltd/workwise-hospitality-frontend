@@ -10,7 +10,7 @@ const ReadMore = ({ content, maxLength, textSmall }) => {
   return (
     <div style={{cursor: "pointer"}}>
       <p className={`${textSmall ? 'text-sm' : ''} position-relative`}>
-        {isExpanded ? content : `${content.slice(0, maxLength || 50)}...`}
+        {isExpanded ? content : `${content.slice(0, parseInt(maxLength) || 50)} ${content.length > maxLength ? "..." : ""}`}
         {content.length > maxLength && (
         <span
           onClick={handleToggle}

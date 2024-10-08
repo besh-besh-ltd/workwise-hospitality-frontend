@@ -272,7 +272,8 @@ const VendorManagement = () => {
                 </div>
                 {openAddVendorModal &&
                     <AddVendorModal
-                        openAddVendorModal={openAddVendorModal}
+                        type="add-vendor"
+                        openModal={openAddVendorModal}
                         closeModal={() => setOpenAddVendorModal(false)}
                         handleAddVendor={handleAddVendor}
                     />
