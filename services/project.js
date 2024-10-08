@@ -22,6 +22,17 @@ export const getProjectById = (projectId, payload)=> {
     });
 }
 
+export const getProjectList = ()=> {
+  return new Promise(async (resolve, reject) => {
+      try {
+        let response = await axiosInstance.get(`project/name_list`);
+        resolve(response);
+      } catch (error) {
+        reject({ message: error });
+      }
+    });
+}
+
 export const createProject = (payload)=> {
     return new Promise(async (resolve, reject) => {
         try {
@@ -31,5 +42,16 @@ export const createProject = (payload)=> {
           reject({ message: error });
         }
       });
+}
+
+export const updateProject = (projectId, payload)=> {
+  return new Promise(async (resolve, reject) => {
+      try {
+        let response = await axiosInstance.put(`project/update/${projectId}`, payload);
+        resolve(response);
+      } catch (error) {
+        reject({ message: error });
+      }
+    });
 }
 

@@ -25,7 +25,7 @@ const AddVendorModal = ({
         projectName: projectData?.name || "",
         projectDescription: projectData?.description || "",
         location: projectData?.location || "",
-        ended_at: projectData?.ended_at || "",
+        ended_at: projectData?.ended_at.slice(0, 10) || "",
     }
 
     const validateVendorSchema = yup.object().shape({
@@ -166,6 +166,7 @@ const AddVendorModal = ({
                                                                 id="projectName"
                                                                 name="projectName"
                                                                 placeholder="Demo Project Name"
+                                                                disabled={type === "edit-project"}
                                                             />
                                                             {touched.projectName && errors.projectName && (
                                                                 <div className="form-error">{errors.projectName}</div>
@@ -230,7 +231,7 @@ const AddVendorModal = ({
 
                                             <div className="d-flex flex-row justify-content-between align-items-center g-6">
                                                 <button disabled={!isValid} class="btn btn-success btn-sm">
-                                                    {type === "add-vendor" ? "Add vendor" : "Create"}
+                                                    {type === "add-vendor" ? "Add vendor" : type === "create-project" ? "Create" : "Update"}
                                                 </button>
                                             </div>
                                         </Form>

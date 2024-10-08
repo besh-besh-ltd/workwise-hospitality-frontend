@@ -1,6 +1,7 @@
 import AddVendorModal from '@/components/modal/AddVendorModal';
+import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
-import { getProjectById } from '@/services/project';
+import { getProjectById, updateProject } from '@/services/project';
 import { faEdit } from '@fortawesome/free-regular-svg-icons';
 import { faCloudArrowUp, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,6 +9,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react'
 import PlaceholderLoading from 'react-placeholder-loading'
+import { toast } from 'react-toastify';
 
 const ProjectDetails = () => {
     const pathname = usePathname();
@@ -17,6 +19,7 @@ const ProjectDetails = () => {
     const [totalData, setTotalData] = useState(100);
 
     const [loading, setLoading] = useState(false);
+    const [editLoading, setEditLoading] = useState(false);
     const [projectDetails, setProjectDetails] = useState(null);
     const [openEditProject, setOpenEditProject] = useState(false);
 
@@ -40,8 +43,30 @@ const ProjectDetails = () => {
             });
     }
 
-    const handleEditProject = (values, resetForm)=> {
-        console.log(values)
+    const handleEditProject = (values, resetForm) => {
+        setEditLoading(true);
+        let payload = {
+            status: 1,
+            description: values.projectDescription,
+            location: values.location,
+            ended_at: values.ended_at
+        };
+
+        setOpenEditProject(false);
+        updateProject(projectIdRef.current, payload)
+            .then((res) => {
+                toast.success(res.message, { position: "top-right", });
+                getProjects();
+            })
+            .catch((error) => {
+                toast.error(error.message?.response?.data?.message, { position: "top-right", });
+                console.log(error)
+            })
+            .finally(() => {
+                resetForm();                
+                setEditLoading(false);
+                getProjectDetails();
+            })
     }
 
     useEffect(() => {
@@ -59,6 +84,7 @@ const ProjectDetails = () => {
 
     return (
         <>
+            {editLoading && <Loader />}
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid">
                     <h1 className="heading">Project Details</h1>
@@ -72,56 +98,82 @@ const ProjectDetails = () => {
                             <div className="vendor-mngt-con">
 
                                 {/* Project Overview Section */}
-                                <div className="d-flex justify-content-between">
-                                    <span className="title mb-2">Project Overview</span>
-                                    <button
-                                        type="button"
-                                        className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0 "
-                                        style={{ width: "100px", backgroundColor: "var(--primary-color)" }}
-                                        onClick={() => setOpenEditProject(true)}
-                                    >
-                                        <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                        Edit
-                                    </button>
-                                </div>
+                                <div className="details-table p-4 mb-5">
 
-                                <div className="details-table p-4 mb-4">
+                                    <div className="d-flex justify-content-between">
+                                        <h3 className="title mb-0">{
+                                            loading
+                                                ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                : projectDetails?.name
+                                        }
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0 "
+                                            style={{ width: "100px", backgroundColor: "var(--primary-color)" }}
+                                            onClick={() => setOpenEditProject(true)}
+                                        >
+                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                            Edit
+                                        </button>
+                                    </div>
+                                    <hr />
+
                                     <div className="row">
                                         <div className="col-md-6">
-                                            <p>
-                                                <strong>Project Name : </strong>
-                                                {projectDetails?.name || "---"}
-                                            </p>
-                                            <p>
-                                                <strong>Total RFQs : </strong>
-                                                {projectDetails?.total_rfqs || "---"}
-                                            </p>
-                                            <p>
-                                                <strong>Open RFQs : </strong>
-                                                {projectDetails?.open_rfqs || "---"}
-                                            </p>
-                                            <p>
-                                                <strong>Closed RFQs : </strong>
-                                                {projectDetails?.closed_rfqs || "---"}
-                                            </p>
+                                            <div className="mb-2">
+                                                <span className="fw-bold">Description </span>
+                                                {loading
+                                                    ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                    : <span className="d-block fw-medium text-muted px-2">{projectDetails?.description || "---"}</span>
+                                                }
+                                            </div>
+                                            <div className="mb-2">
+                                                <span className="fw-bold">Location </span>
+                                                {loading
+                                                    ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                    : <span className="d-block fw-medium text-muted px-2">{projectDetails?.location || "---"}</span>
+                                                }
+                                            </div>
                                         </div>
                                         <div className="col-md-6">
-                                            <p>
-                                                <strong>Description : </strong>
-                                                {projectDetails?.description || "---"}
-                                            </p>
-                                            <p>
-                                                <strong>Location : </strong>
-                                                {projectDetails?.location || "---"}
-                                            </p>
-                                            <p>
-                                                <strong>Created Date : </strong>
-                                                {projectDetails?.created_at?.slice(0, 10) || "---"}
-                                            </p>
-                                            <p>
-                                                <strong>End Date : </strong>
-                                                {projectDetails?.ended_at?.slice(0, 10) || "---"}
-                                            </p>
+                                            <div className="row">
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">Total RFQs </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.total_rfqs || "---"}</span>
+                                                    }
+                                                </div>
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">Open RFQs </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.open_rfqs || "---"}</span>
+                                                    }
+                                                </div>
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">Closed RFQs </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.closed_rfqs || "---"}</span>
+                                                    }
+                                                </div>
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">Create Date </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.created_at?.slice(0, 10) || "---"}</span>
+                                                    }
+                                                </div>
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">End Date </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.ended_at?.slice(0, 10) || "---"}</span>
+                                                    }
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -187,16 +239,16 @@ const ProjectDetails = () => {
                                                         return (
                                                             <tr key={`rfq_item_${rfqItem.id}`} >
                                                                 <td>{index + 1}</td>
-                                                                <td>{rfqItem.rfq?.rfq_no}</td>
-                                                                <td>{rfqItem.rfq?.rfq_type}</td>
-                                                                <td>{rfqItem.rfq?.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
+                                                                <td>{rfqItem.rfq_details?.rfq_no}</td>
+                                                                <td>{rfqItem.rfq_details?.rfq_type || "---"}</td>
+                                                                <td>{rfqItem.rfq_details?.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
                                                                 <td>{rfqItem.vendors?.total_vendors}</td>
                                                                 <td>{rfqItem.vendors?.quote_received}</td>
-                                                                <td>{rfqItem.rfq?.timestamp.slice(0, 10)}</td>
-                                                                <td>{rfqItem.rfq?.bid_end_date}</td>
+                                                                <td>{rfqItem.rfq_details?.timestamp.slice(0, 10) || "---"}</td>
+                                                                <td>{rfqItem.rfq_details?.bid_end_date || "---"}</td>
                                                                 <td>
                                                                     <Link
-                                                                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq?.id}`}
+                                                                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
                                                                         className="page-link"
                                                                     >
                                                                         View
@@ -223,7 +275,9 @@ const ProjectDetails = () => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
+
+            {/* Edit Project Modal Section */}
             {openEditProject &&
                 <AddVendorModal
                     type={'edit-project'}

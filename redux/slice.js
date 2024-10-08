@@ -13,10 +13,11 @@ const initialState = {
     contact_name: "",
     contact_number: "",
     company_name: "",
-    rfq_type: "",
     bid_end_date: getFuturedate(),
+    rfq_type: "",
+    reverse_auction: 1,
+    project_id: -1,
     location: "",
-    reverse_auction: 1
   },
   rfqObjData: {
     terms: [],

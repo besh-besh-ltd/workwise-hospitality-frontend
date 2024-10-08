@@ -44,7 +44,7 @@ const ManageRFQ = () => {
     <>
       <div className="manage-rfq-con">
         {/* Content for Manage RFQs tab */}
-        <h3 className="title">Manage RFQs</h3>
+        {/* <h3 className="title">Manage RFQs</h3> */}
 
         <div className="details-table hasFullLoader">
 
@@ -69,8 +69,8 @@ const ManageRFQ = () => {
                 id="page_id"
                 onChange={(e)=> {setsort(e.target.value)}}
               >
-                <option value="DESC">Descending</option>
-                <option value="ASC">Ascending</option>
+                <option value="DESC">Newest to Oldest</option>
+                <option value="ASC">Oldest to Newest</option>
               </select>
             </div>
             
@@ -81,9 +81,9 @@ const ManageRFQ = () => {
                 id="page_id"
                 onChange={(e)=> {setrfq_type(e.target.value)}}
               >
-                <option value="">Both</option>
-                <option value="budgetary">budgetary</option>
-                <option value="firm">firm</option>
+                <option value="">All</option>
+                <option value="budgetary">Budgetary</option>
+                <option value="firm">Firm</option>
               </select>
             </div>
             
@@ -94,9 +94,9 @@ const ManageRFQ = () => {
                 id="page_id"
                 onChange={(e)=> {setreverse_auction(e.target.value)}}
               >
-                <option value={'-1'}>Both</option>
-                <option value={'1'}>True</option>
-                <option value={'0'}>False</option>
+                <option value={'-1'}>All</option>
+                <option value={'1'}>Enabled</option>
+                <option value={'0'}>Disabled</option>
               </select>
             </div>
 
@@ -112,6 +112,7 @@ const ManageRFQ = () => {
                 <thead>
                   <tr>
                     <th>Group RFQ Code</th>
+                    <th>Project Name</th>
                     <th>Products</th>
                     <th>Published Date</th>
                     <th>End Date</th>

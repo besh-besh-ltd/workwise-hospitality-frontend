@@ -47,7 +47,7 @@ const QuoteCompare = () => {
 
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, limit })
+    getRFQS({ page, sort: "DESC" })
       .then((res) => {
         setloading(false);
         setmyRFQs(res.data);

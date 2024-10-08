@@ -1,4 +1,5 @@
 import AddVendorModal from '@/components/modal/AddVendorModal';
+import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
 import ReadMore from '@/components/shared/ReadMore';
 import { createProject, getAllProjects } from '@/services/project';
@@ -12,6 +13,7 @@ import { toast } from 'react-toastify';
 const ProjectManagement = () => {
     const [openCreateProject, setOpenCreateProject] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
 
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -35,7 +37,7 @@ const ProjectManagement = () => {
     }
 
     const handleCreateProject = (values, resetForm) => {
-        setLoading(true);
+        setCreateLoading(true);
         let payload = {
             name: values.projectName,
             description: values.projectDescription,
@@ -43,9 +45,9 @@ const ProjectManagement = () => {
             ended_at: values.ended_at
         };
 
+        setOpenCreateProject(false);
         createProject(payload)
             .then((res) => {
-                console.log(res)
                 toast.success(res.message, { position: "top-right", });
                 getProjects();
             })
@@ -54,9 +56,8 @@ const ProjectManagement = () => {
                 console.log(error)
             })
             .finally(() => {
-                resetForm();
-                setOpenCreateProject(false);
-                setLoading(false);
+                resetForm();                
+                setCreateLoading(false);
             })
     }
 
@@ -66,6 +67,7 @@ const ProjectManagement = () => {
 
     return (
         <>
+            {createLoading && <Loader />}
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid">
                     <h1 className="heading">Project Management</h1>
@@ -123,7 +125,7 @@ const ProjectManagement = () => {
                                                                 <td>{index + 1}</td>
                                                                 <td>{projectItem.name}</td>
                                                                 <td style={{ maxWidth: "450px" }}>
-                                                                    <ReadMore content={projectItem.description} maxLength={300} />
+                                                                    <ReadMore content={projectItem.description} maxLength={180} />
                                                                 </td>
                                                                 <td>{projectItem.total_rfqs}</td>
                                                                 <td>{projectItem.open_rfqs}</td>
