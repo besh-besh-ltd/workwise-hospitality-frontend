@@ -8,22 +8,29 @@ const ManageRFQ = () => {
   const [loading, setloading] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(10);
+  const [project_id, setproject_id] = useState(-1);
+  const [sort, setsort] = useState("DESC");
+  const [rfq_type,setrfq_type]= useState('');
+  const [reverse_auction, setreverse_auction] = useState('-1');
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
+
 
   useEffect(() => {
     getAllRFQs();
   }, []);
   useEffect(() => {
     getAllRFQs();
-  }, [page, limit]);
+  }, [page, project_id,sort,reverse_auction,rfq_type]);
 
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, limit })
+
+    getRFQS({ page, project_id, sort,rfq_type, reverse_auction})
       .then((res) => {
         setloading(false);
         setmyRFQs(res.data);
+        console.log(res.data);
         settotalRFQs(res.total_items);
       })
       .catch((err) => {
@@ -32,6 +39,7 @@ const ManageRFQ = () => {
       });
   };
 
+
   return (
     <>
       <div className="manage-rfq-con">
@@ -39,6 +47,60 @@ const ManageRFQ = () => {
         <h3 className="title">Manage RFQs</h3>
 
         <div className="details-table hasFullLoader">
+
+          <div className=" d-flex gap-4 mb-4" >
+            <div className="col-sm-2">
+              <label className="fw-semibold" >Project Name: </label>
+              <select
+                className="form-select"
+                id="page_id"
+                onChange={(e)=> {setproject_id(e.target.value)}}
+              >
+                <option selected value={-1}>All</option>
+                <option value={5}>Project 1</option>
+                <option value={6}>Project 2</option>
+              </select>
+            </div>
+
+            <div className="col-sm-2">
+              <label className="fw-semibold">Sort By: </label>
+              <select
+                className="form-select"
+                id="page_id"
+                onChange={(e)=> {setsort(e.target.value)}}
+              >
+                <option value="DESC">Descending</option>
+                <option value="ASC">Ascending</option>
+              </select>
+            </div>
+            
+            <div className="col-sm-2">
+              <label className="fw-semibold">RFQ Type: </label>
+              <select
+                className="form-select"
+                id="page_id"
+                onChange={(e)=> {setrfq_type(e.target.value)}}
+              >
+                <option value="">Both</option>
+                <option value="budgetary">budgetary</option>
+                <option value="firm">firm</option>
+              </select>
+            </div>
+            
+            <div className="col-sm-2">
+              <label className="fw-semibold">Reverse Auction: </label>
+              <select
+                className="form-select"
+                id="page_id"
+                onChange={(e)=> {setreverse_auction(e.target.value)}}
+              >
+                <option value={'-1'}>Both</option>
+                <option value={'1'}>True</option>
+                <option value={'0'}>False</option>
+              </select>
+            </div>
+
+          </div>
 
           {loading && <FullLoader />}
           {!loading && myRFQs.length == 0 && (
