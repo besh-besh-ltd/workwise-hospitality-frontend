@@ -1,4 +1,4 @@
-import AddVendorModal from '@/components/modal/AddVendorModal';
+import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectById, updateProject } from '@/services/project';
@@ -244,7 +244,7 @@ const ProjectDetails = () => {
                                                                 <td>{rfqItem.rfq_details?.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
                                                                 <td>{rfqItem.vendors?.total_vendors}</td>
                                                                 <td>{rfqItem.vendors?.quote_received}</td>
-                                                                <td>{rfqItem.rfq_details?.timestamp.slice(0, 10) || "---"}</td>
+                                                                <td>{rfqItem.rfq_details?.timestamp?.slice(0, 10) || "---"}</td>
                                                                 <td>{rfqItem.rfq_details?.bid_end_date || "---"}</td>
                                                                 <td>
                                                                     <Link
@@ -279,7 +279,7 @@ const ProjectDetails = () => {
 
             {/* Edit Project Modal Section */}
             {openEditProject &&
-                <AddVendorModal
+                <DynamicFormModal
                     type={'edit-project'}
                     projectData={projectDetails}
                     openModal={openEditProject}

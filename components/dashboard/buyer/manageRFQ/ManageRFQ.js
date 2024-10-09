@@ -46,7 +46,7 @@ const ManageRFQ = () => {
         {/* Content for Manage RFQs tab */}
         {/* <h3 className="title">Manage RFQs</h3> */}
 
-        <div className="details-table hasFullLoader">
+        <div className="details-table hasFullLoader mt-0">
 
           {/* Table Filter Section */}
           <FilterSection title={"ManageRFQ"} setFilterData={setFilterData} />
@@ -61,8 +61,7 @@ const ManageRFQ = () => {
               <table className="table table-striped ">
                 <thead>
                   <tr>
-                    <th>Group RFQ Code</th>
-                    <th>Project Name</th>
+                    <th>RFQ No & Project</th>
                     <th>Products</th>
                     <th>Published Date</th>
                     <th>End Date</th>

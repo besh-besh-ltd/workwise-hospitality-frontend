@@ -182,14 +182,14 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                          className="page-link"
+                                          // className="page-link"
                                         >
                                           {
                                             item.quote_status === "pending" && item.status === 1
-                                              ? <span>Send Quote</span>
+                                              ? <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
                                               : item.quote_status === "sent" && item.status === 1
-                                                ? <span>Modify Quote</span>
-                                                : <span>View Quote</span>
+                                                ? <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
+                                                : <span className="fw-medium text-decoration-underline">View Quote</span>
                                           }
 
                                         </Link>

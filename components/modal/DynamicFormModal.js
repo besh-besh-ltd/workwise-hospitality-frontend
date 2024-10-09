@@ -4,7 +4,7 @@ import { Field, Form, Formik } from "formik";
 import * as yup from "yup";
 
 
-const AddVendorModal = ({
+const DynamicFormModal = ({
     type,
     projectData,
     openModal,
@@ -25,7 +25,7 @@ const AddVendorModal = ({
         projectName: projectData?.name || "",
         projectDescription: projectData?.description || "",
         location: projectData?.location || "",
-        ended_at: projectData?.ended_at.slice(0, 10) || "",
+        ended_at: projectData?.ended_at?.slice(0, 10) || "",
     }
 
     const validateVendorSchema = yup.object().shape({
@@ -246,4 +246,4 @@ const AddVendorModal = ({
     )
 }
 
-export default AddVendorModal
+export default DynamicFormModal

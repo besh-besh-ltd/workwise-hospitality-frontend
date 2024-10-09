@@ -1,4 +1,4 @@
-import AddVendorModal from '@/components/modal/AddVendorModal';
+import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
 import ReadMore from '@/components/shared/ReadMore';
@@ -161,7 +161,7 @@ const ProjectManagement = () => {
                 </div>
             </section>
             {openCreateProject &&
-                <AddVendorModal
+                <DynamicFormModal
                     type={'create-project'}
                     openModal={openCreateProject}
                     closeModal={() => setOpenCreateProject(false)}
