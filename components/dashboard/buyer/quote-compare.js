@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import {
@@ -23,7 +23,7 @@ const QuoteCompare = () => {
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
   const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(50000000);
+  const [limit, setlimit] = useState(20);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
   const [showing, setshowing] = useState(0);
@@ -31,6 +31,8 @@ const QuoteCompare = () => {
   const [quotes, setquotes] = useState([]);
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
+  const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
+  const observerRef = useRef(null);
 
   useEffect(() => {
     if (rfq) {
@@ -43,22 +45,47 @@ const QuoteCompare = () => {
 
   useEffect(() => {
     getAllRFQs();
-  }, []);
+  }, [page]);
+
+  const loadMoreRFQs = () => {
+    if (hasMoreQuotes) {
+      setpage((prevPage) => prevPage + 1);
+    }
+  };
+
+  const lastOrderElementRef = useCallback(
+    (node) => {
+      if (observerRef.current) observerRef.current.disconnect();
+
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMoreQuotes) {
+          loadMoreRFQs();
+        }
+      });
+
+      if (node) observerRef.current.observe(node);
+    },
+    [hasMoreQuotes]
+  );
 
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, limit })
+    getRFQS({ page, sort: "DESC", project_id: -1 })
       .then((res) => {
         setloading(false);
-        setmyRFQs(res.data);
-        settotalRFQs(res.total_items);
-        const items = page * limit;
-        setshowing(items > res.total_items ? res.total_items : items);
+        const newData = res.data?.filter((rItem) => rItem?.quotes?.length > 0);
+        setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
+
+        if (page >= Math.ceil(res.total_items / limit)) {
+          sethasMoreQuotes(false);
+        }
       })
       .catch((err) => {
-        setloading(false);
         console.log(err);
-      });
+      })
+      .finally(() => {
+        setloading(false);
+      })
   };
 
   const getRespectiveQuotes = () => {
@@ -879,40 +906,47 @@ const QuoteCompare = () => {
           <div className="row">
             <div className="col-md-2">
               <div className="hasFullLoader">
-                {loading && <FullLoader />}
                 <h5 className="title">Quotes Received</h5>
-                {!loading && myRFQs && myRFQs.length == 0 && <p>NoFQs yet!</p>}
-                {myRFQs && myRFQs.length > 0 && (
-                  <ul>
+                {!loading && myRFQs && myRFQs.length == 0
+                  ? <p>NoFQs yet!</p>
+                  :
+                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
-                      if (item.quotes.length > 0) {
-                        return (
-                          <>
-                            {currentRFQ && item.id == currentRFQ ? (
-                              <li className="active">
-                                <Link
-                                  href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                                  className="page-link"
-                                >
-                                  RFQ #{item?.rfq_no}
-                                </Link>
-                              </li>
-                            ) : (
-                              <li>
-                                <Link
-                                  href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                                  className="page-link"
-                                >
-                                  RFQ #{item?.rfq_no}
-                                </Link>
-                              </li>
-                            )}
-                          </>
-                        );
-                      }
+                      return (
+                        <>
+                          {currentRFQ && item.id == currentRFQ ? (
+                            <li className="active">
+                              <Link
+                                href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                                className="page-link"
+                              >
+                                RFQ #{item?.rfq_no}
+                              </Link>
+                            </li>
+                          ) : (
+                            <li>
+                              <Link
+                                href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                                className="page-link"
+                              >
+                                RFQ #{item?.rfq_no}
+                              </Link>
+                            </li>
+                          )}
+                        </>
+                      );
                     })}
+
+                    {hasMoreQuotes && (
+                      <div ref={lastOrderElementRef} className="d-flex justify-content-center align-items-center" >
+                        Loading ...
+                        <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                    )}
                   </ul>
-                )}
+                }
               </div>
             </div>
 

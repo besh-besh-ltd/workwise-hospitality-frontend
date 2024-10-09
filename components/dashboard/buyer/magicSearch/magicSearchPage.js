@@ -5,17 +5,18 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import axiosFormData from "@/lib/axiosFormData";
 import { toast } from "react-toastify";
-import { getStates } from "@/services/cms";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate } from "@/utils/sharedFunctions";
+import { getProjectList } from "@/services/project";
 
 const initialFormData = {
     file: null,
     comment: '',
     reverse_auction: 1,
     rfq_type: '',
+    bid_end_date: getFuturedate(),
     delivery_location: '',
-    bid_end_date: ''
+    project_id: -1
 }
 
 function MagicSearchPage() {
@@ -25,7 +26,7 @@ function MagicSearchPage() {
     const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [receivedData, setReceivedData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
-    const [states, setstates] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
@@ -88,6 +89,8 @@ function MagicSearchPage() {
         } catch (error) {
             toast.error(error.message);
             setLoading(false);
+        } finally {
+            setFile(null);
             setFileName('');
             setFormData(initialFormData);
         }
@@ -101,18 +104,22 @@ function MagicSearchPage() {
         }));
     }
 
-    const getAllStates = () => {
-        getStates().then((res) => {
+    const getAllProjects = ()=> {
+        getProjectList()
+          .then((res)=> {
             let d = [];
             res.data.map((item) => {
-                d.push({ label: item.state_name, value: item.id });
+              d.push({ label: item.name, value: item.id });
             });
-            setstates(d);
-        });
-    };
+            setProjects(d);
+          })
+          .catch((error)=> {
+            console.log(error)
+          })
+      }
 
     useEffect(() => {
-        getAllStates();
+        getAllProjects();
     }, []);
 
     // Display messages in a rotating fashion
@@ -256,6 +263,7 @@ function MagicSearchPage() {
                                 rows="3"
                                 className="form-control border border-black "
                                 placeholder="Enter your own terms here..."
+                                value={formData.comment}
                                 onChange={handleChange} />
                         </div>
 
@@ -272,8 +280,8 @@ function MagicSearchPage() {
                                         value={formData?.reverse_auction}
                                         onChange={handleChange}
                                     >
-                                        <option value={1}>On</option>
-                                        <option value={0}>Off</option>
+                                        <option value={1}>Enable</option>
+                                        <option value={0}>Disable</option>
                                     </select>
                                 </div>
 
@@ -299,11 +307,31 @@ function MagicSearchPage() {
                                         name="bid_end_date"
                                         id="bid_end_date"
                                         className="form-control border border-black"
-                                        value={formData?.bid_end_date || getFuturedate()}
+                                        value={formData?.bid_end_date}
                                         onChange={handleChange} />
                                 </div>
 
-                                <div className="col-md-12 mt-3">
+                                <div className="col-md-4 mt-3">
+                                    <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Project Name</label>
+                                    <select
+                                        name="project_id"
+                                        id="project_id"
+                                        className="form-control border border-black"
+                                        value={formData.project_id}
+                                        onChange={handleChange}
+                                    >
+                                        <option value={-1}>Select Project</option>
+                                        {projects && projects.length > 0 &&
+                                            projects.map((projectItem)=> {
+                                                return (
+                                                    <option value={projectItem.value}>{projectItem.label}</option>
+                                                )
+                                            })
+                                        }
+                                    </select>
+                                </div>
+
+                                <div className="col-md-8 mt-3">
                                     <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
                                     <input
                                         type="text"

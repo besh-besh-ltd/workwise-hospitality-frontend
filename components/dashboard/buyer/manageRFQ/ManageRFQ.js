@@ -3,24 +3,27 @@ import { getRFQS } from "@/services/rfq";
 import React, { useEffect, useState } from "react";
 import RFQItem from "./Item";
 import Pagination from "@/components/shared/Pagination";
+import FilterSection from "@/components/shared/FilterSection";
+
+const initialFilterData = {
+  project_id: -1,
+  rfq_type: "",
+  reverse_auction: "-1",
+  sort: "DESC"
+}
 
 const ManageRFQ = () => {
   const [loading, setloading] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(10);
+  const [filterData, setFilterData] = useState(initialFilterData);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
 
-  useEffect(() => {
-    getAllRFQs();
-  }, []);
-  useEffect(() => {
-    getAllRFQs();
-  }, [page, limit]);
-
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, limit })
+
+    getRFQS({ ...filterData, page })
       .then((res) => {
         setloading(false);
         setmyRFQs(res.data);
@@ -32,14 +35,23 @@ const ManageRFQ = () => {
       });
   };
 
+  useEffect(() => {
+    getAllRFQs();
+  }, [page, filterData]);
+
+
   return (
     <>
       <div className="manage-rfq-con">
         {/* Content for Manage RFQs tab */}
-        <h3 className="title">Manage RFQs</h3>
+        {/* <h3 className="title">Manage RFQs</h3> */}
 
-        <div className="details-table hasFullLoader">
+        <div className="details-table hasFullLoader mt-0">
 
+          {/* Table Filter Section */}
+          <FilterSection title={"ManageRFQ"} setFilterData={setFilterData} />
+
+          {/* Table Data Section */}
           {loading && <FullLoader />}
           {!loading && myRFQs.length == 0 && (
             <p>You haven't created any RFQs yet!</p>
@@ -49,7 +61,7 @@ const ManageRFQ = () => {
               <table className="table table-striped ">
                 <thead>
                   <tr>
-                    <th>Group RFQ Code</th>
+                    <th>RFQ No & Project</th>
                     <th>Products</th>
                     <th>Published Date</th>
                     <th>End Date</th>

@@ -19,7 +19,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getStates } from "@/services/cms";
+import { getProjectList } from "@/services/project";
 
 
 const CreateRFQ = () => {
@@ -39,7 +39,7 @@ const CreateRFQ = () => {
   );
   const [terms, setTerms] = useState(stateTerms);
   const [selectedTerms, setSelectedTerms] = useState(allSelectedTermsFromState);
-  const [states, setstates] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   useEffect(() => {
     if (selectedTerms.length > 0) {
@@ -55,20 +55,25 @@ const CreateRFQ = () => {
     getProfileDetails();
     setRFQProductsFromStore();
     getVendorApproveList();
-    getAllStates();
+    getAllProjects();
     if (stateTerms.length == 0)
       getTermsData();
   }, []);
 
-  const getAllStates = () => {
-    getStates().then((res) => {
-      let d = [];
-      res.data.map((item) => {
-        d.push({ label: item.state_name, value: item.id });
-      });
-      setstates(d);
-    });
-  };
+  const getAllProjects = ()=> {
+    getProjectList()
+      .then((res)=> {
+        let d = [];
+        console.log(res.data)
+        res.data.map((item) => {
+          d.push({ label: item.name, value: item.id });
+        });
+        setProjects(d);
+      })
+      .catch((error)=> {
+        console.log(error)
+      })
+  }
 
   const setRFQProductsFromStore = () => {
     let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
@@ -117,9 +122,13 @@ const CreateRFQ = () => {
     setMainLoading(true);
 
     //router.push('/dashboard/buyer/rfq-management-preview')
-    let payload = values;
-    payload.products = rfqProductsFromStore;
-    payload.terms = selectedTerms;
+    let payload = {
+      ...values,
+      products: rfqProductsFromStore,
+      terms: selectedTerms,
+      reverse_auction: parseInt(values.reverse_auction)
+    };
+
     createRfq(payload)
       .then((res) => {
         setMainLoading(false);
@@ -282,10 +291,11 @@ const CreateRFQ = () => {
                       company_name: userProfile?.organization_name
                         || userProfile?.name
                         || rfqFormData?.company_name,
-                      rfq_type: rfqFormData.rfq_type,
                       bid_end_date: rfqFormData.bid_end_date,
-                      location: rfqFormData.location,
-                      reverse_auction: rfqFormData.reverse_auction
+                      rfq_type: rfqFormData.rfq_type,
+                      reverse_auction: rfqFormData.reverse_auction,
+                      project_id: rfqFormData.project_id,
+                      location: rfqFormData.location
                     }}
                     validationSchema={CreateRFQSchema}
                     onSubmit={(values, { resetForm }) =>
@@ -363,24 +373,7 @@ const CreateRFQ = () => {
                               touched={touched}
                               errors={errors}
                             />
-                          </div>
-                          <div className="col-md-4">
-                            <FormikField
-                              label="Delivery location"
-                              value={rfqFormData.location}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
-                              type="select"
-                              selectOptions={[
-                                { label: "Select Location", value: 0 },
-                                ...states,
-                              ]}
-                              isRequired={false}
-                              name="location"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
+                          </div>                          
                           <div className="col-md-4">
                             <FormikField
                               label="RFQ Type"
@@ -407,11 +400,41 @@ const CreateRFQ = () => {
                               handleChange={handleFormFieldChange}
                               type="select"
                               selectOptions={[
-                                { label: "On", value: 1 },
-                                { label: "Off", value: 0 }
+                                { label: "Enable", value: 1 },
+                                { label: "Disable", value: 0 }
                               ]}
                               isRequired={true}
                               name="reverse_auction"
+                              touched={touched}
+                              errors={errors}
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <FormikField
+                              label="Project Name"
+                              value={rfqFormData.project_id}
+                              enableHandleChange={true}
+                              handleChange={handleFormFieldChange}
+                              type="select"
+                              selectOptions={[
+                                { label: "Select Project", value: -1 },
+                                ...projects
+                              ]}                             
+                              isRequired={false}
+                              name="project_id"
+                              touched={touched}
+                              errors={errors}
+                            />
+                          </div>
+                          <div className="col-md-8">
+                            <FormikField
+                              label="Delivery location"
+                              value={rfqFormData.location}
+                              enableHandleChange={true}
+                              handleChange={handleFormFieldChange}
+                              type="text"                              
+                              isRequired={false}
+                              name="location"
                               touched={touched}
                               errors={errors}
                             />

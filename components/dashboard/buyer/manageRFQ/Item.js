@@ -54,7 +54,10 @@ const RFQItem = ({ data }) => {
   return (
     <>
       <tr>
-        <td>{data?.rfq_no}</td>
+        <td>
+          <span className="d-block fw-semibold">{data?.rfq_no}</span>
+          {data?.project_name}
+        </td>
         <td>{list_products()}</td>
         <td>{moment(data.timestamp).format("DD/MM/YYYY")}</td>
         <td>
