@@ -786,7 +786,7 @@ const Header = () => {
                           </li>
                         )}
                         {currentUserType == "buyer" && (
-                          <>
+                          <>                            
                             <li
                               className={
                                 router.pathname ==
@@ -810,6 +810,18 @@ const Header = () => {
                             >
                               <Link href="/dashboard/buyer/vendor-management">
                                 Vendor Management
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/project-management`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link href="/dashboard/buyer/project-management">
+                                Project Management
                               </Link>
                             </li>
                           </>

@@ -5,7 +5,6 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import axiosFormData from "@/lib/axiosFormData";
 import { toast } from "react-toastify";
-import { getStates } from "@/services/cms";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";

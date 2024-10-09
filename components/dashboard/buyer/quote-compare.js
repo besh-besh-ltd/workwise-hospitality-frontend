@@ -23,7 +23,7 @@ const QuoteCompare = () => {
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
   const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(50000000);
+  const [limit, setlimit] = useState(10);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
   const [showing, setshowing] = useState(0);
@@ -47,18 +47,20 @@ const QuoteCompare = () => {
 
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, sort: "DESC" })
+    getRFQS({ page, sort: "DESC", project_id: -1 })
       .then((res) => {
         setloading(false);
         setmyRFQs(res.data);
-        settotalRFQs(res.total_items);
-        const items = page * limit;
-        setshowing(items > res.total_items ? res.total_items : items);
+        // settotalRFQs(res.total_items);
+        // const items = page * limit;
+        // setshowing(items > res.total_items ? res.total_items : items);
       })
       .catch((err) => {
-        setloading(false);
         console.log(err);
-      });
+      })
+      .finally(()=> {
+        setloading(false);
+      })
   };
 
   const getRespectiveQuotes = () => {
