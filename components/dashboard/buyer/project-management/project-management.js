@@ -56,7 +56,7 @@ const ProjectManagement = () => {
                 console.log(error)
             })
             .finally(() => {
-                resetForm();                
+                resetForm();
                 setCreateLoading(false);
             })
     }
@@ -125,11 +125,14 @@ const ProjectManagement = () => {
                                                                 <td>{index + 1}</td>
                                                                 <td>{projectItem.name}</td>
                                                                 <td style={{ maxWidth: "450px" }}>
-                                                                    <ReadMore content={projectItem.description} maxLength={180} />
+                                                                    {projectItem.description
+                                                                        ? <ReadMore content={projectItem.description} maxLength={180} />
+                                                                        : "---"
+                                                                    }
                                                                 </td>
-                                                                <td>{projectItem.total_rfqs}</td>
-                                                                <td>{projectItem.open_rfqs}</td>
-                                                                <td>{projectItem.closed_rfqs}</td>
+                                                                <td>{projectItem.total_rfqs || "---"}</td>
+                                                                <td>{projectItem.open_rfqs || "---"}</td>
+                                                                <td>{projectItem.closed_rfqs || "---"}</td>
                                                                 <td>
                                                                     <Link
                                                                         href={`./project-management/${projectItem.id}`}

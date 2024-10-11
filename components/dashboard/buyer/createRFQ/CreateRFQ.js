@@ -64,7 +64,6 @@ const CreateRFQ = () => {
     getProjectList()
       .then((res)=> {
         let d = [];
-        console.log(res.data)
         res.data.map((item) => {
           d.push({ label: item.name, value: item.id });
         });

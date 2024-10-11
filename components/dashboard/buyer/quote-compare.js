@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import {
@@ -13,6 +13,8 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
+import { formatPrice } from "@/utils/sharedFunctions";
+import PlaceholderLoading from "react-placeholder-loading";
 
 const QuoteCompare = () => {
   const router = useRouter();
@@ -23,7 +25,7 @@ const QuoteCompare = () => {
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
   const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(20);
+  const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
   const [showing, setshowing] = useState(0);
@@ -32,7 +34,7 @@ const QuoteCompare = () => {
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
-  const observerRef = useRef(null);
+
 
   useEffect(() => {
     if (rfq) {
@@ -47,30 +49,16 @@ const QuoteCompare = () => {
     getAllRFQs();
   }, [page]);
 
-  const loadMoreRFQs = () => {
+  const loadMoreRFQs = (e) => {
+    e.preventDefault();
     if (hasMoreQuotes) {
       setpage((prevPage) => prevPage + 1);
     }
   };
 
-  const lastOrderElementRef = useCallback(
-    (node) => {
-      if (observerRef.current) observerRef.current.disconnect();
-
-      observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMoreQuotes) {
-          loadMoreRFQs();
-        }
-      });
-
-      if (node) observerRef.current.observe(node);
-    },
-    [hasMoreQuotes]
-  );
-
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, sort: "DESC", project_id: -1 })
+    getRFQS({ page, sort: "DESC", project_id: -1, reverse_auction: '-1', rfq_type: "", limit })
       .then((res) => {
         setloading(false);
         const newData = res.data?.filter((rItem) => rItem?.quotes?.length > 0);
@@ -937,8 +925,14 @@ const QuoteCompare = () => {
                       );
                     })}
 
-                    {hasMoreQuotes && (
-                      <div ref={lastOrderElementRef} className="d-flex justify-content-center align-items-center" >
+                    {hasMoreQuotes && !loading &&
+                      <Link href="#" className="d-flex justify-content-end px-3 pe-auto" onClick={loadMoreRFQs}>
+                        <span className="link-primary">...Load More</span>
+                      </Link>
+                    }
+
+                    {hasMoreQuotes && loading && (
+                      <div className="d-flex justify-content-center align-items-center" >
                         Loading ...
                         <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
                           <span className="visually-hidden">Loading...</span>
@@ -1017,6 +1011,61 @@ const QuoteCompare = () => {
                                   {item?.product_details[0]?.rfq_details && item?.product_details[0]?.rfq_details[1]?.value}
                                 </p>
                               </div>
+
+                              {item?.last_purchase_rate != null &&
+                                <div className="col-12">
+                                  <p className="sub-heading mb-0"><b>Last Purchase Details :</b></p>
+
+                                  <div className="sub-heading border rounded-3 p-2">
+                                    <div className="row fw-medium mx-2">
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Unit Price </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{formatPrice(item?.last_purchase_rate?.unit_price) || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Freight Rate </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.freight_price}%` || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Packaging Rate </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.package_price}%` || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Tax </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.tax}%` || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Quantity </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{item?.last_purchase_rate?.quantity || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Total Price </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{formatPrice(item?.last_purchase_rate?.total_price) || "---"}</span>
+                                        }
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                </div>
+                              }
+
                             </div>
                             <span className="sub-heading">
                               {/*  <b>Requested Quantity </b>:{" "}
