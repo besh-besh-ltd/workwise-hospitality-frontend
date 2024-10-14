@@ -1,4 +1,5 @@
 const { createSlice } = require("@reduxjs/toolkit");
+import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
   swSubscription: null,
@@ -12,10 +13,11 @@ const initialState = {
     contact_name: "",
     contact_number: "",
     company_name: "",
+    bid_end_date: getFuturedate(),
     rfq_type: "",
-    bid_end_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().slice(0, 10),
+    reverse_auction: 1,
+    project_id: -1,
     location: "",
-    reverse_auction: 1
   },
   rfqObjData: {
     terms: [],

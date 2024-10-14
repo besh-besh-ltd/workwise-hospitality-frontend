@@ -13,6 +13,8 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
+import { formatPrice } from "@/utils/sharedFunctions";
+import PlaceholderLoading from "react-placeholder-loading";
 
 const QuoteCompare = () => {
   const router = useRouter();
@@ -23,7 +25,7 @@ const QuoteCompare = () => {
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
   const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(50000000);
+  const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
   const [showing, setshowing] = useState(0);
@@ -31,6 +33,8 @@ const QuoteCompare = () => {
   const [quotes, setquotes] = useState([]);
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
+  const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
+
 
   useEffect(() => {
     if (rfq) {
@@ -43,22 +47,33 @@ const QuoteCompare = () => {
 
   useEffect(() => {
     getAllRFQs();
-  }, []);
+  }, [page]);
+
+  const loadMoreRFQs = (e) => {
+    e.preventDefault();
+    if (hasMoreQuotes) {
+      setpage((prevPage) => prevPage + 1);
+    }
+  };
 
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, limit })
+    getRFQS({ page, sort: "DESC", project_id: -1, reverse_auction: '-1', rfq_type: "", limit })
       .then((res) => {
         setloading(false);
-        setmyRFQs(res.data);
-        settotalRFQs(res.total_items);
-        const items = page * limit;
-        setshowing(items > res.total_items ? res.total_items : items);
+        const newData = res.data?.filter((rItem) => rItem?.quotes?.length > 0);
+        setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
+
+        if (page >= Math.ceil(res.total_items / limit)) {
+          sethasMoreQuotes(false);
+        }
       })
       .catch((err) => {
-        setloading(false);
         console.log(err);
-      });
+      })
+      .finally(() => {
+        setloading(false);
+      })
   };
 
   const getRespectiveQuotes = () => {
@@ -879,40 +894,53 @@ const QuoteCompare = () => {
           <div className="row">
             <div className="col-md-2">
               <div className="hasFullLoader">
-                {loading && <FullLoader />}
                 <h5 className="title">Quotes Received</h5>
-                {!loading && myRFQs && myRFQs.length == 0 && <p>NoFQs yet!</p>}
-                {myRFQs && myRFQs.length > 0 && (
-                  <ul>
+                {!loading && myRFQs && myRFQs.length == 0
+                  ? <p>NoFQs yet!</p>
+                  :
+                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
-                      if (item.quotes.length > 0) {
-                        return (
-                          <>
-                            {currentRFQ && item.id == currentRFQ ? (
-                              <li className="active">
-                                <Link
-                                  href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                                  className="page-link"
-                                >
-                                  RFQ #{item?.rfq_no}
-                                </Link>
-                              </li>
-                            ) : (
-                              <li>
-                                <Link
-                                  href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                                  className="page-link"
-                                >
-                                  RFQ #{item?.rfq_no}
-                                </Link>
-                              </li>
-                            )}
-                          </>
-                        );
-                      }
+                      return (
+                        <>
+                          {currentRFQ && item.id == currentRFQ ? (
+                            <li className="active">
+                              <Link
+                                href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                                className="page-link"
+                              >
+                                RFQ #{item?.rfq_no}
+                              </Link>
+                            </li>
+                          ) : (
+                            <li>
+                              <Link
+                                href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                                className="page-link"
+                              >
+                                RFQ #{item?.rfq_no}
+                              </Link>
+                            </li>
+                          )}
+                        </>
+                      );
                     })}
+
+                    {hasMoreQuotes && !loading &&
+                      <Link href="#" className="d-flex justify-content-end px-3 pe-auto" onClick={loadMoreRFQs}>
+                        <span className="link-primary">...Load More</span>
+                      </Link>
+                    }
+
+                    {hasMoreQuotes && loading && (
+                      <div className="d-flex justify-content-center align-items-center" >
+                        Loading ...
+                        <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                    )}
                   </ul>
-                )}
+                }
               </div>
             </div>
 
@@ -983,6 +1011,61 @@ const QuoteCompare = () => {
                                   {item?.product_details[0]?.rfq_details && item?.product_details[0]?.rfq_details[1]?.value}
                                 </p>
                               </div>
+
+                              {item?.last_purchase_rate != null &&
+                                <div className="col-12">
+                                  <p className="sub-heading mb-0"><b>Last Purchase Details :</b></p>
+
+                                  <div className="sub-heading border rounded-3 p-2">
+                                    <div className="row fw-medium mx-2">
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Unit Price </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{formatPrice(item?.last_purchase_rate?.unit_price) || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Freight Rate </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.freight_price}%` || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Packaging Rate </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.package_price}%` || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Tax </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.tax}%` || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Quantity </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{item?.last_purchase_rate?.quantity || "---"}</span>
+                                        }
+                                      </div>
+                                      <div className="col-md-3 col-lg-2">
+                                        <span>Total Price </span>
+                                        {loading
+                                          ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                          : <span className="d-block fw-medium text-muted ">{formatPrice(item?.last_purchase_rate?.total_price) || "---"}</span>
+                                        }
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                </div>
+                              }
+
                             </div>
                             <span className="sub-heading">
                               {/*  <b>Requested Quantity </b>:{" "}

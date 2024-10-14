@@ -2,6 +2,7 @@ import React from "react";
 import SearchPage from "@/components/dashboard/vendor/search";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import { textCapitalize } from "@/utils/sharedFunctions";
 
 const DynamicProductPage = ({ pageTitle }) => {
   const router = useRouter();
@@ -12,10 +13,15 @@ const DynamicProductPage = ({ pageTitle }) => {
     return <div>Loading...</div>;
   }
 
+  // / Meta title and description
+    const metaTitle = `Top ${textCapitalize(slug)} Manufacturers, Suppliers & Vendors | Workwise`;
+    const metaDescription = `Discover high-quality ${textCapitalize(slug)} from trusted manufacturers and suppliers at Workwise. Your one-stop vendor for premium industrial products and solutions.`;
+
   return (
     <>
       <Head>
-        <title>Workwise | {pageTitle}</title>
+      <title>{metaTitle}</title>
+      <meta name="description" content={metaDescription} />
       </Head>
       <SearchPage title={`Search Vendors`} type="products" />
     </>

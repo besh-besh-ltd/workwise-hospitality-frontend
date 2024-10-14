@@ -23,7 +23,7 @@ import { Providers } from "@/redux/provider";
 import LogRocket from 'logrocket';
 import storageInstance from "@/utils/storageInstance";
 import Script from "next/script";
-
+import { GoogleTagManager } from "@next/third-parties/google";
 
 
 // Tell Font Awesome to skip adding the CSS automatically
@@ -75,17 +75,37 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
+      {/* Only load Google tag managerin production */}
+      {process.env.NEXT_PUBLIC_ENV === "production" && (
+        <GoogleTagManager
+          gtmid={`${process.env.NEXT_PUBLIC_GOOGLE_TAG_MANAGER_ID}`}
+        />
+      )}
+
       <ToastContainer style={{ zIndex: 10000 }} />
       {loading && <Loader />}
       <Providers>
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
           <Layout>
-
-            {/* Only load Google Analytics script in production */}
+            {/* Only load Google Analytics and tag manager script in production */}
             {process.env.NEXT_PUBLIC_ENV === 'production' && (
               <>
-                {/* Google tag (gtag.js) */}
-                <Script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID}`}></Script>
+                {/* <!-- Google Tag Manager (noscript) --> */}
+                <noscript>
+                  <iframe
+                    src={`https://www.googletagmanager.com/ns.html?id=${process.env.NEXT_PUBLIC_GOOGLE_TAG_MANAGER_ID}`}
+                    height="0"
+                    width="0"
+                    style={{ display: "none", visibility: "hidden" }}
+                  ></iframe>
+                </noscript>
+                {/* <!-- End Google Tag Manager (noscript) --> */}
+
+                <Script
+                  async
+                  src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID}`}
+                ></Script>
+
                 <Script id='google-analytics'> {`
                     window.dataLayer = window.dataLayer || [];
                     function gtag(){dataLayer.push(arguments);}

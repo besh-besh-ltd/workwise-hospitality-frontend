@@ -1,13 +1,10 @@
-import AddVendorModal from '@/components/modal/AddVendorModal';
+import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
 import { addPrivateVendor, privateVendorList } from '@/services/privateVendors';
-import { faEdit } from '@fortawesome/free-regular-svg-icons';
 import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import Image from 'next/image';
-import Link from 'next/link';
 import React, { useEffect, useState } from 'react'
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 
 const VendorManagement = () => {
     const [loading, setLoading] = useState(false);
@@ -271,8 +268,9 @@ const VendorManagement = () => {
                     </div>
                 </div>
                 {openAddVendorModal &&
-                    <AddVendorModal
-                        openAddVendorModal={openAddVendorModal}
+                    <DynamicFormModal
+                        type="add-vendor"
+                        openModal={openAddVendorModal}
                         closeModal={() => setOpenAddVendorModal(false)}
                         handleAddVendor={handleAddVendor}
                     />

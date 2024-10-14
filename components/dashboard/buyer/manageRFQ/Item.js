@@ -1,4 +1,5 @@
 import { sendReminder } from "@/services/rfq";
+import { textCapitalize } from "@/utils/sharedFunctions";
 import moment from "moment";
 import Link from "next/link";
 import React, { useState } from "react";
@@ -53,7 +54,10 @@ const RFQItem = ({ data }) => {
   return (
     <>
       <tr>
-        <td>{data?.rfq_no}</td>
+        <td>
+          <span className="d-block fw-semibold">{data?.rfq_no}</span>
+          {data?.project_name}
+        </td>
         <td>{list_products()}</td>
         <td>{moment(data.timestamp).format("DD/MM/YYYY")}</td>
         <td>
@@ -61,7 +65,7 @@ const RFQItem = ({ data }) => {
             ? moment(data.bid_end_date).format("DD/MM/YYYY")
             : "--"}
         </td>
-        <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : data.rfq_type}</td>
+        <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
         <td>{data.status == 1 ? "Open" : "Closed"}</td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td className="d-flex align-items-center">
