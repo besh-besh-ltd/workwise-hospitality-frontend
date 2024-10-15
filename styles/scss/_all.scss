@@ -2467,9 +2467,20 @@ textarea {
         width: 100%;
         margin: 0 0 15px 0;
 
+        /* Placeholder color */
+        input[type="text"]::placeholder,
+        input[type="email"]::placeholder,
+        input[type="date"]::placeholder,
+        select::placeholder,
+        textarea::placeholder {
+          color: #99a3a8;
+        }
+
+        /* text color and design */
         input[type="text"],
         input[type="email"],
         input[type="date"],
+        select,
         textarea {
           width: 100%;
           box-sizing: border-box;
@@ -2479,7 +2490,7 @@ textarea {
           border: 1px solid #e9eef1;
           border-radius: 8px;
           margin-top: 5px;
-          color: #99a3a8;
+          color: #000000;
         }
 
         sup {
@@ -5408,6 +5419,16 @@ textarea {
         .quote-sec-table-top {
           padding: 10px 20px;
           position: relative;
+
+          input[type="text"],
+          input[type="number"],
+          select,
+          textarea {
+            &::placeholder {
+              color: #99a3a8;
+              font-style: italic;
+            }
+          }
 
           .download-btn {
             position: absolute;

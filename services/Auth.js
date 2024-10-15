@@ -236,7 +236,7 @@ export const setCommunicaitonSettings = (payload) => {
 export const getDashboardData = (payload) => {
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/users/get-dashboard-data`);
+			let response = await axiosInstance.post(`/users/get-dashboard-data`, payload);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
