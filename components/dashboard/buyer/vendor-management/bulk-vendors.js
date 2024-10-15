@@ -57,7 +57,6 @@ const BulkVendors = () => {
                 }));
             }
         }
-        console.log(file)
     }
 
     const handleChange = (e) => {
