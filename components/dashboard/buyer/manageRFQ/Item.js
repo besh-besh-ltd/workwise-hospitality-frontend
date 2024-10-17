@@ -49,7 +49,7 @@ const RFQItem = ({ data }) => {
         setloading(false);
       })
   };
-  const isRecievedFromAll = data.vendors[0].total_vendors == data.vendors[0].quote_received;
+  const isRecievedFromAll = data.vendors[0]?.total_vendors == data.vendors[0]?.quote_received;
 
   return (
     <>
