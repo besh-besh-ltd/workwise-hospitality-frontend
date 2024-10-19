@@ -326,7 +326,7 @@ const SendQuotePageComp = () => {
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
-                          <th>Unit Rate</th>
+                          <th>Base Price</th>
                           <th>Freight</th>
                           <th>Package</th>
                           <th>Taxes</th>
@@ -579,7 +579,7 @@ const SendQuotePageComp = () => {
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
-                          <th>Unit Rate</th>
+                          <th>Base Price</th>
                           <th>
                             Freight <small>(In %)</small>
                           </th>
