@@ -111,6 +111,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                             <th>Company</th>
                             <th>Received Date</th>
                             <th>End Date</th>
+                            <th>RFQ Type</th>
                             <th>Quote Sent</th>
                             <th>Reverse Auction</th>
                             <th>RFQ Status</th>
@@ -142,6 +143,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                               <th>Company</th>
                               <th>Received Date</th>
                               <th>End Date</th>
+                              <th>RFQ Type</th>
                               <th>Quote Sent</th>
                               <th>Reverse Auction</th>
                               <th>RFQ Status</th>
@@ -170,6 +172,13 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                           "DD/MM/YYYY"
                                         )
                                         : "--"}
+                                    </td>
+                                    <td>
+                                    {item.rfq_type == "firm"
+                                      ? "Firm"
+                                      : item.rfq_type == "budgetary"
+                                        ? "Budgetary"
+                                        :"---"}
                                     </td>
                                     <td>
                                       {item.quote_status && textCapitalize(item.quote_status)}

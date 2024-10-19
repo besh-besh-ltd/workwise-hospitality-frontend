@@ -495,6 +495,9 @@ const RfqManagementPreview = () => {
                               {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
                               <th>TDS</th>
                               <th>QAP</th>
+                              {type != "buyer-view" &&
+                                <th>Finalization Status</th>
+                              }  
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
                             </tr>
@@ -752,6 +755,25 @@ const RfqManagementPreview = () => {
                                         )}
                                     </div>
                                   </td>
+                                  {type != "buyer-view" &&
+                                    <td>
+                                      {item.finalization_status ==
+                                      "You are finalized" ? (
+                                        <span className="text-success">
+                                          You are finalized
+                                        </span>
+                                      ) : item.finalization_status ==
+                                        "Another vendor is finalized" ? (
+                                        <span className="text-danger">
+                                          Another vendor is finalized
+                                        </span>
+                                      ) : (
+                                        <span className="text-warning">
+                                          No vendor finalized yet
+                                        </span>
+                                      )}
+                                    </td>
+                                  }  
                                   <td style={{ minWidth: "250px", maxWidth: "400px" }}>
                                     {item?.comment && item?.comment != ""
                                       ? item?.comment?.length > 100
