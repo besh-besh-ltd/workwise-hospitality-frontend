@@ -461,25 +461,40 @@ const RfqManagementPreview = () => {
                     {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret == 0 ?
                       <div className="d-flex justify-content-between">
                         <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
-                        <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                        {(rfqDetails.status == 2) || (rfqDetails.finalizations?.length == rfqDetails.products?.length) ? (
                           <button
                             type="button"
                             className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0`}
                             style={{ width: "240px" }}
-                            disabled={rfqDetails.status == 2}
+                            disabled
                           >
-                            {rfqDetails.status == 2 ?
+                            {rfqDetails.status == 2 ? (
                               <>
                                 <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                RFQ Closed
+                                RFQ is Closed
                               </>
-                              : <>
+                            ) : (
+                              <>
+                                <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                All Products are Finalized
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary m-0"
+                              style={{ width: "240px" }}
+                            >
+                              <>
                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                 Update Your Quote
                               </>
-                            }
-                          </button>
-                        </Link>
+                            </button>
+                          </Link>
+                        )}
+
                       </div>
                       : <span className="title">RFQ #{rfqDetails.rfq_no} details</span>
                     }
@@ -903,9 +918,9 @@ const RfqManagementPreview = () => {
                                     <p>No predefined terms selected!</p>
                                   )}
 
-                                  {rfqDetails?.terms.length > 0 && (
+                                  {rfqDetails?.terms?.length > 0 && (
                                     <ol>
-                                      {rfqDetails?.terms.map((item, index) => {
+                                      {rfqDetails?.terms?.map((item, index) => {
                                         return (
                                           <li key={`rfq_d_t_${index}`}>
                                             {item.content[0].title}
@@ -963,25 +978,41 @@ const RfqManagementPreview = () => {
                                           )}{" "}
                                         </h4>
 
-                                        <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                        {console.log(()=>{"hello", (rfqDetails.status == 2) || (rfqDetails.finalizations?.length == rfqDetails.products?.length)})}
+                                        {(rfqDetails.status == 2) || (rfqDetails.finalizations?.length == rfqDetails.products?.length) ? (
                                           <button
                                             type="button"
-                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0`}
+                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0 mx-auto mt-2`}
                                             style={{ width: "240px" }}
-                                            disabled={rfqDetails.status == 2}
+                                            disabled
                                           >
-                                            {rfqDetails.status == 2 ?
+                                            {rfqDetails.status == 2 ? (
                                               <>
                                                 <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                                RFQ Closed
+                                                RFQ is Closed
                                               </>
-                                              : <>
+                                            ) : (
+                                              <>
+                                                <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                                All Products are Finalized
+                                              </>
+                                            )}
+                                          </button>
+                                        ) : (
+                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary m-0"
+                                              style={{ width: "240px" }}
+                                            >
+                                              <>
                                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                                 Update Your Quote
                                               </>
-                                            }
-                                          </button>
-                                        </Link>
+                                            </button>
+                                          </Link>
+                                        )}
+
                                         {/* <div className="noborder-table">
                                           <div className="table-responsive">
                                             <table>
@@ -1146,10 +1177,37 @@ const RfqManagementPreview = () => {
                           )}
                           {!enableBuyerView && (
                             <>
-                              {isSubmitAble() &&
-                                productleftforbid &&
-                                rfqDetails.quotations.length <= 0 &&
-                                rfqDetails?.status == 1 && (
+                              {(rfqDetails.status == 2) ? (
+                                // Show a single disabled button saying "RFQ is Closed"
+                                <div className="row w-50">
+                                  <div className="col-12">
+                                    <button
+                                      type="button"
+                                      className="btn btn-danger w-100"
+                                      disabled
+                                    >
+                                      <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                      RFQ is Closed
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (rfqDetails.finalizations?.length == rfqDetails.products?.length) ? (
+                                // Show a single disabled button saying "All Products are Finalized"
+                                <div className="row w-50">
+                                  <div className="col-12">
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary w-100"
+                                      disabled
+                                    >
+                                      <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                      All Products are Finalized
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                // Show the two buttons if neither condition is met
+                                isSubmitAble() && productleftforbid && rfqDetails.quotations.length <= 0 && rfqDetails?.status == 1 && (
                                   <div className="row w-50">
                                     <div className="col-md-6 ps-4">
                                       <button
@@ -1157,16 +1215,14 @@ const RfqManagementPreview = () => {
                                         className="btn btn-primary"
                                         onClick={(e) => {
                                           e.preventDefault();
-                                          setregretModal(true)
+                                          setregretModal(true);
                                         }}
                                       >
                                         Regret Quote
                                       </button>
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
-                                      <Link
-                                        href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}
-                                      >
+                                      <Link href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}>
                                         <button
                                           type="button"
                                           className="btn btn-secondary"
@@ -1176,7 +1232,8 @@ const RfqManagementPreview = () => {
                                       </Link>
                                     </div>
                                   </div>
-                                )}
+                                )
+                              )}
                             </>
                           )}
                         </div>

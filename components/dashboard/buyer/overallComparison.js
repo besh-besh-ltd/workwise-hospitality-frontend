@@ -252,7 +252,7 @@ const OverallComparison = ({ rfq_id }) => {
                               <input type="checkbox" />
                               <table className="table has_inner_border_table">
                                 <tr>
-                                  <th>Unit Rate</th>
+                                  <th>Base Price</th>
                                   <td>
                                     {item.last_purchase_rate?.unit_price
                                       ? addCommasToNumber(item.last_purchase_rate?.unit_price)
@@ -334,7 +334,7 @@ const OverallComparison = ({ rfq_id }) => {
                                       <input type="checkbox" />
                                       <table className="table has_inner_border_table">
                                         <tr>
-                                          <th>Unit Rate</th>
+                                          <th>Base Price</th>
                                           <td>
                                             {quote_item.quote_details.length > 0
                                               ? addCommasToNumber(
