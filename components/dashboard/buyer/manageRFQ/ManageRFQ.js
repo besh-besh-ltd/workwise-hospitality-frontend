@@ -49,7 +49,7 @@ const ManageRFQ = () => {
         <div className="details-table hasFullLoader mt-0">
 
           {/* Table Filter Section */}
-          <FilterSection title={"ManageRFQ"} setFilterData={setFilterData} />
+          <FilterSection setFilterData={setFilterData} />
 
           {/* Table Data Section */}
           {loading && <FullLoader />}
