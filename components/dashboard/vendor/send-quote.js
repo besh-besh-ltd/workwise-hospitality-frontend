@@ -27,11 +27,6 @@ const SendQuotePageComp = () => {
   const [globalComment, setglobalComment] = useState("");
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
 
-
-  useEffect(()=>{
-console.log(" quoteProducts = 0, ", quoteProducts)
-  }, [quoteProducts])
-
   useEffect(() => {
     if (id) {
       getRFQdetails();
@@ -78,7 +73,7 @@ console.log(" quoteProducts = 0, ", quoteProducts)
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
-              document_files:  quoteItem.document_files || []
+              document_files:  quoteItem.document_files.map((item)=>{ return item.file_url }) || []
             });
           });
           setquoteProducts(bidProducts);
@@ -107,6 +102,8 @@ console.log(" quoteProducts = 0, ", quoteProducts)
       if (item.id == item_id && item.product_id == product_id && item.variant == variant) {
         if (valueType == "integer") {
           item[type] = parseFloat(value);
+        } else if(valueType=="array"){
+          item[type].push(file)
         } else {
           item[type] = value;
         }
@@ -120,21 +117,6 @@ console.log(" quoteProducts = 0, ", quoteProducts)
 
         let getTotalPrice = +total_with_fpt + +T;
         item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
-
-        console.log("item.document_files = ", item[type], item.document_files);
-
-        if (file) {
-          // Check if item[type] (which refers to item.document_files) is an array
-          if (!Array.isArray(item[type])) {
-            item[type] = []; // Initialize it as an empty array if it's not an array
-          }
-          
-          console.log("if executed => ", item[type], file);
-          
-          // Now push the file into the correct array (item[type])
-          item[type].push(file);
-        }
-        console.log("after if ", item[type], item.document_files);
 
       }
       return item;
@@ -205,7 +187,7 @@ console.log(" quoteProducts = 0, ", quoteProducts)
           isEmpty = true;
         }
       });
-      console.log(filteredquoteProducts)
+
       if (isEmpty) {
         toast.error("One or more product's total amount is 0");
         return;
@@ -274,12 +256,11 @@ console.log(" quoteProducts = 0, ", quoteProducts)
         e,
         item.product_id,
         item.variant,
-        'document_files',
-        "string",
+        "document_files",
+        "array",
         item?.product_specs[2]?.value,
         fileArr[1]
       )
-
     } catch (error) {
       console.log(error)
       let message = error.message?.response?.data?.errors?.file?.message;
@@ -843,7 +824,7 @@ console.log(" quoteProducts = 0, ", quoteProducts)
                                     </label>
                                     {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
                                       quoteProducts[index].document_files.map((doc_file) => {
-                                        console.log(" clicked ", doc_file)
+
                                         return (
                                           <div key={doc_file} className="d-flex justify-content-between">
                                             <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{doc_file}</a>
