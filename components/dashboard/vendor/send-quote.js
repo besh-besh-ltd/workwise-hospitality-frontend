@@ -25,6 +25,7 @@ const SendQuotePageComp = () => {
   const [globalTax, setglobalTax] = useState(18);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
+  const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
 
   useEffect(() => {
@@ -42,6 +43,10 @@ const SendQuotePageComp = () => {
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
+        }
+
+        if(res.data.terms_and_conditions_files){
+          setGlobalDocumentFiles(res.data?.terms_and_conditions_files?.map((item)=>{ return item.file_url }))
         }
         // Array to store each quote
         let bidProducts = [];
@@ -73,7 +78,7 @@ const SendQuotePageComp = () => {
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
-              document_files:  quoteItem.document_files.map((item)=>{ return item.file_url }) || []
+              document_files:  quoteItem?.document_files?.map((item)=>{ return item.file_url }) || []
             });
           });
           setquoteProducts(bidProducts);
@@ -153,7 +158,8 @@ const SendQuotePageComp = () => {
       status: 1,
       products: [],
       globalPaymentTerms,
-      globalComment
+      globalComment,
+      term_and_condition_files:globalDocumentFiles
     };
 
     if (alreadyQuoted) {
@@ -248,7 +254,7 @@ const SendQuotePageComp = () => {
       });
   };
 
-  const uploadToServer = async (e, item) => {
+  const uploadQuoteItemFiles = async (e, item) => {
     try {
       const fileArr = await handleFileUpload(e);
       handleUpdateData(
@@ -261,6 +267,22 @@ const SendQuotePageComp = () => {
         item?.product_specs[2]?.value,
         fileArr[1]
       )
+    } catch (error) {
+      console.log(error)
+      let message = error.message?.response?.data?.errors?.file?.message;
+      toast.error(message);
+    }
+  };
+
+  const uploadGlobalDocumentFiles = async (e, item) => {
+    try {
+      const fileArr = await handleFileUpload(e);
+
+      setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
+        ...prevGlobalDocumentFiles,
+        fileArr[1]
+      ]);
+      
     } catch (error) {
       console.log(error)
       let message = error.message?.response?.data?.errors?.file?.message;
@@ -596,6 +618,33 @@ const SendQuotePageComp = () => {
                               onChange={(e) => setglobalComment(e.target.value)}
                             />
                           </div>
+
+                          <div className="inputBox form-group col-lg-6 col-md-12 col-sm-12 col-xs-12  mb-2">
+
+                          <h3 className="title mb-0">Quote Document</h3>
+
+                          <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                              <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
+                              <input
+                              type="file"
+                              onChange={(e) => uploadGlobalDocumentFiles(e)}
+                              multiple={true}
+                              />
+                            </label>
+                           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+                              globalDocumentFiles.map((doc_file) => {
+
+                                return (
+                                <div key={doc_file} className="d-flex justify-content-between">
+                                 <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "200px" }}>{doc_file}</a>
+                                <span className="btn-close btn-close-sm"
+                                       aria-label="Close"
+                                       onClick={() => handleRemoveFile(doc_file, "spec_file")}></span>
+                                          </div>
+                                        )
+                                      })
+                                    )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -818,7 +867,7 @@ const SendQuotePageComp = () => {
                                       <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                                       <input
                                         type="file"
-                                        onChange={(e) => uploadToServer(e, item)}
+                                        onChange={(e) => uploadQuoteItemFiles(e, item)}
                                         multiple={true}
                                       />
                                     </label>
