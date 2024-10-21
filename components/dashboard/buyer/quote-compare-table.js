@@ -4,9 +4,11 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
 import { faAward, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import { extractfileName } from "@/utils/sharedFunctions";
 
 const QuoteCompareTable = ({
   quotations,
@@ -35,7 +37,16 @@ const QuoteCompareTable = ({
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
     setOpenCommonModal(true);
-  }
+  };
+
+  const renderFileLink = (files) => {
+    return files.map((file, index) => (
+      <a key={index} href={file.file_url} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+        <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+        {extractfileName(file.file_url)}
+      </a>
+    ));
+  };
 
   return (
     <>
@@ -53,6 +64,7 @@ const QuoteCompareTable = ({
               <div className="table-si-row  table-yellow-row">Sub Total</div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row">Comments</div>
+              <div className="table-si-row">Files</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -164,6 +176,13 @@ const QuoteCompareTable = ({
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
                         : item.comment
                       }
+                    </div>
+                    <div className="table-si-row">
+                      {(item.document_files) ? (
+                        <>
+                          {renderFileLink(item.document_files)}
+                        </>
+                      ) : <span>N/A</span>}
                     </div>
                   </div>
                 );

@@ -235,10 +235,22 @@ const OverallComparison = ({ rfq_id }) => {
                             : "-"}
                         </td>
                         <td>
-                          {item.quotations.length > 0
+                          <div className="row">
+                            {<p className="col-12 mb-1" >
+                              <strong>Size: </strong>
+                              {item.quotations.length > 0
+                            && item.quotations[0].quote_details[0]?.rfq_details
+                            ? item.quotations[0].quote_details[0]?.rfq_details[0]?.value
+                            : "--"}
+                            </p>}
+                            {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                              <strong>Spec: </strong>
+                              {item.quotations.length > 0
                             && item.quotations[0].quote_details[0]?.rfq_details
                             ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
-                            : "-"}
+                            : "--"}
+                            </p>}
+                          </div>
                         </td>
                         <td>{getQty(item)}</td>
 
