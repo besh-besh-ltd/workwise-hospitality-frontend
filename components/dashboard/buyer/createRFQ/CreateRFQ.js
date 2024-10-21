@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import Item from "./Item";
-import { createRfq, getTerms, vendorApproveList } from "@/services/rfq";
+import { createRfq, getTerms, uploadToServerFile, vendorApproveList } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -15,11 +15,16 @@ import {
   setCustomTerms,
   setCustomTermsText,
   setRfqFormData,
-  setOtherFormFields
+  setOtherFormFields,
+  addCustomTermsFiles,
+  removeCustomTermsFiles
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import { getProjectList } from "@/services/project";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faClose } from "@fortawesome/free-solid-svg-icons";
+import { handleFileUpload } from "@/utils/sharedFunctions";
 
 
 const CreateRFQ = () => {
@@ -31,14 +36,15 @@ const CreateRFQ = () => {
 
   const [userProfile, setuserProfile] = useState(null);
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
+
   const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const rfqFormData = useSelector((data) => data.rfqFormData);
   const stateTerms = useSelector((data) => data.allTerms);
-  const allSelectedTermsFromState = useSelector(
-    (data) => data.rfqObjData.terms
-  );
+  const allSelectedTermsFromState = useSelector((data) => data.rfqObjData.terms);
+
   const [terms, setTerms] = useState(stateTerms);
   const [selectedTerms, setSelectedTerms] = useState(allSelectedTermsFromState);
+  const [termFiles, setTermFiles] = useState([]);
   const [projects, setProjects] = useState([]);
 
   useEffect(() => {
@@ -60,16 +66,17 @@ const CreateRFQ = () => {
       getTermsData();
   }, []);
 
-  const getAllProjects = ()=> {
+
+  const getAllProjects = () => {
     getProjectList()
-      .then((res)=> {
+      .then((res) => {
         let d = [];
         res.data.map((item) => {
           d.push({ label: item.name, value: item.id });
         });
         setProjects(d);
       })
-      .catch((error)=> {
+      .catch((error) => {
         console.log(error)
       })
   }
@@ -123,6 +130,7 @@ const CreateRFQ = () => {
     //router.push('/dashboard/buyer/rfq-management-preview')
     let payload = {
       ...values,
+      term_and_condition_files: rfqFormData.term_and_condition_files,
       products: rfqProductsFromStore,
       terms: selectedTerms,
       reverse_auction: parseInt(values.reverse_auction)
@@ -175,6 +183,39 @@ const CreateRFQ = () => {
   const handleFormFieldChange = (e) => {
     const { name, value } = e.target;
     dispatch(setOtherFormFields({ field_name: name, value }));
+  }
+
+
+  const uploadToServer = async (e) => {
+    try {
+      const fileArr = await handleFileUpload(e);
+      setTermFiles((prevFiles) => ([
+        ...prevFiles,
+        fileArr
+      ]));
+
+      dispatch(
+        addCustomTermsFiles({
+          value: fileArr[1]
+        })
+      );
+
+    } catch (error) {
+      let message = err.message.response.data.errors.file.message;
+        toast.error(message);
+    } 
+  };
+
+  const handleRemoveFile = (fileItem) => {
+    console.log(fileItem)
+    dispatch(
+      removeCustomTermsFiles({
+        value: fileItem[1],
+      })
+    );
+
+    let newList = termFiles.filter((term_file) => term_file[1] !== fileItem[1])
+    setTermFiles(newList)
   }
 
   return (
@@ -304,7 +345,7 @@ const CreateRFQ = () => {
                     {({ errors, touched, isValid }) => (
                       <Form className="add-your-term-form">
                         <FormikField
-                          label="Add your own Terms"
+                          label="Add your own terms"
                           placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
                           type="textarea"
                           rows="5"
@@ -315,6 +356,32 @@ const CreateRFQ = () => {
                           enableHandleChange={true}
                           handleChange={handleChange}
                         />
+
+                        <div className="row mt-2">
+                          <div className="custom-file">
+                            <label htmlFor="customFile" className="custom-file-label">
+                              Upload Your Terms (Optional)
+                            </label>
+                            <input
+                              type="file"
+                              className="custom-file-input"
+                              id="customFile"
+                              multiple
+                              onChange={uploadToServer}
+                            />
+                            {termFiles.length > 0 && (
+                              <div className="d-flex flex-wrap column-gap-3 mt-2">
+                                {termFiles.map((term_file) => (
+                                  <a href={term_file[1]} target="_blank" key={term_file[1]} className="file-badge mb-2" type="button" >
+                                    <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{term_file[0]}</span>
+                                    <FontAwesomeIcon icon={faClose} fontSize={15} color={"#000"} onClick={() => handleRemoveFile(term_file)} />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                        </div>
 
                         <div className="row mt-2">
                           <div className="col-md-6">
@@ -372,7 +439,7 @@ const CreateRFQ = () => {
                               touched={touched}
                               errors={errors}
                             />
-                          </div>                          
+                          </div>
                           <div className="col-md-4">
                             <FormikField
                               label="RFQ Type"
@@ -418,7 +485,7 @@ const CreateRFQ = () => {
                               selectOptions={[
                                 { label: "Select Project", value: -1 },
                                 ...projects
-                              ]}                             
+                              ]}
                               isRequired={false}
                               name="project_id"
                               touched={touched}
@@ -431,7 +498,7 @@ const CreateRFQ = () => {
                               value={rfqFormData.location}
                               enableHandleChange={true}
                               handleChange={handleFormFieldChange}
-                              type="text"                              
+                              type="text"
                               isRequired={false}
                               name="location"
                               touched={touched}
