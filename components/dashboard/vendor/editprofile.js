@@ -329,12 +329,10 @@ const EditProfile = () => {
 
   const handleSpoc = (values, resetForm) => {
     setCreateLoading(true);
-    console.log(values);
   }
 
   return (
     <>
-      {console.log(vendorSpoc)}
       {createLoading && <Loader />}
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
