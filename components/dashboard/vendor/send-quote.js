@@ -36,6 +36,10 @@ const SendQuotePageComp = () => {
       .then((res) => {
         setloading(false);
 
+        if (res.data.quote_details) {
+          setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
+          setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
+        }
         // Array to store each quote
         let bidProducts = [];
 
@@ -322,7 +326,7 @@ const SendQuotePageComp = () => {
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
-                          <th>Unit Rate</th>
+                          <th>Base Price</th>
                           <th>Freight</th>
                           <th>Package</th>
                           <th>Taxes</th>
@@ -575,7 +579,7 @@ const SendQuotePageComp = () => {
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
-                          <th>Unit Rate</th>
+                          <th>Base Price</th>
                           <th>
                             Freight <small>(In %)</small>
                           </th>

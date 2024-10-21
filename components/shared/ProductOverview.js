@@ -81,16 +81,17 @@ const ProductOverview = ({ data, setShowInsights }) => {
         setLoading(true)
         getProductPriceStats({ search_key: data?.product_name })
             .then((res) => {
-                if (res.data.length == 0) {
+                if (!res.data?.market[0]?.general?.min) {
                     setShowInsights(false)
                 }
                 else {
-                    setProductOverview(res.data[0])
-                    setProdStats(res.data[0]?.monthly_price_stats)
+                    setProductOverview(res.data)
+                    setProdStats(res.data?.market?.monthly)
                 }
             })
             .catch((error) => {
                 console.log(error)
+                setShowInsights(false)
             })
             .finally(() => {
                 setLoading(false)
@@ -135,44 +136,67 @@ const ProductOverview = ({ data, setShowInsights }) => {
                         <span>Minimum Price </span>
                         {loading
                             ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.min_price) || "---"}</span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.market[0]?.general?.min) || "---"}</span>
                         }
                     </div>
                     <div>
                         <span>Maximum Price </span>
                         {loading
                             ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.max_price) || "---"}</span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.market[0]?.general?.max) || "---"}</span>
                         }
                     </div>
                     <div>
                         <span>Average Price </span>
                         {loading
                             ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.avg_price?.toFixed(2)) || "---"}</span>
+                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.market[0]?.general?.avg?.toFixed(2)) || "---"}</span>
                         }
                     </div>
                 </div>
             </div>
-            <div className="col-6 p-2">
-                <h6 className='fw-medium'>Your Last Purchase Details</h6>
-                <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
-                    <div>
-                        <span>Last Purchase Price </span>
-                        {loading
-                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                            : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.last_purchase_price) || "---"}</span>
-                        }
-                    </div>
-                    <div>
-                        <span>Last Purchase Date </span>
-                        {loading
-                            ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                            : <span className="d-block fw-medium text-muted text-sm mt-1">{decodeDate(productOverview?.last_purchase_date) || "---"}</span>
-                        }
+            {productOverview?.personal[1] ? 
+                <div className="col-6 p-2">
+                    <h6 className='fw-medium'>Your Last Finalized Quote </h6>
+                    <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
+                        <div>
+                            <span>Base Price </span>
+                            {loading
+                                ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.personal[1]?.unit_price) || "---"}</span>
+                            }
+                        </div>
+                        <div>
+                            <span>Date </span>
+                            {loading
+                                ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                : <span className="d-block fw-medium text-muted text-sm mt-1">{decodeDate(productOverview?.personal[1]?.quote_timestamp) || "---"}</span>
+                            }
+                        </div>
                     </div>
                 </div>
-            </div>
+                :
+                productOverview?.personal[0] &&
+                <div className="col-6 p-2">
+                    <h6 className='fw-medium'>Your Last Received Quote </h6>
+                    <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
+                        <div>
+                            <span>Base Price </span>
+                            {loading
+                                ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                : <span className="d-block fw-medium text-muted text-sm mt-1">{formatPrice(productOverview?.personal[0]?.unit_price) || "---"}</span>
+                            }
+                        </div>
+                        <div>
+                            <span>Date </span>
+                            {loading
+                                ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                : <span className="d-block fw-medium text-muted text-sm mt-1">{decodeDate(productOverview?.personal[0]?.quote_timestamp) || "---"}</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
 
             {/* <div className="col-md-6">
                 {productOverview && (

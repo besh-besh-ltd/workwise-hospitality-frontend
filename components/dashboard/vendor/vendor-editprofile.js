@@ -150,11 +150,11 @@ const VendorProfile = () => {
     const rsp = await getProfile();
     setcurrentUserProfile(rsp.data);
     if (vendorDetails) {
-      let isP = vendorDetails.reviews.filter(
+      let isP = vendorDetails?.reviews?.filter(
         (item) => item.reviewed_by == rsp.data.id
       );
 
-      if (isP.length > 0) {
+      if (isP?.length > 0) {
         setcanSubReviewUser(false);
       } else {
         setcanSubReviewUser(false);
@@ -164,10 +164,10 @@ const VendorProfile = () => {
 
   const calculateReviews = () => {
     let totalRating = 0;
-    vendorDetails?.reviews.map((item) => {
+    vendorDetails?.reviews?.map((item) => {
       totalRating = totalRating + item.rating;
     });
-    let avgRating = parseFloat(totalRating) / vendorDetails?.reviews.length;
+    let avgRating = parseFloat(totalRating) / vendorDetails?.reviews?.length;
     setavgRating(avgRating);
   };
 
@@ -314,8 +314,8 @@ const VendorProfile = () => {
                   {loading && <FullLoader />}
                   {reviewLoading && <FullLoader />}
                   <h3>Rating & Review</h3>
-                  {vendorDetails?.reviews.length == 0 && <p>No reviews yet!</p>}
-                  {vendorDetails?.reviews.length > 0 && (
+                  {vendorDetails?.reviews && vendorDetails?.reviews?.length == 0 && <p>No reviews yet!</p>}
+                  {vendorDetails?.reviews && vendorDetails?.reviews?.length > 0 && (
                     <>
                       <StarRating
                         totalStars={5}
@@ -323,7 +323,7 @@ const VendorProfile = () => {
                       />
                       <p>
                         {avgRating.toFixed(1)} / 5 based on{" "}
-                        {vendorDetails?.reviews.length} reviews
+                        {vendorDetails?.reviews?.length} reviews
                       </p>
 
                       <div className="d-flex justify-content-between mx-4 mb-2">
@@ -365,7 +365,7 @@ const VendorProfile = () => {
 
                       <div className="review-container " >
                         <ul className="reviewList">
-                          {vendorDetails?.reviews.map((review, index) => {
+                          {vendorDetails?.reviews?.map((review, index) => {
                             if (
                               currentUserProfile &&
                               currentUserProfile.id == review.reviewed_by
@@ -469,14 +469,14 @@ const VendorProfile = () => {
                   <div className="col-md-5 brochure-container">
                     <h3 className="title">Brochure</h3>
                     {vendorDetails?.brochure &&
-                      vendorDetails?.brochure.length == 0 && (
+                      vendorDetails?.brochure?.length == 0 && (
                         <p>No information to show!</p>
                       )}
                     {vendorDetails?.brochure &&
                       vendorDetails?.brochure?.length > 0 && (
                         <div className="broucher-sec">
                           <div>
-                            {vendorDetails?.brochure[0].brochure_url.indexOf(
+                            {vendorDetails?.brochure[0]?.brochure_url?.indexOf(
                               ".pdf"
                             ) > 0 ? (
                               <h2 className="pdf-icon">
@@ -484,7 +484,7 @@ const VendorProfile = () => {
                               </h2>
                             ) : (
                               <Image
-                                src={vendorDetails?.brochure[0].brochure_url}
+                                src={vendorDetails?.brochure[0]?.brochure_url}
                                 alt="Workwise"
                                 width={135}
                                 height={164}
@@ -495,14 +495,14 @@ const VendorProfile = () => {
                           <div className="actions">
                             <Link
                               target="_blank"
-                              href={vendorDetails?.brochure[0].brochure_url}
+                              href={vendorDetails?.brochure[0]?.brochure_url}
                               className="page-link btn btn-primary"
                             >
                               View Brochure
                             </Link>
                             <a
                               target="_blank"
-                              href={vendorDetails?.brochure[0].brochure_url}
+                              href={vendorDetails?.brochure[0]?.brochure_url}
                               download
                               className="page-link btn btn-primary"
                             >
