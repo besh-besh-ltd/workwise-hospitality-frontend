@@ -53,6 +53,7 @@ const QuoteCompareTable = ({
               <div className="table-si-row  table-yellow-row">Sub Total</div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row">Comments</div>
+              <div className="table-si-row">Vendor Documents</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -65,7 +66,7 @@ const QuoteCompareTable = ({
                   <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
                     <div className="table-si-row table-dark-row">
                       <span>
-                        {item?.quote_details?.vendor_details?.organization_name}
+                        {item?.quote_details?.vendor_details?.organization_name || item?.quote_details?.vendor_details?.name }
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (
@@ -164,6 +165,17 @@ const QuoteCompareTable = ({
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
                         : item.comment
                       }
+                    </div>
+                    <div className="table-si-row">
+                    {item?.document_files && item?.document_files.length > 0 && (
+                     item?.document_files?.map((doc_file) => {
+                     return (
+                          <div key={doc_file.file_url} className="d-flex justify-content-between">
+                              <a href={doc_file.file_url} className="page-link text-truncate" target="_blank" >{doc_file.file_url}</a>
+                                
+                         </div>
+                       ) }) )}
+
                     </div>
                   </div>
                 );

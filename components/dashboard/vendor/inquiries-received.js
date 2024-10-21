@@ -4,7 +4,7 @@ import { getVendorRfqList } from "@/services/rfq";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
-import { textCapitalize } from "@/utils/sharedFunctions";
+import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -191,15 +191,24 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                          // className="page-link"
+                                        // className="page-link"
                                         >
-                                          {
-                                            item.quote_status === "pending" && item.status === 1
-                                              ? <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
-                                              : item.quote_status === "sent" && item.status === 1
-                                                ? <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
-                                                : <span className="fw-medium text-decoration-underline">View Quote</span>
-                                          }
+                                          {checkBidExpired(item.bid_end_date) ? (
+                                            <span className="fw-medium text-decoration-underline">View Quote</span>
+                                          ) : (
+                                            (item.status === 1) ? (
+                                              item.quote_status === "pending" ? (
+                                                <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
+                                              ) : item.quote_status === "sent" ? (
+                                                <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
+                                              ) : (
+                                                <span className="fw-medium text-decoration-underline">View Quote</span>
+                                              )
+                                            ) : (
+                                              <span className="fw-medium text-decoration-underline">View Quote</span>
+                                            )
+                                          )}
+
 
                                         </Link>
                                       </span>
