@@ -6,6 +6,9 @@ import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { handleFileUpload } from "@/utils/sharedFunctions";
 
 
 const SendQuotePageComp = () => {
@@ -23,6 +26,11 @@ const SendQuotePageComp = () => {
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
+
+
+  useEffect(()=>{
+console.log(" quoteProducts = 0, ", quoteProducts)
+  }, [quoteProducts])
 
   useEffect(() => {
     if (id) {
@@ -69,7 +77,8 @@ const SendQuotePageComp = () => {
               freight_price: quoteItem.freight_price || globalFreight,
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
-              delivery_period: quoteItem.delivery_period || ""
+              delivery_period: quoteItem.delivery_period || "",
+              document_files:  quoteItem.document_files || []
             });
           });
           setquoteProducts(bidProducts);
@@ -90,7 +99,8 @@ const SendQuotePageComp = () => {
     variant,
     type,
     valueType = "integer",
-    total_qty
+    total_qty,
+    file
   ) => {
     let value = e.target.value;
     let d = quoteProducts.map((item) => {
@@ -110,6 +120,22 @@ const SendQuotePageComp = () => {
 
         let getTotalPrice = +total_with_fpt + +T;
         item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
+
+        console.log("item.document_files = ", item[type], item.document_files);
+
+        if (file) {
+          // Check if item[type] (which refers to item.document_files) is an array
+          if (!Array.isArray(item[type])) {
+            item[type] = []; // Initialize it as an empty array if it's not an array
+          }
+          
+          console.log("if executed => ", item[type], file);
+          
+          // Now push the file into the correct array (item[type])
+          item[type].push(file);
+        }
+        console.log("after if ", item[type], item.document_files);
+
       }
       return item;
     });
@@ -150,7 +176,7 @@ const SendQuotePageComp = () => {
 
     if (alreadyQuoted) {
       let quote_id = rfqDetails.quotations[0].id;
-      payload = {...payload, products: quoteProducts};
+      payload = { ...payload, products: quoteProducts };
 
       setsubmitLoading(true);
       updateQuotation(quote_id, payload)
@@ -179,6 +205,7 @@ const SendQuotePageComp = () => {
           isEmpty = true;
         }
       });
+      console.log(filteredquoteProducts)
       if (isEmpty) {
         toast.error("One or more product's total amount is 0");
         return;
@@ -237,6 +264,27 @@ const SendQuotePageComp = () => {
       .catch((err) => {
         setsubmitLoading(false);
       });
+  };
+
+  const uploadToServer = async (e, item) => {
+    try {
+      const fileArr = await handleFileUpload(e);
+      handleUpdateData(
+        item.id,
+        e,
+        item.product_id,
+        item.variant,
+        'document_files',
+        "string",
+        item?.product_specs[2]?.value,
+        fileArr[1]
+      )
+
+    } catch (error) {
+      console.log(error)
+      let message = error.message?.response?.data?.errors?.file?.message;
+      toast.error(message);
+    }
   };
 
   useEffect(() => {
@@ -595,6 +643,7 @@ const SendQuotePageComp = () => {
                           <th>
                             Delivery Period <small>(In Weeks)</small>
                           </th>
+                          <th>Add Documents</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -604,7 +653,7 @@ const SendQuotePageComp = () => {
 
                             if (isAvailableForQuote(item)) {
                               return (
-                                <tr key={`q_${item.id}_${item.product_id}_${item.variant}`}>
+                                <tr key={`q_${item.id}_${item.product_id}_${item.variant}_${JSON.stringify(item.document_files)}`}>
                                   <td>{index + 1}</td>
                                   <td className="w-350">
                                     <p className="mb-1"><strong>{item?.product_details[0]?.name}</strong> - {item?.product_specs[0]?.value}</p>
@@ -719,18 +768,18 @@ const SendQuotePageComp = () => {
                                     />
                                   </td>
                                   {
-                                    rfqDetails?.products[index]?.lowest_quotation ? 
-                                    <td>
-                                    <input
-                                      type="number"
-                                      name=""
-                                      id=""
-                                      placeholder="₹"
-                                      value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
-                                      disabled
-                                    />
-                                  </td>
-                                  : null
+                                    rfqDetails?.products[index]?.lowest_quotation ?
+                                      <td>
+                                        <input
+                                          type="number"
+                                          name=""
+                                          id=""
+                                          placeholder="₹"
+                                          value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
+                                          disabled
+                                        />
+                                      </td>
+                                      : null
                                   }
                                   <td>
                                     <div className="comment">
@@ -782,6 +831,30 @@ const SendQuotePageComp = () => {
                                       }
                                       onWheel={(e) => e.target.blur()}
                                     />
+                                  </td>
+                                  <td style={{ maxWidth: 250 }}>
+                                    <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                                      <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
+                                      <input
+                                        type="file"
+                                        onChange={(e) => uploadToServer(e, item)}
+                                        multiple={true}
+                                      />
+                                    </label>
+                                    {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
+                                      quoteProducts[index].document_files.map((doc_file) => {
+                                        console.log(" clicked ", doc_file)
+                                        return (
+                                          <div key={doc_file} className="d-flex justify-content-between">
+                                            <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{doc_file}</a>
+                                            <span
+                                              className="btn-close btn-close-sm"
+                                              aria-label="Close"
+                                              onClick={() => handleRemoveFile(doc_file, "spec_file")}></span>
+                                          </div>
+                                        )
+                                      })
+                                    )}
                                   </td>
                                 </tr>
                               );
