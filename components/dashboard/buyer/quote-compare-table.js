@@ -64,7 +64,7 @@ const QuoteCompareTable = ({
               <div className="table-si-row  table-yellow-row">Sub Total</div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row">Comments</div>
-              <div className="table-si-row">Files</div>
+              <div className="table-si-row">Vendor Documents</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -77,7 +77,7 @@ const QuoteCompareTable = ({
                   <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
                     <div className="table-si-row table-dark-row">
                       <span>
-                        {item?.quote_details?.vendor_details?.organization_name}
+                        {item?.quote_details?.vendor_details?.organization_name || item?.quote_details?.vendor_details?.name }
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (
@@ -174,7 +174,7 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">
                       {item?.comment.length > 60
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
-                        : item.comment
+                        : item.comment || "--"
                       }
                     </div>
                     <div className="table-si-row">
