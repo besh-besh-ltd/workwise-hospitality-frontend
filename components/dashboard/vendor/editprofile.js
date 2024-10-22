@@ -23,7 +23,7 @@ import {
   faFolderPlus
 } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
-import { addSpoc, editSpoc } from "@/services/privateVendors";
+import { addSpoc, editSpoc } from "@/services/Auth";
 
 const EditProfile = () => {
 
