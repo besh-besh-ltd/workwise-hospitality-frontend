@@ -7,7 +7,7 @@ import {
   removeRfqProduct,
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
-import { handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -117,45 +117,46 @@ const Item = ({ data, vendorApprovedList }) => {
 
   const uploadToServer = async (e, type) => {
     try {
-      const fileArr = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e);
       if (type == "qap_file") {
         setuploadedQapFile((prevFiles) => ([
           ...prevFiles,
-          fileArr
+          filePath
         ]));
       }
       if (type == "spec_file") {
         setuploadedSpecFile((prevFiles) => ([
           ...prevFiles,
-          fileArr
+          filePath
         ]));
       }
       if (type == "datasheet_file") {
         setuploadedDatasheetFile((prevFiles) => ([
           ...prevFiles,
-          fileArr
+          filePath
         ]));
       }
       dispatch(
         addFiles({
           type,
-          value: fileArr[1],
+          value: filePath,
           product_id: data.product_id,
           variant: data.variant
         })
       );
 
     } catch (error) {
-      let message = err.message.response.data.errors.file.message;
-        toast.error(message);
+      console.log(error)
+      // let message = err.message.response.data.errors.file.message;
+      //   toast.error(message);
     }    
   };
 
-  const handleRemoveFile = (fileItem, type) => {
+  const handleRemoveFile = (file_url, type) => {
     dispatch(
       removeFiles({
         type,
-        value: fileItem[1],
+        value: file_url,
         product_id: data.product_id,
         variant: data.variant
       })
@@ -164,15 +165,15 @@ const Item = ({ data, vendorApprovedList }) => {
     let newList = [];
     switch (type) {
       case "spec_file":
-        newList = uploadedSpecFile.filter((spec_file_item) => spec_file_item[1] !== fileItem[1])
+        newList = uploadedSpecFile.filter((spec_file_item) => spec_file_item !== file_url)
         setuploadedSpecFile(newList);
         break;
       case "datasheet_file":
-        newList = uploadedDatasheetFile.filter((datasheet_file_item) => datasheet_file_item[1] !== fileItem[1])
+        newList = uploadedDatasheetFile.filter((datasheet_file_item) => datasheet_file_item !== file_url)
         setuploadedDatasheetFile(newList);
         break;
       case "qap_file":
-        newList = uploadedQapFile.filter((qap_file_item) => qap_file_item[1] !== fileItem[1])
+        newList = uploadedQapFile.filter((qap_file_item) => qap_file_item !== file_url)
         setuploadedQapFile(newList);
         break;
       default:
@@ -244,8 +245,8 @@ const Item = ({ data, vendorApprovedList }) => {
             {uploadedSpecFile && uploadedSpecFile.length > 0 && (
               uploadedSpecFile.map((spec_file) => {
                 return (
-                  <div key={spec_file[1]} className="d-flex justify-content-between">
-                    <a href={spec_file[1]} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{spec_file[0]}</a>
+                  <div key={spec_file} className="d-flex justify-content-between">
+                    <a href={spec_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(spec_file)}</a>
                     <span
                       className="btn-close btn-close-sm"
                       aria-label="Close"
@@ -309,12 +310,15 @@ const Item = ({ data, vendorApprovedList }) => {
               {uploadedDatasheetFile && uploadedDatasheetFile.length > 0 && (
                 uploadedDatasheetFile.map((datasheet_file) => {
                   return (
-                    <div key={datasheet_file[1]} className="d-flex justify-content-between">
-                      <a href={datasheet_file[1]} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{datasheet_file[0]}</a>
+                    <div key={datasheet_file} className="d-flex justify-content-between">
+                      <a href={datasheet_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(datasheet_file)}</a>
                       <span
                         className="btn-close btn-close-sm"
                         aria-label="Close"
-                        onClick={() => handleRemoveFile(datasheet_file, "datasheet_file")}></span>
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleRemoveFile(datasheet_file, "datasheet_file")
+                        }}></span>
                     </div>
                   )
                 })
@@ -357,12 +361,15 @@ const Item = ({ data, vendorApprovedList }) => {
               {uploadedQapFile && uploadedQapFile.length > 0 && (
                 uploadedQapFile.map((qap_file) => {
                   return (
-                    <div key={qap_file[1]} className="d-flex justify-content-between">
-                      <a href={qap_file[1]} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{qap_file[0]}</a>
+                    <div key={qap_file} className="d-flex justify-content-between">
+                      <a href={qap_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(qap_file)}</a>
                       <span
                         className="btn-close btn-close-sm"
                         aria-label="Close"
-                        onClick={() => handleRemoveFile(qap_file, "qap_file")}></span>
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleRemoveFile(qap_file, "qap_file")
+                        }}></span>
                     </div>
                   )
                 })
