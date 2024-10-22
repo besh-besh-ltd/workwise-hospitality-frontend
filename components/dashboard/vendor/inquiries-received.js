@@ -4,7 +4,7 @@ import { getVendorRfqList } from "@/services/rfq";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
-import { textCapitalize } from "@/utils/sharedFunctions";
+import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -111,6 +111,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                             <th>Company</th>
                             <th>Received Date</th>
                             <th>End Date</th>
+                            <th>RFQ Type</th>
                             <th>Quote Sent</th>
                             <th>Reverse Auction</th>
                             <th>RFQ Status</th>
@@ -142,6 +143,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                               <th>Company</th>
                               <th>Received Date</th>
                               <th>End Date</th>
+                              <th>RFQ Type</th>
                               <th>Quote Sent</th>
                               <th>Reverse Auction</th>
                               <th>RFQ Status</th>
@@ -172,6 +174,13 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                         : "--"}
                                     </td>
                                     <td>
+                                    {item.rfq_type == "firm"
+                                      ? "Firm"
+                                      : item.rfq_type == "budgetary"
+                                        ? "Budgetary"
+                                        :"---"}
+                                    </td>
+                                    <td>
                                       {item.quote_status && textCapitalize(item.quote_status)}
                                     </td>
                                     <td>{item.reverse_auction === 1 ? "Enabled" : "Disabled"}</td>
@@ -182,15 +191,24 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                          // className="page-link"
+                                        // className="page-link"
                                         >
-                                          {
-                                            item.quote_status === "pending" && item.status === 1
-                                              ? <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
-                                              : item.quote_status === "sent" && item.status === 1
-                                                ? <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
-                                                : <span className="fw-medium text-decoration-underline">View Quote</span>
-                                          }
+                                          {checkBidExpired(item.bid_end_date) ? (
+                                            <span className="fw-medium text-decoration-underline">View Quote</span>
+                                          ) : (
+                                            (item.status === 1) ? (
+                                              item.quote_status === "pending" ? (
+                                                <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
+                                              ) : item.quote_status === "sent" ? (
+                                                <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
+                                              ) : (
+                                                <span className="fw-medium text-decoration-underline">View Quote</span>
+                                              )
+                                            ) : (
+                                              <span className="fw-medium text-decoration-underline">View Quote</span>
+                                            )
+                                          )}
+
 
                                         </Link>
                                       </span>

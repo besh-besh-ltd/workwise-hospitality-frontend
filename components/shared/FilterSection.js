@@ -36,11 +36,12 @@ const FilterSection = ({ title, setFilterData }) => {
 
     return (
         <div className="filter-section">
-            <h2 className="title">{title}</h2>
+            {title && <h2 className="title">{title}</h2>}
 
             <div className="row mb-4 text-sm" >
 
                 <div className="col-md-3 col-lg-2">
+                    <label>RFQ Type</label>
                     <Select
                         options={[
                             { label: "Budgetary", value: "budgetary" },
@@ -48,12 +49,13 @@ const FilterSection = ({ title, setFilterData }) => {
                         ]}
                         onChange={handleFilterChange}
                         name="rfq_type"
-                        placeholder="RFQ Type"
+                        placeholder="Select"
                         isClearable
                     />
                 </div>
 
                 <div className="col-md-3 col-lg-2">
+                    <label>Reverse Auction</label>
                     <Select
                         options={[
                             { label: "Enabled", value: "1" },
@@ -61,33 +63,35 @@ const FilterSection = ({ title, setFilterData }) => {
                         ]}
                         onChange={handleFilterChange}
                         name="reverse_auction"
-                        placeholder="Reverse Auction"
+                        placeholder="Select"
+                        isClearable
+                    />
+                </div>
+
+                <div className="col-md-3 col-lg-3">
+                    <label>Select Project</label>
+                    <Select
+                        options={projects}
+                        onChange={handleFilterChange}
+                        name="project_id"
+                        placeholder="Select"
                         isClearable
                     />
                 </div>
 
                 <div className="col-lg-3"></div>
 
-                <div className="col-md-3 col-lg-3">
-                    <Select
-                        options={projects}
-                        onChange={handleFilterChange}
-                        name="project_id"
-                        placeholder="Select Project"
-                        isClearable
-                    />
-                </div>
-
                 <div className="col-md-3 col-lg-2">
+                    <label>Sort By</label>
                     <Select
                         options={[
-                            { label: "Latest RFQs", value: "DESC" },
-                            { label: "Oldest RFQs", value: "ASC" }
+                            { label: "Latest to Oldest", value: "DESC" },
+                            { label: "Oldest to Latest", value: "ASC" }
                         ]}
                         onChange={handleFilterChange}
                         name="sort"
-                        placeholder="Sort By"
-                        defaultValue={{ label: "Latest RFQs", value: "DESC" }}
+                        placeholder="Select"
+                        defaultValue={{ label: "Latest to Oldest", value: "DESC" }}
                     />
                 </div>
 

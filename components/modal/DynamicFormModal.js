@@ -19,6 +19,7 @@ const DynamicFormModal = ({
         email: "",
         phone: "",
         productList: "",
+        is_private: 0
     };
 
     const initialProjectValues = {
@@ -156,6 +157,20 @@ const DynamicFormModal = ({
                                                                 <div className="form-error">{errors.phone}</div>
                                                             )}
                                                         </div>
+                                                        <div className="form-group">
+                                                            <label htmlFor="is_private">Vendor Type: <sup>*</sup></label>
+                                                            <Field
+                                                                as="select"
+                                                                name="is_private"
+                                                                className={`form-control ${touched.is_private && errors.is_private ? 'is-invalid' : ''}`}  
+                                                            >
+                                                                <option value={0}>Public</option>
+                                                                <option value={1}>Private</option>
+                                                            </Field>
+                                                            {touched.is_private && errors.is_private && (
+                                                                <div className="form-error">{errors.is_private}</div>
+                                                            )}
+                                                        </div>
                                                     </>
                                                     : <>
                                                         {/* project fields section */}
@@ -229,7 +244,7 @@ const DynamicFormModal = ({
                                                 }
                                             </div>
 
-                                            <div className="d-flex flex-row justify-content-between align-items-center g-6">
+                                            <div className="d-flex justify-content-end">
                                                 <button disabled={!isValid} class="btn btn-success btn-sm">
                                                     {type === "add-vendor" ? "Add vendor" : type === "create-project" ? "Create" : "Update"}
                                                 </button>

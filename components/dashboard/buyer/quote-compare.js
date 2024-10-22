@@ -896,7 +896,7 @@ const QuoteCompare = () => {
               <div className="hasFullLoader">
                 <h5 className="title">Quotes Received</h5>
                 {!loading && myRFQs && myRFQs.length == 0
-                  ? <p>NoFQs yet!</p>
+                  ? <p style={{textAlign: 'center'}}>No RFQs yet!</p>
                   :
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
@@ -1019,7 +1019,7 @@ const QuoteCompare = () => {
                                   <div className="sub-heading border rounded-3 p-2">
                                     <div className="row fw-medium mx-2">
                                       <div className="col-md-3 col-lg-2">
-                                        <span>Unit Price </span>
+                                        <span>Base Price </span>
                                         {loading
                                           ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
                                           : <span className="d-block fw-medium text-muted ">{formatPrice(item?.last_purchase_rate?.unit_price) || "---"}</span>

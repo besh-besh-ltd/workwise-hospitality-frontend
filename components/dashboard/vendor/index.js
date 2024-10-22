@@ -137,7 +137,8 @@ const Vendor = () => {
       reverse_auction: "-1",
       sort: "DESC",
       page: 1
-    })      .then((res) => {
+    })
+      .then((res) => {
         setloading(false);
         setDashboardData(res.data);
       })

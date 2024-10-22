@@ -13,6 +13,7 @@ const initialState = {
     contact_name: "",
     contact_number: "",
     company_name: "",
+    term_and_condition_files: [],
     bid_end_date: getFuturedate(),
     rfq_type: "",
     reverse_auction: 1,
@@ -62,10 +63,10 @@ export const rfqProductsSlice = createSlice({
         comment: "",
         defaultSelectedVAB: "",
         datasheet: "0",
-        datasheet_file: "",
-        spec_file: "",
+        datasheet_file: [],
+        spec_file: [],
         qap: "0",
-        qap_file: "",
+        qap_file: [],
         user_selected_predefined_tds: false,
         user_selected_predefined_qap: false,
       };
@@ -133,7 +134,16 @@ export const rfqProductsSlice = createSlice({
     addFiles: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item[action.payload.type] = action.payload.value;
+          item[action.payload.type].push(action.payload.value);
+        }
+        return item;
+      });
+      state.rfqProducts = d;
+    },
+    removeFiles: (state, action) => {
+      let d = state.rfqProducts.map((item) => {
+        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
+          item[action.payload.type] = item[action.payload.type].filter((file_link) => file_link !== action.payload.value)
         }
         return item;
       });
@@ -249,6 +259,14 @@ export const rfqProductsSlice = createSlice({
       state.rfqObjData.ownTerm = action.payload;
       state.rfqFormData.comment = action.payload
     },
+    addCustomTermsFiles: (state, action) => {
+      state.rfqFormData.term_and_condition_files.push(action.payload.value);
+    },
+    removeCustomTermsFiles: (state, action) => {
+      let d = [];
+      d = state.rfqFormData.term_and_condition_files.filter((terms_file) => terms_file !== action.payload.value)
+      state.rfqFormData.term_and_condition_files = d;
+    },
     setOtherFormFields: (state, action) => {
       const { field_name, value } = action.payload;
       state.rfqFormData[field_name] = value;
@@ -285,6 +303,7 @@ export const {
   addProductSpec,
   addProductSpecValue,
   addFiles,
+  removeFiles,
   addComment,
   addDatasheet,
   addVendor,
@@ -296,6 +315,8 @@ export const {
   removeVendor,
   setDefaultVAB,
   setCustomTerms,
+  addCustomTermsFiles,
+  removeCustomTermsFiles,
   setCustomTermsText,
   setOtherFormFields,
   setAllTerms,

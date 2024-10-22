@@ -1,5 +1,8 @@
 import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
+import { extractfileName } from "@/utils/sharedFunctions";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import "react-tooltip/dist/react-tooltip.css";
 
@@ -10,6 +13,7 @@ const OverallComparison = ({ rfq_id }) => {
   const [data, setdata] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
+  const [attachedFiles, setAttachedFiles] = useState(null);
 
   useEffect(() => {
     handleDownloadQuote();
@@ -29,6 +33,8 @@ const OverallComparison = ({ rfq_id }) => {
         ) {
           setallvendors(data[0].all_vendors);
         }
+        let globalFiles = FilterOutGlobalTermsFiles(res.data);
+        setAttachedFiles(globalFiles);
         getLowestBidAmount(res.data);
         setloading(false);
       })
@@ -36,6 +42,20 @@ const OverallComparison = ({ rfq_id }) => {
         setloading(false);
       });
   };
+
+  const FilterOutGlobalTermsFiles = (all_data) => {
+
+    let fileObj = all_data.map((item) => {
+      return (
+        item.quotations &&
+        item.quotations.length > 0 &&
+        item.quotations.map((quoteItem) => {
+          return quoteItem.quote_details[0]?.document_files;
+        })
+      );
+    })
+    return fileObj[0] || null;
+  }
 
   const getQty = (item, index) => {
     let qq = item.quotations.filter((qi) => qi.id != null);
@@ -173,8 +193,8 @@ const OverallComparison = ({ rfq_id }) => {
 
   return (
     <>
+      {loading && <FullLoader />}
       <div className="quote-sec-table-sub hasFullLoader">
-        {loading && <FullLoader />}
         {!loading && (
           <div className="table-responsive">
             <table className="table table-responsive table-bordered overall-table">
@@ -198,12 +218,12 @@ const OverallComparison = ({ rfq_id }) => {
                     Product Name
                   </th>
                   <th scope="col" className="description" rowSpan={2}>
-                    Product Variant Details (specification)
+                    Product Variant Details
                   </th>
                   <th scope="col" className="sl_no" rowSpan={2}>
-                    Qty<small>(Nos.)</small>
+                    Quantity
                   </th>
-                  <th scope="col" className="all_vendors" rowSpan={2} style={{backgroundColor: "#fff8db"}} >
+                  <th scope="col" className="all_vendors" rowSpan={2} style={{ backgroundColor: "#fff8db" }} >
                     Last Purchase Details
                   </th>
                   {allvendors &&
@@ -235,12 +255,23 @@ const OverallComparison = ({ rfq_id }) => {
                             : "-"}
                         </td>
                         <td>
-                          {item.quotations.length > 0
-                            && item.quotations[0].quote_details[0]?.rfq_details
-                            ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
-                            : "-"}
+                          <div className="row">
+                            {<p className="col-12 mb-1" >
+                              
+                              <strong>Size: </strong>
+                              {item.product_specs[0]?.value
+                              ? item.product_specs[0]?.value
+                              : "--"}
+                            </p>}
+                            {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                              <strong>Spec: </strong>
+                              {item.product_specs[1]?.value
+                              ? item.product_specs[1]?.value
+                              : "--"}
+                            </p>}
+                          </div>
                         </td>
-                        <td>{getQty(item)}</td>
+                        <td>{`${item.product_specs[2]?.value}-${item.product_specs[3]?.value}`}</td>
 
                         {item.last_purchase_rate
                           ? <td className="total_amt_field">
@@ -252,7 +283,7 @@ const OverallComparison = ({ rfq_id }) => {
                               <input type="checkbox" />
                               <table className="table has_inner_border_table">
                                 <tr>
-                                  <th>Unit Rate</th>
+                                  <th>Base Price</th>
                                   <td>
                                     {item.last_purchase_rate?.unit_price
                                       ? addCommasToNumber(item.last_purchase_rate?.unit_price)
@@ -334,7 +365,7 @@ const OverallComparison = ({ rfq_id }) => {
                                       <input type="checkbox" />
                                       <table className="table has_inner_border_table">
                                         <tr>
-                                          <th>Unit Rate</th>
+                                          <th>Base Price</th>
                                           <td>
                                             {quote_item.quote_details.length > 0
                                               ? addCommasToNumber(
@@ -531,6 +562,28 @@ const OverallComparison = ({ rfq_id }) => {
                             : "-"}{" "}
                         </td>
                       );
+                    })}
+                </tr>
+                <tr className="last_row">
+                  <th colSpan={5} scope="col">
+                    Attached Files{" "}
+                  </th>
+
+                  {attachedFiles &&
+                    attachedFiles.length > 0 &&
+                    attachedFiles.map((vendor_files, index) => {
+                      return (
+                        <td key={`gloal_files_${index}`} style={{ maxWidth: "200px" }} >
+                            {vendor_files?.map((file_item) => {
+                              return (
+                                <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
+                                  <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                  <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
+                                </a>
+                              )
+                            })}
+                        </td>
+                      )
                     })}
                 </tr>
                 {/* <tr className="last_row">
