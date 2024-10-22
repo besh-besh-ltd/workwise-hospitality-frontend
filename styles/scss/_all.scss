@@ -179,6 +179,23 @@ p {
   text-decoration: line-through;
 }
 
+.file-badge {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 30%;
+  font-size: 14px;
+  padding: 5px 12px;
+  border-radius: 15px;
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.file-badge:hover {
+  color: #ffffff;
+  background-color: var(--secondary-color);
+}
+
 /* Padding Style*/
 .container-fluid {
   padding-left: 50px;
@@ -3493,6 +3510,11 @@ textarea {
                   color: #000080;
                 }
 
+                .btn-close-sm {
+                  width: 0.3em;
+                  height: 0.3em;
+                }
+
                 input[type="text"],
                 input[type="number"] {
                   width: 90px;
@@ -3674,7 +3696,11 @@ textarea {
   }
 
   .uploadInlineFile {
-    margin: 0 5px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 60%;
   }
 }
 
