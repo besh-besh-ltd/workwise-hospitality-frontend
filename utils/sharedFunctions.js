@@ -51,7 +51,7 @@ export const handleFileUpload = async (e) => {
                 const filePath = res.data[0]?.file_path;
 
                 if (filePath) {
-                    return [file.name, filePath];  
+                    return filePath;  
                 } else {
                     throw new Error("File upload failed. No file path returned.");
                 }

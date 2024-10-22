@@ -8,7 +8,8 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { faClose } from "@fortawesome/free-solid-svg-icons";
 
 
 const SendQuotePageComp = () => {
@@ -45,8 +46,8 @@ const SendQuotePageComp = () => {
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
         }
 
-        if(res.data.terms_and_conditions_files){
-          setGlobalDocumentFiles(res.data?.terms_and_conditions_files?.map((item)=>{ return item.file_url }))
+        if (res.data.terms_and_conditions_files) {
+          setGlobalDocumentFiles(res.data?.terms_and_conditions_files?.map((item) => { return item.file_url }))
         }
         // Array to store each quote
         let bidProducts = [];
@@ -78,7 +79,7 @@ const SendQuotePageComp = () => {
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
-              document_files:  quoteItem?.document_files?.map((item)=>{ return item.file_url }) || []
+              document_files: quoteItem?.document_files?.map((item) => { return item.file_url }) || []
             });
           });
           setquoteProducts(bidProducts);
@@ -100,15 +101,23 @@ const SendQuotePageComp = () => {
     type,
     valueType = "integer",
     total_qty,
-    file
+    file,
+    fileOperation
   ) => {
     let value = e.target.value;
     let d = quoteProducts.map((item) => {
       if (item.id == item_id && item.product_id == product_id && item.variant == variant) {
         if (valueType == "integer") {
           item[type] = parseFloat(value);
-        } else if(valueType=="array"){
-          item[type].push(file)
+        } else if (valueType == "array") {
+          let doc_list = item[type];
+          if (fileOperation && fileOperation == "remove") {
+            let newFileList = doc_list.filter((fileItem) => fileItem !== file);
+            item[type] = newFileList;
+          }
+          else
+            item[type].push(file)
+
         } else {
           item[type] = value;
         }
@@ -159,7 +168,7 @@ const SendQuotePageComp = () => {
       products: [],
       globalPaymentTerms,
       globalComment,
-      term_and_condition_files:globalDocumentFiles
+      term_and_condition_files: globalDocumentFiles
     };
 
     if (alreadyQuoted) {
@@ -256,7 +265,7 @@ const SendQuotePageComp = () => {
 
   const uploadQuoteItemFiles = async (e, item) => {
     try {
-      const fileArr = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e);
       handleUpdateData(
         item.id,
         e,
@@ -265,7 +274,7 @@ const SendQuotePageComp = () => {
         "document_files",
         "array",
         item?.product_specs[2]?.value,
-        fileArr[1]
+        filePath
       )
     } catch (error) {
       console.log(error)
@@ -274,21 +283,26 @@ const SendQuotePageComp = () => {
     }
   };
 
-  const uploadGlobalDocumentFiles = async (e, item) => {
+  const uploadGlobalDocumentFiles = async (e) => {
     try {
-      const fileArr = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
         ...prevGlobalDocumentFiles,
-        fileArr[1]
+        filePath
       ]);
-      
+
     } catch (error) {
       console.log(error)
       let message = error.message?.response?.data?.errors?.file?.message;
       toast.error(message);
     }
   };
+
+  const removeGlobalFiles = (file_url) => {
+    const newFileLinks = globalDocumentFiles.filter((fileItem) => fileItem !== file_url);
+    setGlobalDocumentFiles(newFileLinks);
+  }
 
   useEffect(() => {
     let p = quoteProducts.map((item) => {
@@ -621,29 +635,33 @@ const SendQuotePageComp = () => {
 
                           <div className="inputBox form-group col-lg-6 col-md-12 col-sm-12 col-xs-12  mb-2">
 
-                          <h3 className="title mb-0">Quote Document</h3>
+                            <h3 className="title mb-0">Quote Document</h3>
 
-                          <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                            <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
                               <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
                               <input
-                              type="file"
-                              onChange={(e) => uploadGlobalDocumentFiles(e)}
-                              multiple={true}
+                                type="file"
+                                onChange={(e) => uploadGlobalDocumentFiles(e)}
+                                multiple={true}
                               />
                             </label>
-                           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+                            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
                               globalDocumentFiles.map((doc_file) => {
 
                                 return (
-                                <div key={doc_file} className="d-flex justify-content-between">
-                                 <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "200px" }}>{doc_file}</a>
-                                <span className="btn-close btn-close-sm"
-                                       aria-label="Close"
-                                       onClick={() => handleRemoveFile(doc_file, "spec_file")}></span>
-                                          </div>
-                                        )
-                                      })
-                                    )}
+                                  <div key={doc_file} className="d-flex justify-content-between">
+                                    <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "200px" }}>{extractfileName(doc_file)}</a>
+                                    <span className="btn-close btn-close-sm"
+                                      aria-label="Close"
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        removeGlobalFiles(doc_file)
+                                      }}>
+                                    </span>
+                                  </div>
+                                )
+                              })
+                            )}
                           </div>
                         </div>
                       </div>
@@ -871,20 +889,32 @@ const SendQuotePageComp = () => {
                                         multiple={true}
                                       />
                                     </label>
+
                                     {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
                                       quoteProducts[index].document_files.map((doc_file) => {
-
                                         return (
+
                                           <div key={doc_file} className="d-flex justify-content-between">
-                                            <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{doc_file}</a>
+                                            <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
                                             <span
                                               className="btn-close btn-close-sm"
                                               aria-label="Close"
-                                              onClick={() => handleRemoveFile(doc_file, "spec_file")}></span>
+                                              onClick={(e) => handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "document_files",
+                                                "array",
+                                                item?.product_specs[2]?.value,
+                                                doc_file,
+                                                "remove"
+                                              )}></span>
                                           </div>
                                         )
                                       })
                                     )}
+
                                   </td>
                                 </tr>
                               );

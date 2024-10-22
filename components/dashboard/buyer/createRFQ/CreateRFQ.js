@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import Item from "./Item";
-import { createRfq, getTerms, uploadToServerFile, vendorApproveList } from "@/services/rfq";
+import { createRfq, getTerms, vendorApproveList } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -24,7 +24,7 @@ import { toast } from "react-toastify";
 import { getProjectList } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
-import { handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 
 
 const CreateRFQ = () => {
@@ -41,10 +41,10 @@ const CreateRFQ = () => {
   const rfqFormData = useSelector((data) => data.rfqFormData);
   const stateTerms = useSelector((data) => data.allTerms);
   const allSelectedTermsFromState = useSelector((data) => data.rfqObjData.terms);
+  const [termFiles, setTermFiles] = useState(rfqFormData.term_and_condition_files);
 
   const [terms, setTerms] = useState(stateTerms);
   const [selectedTerms, setSelectedTerms] = useState(allSelectedTermsFromState);
-  const [termFiles, setTermFiles] = useState([]);
   const [projects, setProjects] = useState([]);
 
   useEffect(() => {
@@ -126,11 +126,11 @@ const CreateRFQ = () => {
   };
   const handleCreateRFQ = (values, resetForm) => {
     setMainLoading(true);
-
+    
     //router.push('/dashboard/buyer/rfq-management-preview')
     let payload = {
       ...values,
-      term_and_condition_files: rfqFormData.term_and_condition_files,
+      // term_and_condition_files: term_files,
       products: rfqProductsFromStore,
       terms: selectedTerms,
       reverse_auction: parseInt(values.reverse_auction)
@@ -188,15 +188,15 @@ const CreateRFQ = () => {
 
   const uploadToServer = async (e) => {
     try {
-      const fileArr = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e);
       setTermFiles((prevFiles) => ([
         ...prevFiles,
-        fileArr
+        filePath
       ]));
 
       dispatch(
         addCustomTermsFiles({
-          value: fileArr[1]
+          value: filePath
         })
       );
 
@@ -207,15 +207,13 @@ const CreateRFQ = () => {
   };
 
   const handleRemoveFile = (fileItem) => {
-    console.log(fileItem)
     dispatch(
       removeCustomTermsFiles({
-        value: fileItem[1],
+        value: fileItem,
       })
     );
-
-    let newList = termFiles.filter((term_file) => term_file[1] !== fileItem[1])
-    setTermFiles(newList)
+    let updatedTermsFiles = termFiles.filter((term_file)=> term_file !== fileItem);
+    setTermFiles(updatedTermsFiles)
   }
 
   return (
@@ -372,9 +370,15 @@ const CreateRFQ = () => {
                             {termFiles.length > 0 && (
                               <div className="d-flex flex-wrap column-gap-3 mt-2">
                                 {termFiles.map((term_file) => (
-                                  <a href={term_file[1]} target="_blank" key={term_file[1]} className="file-badge mb-2" type="button" >
-                                    <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{term_file[0]}</span>
-                                    <FontAwesomeIcon icon={faClose} fontSize={15} onClick={() => handleRemoveFile(term_file)} />
+                                  <a href={term_file} target="_blank" key={term_file} className="file-badge mb-2" type="button" >
+                                    <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file)}</span>
+                                    <FontAwesomeIcon 
+                                    icon={faClose} 
+                                    fontSize={15} 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleRemoveFile(term_file)
+                                    }} />
                                   </a>
                                 ))}
                               </div>
