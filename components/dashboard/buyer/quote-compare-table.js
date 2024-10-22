@@ -163,7 +163,7 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">
                       {item?.comment.length > 60
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
-                        : item.comment
+                        : item.comment || "--"
                       }
                     </div>
                     <div className="table-si-row">

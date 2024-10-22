@@ -238,9 +238,9 @@ const OverallComparison = ({ rfq_id }) => {
                           {item.quotations.length > 0
                             && item.quotations[0].quote_details[0]?.rfq_details
                             ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
-                            : "-"}
+                            : item.product_specs[0].value}
                         </td>
-                        <td>{getQty(item)}</td>
+                        <td>{  getQty(item)!=="-"? getQty(item) : item.product_specs[2].value}</td>
 
                         {item.last_purchase_rate
                           ? <td className="total_amt_field">
