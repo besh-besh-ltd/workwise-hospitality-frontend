@@ -23,6 +23,7 @@ import {
   faFolderPlus
 } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
+import { addSpoc, editSpoc } from "@/services/privateVendors";
 
 const EditProfile = () => {
 
@@ -35,7 +36,11 @@ const EditProfile = () => {
     spoc_mobile: '',
     spoc_role: '',
   });
-  const [openAddSpoc, setOpenAddSpoc] = useState(false);
+  const [spocId, setSpocId] = useState(null);
+  const [openAddSpoc, setOpenAddSpoc] = useState({
+    status:false,
+    type:"create-spoc"
+  });
   const [createLoading, setCreateLoading] = useState(false);
 
   const [countryList, setcountryList] = useState([
@@ -329,6 +334,39 @@ const EditProfile = () => {
 
   const handleSpoc = (values, resetForm) => {
     setCreateLoading(true);
+    setOpenAddSpoc(false);
+        addSpoc(values)
+            .then((res) => {
+                toast.success(res.message, { position: "top-right", });
+            })
+            .catch((error) => {
+                toast.error(error.message?.response?.data?.message, { position: "top-right", });
+                console.log(error)
+            })
+            .finally(() => {
+                resetForm();                
+                setCreateLoading(false);
+                getProfileDetails()
+            })
+  }
+
+  const handleEditSpoc = (values, resetForm) => {
+    setCreateLoading(true);
+
+        setOpenAddSpoc(false);
+        editSpoc(values,spocId)
+            .then((res) => {
+                toast.success(res.message, { position: "top-right", });
+            })
+            .catch((error) => {
+                toast.error(error.message?.response?.data?.message, { position: "top-right", });
+                console.log(error)
+            })
+            .finally(() => {
+                resetForm();                
+                setCreateLoading(false);
+                getProfileDetails()
+            })
   }
 
   return (
@@ -782,14 +820,14 @@ const EditProfile = () => {
 
                   </div>
 
-                  {/* <div className="ms-auto">
+                  <div className="ms-auto">
                       <button
                         className="btn btn-primary"
-                        onClick={() => setOpenAddSpoc(true)}
+                        onClick={() => setOpenAddSpoc({status:true,type:"create-spoc"})}
                       >
                         Add
                       </button>
-                    </div> */}
+                    </div>
                   {(vendorSpoc && vendorSpoc.length > 0) ?
                     <div className="table-responsive">
                       <table className="table table-striped">
@@ -800,7 +838,7 @@ const EditProfile = () => {
                             <th scope="col">Role</th>
                             <th scope="col">Email</th>
                             <th scope="col">Mobile</th>
-                            {/* <th scope="col">Actions</th> */}
+                            <th scope="col">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -814,18 +852,28 @@ const EditProfile = () => {
                                     <td>{spoc.role}</td>
                                     <td>{spoc.email}</td>
                                     <td>{spoc.mobile}</td>
-                                    {/* <td>
+                                    <td>
                                     <span className="me-2">
                                       <FontAwesomeIcon icon={faEdit} />
                                     </span>
                                     <span
                                       role="button"
                                       className="cursor-pointer"
-                                      onClick={() => setOpenAddSpoc(true)}
+                                      onClick={() => {
+                                        setOpenAddSpoc({status:true,type:"edit-spoc"})
+                                        setSelectedSpocOption({
+                                          spoc_name:spoc.name,
+                                          spoc_email: spoc.email,
+                                          spoc_mobile:spoc.mobile,
+                                          spoc_role:spoc.role,
+                                        })
+                                        setSpocId(spoc.id);
+                                      }
+                                      }
                                     >
                                       Edit
                                     </span>
-                                  </td> */}
+                                  </td>
                                   </tr>
                                 </>
                               )
@@ -841,13 +889,14 @@ const EditProfile = () => {
           </div>
         </div>
       </section>
-      {openAddSpoc &&
+      {openAddSpoc.status &&
         <DynamicFormSpoc
-          type={'create-spoc'}
+          type={openAddSpoc.type}
           spocData={selectedSpocOption}
-          openModal={openAddSpoc}
-          closeModal={() => setOpenAddSpoc(false)}
+          openModal={openAddSpoc.status}
+          closeModal={() => setOpenAddSpoc({status:false})}
           handleSpoc={handleSpoc}
+          handleEditSpoc={handleEditSpoc}
         />
       }
     </>

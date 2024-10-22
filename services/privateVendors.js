@@ -49,4 +49,27 @@ export const privateVendorList = () => {
       }
     });
   };
+
+
+  export const editSpoc = (payload,spocId) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.put(`users/update-spoc/${spocId}`, payload);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+  }
+
+  export const addSpoc = (payload) => {
+    return new Promise(async (resolve, reject)=> {
+        try{
+            let response = await axiosInstance.post(`users/add-spoc`,payload);
+            resolve(response);
+        } catch (error){
+            reject({message: error});
+        }
+    })
+  }
   
