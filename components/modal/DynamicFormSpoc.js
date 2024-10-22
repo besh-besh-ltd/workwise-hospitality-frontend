@@ -60,32 +60,35 @@ const DynamicFormSpoc = ({
                         top: "50%",
                         left: "50%",
                         transform: "translate(-50%, -50%)",
-                        maxWidth: "90vw", // Adjust this value as needed
-                        width: "80vw", // Set to 'auto' or a specific value based on your design
+                        maxWidth: "80vw",  // Reduced from 90vw
+                        width: "70vw",      // Reduced from 80vw
                         border: "none",
                         background: "transparent",
                         overflow: "hidden",
-                        padding: "50px",
-                        maxHeight: "100vh", // Adjust this value as needed\
-                        height: "90vh", // Adjust this value as needed
+                        padding: "40px",    // Reduced from 50px
+                        maxHeight: "90vh",  // Keeping the same
+                        height: "80vh",     // Reduced from 90vh
                     },
                 }}
             >
 
-                <div className="modal-header">
-                    <button
-                        type="button"
-                        onClick={closeModal}
-                        className="btn-close"
-                        aria-label="Close"
-                    ></button>
-                </div>
 
-                <div className="modal-body contact-sec-modal">
-                    <div className="contact-sec-3">
+
+                <div className="modal-body contact-sec-modal w-75 mx-auto">
+                    <div className="contact-sec-3 flex">
                         <div className="contact-sec-3-form">
-                            <div className="contact-form">
-                                <h2 className="tab-titlex mb-4">{type === "create-spoc" ? 'Add SPOC' : 'Edit SPOC'}</h2>
+
+                            <div className="contact-form w-100 ">
+                                <div className="d-flex justify-content-between align-items-center mb-4">
+                                    <h2 className="tab-titlex m-0">{type === "create-spoc" ? 'New SPOC' : 'Edit SPOC'}</h2>
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="btn-close"
+                                        aria-label="Close"
+                                    ></button>
+                                </div>
+
                                 <Formik
                                     initialValues={initialSpocValue}
                                     validationSchema={validateSpocSchema}
@@ -96,67 +99,91 @@ const DynamicFormSpoc = ({
                                     }}
                                 >
                                     {({ errors, isValid, touched }) => (
-                                        <Form className="row add-vendor-modal-form">
-                                            <div className="col-md-6">
-                                                <div className="form-group">
-                                                    <label htmlFor="spoc_name">SPOC Name <sup>*</sup></label>
-                                                    <Field
-                                                        type="text"
-                                                        id="spoc_name"
-                                                        name="spoc_name"
-                                                        placeholder="Spoc Name"
-                                                    />
-                                                    {touched.spoc_name && errors.spoc_name && (
-                                                        <div className="form-error">{errors.spoc_name}</div>
-                                                    )}
+                                        <Form className="row add-vendor-modal-form w-100 ">
+
+                                            <div className="col-md-12">
+
+                                                <div className='row'>
+                                                    <div className='col-md-6'>
+
+                                                        <div className="form-group">
+                                                            <label htmlFor="spoc_name">Name <sup>*</sup></label>
+                                                            <Field
+                                                                type="text"
+                                                                id="spoc_name"
+                                                                name="spoc_name"
+                                                                placeholder="Spoc Name"
+                                                            />
+                                                            {touched.spoc_name && errors.spoc_name && (
+                                                                <div className="form-error">{errors.spoc_name}</div>
+                                                            )}
+                                                        </div>
+
+                                                    </div>
+                                                    <div className='col-md-6'>
+                                                        <div className="form-group">
+                                                            <label htmlFor="spoc_email">Email <sup>*</sup></label>
+                                                            <Field
+                                                                type="text"
+                                                                id="spoc_email"
+                                                                name="spoc_email"
+                                                                placeholder="Spoc Email"
+                                                            />
+                                                            {touched.spoc_email && errors.spoc_email && (
+                                                                <div className="form-error">{errors.spoc_email}</div>
+                                                            )}
+                                                        </div>
+
+                                                    </div>
                                                 </div>
-                                                <div className="form-group">
-                                                    <label htmlFor="spoc_email">SPOC Email <sup>*</sup></label>
-                                                    <Field
-                                                        type="text"
-                                                        id="spoc_email"
-                                                        name="spoc_email"
-                                                        placeholder="Spoc Email"
-                                                    />
-                                                    {touched.spoc_email && errors.spoc_email && (
-                                                        <div className="form-error">{errors.spoc_email}</div>
-                                                    )}
+
+                                                {/* New row for bottom two fields side by side */}
+                                                <div className="row">
+                                                    <div className="col-md-6">
+                                                        <div className="form-group">
+                                                            <label htmlFor="spoc_mobile">Mobile <sup>*</sup></label>
+                                                            <Field
+                                                                type="text"
+                                                                id="spoc_mobile"
+                                                                name="spoc_mobile"
+                                                                placeholder="Spoc Mobile"
+                                                            />
+                                                            {touched.spoc_mobile && errors.spoc_mobile && (
+                                                                <div className="form-error">{errors.spoc_mobile}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-md-6">
+                                                        <div className="form-group">
+                                                            <label htmlFor="spoc_role">Role <sup>*</sup></label>
+                                                            <Field
+                                                                type="text"
+                                                                id="spoc_role"
+                                                                name="spoc_role"
+                                                                placeholder="Spoc Role"
+                                                            />
+                                                            {touched.spoc_role && errors.spoc_role && (
+                                                                <div className="form-error">{errors.spoc_role}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="form-group">
-                                                    <label htmlFor="spoc_mobile">SPOC Mobile <sup>*</sup></label>
-                                                    <Field
-                                                        type="text"
-                                                        id="spoc_mobile"
-                                                        name="spoc_mobile"
-                                                        placeholder="Spoc Mobile"
-                                                    />
-                                                    {touched.spoc_mobile && errors.spoc_mobile && (
-                                                        <div className="form-error">{errors.spoc_mobile}</div>
-                                                    )}
+
+                                                <div className="d-flex justify-content-end">
+                                                    <button
+                                                        type="submit"
+                                                        disabled={!isValid}
+                                                        className="btn btn-success btn-sm"
+                                                    >
+                                                       Submit
+                                                    </button>
                                                 </div>
-                                                <div className="form-group">
-                                                    <label htmlFor="spoc_role">SPOC Role <sup>*</sup></label>
-                                                    <Field
-                                                        type="text"
-                                                        id="spoc_role"
-                                                        name="spoc_role"
-                                                        placeholder="Spoc Role"
-                                                    />
-                                                    {touched.spoc_role && errors.spoc_role && (
-                                                        <div className="form-error">{errors.spoc_role}</div>
-                                                    )}
-                                                </div>
+
                                             </div>
 
-                                            <div className="d-flex justify-content-end">
-                                                <button
-                                                    type="submit"
-                                                    disabled={!isValid}
-                                                    className="btn btn-success btn-sm"
-                                                >
-                                                    {type === "create-spoc" ? "Add Spoc" : "Update Spoc"}
-                                                </button>
-                                            </div>
+
+
                                         </Form>
                                     )}
                                 </Formik>

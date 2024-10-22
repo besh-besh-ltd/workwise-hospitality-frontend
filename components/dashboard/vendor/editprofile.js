@@ -38,8 +38,8 @@ const EditProfile = () => {
   });
   const [spocId, setSpocId] = useState(null);
   const [openAddSpoc, setOpenAddSpoc] = useState({
-    status:false,
-    type:"create-spoc"
+    status: false,
+    type: "create-spoc"
   });
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -335,38 +335,38 @@ const EditProfile = () => {
   const handleSpoc = (values, resetForm) => {
     setCreateLoading(true);
     setOpenAddSpoc(false);
-        addSpoc(values)
-            .then((res) => {
-                toast.success(res.message, { position: "top-right", });
-            })
-            .catch((error) => {
-                toast.error(error.message?.response?.data?.message, { position: "top-right", });
-                console.log(error)
-            })
-            .finally(() => {
-                resetForm();                
-                setCreateLoading(false);
-                getProfileDetails()
-            })
+    addSpoc(values)
+      .then((res) => {
+        toast.success(res.message, { position: "top-right", });
+      })
+      .catch((error) => {
+        toast.error(error.message?.response?.data?.message, { position: "top-right", });
+        console.log(error)
+      })
+      .finally(() => {
+        resetForm();
+        setCreateLoading(false);
+        getProfileDetails()
+      })
   }
 
   const handleEditSpoc = (values, resetForm) => {
     setCreateLoading(true);
 
-        setOpenAddSpoc(false);
-        editSpoc(values,spocId)
-            .then((res) => {
-                toast.success(res.message, { position: "top-right", });
-            })
-            .catch((error) => {
-                toast.error(error.message?.response?.data?.message, { position: "top-right", });
-                console.log(error)
-            })
-            .finally(() => {
-                resetForm();                
-                setCreateLoading(false);
-                getProfileDetails()
-            })
+    setOpenAddSpoc(false);
+    editSpoc(values, spocId)
+      .then((res) => {
+        toast.success(res.message, { position: "top-right", });
+      })
+      .catch((error) => {
+        toast.error(error.message?.response?.data?.message, { position: "top-right", });
+        console.log(error)
+      })
+      .finally(() => {
+        resetForm();
+        setCreateLoading(false);
+        getProfileDetails()
+      })
   }
 
   return (
@@ -804,88 +804,96 @@ const EditProfile = () => {
 
                     <button
                       type="submit"
-                      className="btn btn-secondary edit-profile"
+                      className="btn btn-secondary edit-profile mb-4"
                     >
                       Save
                     </button>
                   </Form>
                 )}
               </Formik>
-            </div>
-            {/*   */}
-            <div className="col-md-8 mx-auto">
-              <div className="details-table p-4" >
-                <div className="table-header row mb-4">
-                  <div className="filter-options col-7 align-items-center">
 
-                  </div>
 
-                  <div className="ms-auto">
+              <div className=" ">
+                <div className="details-table p-4 vendor-edit-sec-form" >
+                  <div className="table-header row mb-4">
+                    <div className="filter-options col-7 align-items-center">
+
+                    </div>
+
+
+                    <div className="ms-auto d-flex justify-content-between align-items-center mb-2  ">
+
+                      <span className="title"> Manage SPOC </span>
+
                       <button
                         className="btn btn-primary"
-                        onClick={() => setOpenAddSpoc({status:true,type:"create-spoc"})}
+                        onClick={() => setOpenAddSpoc({ status: true, type: "create-spoc" })}
                       >
-                        Add
+                        Create New Spoc
                       </button>
                     </div>
-                  {(vendorSpoc && vendorSpoc.length > 0) ?
-                    <div className="table-responsive">
-                      <table className="table table-striped">
-                        <thead>
-                          <tr>
-                            <th scope="col">S.R.</th>
-                            <th scope="col">Name</th>
-                            <th scope="col">Role</th>
-                            <th scope="col">Email</th>
-                            <th scope="col">Mobile</th>
-                            <th scope="col">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {vendorSpoc && vendorSpoc.length > 0 &&
-                            vendorSpoc.map((spoc, index) => {
-                              return (
-                                <>
-                                  <tr key={spoc.id}>
-                                    <td>{index + 1}</td>
-                                    <td>{spoc.name}</td>
-                                    <td>{spoc.role}</td>
-                                    <td>{spoc.email}</td>
-                                    <td>{spoc.mobile}</td>
-                                    <td>
-                                    <span className="me-2">
-                                      <FontAwesomeIcon icon={faEdit} />
-                                    </span>
-                                    <span
+                    {(vendorSpoc && vendorSpoc.length > 0) ?
+                      <div className="table-responsive">
+                        <table className="table table-striped">
+                          <thead>
+                            <tr>
+                              <th scope="col">S.R.</th>
+                              <th scope="col">Name</th>
+                              <th scope="col">Role</th>
+                              <th scope="col">Email</th>
+                              <th scope="col">Mobile</th>
+                              <th scope="col">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {vendorSpoc && vendorSpoc.length > 0 &&
+                              vendorSpoc.map((spoc, index) => {
+                                return (
+                                  <>
+                                    <tr key={spoc.id}>
+                                      <td>{index + 1}</td>
+                                      <td>{spoc.name}</td>
+                                      <td>{spoc.role}</td>
+                                      <td>{spoc.email}</td>
+                                      <td>{spoc.mobile}</td>
+                                      <td
                                       role="button"
                                       className="cursor-pointer"
                                       onClick={() => {
-                                        setOpenAddSpoc({status:true,type:"edit-spoc"})
+                                        setOpenAddSpoc({ status: true, type: "edit-spoc" })
                                         setSelectedSpocOption({
-                                          spoc_name:spoc.name,
+                                          spoc_name: spoc.name,
                                           spoc_email: spoc.email,
-                                          spoc_mobile:spoc.mobile,
-                                          spoc_role:spoc.role,
+                                          spoc_mobile: spoc.mobile,
+                                          spoc_role: spoc.role,
                                         })
                                         setSpocId(spoc.id);
                                       }
                                       }
-                                    >
-                                      Edit
-                                    </span>
-                                  </td>
-                                  </tr>
-                                </>
-                              )
-                            })}
-                        </tbody>
-                      </table>
+                                      >
+                                        <span className="me-2">
+                                          <FontAwesomeIcon icon={faEdit} />
+                                        </span>
+                                        <span>
+                                          Edit
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  </>
+                                )
+                              })}
+                          </tbody>
+                        </table>
 
-                    </div>
-                    : "No Spoc Found"}
+                      </div>
+                      : "No Spoc Found"}
+                  </div>
                 </div>
               </div>
+
             </div>
+            {/*   */}
+
           </div>
         </div>
       </section>
@@ -894,7 +902,7 @@ const EditProfile = () => {
           type={openAddSpoc.type}
           spocData={selectedSpocOption}
           openModal={openAddSpoc.status}
-          closeModal={() => setOpenAddSpoc({status:false})}
+          closeModal={() => setOpenAddSpoc({ status: false })}
           handleSpoc={handleSpoc}
           handleEditSpoc={handleEditSpoc}
         />
