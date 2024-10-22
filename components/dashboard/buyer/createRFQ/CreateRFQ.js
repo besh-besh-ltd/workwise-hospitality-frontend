@@ -374,7 +374,7 @@ const CreateRFQ = () => {
                                 {termFiles.map((term_file) => (
                                   <a href={term_file[1]} target="_blank" key={term_file[1]} className="file-badge mb-2" type="button" >
                                     <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{term_file[0]}</span>
-                                    <FontAwesomeIcon icon={faClose} fontSize={15} color={"#000"} onClick={() => handleRemoveFile(term_file)} />
+                                    <FontAwesomeIcon icon={faClose} fontSize={15} onClick={() => handleRemoveFile(term_file)} />
                                   </a>
                                 ))}
                               </div>
