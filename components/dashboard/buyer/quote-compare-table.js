@@ -4,9 +4,11 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
 import { faAward, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import { extractfileName } from "@/utils/sharedFunctions";
 
 const QuoteCompareTable = ({
   quotations,
@@ -35,7 +37,16 @@ const QuoteCompareTable = ({
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
     setOpenCommonModal(true);
-  }
+  };
+
+  const renderFileLink = (files) => {
+    return files.map((file, index) => (
+      <a key={index} href={file.file_url} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+        <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+        {extractfileName(file.file_url)}
+      </a>
+    ));
+  };
 
   return (
     <>
@@ -167,15 +178,11 @@ const QuoteCompareTable = ({
                       }
                     </div>
                     <div className="table-si-row">
-                    {item?.document_files && item?.document_files.length > 0 && (
-                     item?.document_files?.map((doc_file) => {
-                     return (
-                          <div key={doc_file.file_url} className="d-flex justify-content-between">
-                              <a href={doc_file.file_url} className="page-link text-truncate" target="_blank" >{doc_file.file_url}</a>
-                                
-                         </div>
-                       ) }) )}
-
+                      {(item.document_files) ? (
+                        <>
+                          {renderFileLink(item.document_files)}
+                        </>
+                      ) : <span>N/A</span>}
                     </div>
                   </div>
                 );

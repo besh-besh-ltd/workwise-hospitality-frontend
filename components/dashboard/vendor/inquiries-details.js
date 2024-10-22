@@ -532,7 +532,7 @@ const RfqManagementPreview = () => {
                                     </div>
                                   </td>
 
-                                  <td>{`${qty} - ${unit}`}</td>
+                                  <td>{`${qty}-${unit}`}</td>
                                   {item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : null}
 
                                   <td>

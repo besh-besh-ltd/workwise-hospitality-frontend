@@ -198,10 +198,10 @@ const OverallComparison = ({ rfq_id }) => {
                     Product Name
                   </th>
                   <th scope="col" className="description" rowSpan={2}>
-                    Product Variant Details (specification)
+                    Product Variant Details
                   </th>
                   <th scope="col" className="sl_no" rowSpan={2}>
-                    Qty<small>(Nos.)</small>
+                    Quantity
                   </th>
                   <th scope="col" className="all_vendors" rowSpan={2} style={{backgroundColor: "#fff8db"}} >
                     Last Purchase Details
@@ -235,12 +235,23 @@ const OverallComparison = ({ rfq_id }) => {
                             : "-"}
                         </td>
                         <td>
-                          {item.quotations.length > 0
-                            && item.quotations[0].quote_details[0]?.rfq_details
-                            ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
-                            : item.product_specs[0].value}
+                          <div className="row">
+                            {<p className="col-12 mb-1" >
+                              
+                              <strong>Size: </strong>
+                              {item.product_specs[0]?.value
+                              ? item.product_specs[0]?.value
+                              : "--"}
+                            </p>}
+                            {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                              <strong>Spec: </strong>
+                              {item.product_specs[1]?.value
+                              ? item.product_specs[1]?.value
+                              : "--"}
+                            </p>}
+                          </div>
                         </td>
-                        <td>{  getQty(item)!=="-"? getQty(item) : item.product_specs[2].value}</td>
+                        <td>{`${item.product_specs[2]?.value}-${item.product_specs[3]?.value}`}</td>
 
                         {item.last_purchase_rate
                           ? <td className="total_amt_field">
