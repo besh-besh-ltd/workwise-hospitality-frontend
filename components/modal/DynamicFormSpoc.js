@@ -23,12 +23,11 @@ const DynamicFormSpoc = ({
         spoc_name: yup.string().required("Spoc name is required")
             .min(2, "Name not less than 2 characters short")
             .max(50, "Name not more than 50 characters long"),
-        spoc_email: yup.string().email()
+        spoc_email: yup.string().required("Email is required").email()
             .matches(
                 /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
                 "Please enter valid email address"
-            )
-            .required("Email is required"),
+            ),
         spoc_mobile: yup.string()
             .matches(
                 /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
@@ -37,9 +36,6 @@ const DynamicFormSpoc = ({
             .min(10, "Min 10 digit is required")
             .max(12, "Mobile number not more than 11 digit long")
             .required("Mobile number is required"),
-        spoc_role: yup.string().required("Role is required")
-            .min(3, "Role not less than 3 characters short")
-            .max(50, "Role not more than 50 characters long"),
     })
 
 
@@ -156,7 +152,7 @@ const DynamicFormSpoc = ({
 
                                                     <div className="col-md-6">
                                                         <div className="form-group">
-                                                            <label htmlFor="spoc_role">Role <sup>*</sup></label>
+                                                            <label htmlFor="spoc_role">Role <sup></sup></label>
                                                             <Field
                                                                 type="text"
                                                                 id="spoc_role"
