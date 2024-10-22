@@ -449,8 +449,31 @@ const RfqManagementPreview = () => {
                   <div className="manage-rfq-con">
 
                     {/* Content for Manage RFQs tab */}
-                    <div className="d-flex justify-content-between">
+                    <div className="d-flex justify-content-between align-items-center">
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
+                      {type == "buyer-view" &&
+                        ((rfqDetails.total_quotes_received>0) ?
+                          <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary my-0"
+                              style={{ width: "260px" }}
+                            >
+                              Compare Received Quotes
+                            </button>
+                          </Link>
+                        :
+                          <button
+                            type="button"
+                            className="btn btn-primary my-0"
+                            style={{ width: "260px" }}
+                            disabled
+                          >
+                            No Quotes Received
+                          </button>
+                        )
+
+                      }
                       {(rfqDetails.status == 1 && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
                         ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                           <button
