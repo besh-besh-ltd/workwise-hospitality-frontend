@@ -25,7 +25,7 @@ export const EditCompanyDetails = yup.object().shape({
 });
 
 export const CreateRFQSchema = yup.object().shape({
-  comment: yup.string().required("Comment is required"),
+  comment: yup.string().optional(),
   response_email: yup
     .string()
     .email()

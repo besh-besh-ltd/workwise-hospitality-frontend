@@ -17,8 +17,32 @@ import { components } from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
 import { getCities, getStates } from "@/services/cms";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faEdit,
+  faFolderPlus
+} from "@fortawesome/free-solid-svg-icons";
+import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
+import { addSpoc, editSpoc } from "@/services/Auth";
 
 const EditProfile = () => {
+
+
+  // handling state for spoc
+  const [vendorSpoc, setVendorSpoc] = useState([]);
+  const [selectedSpocOption, setSelectedSpocOption] = useState({
+    spoc_name: '',
+    spoc_email: '',
+    spoc_mobile: '',
+    spoc_role: '',
+  });
+  const [spocId, setSpocId] = useState(null);
+  const [openAddSpoc, setOpenAddSpoc] = useState({
+    status: false,
+    type: "create-spoc"
+  });
+  const [createLoading, setCreateLoading] = useState(false);
+
   const [countryList, setcountryList] = useState([
     { label: "Select Country", value: "" },
     { label: "India", value: "1" },
@@ -184,6 +208,7 @@ const EditProfile = () => {
         profile_image: res.data.profile_image || "",
         vendor_approve: res.data.vendor_approve || ""
       });
+      setVendorSpoc(res.data.spoc);
       setselectedCountry(res.data?.country || "");
       setselectedState(res.data?.state || "");
       setselectedCity(res.data?.city || "");
@@ -307,8 +332,46 @@ const EditProfile = () => {
       });
   };
 
+  const handleSpoc = (values, resetForm) => {
+    setCreateLoading(true);
+    setOpenAddSpoc(false);
+    addSpoc(values)
+      .then((res) => {
+        toast.success(res.message, { position: "top-right", });
+      })
+      .catch((error) => {
+        toast.error(error.message?.response?.data?.message, { position: "top-right", });
+        console.log(error)
+      })
+      .finally(() => {
+        resetForm();
+        setCreateLoading(false);
+        getProfileDetails()
+      })
+  }
+
+  const handleEditSpoc = (values, resetForm) => {
+    setCreateLoading(true);
+
+    setOpenAddSpoc(false);
+    editSpoc(values, spocId)
+      .then((res) => {
+        toast.success(res.message, { position: "top-right", });
+      })
+      .catch((error) => {
+        toast.error(error.message?.response?.data?.message, { position: "top-right", });
+        console.log(error)
+      })
+      .finally(() => {
+        resetForm();
+        setCreateLoading(false);
+        getProfileDetails()
+      })
+  }
+
   return (
     <>
+      {createLoading && <Loader />}
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
           <h1 className="heading">Edit profile</h1>
@@ -741,17 +804,109 @@ const EditProfile = () => {
 
                     <button
                       type="submit"
-                      className="btn btn-secondary edit-profile"
+                      className="btn btn-secondary edit-profile mb-4"
                     >
                       Save
                     </button>
                   </Form>
                 )}
               </Formik>
+
+
+              <div className=" ">
+                <div className="details-table p-4 vendor-edit-sec-form" >
+                  <div className="table-header row mb-4">
+                    <div className="filter-options col-7 align-items-center">
+
+                    </div>
+
+
+                    <div className="ms-auto d-flex justify-content-between align-items-center mb-2  ">
+
+                      <span className="title"> Manage SPOC </span>
+
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setOpenAddSpoc({ status: true, type: "create-spoc" })}
+                      >
+                        Create New Spoc
+                      </button>
+                    </div>
+                    {(vendorSpoc && vendorSpoc.length > 0) ?
+                      <div className="table-responsive">
+                        <table className="table table-striped">
+                          <thead>
+                            <tr>
+                              <th scope="col">S.R.</th>
+                              <th scope="col">Name</th>
+                              <th scope="col">Role</th>
+                              <th scope="col">Email</th>
+                              <th scope="col">Mobile</th>
+                              <th scope="col">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {vendorSpoc && vendorSpoc.length > 0 &&
+                              vendorSpoc.map((spoc, index) => {
+                                return (
+                                  <>
+                                    <tr key={spoc.id}>
+                                      <td>{index + 1}</td>
+                                      <td>{spoc.name}</td>
+                                      <td>{spoc.role}</td>
+                                      <td>{spoc.email}</td>
+                                      <td>{spoc.mobile}</td>
+                                      <td
+                                      role="button"
+                                      className="cursor-pointer"
+                                      onClick={() => {
+                                        setOpenAddSpoc({ status: true, type: "edit-spoc" })
+                                        setSelectedSpocOption({
+                                          spoc_name: spoc.name,
+                                          spoc_email: spoc.email,
+                                          spoc_mobile: spoc.mobile,
+                                          spoc_role: spoc.role,
+                                        })
+                                        setSpocId(spoc.id);
+                                      }
+                                      }
+                                      >
+                                        <span className="me-2">
+                                          <FontAwesomeIcon icon={faEdit} />
+                                        </span>
+                                        <span>
+                                          Edit
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  </>
+                                )
+                              })}
+                          </tbody>
+                        </table>
+
+                      </div>
+                      : "No Spoc Found"}
+                  </div>
+                </div>
+              </div>
+
             </div>
+            {/*   */}
+
           </div>
         </div>
       </section>
+      {openAddSpoc.status &&
+        <DynamicFormSpoc
+          type={openAddSpoc.type}
+          spocData={selectedSpocOption}
+          openModal={openAddSpoc.status}
+          closeModal={() => setOpenAddSpoc({ status: false })}
+          handleSpoc={handleSpoc}
+          handleEditSpoc={handleEditSpoc}
+        />
+      }
     </>
   );
 };

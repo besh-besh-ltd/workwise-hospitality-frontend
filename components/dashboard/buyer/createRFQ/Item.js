@@ -1,15 +1,14 @@
 import {
   addComment,
-  addDatasheet,
   addFiles,
-  addProductSpec,
   addProductSpecValue,
-  addQAP,
   addRfqProduct,
+  removeFiles,
   removeRfqProduct,
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
-import { handleUploadFile } from "@/services/rfq";
+import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
@@ -17,7 +16,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
-const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
+const Item = ({ data, vendorApprovedList }) => {
   const dispatch = useDispatch();
   const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const [specSize, setspecSize] = useState("");
@@ -35,22 +34,19 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
 
   const [uploadedQapFile, setuploadedQapFile] = useState(data?.qap_file);
   const [uploadedSpecFile, setuploadedSpecFile] = useState(data?.spec_file);
-  const [uploadedDatasheetFile, setuploadedDatasheetFile] = useState(
-    data?.datasheet_file
-  );
-
+  const [uploadedDatasheetFile, setuploadedDatasheetFile] = useState(data?.datasheet_file);
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
 
   useEffect(() => {
     data.spec.map((item) => {
-      switch(item.title) {
-        case 'Size':  
+      switch (item.title) {
+        case 'Size':
           setspecSize(item.value);
           break;
-        case 'Spec':  
+        case 'Spec':
           setspecSpec(item.value);
           break;
-        case 'Quantity':  
+        case 'Quantity':
           setquantity(item.value);
           break;
         case 'Unit':
@@ -58,7 +54,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
           break;
         default:
           console.log('Invalid Title');
-      }      
+      }
     });
   }, []);
 
@@ -119,77 +115,76 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
     }
   };
 
-  const handleUpload = (event, type) => {
-    if (event.target.files && event.target.files[0]) {
-      const fileExtension = event.target.files[0].name.split(".").pop();
-      if (fileExtension == "pdf") {
-        const i = event.target.files[0];
-        uploadToServer(i, type);
+  const uploadToServer = async (e, type) => {
+    try {
+      const filePath = await handleFileUpload(e);
+      if (type == "qap_file") {
+        setuploadedQapFile((prevFiles) => ([
+          ...prevFiles,
+          filePath
+        ]));
       }
-    }
+      if (type == "spec_file") {
+        setuploadedSpecFile((prevFiles) => ([
+          ...prevFiles,
+          filePath
+        ]));
+      }
+      if (type == "datasheet_file") {
+        setuploadedDatasheetFile((prevFiles) => ([
+          ...prevFiles,
+          filePath
+        ]));
+      }
+      dispatch(
+        addFiles({
+          type,
+          value: filePath,
+          product_id: data.product_id,
+          variant: data.variant
+        })
+      );
+
+    } catch (error) {
+      console.log(error)
+      // let message = err.message.response.data.errors.file.message;
+      //   toast.error(message);
+    }    
   };
 
-  const uploadToServer = async (supplied_img, type) => {
-    handleUploadFile(supplied_img)
-      .then((res) => {
-        if (res?.data.length > 0) {
-          let uploadedFile = res.data[0].file_path;
-          if (type == "qap_file") {
-            setuploadedQapFile(uploadedFile);
-          }
-          if (type == "spec_file") {
-            setuploadedSpecFile(uploadedFile);
-          }
-          if (type == "datasheet_file") {
-            setuploadedDatasheetFile(uploadedFile);
-          }
-          dispatch(
-            addFiles({
-              type,
-              value: uploadedFile,
-              product_id: data.product_id,
-              variant: data.variant
-            })
-          );
-        }
+  const handleRemoveFile = (file_url, type) => {
+    dispatch(
+      removeFiles({
+        type,
+        value: file_url,
+        product_id: data.product_id,
+        variant: data.variant
       })
-      .catch((err) => {
-        let message = err.message.response.data.errors.file.message;
-        alert(message)
-        // toast.error(message,
-        //   {
-        //     position: "top-right",
-        //   }
-        // );
+    );
 
-      });
-  };
+    let newList = [];
+    switch (type) {
+      case "spec_file":
+        newList = uploadedSpecFile.filter((spec_file_item) => spec_file_item !== file_url)
+        setuploadedSpecFile(newList);
+        break;
+      case "datasheet_file":
+        newList = uploadedDatasheetFile.filter((datasheet_file_item) => datasheet_file_item !== file_url)
+        setuploadedDatasheetFile(newList);
+        break;
+      case "qap_file":
+        newList = uploadedQapFile.filter((qap_file_item) => qap_file_item !== file_url)
+        setuploadedQapFile(newList);
+        break;
+      default:
+        console.log("Invalid file");
+    }
+  }
 
   const handleAddComment = (e) => {
     setComment(e.target.value);
     dispatch(
       addComment({
-        value: e.target.value,
-        product_id: data.product_id,
-        variant: data.variant
-      })
-    );
-  };
-
-  const handleAddDatasheet = (e) => {
-    setDatasheet(e.target.value);
-    dispatch(
-      addDatasheet({
-        value: e.target.value,
-        product_id: data.product_id,
-        variant: data.variant
-      })
-    );
-  };
-  const handleAddQap = (e) => {
-    setQAP(e.target.value);
-    dispatch(
-      addQAP({
         value: e.target.value,
         product_id: data.product_id,
         variant: data.variant
@@ -217,7 +212,7 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
       <tr>
         <td>{data?.name}</td>
         <td >
-          <div className="d-flex flex-column justify-content-center align-items-center gap-4">
+          <div className="d-flex flex-column justify-content-center align-items-center">
             <input
               type="text"
               value={specSpec}
@@ -225,9 +220,9 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               name="Spec"
               id={`spec_${data.product_id}_${data.variant}_spec`}
               placeholder="Grade, Material and other Specs"
-              className="w-100"
+              className="w-100 mb-3"
             />
-            <div className="d-flex-gap-2">
+            <div className="d-flex gap-2 mb-2">
               <input
                 type="text"
                 value={specSize}
@@ -238,38 +233,32 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
                 className="w-100"
               />
               <span>OR</span>
-              {uploadedSpecFile != "" && (
-                <a href={uploadedSpecFile} className="page-link" target="_blank">
-                  View file
-                </a>
-              )}
-              {uploadedSpecFile != "" && (
-                <label className="upload uploadInlineFile">
-                  Change
-                  <input
-                    type="file"
-                    onChange={(e) => handleUpload(e, "spec_file")}
-                    accept={".pdf"}
-                    multiple={false}
-                  />
-                </label>
-              )}
-              {uploadedSpecFile == "" && (
-                <label className="upload uploadInlineFile">
-                  Upload{" "}
-                  <input
-                    type="file"
-                    onChange={(e) => handleUpload(e, "spec_file")}
-                    accept={".pdf"}
-                    multiple={false}
-                  />
-                </label>
-              )}
+              <label className="upload uploadInlineFile d-flex align-items-center">
+                <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
+                <input
+                  type="file"
+                  onChange={(e) => uploadToServer(e, "spec_file")}
+                  multiple={true}
+                />
+              </label>
             </div>
+            {uploadedSpecFile && uploadedSpecFile.length > 0 && (
+              uploadedSpecFile.map((spec_file) => {
+                return (
+                  <div key={spec_file} className="d-flex justify-content-between">
+                    <a href={spec_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(spec_file)}</a>
+                    <span
+                      className="btn-close btn-close-sm"
+                      aria-label="Close"
+                      onClick={() => handleRemoveFile(spec_file, "spec_file")}></span>
+                  </div>
+                )
+              })
+            )}
           </div>
         </td>
         <td>
-          <div className="d-flex flex-column gap-4">
+          <div className="d-flex flex-column">
             <input type="number"
               value={quantity}
               onChange={(e) => handleSpecValue("quantity", e.target.value)}
@@ -277,42 +266,19 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
               min={0}
               id={`spec_${data.product_id}_${data.variant}_quantity`}
               placeholder="Quantity"
-              class="form-control me-0"
+              className="form-control me-0 mb-3"
               aria-label="Quantity input with dropdown button"
               onWheel={(e) => e.target.blur()}
             />
-            <input type="text" 
+            <input type="text"
               value={unit}
               onChange={(e) => handleSpecValue("unit", e.target.value)}
               name="Unit"
               id={`spec_${data.product_id}_${data.variant}_unit`}
               placeholder="Unit"
-              class="form-control me-0"
+              className="form-control me-0 mb-2"
               aria-label="Unit Details"
             />
-
-            {/* TODO: Design ready for select unit optins need unit list from backend
-              <div class="input-group">
-                <input type="number"
-                  value={quantity}
-                  onChange={(e) => handleSpecValue("quantity", e.target.value)}
-                  name="Quantity"
-                  id={`spec_${data.product_id}_size`}
-                  placeholder="Quantity"
-                  class="form-control"
-                  aria-label="Quantity input with dropdown button" />
-              </div>
-              <select name="unit" id="unit" className="p-2"
-                onChange={(e) => handleSpecValue("unit", e.target.value)}
-              >
-                <option value="">Unit</option>
-                <option value="mm">mm</option>
-                <option value="cm">cm</option>
-                <option value="mtr">mtr</option>
-                <option value="inch">inch</option>
-                <option value="gm">gm</option>
-                <option value="kg">Kg</option>
-              </select> */}
           </div>
         </td>
         <td className="w200">
@@ -327,57 +293,35 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
 
                 </> : <p>No TDS file found in our system!</p>}
             </div>
-            {/* {vendorApprovedList && (
-              <select
-                name="datesheet"
-                id="datesheet"
-                onChange={handleAddDatasheet}
-                value={datasheet}
-              >
-                <option value="0">Select</option>
-                {vendorApprovedList.map((item) => {
-                  return (
-                    <option key={`datesheet_${item.id}`} value={item.id}>
-                      {item.vendor_approve}
-                    </option>
-                  );
-                })}
-              </select>
-            )} */}
             <p className="m-4">
               <span>OR</span>
             </p>
             <p>
-              {uploadedDatasheetFile != "" && (
-                <a
-                  href={uploadedDatasheetFile}
-                  className="page-link"
-                  target="_blank"
-                >
-                  View file
-                </a>
-              )}
-              {uploadedDatasheetFile != "" && (
-                <label className="upload uploadInlineFile">
-                  Change
+              {
+                <label className="upload uploadInlineFile d-flex align-items-center">
+                  <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                   <input
                     type="file"
-                    onChange={(e) => handleUpload(e, "datasheet_file")}
-                    multiple={false}
-                    accept={".pdf"}
+                    onChange={(e) => uploadToServer(e, "datasheet_file")}
+                    multiple={true}
                   />
                 </label>
-              )}
-              {uploadedDatasheetFile == "" && (
-                <label className="upload uploadInlineFile">
-                  Upload own file{" "}
-                  <input
-                    type="file"
-                    onChange={(e) => handleUpload(e, "datasheet_file")}
-                    multiple={false}
-                    accept={".pdf"}
-                  />
-                </label>
+              }
+              {uploadedDatasheetFile && uploadedDatasheetFile.length > 0 && (
+                uploadedDatasheetFile.map((datasheet_file) => {
+                  return (
+                    <div key={datasheet_file} className="d-flex justify-content-between">
+                      <a href={datasheet_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(datasheet_file)}</a>
+                      <span
+                        className="btn-close btn-close-sm"
+                        aria-label="Close"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleRemoveFile(datasheet_file, "datasheet_file")
+                        }}></span>
+                    </div>
+                  )
+                })
               )}
             </p>
           </p>
@@ -400,55 +344,35 @@ const Item = ({ data, handleProductSpec, vendorApprovedList }) => {
                 </> : <p>No QAP file found in our system!</p>
               }
             </div>
-            {/* {vendorApprovedList && (
-              <select
-                name="datesheet"
-                id="datesheet"
-                onChange={handleAddQap}
-                value={qap}
-              >
-                <option value="0">Select</option>
-                {vendorApprovedList.map((item) => {
-                  return (
-                    <option key={`datesheet_${item.id}`} value={item.id}>
-                      {item.vendor_approve}
-                    </option>
-                  );
-                })}
-              </select>
-            )} */}
             <p className="m-4">
               <span>OR</span>
             </p>
             <p>
-              {uploadedQapFile != "" && (
-                <a href={uploadedQapFile} className="page-link" target="_blank">
-                  View file
-                </a>
-              )}
-              {uploadedQapFile != "" && (
-                <label className="upload uploadInlineFile">
-                  Change
+              {
+                <label className="upload uploadInlineFile ">
+                  <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                   <input
                     type="file"
-                    onChange={(e) => handleUpload(e, "qap_file")}
-                    multiple={false}
-                    accept={".pdf"}
+                    onChange={(e) => uploadToServer(e, "qap_file")}
+                    multiple={true}
                   />
                 </label>
-              )}
-              {uploadedQapFile == "" && (
-                <>
-                  <label className="upload uploadInlineFile">
-                    Upload own file{" "}
-                    <input
-                      type="file"
-                      onChange={(e) => handleUpload(e, "qap_file")}
-                      multiple={false}
-                      accept={".pdf"}
-                    />
-                  </label>
-                </>
+              }
+              {uploadedQapFile && uploadedQapFile.length > 0 && (
+                uploadedQapFile.map((qap_file) => {
+                  return (
+                    <div key={qap_file} className="d-flex justify-content-between">
+                      <a href={qap_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(qap_file)}</a>
+                      <span
+                        className="btn-close btn-close-sm"
+                        aria-label="Close"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleRemoveFile(qap_file, "qap_file")
+                        }}></span>
+                    </div>
+                  )
+                })
               )}
             </p>
           </p>

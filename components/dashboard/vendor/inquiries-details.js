@@ -7,10 +7,11 @@ import { Router, useRouter } from "next/router";
 import { closeRFQ, getRFQById, sendQuotation } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
-import { faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -19,6 +20,7 @@ const RfqManagementPreview = () => {
   const [loading, setloading] = useState(false);
   const [enableBuyerView, setEnableBuyerView] = useState(false);
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
+  const [isSubmitAble, setIsSubmitable] = useState(true);
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
@@ -38,6 +40,8 @@ const RfqManagementPreview = () => {
 
       .then((res) => {
         setloading(false);
+        let val = checkBidExpired(res.data?.bid_end_date);
+        setIsSubmitable(!val);
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
       })
@@ -46,14 +50,6 @@ const RfqManagementPreview = () => {
       });
   };
 
-  const isSubmitAble = () => {
-    if (rfqDetails.bid_end_date == "") {
-      return true;
-    }
-    let CURRENT_DATE = moment(new Date());
-    let END_DATE = moment(rfqDetails.bid_end_date);
-    return END_DATE.diff(CURRENT_DATE, "days") >= 0;
-  };
   const handleRFqClose = (e) => {
     setcloseRFqLoading(true);
     e.preventDefault();
@@ -68,10 +64,7 @@ const RfqManagementPreview = () => {
   };
 
   const checkIfQuotationSendIsPossible = (rfqd) => {
-    var finalizedProducts = [];
-    rfqd?.finalizations?.map((item) => finalizedProducts.push(item.product_id));
-
-    if (finalizedProducts.length === rfqd?.products.length) {
+    if (rfqd?.finalizations?.length === rfqd?.products?.length) {
       setproductleftforbid(false);
     } else {
       setproductleftforbid(true);
@@ -137,6 +130,26 @@ const RfqManagementPreview = () => {
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join(".");
   };
+
+  const renderFileLink = (fileOrFiles) => {
+    if (Array.isArray(fileOrFiles) && fileOrFiles.length > 0) {
+        return fileOrFiles.map((file, index) => (
+          <a key={index} href={file} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+            <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+            {extractfileName(file)}
+          </a>
+        ));
+      } 
+      else if (typeof fileOrFiles === "string" && fileOrFiles !== "") {
+        return (
+          <a href={fileOrFiles} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+            <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+            {extractfileName(fileOrFiles)}
+          </a>
+        );
+      }
+      return null; 
+};
 
   return (
     <>
@@ -431,58 +444,52 @@ const RfqManagementPreview = () => {
 
           <section className="buyer-rfq-det-sec-1">
             <div className="container-fluid">
-              {/* {enableBuyerView ? (
-                <Link
-                  href="/dashboard/buyer/rfq-management"
-                  className="page-link backBtn"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.back()
-                  }
-                  }
-                >
-                  {" "}
-                  <FontAwesomeIcon icon={faArrowLeft} /> Go back
-                </Link>
-              ) : (
-                <Link
-                  href={localStorage.getItem('token') ? "/dashboard/vendor/inquiries-received" : "/"}
-                  className="page-link backBtn"
-                >
-                  {" "}
-                  <FontAwesomeIcon icon={faArrowLeft} /> {localStorage.getItem('token') ? "Go back" : "Go to home"}
-                </Link>
-              )} */}
               <div className="row">
                 <div className="col-md-12">
                   <div className="manage-rfq-con">
 
                     {/* Content for Manage RFQs tab */}
-                    {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret == 0 ?
-                      <div className="d-flex justify-content-between">
-                        <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
-                        <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
+                      {type == "buyer-view" &&
+                        ((rfqDetails.total_quotes_received>0) ?
+                          <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary my-0"
+                              style={{ width: "260px" }}
+                            >
+                              Compare Received Quotes
+                            </button>
+                          </Link>
+                        :
                           <button
                             type="button"
-                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0`}
-                            style={{ width: "240px" }}
-                            disabled={rfqDetails.status == 2}
+                            className="btn btn-primary my-0"
+                            style={{ width: "260px" }}
+                            disabled
                           >
-                            {rfqDetails.status == 2 ?
-                              <>
-                                <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                RFQ Closed
-                              </>
-                              : <>
-                                <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                Update Your Quote
-                              </>
-                            }
+                            No Quotes Received
+                          </button>
+                        )
+
+                      }
+                      {(rfqDetails.status == 1 && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
+                        ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary m-0"
+                            style={{ width: "240px" }}
+                          >
+                            <>
+                              <FontAwesomeIcon icon={faEdit} className="me-2" />
+                              Update Your Quote
+                            </>
                           </button>
                         </Link>
-                      </div>
-                      : <span className="title">RFQ #{rfqDetails.rfq_no} details</span>
-                    }
+                        : null
+                      }
+                    </div>
 
                     <div className="details-table">
                       <div className="table-responsive">
@@ -497,7 +504,7 @@ const RfqManagementPreview = () => {
                               <th>QAP</th>
                               {type != "buyer-view" &&
                                 <th>Finalization Status</th>
-                              }  
+                              }
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
                             </tr>
@@ -548,217 +555,29 @@ const RfqManagementPreview = () => {
                                     </div>
                                   </td>
 
-                                  <td>{`${qty} - ${unit}`}</td>
+                                  <td>{`${qty}-${unit}`}</td>
                                   {item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : null}
 
                                   <td>
-                                    <div>
-                                      {item?.datasheet == null &&
-                                        item?.product_details[0]
-                                          ?.predefined_tds_file != null &&
-                                        item.datasheet_file == "" && (
-                                          <>
-                                            <Link
-                                              target="_blank"
-                                              href={
-                                                item?.product_details[0]
-                                                  ?.predefined_tds_file
-                                              }
-                                            >
-                                              <FontAwesomeIcon icon={faEye} />{" "}
-                                              View File
-                                            </Link>
-                                            <Link
-                                              target="_blank"
-                                              download={true}
-                                              href={
-                                                item?.product_details[0]
-                                                  ?.predefined_tds_file
-                                              }
-                                            >
-                                              <Image
-                                                src="/assets/images/download-icon.png"
-                                                alt="Workwise"
-                                                width={16}
-                                                height={16}
-                                                priority={true}
-                                              />{" "}
-                                              Download
-                                            </Link>
-                                          </>
-                                        )}
-                                      {item?.datasheet == null &&
-                                        item?.product_details[0]
-                                          ?.predefined_tds_file == null &&
-                                        item.datasheet_file == "" &&
-                                        "N/A"}
-                                      {item?.datasheet &&
-                                        item?.datasheet != null &&
-                                        item?.datasheet.length > 0 && (
-                                          <span>{item?.datasheet[0].name}</span>
-                                        )}
-                                      {item?.datasheet_file &&
-                                        item?.datasheet_file != "" && (
-                                          <Link
-                                            target="_blank"
-                                            href={item?.datasheet_file}
-                                          >
-                                            <FontAwesomeIcon icon={faEye} />
-                                          </Link>
-                                        )}
-                                      {!item?.datasheet_file &&
-                                        item?.datasheet != null &&
-                                        item?.datasheet_file == "" && (
-                                          <Link
-                                            target="_blank"
-                                            href={
-                                              item?.datasheet[0]?.datasheet_link
-                                            }
-                                          >
-                                            <FontAwesomeIcon icon={faEye} />
-                                          </Link>
-                                        )}
-                                      {item?.datasheet_file &&
-                                        item?.datasheet_file != "" && (
-                                          <Link
-                                            target="_blank"
-                                            download={true}
-                                            href={item?.datasheet_file}
-                                          >
-                                            <Image
-                                              src="/assets/images/download-icon.png"
-                                              alt="Workwise"
-                                              width={16}
-                                              height={16}
-                                              priority={true}
-                                            />
-                                          </Link>
-                                        )}
-                                      {!item?.datasheet_file &&
-                                        item?.datasheet != null &&
-                                        item?.datasheet_file == "" && (
-                                          <Link
-                                            target="_blank"
-                                            download={true}
-                                            href={
-                                              item?.datasheet[0].datasheet_link
-                                            }
-                                          >
-                                            <Image
-                                              src="/assets/images/download-icon.png"
-                                              alt="Workwise"
-                                              width={16}
-                                              height={16}
-                                              priority={true}
-                                            />
-                                          </Link>
-                                        )}
-                                    </div>
+                                    {(item.datasheet_file || item.TDS_flies) ? (
+                                      <>
+                                        {renderFileLink(item.datasheet_file)}
+                                        {renderFileLink(item.TDS_flies)}
+                                      </>
+                                    ) : <span>N/A</span>}
                                   </td>
                                   <td>
-                                    <div>
-                                      {item?.qap == null &&
-                                        item?.product_details[0]
-                                          ?.predefined_qap_file != null &&
-                                        item.qap_file == "" && (
-                                          <>
-                                            <Link
-                                              target="_blank"
-                                              href={
-                                                item?.product_details[0]
-                                                  ?.predefined_qap_file
-                                              }
-                                            >
-                                              <FontAwesomeIcon icon={faEye} />{" "}
-                                              View File
-                                            </Link>
-                                            <Link
-                                              target="_blank"
-                                              download={true}
-                                              href={
-                                                item?.product_details[0]
-                                                  ?.predefined_qap_file
-                                              }
-                                            >
-                                              <Image
-                                                src="/assets/images/download-icon.png"
-                                                alt="Workwise"
-                                                width={16}
-                                                height={16}
-                                                priority={true}
-                                              />{" "}
-                                              Download
-                                            </Link>
-                                          </>
-                                        )}
-                                      {item?.qap == null &&
-                                        item?.product_details[0]
-                                          ?.predefined_qap_file == null &&
-                                        item.qap_file == "" &&
-                                        "N/A"}
-                                      {item?.qap &&
-                                        item?.qap != "" &&
-                                        item?.qap != null && (
-                                          <span>{item?.qap[0].name}</span>
-                                        )}
-                                      {item?.qap_file &&
-                                        item?.qap_file != "" && (
-                                          <Link
-                                            target="_blank"
-                                            href={item?.qap_file}
-                                          >
-                                            <FontAwesomeIcon icon={faEye} />
-                                          </Link>
-                                        )}
-                                      {!item?.qap_file &&
-                                        item?.qap_file == "" &&
-                                        item?.qap != null && (
-                                          <Link
-                                            target="_blank"
-                                            href={item?.qap[0].qap_link}
-                                          >
-                                            <FontAwesomeIcon icon={faEye} />
-                                          </Link>
-                                        )}
-                                      {item?.qap_file &&
-                                        item?.qap_file != "" && (
-                                          <Link
-                                            target="_blank"
-                                            download={true}
-                                            href={item?.qap_file}
-                                          >
-                                            <Image
-                                              src="/assets/images/download-icon.png"
-                                              alt="Workwise"
-                                              width={16}
-                                              height={16}
-                                              priority={true}
-                                            />
-                                          </Link>
-                                        )}
-                                      {!item?.qap_file &&
-                                        item?.qap_file == "" &&
-                                        item?.qap != null && (
-                                          <Link
-                                            target="_blank"
-                                            download={true}
-                                            href={item?.qap[0].qap_link}
-                                          >
-                                            <Image
-                                              src="/assets/images/download-icon.png"
-                                              alt="Workwise"
-                                              width={16}
-                                              height={16}
-                                              priority={true}
-                                            />
-                                          </Link>
-                                        )}
-                                    </div>
+                                    {(item.qap_file || item.QAP_files) ? (
+                                      <>
+                                        {renderFileLink(item.qap_file)}
+                                        {renderFileLink(item.QAP_files)}
+                                      </>
+                                    ) : <span>N/A</span>}
                                   </td>
                                   {type != "buyer-view" &&
                                     <td>
                                       {item.finalization_status ==
-                                      "You are finalized" ? (
+                                        "You are finalized" ? (
                                         <span className="text-success">
                                           You are finalized
                                         </span>
@@ -773,7 +592,7 @@ const RfqManagementPreview = () => {
                                         </span>
                                       )}
                                     </td>
-                                  }  
+                                  }
                                   <td style={{ minWidth: "250px", maxWidth: "400px" }}>
                                     {item?.comment && item?.comment != ""
                                       ? item?.comment?.length > 100
@@ -903,9 +722,9 @@ const RfqManagementPreview = () => {
                                     <p>No predefined terms selected!</p>
                                   )}
 
-                                  {rfqDetails?.terms.length > 0 && (
+                                  {rfqDetails?.terms?.length > 0 && (
                                     <ol>
-                                      {rfqDetails?.terms.map((item, index) => {
+                                      {rfqDetails?.terms?.map((item, index) => {
                                         return (
                                           <li key={`rfq_d_t_${index}`}>
                                             {item.content[0].title}
@@ -963,115 +782,30 @@ const RfqManagementPreview = () => {
                                           )}{" "}
                                         </h4>
 
-                                        <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                        {(rfqDetails.status == 2 || !productleftforbid) ? (
                                           <button
                                             type="button"
-                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0`}
+                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0 mx-auto mt-2`}
                                             style={{ width: "240px" }}
-                                            disabled={rfqDetails.status == 2}
+                                            disabled
                                           >
-                                            {rfqDetails.status == 2 ?
+                                            <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                            {rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized"}
+                                          </button>
+                                        ) : (
+                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary m-0"
+                                              style={{ width: "240px" }}
+                                            >
                                               <>
-                                                <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                                RFQ Closed
-                                              </>
-                                              : <>
                                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                                 Update Your Quote
                                               </>
-                                            }
-                                          </button>
-                                        </Link>
-                                        {/* <div className="noborder-table">
-                                          <div className="table-responsive">
-                                            <table>
-                                              <thead>
-                                                <tr>
-                                                  <th rowSpan={2}>Product</th>
-                                                  <th
-                                                    colSpan={5}
-                                                    className="bottomBorder"
-                                                  >
-                                                    Price
-                                                  </th>
-                                                  <th
-                                                    colSpan={2}
-                                                    className="bottomBorder"
-                                                  >
-                                                    Comments & Details
-                                                  </th>
-                                                </tr>
-                                                <tr>
-                                                  <th>Unit Price</th>
-                                                  <th>Packaging (%)</th>                                                  
-                                                  <th>Freight (%)</th>
-                                                  <th>Tax (%)</th>
-                                                  <th>Total Price</th>
-                                                  <th>Comment</th>
-                                                  <th>Delivery (Weeks)</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {rfqDetails?.quotations[0]?.products
-                                                  .length > 0 &&
-                                                  rfqDetails?.quotations[0]?.products?.map(
-                                                    (item, index) => {
-                                                      return (
-                                                        <tr key={`rfq_d_i_${index}`}>
-                                                          <td>
-                                                            {item?.product_name
-                                                              ? item?.product_name
-                                                              : "-"}
-                                                          </td>
-                                                          <td>
-                                                            ₹{" "}
-                                                            {item?.unit_price
-                                                              ? item?.unit_price
-                                                              : "-"}
-                                                          </td>
-                                                          <td>
-                                                            {" "}
-                                                            {item?.package_price
-                                                              ? item?.package_price+"%"
-                                                              : "-"}
-                                                          </td>
-                                                          
-                                                          <td>
-                                                            {" "}
-                                                            {item?.freight_price
-                                                              ? item?.freight_price+"%"
-                                                              : "-"}
-                                                          </td>
-                                                          <td style={{ width: 60 }}>
-                                                            {" "}
-                                                            {item?.tax
-                                                              ? item?.tax+"%"
-                                                              : "-"}
-                                                          </td>
-                                                          <td>
-                                                            ₹{" "}
-                                                            {item?.total_price
-                                                              ? item?.total_price
-                                                              : "-"}
-                                                          </td>
-                                                          <td>
-                                                            {item?.comment
-                                                              ? item?.comment
-                                                              : "-"}
-                                                          </td>
-                                                          <td>
-                                                            {item?.delivery_period
-                                                              ? item?.delivery_period
-                                                              : "-"}
-                                                          </td>
-                                                        </tr>
-                                                      );
-                                                    }
-                                                  )}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div> */}
+                                            </button>
+                                          </Link>
+                                        )}
                                       </div>
                                     )}
                                   {rfqDetails.quotations.length > 0 &&
@@ -1100,6 +834,25 @@ const RfqManagementPreview = () => {
                               </div>
                             </div>
                           )}
+
+                          {rfqDetails.TERM_files && rfqDetails.TERM_files.length > 0 &&
+                            <div className="col-md-12 mb-2">
+                              <div className="row">
+                                <div className="col-md-6">
+                                  <h4>Terms & Conditions File</h4>
+                                  <div className="d-flex flex-wrap column-gap-3 mt-2">
+                                    {rfqDetails.TERM_files.map((term_file) => (
+                                      <a href={term_file} target="_blank" key={term_file} className="file-badge mb-2" type="button" >
+                                        <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                        <span className="text-truncate">{extractfileName(term_file)}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          }
+
                           <div className="col-md-12">
                             <div className="row">
                               <div className="col-md-6">
@@ -1146,10 +899,37 @@ const RfqManagementPreview = () => {
                           )}
                           {!enableBuyerView && (
                             <>
-                              {isSubmitAble() &&
-                                productleftforbid &&
-                                rfqDetails.quotations.length <= 0 &&
-                                rfqDetails?.status == 1 && (
+                              {(!isSubmitAble || rfqDetails.status == 2) ? (
+                                // Show a single disabled button saying "RFQ is Closed"
+                                <div className="row w-50">
+                                  <div className="col-12">
+                                    <button
+                                      type="button"
+                                      className="btn btn-danger w-100"
+                                      disabled
+                                    >
+                                      <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                      RFQ is Closed
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (!productleftforbid) ? (
+                                // Show a single disabled button saying "All Products are Finalized"
+                                <div className="row w-50">
+                                  <div className="col-12">
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary w-100"
+                                      disabled
+                                    >
+                                      <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                      All Products are Finalized
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                // Show the two buttons if neither condition is met
+                                rfqDetails.quotations.length <= 0 && rfqDetails?.status == 1 && (
                                   <div className="row w-50">
                                     <div className="col-md-6 ps-4">
                                       <button
@@ -1157,16 +937,14 @@ const RfqManagementPreview = () => {
                                         className="btn btn-primary"
                                         onClick={(e) => {
                                           e.preventDefault();
-                                          setregretModal(true)
+                                          setregretModal(true);
                                         }}
                                       >
                                         Regret Quote
                                       </button>
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
-                                      <Link
-                                        href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}
-                                      >
+                                      <Link href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}>
                                         <button
                                           type="button"
                                           className="btn btn-secondary"
@@ -1176,7 +954,8 @@ const RfqManagementPreview = () => {
                                       </Link>
                                     </div>
                                   </div>
-                                )}
+                                )
+                              )}
                             </>
                           )}
                         </div>

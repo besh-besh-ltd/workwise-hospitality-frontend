@@ -6,6 +6,10 @@ import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { faClose } from "@fortawesome/free-solid-svg-icons";
 
 
 const SendQuotePageComp = () => {
@@ -22,6 +26,7 @@ const SendQuotePageComp = () => {
   const [globalTax, setglobalTax] = useState(18);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
+  const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
 
   useEffect(() => {
@@ -39,6 +44,10 @@ const SendQuotePageComp = () => {
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
+        }
+
+        if (res.data.terms_and_conditions_files) {
+          setGlobalDocumentFiles(res.data?.terms_and_conditions_files?.map((item) => { return item.file_url }))
         }
         // Array to store each quote
         let bidProducts = [];
@@ -69,7 +78,8 @@ const SendQuotePageComp = () => {
               freight_price: quoteItem.freight_price || globalFreight,
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
-              delivery_period: quoteItem.delivery_period || ""
+              delivery_period: quoteItem.delivery_period || "",
+              document_files: quoteItem?.document_files?.map((item) => { return item.file_url }) || []
             });
           });
           setquoteProducts(bidProducts);
@@ -90,13 +100,24 @@ const SendQuotePageComp = () => {
     variant,
     type,
     valueType = "integer",
-    total_qty
+    total_qty,
+    file,
+    fileOperation
   ) => {
     let value = e.target.value;
     let d = quoteProducts.map((item) => {
       if (item.id == item_id && item.product_id == product_id && item.variant == variant) {
         if (valueType == "integer") {
           item[type] = parseFloat(value);
+        } else if (valueType == "array") {
+          let doc_list = item[type];
+          if (fileOperation && fileOperation == "remove") {
+            let newFileList = doc_list.filter((fileItem) => fileItem !== file);
+            item[type] = newFileList;
+          }
+          else
+            item[type].push(file)
+
         } else {
           item[type] = value;
         }
@@ -110,6 +131,7 @@ const SendQuotePageComp = () => {
 
         let getTotalPrice = +total_with_fpt + +T;
         item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
+
       }
       return item;
     });
@@ -145,12 +167,13 @@ const SendQuotePageComp = () => {
       status: 1,
       products: [],
       globalPaymentTerms,
-      globalComment
+      globalComment,
+      term_and_condition_files: globalDocumentFiles
     };
 
     if (alreadyQuoted) {
       let quote_id = rfqDetails.quotations[0].id;
-      payload = {...payload, products: quoteProducts};
+      payload = { ...payload, products: quoteProducts };
 
       setsubmitLoading(true);
       updateQuotation(quote_id, payload)
@@ -179,6 +202,7 @@ const SendQuotePageComp = () => {
           isEmpty = true;
         }
       });
+
       if (isEmpty) {
         toast.error("One or more product's total amount is 0");
         return;
@@ -238,6 +262,47 @@ const SendQuotePageComp = () => {
         setsubmitLoading(false);
       });
   };
+
+  const uploadQuoteItemFiles = async (e, item) => {
+    try {
+      const filePath = await handleFileUpload(e);
+      handleUpdateData(
+        item.id,
+        e,
+        item.product_id,
+        item.variant,
+        "document_files",
+        "array",
+        item?.product_specs[2]?.value,
+        filePath
+      )
+    } catch (error) {
+      console.log(error)
+      let message = error.message?.response?.data?.errors?.file?.message;
+      toast.error(message);
+    }
+  };
+
+  const uploadGlobalDocumentFiles = async (e) => {
+    try {
+      const filePath = await handleFileUpload(e);
+
+      setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
+        ...prevGlobalDocumentFiles,
+        filePath
+      ]);
+
+    } catch (error) {
+      console.log(error)
+      let message = error.message?.response?.data?.errors?.file?.message;
+      toast.error(message);
+    }
+  };
+
+  const removeGlobalFiles = (file_url) => {
+    const newFileLinks = globalDocumentFiles.filter((fileItem) => fileItem !== file_url);
+    setGlobalDocumentFiles(newFileLinks);
+  }
 
   useEffect(() => {
     let p = quoteProducts.map((item) => {
@@ -326,7 +391,7 @@ const SendQuotePageComp = () => {
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
-                          <th>Unit Rate</th>
+                          <th>Base Price</th>
                           <th>Freight</th>
                           <th>Package</th>
                           <th>Taxes</th>
@@ -567,6 +632,37 @@ const SendQuotePageComp = () => {
                               onChange={(e) => setglobalComment(e.target.value)}
                             />
                           </div>
+
+                          <div className="inputBox form-group col-lg-6 col-md-12 col-sm-12 col-xs-12  mb-2">
+
+                            <h3 className="title mb-0">Quote Document</h3>
+
+                            <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                              <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
+                              <input
+                                type="file"
+                                onChange={(e) => uploadGlobalDocumentFiles(e)}
+                                multiple={true}
+                              />
+                            </label>
+                            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+                              globalDocumentFiles.map((doc_file) => {
+
+                                return (
+                                  <div key={doc_file} className="d-flex justify-content-between">
+                                    <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "200px" }}>{extractfileName(doc_file)}</a>
+                                    <span className="btn-close btn-close-sm"
+                                      aria-label="Close"
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        removeGlobalFiles(doc_file)
+                                      }}>
+                                    </span>
+                                  </div>
+                                )
+                              })
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -579,7 +675,7 @@ const SendQuotePageComp = () => {
                           <th>Item</th>
                           <th>Qty</th>
                           {/* <th>Unit</th> */}
-                          <th>Unit Rate</th>
+                          <th>Base Price</th>
                           <th>
                             Freight <small>(In %)</small>
                           </th>
@@ -595,6 +691,7 @@ const SendQuotePageComp = () => {
                           <th>
                             Delivery Period <small>(In Weeks)</small>
                           </th>
+                          <th>Add Documents</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -604,7 +701,7 @@ const SendQuotePageComp = () => {
 
                             if (isAvailableForQuote(item)) {
                               return (
-                                <tr key={`q_${item.id}_${item.product_id}_${item.variant}`}>
+                                <tr key={`q_${item.id}_${item.product_id}_${item.variant}_${JSON.stringify(item.document_files)}`}>
                                   <td>{index + 1}</td>
                                   <td className="w-350">
                                     <p className="mb-1"><strong>{item?.product_details[0]?.name}</strong> - {item?.product_specs[0]?.value}</p>
@@ -719,18 +816,18 @@ const SendQuotePageComp = () => {
                                     />
                                   </td>
                                   {
-                                    rfqDetails?.products[index]?.lowest_quotation ? 
-                                    <td>
-                                    <input
-                                      type="number"
-                                      name=""
-                                      id=""
-                                      placeholder="₹"
-                                      value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
-                                      disabled
-                                    />
-                                  </td>
-                                  : null
+                                    rfqDetails?.products[index]?.lowest_quotation ?
+                                      <td>
+                                        <input
+                                          type="number"
+                                          name=""
+                                          id=""
+                                          placeholder="₹"
+                                          value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
+                                          disabled
+                                        />
+                                      </td>
+                                      : null
                                   }
                                   <td>
                                     <div className="comment">
@@ -782,6 +879,42 @@ const SendQuotePageComp = () => {
                                       }
                                       onWheel={(e) => e.target.blur()}
                                     />
+                                  </td>
+                                  <td style={{ maxWidth: 250 }}>
+                                    <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                                      <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
+                                      <input
+                                        type="file"
+                                        onChange={(e) => uploadQuoteItemFiles(e, item)}
+                                        multiple={true}
+                                      />
+                                    </label>
+
+                                    {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
+                                      quoteProducts[index].document_files.map((doc_file) => {
+                                        return (
+
+                                          <div key={doc_file} className="d-flex justify-content-between">
+                                            <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
+                                            <span
+                                              className="btn-close btn-close-sm"
+                                              aria-label="Close"
+                                              onClick={(e) => handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "document_files",
+                                                "array",
+                                                item?.product_specs[2]?.value,
+                                                doc_file,
+                                                "remove"
+                                              )}></span>
+                                          </div>
+                                        )
+                                      })
+                                    )}
+
                                   </td>
                                 </tr>
                               );
