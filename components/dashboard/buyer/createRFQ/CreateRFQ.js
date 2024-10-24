@@ -126,11 +126,11 @@ const CreateRFQ = () => {
   };
   const handleCreateRFQ = (values, resetForm) => {
     setMainLoading(true);
-    
+
     //router.push('/dashboard/buyer/rfq-management-preview')
     let payload = {
       ...values,
-      // term_and_condition_files: term_files,
+      term_and_condition_files: termFiles,
       products: rfqProductsFromStore,
       terms: selectedTerms,
       reverse_auction: parseInt(values.reverse_auction)
@@ -201,9 +201,9 @@ const CreateRFQ = () => {
       );
 
     } catch (error) {
-      let message = err.message.response.data.errors.file.message;
-        toast.error(message);
-    } 
+      let message = error.message;
+      toast.error(message);
+    }
   };
 
   const handleRemoveFile = (fileItem) => {
@@ -212,7 +212,7 @@ const CreateRFQ = () => {
         value: fileItem,
       })
     );
-    let updatedTermsFiles = termFiles.filter((term_file)=> term_file !== fileItem);
+    let updatedTermsFiles = termFiles.filter((term_file) => term_file !== fileItem);
     setTermFiles(updatedTermsFiles)
   }
 
@@ -361,24 +361,27 @@ const CreateRFQ = () => {
                             </label>
                             <input
                               type="file"
+                              accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                               className="custom-file-input"
                               id="customFile"
                               multiple
                               onChange={uploadToServer}
                             />
                             {termFiles.length > 0 && (
-                              <div className="d-flex flex-wrap column-gap-3 mt-2">
+                              <div className="row mt-2">
                                 {termFiles.map((term_file) => (
-                                  <a href={term_file} target="_blank" key={term_file} className="file-badge mb-2" type="button" >
-                                    <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file)}</span>
-                                    <FontAwesomeIcon 
-                                    icon={faClose} 
-                                    fontSize={15} 
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      handleRemoveFile(term_file)
-                                    }} />
-                                  </a>
+                                  <div key={term_file} className="col-md-6 col-lg-4">
+                                    <a href={term_file} target="_blank" className="file-badge mb-2" type="button" >
+                                      <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file)}</span>
+                                      <FontAwesomeIcon
+                                        icon={faClose}
+                                        fontSize={15}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleRemoveFile(term_file)
+                                        }} />
+                                    </a>
+                                  </div>
                                 ))}
                               </div>
                             )}

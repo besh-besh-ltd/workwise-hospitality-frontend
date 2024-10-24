@@ -12,6 +12,7 @@ import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
+import { renderFileLink } from "@/utils/elementFunctions";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -130,26 +131,6 @@ const RfqManagementPreview = () => {
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join(".");
   };
-
-  const renderFileLink = (fileOrFiles) => {
-    if (Array.isArray(fileOrFiles) && fileOrFiles.length > 0) {
-        return fileOrFiles.map((file, index) => (
-          <a key={index} href={file} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
-            <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-            {extractfileName(file)}
-          </a>
-        ));
-      } 
-      else if (typeof fileOrFiles === "string" && fileOrFiles !== "") {
-        return (
-          <a href={fileOrFiles} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
-            <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-            {extractfileName(fileOrFiles)}
-          </a>
-        );
-      }
-      return null; 
-};
 
   return (
     <>
@@ -452,7 +433,7 @@ const RfqManagementPreview = () => {
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
                       {type == "buyer-view" &&
-                        ((rfqDetails.total_quotes_received>0) ?
+                        ((rfqDetails.total_quotes_received > 0) ?
                           <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
                             <button
                               type="button"
@@ -462,7 +443,7 @@ const RfqManagementPreview = () => {
                               Compare Received Quotes
                             </button>
                           </Link>
-                        :
+                          :
                           <button
                             type="button"
                             className="btn btn-primary my-0"
@@ -495,7 +476,7 @@ const RfqManagementPreview = () => {
                       <div className="table-responsive">
                         <table className="table table-striped ">
                           <thead>
-                            <tr>
+                            <tr className="text-nowrap">
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
@@ -535,23 +516,25 @@ const RfqManagementPreview = () => {
                                   <td>{item?.product_details[0]?.name}</td>
                                   <td style={{ minWidth: "300px", maxWidth: "500px" }}>
                                     <div className="row">
-                                      {<p className="col-12 mb-1" >
+                                      <p className="col-12 mb-1" >
                                         <strong>Size: </strong>
                                         {size || "----"}
-                                      </p>}
-                                      {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                                      </p>
+                                      <p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
                                         <strong>Spec: </strong>
                                         {spec || "----"}
-                                      </p>}
-                                      {item?.spec_file &&
-                                        item?.spec_file != "" && (
-                                          <Link
-                                            target="_blank"
-                                            href={item?.spec_file}
-                                          >
-                                            <FontAwesomeIcon icon={faEye} />
-                                          </Link>
-                                        )}
+                                      </p>
+                                      <div className="col-12 d-block border rounded-2 p-2 mb-1">
+                                        <p className="fw-bold text-center mb-1">File Attachments</p>
+                                        <div className="row mx-1">
+                                          {item.SPEC_files?.map((file, index) => (
+                                            <a key={index} href={file} target="_blank" className="col-md-6 page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+                                              <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                              {extractfileName(file)}
+                                            </a>
+                                          ))}
+                                        </div>
+                                      </div>
                                     </div>
                                   </td>
 
@@ -840,12 +823,14 @@ const RfqManagementPreview = () => {
                               <div className="row">
                                 <div className="col-md-6">
                                   <h4>Terms & Conditions File</h4>
-                                  <div className="d-flex flex-wrap column-gap-3 mt-2">
-                                    {rfqDetails.TERM_files.map((term_file) => (
-                                      <a href={term_file} target="_blank" key={term_file} className="file-badge mb-2" type="button" >
-                                        <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                        <span className="text-truncate">{extractfileName(term_file)}</span>
-                                      </a>
+                                  <div className="row mt-2">
+                                    {rfqDetails.TERM_files.map((file) => (
+                                      <div className="col-md-6 col-lg-4">
+                                        <a href={file} target="_blank" key={file} className="file-badge mb-2" type="button" >
+                                          <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                          <span className="text-truncate">{extractfileName(file)}</span>
+                                        </a>
+                                      </div>
                                     ))}
                                   </div>
                                 </div>

@@ -38,30 +38,26 @@ export const extractfileName = (file_url) => {
 }
 
 export const handleFileUpload = async (e) => {
-    const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv"];
+    const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "png", "jpg", "jpeg"];
 
     const files = e.target.files;
-    if (files.length > 0) {
-        const file = files[0];
-        const fileExtension = file.name.split(".").pop().toLowerCase();
+    const file = files[0];
+    const fileExtension = file.name.split(".").pop().toLowerCase();
 
-        if (allowedExtensions.includes(fileExtension)) {
-            try {
-                const res = await handleUploadFile(file); 
-                const filePath = res.data[0]?.file_path;
+    if (allowedExtensions.includes(fileExtension)) {
+        try {
+            const res = await handleUploadFile(file);
+            const filePath = res.data[0]?.file_path;
 
-                if (filePath) {
-                    return filePath;  
-                } else {
-                    throw new Error("File upload failed. No file path returned.");
-                }
-            } catch (error) {
-                throw new Error("File upload failed: " + error.message);  
+            if (filePath) {
+                return filePath;
+            } else {
+                throw new Error("File upload failed. No file path returned.");
             }
-        } else {
-            throw new Error("Unsupported file type. Please upload a PDF, Word, or Excel document.");
+        } catch (error) {
+            throw new Error("File upload failed: " + error.message);
         }
     } else {
-        throw new Error("No file selected. Please select a file to upload.");
+        throw new Error("Unsupported file type. Please upload a PDF, Word, Image, or Excel document.");
     }
 };
