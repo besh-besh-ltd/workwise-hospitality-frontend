@@ -6255,12 +6255,13 @@ textarea {
           color: #525252;
         }
 
-        h4 {
+        h2 {
           font-family: "Poppins";
           font-style: normal;
           font-weight: 500;
           font-size: 18px;
           text-transform: capitalize;
+          background-color: var(--primary-color);
           color: #000000;
         }
 
@@ -6557,7 +6558,7 @@ span.mproducts {
         background: #fafafa;
       }
 
-      h4 {
+      h3 {
         margin-bottom: 0;
         line-height: 18px !important;
         font-size: 15px !important;

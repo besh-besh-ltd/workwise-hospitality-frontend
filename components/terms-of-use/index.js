@@ -101,13 +101,9 @@ const TermsOfUse = (props) => {
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="#" className="p-bread" title="">
-                  Home
-                </a>{" "}
-                /{" "}
-                <a href="/terms-of-use" className="c-bread" title="">
-                  Terms of Use
-                </a>
+                <a href="/" className="p-bread">Home</a>
+                {" / "}
+                <a href="/terms-of-use" className="c-bread">Terms of Use</a>
               </div>
             </div>
           </div>

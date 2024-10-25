@@ -79,13 +79,9 @@ const ForBuyers = (props) => {
 					<div className="row">
 						<div className="col-md-12">
 							<div className="breadcrumbs-con">
-								<a href="#" className="p-bread" title="">
-									Home
-								</a>{" "}
-								/{" "}
-								<a href="/for-buyers" className="c-bread" title="">
-									For Buyers
-								</a>
+								<a href="#" className="p-bread" >Home</a>
+								{" / "}
+								<a href="/for-buyers" className="c-bread" >For Buyers</a>
 							</div>
 						</div>
 					</div>

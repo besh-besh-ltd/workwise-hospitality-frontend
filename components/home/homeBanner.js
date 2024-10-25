@@ -1,5 +1,3 @@
-import Link from "next/link";
-import Slider from "react-slick";
 import Image from 'next/image'
 export default function HomeBanner(props) {
   const keyStr =
@@ -29,7 +27,7 @@ const rgbDataURL = (r, g, b) =>
 
   return (
     <>
-      <section className="home-banner" title="Home Banner" aria-label="home-banner">
+      <section className="home-banner" aria-label="home-banner">
         <div className="home-banner-content">
           <div className="container">
             {props.bannerContent.map((item) => {

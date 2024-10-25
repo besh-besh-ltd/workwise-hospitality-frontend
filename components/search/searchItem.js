@@ -38,7 +38,7 @@ const SearchItem = ({
     <>
       <div className={`list_item item-${type}`}>
         <div className="mdl-con-top">
-          {selectedProduct && <h4>Selected Product</h4>}
+          {selectedProduct && <h2 className="fs-5">Selected Product</h2>}
           {!selectedProduct && (
             <label>
               <input
@@ -73,67 +73,6 @@ const SearchItem = ({
             </button>
           )}
           <div className="row">
-            {/* <div className="col-md-3">
-              <div className="vendor-img">
-                {type == "products" && data.image_url ? (
-                  <>
-                    <img
-                      src={data.image_url}
-                      alt="Workwise"
-                      width={98}
-                      height={98}
-                      priority={true}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Image
-                      src="/assets/images/client3.png"
-                      alt="Workwise"
-                      width={98}
-                      height={98}
-                      priority={true}
-                    />
-                  </>
-                )}
-
-                {type != "products" && (
-                  <>
-                    <img
-                      src={
-                        data.image_url
-                          ? data.image_url
-                          : "/assets/images/client3.png"
-                      }
-                      alt="Workwise"
-                      width={98}
-                      height={98}
-                    />
-
-                    {data.address && (
-                      <p className="truncate-2-lines">
-                        <FontAwesomeIcon icon={faLocationDot} /> {data.address}
-                      </p>
-                    )}
-                    <p>
-                      <Link
-                        href="#"
-                        className="btn btn-primary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (!vendorMetaData.logged_In)
-                            setOpenAuthModal(true);
-                          else
-                            router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
-                        }}
-                      >
-                        Show Contact Info
-                      </Link>
-                    </p>
-                  </>
-                )}
-              </div>
-            </div> */}
             <div className="ps-5 col-md-9 ">
               <h3 className="h3 mt-3 mb-3">{data.vendor_name}</h3>
               {type == "vendors" && (

@@ -6,7 +6,7 @@ import Accordion from "react-bootstrap/Accordion";
 import Modal from "react-modal";
 import { useEffect, useState } from "react";
 import HomeBanner from "./homeBanner";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import { HomeBannerService, HomeLists1Service } from "@/services/Home";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import {
@@ -380,7 +380,7 @@ export default function Homepage() {
 
       {/* Testimonials */}
       {testimonials && (
-        <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" title="Testimonials" aria-label="testimonials">
+        <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" aria-label="testimonials">
           <div className="container">
             <div className="home-sec-3-btm common-header">
               <h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
@@ -588,7 +588,7 @@ export default function Homepage() {
       {showHomeLists1.map((item) => {
         if (item.section_name == "homepage-media-section") {
           return (
-            <section className="home-sec-5 sc-pt-80 sc-pb-80 media-sec-home" title="Home video media" aria-label="home-video-media">
+            <section className="home-sec-5 sc-pt-80 sc-pb-80 media-sec-home" aria-label="home-video-media">
               <div className="container">
                 <DynamicSection content={item.content} key={item.id} />
                 {video && (
@@ -788,7 +788,7 @@ export default function Homepage() {
         showHomeLists1.map((item) => {
           if (item.section_name == "homepage-faq-section") {
             return (
-              <section className="home-sec-8" title="Frequently asked questions" aria-label="frequently-asked-questions">
+              <section className="home-sec-8" aria-label="frequently-asked-questions">
                 <div className="container sc-pt-80 ">
                   <DynamicSection content={item.content} key={item.id} />
                   {faqs && (

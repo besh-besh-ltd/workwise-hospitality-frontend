@@ -108,7 +108,6 @@ const Aboutus = (props) => {
         <title>Workwise | About us</title>
       </Head>
       <section
-        title="About Us Banner"
         aria-label="about-us"
         className="about-sec-1 sc-pt-80"
         style={{
@@ -131,13 +130,9 @@ const Aboutus = (props) => {
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="/" className="p-bread" title="Home Nav">
-                  Home
-                </a>{" "}
-                /{" "}
-                <a href="/aboutus" className="c-bread" title="About Us Nav">
-                  About Us
-                </a>
+                <a href="/" className="p-bread" >Home</a>
+                {" / "}
+                <a href="/aboutus" className="c-bread" >About Us</a>
               </div>
             </div>
           </div>

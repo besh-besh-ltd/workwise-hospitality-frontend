@@ -122,7 +122,6 @@ const ForVendors = (props) => {
 				<title>Workwise | For Vendors</title>
 			</Head>
 			<section
-				title="For Vendors Page"
 				aria-label="for-vendor-page-banner"
 				className="about-sec-1 sc-pt-80"
 				style={{
@@ -140,18 +139,14 @@ const ForVendors = (props) => {
 				</div>
 			</section>
 
-			<section className="breadcrumbs" title="Page Path" aria-label="page-path">
+			<section className="breadcrumbs" aria-label="page-path" >
 				<div className="container">
 					<div className="row">
 						<div className="col-md-12">
 							<div className="breadcrumbs-con">
-								<a href="/" className="p-bread" title="Home Nav" rel="noreferer">
-									Home
-								</a>{" "}
-								/{" "}
-								<a href="/for-vendors" className="c-bread" title="For Vendors Nav">
-									For vendors
-								</a>
+								<a href="/" className="p-bread" rel="noreferer">Home</a>
+								{" / "}
+								<a href="/for-vendors" className="c-bread" >For vendors</a>
 							</div>
 						</div>
 					</div>
@@ -167,7 +162,7 @@ const ForVendors = (props) => {
 
 			{/* Testimonials */}
 			{testimonials && (
-				<section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" title="Vendor Testimonials" aria-label="vendor-testimonials">
+				<section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" aria-label="vendor-testimonials">
 					<div className="container">
 						<div className="home-sec-3-btm common-header">
 							<h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
@@ -228,7 +223,7 @@ const ForVendors = (props) => {
 
 			{/* video media start */}
 			{video && (
-				<section className="home-sec-5 sc-pt-80 sc-pb-80 media-sec-home" title="Portal Demo Video" aria-label="portal-demo-video">
+				<section className="home-sec-5 sc-pt-80 sc-pb-80 media-sec-home" aria-label="portal-demo-video">
 					<div className="container">
 						<div className="common-header">
 							<h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>

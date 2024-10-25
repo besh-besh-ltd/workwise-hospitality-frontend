@@ -99,7 +99,6 @@ const ContactUsPage = () => {
       </Head>
       {bannerdata && (
         <section
-          title="Contact Us Banner"
           aria-label="contact-us-banner-image"
           className="contact-sec-1 sc-pt-80"
           style={{
@@ -118,18 +117,14 @@ const ContactUsPage = () => {
         </section>
       )}
 
-      <section className="breadcrumbs" title="Page Path" aria-label="page-path">
+      <section className="breadcrumbs" aria-label="page-path" >
         <div className="container">
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="/" className="p-bread" title="Home Nav" rel="noreferer">
-                  Home
-                </a>{" "}
-                /{" "}
-                <a href="/contactus" className="c-bread" title="Contact Us Nav">
-                  Contact Us
-                </a>
+                <a href="/" className="p-bread" rel="noreferer">Home</a>
+                {" / "}
+                <a href="/contactus" className="c-bread" >Contact Us</a>
               </div>
             </div>
           </div>

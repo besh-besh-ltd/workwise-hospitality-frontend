@@ -101,13 +101,9 @@ const privacyPolicy = (props) => {
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="#" className="p-bread" title="">
-                  Home
-                </a>{" "}
-                /{" "}
-                <a href="/privacypolicy" className="c-bread" title="">
-                  Privacy Policy
-                </a>
+                <a href="/" className="p-bread">Home</a>
+                {" / "}
+                <a href="/privacypolicy" className="c-bread">Privacy Policy</a>
               </div>
             </div>
           </div>
