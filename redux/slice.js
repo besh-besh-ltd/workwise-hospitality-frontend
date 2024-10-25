@@ -1,4 +1,5 @@
 const { createSlice } = require("@reduxjs/toolkit");
+import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
   swSubscription: null,
@@ -11,9 +12,13 @@ const initialState = {
     response_email: "",
     contact_name: "",
     contact_number: "",
-    location: "",
-    bid_end_date: "",
     company_name: "",
+    term_and_condition_files: [],
+    bid_end_date: getFuturedate(),
+    rfq_type: "",
+    reverse_auction: 1,
+    project_id: -1,
+    location: "",
   },
   rfqObjData: {
     terms: [],
@@ -58,10 +63,10 @@ export const rfqProductsSlice = createSlice({
         comment: "",
         defaultSelectedVAB: "",
         datasheet: "0",
-        datasheet_file: "",
-        spec_file: "",
+        datasheet_file: [],
+        spec_file: [],
         qap: "0",
-        qap_file: "",
+        qap_file: [],
         user_selected_predefined_tds: false,
         user_selected_predefined_qap: false,
       };
@@ -129,7 +134,16 @@ export const rfqProductsSlice = createSlice({
     addFiles: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item[action.payload.type] = action.payload.value;
+          item[action.payload.type].push(action.payload.value);
+        }
+        return item;
+      });
+      state.rfqProducts = d;
+    },
+    removeFiles: (state, action) => {
+      let d = state.rfqProducts.map((item) => {
+        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
+          item[action.payload.type] = item[action.payload.type].filter((file_link) => file_link !== action.payload.value)
         }
         return item;
       });
@@ -245,14 +259,17 @@ export const rfqProductsSlice = createSlice({
       state.rfqObjData.ownTerm = action.payload;
       state.rfqFormData.comment = action.payload
     },
-    setCompanyName: (state, action) => {
-      state.rfqFormData.company_name = action.payload
+    addCustomTermsFiles: (state, action) => {
+      state.rfqFormData.term_and_condition_files.push(action.payload.value);
     },
-    setLocation: (state, action) => {
-      state.rfqFormData.location = action.payload
+    removeCustomTermsFiles: (state, action) => {
+      let d = [];
+      d = state.rfqFormData.term_and_condition_files.filter((terms_file) => terms_file !== action.payload.value)
+      state.rfqFormData.term_and_condition_files = d;
     },
-    setBidEndDate: (state, action) => {
-      state.rfqFormData.bid_end_date = action.payload
+    setOtherFormFields: (state, action) => {
+      const { field_name, value } = action.payload;
+      state.rfqFormData[field_name] = value;
     },
     setAllTerms: (state, action) => {
       state.allTerms = action.payload
@@ -286,6 +303,7 @@ export const {
   addProductSpec,
   addProductSpecValue,
   addFiles,
+  removeFiles,
   addComment,
   addDatasheet,
   addVendor,
@@ -297,10 +315,10 @@ export const {
   removeVendor,
   setDefaultVAB,
   setCustomTerms,
+  addCustomTermsFiles,
+  removeCustomTermsFiles,
   setCustomTermsText,
-  setCompanyName,
-  setLocation,
-  setBidEndDate,
+  setOtherFormFields,
   setAllTerms,
   setUserSelectedDefaultFile
 } = rfqProductsSlice.actions;

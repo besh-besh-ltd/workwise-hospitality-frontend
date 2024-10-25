@@ -7,15 +7,17 @@ import { useSelector } from 'react-redux';
 import AuthModal from '../modal/AuthModal';
 import LoginWithOtherDeviceModal from '../modal/LoginWithOtherDeviceModal';
 import storageInstance from '@/utils/storageInstance';
+import { usePathname } from 'next/navigation';
 
 const LoginContainer = (props) => {
     const router = useRouter();
+    const pathname = usePathname();
     const { redirect } = router.query;
     const [showModal, setShowModal] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loginWith, setLoginWith] = useState("");
-
+    
     const handleOtherDeviceLoginModalOpen = () => {
         setShowModal(true);
     };
@@ -46,7 +48,7 @@ const LoginContainer = (props) => {
                     .catch((err) => { });
                 props.setloading(false);
                 handleChange(props.setOpenAuthModal(false));
-                
+
                 toast.success(response.message, {
                     position: "top-center",
                 });
@@ -65,8 +67,13 @@ const LoginContainer = (props) => {
                     router.push(window.atob(redirect));
                     return;
                 } else {
-                    if (userType == "buyer") {
-                        router.push(`/products?loggedin=true`);
+                    let prod_name = storageInstance.getStorage('product_name');
+                    if (pathname.includes("/dashboard/buyer/rfq-management-vendor/vendor-profile")) {
+                        router.reload();
+                    } else if (prod_name != "" && prod_name != "all" && userType != "vendor") {
+                        router.push(`/vendor/${prod_name}`);
+                    } else if (userType == "buyer") {
+                        router.push(`/vendor/all?loggedin=true`);
                     } else {
                         router.push(`/dashboard/${userType}`);
                     }
@@ -136,7 +143,7 @@ const LoginContainer = (props) => {
                     }
                     storageInstance.setStorage("current-user-type", userType);
                     if (userType == "buyer") {
-                        router.push(`/products`);
+                        router.push(`/vendor/all?loggedin=true`);
                     } else {
                         router.push(`/dashboard/${userType}`);
                     }
@@ -166,7 +173,6 @@ const LoginContainer = (props) => {
             props.setloading(false);
         },
     });
-
 
     return (
         <>

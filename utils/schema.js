@@ -25,7 +25,7 @@ export const EditCompanyDetails = yup.object().shape({
 });
 
 export const CreateRFQSchema = yup.object().shape({
-  comment: yup.string().required("Comment is required"),
+  comment: yup.string().optional(),
   response_email: yup
     .string()
     .email()
@@ -65,7 +65,7 @@ export const EditSocialDetails = yup.object().shape({
 });
 
 export const EditOnlyProfileSchema = yup.object().shape({
-  profile: yup.string().required(),
+  profile: yup.string(),
 });
 
 export const ChangePassword = yup.object().shape({

@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { getVendorRfqList } from "@/services/rfq";
-import FullLoader from "@/components/shared/FullLoader";
 import moment from "moment";
+import Pagination from "@/components/shared/Pagination";
+import PlaceholderLoading from "react-placeholder-loading";
+import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
 
-const InquiriesReceived = ({pageType = 0}) => {
+const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(10);
+  const [totalData, setTotalData] = useState(100);
+  const [limit, setLimit] = useState(10);
   const [rfqList, setrfqList] = useState([]);
   const [loading, setloading] = useState(false);
 
   useEffect(() => {
     getRFQs();
-  }, []);
+  }, [page, limit]);
 
   const getRFQs = () => {
     setloading(true);
@@ -20,6 +23,7 @@ const InquiriesReceived = ({pageType = 0}) => {
       .then((res) => {
         setloading(false);
         setrfqList(res.data);
+        setTotalData(res.totalRFQ?.count)
       })
       .catch((err) => {
         setloading(false);
@@ -27,7 +31,6 @@ const InquiriesReceived = ({pageType = 0}) => {
   };
 
   const getProductsList = (item) => {
-    console.log("prod", item.products);
     if (item.products.length > 0) {
       let p = [];
       item.products.map((product) => {
@@ -77,84 +80,155 @@ const InquiriesReceived = ({pageType = 0}) => {
       )}
 
       <section className="vendor-mngt-sec-1 hasFullLoader">
-        {loading && <FullLoader />}
-
-        <div className={`container-fluid ${pageType == 1?'nopaddingtop':''}`} >    
+        <div className={`container-fluid ${pageType == 1 ? 'nopaddingtop' : ''}`} >
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
+
                 {!loading && rfqList.length == 0 && (
                   <p className="mb-0 text-center">
                     You've not received any inqueries yet.
                   </p>
                 )}
+
                 {/* Content for Manage RFQs tab */}
-                
                 {!loading && rfqList.length > 0 && (
                   <span className="title">
-                   
+
                     {pageType == 0 && <>You have received {rfqList.length} Inquiries</>}
                     {pageType == 1 && <>{rfqList.length} Latest Received Inquiries </>}
                   </span>
                 )}
 
-                <div className="details-table">
-                  {!loading && rfqList.length > 0 && (
+                <div className="details-table mb-3">
+                  {loading ?
                     <div className="table-responsive">
-                      <table className="table table-striped ">
+                      <table className="table table-striped border-0 mb-0 ">
                         <thead>
                           <tr>
                             <th>RFQ ID</th>
-                            {/* <th style={{ width: 300 }}>Category</th> */}
                             <th>Products</th>
                             <th>Company</th>
-                            <th>End Date</th>
                             <th>Received Date</th>
+                            <th>End Date</th>
+                            <th>RFQ Type</th>
+                            <th>Quote Sent</th>
+                            <th>Reverse Auction</th>
+                            <th>RFQ Status</th>
                             <th>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {!loading &&
-                            rfqList.length > 0 &&
-                            rfqList.map((item) => {
-                              return (
-                                <tr key={`rfq-item-${item.rfq_no}`}>
-                                  <td>#{item.rfq_no}</td>
-                                  {/* <td>{getCategories(item)}</td> */}
-                                  <td>{getProductsList(item)}</td>
-                                  <td>{item.company_name}</td>
-                                  <td>
-                                    {item.bid_end_date != ""
-                                      ? moment(item.bid_end_date).format(
-                                          "DD/MM/YYYY"
-                                        )
-                                      : "--"}
-                                  </td>
-                                  <td>
-                                    {item.timestamp != ""
-                                      ? moment(item.timestamp).format(
-                                          "DD/MM/YYYY"
-                                        )
-                                      : "--"}
-                                  </td>
-                                  <td>
-                                    <span>
-                                      <Link
-                                        href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                        className="page-link"
-                                      >
-                                        View
-                                      </Link>
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
+                          <tr>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
-                  )}
+                    : rfqList.length > 0 && (
+                      <div className="table-responsive">
+                        <table className="table table-striped border-0 mb-0 ">
+                          <thead>
+                            <tr>
+                              <th>RFQ ID</th>
+                              <th>Products</th>
+                              <th>Company</th>
+                              <th>Received Date</th>
+                              <th>End Date</th>
+                              <th>RFQ Type</th>
+                              <th>Quote Sent</th>
+                              <th>Reverse Auction</th>
+                              <th>RFQ Status</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {!loading &&
+                              rfqList.length > 0 &&
+                              rfqList.map((item) => {
+                                return (
+                                  <tr key={`rfq-item-${item.rfq_no}`}>
+                                    <td>#{item.rfq_no}</td>
+                                    <td>{getProductsList(item)}</td>
+                                    <td>{item.company_name}</td>
+                                    <td>
+                                      {item.timestamp != ""
+                                        ? moment(item.timestamp).format(
+                                          "DD/MM/YYYY"
+                                        )
+                                        : "--"}
+                                    </td>
+                                    <td>
+                                      {item.bid_end_date != ""
+                                        ? moment(item.bid_end_date).format(
+                                          "DD/MM/YYYY"
+                                        )
+                                        : "--"}
+                                    </td>
+                                    <td>
+                                    {item.rfq_type == "firm"
+                                      ? "Firm"
+                                      : item.rfq_type == "budgetary"
+                                        ? "Budgetary"
+                                        :"---"}
+                                    </td>
+                                    <td>
+                                      {item.quote_status && textCapitalize(item.quote_status)}
+                                    </td>
+                                    <td>{item.reverse_auction === 1 ? "Enabled" : "Disabled"}</td>
+                                    <td>
+                                      {item.status === 1 ? "Open" : "Closed"}
+                                    </td>
+                                    <td>
+                                      <span>
+                                        <Link
+                                          href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
+                                        // className="page-link"
+                                        >
+                                          {checkBidExpired(item.bid_end_date) ? (
+                                            <span className="fw-medium text-decoration-underline">View Quote</span>
+                                          ) : (
+                                            (item.status === 1) ? (
+                                              item.quote_status === "pending" ? (
+                                                <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
+                                              ) : item.quote_status === "sent" ? (
+                                                <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
+                                              ) : (
+                                                <span className="fw-medium text-decoration-underline">View Quote</span>
+                                              )
+                                            ) : (
+                                              <span className="fw-medium text-decoration-underline">View Quote</span>
+                                            )
+                                          )}
+
+
+                                        </Link>
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                 </div>
+
+                <Pagination
+                  page={page}
+                  setPage={setpage}
+                  totalData={totalData}
+                  limit={limit}
+                  setLimit={setLimit}
+                />
               </div>
             </div>
           </div>

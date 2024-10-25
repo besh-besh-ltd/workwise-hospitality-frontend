@@ -131,7 +131,13 @@ const Vendor = () => {
 
   useEffect(() => {
     setloading(true);
-    getDashboardData()
+    getDashboardData({
+      project_id: -1,
+      rfq_type: "",
+      reverse_auction: "-1",
+      sort: "DESC",
+      page: 1
+    })
       .then((res) => {
         setloading(false);
         setDashboardData(res.data);

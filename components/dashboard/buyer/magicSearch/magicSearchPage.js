@@ -1,19 +1,22 @@
-import { faArrowLeft, faCloudArrowUp, faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Link from 'next/link';
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import axiosFormData from "@/lib/axiosFormData";
 import { toast } from "react-toastify";
-import { getStates } from "@/services/cms";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
+import { getFuturedate } from "@/utils/sharedFunctions";
+import { getProjectList } from "@/services/project";
 
 const initialFormData = {
     file: null,
     comment: '',
+    reverse_auction: 1,
+    rfq_type: '',
+    bid_end_date: getFuturedate(),
     delivery_location: '',
-    bid_end_date: ''
+    project_id: -1
 }
 
 function MagicSearchPage() {
@@ -23,7 +26,7 @@ function MagicSearchPage() {
     const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [receivedData, setReceivedData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
-    const [states, setstates] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
@@ -81,11 +84,13 @@ function MagicSearchPage() {
                 setLoading(false);
                 setFileName('');
                 setFormData(initialFormData);
-            }, 2000 * (messages.length-currentMessageIndex));
+            }, 2000 * (messages.length - currentMessageIndex));
 
         } catch (error) {
             toast.error(error.message);
             setLoading(false);
+        } finally {
+            setFile(null);
             setFileName('');
             setFormData(initialFormData);
         }
@@ -99,18 +104,22 @@ function MagicSearchPage() {
         }));
     }
 
-    const getAllStates = () => {
-        getStates().then((res) => {
+    const getAllProjects = ()=> {
+        getProjectList()
+          .then((res)=> {
             let d = [];
             res.data.map((item) => {
-                d.push({ label: item.state_name, value: item.id });
+              d.push({ label: item.name, value: item.id });
             });
-            setstates(d);
-        });
-    };
+            setProjects(d);
+          })
+          .catch((error)=> {
+            console.log(error)
+          })
+      }
 
     useEffect(() => {
-        getAllStates();
+        getAllProjects();
     }, []);
 
     // Display messages in a rotating fashion
@@ -197,9 +206,9 @@ function MagicSearchPage() {
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid text-center">
                     <h1 className="heading">Magic Search</h1>
-                    <Link href="/products" className="page-link backBtn">
+                    {/* <Link href="/vendor/all" className="page-link backBtn">
                         <FontAwesomeIcon icon={faArrowLeft} /> Go back
-                    </Link>
+                    </Link> */}
                 </div>
             </section>
 
@@ -254,31 +263,44 @@ function MagicSearchPage() {
                                 rows="3"
                                 className="form-control border border-black "
                                 placeholder="Enter your own terms here..."
+                                value={formData.comment}
                                 onChange={handleChange} />
                         </div>
 
                         {/* Delivery location part */}
                         <div className="col-md-8 mx-auto mt-4">
                             <div className="row">
-                                <div className="col-md-6">
-                                    <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
+
+                                <div className="col-md-4">
+                                    <label htmlFor="reverse_auction" className="form-label fw-semibold mb-2">Reverse Auction</label>
                                     <select
+                                        name="reverse_auction"
+                                        id="reverse_auction"
                                         className="form-control border border-black"
-                                        id="delivery_location"
-                                        name="delivery_location"
-                                        value={formData?.location}
+                                        value={formData?.reverse_auction}
                                         onChange={handleChange}
-                                        style={{ backgroundImage: "none !important" }}
                                     >
-                                        <option value="" disabled selected>Select Location</option>
-                                        {states.map((state) => (
-                                            <option key={state.value} value={state.value}>
-                                                {state.label}
-                                            </option>
-                                        ))}
+                                        <option value={1}>Enable</option>
+                                        <option value={0}>Disable</option>
                                     </select>
                                 </div>
-                                <div className="col-md-6">
+
+                                <div className="col-md-4">
+                                    <label htmlFor="rfq_type" className="form-label fw-semibold mb-2">RFQ Type</label>
+                                    <select
+                                        name="rfq_type"
+                                        id="rfq_type"
+                                        className="form-control border border-black"
+                                        value={formData?.rfq_type}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="">Select RFQ Type</option>
+                                        <option value="budgetary">Budgetary</option>
+                                        <option value="firm">Firm</option>
+                                    </select>
+                                </div>
+
+                                <div className="col-md-4">
                                     <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Bid End Date</label>
                                     <input
                                         type="date"
@@ -288,6 +310,39 @@ function MagicSearchPage() {
                                         value={formData?.bid_end_date}
                                         onChange={handleChange} />
                                 </div>
+
+                                <div className="col-md-4 mt-3">
+                                    <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Project Name</label>
+                                    <select
+                                        name="project_id"
+                                        id="project_id"
+                                        className="form-control border border-black"
+                                        value={formData.project_id}
+                                        onChange={handleChange}
+                                    >
+                                        <option value={-1}>Select Project</option>
+                                        {projects && projects.length > 0 &&
+                                            projects.map((projectItem)=> {
+                                                return (
+                                                    <option value={projectItem.value}>{projectItem.label}</option>
+                                                )
+                                            })
+                                        }
+                                    </select>
+                                </div>
+
+                                <div className="col-md-8 mt-3">
+                                    <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
+                                    <input
+                                        type="text"
+                                        name="delivery_location"
+                                        id="delivery_location"
+                                        className="form-control border border-black"
+                                        placeholder="Enter Delivery Location"
+                                        value={formData?.location}
+                                        onChange={handleChange}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -295,7 +350,7 @@ function MagicSearchPage() {
                             <div className="row">
                                 <div className="col-7"></div>
                                 <div className="col-5 d-flex">
-                                    <Button variant="secondary" className="ms-auto" style={{ width: "280px" }} onClick={uploadToServer}>Automatically Generate RFQ's</Button>
+                                    <Button variant="secondary" className="ms-auto border-0" style={{ width: "280px" }} onClick={uploadToServer}>Automatically Generate RFQ's</Button>
                                 </div>
                             </div>
                         </div>

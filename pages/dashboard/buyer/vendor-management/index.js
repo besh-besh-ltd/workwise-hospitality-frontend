@@ -1,5 +1,5 @@
 import React from "react";
-import VendorManagement from "@/components/dashboard/buyer/vendor-management";
+import VendorManagement from "@/components/dashboard/buyer/vendor-management/vendorManagementPage";
 import Head from "next/head";
 
 const VendorManagementPage = () => {

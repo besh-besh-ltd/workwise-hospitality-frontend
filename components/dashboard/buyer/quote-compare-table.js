@@ -4,9 +4,11 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
 import { faAward, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import { extractfileName } from "@/utils/sharedFunctions";
 
 const QuoteCompareTable = ({
   quotations,
@@ -35,7 +37,16 @@ const QuoteCompareTable = ({
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
     setOpenCommonModal(true);
-  }
+  };
+
+  const renderFileLink = (files) => {
+    return files.map((file, index) => (
+      <a key={index} href={file.file_url} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+        <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+        {extractfileName(file.file_url)}
+      </a>
+    ));
+  };
 
   return (
     <>
@@ -45,7 +56,7 @@ const QuoteCompareTable = ({
             <div className="table-col">
               <div className="table-si-row"></div>
               <div className="table-si-row">Quantity</div>
-              <div className="table-si-row">Unit Rate</div>
+              <div className="table-si-row">Base Price</div>
               <div className="table-si-row table-grey-row">Total Rate</div>
               <div className="table-si-row">Packaging (%)</div>
               <div className="table-si-row">Freight (%)</div>
@@ -53,15 +64,20 @@ const QuoteCompareTable = ({
               <div className="table-si-row  table-yellow-row">Sub Total</div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row">Comments</div>
+              <div className="table-si-row">Vendor Documents</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
+
+                // Check if the quote is updated
+                let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
+
                 return (
                   <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
                     <div className="table-si-row table-dark-row">
                       <span>
-                        {item?.quote_details?.vendor_details?.organization_name}
+                        {item?.quote_details?.vendor_details?.organization_name || item?.quote_details?.vendor_details?.name }
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (
@@ -113,15 +129,29 @@ const QuoteCompareTable = ({
                       </Dropdown>
                     </div>
                     <div className="table-si-row">{item.quantity}</div>
-                    <div className="table-si-row">{item.unit_price}</div>
-                    <div className="table-si-row table-grey-row">
-                      {item.quantity * item.unit_price}
+                    <div className="table-si-row">
+                      {item.unit_price}
+                      {itemUpdated && (itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.unit_price}</span>}
                     </div>
-                    <div className="table-si-row">{item.package_price} %</div>
-                    <div className="table-si-row">{item.freight_price} %</div>
-                    <div className="table-si-row">{item.tax} %</div>
-                    <div className={`table-si-row  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-yellow-row"}`}>
+                    <div className="table-si-row table-grey-row" >
+                      {item.quantity * item.unit_price}
+                      {itemUpdated && (itemUpdated.quantity != item.quantity || itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.quantity * itemUpdated?.unit_price}</span>}
+                    </div>
+                    <div className="table-si-row">
+                      {item.package_price} %
+                      {itemUpdated && (itemUpdated.package_price != item.package_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.package_price} %</span>}
+                    </div>
+                    <div className="table-si-row">
+                      {item.freight_price} %
+                      {itemUpdated && (itemUpdated.freight_price != item.freight_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.freight_price} %</span>}
+                    </div>
+                    <div className="table-si-row">
+                      {item.tax} %
+                      {itemUpdated && (itemUpdated.tax != item.tax) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.tax} %</span>}
+                    </div>
+                    <div className={`table-si-row  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-yellow-row"}`} >
                       {item.total_price}
+                      {itemUpdated && (itemUpdated.total_price != item.total_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.total_price}</span>}
                       {item.is_lowest &&
                         <span className="d-flex align-items-center gap-2 border border-light rounded-3 text-white px-3 py-2" >
                           <FontAwesomeIcon icon={faAward} fontSize={16} />
@@ -133,12 +163,26 @@ const QuoteCompareTable = ({
                       {parseInt(item.delivery_period) <= 1
                         ? `${item.delivery_period} Week`
                         : `${item.delivery_period} Weeks`}
+                      {itemUpdated && (itemUpdated.delivery_period != item.delivery_period) &&
+                        <span className="d-block buyer-individual-quote-compare-text-strike ">
+                          {parseInt(itemUpdated.delivery_period) <= 1
+                            ? `${itemUpdated.delivery_period} Week`
+                            : `${itemUpdated.delivery_period} Weeks`}
+                        </span>
+                      }
                     </div>
                     <div className="table-si-row">
                       {item?.comment.length > 60
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
-                        : item.comment
+                        : item.comment || "--"
                       }
+                    </div>
+                    <div className="table-si-row">
+                      {(item.document_files) ? (
+                        <>
+                          {renderFileLink(item.document_files)}
+                        </>
+                      ) : <span>N/A</span>}
                     </div>
                   </div>
                 );
