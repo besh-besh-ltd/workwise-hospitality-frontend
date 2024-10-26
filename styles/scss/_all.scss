@@ -5974,7 +5974,7 @@ textarea {
         padding: 20px;
         text-align: center;
 
-        h3 {
+        h2 {
           font-weight: 500;
           font-size: 22px;
           text-align: center;
@@ -6061,13 +6061,13 @@ textarea {
 
         .brochure-container {
           display: block;
+          border-left: var(--border);
 
           .broucher-sec {
             display: flex;
             align-items: center;
-            justify-content: left;
-            border-left: var(--border);
-            padding: 20px;
+            justify-content: left;            
+            // padding: 20px;
 
             img {
               border-radius: 20px;

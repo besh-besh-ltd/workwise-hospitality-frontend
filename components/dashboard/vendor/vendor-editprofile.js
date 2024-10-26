@@ -8,7 +8,6 @@ import {
   faTimesCircle,
 } from "@fortawesome/free-regular-svg-icons";
 import {
-  faAngleLeft,
   faCheckCircle,
   faLocation,
   faPhone,
@@ -177,26 +176,18 @@ const VendorProfile = () => {
         <title>Vendor Profile | Workwise</title>
       </Head>
 
-      <section className="vendor-common-header sc-pt-80">
+      <section className="vendor-common-header sc-pt-80" aria-label="vendor-profile-page">
         <div className="container-fluid">
           <h1 className="heading">Vendor’s profile</h1>
         </div>
       </section>
 
-      <section className="vendor-profile-sec-1">
+      <section className="vendor-profile-sec-1" aria-label="vendor-information">
         <div className="container-fluid">
           <div className="row">
             <div className="col-md-3">
               <div className="user-profile hasFullLoader mb-4">
-                {/* {showbackBtn && (
-                  <Link
-                    href={`/dashboard/buyer/rfq-management-vendor?vendors=${vendors}`}
-                    className="page-link"
-                  >
-                    {" "}
-                    <FontAwesomeIcon icon={faAngleLeft} /> Go Back
-                  </Link>
-                )} */}
+
                 {loading && <FullLoader />}
                 <div className="user-img">
                   {!vendorDetails?.profile_image_url && (
@@ -222,7 +213,7 @@ const VendorProfile = () => {
 
                 <div className="user-details hasFullLoader mb-4">
                   {loading && <FullLoader />}
-                  <h3>{vendorDetails?.vendor_name}</h3>
+                  <h2>{vendorDetails?.vendor_name}</h2>
                   {vendorDetails?.status && vendorDetails?.status == 1 && (
                     <p>
                       <FontAwesomeIcon icon={faCheckCircle} /> Verified
@@ -262,21 +253,11 @@ const VendorProfile = () => {
                       </Link>
                     </div>
                   )}
-                  {/* <div>
-                    <Link href="" className="page-link btn btn-primary">
-                      Send Enquiry
-                    </Link>
-                  </div> */}
-
-                  {/* <p>
-                    <input type="checkbox" name="mark" id="mark" /> Mark
-                    Preffered Vendor
-                  </p> */}
                 </div>
               </div>
               <div className="user-profile hasFullLoader mb-4">
                 {loading && <FullLoader />}
-                <h3>Past RFQ With The Vendor</h3>
+                <h2>Past RFQ With The Vendor</h2>
                 {pastRFQs && pastRFQs.length > 0 && (
                   <>
                     <div className="table-responsive">
@@ -299,11 +280,6 @@ const VendorProfile = () => {
                         </tbody>
                       </table>
                     </div>
-                    {/* <div>
-                      <Link href="" className="page-link btn btn-primary">
-                        View All RFQs
-                      </Link>
-                    </div> */}
                   </>
                 )}
                 {pastRFQs.length == 0 && <p>No past details yet!</p>}
@@ -313,7 +289,7 @@ const VendorProfile = () => {
                 <div className="user-profile hasFullLoader mb-4">
                   {loading && <FullLoader />}
                   {reviewLoading && <FullLoader />}
-                  <h3>Rating & Review</h3>
+                  <h2>Rating & Review</h2>
                   {vendorDetails?.reviews && vendorDetails?.reviews?.length == 0 && <p>No reviews yet!</p>}
                   {vendorDetails?.reviews && vendorDetails?.reviews?.length > 0 && (
                     <>
@@ -350,18 +326,9 @@ const VendorProfile = () => {
                         rows="5"
                         onChange={(e) => setreviewText(e.target.value)}
                         placeholder="Tell us something about your experience."
-                      ></textarea>
-                      <div>
-                        {
-                          <Link
-                            href=""
-                            onClick={submitReview}
-                            className="page-link btn btn-primary"
-                          >
-                            Submit Now
-                          </Link>
-                        }
-                      </div>
+                      >                        
+                      </textarea>
+                      <span onClick={submitReview} className="page-link btn btn-primary" > Submit Now </span>
 
                       <div className="review-container " >
                         <ul className="reviewList">
@@ -409,9 +376,9 @@ const VendorProfile = () => {
               <div className="vendor-profile-sec-con">
                 <div className="row vendor-profile-sec-con-1 hasFullLoader">
                   {loading && <FullLoader />}
-                  <h3 className="title">
+                  <h2 className="title">
                     {vendorDetails?.vendor_name}
-                  </h3>
+                  </h2>
                   {vendorDetails?.profile && <p>{vendorDetails?.profile}</p>}
                   {!vendorDetails?.profile && <p>No description to show!</p>}
                 </div>
@@ -420,7 +387,7 @@ const VendorProfile = () => {
                 <div className="row vendor-profile-sec-con-2 hasFullLoader">
                   {loading && <FullLoader />}
                   <div className="col-md-7">
-                    <h3 className="title">Company information</h3>
+                    <h2 className="title">Company information</h2>
                     {!vendorDetails?.nature_of_business &&
                       !vendorDetails?.no_of_employess &&
                       !vendorDetails?.import_export_code &&
@@ -467,7 +434,7 @@ const VendorProfile = () => {
                     }
                   </div>
                   <div className="col-md-5 brochure-container">
-                    <h3 className="title">Brochure</h3>
+                    <h2 className="title">Brochure</h2>
                     {vendorDetails?.brochure &&
                       vendorDetails?.brochure?.length == 0 && (
                         <p>No information to show!</p>
@@ -476,9 +443,7 @@ const VendorProfile = () => {
                       vendorDetails?.brochure?.length > 0 && (
                         <div className="broucher-sec">
                           <div>
-                            {vendorDetails?.brochure[0]?.brochure_url?.indexOf(
-                              ".pdf"
-                            ) > 0 ? (
+                            {/\.(pdf|docx?|xlsx?|csv)$/i.test(vendorDetails?.brochure[0]?.brochure_url) ? (
                               <h2 className="pdf-icon">
                                 <FontAwesomeIcon icon={faFilePdf} />
                               </h2>
@@ -533,7 +498,7 @@ const VendorProfile = () => {
 
                 <div className="vendor-profile-sec-con-3 hasFullLoader">
                   {loading && <FullLoader />}
-                  <h3 className="title">vendor’s Products</h3>
+                  <h2 className="title">vendor’s Products</h2>
 
                   {vendorDetails?.product_list ? (
                     vendorDetails.product_list.length > 0 ? (
@@ -559,7 +524,7 @@ const VendorProfile = () => {
                 <hr />
                 <div className="vendor-profile-sec-con-4 hasFullLoader">
                   {loading && <FullLoader />}
-                  <h3 className="title">Vendor Approved By</h3>
+                  <h2 className="title">Vendor Approved By</h2>
 
                   {vendorDetails?.product_list && vendorDetails.product_list.length === 0 ? (
                     <p>No information to show!</p>
