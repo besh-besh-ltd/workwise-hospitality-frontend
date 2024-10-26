@@ -1,16 +1,10 @@
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { getAboutProfiles, getCmsData, getPageBanner } from "@/services/cms";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { toast } from "react-toastify";
-import Head from "next/head";
+
 
 const TermsOfUse = (props) => {
-  const breadcrumbPaths = [
-    { title: "Home", url: "/" },
-    { title: "Terms of Use", url: "/terms-of-use" },
-  ];
   const [cmsdata, setCmsdata] = useState([]);
   const [bannerdata, setBanner] = useState(null);
 
@@ -76,9 +70,6 @@ const TermsOfUse = (props) => {
 
   return (
     <>
-      <Head>
-        <title>Workwise | Terms of Use</title>
-      </Head>
       <section
         className="about-sec-1 sc-pt-80"
         style={{

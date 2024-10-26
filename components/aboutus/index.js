@@ -1,18 +1,11 @@
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { getAboutProfiles, getCmsData, getPageBanner } from "@/services/cms";
 import { HomeLists1Service } from "@/services/Home";
 import DynamicSection from "../dynamicSection/dynamicSection";
-import { toast, ToastContainer } from "react-toastify";
-import PersonalProfiles from "./PersonalProfiles";
-import Head from "next/head";
+import { toast } from "react-toastify";
+
 
 const Aboutus = (props) => {
-  const breadcrumbPaths = [
-    { title: "Home", url: "/" },
-    { title: "About", url: "/about" },
-  ];
   const [cmsdata, setCmsdata] = useState([]);
   const [bannerdata, setBanner] = useState(null);
   const [showHomeLists1, setHomeLists1] = useState([]);
@@ -104,9 +97,6 @@ const Aboutus = (props) => {
 
   return (
     <>
-      <Head>
-        <title>Workwise | About us</title>
-      </Head>
       <section
         aria-label="about-us"
         className="about-sec-1 sc-pt-80"

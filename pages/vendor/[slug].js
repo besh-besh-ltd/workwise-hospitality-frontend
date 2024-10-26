@@ -20,8 +20,12 @@ const DynamicProductPage = ({ pageTitle }) => {
   return (
     <>
       <Head>
-      <title>{metaTitle}</title>
-      <meta name="description" content={metaDescription} />
+          <title>{metaTitle}</title>
+          <meta name="description" content={metaDescription} />
+
+          <meta property="og:title" content={metaTitle} />
+          <meta property="og:description" content={metaDescription} />
+          <meta property="og:url" content={`https://letsworkwise.com/vendor/${slug}`} />
       </Head>
       <SearchPage title={`Search Vendors`} type="products" />
     </>

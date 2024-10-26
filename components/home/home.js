@@ -17,7 +17,6 @@ import {
   getProducts,
   getTestimonials,
 } from "@/services/cms";
-import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
 
@@ -361,10 +360,7 @@ export default function Homepage() {
   }, []);
 
   return (
-    <>
-      <Head>
-        <title>Workwise | Home</title>
-      </Head>
+    <>      
       {/* ----- Banner -------- */}
       {showBannerLists && (
         <HomeBanner bannerContent={showHomeLists1} content={showBannerLists} />

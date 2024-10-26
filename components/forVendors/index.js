@@ -1,5 +1,4 @@
 import { getCmsData, getPageBanner } from "@/services/cms";
-import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -118,9 +117,6 @@ const ForVendors = (props) => {
 
 	return (
 		<>
-			<Head>
-				<title>Workwise | For Vendors</title>
-			</Head>
 			<section
 				aria-label="for-vendor-page-banner"
 				className="about-sec-1 sc-pt-80"

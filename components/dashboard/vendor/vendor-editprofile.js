@@ -22,7 +22,6 @@ import {
 import FullLoader from "@/components/shared/FullLoader";
 import { toast } from "react-toastify";
 import { getProfile } from "@/services/Auth";
-import Head from "next/head";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 
 
@@ -172,10 +171,6 @@ const VendorProfile = () => {
 
   return (
     <>
-      <Head>
-        <title>Vendor Profile | Workwise</title>
-      </Head>
-
       <section className="vendor-common-header sc-pt-80" aria-label="vendor-profile-page">
         <div className="container-fluid">
           <h1 className="heading">Vendor’s profile</h1>
@@ -190,7 +185,7 @@ const VendorProfile = () => {
 
                 {loading && <FullLoader />}
                 <div className="user-img">
-                  {!vendorDetails?.profile_image_url && (
+                  {!vendorDetails?.profile_image && (
                     <Image
                       src="/assets/images/vendor.png"
                       alt="Workwise"
@@ -200,10 +195,10 @@ const VendorProfile = () => {
                     />
                   )}
 
-                  {vendorDetails?.profile_image_url && (
+                  {vendorDetails?.profile_image && (
                     <Image
-                      src={vendorDetails?.profile_image_url}
-                      alt="Workwise"
+                      src={`http://localhost:8002/user_image/${vendorDetails?.profile_image?.split("/").pop()}`}
+                      alt="Vendor Profile Image"
                       width={164}
                       height={164}
                       priority={true}

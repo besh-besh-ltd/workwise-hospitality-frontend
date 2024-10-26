@@ -1,16 +1,9 @@
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { getAboutProfiles, getCmsData, getPageBanner } from "@/services/cms";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { toast } from "react-toastify";
-import Head from "next/head";
 
 const privacyPolicy = (props) => {
-  const breadcrumbPaths = [
-    { title: "Home", url: "/" },
-    { title: "Privacy Policy", url: "/privacypolicy" },
-  ];
   const [cmsdata, setCmsdata] = useState([]);
   const [bannerdata, setBanner] = useState(null);
 
@@ -76,9 +69,6 @@ const privacyPolicy = (props) => {
 
   return (
     <>
-      <Head>
-        <title>Workwise | Privacy Policy</title>
-      </Head>
       <section
         className="about-sec-1 sc-pt-80"
         style={{
