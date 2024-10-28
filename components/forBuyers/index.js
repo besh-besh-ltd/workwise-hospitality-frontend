@@ -1,5 +1,4 @@
 import { getCmsData, getPageBanner } from "@/services/cms";
-import Head from "next/head";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import DynamicSection from "../dynamicSection/dynamicSection";
@@ -54,9 +53,6 @@ const ForBuyers = (props) => {
 
 	return (
 		<>
-			<Head>
-				<title>Workwise | For Buyers</title>
-			</Head>
 			<section
 				className="about-sec-1 sc-pt-80"
 				style={{
@@ -79,13 +75,9 @@ const ForBuyers = (props) => {
 					<div className="row">
 						<div className="col-md-12">
 							<div className="breadcrumbs-con">
-								<a href="#" className="p-bread" title="">
-									Home
-								</a>{" "}
-								/{" "}
-								<a href="/for-buyers" className="c-bread" title="">
-									For Buyers
-								</a>
+								<a href="#" className="p-bread" >Home</a>
+								{" / "}
+								<a href="/for-buyers" className="c-bread" >For Buyers</a>
 							</div>
 						</div>
 					</div>
