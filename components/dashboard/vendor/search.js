@@ -28,6 +28,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
 import ProductOverview from "@/components/shared/ProductOverview";
+import Head from "next/head";
 
 
 const customSelectStyles = {
@@ -470,6 +471,24 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   return (
     <>
+    <Head>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "http://schema.org",
+            "@type": "Product",
+            name: currentSelectedProduct?.product_name,
+            image: currentSelectedProduct?.currentSelectedProduct || "",
+            description: currentSelectedProduct?.description,
+            sku: currentSelectedProduct?.slug,
+            offers: {
+              "@type": "Offer",
+              url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`,
+              availability: "http://schema.org/InStock",
+            },
+          })}
+        </script>
+      </Head>
+
       <section className="vendor-common-header sc-pt-80" aria-label="header" >
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>

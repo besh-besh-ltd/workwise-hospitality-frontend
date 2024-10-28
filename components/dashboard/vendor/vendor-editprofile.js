@@ -23,6 +23,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import { toast } from "react-toastify";
 import { getProfile } from "@/services/Auth";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import Head from "next/head";
 
 
 const VendorProfile = () => {
@@ -171,6 +172,47 @@ const VendorProfile = () => {
 
   return (
     <>
+
+      <Head>
+        <title>Vendor Profile | Workwise</title>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "http://schema.org",
+            "@type": "Organization",
+            "name": vendorDetails?.vendor_name,
+            "description": vendorDetails?.profile,
+            "url": vendorDetails?.website,
+            "logo": vendorDetails?.profile_image_url,
+            "telephone": vendorDetails?.mobile,
+            "email": vendorDetails?.email,
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": vendorDetails?.address,
+              "addressLocality": vendorDetails?.city_name,
+              "addressRegion": vendorDetails?.state_name,
+            },
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": vendorDetails?.mobile,
+              "contactType": "customer service"
+            },
+            "offers": {
+              "@type": "Offer",
+              "offeredBy": {
+                "@type": "Organization",
+                "name": vendorDetails?.company_name
+              },
+              "itemOffered": vendorDetails?.product_list.map(item => ({
+                "@type": "Product",
+                "name": item?.product_name,
+                "description": item?.product_description,
+                "productID": item?.product_id
+              }))
+            }
+          })}
+        </script>
+      </Head>
+      
       <section className="vendor-common-header sc-pt-80" aria-label="vendor-profile-page">
         <div className="container-fluid">
           <h1 className="heading">Vendor’s profile</h1>
@@ -321,7 +363,7 @@ const VendorProfile = () => {
                         rows="5"
                         onChange={(e) => setreviewText(e.target.value)}
                         placeholder="Tell us something about your experience."
-                      >                        
+                      >
                       </textarea>
                       <span onClick={submitReview} className="page-link btn btn-primary" > Submit Now </span>
 
