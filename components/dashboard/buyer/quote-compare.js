@@ -817,69 +817,18 @@ const QuoteCompare = () => {
             </div>
             <div className="col-md-6">
               <div className="btn-options float-end">
-                {/* View overall comparison */}
-                {/* {currentRFQ && (
-                  <span>
-                    <Link
-                      href="#"
-                      className="page-link"
-                      onClick={handleOverallComparison}
-                    >
-                      {showOverallComparison
-                        ? `Hide overall comparison`
-                        : `View overall comparison`}
-                    </Link>
-                  </span>
-                )} */}
-                {/* View overall comparison end */}
+
+                {/* Download quote & Close Rfq Buttons */}
                 {currentRFQ && showOverallComparison && (
-                  <span>
-                    <Link
-                      href="#"
-                      className="page-link"
-                      onClick={handleDownloadQuote}
-                      disabled={downloadLoading}
-                    >
-                      {downloadLoading
-                        ? "Generating Excel file...."
-                        : "Download as Excel"}
-                    </Link>
-                  </span>
+                  <span onClick={handleDownloadQuote}> {downloadLoading ? "Generating Excel file...." : "Download as Excel"} </span>
                 )}
                 {currentRFQ && quotes && quotes.length > 0 && (
                   <>
-                    {quotes[0]?.rfq[0]?.status == 1 && (
-                      <span>
-                        {closeRFqLoading && (
-                          <Link
-                            href="#"
-                            onClick={(e) => e.preventDefault()}
-                            className="page-link disabled-button"
-                          >
-                            Processing request...
-                          </Link>
-                        )}
-                        {!closeRFqLoading && (
-                          <Link
-                            href="#"
-                            onClick={handleRFqClose}
-                            className="page-link"
-                          >
-                            Mark RFQ as Closed
-                          </Link>
-                        )}
-                      </span>
-                    )}
+                    {quotes[0]?.rfq[0]?.status == 1 &&
+                      <span>{closeRFqLoading ? "Processing request..." : "Mark RFQ as Closed"}</span>
+                    }
                     {quotes[0]?.rfq[0]?.status == 2 && (
-                      <span className="disabled-button">
-                        <Link
-                          href="#"
-                          onClick={(e) => e.preventDefault()}
-                          className="page-link"
-                        >
-                          RFQ has been closed
-                        </Link>
-                      </span>
+                      <span className="disabled-button">RFQ has been closed</span>
                     )}
                   </>
                 )}
@@ -896,34 +845,17 @@ const QuoteCompare = () => {
               <div className="hasFullLoader">
                 <h5 className="title">Quotes Received</h5>
                 {!loading && myRFQs && myRFQs.length == 0
-                  ? <p style={{textAlign: 'center'}}>No RFQs yet!</p>
+                  ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
                   :
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
                       return (
-                        <>
-                          {currentRFQ && item.id == currentRFQ ? (
-                            <li className="active">
-                              <Link
-                                href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                                className="page-link"
-                              >
-                                RFQ #{item?.rfq_no}
-                              </Link>
-                            </li>
-                          ) : (
-                            <li>
-                              <Link
-                                href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                                className="page-link"
-                              >
-                                RFQ #{item?.rfq_no}
-                              </Link>
-                            </li>
-                          )}
-                        </>
-                      );
-                    })}
+                        <li className={`${item.id == currentRFQ ? "active" : ""}`}>
+                          <Link href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`} className={`${item.id == currentRFQ ? "text-white" : "text-dark"}`} > RFQ #{item?.rfq_no} </Link>
+                        </li>
+                      )
+                    }
+                    )}
 
                     {hasMoreQuotes && !loading &&
                       <Link href="#" className="d-flex justify-content-end px-3 pe-auto" onClick={loadMoreRFQs}>
