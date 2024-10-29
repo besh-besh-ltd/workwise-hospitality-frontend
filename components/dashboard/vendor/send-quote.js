@@ -9,7 +9,8 @@ import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
-import { faClose } from "@fortawesome/free-solid-svg-icons";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
+import { renderFileLink } from "@/utils/elementFunctions";
 
 
 const SendQuotePageComp = () => {
@@ -26,6 +27,7 @@ const SendQuotePageComp = () => {
   const [globalTax, setglobalTax] = useState(18);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
+  const [previousGlobalFiles, setPreviousGlobalFiles] = useState(null);
   const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
 
@@ -47,7 +49,7 @@ const SendQuotePageComp = () => {
         }
 
         if (res.data.terms_and_conditions_files) {
-          setGlobalDocumentFiles(res.data?.terms_and_conditions_files?.map((item) => { return item.file_url }))
+          setPreviousGlobalFiles(res.data?.terms_and_conditions_files?.map((item) => { return item.file_url }))
         }
         // Array to store each quote
         let bidProducts = [];
@@ -79,7 +81,8 @@ const SendQuotePageComp = () => {
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
-              document_files: quoteItem?.document_files?.map((item) => { return item.file_url }) || []
+              previous_document_files: quoteItem?.previous_document_files?.map((item) => { return item.file_url }) || [],
+              document_files: []
             });
           });
           setquoteProducts(bidProducts);
@@ -293,8 +296,7 @@ const SendQuotePageComp = () => {
       ]);
 
     } catch (error) {
-      console.log(error)
-      let message = error.message?.response?.data?.errors?.file?.message;
+      let message = error.message;
       toast.error(message);
     }
   };
@@ -328,20 +330,11 @@ const SendQuotePageComp = () => {
           </div>
         </div>
       </section>
+
+      {/* Table Placeholder */}
       {loading && (
         <section className="quote-send-sec-1">
           <div className="container-fluid">
-            {/* <Link
-              href={`/dashboard/vendor/inquiries-details?id=${id}`}
-              className="page-link backBtn"
-              onClick={(e) => {
-                e.preventDefault();
-                router.back()
-              }}
-            >
-              {" "}
-              <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link> */}
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">
@@ -383,119 +376,122 @@ const SendQuotePageComp = () => {
                       />
                     </p>
                   </div>
-                  <div className="table-container">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Sl No.</th>
-                          <th>Item</th>
-                          <th>Qty</th>
-                          {/* <th>Unit</th> */}
-                          <th>Base Price</th>
-                          <th>Freight</th>
-                          <th>Package</th>
-                          <th>Taxes</th>
-                          <th>Total</th>
-                          <th>Vendor Comments</th>
-                          <th>Delivery Period</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={100}
-                              height={20}
-                            />
-                          </td>
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={300}
-                              height={20}
-                            />
-                          </td>
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-                          {/* <td>
+
+                  <div className="table-responsive">
+                    <div className="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Sl No.</th>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            {/* <th>Unit</th> */}
+                            <th>Base Price</th>
+                            <th>Freight</th>
+                            <th>Package</th>
+                            <th>Taxes</th>
+                            <th>Total</th>
+                            <th>Vendor Comments</th>
+                            <th>Delivery Period</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={50}
+                                height={20}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={20}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={300}
+                                height={20}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={50}
+                                height={20}
+                              />
+                            </td>
+                            {/* <td>
                             <PlaceholderLoading
                               shape="rect"
                               width={50}
                               height={20}
                             />
                           </td> */}
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-
-                          <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td>
-                          <td>
-                            <div className="comment">
-                              <div className="comment-group">
-                                <PlaceholderLoading
-                                  shape="rect"
-                                  width={200}
-                                  height={20}
-                                />
-                              </div>
-
+                            <td>
                               <PlaceholderLoading
                                 shape="rect"
-                                width={150}
-                                height={40}
+                                width={50}
+                                height={20}
                               />
-                            </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                            </td>
+
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={50}
+                                height={20}
+                              />
+                            </td>
+
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={50}
+                                height={20}
+                              />
+                            </td>
+
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={50}
+                                height={20}
+                              />
+                            </td>
+
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={50}
+                                height={20}
+                              />
+                            </td>
+                            <td>
+                              <div className="comment">
+                                <div className="comment-group">
+                                  <PlaceholderLoading
+                                    shape="rect"
+                                    width={200}
+                                    height={20}
+                                  />
+                                </div>
+
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={150}
+                                  height={40}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   <div className="quote-sec-btm">
@@ -529,25 +525,16 @@ const SendQuotePageComp = () => {
 
       {!loading && rfqDetails && (
         <section className="quote-send-sec-1">
-          <div className="container-fluid">
-            {/* <Link
-              href={`/dashboard/vendor/inquiries-details?id=${id}`}
-              className="page-link backBtn"
-            >
-              {" "}
-              <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link> */}
+          <div className="container-fluid ">
             <div className="row">
               <div className="col-md-12">
                 <div className="quote-sec-table">
                   <div className="quote-sec-table-top">
+                    <h3 className="title">RFQ No. #{rfqDetails.rfq_no}</h3>
                     <div className="row">
-                      <div className="col-md-6 col-xs-12">
-                        <h3 className="title">RFQ No. #{rfqDetails.rfq_no}</h3>
 
-                        {/* <span className="btn btn-primary download-btn">
-                            Download as Excel/PDF
-                          </span> */}
+                      {/* RFQ Details Section */}
+                      <div className="col-md-4 col-xs-12">
                         {rfqDetails?.company_name && (
                           <p>
                             <b>Buyer</b> : {rfqDetails?.company_name}.
@@ -570,11 +557,13 @@ const SendQuotePageComp = () => {
                           </p>
                         )}
                       </div>
-                      <div className="col-md-4 col-xs-12">
-                        <h3 className="title mb-0">
+
+                      {/* Global Inputs Section */}
+                      <div className="col-md-4 col-xs-12 ">
+                        <h3 className="fs-6 fw-semibold mb-2">
                           Global Costing (in Percentage)
                         </h3>
-                        <div className="row">
+                        <div className="row mb-4">
                           <div className="inputBox form-group col-4">
                             <label>Freight %</label>
                             <input
@@ -609,319 +598,362 @@ const SendQuotePageComp = () => {
                             />
                           </div>
                         </div>
+
                         <div className="row">
-                          <div className="inputBox form-group col-lg-6 col-md-12 col-sm-12 col-xs-12 mb-4">
-                            <h3 className="title mb-0 mt-4">Payment Terms</h3>
-                            <textarea
-                              type="text"
-                              className="form-control"
-                              value={globalPaymentTerms}
-                              placeholder="100% Against Proforma Invoice"
-                              onChange={(e) =>
-                                setglobalPaymentTerms(e.target.value)
-                              }
-                            />
-                          </div>
-                          <div className="inputBox form-group col-lg-6 col-md-12 col-sm-12 col-xs-12  mb-4">
-                            <h3 className="title mb-0 mt-4">Global Comment</h3>
-                            <textarea
-                              type="text"
-                              className="form-control"
-                              value={globalComment}
-                              placeholder="Placeholder text for global comment"
-                              onChange={(e) => setglobalComment(e.target.value)}
-                            />
-                          </div>
-
-                          <div className="inputBox form-group col-lg-6 col-md-12 col-sm-12 col-xs-12  mb-2">
-
-                            <h3 className="title mb-0">Quote Document</h3>
-
-                            <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
-                              <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
-                              <input
-                                type="file"
-                                onChange={(e) => uploadGlobalDocumentFiles(e)}
-                                multiple={true}
+                          <div className="col-md-12 col-lg-6 pe-2 mb-4">
+                            <h3 className="fs-6 fw-semibold mb-2">Payment Terms</h3>
+                            <div className="inputBox form-group">
+                              <textarea
+                                type="text"
+                                className="form-control"
+                                value={globalPaymentTerms}
+                                placeholder="100% Against Proforma Invoice"
+                                onChange={(e) =>
+                                  setglobalPaymentTerms(e.target.value)
+                                }
                               />
-                            </label>
-                            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-                              globalDocumentFiles.map((doc_file) => {
-
-                                return (
-                                  <div key={doc_file} className="d-flex justify-content-between">
-                                    <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "200px" }}>{extractfileName(doc_file)}</a>
-                                    <span className="btn-close btn-close-sm"
-                                      aria-label="Close"
-                                      onClick={(e) => {
-                                        e.preventDefault()
-                                        removeGlobalFiles(doc_file)
-                                      }}>
-                                    </span>
-                                  </div>
-                                )
-                              })
-                            )}
+                            </div>
+                          </div>
+                          <div className="col-md-12 col-lg-6 pe-2 mb-4">
+                            <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
+                            <div className="inputBox form-group">
+                              <textarea
+                                type="text"
+                                className="form-control"
+                                value={globalComment}
+                                placeholder="Placeholder text for global comment"
+                                onChange={(e) => setglobalComment(e.target.value)}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      <div className="col-lg-1"></div>
+
+                      {/* Global File Upload Section */}
+                      <div className="col-md-6 col-lg-3">
+                        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
+
+                        {previousGlobalFiles && previousGlobalFiles.length > 0 &&
+                          <div className="border rounded-2 px-2 mb-2">
+                            <p className="fw-medium text-sm text-center mb-1 ">Previously Uploaded Files</p>
+                            <div className="row">
+                              {previousGlobalFiles.map((prev_file) => {
+                                return (
+                                  <div key={prev_file} className="col-md-6">
+                                    <a href={prev_file} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
+                                      <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                      {extractfileName(prev_file)}
+                                    </a>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        }
+
+                        <label className="upload uploadInlineFile d-flex align-items-center justify-content-center mb-1">
+                          <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
+                          <input
+                            type="file"
+                            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                            onChange={(e) => uploadGlobalDocumentFiles(e)}
+                            multiple={true}
+                          />
+                        </label>
+
+
+                        <div className="row">
+                          {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+                            globalDocumentFiles.map((doc_file) => {
+                              return (
+                                <div key={doc_file} className="col-md-6 d-flex justify-content-center align-items-center gap-2 mb-1">
+                                  <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
+                                  <span className="btn-close btn-close-sm"
+                                    aria-label="Close"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      removeGlobalFiles(doc_file)
+                                    }}>
+                                  </span>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+
+                      </div>
+
                     </div>
                   </div>
-                  <div className="table-container">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Sl No.</th>
-                          <th>Item</th>
-                          <th>Qty</th>
-                          {/* <th>Unit</th> */}
-                          <th>Base Price</th>
-                          <th>
-                            Freight <small>(In %)</small>
-                          </th>
-                          <th>
-                            Package <small>(In %)</small>
-                          </th>
-                          <th>
-                            Taxes <small>(In %)</small>
-                          </th>
-                          <th>Total</th>
-                          {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
-                          <th>Product Specific Comments</th>
-                          <th>
-                            Delivery Period <small>(In Weeks)</small>
-                          </th>
-                          <th>Add Documents</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rfqDetails.products &&
-                          rfqDetails.products.length > 0 &&
-                          rfqDetails.products.map((item, index) => {
+                  <div className="table-responsive">
+                    <div className="table-container">
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Sl No.</th>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            {/* <th>Unit</th> */}
+                            <th>Base Price</th>
+                            <th>
+                              Freight <small>(In %)</small>
+                            </th>
+                            <th>
+                              Package <small>(In %)</small>
+                            </th>
+                            <th>
+                              Taxes <small>(In %)</small>
+                            </th>
+                            <th>Total</th>
+                            {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
+                            <th>Product Specific Comments</th>
+                            <th>
+                              Delivery Period <small>(In Weeks)</small>
+                            </th>
+                            <th>Add Documents</th>
+                            {alreadyQuoted ? <th>Previous Documents</th> : null}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rfqDetails.products &&
+                            rfqDetails.products.length > 0 &&
+                            rfqDetails.products.map((item, index) => {
 
-                            if (isAvailableForQuote(item)) {
-                              return (
-                                <tr key={`q_${item.id}_${item.product_id}_${item.variant}_${JSON.stringify(item.document_files)}`}>
-                                  <td>{index + 1}</td>
-                                  <td className="w-350">
-                                    <p className="mb-1"><strong>{item?.product_details[0]?.name}</strong> - {item?.product_specs[0]?.value}</p>
-                                    {item?.product_specs[1]?.value?.length > 70
-                                      ? <ReadMore content={item?.product_specs[1]?.value} maxLength={70} textSmall={true} />
-                                      : <p className="mb-1 text-sm">{item?.product_specs[1]?.value}</p>
-                                    }
-                                  </td>
-                                  <td>
-                                    {item?.product_specs[2]?.value}
-                                  </td>
-                                  <td>
-                                    <input
-                                      type="number"
-                                      name=""
-                                      id=""
-                                      placeholder="₹"
-                                      value={quoteProducts[index].unit_price}
-                                      min={0}
-                                      onChange={(e) =>
-                                        handleUpdateData(
-                                          item.id,
-                                          e,
-                                          item.product_id,
-                                          item.variant,
-                                          "unit_price",
-                                          "",
-                                          item?.product_specs[2]?.value
-                                        )
+                              if (isAvailableForQuote(item)) {
+                                return (
+                                  <tr key={`q_${item.id}_${item.product_id}_${item.variant}}`}>
+                                    <td>{index + 1}</td>
+                                    <td>
+                                      <p className="fw-semibold text-nowrap mb-1">{item?.product_details[0]?.name}</p>
+                                      <p className="text-sm mb-1">{item?.product_specs[0]?.value}</p>
+                                      {item?.product_specs[1]?.value?.length > 70
+                                        ? <ReadMore content={`- ${item?.product_specs[1]?.value}`} maxLength={70} textSmall={true} />
+                                        : <p className="mb-1 text-sm">{`- ${item?.product_specs[1]?.value}`}</p>
                                       }
-                                      onWheel={(e) => e.target.blur()}
-                                    />
-                                  </td>
-
-                                  <td>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      name=""
-                                      id=""
-                                      placeholder="%"
-                                      value={quoteProducts[index].freight_price}
-                                      onChange={(e) =>
-                                        handleUpdateData(
-                                          item.id,
-                                          e,
-                                          item.product_id,
-                                          item.variant,
-                                          "freight_price",
-                                          "",
-                                          item?.product_specs[2]?.value
-                                        )
-                                      }
-                                      onWheel={(e) => e.target.blur()}
-                                    />
-                                  </td>
-
-                                  <td>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      name=""
-                                      id=""
-                                      placeholder="%"
-                                      value={quoteProducts[index].package_price}
-                                      onChange={(e) =>
-                                        handleUpdateData(
-                                          item.id,
-                                          e,
-                                          item.product_id,
-                                          item.variant,
-                                          "package_price",
-                                          "",
-                                          item?.product_specs[2]?.value
-                                        )
-                                      }
-                                      onWheel={(e) => e.target.blur()}
-                                    />
-                                  </td>
-
-                                  <td>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      name=""
-                                      id=""
-                                      placeholder="%"
-                                      value={quoteProducts[index].tax}
-                                      onChange={(e) =>
-                                        handleUpdateData(
-                                          item.id,
-                                          e,
-                                          item.product_id,
-                                          item.variant,
-                                          "tax",
-                                          "",
-                                          item?.product_specs[2]?.value
-                                        )
-                                      }
-                                      onWheel={(e) => e.target.blur()}
-                                    />
-                                  </td>
-
-                                  <td>
-                                    <input
-                                      type="number"
-                                      name=""
-                                      id=""
-                                      placeholder="₹"
-                                      value={quoteProducts[index].total_price}
-                                      disabled
-                                    />
-                                  </td>
-                                  {
-                                    rfqDetails?.products[index]?.lowest_quotation ?
-                                      <td>
-                                        <input
-                                          type="number"
-                                          name=""
-                                          id=""
-                                          placeholder="₹"
-                                          value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
-                                          disabled
-                                        />
-                                      </td>
-                                      : null
-                                  }
-                                  <td>
-                                    <div className="comment">
-                                      <div className="comment-group">
-                                        <textarea
-                                          name="comment"
-                                          id="comment"
-                                          cols="30"
-                                          rows="3"
-                                          value={quoteProducts[index].comment}
-                                          onChange={(e) =>
-                                            handleUpdateData(
-                                              item.id,
-                                              e,
-                                              item.product_id,
-                                              item.variant,
-                                              "comment",
-                                              "string",
-                                              item?.product_specs[2]?.value
-                                            )
-                                          }
-                                        ></textarea>
-                                        <span htmlFor="comment">0/300</span>
-                                      </div>
-
-                                      {/* <button className="btn btn-secondary">
-                                        No Quote
-                                      </button> */}
-                                    </div>
-                                  </td>
-                                  <td style={{ width: 250 }}>
-                                    <input
-                                      style={{ width: 150 }}
-                                      name="delivery_period"
-                                      id="delivery_period"
-                                      type="number"
-                                      placeholder="E.g. 7"
-                                      value={quoteProducts[index].delivery_period}
-                                      onChange={(e) =>
-                                        handleUpdateData(
-                                          item.id,
-                                          e,
-                                          item.product_id,
-                                          item.variant,
-                                          "delivery_period",
-                                          "string",
-                                          item?.product_specs[2]?.value
-                                        )
-                                      }
-                                      onWheel={(e) => e.target.blur()}
-                                    />
-                                  </td>
-                                  <td style={{ maxWidth: 250 }}>
-                                    <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
-                                      <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
+                                    </td>
+                                    <td>
+                                      {`${item?.product_specs[2]?.value} - ${item?.product_specs[3]?.value}`}
+                                    </td>
+                                    <td>
                                       <input
-                                        type="file"
-                                        onChange={(e) => uploadQuoteItemFiles(e, item)}
-                                        multiple={true}
+                                        type="number"
+                                        name=""
+                                        id=""
+                                        placeholder="₹"
+                                        value={quoteProducts[index].unit_price}
+                                        min={0}
+                                        onChange={(e) =>
+                                          handleUpdateData(
+                                            item.id,
+                                            e,
+                                            item.product_id,
+                                            item.variant,
+                                            "unit_price",
+                                            "",
+                                            item?.product_specs[2]?.value
+                                          )
+                                        }
+                                        onWheel={(e) => e.target.blur()}
                                       />
-                                    </label>
+                                    </td>
 
-                                    {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
-                                      quoteProducts[index].document_files.map((doc_file) => {
-                                        return (
+                                    <td>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        name=""
+                                        id=""
+                                        placeholder="%"
+                                        value={quoteProducts[index].freight_price}
+                                        onChange={(e) =>
+                                          handleUpdateData(
+                                            item.id,
+                                            e,
+                                            item.product_id,
+                                            item.variant,
+                                            "freight_price",
+                                            "",
+                                            item?.product_specs[2]?.value
+                                          )
+                                        }
+                                        onWheel={(e) => e.target.blur()}
+                                      />
+                                    </td>
 
-                                          <div key={doc_file} className="d-flex justify-content-between">
-                                            <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
-                                            <span
-                                              className="btn-close btn-close-sm"
-                                              aria-label="Close"
-                                              onClick={(e) => handleUpdateData(
+                                    <td>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        name=""
+                                        id=""
+                                        placeholder="%"
+                                        value={quoteProducts[index].package_price}
+                                        onChange={(e) =>
+                                          handleUpdateData(
+                                            item.id,
+                                            e,
+                                            item.product_id,
+                                            item.variant,
+                                            "package_price",
+                                            "",
+                                            item?.product_specs[2]?.value
+                                          )
+                                        }
+                                        onWheel={(e) => e.target.blur()}
+                                      />
+                                    </td>
+
+                                    <td>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        name=""
+                                        id=""
+                                        placeholder="%"
+                                        value={quoteProducts[index].tax}
+                                        onChange={(e) =>
+                                          handleUpdateData(
+                                            item.id,
+                                            e,
+                                            item.product_id,
+                                            item.variant,
+                                            "tax",
+                                            "",
+                                            item?.product_specs[2]?.value
+                                          )
+                                        }
+                                        onWheel={(e) => e.target.blur()}
+                                      />
+                                    </td>
+
+                                    <td>
+                                      <input
+                                        type="number"
+                                        name=""
+                                        id=""
+                                        placeholder="₹"
+                                        value={quoteProducts[index].total_price}
+                                        disabled
+                                      />
+                                    </td>
+                                    {
+                                      rfqDetails?.products[index]?.lowest_quotation ?
+                                        <td>
+                                          <input
+                                            type="number"
+                                            name=""
+                                            id=""
+                                            placeholder="₹"
+                                            value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
+                                            disabled
+                                          />
+                                        </td>
+                                        : null
+                                    }
+                                    <td>
+                                      <div className="comment">
+                                        <div className="comment-group">
+                                          <textarea
+                                            name="comment"
+                                            id="comment"
+                                            cols="30"
+                                            rows="3"
+                                            value={quoteProducts[index].comment}
+                                            onChange={(e) =>
+                                              handleUpdateData(
                                                 item.id,
                                                 e,
                                                 item.product_id,
                                                 item.variant,
-                                                "document_files",
-                                                "array",
-                                                item?.product_specs[2]?.value,
-                                                doc_file,
-                                                "remove"
-                                              )}></span>
-                                          </div>
-                                        )
-                                      })
-                                    )}
+                                                "comment",
+                                                "string",
+                                                item?.product_specs[2]?.value
+                                              )
+                                            }
+                                          ></textarea>
+                                          <span htmlFor="comment">0/300</span>
+                                        </div>
 
-                                  </td>
-                                </tr>
-                              );
-                            }
-                          })}
-                      </tbody>
-                    </table>
+                                        {/* <button className="btn btn-secondary">
+                                        No Quote
+                                      </button> */}
+                                      </div>
+                                    </td>
+                                    <td style={{ width: 250 }}>
+                                      <input
+                                        style={{ width: 150 }}
+                                        name="delivery_period"
+                                        id="delivery_period"
+                                        type="number"
+                                        placeholder="E.g. 7"
+                                        value={quoteProducts[index].delivery_period}
+                                        onChange={(e) =>
+                                          handleUpdateData(
+                                            item.id,
+                                            e,
+                                            item.product_id,
+                                            item.variant,
+                                            "delivery_period",
+                                            "string",
+                                            item?.product_specs[2]?.value
+                                          )
+                                        }
+                                        onWheel={(e) => e.target.blur()}
+                                      />
+                                    </td>
+                                    <td style={{ maxWidth: 250 }}>
+                                      <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                                        <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
+                                        <input
+                                          type="file"
+                                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                          onChange={(e) => uploadQuoteItemFiles(e, item)}
+                                          multiple={true}
+                                        />
+                                      </label>
+
+                                      {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
+                                        quoteProducts[index].document_files.map((doc_file) => {
+                                          return (
+
+                                            <div key={doc_file} className="d-flex justify-content-between align-items-center">
+                                              <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
+                                              <span
+                                                className="btn-close btn-close-sm"
+                                                aria-label="Close"
+                                                onClick={(e) => handleUpdateData(
+                                                  item.id,
+                                                  e,
+                                                  item.product_id,
+                                                  item.variant,
+                                                  "document_files",
+                                                  "array",
+                                                  item?.product_specs[2]?.value,
+                                                  doc_file,
+                                                  "remove"
+                                                )}></span>
+                                            </div>
+                                          )
+                                        })
+                                      )}
+
+                                    </td>
+                                    {alreadyQuoted &&
+                                      <td>
+                                        {quoteProducts[index].previous_document_files && quoteProducts[index].previous_document_files.length > 0 && (
+                                          renderFileLink(quoteProducts[index].previous_document_files)
+                                        )}
+                                      </td>
+                                    }
+                                  </tr>
+                                );
+                              }
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   <div className="quote-sec-btm">
