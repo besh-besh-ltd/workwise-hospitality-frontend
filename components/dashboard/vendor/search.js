@@ -28,6 +28,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
 import ProductOverview from "@/components/shared/ProductOverview";
+import Head from "next/head";
 
 
 const customSelectStyles = {
@@ -470,27 +471,31 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   return (
     <>
-      <section className="vendor-common-header sc-pt-80">
+    <Head>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "http://schema.org",
+            "@type": "Product",
+            name: currentSelectedProduct?.product_name,
+            image: currentSelectedProduct?.currentSelectedProduct || "",
+            description: currentSelectedProduct?.description,
+            sku: currentSelectedProduct?.slug,
+            offers: {
+              "@type": "Offer",
+              url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`,
+              availability: "http://schema.org/InStock",
+            },
+          })}
+        </script>
+      </Head>
+
+      <section className="vendor-common-header sc-pt-80" aria-label="header" >
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
           <div className="d-flex justify-content-end">
 
-
-            {/* <Link
-              href="/dashboard/buyer/rfq-management?tab=create-rfq"
-              className="page-link backBtn"
-              onClick={(e) => {
-                e.preventDefault();
-                router.back()
-              }
-              }
-            >
-              {" "}
-              <FontAwesomeIcon icon={faArrowLeft} /> Go back
-            </Link> */}
-
             <Link
-              href="#"
+              href="/dashboard/buyer/magic-search"
               className="page-link backBtn btn btn-secondary text-white px-2 "
               style={{ minWidth: "280px" }}
               onClick={(e) => {
@@ -509,7 +514,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         </div>
       </section>
 
-      <section className="search-sec-1">
+      <section className="search-sec-1" aria-label="search-box">
         <div className="container-fluid product-search">
           <div className="row">
             <div className="col-md-12">
@@ -558,7 +563,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               <div className="row">
                                 <div className="col-7">
                                   <div className="container">
-                                    <h4 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Product List</h4>
+                                    <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Product List</h2>
                                     <ul>
                                       {products.map((item, index) => {
                                         return (
@@ -570,15 +575,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                             }
                                             title={`${item.product_name} - ${item.description}`}
                                           >
-                                            {/* <i>
-                                              <FontAwesomeIcon icon={faPlus} />
-                                            </i> */}
                                             <div>
-                                              <h4>{item.product_name}</h4>
+                                              <h3>{item.product_name}</h3>
                                               <p>
                                                 <small>
                                                   <b>{item.category_name} </b>
-                                                  {(item.description && item.description != 'null') ? `| ${item.description}` : ""}
                                                 </small>
                                               </p>
                                             </div>
@@ -590,7 +591,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 </div>
                                 <div className="col-5">
                                   <div className="container">
-                                    <h4 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Category List</h4>
+                                    <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Category List</h2>
                                     <ul>
                                       {searchCategories.map((item, index) => {
                                         return (
@@ -605,7 +606,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               <FontAwesomeIcon icon={faPlus} />
                                             </i>
                                             <div>
-                                              <h4>{item.category_name}</h4>
+                                              <h3>{item.category_name}</h3>
                                               <p>
                                                 <small>
                                                   <b>{item.parent_category_name} </b>
@@ -666,16 +667,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               })}
                           </select>
                         )}
-
-                        {/* <span>
-                          <Link
-                            href="#"
-                            className="btn btn-secondary mt-0 mb-0"
-                            onClick={handleSearch}
-                          >
-                            Search
-                          </Link>
-                        </span> */}
                       </div>
                     </div>
                   </div>
@@ -815,7 +806,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           </div>
         </div>
       </section>
-      <section className="search-sec-2">
+
+      <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
 
           {/* Search Categories Section */}
@@ -824,7 +816,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="search-sec-3-mdl my-3">
                 <div className="search-sec-3-mdl-con ">
                   <div className="container">
-                    <h3>Sub Categories List</h3>
+                    <h2 className="fs-3">Sub Categories List</h2>
                     <div className="parent-categories">
                       {
                         mapEntries?.map(([category_id, category_name], index) => {
@@ -866,7 +858,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     {productsList.length > 0 && (
                       <>
-                        <h3 className="mt-4">Product List</h3>
+                        <h2 className="fs-3 mt-4">Product List</h2>
                         <div className="row">
                           {productsList.map((item, index) => {
                             return (
@@ -898,10 +890,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="search-sec-3-mdl mt-2 mb-0">
                 <div className="search-sec-3-mdl-con ">
                   <div className="container">
-                    <h3>
+                    <h2 className="fs-3">
                       Product Insight{"  "}
                       <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
-                    </h3>
+                    </h2>
                     <ProductOverview data={currentSelectedProduct} setShowInsights={setShowInsights} />
                   </div>
                 </div>
@@ -914,7 +906,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
-                  <h4>Filter</h4>
+                  <h2 className="fs-5">Filter</h2>
                   <div className="search-con-right-1">
                     <p>Location</p>
                     {selectedState != 0 && (
@@ -1161,7 +1153,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   <div className="col-md-12">
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
-                        {currentSelectedProduct && <h4>Available Vendors</h4>}
+                        {currentSelectedProduct && <h2 className="fs-5">Available Vendors</h2>}
                         <div className="col-md-2">
                           <label>
                             <input
@@ -1256,10 +1248,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 )}
                 {!currentSelectedProduct && (
                   <div className="col-md-12 hasblankpadding">
-                    <h4 className="text-center">
+                    <h2 className="fs-5 text-center">
                       <b>Search & Select a product</b>
                       <br /> to see the available vendors!
-                    </h4>
+                    </h2>
                   </div>
                 )}
               </div>

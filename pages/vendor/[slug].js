@@ -20,8 +20,8 @@ const DynamicProductPage = ({ pageTitle }) => {
   return (
     <>
       <Head>
-      <title>{metaTitle}</title>
-      <meta name="description" content={metaDescription} />
+          <title>{metaTitle}</title>
+          <meta name="description" content={metaDescription} />
       </Head>
       <SearchPage title={`Search Vendors`} type="products" />
     </>

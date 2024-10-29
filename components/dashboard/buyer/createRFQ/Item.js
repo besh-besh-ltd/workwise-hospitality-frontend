@@ -146,10 +146,9 @@ const Item = ({ data, vendorApprovedList }) => {
       );
 
     } catch (error) {
-      console.log(error)
-      // let message = err.message.response.data.errors.file.message;
-      //   toast.error(message);
-    }    
+      let message = error.message;
+      toast.error(message);
+    }
   };
 
   const handleRemoveFile = (file_url, type) => {
@@ -237,6 +236,7 @@ const Item = ({ data, vendorApprovedList }) => {
                 <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                 <input
                   type="file"
+                  accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                   onChange={(e) => uploadToServer(e, "spec_file")}
                   multiple={true}
                 />
@@ -302,6 +302,7 @@ const Item = ({ data, vendorApprovedList }) => {
                   <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                   <input
                     type="file"
+                    accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                     onChange={(e) => uploadToServer(e, "datasheet_file")}
                     multiple={true}
                   />
@@ -353,6 +354,7 @@ const Item = ({ data, vendorApprovedList }) => {
                   <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                   <input
                     type="file"
+                    accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                     onChange={(e) => uploadToServer(e, "qap_file")}
                     multiple={true}
                   />

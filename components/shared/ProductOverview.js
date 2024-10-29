@@ -130,7 +130,7 @@ const ProductOverview = ({ data, setShowInsights }) => {
 
             {/* overview section */}
             <div className="col-6 p-2">
-                <h6 className='fw-medium'>Based on Our Market Intelligence</h6>
+                <h3 className='fs-6 fw-medium'>Based on Our Market Intelligence</h3>
                 <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
                     <div>
                         <span>Minimum Price </span>
@@ -155,9 +155,11 @@ const ProductOverview = ({ data, setShowInsights }) => {
                     </div>
                 </div>
             </div>
+
+            {/* user specific data section */}
             {productOverview?.personal[1] ? 
                 <div className="col-6 p-2">
-                    <h6 className='fw-medium'>Your Last Finalized Quote </h6>
+                    <h3 className='fs-6 fw-medium'>Your Last Finalized Quote </h3>
                     <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
                         <div>
                             <span>Base Price </span>
@@ -178,7 +180,7 @@ const ProductOverview = ({ data, setShowInsights }) => {
                 :
                 productOverview?.personal[0] &&
                 <div className="col-6 p-2">
-                    <h6 className='fw-medium'>Your Last Received Quote </h6>
+                    <h3 className='fs-6 fw-medium'>Your Last Received Quote </h3>
                     <div className="d-flex justify-content-around fw-medium border rounded-3 p-2">
                         <div>
                             <span>Base Price </span>
