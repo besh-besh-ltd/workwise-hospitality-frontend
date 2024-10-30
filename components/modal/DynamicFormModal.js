@@ -235,7 +235,7 @@ const DynamicFormModal = ({
                                                             component="textarea"
                                                             id="projectDescription"
                                                             name="projectDescription"
-                                                            placeholder="Brass Binding Wire, Ceramic Marble..."
+                                                            placeholder="Enter your text here..."
                                                         />
                                                         {touched.projectDescription && errors.projectDescription && (
                                                             <div className="form-error">{errors.projectDescription}</div>
