@@ -10,7 +10,7 @@ import {
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
 import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -87,6 +87,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [firstVisit, setFirstVisit] = useState(true);
   const [showInsights, setShowInsights] = useState(false);
 
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -176,72 +177,181 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
-  const addToRFQ = (item) => {
-    if (currentSelectedProduct.product_id == tempProdRef.current?.product_id) {
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
+  // const addToRFQ = (item) => {
+  //   if (currentSelectedProduct.product_id == tempProdRef.current?.product_id) {
+  //     dispatch(
+  //       addVendor({
+  //         product_id: currentSelectedProduct.product_id,
+  //         id: item.id,
+  //         name: item.vendor_name,
+  //       })
+  //     );
+  //     toast.success(
+  //       <h6>
+  //         <b>{item.vendor_name}:</b> Successfully added to RFQ list!
+  //       </h6>,
+  //       {
+  //         position: "top-right",
+  //       }
+  //     );
+  //   } else {
+  //     dispatch(addRfqProduct(currentSelectedProduct));
+  //     dispatch(
+  //       addVendor({
+  //         product_id: currentSelectedProduct.product_id,
+  //         id: item.id,
+  //         name: item.vendor_name,
+  //       })
+  //     );
+  //     toast.success(
+  //       <h6>
+  //         <b>{item.vendor_name}:</b> Successfully added to RFQ list!
+  //       </h6>,
+  //       {
+  //         position: "top-right",
+  //       }
+  //     );
+  //     tempProdRef.current = currentSelectedProduct;
+  //   }
+  // };
+
+  // const handleBulkAddToRFQ = (e) => {
+  //   e.preventDefault();
+
+  //   if (currentSelectedProduct.product_id != tempProdRef.current?.product_id)
+  //     dispatch(addRfqProduct(currentSelectedProduct));
+
+  //   if (bulkRFQVendors.length > 0) {
+  //     bulkRFQVendors.map((item) => {
+  //       dispatch(
+  //         addVendor({
+  //           product_id: currentSelectedProduct.product_id,
+  //           id: item.id,
+  //           name: item.name,
+  //         })
+  //       );
+  //     });
+  //     toast.success(
+  //       <h6>
+  //         <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ
+  //         list!
+  //       </h6>,
+  //       {
+  //         position: "top-right",
+  //       }
+  //     );
+  //   }
+  //   tempProdRef.current = currentSelectedProduct;
+  // };
+
+  const addToRFQ = async (item) => {
+    if (!vendorMetaData.logged_In) {
+      setOpenAuthModal(true);
+      return;
+    }
+
+    if (!vendorMetaData.subscription) {
+      router.push('dashboard/buyer/subscription');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const payload = {
+        product_id: currentSelectedProduct.product_id,
+        vendors: [{
+          vendor_id: item.id
+        }]
+      };
+
+      console.log(payload);
+
+      const response = await addProductToDraft(payload);
+      
+      console.log(response);
+
+      // Update Redux store if needed
+      // dispatch(addRfqProduct(currentSelectedProduct));
+      // dispatch(
+      //   addVendor({
+      //     product_id: currentSelectedProduct.product_id,
+      //     id: item.id,
+      //     name: item.vendor_name,
+      //   })
+      // );
+
       toast.success(
         <h6>
           <b>{item.vendor_name}:</b> Successfully added to RFQ list!
         </h6>,
-        {
-          position: "top-right",
-        }
+        { position: "top-right" }
       );
-    } else {
-      dispatch(addRfqProduct(currentSelectedProduct));
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendor to RFQ. Please try again.</h6>,
+        { position: "top-right" }
       );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-      tempProdRef.current = currentSelectedProduct;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleBulkAddToRFQ = (e) => {
+  const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
 
-    if (currentSelectedProduct.product_id != tempProdRef.current?.product_id)
-      dispatch(addRfqProduct(currentSelectedProduct));
+    if (!vendorMetaData.subscription) {
+      return;
+    }
 
-    if (bulkRFQVendors.length > 0) {
-      bulkRFQVendors.map((item) => {
-        dispatch(
-          addVendor({
-            product_id: currentSelectedProduct.product_id,
-            id: item.id,
-            name: item.name,
-          })
-        );
-      });
+    if (bulkRFQVendors.length === 0) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const payload = {
+        product_id: currentSelectedProduct.product_id,
+        vendors: bulkRFQVendors.map(vendor => ({
+          vendor_id: vendor.id
+        }))
+      };
+
+      console.log(payload);
+
+      const response = await addProductToDraft(payload);
+
+      console.log(response);
+
+      // Update Redux store if needed
+      // dispatch(addRfqProduct(currentSelectedProduct));
+      // bulkRFQVendors.forEach((item) => {
+      //   dispatch(
+      //     addVendor({
+      //       product_id: currentSelectedProduct.product_id,
+      //       id: item.id,
+      //       name: item.name,
+      //     })
+      //   );
+      // });
+
       toast.success(
         <h6>
-          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ
-          list!
+          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ list!
         </h6>,
-        {
-          position: "top-right",
-        }
+        { position: "top-right" }
       );
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendors to RFQ. Please try again.</h6>,
+        { position: "top-right" }
+      );
+    } finally {
+      setIsLoading(false);
     }
-    tempProdRef.current = currentSelectedProduct;
   };
+
   const getVendors = () => {
     setloading(true);
     setVendors([]);
@@ -1167,7 +1277,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         <div className="col-md-10">
                           {vendorMetaData.subscription && (
                             <div className="actions">
-                              {bulkRFQVendors.length > 0 && (
+                              {/* {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
                                   className={`btn btn-primary ${!vendorMetaData.subscription
@@ -1177,6 +1287,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   onClick={handleBulkAddToRFQ}
                                 >
                                   Add To All RFQs
+                                </Link>
+                              )} */}
+                              {bulkRFQVendors.length > 0 && (
+                                <Link
+                                  href="#"
+                                  className={`btn btn-primary ${!vendorMetaData.subscription || isLoading ? 'disabled' : ''}`}
+                                  onClick={handleBulkAddToRFQ}
+                                >
+                                  {isLoading ? 'Adding...' : 'Add To All RFQs'}
                                 </Link>
                               )}
                               <Link

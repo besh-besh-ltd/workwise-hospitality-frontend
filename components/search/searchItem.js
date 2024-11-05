@@ -17,6 +17,7 @@ const SearchItem = ({
   currentSelectedProduct = {},
   handleRemoveCurrentSelected,
   addToRFQ,
+  isLoading,
   handleRedirect
 }) => {
   const dispatch = useDispatch();
@@ -138,7 +139,7 @@ const SearchItem = ({
                 >
                   View Details
                 </Link>
-                <Link
+                {/* <Link
                   href="#"
                   className="btn btn-primary custom_primary_btn has_primary-bg"
                   onClick={(e) => {
@@ -152,6 +153,17 @@ const SearchItem = ({
                   }}
                 >
                   Add To RFQ
+                </Link> */}
+                <Link
+                  href="#"
+                  className="btn btn-primary custom_primary_btn has_primary-bg"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    addToRFQ(data);
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Adding...' : 'Add To RFQ'}
                 </Link>
                 <Link
                   href="#"

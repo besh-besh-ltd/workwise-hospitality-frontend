@@ -81,6 +81,43 @@ export const createRfq = (values) => {
   });
 };
 
+export const getDraftData = () => {
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/draft`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const saveDraft = (values) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/save-draft`, values);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const addProductToDraft = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log("here")
+      const response = await axiosInstance.post(`/rfq/add-product-to-draft`, payload);
+      console.log(response)
+      resolve(response);
+    } catch (error) {
+      console.log(error)
+      reject({ message: error });
+    }
+  });  
+};
+
 export const getRFQS = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

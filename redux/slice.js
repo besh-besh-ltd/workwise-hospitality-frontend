@@ -2,12 +2,12 @@ const { createSlice } = require("@reduxjs/toolkit");
 import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
-  swSubscription: null,
+  // swSubscription: null,
   allTerms: [],
   rfqProducts: [],
-  rfqVendors: [],
+  // rfqVendors: [],
   rfqFormData: {
-    is_published: 1,
+    is_published: 0,
     comment: "",
     response_email: "",
     contact_name: "",
@@ -34,6 +34,19 @@ export const rfqProductsSlice = createSlice({
   name: "rfqProducts",
   initialState,
   reducers: {
+
+    intializeRfq: (state, action) => {
+      // state = {...action.payload, swSubscription: null};
+      state.rfqFormData = action.payload.rfq_form_data;
+      state.rfqObjData = action.payload.rfq_obj_data;
+      state.rfqProducts = action.payload.rfq_products;
+      // state.rfqProducts = action.payload.products;
+      // state.rfqObjData.terms = action.payload.terms;
+      // console.log(state.rfqProducts)
+      console.log(action.payload)
+      console.log("intial:" , state)
+    },
+
     addRfqProduct: (state, action) => {
       let data = {
         product_id: action.payload.product_id,
@@ -118,7 +131,7 @@ export const rfqProductsSlice = createSlice({
     addProductSpecValue: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          if (item.spec.length > 0) {
+          if (item.spec?.length > 0) {
             item.spec.map((specItem) => {
               if (specItem.title == action.payload.title) {
                 specItem.value = action.payload.value;
@@ -283,14 +296,14 @@ export const rfqProductsSlice = createSlice({
           } else {
             item.user_selected_predefined_qap = action.payload.is_selected;
           }
-          // if (item.spec.length > 0) {
-          //   item.spec.map((specItem) => {
-          //     if (specItem.title == action.payload.title) {
-          //       specItem.value = action.payload.value;
-          //     }
-          //     return specItem;
-          //   });
-          // }
+          if (item.spec.length > 0) {
+            item.spec.map((specItem) => {
+              if (specItem.title == action.payload.title) {
+                specItem.value = action.payload.value;
+              }
+              return specItem;
+            });
+          }
         }
         return item;
       });
@@ -299,6 +312,7 @@ export const rfqProductsSlice = createSlice({
   },
 });
 export const {
+  intializeRfq,
   addRfqProduct,
   addProductSpec,
   addProductSpecValue,
