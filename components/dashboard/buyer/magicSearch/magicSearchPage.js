@@ -3,11 +3,13 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import axiosFormData from "@/lib/axiosFormData";
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
+import { getMagicRFQReview } from "@/services/rfq";
+import ReviewProducts from "./ReviewProducts";
+
 
 const initialFormData = {
     file: null,
@@ -24,7 +26,7 @@ function MagicSearchPage() {
     const [fileName, setFileName] = useState('');
     const [loading, setLoading] = useState(false); // Set true for loading UI
     const [messagesDisplayed, setMessagesDisplayed] = useState(false);
-    const [receivedData, setReceivedData] = useState(null);
+    const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
     const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
@@ -52,7 +54,7 @@ function MagicSearchPage() {
             const fileType = file.name.split('.').pop().toLowerCase();
             const validTypes = ['xlsx', 'xls'];
             if (!validTypes.includes(fileType)) {
-                alert('Please upload a valid Excel file (xlsx, xls)');
+                toast.error('Please upload a valid Excel file (xlsx, xls)');
             } else {
                 setFileName(file.name);
                 setFile(file);
@@ -72,10 +74,8 @@ function MagicSearchPage() {
 
         try {
             setLoading(true);
-            const response = await axiosFormData.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/rfq/magic-search-rfq-create`,
-                formData
-            );
+            console.log(file)
+            const response = await getMagicRFQReview(file);
 
             apiDataRef.current = response;
 
@@ -87,12 +87,13 @@ function MagicSearchPage() {
             }, 2000 * (messages.length - currentMessageIndex));
 
         } catch (error) {
+            console.log(error)
             toast.error(error.message);
             setLoading(false);
         } finally {
             setFile(null);
             setFileName('');
-            setFormData(initialFormData);
+            // setFormData(initialFormData);
         }
     };
 
@@ -104,19 +105,19 @@ function MagicSearchPage() {
         }));
     }
 
-    const getAllProjects = ()=> {
+    const getAllProjects = () => {
         getProjectList()
-          .then((res)=> {
-            let d = [];
-            res.data.map((item) => {
-              d.push({ label: item.name, value: item.id });
-            });
-            setProjects(d);
-          })
-          .catch((error)=> {
-            console.log(error)
-          })
-      }
+            .then((res) => {
+                let d = [];
+                res.data.map((item) => {
+                    d.push({ label: item.name, value: item.id });
+                });
+                setProjects(d);
+            })
+            .catch((error) => {
+                console.log(error)
+            })
+    }
 
     useEffect(() => {
         getAllProjects();
@@ -155,7 +156,7 @@ function MagicSearchPage() {
                 toast.success("We have Successfully created your RFQ");
             }
 
-            setReceivedData(data);
+            setReviewData(data);
 
             // Handle partial validation errors
             if (validation_errors) {
@@ -215,45 +216,56 @@ function MagicSearchPage() {
             {/* File Upload Section */}
             <section className="search-sec-1">
                 <div className="container-fluid product-search">
-                    <div className="container bg-white rounded-4 p-5">
+                    <div className="bg-white rounded-4 p-5">
 
-                        {/* //{ Drag and Drop Area } */}
-                        <div className="col-md-8 mx-auto text-center">
-                            <div
-                                className="file-drop-area rounded py-4"
-                                style={{
-                                    border: '2px dashed grey',
-                                    cursor: 'pointer',
-                                    backgroundColor: '#fff',
-                                    color: 'green',
-                                }}
-                                onClick={() => document.getElementById('fileInput').click()}
-                            >
-                                <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
-                                <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
-                            </div>
+                        {!reviewData ?
+                            <>
+                                <div className="col-md-8 mx-auto text-center">
+                                    <div
+                                        className="file-drop-area rounded py-4"
+                                        style={{
+                                            border: '2px dashed grey',
+                                            cursor: 'pointer',
+                                            backgroundColor: '#fff',
+                                            color: 'green',
+                                        }}
+                                        onClick={() => document.getElementById('fileInput').click()}
+                                    >
+                                        <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
+                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                                    </div>
 
-                            {/* //{ Hidden File Input } */}
-                            <input
-                                id="fileInput"
-                                type="file"
-                                accept=".xlsx, .xls"
-                                style={{ display: 'none' }}
-                                onChange={handleFileUpload}
-                            />
-                        </div>
+                                    {/* //{ Hidden File Input } */}
+                                    <input
+                                        id="fileInput"
+                                        type="file"
+                                        accept=".xlsx, .xls"
+                                        style={{ display: 'none' }}
+                                        onChange={handleFileUpload}
+                                    />
+                                </div>
 
-                        {/* Download Sample Excel */}
-                        <div className="col-md-8 mx-auto mt-2">
-                            <a
-                                title="Download this sample Excel and fill all the columns."
-                                href="/Sample BOQ File Format.xlsx"
-                                className="d-flex justify-content-end gap-2 "
-                                style={{ cursor: "pointer" }}>
-                                <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
-                                <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
-                            </a>
-                        </div>
+                                {/* Download Sample Excel */}
+                                <div className="col-md-8 mx-auto mt-2">
+                                    <a
+                                        title="Download this sample Excel and fill all the columns."
+                                        href="/Sample BOQ File Format.xlsx"
+                                        className="d-flex justify-content-end gap-2 "
+                                        style={{ cursor: "pointer" }}>
+                                        <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
+                                        <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
+                                    </a>
+                                </div>
+                            </>
+                            : <>
+                                {reviewData.products && reviewData.products.length > 0 &&
+                                    <>
+                                        <h2 className="h4 mb-3">Review Products</h2>
+                                        <ReviewProducts data={reviewData.products} changeFormData={setReviewData} />
+                                    </>
+                                }
+                            </>
+                        }
 
                         {/* Terms and Conditions text-area */}
                         <div className="col-md-8 mx-auto mt-4">
@@ -322,7 +334,7 @@ function MagicSearchPage() {
                                     >
                                         <option value={-1}>Select Project</option>
                                         {projects && projects.length > 0 &&
-                                            projects.map((projectItem)=> {
+                                            projects.map((projectItem) => {
                                                 return (
                                                     <option value={projectItem.value}>{projectItem.label}</option>
                                                 )
@@ -357,51 +369,6 @@ function MagicSearchPage() {
                     </div>
                 </div>
             </section>
-
-            {/* RFQ Products */}
-            {/* {receivedData &&
-                <section className="search-sec-3 pb-4">
-                    <div className="container-fluid col-md-8 mt-5 ">
-                        <h4>RFQ Created for this Products</h4>
-
-                        {receivedData.otherDetails?.length > 0 &&
-                            <div className="details-table">
-                                <div className="table-responsive">
-                                    <table className="table table-striped ">
-                                        <thead>
-                                            <tr>
-                                                <th>Name of product</th>
-                                                <th>Size & specifications</th>
-                                                <th>Quantity & Unit</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {
-                                                receivedData?.otherDetails?.map((item, index) => {
-                                                    console.log(item)
-                                                    return (
-                                                        <tr key={`product_${item?.product_info?.product_id}_${item?.product_info?.variant}`}>
-                                                            <td>{item?.product_info?.product_id}_{item?.product_info?.variant}</td>
-                                                            <td>
-                                                                <p className="mb-2"><b>Size: </b>{item?.spec_info[0]?.value}</p>
-                                                                <p className="mb-0"><b>Spec: </b>{item?.spec_info[1]?.value}</p>
-                                                            </td>
-                                                            <td>{item?.spec_info[2]?.value}, {item?.spec_info[3]?.value}</td>
-                                                            <td className="text-success">Success</td>
-                                                        </tr>
-                                                    )
-                                                })
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        }
-
-                    </div>
-                </section>
-            } */}
 
             {/* Defective Products */}
             {validationErrors &&
