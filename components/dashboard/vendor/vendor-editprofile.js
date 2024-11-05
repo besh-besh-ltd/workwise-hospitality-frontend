@@ -211,6 +211,13 @@ const VendorProfile = () => {
             }
           })}
         </script>
+
+        <meta property="og:title" content="Vendor Profile | Workwise" />
+        <meta property="og:description" content={vendorDetails?.profile} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={vendorDetails?.website} />
+        <meta property="og:image" content={vendorDetails?.profile_image_url} />
+        <meta property="og:site_name" content="Workwise" />
       </Head>
       
       <section className="vendor-common-header sc-pt-80" aria-label="vendor-profile-page">

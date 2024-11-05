@@ -488,8 +488,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             "@context": "http://schema.org",
             "@type": "Product",
             name: currentSelectedProduct?.product_name,
-            image: currentSelectedProduct?.currentSelectedProduct || "",
-            description: currentSelectedProduct?.description,
+            image: currentSelectedProduct?.image_url || "",
+            description: currentSelectedProduct?.description || "",
             sku: currentSelectedProduct?.slug,
             offers: {
               "@type": "Offer",
@@ -498,6 +498,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             },
           })}
         </script>
+        <meta property="og:image" content={currentSelectedProduct?.image_url || ""} />
       </Head>
 
       <section className="vendor-common-header sc-pt-80" aria-label="header" >
