@@ -67,9 +67,9 @@ const CreateRFQ = () => {
     if (stateTerms.length == 0)
       getTermsData();
 
-    ()=> {
+    return () => {
       handleSaveDraft();
-    }
+    };
   }, []);
 
 
@@ -88,7 +88,7 @@ const CreateRFQ = () => {
   }
 
   const setRFQProductsFromStore = () => {
-    let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
+    let fp = rfqProductsFromStore.filter((item) => item.vendors?.length > 0);
     setRfqProducts(fp);
   };
 
@@ -165,58 +165,44 @@ const CreateRFQ = () => {
 
   const getDraftInitialData = () => {
     getDraftData()
-    .then((res) => {
-      console.log(res);
-      dispatch(
-      intializeRfq(res.data))
-    }).catch(err => {
-      console.log(err);
-    })
+      .then((res) => {
+        console.log(res);
+        dispatch(
+          intializeRfq(res.data))
+      }).catch(err => {
+        console.log(err);
+      })
   }
 
-  const SaveChangesButton = () => {
-    const { values, isValid } = useFormikContext();
-  
-    const handleSaveDraft = () => {
-      setMainLoading(true);
-  
-      const payload = {
-        ...values,
-        term_and_condition_files: termFiles,
-        products: rfqProductsFromStore,
-        terms: selectedTerms,
-        reverse_auction: parseInt(values.reverse_auction),
-        is_published: 0  // Set as draft
-      };
-  
-      saveDraft(payload)
-        .then((res) => {
-          setMainLoading(false);
-          toast.success(
-            <h6>
-              <b>RFQ Draft #{res.data.rfq_no}:</b> Changes saved successfully!
-            </h6>,
-            { position: "top-right" }
-          );
-        })
-        .catch(() => {
-          setMainLoading(false);
-          toast.error("Failed to save draft. Please try again.");
-        });
+  const handleSaveDraft = () => {
+    setMainLoading(true); // Pass down loading state from props or use context
+
+    const payload = {
+      ...rfqFormData,
+      term_and_condition_files: termFiles,
+      products: rfqProducts,
+      terms: selectedTerms,
+      reverse_auction: parseInt(rfqFormData.reverse_auction),
+      is_published: 0, // Set as draft
     };
-  
-    return (
-      <button
-        type="button"
-        className="btn btn-secondary mt-2"
-        onClick={handleSaveDraft}
-        disabled={!isValid}
-      >
-        Save Changes
-      </button>
-    );
+
+    saveDraft(payload) // Use the passed saveDraft function
+      .then((res) => {
+        setMainLoading(false);
+        toast.success(
+          <h6>
+            <b>RFQ Draft #{res.data?.rfq_id}:</b> Changes saved successfully!
+          </h6>,
+          { position: "top-right" }
+        );
+      })
+      .catch((err) => {
+        console.log(err)
+        setMainLoading(false);
+        toast.error("Failed to save draft. Please try again.");
+      });
   };
-  
+
   const handleProductSpec = (specItems, product_id) => {
     dispatch(addProductSpec({ specItems, product_id }));
   };
@@ -581,9 +567,16 @@ const CreateRFQ = () => {
                         >
                           Create RFQ
                         </button>
-                        <SaveChangesButton />
 
-                        
+                        <button
+                          type="button"
+                          className="btn btn-secondary mt-2"
+                          onClick={handleSaveDraft}
+                          disabled={!isValid}
+                        >
+                          Save Changes
+                        </button>
+
                       </Form>
                     )}
                   </Formik>
@@ -599,5 +592,6 @@ const CreateRFQ = () => {
     </>
   );
 };
+
 
 export default CreateRFQ;

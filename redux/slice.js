@@ -131,14 +131,20 @@ export const rfqProductsSlice = createSlice({
     addProductSpecValue: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          if (item.spec?.length > 0) {
-            item.spec.map((specItem) => {
-              if (specItem.title == action.payload.title) {
-                specItem.value = action.payload.value;
-              }
-              return specItem;
-            });
+          if (!item.spec) {
+            item.spec = [
+              { title: "Size", value: "" },
+              { title: "Spec", value: "" },
+              { title: "Quantity", value: "" },
+              { title: "Unit", value: "" },
+            ];
           }
+          item.spec.map((specItem) => {
+            if (specItem.title == action.payload.title) {
+              specItem.value = action.payload.value;
+            }
+            return specItem;
+          });
         }
         return item;
       });
