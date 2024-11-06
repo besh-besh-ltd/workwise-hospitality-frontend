@@ -38,7 +38,7 @@ const Item = ({ data, vendorApprovedList }) => {
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
 
   useEffect(() => {
-    data.spec.map((item) => {
+    data.spec?.map((item) => {
       switch (item.title) {
         case 'Size':
           setspecSize(item.value);
