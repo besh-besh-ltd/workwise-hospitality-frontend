@@ -6,7 +6,7 @@ import Accordion from "react-bootstrap/Accordion";
 import Modal from "react-modal";
 import { useEffect, useState } from "react";
 import HomeBanner from "./homeBanner";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import { HomeBannerService, HomeLists1Service } from "@/services/Home";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import {
@@ -17,7 +17,6 @@ import {
   getProducts,
   getTestimonials,
 } from "@/services/cms";
-import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
 
@@ -361,10 +360,7 @@ export default function Homepage() {
   }, []);
 
   return (
-    <>
-      <Head>
-        <title>Workwise | Home</title>
-      </Head>
+    <>      
       {/* ----- Banner -------- */}
       {showBannerLists && (
         <HomeBanner bannerContent={showHomeLists1} content={showBannerLists} />
@@ -380,10 +376,13 @@ export default function Homepage() {
 
       {/* Testimonials */}
       {testimonials && (
-        <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg">
+        <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" aria-label="testimonials">
           <div className="container">
             <div className="home-sec-3-btm common-header">
-              <h6>What Customers Say About Us</h6>
+              <h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
+                What Customers Say About Us
+                <span style={{ width: "48px", height: "3px", display: "block", backgroundColor: "var(--primary-color)", marginLeft: "10px" }}></span>
+              </h2>
               <h2>Testimonials</h2>
               <Slider {...customerslider}>
                 {testimonials.map((item) => {
@@ -523,6 +522,7 @@ export default function Homepage() {
       )}
       {/* Testimonials end*/}
 
+
       {/* expert-consulting */}
       {showHomeLists1.map((item) => {
         if (item.section_name == "homepage-section-5") {
@@ -579,279 +579,274 @@ export default function Homepage() {
         </section>
       )}
 
+
       {/* video media start */}
-
-      {video && (
-        <section className="home-sec-5 sc-pt-80 media-sec-home">
-          <div className="container">
-            {showHomeLists1.map((item) => {
-              if (item.section_name == "homepage-media-section") {
-                return <DynamicSection content={item.content} key={item.id} />;
-              }
-            })}
-          </div>
-        </section>
-      )}
-
-      {video && (
-        <section className="home-sec-5 sc-pb-80">
-          <div className="container">
-            <div className="search-vdo">
-              <div className="watch-vdo">
-                <span>Watch Video on</span>
-                <Link href="#" target="_blank">
-                  <Image
-                    src="/assets/images/youtube-logo.svg"
-                    alt="Play"
-                    width={42}
-                    height={42}
-                    priority={true}
-                  />
-                </Link>
-              </div>
-              <button
-                onClick={() => openModal2(video.url)}
-                className="video-play-button"
-              >
-                <Image
-                  src="/assets/images/vido-btn-orange.svg"
-                  alt="Play"
-                  width={135}
-                  height={135}
-                  priority={true}
-                />
-              </button>
-              <Modal
-                isOpen={modal2IsOpen}
-                onRequestClose={closeModal2}
-                contentLabel="Video Modal"
-                style={{
-                  overlay: {
-                    backgroundColor: "rgba(0, 0, 0, 0.75)",
-                  },
-                  content: {
-                    position: "relative",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    maxWidth: "800px", // Adjust this value as needed
-                    width: "auto", // Set to 'auto' or a specific value based on your design
-                    maxHeight: "90vh", // Adjust this value as needed
-                    border: "none",
-                    background: "transparent",
-                    overflow: "hidden",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "30px",
-                  },
-                }}
-              >
-                <div class="modal-header">
-                  <button
-                    onClick={closeModal2}
-                    class="btn-close"
-                    aria-label="Close"
-                  ></button>
-                </div>
-
-                <div className="modal-body">
-                  <div className="video-container">
-                    <iframe
-                      width="100%"
-                      height="450"
-                      src={video?.url}
-                      title="YouTube video player"
-                      frameborder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
-                </div>
-              </Modal>
-              <figure className="image-area" style={{ maxHeight: '500px' }}>
-                {video?.thumbnail_url.includes("https://") ? (
-                  <Image
-                    src={video?.thumbnail_url}
-                    alt="Play"
-                    width={1100}
-                    height={514}
-                    priority={true}
-                  />
-                ) : (
-                  <Image
-                    src="/assets/images/vido-btn-orange.svg"
-                    alt="Play"
-                    width={1100}
-                    height={514}
-                    priority={true}
-                  />
-                )}
-              </figure>
-            </div>
-          </div>
-        </section>
-      )}
-      {/* video media end */}
-
-      {/* companies */}
-      {companies && (
-        <section className="home-sec-6 sc-pt-80 sc-pb-80">
-          <div className="container">
-            {showHomeLists1.map((item) => {
-              if (item.section_name == "homepage-company-section") {
-                return <DynamicSection content={item.content} key={item.id} />;
-              }
-            })}
-            <div className="home-sec-companies">
-              <Slider {...companiesSlider}>
-                {companies &&
-                  companies.map((item) => {
-                    return (
-                      <div
-                        className="companies-slider-area"
-                        key={`companies-${item.id}`}
-                      >
-                        {item.image_url && (
-                          <figure>
-                            <Image
-                              src={item.image_url}
-                              alt="Workwise"
-                              width={198}
-                              height={57}
-                              priority={true}
-                            />
-                          </figure>
-                        )}
-                      </div>
-                    );
-                  })}
-              </Slider>
-            </div>
-          </div>
-        </section>
-      )}
-      {/* companies end */}
-
-      {/* blogs start */}
-
-      {blogs.length > 0 && (
-        <section className="home-sec-7 sc-pt-80 faq-sec">
-          <div className="container">
-            {showHomeLists1.map((item) => {
-              if (item.section_name == "homepage-blog-section") {
-                return <DynamicSection content={item.content} key={item.id} />;
-              }
-            })}
-          </div>
-        </section>
-      )}
-
-      {blogs.length > 0 && (
-        <section className="home-sec-7 sc-pb-80 faq-sec">
-          <div className="container">
-            <div className="home-sec-resource">
-              <Slider {...resourceSlider}>
-                {blogs.map((item) => {
-                  return (
-                    <div
-                      className="resource-slider-area"
-                      key={`blog-${item.id}`}
-                    >
-                      {/*  <Link href={`blog/${item?.slug}`}>  */}
-                      <figure>
-                        {" "}
+      {showHomeLists1.map((item) => {
+        if (item.section_name == "homepage-media-section") {
+          return (
+            <section className="home-sec-5 sc-pt-80 sc-pb-80 media-sec-home" aria-label="home-video-media">
+              <div className="container">
+                <DynamicSection content={item.content} key={item.id} />
+                {video && (
+                  <div className="search-vdo">
+                    <div className="watch-vdo">
+                      <span>Watch Video on</span>
+                      <Link href="#" target="_blank">
                         <Image
-                          src={item?.image_url}
-                          alt={item?.title}
-                          width={350}
-                          height={363}
+                          src="/assets/images/youtube-logo.svg"
+                          alt="Play"
+                          width={42}
+                          height={42}
                           priority={true}
                         />
-                      </figure>
-                      <div className="resource-bottom-area">
-                        <div className="resource-bottom-con">
-                          <span>{item?.blog_category}</span>
-                          <p>{item?.description}</p>
+                      </Link>
+                    </div>
+                    <button
+                      onClick={() => openModal2(video.url)}
+                      className="video-play-button"
+                    >
+                      <Image
+                        src="/assets/images/vido-btn-orange.svg"
+                        alt="Play"
+                        width={135}
+                        height={135}
+                        priority={true}
+                      />
+                    </button>
+                    <Modal
+                      isOpen={modal2IsOpen}
+                      onRequestClose={closeModal2}
+                      contentLabel="Video Modal"
+                      style={{
+                        overlay: {
+                          backgroundColor: "rgba(0, 0, 0, 0.75)",
+                        },
+                        content: {
+                          position: "relative",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          maxWidth: "800px", // Adjust this value as needed
+                          width: "auto", // Set to 'auto' or a specific value based on your design
+                          maxHeight: "90vh", // Adjust this value as needed
+                          border: "none",
+                          background: "transparent",
+                          overflow: "hidden",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "30px",
+                        },
+                      }}
+                    >
+                      <div class="modal-header">
+                        <button
+                          onClick={closeModal2}
+                          class="btn-close"
+                          aria-label="Close"
+                        ></button>
+                      </div>
+
+                      <div className="modal-body">
+                        <div className="video-container">
+                          <iframe
+                            width="100%"
+                            height="450"
+                            src={video?.url}
+                            title="YouTube video player"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          ></iframe>
                         </div>
                       </div>
-                      {/* </Link> */}
-                    </div>
-                  );
-                })}
-              </Slider>
-            </div>
-          </div>
-        </section>
-      )}
+                    </Modal>
+                    <figure className="image-area" style={{ maxHeight: '500px' }}>
+                      {video?.thumbnail_url.includes("https://") ? (
+                        <Image
+                          src={video?.thumbnail_url}
+                          alt="Play"
+                          width={1100}
+                          height={514}
+                          priority={true}
+                        />
+                      ) : (
+                        <Image
+                          src="/assets/images/vido-btn-orange.svg"
+                          alt="Play"
+                          width={1100}
+                          height={514}
+                          priority={true}
+                        />
+                      )}
+                    </figure>
+                  </div>
+                )}
+              </div>
+            </section>
+          )
+        }
+      })}
+      {/* video media end */}
 
+
+      {/* companies */}
+      {
+        showHomeLists1.map((item) => {
+          if (item.section_name == "homepage-company-section") {
+            return (
+              <>
+                <DynamicSection content={item.content} key={item.id} />
+                <div className="home-sec-companies">
+                  <Slider {...companiesSlider}>
+                    {companies &&
+                      companies.map((item) => {
+                        return (
+                          <div
+                            className="companies-slider-area"
+                            key={`companies-${item.id}`}
+                          >
+                            {item.image_url && (
+                              <figure>
+                                <Image
+                                  src={item.image_url}
+                                  alt="Workwise"
+                                  width={198}
+                                  height={57}
+                                  priority={true}
+                                />
+                              </figure>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </Slider>
+                </div>
+              </>
+            );
+          }
+        })
+      }
+      {/* companies end */}
+
+
+      {/* blogs start */}
+      {
+        showHomeLists1.map((item) => {
+          if (item.section_name == "homepage-blog-section") {
+            return (
+              <section className="home-sec-7 sc-pb-80 faq-sec">
+                <div className="container">
+                  <DynamicSection content={item.content} key={item.id} />
+                  {blogs.length > 0 && (
+                    <div className="home-sec-resource">
+                      <Slider {...resourceSlider}>
+                        {blogs.map((item) => {
+                          return (
+                            <div
+                              className="resource-slider-area"
+                              key={`blog-${item.id}`}
+                            >
+                              {/*  <Link href={`blog/${item?.slug}`}>  */}
+                              <figure>
+                                {" "}
+                                <Image
+                                  src={item?.image_url}
+                                  alt={item?.title}
+                                  width={350}
+                                  height={363}
+                                  priority={true}
+                                />
+                              </figure>
+                              <div className="resource-bottom-area">
+                                <div className="resource-bottom-con">
+                                  <span>{item?.blog_category}</span>
+                                  <p>{item?.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </Slider>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          }
+        })
+      }
       {/* blogs end */}
 
+
       {/* FAQ start */}
-      {faqs && (
-        <section className="home-sec-8">
-          <div className="container sc-pt-80 ">
-            {showHomeLists1.map((item) => {
-              if (item.section_name == "homepage-faq-section") {
-                return <DynamicSection content={item.content} key={item.id} />;
-              }
-            })}
-          </div>
-        </section>
-      )}
-      {faqs && (
-        <section className="home-sec-8 ">
-          <div className="container sc-pb-80 nobgimg">
-            <div className="faq-area">
-              <div className="row">
-                <div className="col-md-6 first-col">
-                  <div className="accordion-container">
-                    {faqs && faqs.length > 0 && (
-                      <Accordion>
-                        {faqs.slice(0, middleIndex).map((item, index) => {
-                          return (
-                            <Accordion.Item
-                              eventKey={item.id}
-                              key={`faq-${item.id}`}
-                            >
-                              <Accordion.Header>
-                                {item.question}
-                              </Accordion.Header>
-                              <Accordion.Body>
-                                {item.description}
-                              </Accordion.Body>
-                            </Accordion.Item>
-                          );
-                        })}
-                      </Accordion>
-                    )}
-                  </div>
+      {
+        showHomeLists1.map((item) => {
+          if (item.section_name == "homepage-faq-section") {
+            return (
+              <section className="home-sec-8" aria-label="frequently-asked-questions">
+                <div className="container sc-pt-80 ">
+                  <DynamicSection content={item.content} key={item.id} />
+                  {faqs && (
+                    <section className="home-sec-8 ">
+                      <div className="container sc-pb-80 nobgimg">
+                        <div className="faq-area">
+                          <div className="row">
+                            <div className="col-md-6 first-col">
+                              <div className="accordion-container">
+                                {faqs && faqs.length > 0 && (
+                                  <Accordion>
+                                    {faqs.slice(0, middleIndex).map((item, index) => {
+                                      return (
+                                        <Accordion.Item
+                                          eventKey={item.id}
+                                          key={`faq-${item.id}`}
+                                        >
+                                          <Accordion.Header>
+                                            {item.question}
+                                          </Accordion.Header>
+                                          <Accordion.Body>
+                                            {item.description}
+                                          </Accordion.Body>
+                                        </Accordion.Item>
+                                      );
+                                    })}
+                                  </Accordion>
+                                )}
+                              </div>
+                            </div>
+                            <div className="col-md-6 last-col">
+                              <div className="accordion-container">
+                                {faqs && faqs.length > 0 && (
+                                  <Accordion>
+                                    {faqs.slice(middleIndex).map((item, index) => {
+                                      return (
+                                        <Accordion.Item eventKey={item.id} key={item.id}>
+                                          <Accordion.Header>
+                                            {item.question}
+                                          </Accordion.Header>
+                                          <Accordion.Body>
+                                            {item.description}
+                                          </Accordion.Body>
+                                        </Accordion.Item>
+                                      );
+                                    })}
+                                  </Accordion>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  )}
                 </div>
-                <div className="col-md-6 last-col">
-                  <div className="accordion-container">
-                    {faqs && faqs.length > 0 && (
-                      <Accordion>
-                        {faqs.slice(middleIndex).map((item, index) => {
-                          return (
-                            <Accordion.Item eventKey={item.id} key={item.id}>
-                              <Accordion.Header>
-                                {item.question}
-                              </Accordion.Header>
-                              <Accordion.Body>
-                                {item.description}
-                              </Accordion.Body>
-                            </Accordion.Item>
-                          );
-                        })}
-                      </Accordion>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+              </section>
+            )
+          }
+        })
+      }
+
 
       {/* OTHER SECTIONS */}
       {showHomeLists1.map((item) => {
@@ -866,7 +861,8 @@ export default function Homepage() {
             </div>
           );
         }
-      })}
+      })
+      }
 
       {/* FAQ end */}
     </>

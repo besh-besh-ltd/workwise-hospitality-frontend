@@ -94,7 +94,9 @@ const IndustriesPage = () => {
                     <div className="row">
                         <div className="col-md-12">
                             <div className="breadcrumbs-con">
-                            <a href="#" className="p-bread" title="">Home</a> / <a href="#" className="c-bread" title="">Contact Us</a>  
+                            <a href="/" className="p-bread" >Home</a> 
+                            {" / "}
+                            <a href="/contact-us" className="c-bread">Contact Us</a>  
                             </div>
                         </div>
                     </div>

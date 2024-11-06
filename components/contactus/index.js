@@ -1,21 +1,15 @@
 import React, { useEffect, useState } from "react";
-
-import Image from "next/image";
 import { getCmsData, getPageBanner } from "@/services/cms";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { Form, Formik } from "formik";
 import { contactFormSchema } from "@/utils/schema";
 import FormikField from "../shared/FormikField";
 import { contactUsFormService } from "@/services/contact";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import FullLoader from "../shared/FullLoader";
-import Head from "next/head";
+
 
 const ContactUsPage = () => {
-  const breadcrumbPaths = [
-    { title: "Home", url: "/" },
-    { title: "Contact", url: "/contact" },
-  ];
   const [cmsdata, setCmsdata] = useState([]);
   const [havedata, sethavedata] = useState(false);
   const [bannerdata, setBanner] = useState(null);
@@ -94,11 +88,9 @@ const ContactUsPage = () => {
 
   return (
     <>
-      <Head>
-        <title>Workwise | Contact us</title>
-      </Head>
       {bannerdata && (
         <section
+          aria-label="contact-us-banner-image"
           className="contact-sec-1 sc-pt-80"
           style={{
             backgroundImage: "url(" + bannerdata?.image_url + ")",
@@ -116,18 +108,14 @@ const ContactUsPage = () => {
         </section>
       )}
 
-      <section className="breadcrumbs">
+      <section className="breadcrumbs" aria-label="page-path" >
         <div className="container">
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="#" className="p-bread" title="">
-                  Home
-                </a>{" "}
-                /{" "}
-                <a href="#" className="c-bread" title="">
-                  Contact Us
-                </a>
+                <a href="/" className="p-bread" rel="noreferer">Home</a>
+                {" / "}
+                <a href="/contactus" className="c-bread" >Contact Us</a>
               </div>
             </div>
           </div>

@@ -30,12 +30,12 @@ const DynamicFormSpoc = ({
             ),
         spoc_mobile: yup.string()
             .matches(
-                /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-                "please enter valid mobile number"
+                /^[\+]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,10}$/,
+                "Please enter a valid mobile number"
             )
-            .min(10, "Min 10 digit is required")
-            .max(12, "Mobile number not more than 11 digit long")
-            .required("Mobile number is required"),
+            .min(10, "Minimum 10 digits are required")
+            .max(15, "Mobile number cannot exceed 15 digits")
+            .required("Mobile number is required")
     })
 
 
