@@ -538,8 +538,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
+
                       <label ref={searchLabelRef} htmlFor="search"></label>
-                      <div className="d-flex justify-content-between align-items-center">
+                      {/* <div className="d-flex justify-content-between align-items-center"> */}
                       <input
                         className="no-clear"
                         type="text"
@@ -551,9 +552,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         autoComplete="off"
                         value={search_key}
                         onClick={handleSearchClick}
-                      />
-                      {currentSelectedProduct && <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/>}
-                      </div>
+                        />
+                      {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
+                      </div> */}
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
