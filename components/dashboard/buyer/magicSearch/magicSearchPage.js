@@ -5,10 +5,11 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate } from "@/utils/sharedFunctions";
+import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { getMagicRFQReview } from "@/services/rfq";
+import { createRfq, getMagicRFQReview } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
+import Loader from "@/components/shared/Loader";
 
 
 const initialFormData = {
@@ -17,19 +18,22 @@ const initialFormData = {
     reverse_auction: 1,
     rfq_type: '',
     bid_end_date: getFuturedate(),
-    delivery_location: '',
+    location: '',
     project_id: -1
 }
 
-function MagicSearchPage() {
+const MagicSearchPage = () => {
     const [file, setFile] = useState(null);
     const [fileName, setFileName] = useState('');
-    const [loading, setLoading] = useState(false); // Set true for loading UI
+    const [loading, setLoading] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
     const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
     const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
+    // const [termList, setTermList] = useState(null);
+
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
 
@@ -48,7 +52,7 @@ function MagicSearchPage() {
         'Almost done! Workwise AI has sent your enquiries. Expect responses soon.'
     ];
 
-    const handleFileUpload = (event) => {
+    const handleMagicFileUpload = (event) => {
         const file = event.target.files[0];
         if (file) {
             const fileType = file.name.split('.').pop().toLowerCase();
@@ -74,9 +78,7 @@ function MagicSearchPage() {
 
         try {
             setLoading(true);
-            console.log(file)
             const response = await getMagicRFQReview(file);
-
             apiDataRef.current = response;
 
             // Delay the state update until all messages are shown
@@ -119,6 +121,129 @@ function MagicSearchPage() {
             })
     }
 
+    // const getTermsData = () => {
+    //     getTerms()
+    //       .then((res) => {
+    //         setTerms(res.data);
+    //         const terms = res.data?.map((item) => {
+    //           return { id: item.id };
+    //         })
+    //         setSelectedTerms(terms);
+    //         dispatch(setAllTerms(res.data));
+    //       })
+    //       .catch((err) => {
+    //         console.error(err);
+    //       });
+    //   };
+
+    const removeItem = (type, prodItem, vendor_id) => {
+        let editedData = [];
+        if (type === "product") {
+            editedData = reviewData.products.filter((item) =>
+                !(item.product_id === prodItem.product_id &&
+                    item.variant === prodItem.variant)
+            );
+        } else {
+            editedData = reviewData.products.map((item) => {
+                if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                    let updatedVendors = item.vendors.filter((vendorItem) =>
+                        vendorItem.user_id !== vendor_id
+                    );
+                    item.vendors = updatedVendors;
+                }
+                return item;
+            });
+        }
+        setReviewData((prevData) => ({
+            ...prevData,
+            products: editedData
+        }))
+    }
+
+    const changeFormData = (type, e, prodItem) => {
+        let editedData = [];
+        const { name: fieldName, value: fieldValue } = e.target;
+        console.log(fieldName, fieldValue)
+        editedData = reviewData.products.map((item) => {
+            if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                if (type === "spec") {
+                    item.spec = item.spec.map((specItem) =>
+                        specItem.title === fieldName
+                            ? { ...specItem, value: fieldValue }
+                            : specItem
+                    );
+                } else if (type === "predefined_file") {
+                    item[fieldName] = !item[fieldName]
+                } else {
+                    item[fieldName] = fieldValue
+                }
+            }
+            return item;
+        })
+        setReviewData((prevData) => ({
+            ...prevData,
+            products: editedData
+        }))
+    }
+
+    const handleFiles = async (type, e, prodItem, isRemove, fileLink) => {
+        let editedData = [];
+        if (isRemove) {
+            editedData = reviewData.products.map((item) => {
+                if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                    return {
+                        ...item,
+                        [type]: item[type].filter((file) => file !== fileLink)
+                    };
+                }
+                return item;
+            });
+        } else {
+            try {
+                const filePath = await handleFileUpload(e);
+                editedData = reviewData.products.map((item) => {
+                    if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                        return {
+                            ...item,
+                            [type]: [...item[type], filePath]
+                        };
+                    }
+                    return item;
+                });
+            } catch (error) {
+                let message = error.message;
+                toast.error(message);
+                return;
+            }
+        }
+        setReviewData((prevData) => ({
+            ...prevData,
+            products: editedData
+        }))
+    }
+
+    const handleCreateRFQ = () => {
+        const { file, ...formDataWithoutFile } = formData;
+
+        setSubmitLoading(true);
+        createRfq({ ...reviewData, ...formDataWithoutFile })
+            .then((res) => {
+                toast.success(
+                    <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
+                    { position: "top-right" }
+                );
+                setFormData(initialFormData)
+                setReviewData(null)
+                setValidationErrors(null)
+            })
+            .catch((error) => {
+                console.log(error)
+            })
+            .finally(() => {
+                setSubmitLoading(false)
+            })
+    }
+
     useEffect(() => {
         getAllProjects();
     }, []);
@@ -150,17 +275,24 @@ function MagicSearchPage() {
     useEffect(() => {
         if (messagesDisplayed && !loading && apiDataRef.current) {
             const { status, validation_errors, data } = apiDataRef.current;
+            setReviewData(data);
+            setFormData({
+                comment: data.comment,
+                reverse_auction: data.reverse_auction,
+                rfq_type: data.rfq_type,
+                bid_end_date: data.bid_end_date === "" ? getFuturedate() : data.bid_end_date,
+                location: data.location,
+                project_id: data.project_id === "" ? "-1" : data.project_id,
+            })
 
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
-                toast.success("We have Successfully created your RFQ");
+                toast.success("Review Your Products and submit");
             }
-
-            setReviewData(data);
 
             // Handle partial validation errors
             if (validation_errors) {
-                toast.warning("We are able to Partially create your RFQ");
+                toast.warning("We are able to Partially add Products, please review and submit");
                 setValidationErrors(validation_errors);
             }
 
@@ -203,6 +335,8 @@ function MagicSearchPage() {
                 </div>
             )}
 
+            {submitLoading && <Loader />}
+
             {/* Header Section */}
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid text-center">
@@ -241,7 +375,7 @@ function MagicSearchPage() {
                                         type="file"
                                         accept=".xlsx, .xls"
                                         style={{ display: 'none' }}
-                                        onChange={handleFileUpload}
+                                        onChange={handleMagicFileUpload}
                                     />
                                 </div>
 
@@ -261,7 +395,12 @@ function MagicSearchPage() {
                                 {reviewData.products && reviewData.products.length > 0 &&
                                     <>
                                         <h2 className="h4 mb-3">Review Products</h2>
-                                        <ReviewProducts data={reviewData.products} changeFormData={setReviewData} />
+                                        <ReviewProducts
+                                            data={reviewData.products}
+                                            changeFormData={changeFormData}
+                                            handleFiles={handleFiles}
+                                            removeItem={removeItem}
+                                        />
                                     </>
                                 }
                             </>
@@ -344,11 +483,11 @@ function MagicSearchPage() {
                                 </div>
 
                                 <div className="col-md-8 mt-3">
-                                    <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
+                                    <label htmlFor="location" className="form-label fw-semibold mb-2">Delivery Location</label>
                                     <input
                                         type="text"
-                                        name="delivery_location"
-                                        id="delivery_location"
+                                        name="location"
+                                        id="location"
                                         className="form-control border border-black"
                                         placeholder="Enter Delivery Location"
                                         value={formData?.location}
@@ -362,7 +501,23 @@ function MagicSearchPage() {
                             <div className="row">
                                 <div className="col-7"></div>
                                 <div className="col-5 d-flex">
-                                    <Button variant="secondary" className="ms-auto border-0" style={{ width: "280px" }} onClick={uploadToServer}>Automatically Generate RFQ's</Button>
+                                    {reviewData ?
+                                        <Button
+                                            variant="secondary"
+                                            className="ms-auto border-0"
+                                            style={{ width: "280px" }}
+                                            onClick={handleCreateRFQ}
+                                        >
+                                            Submit
+                                        </Button>
+                                        : <Button
+                                            variant="secondary"
+                                            className="ms-auto border-0"
+                                            style={{ width: "280px" }}
+                                            onClick={uploadToServer}
+                                        >
+                                            Automatically Generate RFQ's
+                                        </Button>}
                                 </div>
                             </div>
                         </div>
