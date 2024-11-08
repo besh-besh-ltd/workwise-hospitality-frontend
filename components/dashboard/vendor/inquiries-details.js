@@ -455,6 +455,17 @@ const RfqManagementPreview = () => {
                         )
 
                       }
+
+                          <Link href={`/dashboard/${type == "buyer-view"? "buyer":"vendor"}/query?rfq_id=${rfqDetails.id}`}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary my-0"
+                              style={{ width: "260px" }}
+                            >
+                              View Queries
+                            </button>
+                          </Link>
+
                       {(rfqDetails.status == 1 && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
                         ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                           <button
