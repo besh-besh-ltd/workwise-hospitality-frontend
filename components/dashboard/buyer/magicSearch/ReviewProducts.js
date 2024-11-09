@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from 'next/link';
 
 
-const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
+const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) => {
 
     return (
         <Accordion flush>
@@ -20,18 +20,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                         <Accordion.Item key={`prod_item_${prodItem.product_id}_${prodItem.variant}`} eventKey={index} className="border-0">
                             <div className="border border-2 rounded-3 mb-2 p-2">
                                 <Accordion.Header>
-                                    <div className="w-100 d-flex justify-content-between align-items-center pe-3" >
-                                        <h2 className="h6 mb-0">Product Name: {prodItem.name}</h2>
-                                        <button
-                                            type="button"
-                                            className="btn btn-danger btn-sm"
-                                            style={{ padding: "0.25rem 0.5rem", width: "130px" }}
-                                            onClick={() => removeItem("product", prodItem)}
-                                        >
-                                            <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                            Remove
-                                        </button>
-                                    </div>
+                                    <h2 className="h6 mb-0">Product Name: {prodItem.name}</h2>                                    
                                 </Accordion.Header>
 
                                 <Accordion.Body className="row py-0">
@@ -48,7 +37,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                     name="Spec"
                                                     id={`spec_${prodItem.product_id}_${prodItem.variant}`}
                                                     value={tempSpec?.Spec}
-                                                    onChange={(e) => changeFormData('spec', e, prodItem)}
+                                                    onChange={(e) => changeProductData('spec', e, prodItem)}
                                                     className="form-control text-sm opacity-75"
                                                 />
                                             </div>
@@ -59,7 +48,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                     name="Size"
                                                     id={`size_${prodItem.product_id}_${prodItem.variant}`}
                                                     value={tempSpec?.Size}
-                                                    onChange={(e) => changeFormData('spec', e, prodItem)}
+                                                    onChange={(e) => changeProductData('spec', e, prodItem)}
                                                     className="form-control text-sm opacity-75 "
                                                 />
                                             </div>
@@ -71,7 +60,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                     id={`qty_${prodItem.product_id}_${prodItem.variant}`}
                                                     value={tempSpec?.Quantity}
                                                     required
-                                                    onChange={(e) => changeFormData('spec', e, prodItem)}
+                                                    onChange={(e) => changeProductData('spec', e, prodItem)}
                                                     className="form-control text-sm opacity-75 "
                                                 />
                                             </div>
@@ -83,7 +72,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                     id={`unit_${prodItem.product_id}_${prodItem.variant}`}
                                                     value={tempSpec?.Unit}
                                                     required
-                                                    onChange={(e) => changeFormData('spec', e, prodItem)}
+                                                    onChange={(e) => changeProductData('spec', e, prodItem)}
                                                     className="form-control text-sm opacity-75 "
                                                 />
                                             </div>
@@ -104,7 +93,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                         id="user_selected_predefined_tds"
                                                         className="me-2"
                                                         disabled={!prodItem.predefined_tds_file}
-                                                        onChange={(e) => changeFormData('predefined_file', e, prodItem)}
+                                                        onChange={(e) => changeProductData('predefined_file', e, prodItem)}
                                                     />
                                                     <span className="me-2">Predefined TDS File: </span>
                                                     {prodItem.predefined_tds_file ?
@@ -124,7 +113,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                         id="user_selected_predefined_qap"
                                                         className="me-2"
                                                         disabled={!prodItem.predefined_qap_file}
-                                                        onChange={(e) => changeFormData('predefined_file', e, prodItem)}
+                                                        onChange={(e) => changeProductData('predefined_file', e, prodItem)}
                                                     />
                                                     <span className="me-2">Predefined QAP File: </span>
                                                     {prodItem.predefined_qap_file ?
@@ -208,7 +197,7 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                 name="comment"
                                                 id={`cmnt_${prodItem.product_id}_${prodItem.variant}`}
                                                 value={prodItem.comment}
-                                                onChange={(e) => changeFormData('comment', e, prodItem)}
+                                                onChange={(e) => changeProductData('comment', e, prodItem)}
                                                 className="form-control text-sm opacity-75"
                                             />
                                         </div>
@@ -231,7 +220,18 @@ const ReviewProducts = ({ data, changeFormData, handleFiles, removeItem }) => {
                                                 })}
                                             </div>
                                         </div>
+                                    </div>
 
+                                    <div className="d-flex justify-content-end my-2" >                                        
+                                        <button
+                                            type="button"
+                                            className="btn btn-danger btn-sm"
+                                            style={{ padding: "0.25rem 0.5rem", width: "130px" }}
+                                            onClick={() => removeItem("product", prodItem)}
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} className="me-2" />
+                                            Remove
+                                        </button>
                                     </div>
 
                                 </Accordion.Body>

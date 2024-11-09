@@ -212,23 +212,12 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
-export const getMagicRFQReview = (file) => {
+export const getMagicRFQPreview = (file) => {
   let payload = {};
   payload.file = file;
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosFormData.post(`/rfq/magic-search-rfq-preview`, payload);
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
-};
-
-export const createMagicRFQ = (payload) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
