@@ -46,6 +46,7 @@ export const searchProductsV2 = (values, type = "products") => {
     let payload = {
       category_id: values.cat_id,
       search_key: values.search_key,
+      vendor_name: values.vendor_name,
       // approved_by_id: values.approved_by,
     };
 
@@ -64,6 +65,7 @@ export const searchProductsV2 = (values, type = "products") => {
       approved_by_id: values.approved_by,
       state: values.state == 0 ? "" : values.state,
       city: values.city == 0 ? "" : values.city,
+      vendor_name: values.vendor_name,
     };
 
     return new Promise(async (resolve, reject) => {
