@@ -60,7 +60,7 @@ const OverallComparison = ({ rfq_id }) => {
   const getQty = (item, index) => {
     let qq = item.quotations.filter((qi) => qi.id != null);
     if (qq.length > 0) {
-      return qq[0].quote_details[0].quantity;
+      return qq[0]?.quote_details[0]?.quantity;
     } else {
       return "-";
     }
@@ -111,7 +111,7 @@ const OverallComparison = ({ rfq_id }) => {
         );
 
         if (q_item.length > 0) {
-          total = total + parseInt(q_item[0].quote_details[0].total_price);
+          total = total + parseInt(q_item[0]?.quote_details[0]?.total_price);
         }
       });
 
@@ -130,6 +130,11 @@ const OverallComparison = ({ rfq_id }) => {
   }, [data]);
 
   const addCommasToNumber = (number) => {
+
+    if(number<=0 || !number){
+       return 0
+     }
+
     // Convert number to string
     let numberString = number.toString();
 
@@ -155,7 +160,7 @@ const OverallComparison = ({ rfq_id }) => {
             quotation.is_regret != 1
         );
         if (q.length > 0) {
-          vq.push(parseInt(q[0].quote_details[0].delivery_period));
+          vq.push(parseInt(q[0]?.quote_details[0]?.delivery_period));
         }
       });
       vendor.quoted_products = vq;
@@ -251,7 +256,7 @@ const OverallComparison = ({ rfq_id }) => {
                         <td>{index + 1} </td>
                         <td>
                           {item.product_details.length > 0
-                            ? item.product_details[0].name
+                            ? item.product_details[0]?.name
                             : "-"}
                         </td>
                         <td>
@@ -294,7 +299,7 @@ const OverallComparison = ({ rfq_id }) => {
                                   <th>Total Rate</th>
                                   <td>
                                     {item.last_purchase_rate?.total_price
-                                      ? addCommasToNumber(item.last_purchase_rate?.unit_price * parseInt(item.quotations[0]?.quote_details[0].quantity))
+                                      ? addCommasToNumber(item.last_purchase_rate?.unit_price * parseInt(item.quotations[0]?.quote_details[0]?.quantity))
                                       : "-"}
                                   </td>
                                 </tr>
@@ -326,14 +331,14 @@ const OverallComparison = ({ rfq_id }) => {
                                   <th>Sub Total</th>
                                   <td>
                                     {item.last_purchase_rate
-                                      ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0].quantity))
+                                      ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
                                       : "-"}
                                   </td>
                                 </tr>
                               </table>
                               <p>
                                 {item.last_purchase_rate?.total_price
-                                  ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0].quantity))
+                                  ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
                                   : "-"}
                               </p>
                             </label>
@@ -353,10 +358,10 @@ const OverallComparison = ({ rfq_id }) => {
                             } else {
                               return (
                                 <td
-                                  className={`${quote_item.is_lowest ? "is_lowest total_amt_field" : "total_amt_field"}`}
-                                  key={`quote_item_${quote_item.created_by}`}
+                                  className={`${quote_item?.is_lowest ? "is_lowest total_amt_field" : "total_amt_field"}`}
+                                  key={`quote_item_${quote_item?.created_by}`}
                                 >
-                                  {quote_item.quote_details.length > 0 ? (
+                                  {quote_item?.quote_details?.length > 0 ? (
                                     <label className="view_breakup">
                                       <div className="tooltip_custom">
                                         Show/hide Breakup
@@ -367,10 +372,10 @@ const OverallComparison = ({ rfq_id }) => {
                                         <tr>
                                           <th>Base Price</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                quote_item.quote_details[0]
-                                                  .unit_price
+                                                quote_item?.quote_details[0]
+                                                  ?.unit_price
                                               )
                                               : "-"}
                                           </td>
@@ -378,10 +383,10 @@ const OverallComparison = ({ rfq_id }) => {
                                         <tr>
                                           <th>Total Rate</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                quote_item.quote_details[0]
-                                                  .unit_price * getQty(item)
+                                                quote_item?.quote_details[0]
+                                                  ?.unit_price * getQty(item)
                                               )
                                               : "-"}
                                           </td>
@@ -389,10 +394,10 @@ const OverallComparison = ({ rfq_id }) => {
                                         <tr>
                                           <th>Packaging(%)</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                quote_item.quote_details[0]
-                                                  .package_price
+                                                quote_item?.quote_details[0]
+                                                  ?.package_price
                                               ) + "%"
                                               : "-"}
                                           </td>
@@ -400,10 +405,10 @@ const OverallComparison = ({ rfq_id }) => {
                                         <tr>
                                           <th>Freight(%)</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                quote_item.quote_details[0]
-                                                  .freight_price
+                                                quote_item?.quote_details[0]
+                                                  ?.freight_price
                                               ) + "%"
                                               : "-"}
                                           </td>
@@ -411,10 +416,10 @@ const OverallComparison = ({ rfq_id }) => {
                                         <tr>
                                           <th>GST(%)</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                quote_item.quote_details[0]
-                                                  .tax
+                                                quote_item?.quote_details[0]
+                                                  ?.tax
                                               ) + "%"
                                               : "-"}
                                           </td>
@@ -422,20 +427,20 @@ const OverallComparison = ({ rfq_id }) => {
                                         <tr className="is_lowest ">
                                           <th>Sub Total</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details.length > 0
                                               ? addCommasToNumber(
                                                 quote_item.quote_details[0]
-                                                  .total_price
+                                                  ?.total_price
                                               )
                                               : "-"}
                                           </td>
                                         </tr>
                                       </table>
                                       <p>
-                                        {quote_item.quote_details.length > 0
+                                        {quote_item?.quote_details?.length > 0
                                           ? addCommasToNumber(
-                                            quote_item.quote_details[0]
-                                              .total_price
+                                            quote_item?.quote_details[0]
+                                              ?.total_price
                                           )
                                           : "-"}
                                       </p>
