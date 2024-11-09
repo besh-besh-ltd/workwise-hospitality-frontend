@@ -7,9 +7,10 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getMagicRFQReview } from "@/services/rfq";
+import { createRfq, getMagicRFQReview, getTerms } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import Loader from "@/components/shared/Loader";
+import FullLoader from "@/components/shared/FullLoader";
 
 
 const initialFormData = {
@@ -25,14 +26,17 @@ const initialFormData = {
 const MagicSearchPage = () => {
     const [file, setFile] = useState(null);
     const [fileName, setFileName] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [submitLoading, setSubmitLoading] = useState(false);
-    const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
-    const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
-    // const [termList, setTermList] = useState(null);
+
+    const [projects, setProjects] = useState([]);
+    const [termList, setTermList] = useState(null);
+
+    const [loading, setLoading] = useState(false);
+    const [termsLoading, setTermsLoading] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [messagesDisplayed, setMessagesDisplayed] = useState(false);
 
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
@@ -85,7 +89,6 @@ const MagicSearchPage = () => {
             setTimeout(() => {
                 setLoading(false);
                 setFileName('');
-                setFormData(initialFormData);
             }, 2000 * (messages.length - currentMessageIndex));
 
         } catch (error) {
@@ -95,16 +98,26 @@ const MagicSearchPage = () => {
         } finally {
             setFile(null);
             setFileName('');
-            // setFormData(initialFormData);
         }
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prevState) => ({
-            ...prevState,
-            [name]: value
-        }));
+    const handleFormChange = (e, type) => {
+        const { name, value, checked, id } = e.target;
+
+        if (type === "terms-checkbox") {
+            const termId = parseInt(id.replace("term-item-", ""));
+            const updatedTerms = termList.map((termItem)=> {
+                if(termItem.id === termId)
+                    termItem.selected = checked
+                return termItem
+            })
+            setTermList(updatedTerms);
+        } else {
+            setFormData((prevState) => ({
+                ...prevState,
+                [name]: value
+            }));
+        }
     }
 
     const getAllProjects = () => {
@@ -121,20 +134,23 @@ const MagicSearchPage = () => {
             })
     }
 
-    // const getTermsData = () => {
-    //     getTerms()
-    //       .then((res) => {
-    //         setTerms(res.data);
-    //         const terms = res.data?.map((item) => {
-    //           return { id: item.id };
-    //         })
-    //         setSelectedTerms(terms);
-    //         dispatch(setAllTerms(res.data));
-    //       })
-    //       .catch((err) => {
-    //         console.error(err);
-    //       });
-    //   };
+    const getTermsData = () => {
+        setTermsLoading(true);
+        getTerms()
+            .then((res) => {
+                const terms = res.data?.map((item) => {
+                    return {
+                        ...item,
+                        selected: true
+                    };
+                })
+                setTermList(terms);
+            })
+            .catch((err) => {
+                console.error(err);
+            })
+            .finally(() => setTermsLoading(false));
+    };
 
     const removeItem = (type, prodItem, vendor_id) => {
         let editedData = [];
@@ -160,10 +176,9 @@ const MagicSearchPage = () => {
         }))
     }
 
-    const changeFormData = (type, e, prodItem) => {
+    const changeProductData = (type, e, prodItem) => {
         let editedData = [];
         const { name: fieldName, value: fieldValue } = e.target;
-        console.log(fieldName, fieldValue)
         editedData = reviewData.products.map((item) => {
             if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
                 if (type === "spec") {
@@ -224,10 +239,17 @@ const MagicSearchPage = () => {
 
     const handleCreateRFQ = () => {
         const { file, ...formDataWithoutFile } = formData;
+        const selectedTerms = termList.filter((term) => term.selected);
 
         setSubmitLoading(true);
-        createRfq({ ...reviewData, ...formDataWithoutFile })
-            .then((res) => {
+        createRfq({ 
+            ...reviewData, 
+            ...formDataWithoutFile, 
+            terms: selectedTerms.map((item)=> {
+                return {id: item.id}
+            }) 
+        })
+        .then((res) => {
                 toast.success(
                     <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
                     { position: "top-right" }
@@ -246,6 +268,7 @@ const MagicSearchPage = () => {
 
     useEffect(() => {
         getAllProjects();
+        getTermsData();
     }, []);
 
     // Display messages in a rotating fashion
@@ -276,14 +299,6 @@ const MagicSearchPage = () => {
         if (messagesDisplayed && !loading && apiDataRef.current) {
             const { status, validation_errors, data } = apiDataRef.current;
             setReviewData(data);
-            setFormData({
-                comment: data.comment,
-                reverse_auction: data.reverse_auction,
-                rfq_type: data.rfq_type,
-                bid_end_date: data.bid_end_date === "" ? getFuturedate() : data.bid_end_date,
-                location: data.location,
-                project_id: data.project_id === "" ? "-1" : data.project_id,
-            })
 
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
@@ -397,7 +412,7 @@ const MagicSearchPage = () => {
                                         <h2 className="h4 mb-3">Review Products</h2>
                                         <ReviewProducts
                                             data={reviewData.products}
-                                            changeFormData={changeFormData}
+                                            changeProductData={changeProductData}
                                             handleFiles={handleFiles}
                                             removeItem={removeItem}
                                         />
@@ -406,44 +421,72 @@ const MagicSearchPage = () => {
                             </>
                         }
 
-                        {/* Terms and Conditions text-area */}
+                        {/* Terms and Conditions check-box */}
                         <div className="col-md-8 mx-auto mt-4">
-                            <p className="fw-semibold mb-2">Enter Terms and Conditions for Vendors</p>
-                            <textarea
-                                name="comment"
-                                rows="3"
-                                className="form-control border border-black "
-                                placeholder="Enter your own terms here..."
-                                value={formData.comment}
-                                onChange={handleChange} />
+                            <h3 className="h5">Suggested Terms</h3>
+                            {termsLoading ? <FullLoader />
+                                : (termList &&
+                                    <ul className="list-group">
+                                        {termList.map((item, index) => {
+                                            return (
+                                                <li key={`term-item-${item.id}`} className="list-group-item d-flex align-items-start border border-0">
+                                                    <input
+                                                        onChange={(e) => handleFormChange(e, "terms-checkbox")}
+                                                        type="checkbox"
+                                                        id={`term-item-${item.id}`}
+                                                        className="form-check-input border border-dark-subtle me-2"
+                                                        style={{ marginTop: ".15rem" }}
+                                                        checked={item.selected}
+                                                    />
+                                                    <label htmlFor={`term-item-${item.id}`} className="form-check-label stretched-link text-sm">
+                                                        {`${index + 1}. ${item?.term_content}`}
+                                                    </label>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
                         </div>
 
-                        {/* Delivery location part */}
+
+                        {/* Terms and Conditions text-area */}
                         <div className="col-md-8 mx-auto mt-4">
+                            <label className="form-label ">Enter Terms and Conditions for Vendors</label>
+                            <textarea
+                                name="comment"
+                                id="comment"
+                                rows="3"
+                                className="form-control border border-dark-subtle text-sm"
+                                placeholder="Enter your own terms here..."
+                                value={formData.comment}
+                                onChange={handleFormChange} />
+                        </div>
+
+                        <div className="col-md-8 mx-auto mt-2">
                             <div className="row">
 
-                                <div className="col-md-4">
-                                    <label htmlFor="reverse_auction" className="form-label fw-semibold mb-2">Reverse Auction</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="reverse_auction" className="form-label ">Reverse Auction</label>
                                     <select
                                         name="reverse_auction"
                                         id="reverse_auction"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData?.reverse_auction}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     >
                                         <option value={1}>Enable</option>
                                         <option value={0}>Disable</option>
                                     </select>
                                 </div>
 
-                                <div className="col-md-4">
-                                    <label htmlFor="rfq_type" className="form-label fw-semibold mb-2">RFQ Type</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="rfq_type" className="form-label ">RFQ Type</label>
                                     <select
                                         name="rfq_type"
                                         id="rfq_type"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData?.rfq_type}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     >
                                         <option value="">Select RFQ Type</option>
                                         <option value="budgetary">Budgetary</option>
@@ -451,25 +494,25 @@ const MagicSearchPage = () => {
                                     </select>
                                 </div>
 
-                                <div className="col-md-4">
-                                    <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Bid End Date</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="bid_end_date" className="form-label ">Bid End Date</label>
                                     <input
                                         type="date"
                                         name="bid_end_date"
                                         id="bid_end_date"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData?.bid_end_date}
-                                        onChange={handleChange} />
+                                        onChange={handleFormChange} />
                                 </div>
 
-                                <div className="col-md-4 mt-3">
-                                    <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Project Name</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="bid_end_date" className="form-label ">Project Name</label>
                                     <select
                                         name="project_id"
                                         id="project_id"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData.project_id}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     >
                                         <option value={-1}>Select Project</option>
                                         {projects && projects.length > 0 &&
@@ -482,16 +525,16 @@ const MagicSearchPage = () => {
                                     </select>
                                 </div>
 
-                                <div className="col-md-8 mt-3">
-                                    <label htmlFor="location" className="form-label fw-semibold mb-2">Delivery Location</label>
+                                <div className="col-md-8 mb-2">
+                                    <label htmlFor="location" className="form-label ">Delivery Location</label>
                                     <input
                                         type="text"
                                         name="location"
                                         id="location"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         placeholder="Enter Delivery Location"
                                         value={formData?.location}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     />
                                 </div>
                             </div>
