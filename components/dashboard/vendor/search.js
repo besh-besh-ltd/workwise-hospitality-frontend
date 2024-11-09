@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
+  faClose,
   faMagnifyingGlass,
   faPlus,
   faWandMagicSparkles,
@@ -49,7 +50,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const searchLabelRef = useRef(null);
   const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const dispatch = useDispatch();
-  const [cat_id, setCat_id] = useState("");
+  const [cat_id, setCat_id] = useState(null);
   const [search_key, setSearch_key] = useState("");
   const [approved_by, setApproved_by] = useState([]);
   const [products, setProducts] = useState([]);
@@ -359,7 +360,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
     // changes by mukul jatav 29-08-2024 
     setbulkRFQVendors([]);
-
     if (search_key != "") {
       searchProductsV2(
         {
@@ -504,12 +504,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
-
     // Check if the clicked product is already selected
     if (item.product_name === currentSelectedProduct?.product_name) return;
-
+    
     // Set the search key and update the selected product
     setSearch_key(item.product_name);
+    setCat_id(item.category_id);
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
     setShowInsights(true);
@@ -579,6 +579,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const mapEntries = Array.from(categoryLvlRef.current.entries());
 
+  // for clear the search from the input of search vendor
+  const clearProductSearch = () => {
+    setcurrentSelectedProduct(null);
+    setCat_id(null);
+    setSearch_key("");
+    router.push(`/vendor/all`);
+    storageInstance.setStorage("product_name", "all");
+  }
+
+
+
   return (
     <>
     <Head>
@@ -637,9 +648,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
+
                       <label ref={searchLabelRef} htmlFor="search"></label>
+                      {/* <div className="d-flex justify-content-between align-items-center"> */}
                       <input
-                        type="search"
+                        className="no-clear"
+                        type="text"
                         name="search"
                         id="search"
                         placeholder="Ex. Flanges"
@@ -648,7 +662,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         autoComplete="off"
                         value={search_key}
                         onClick={handleSearchClick}
-                      />
+                        />
+                      {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
+                      </div> */}
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
