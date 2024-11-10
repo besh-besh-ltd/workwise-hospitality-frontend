@@ -128,7 +128,7 @@ export const getRFQS = (payload) => {
     }
   });
 };
-export const getRFQById = (id,token) => {
+export const getRFQById = (id, token) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.get(`/rfq/getRfqById/${id}${token !== undefined ? `?token=${token}` : ''}`);
@@ -164,7 +164,7 @@ export const getVendorDetailsByID = (id) => {
 export const getVendorRfqList = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/getMyRfq`,payload);
+      let response = await axiosInstance.post(`/rfq/getMyRfq`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -175,7 +175,7 @@ export const getVendorRfqList = (payload) => {
 export const sendQuotation = (payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/quote/create${token !== undefined ? `?token=${token}` : ''}`,payload);
+      let response = await axiosInstance.post(`/rfq/quote/create${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -186,7 +186,7 @@ export const sendQuotation = (payload, token) => {
 export const updateQuotation = (quote_id, payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}`,payload);
+      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -241,7 +241,7 @@ export const sendReminder = (id) => {
 export const finalizeQuotation = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/finalize`,payload);
+      let response = await axiosInstance.post(`/rfq/finalize`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -249,10 +249,12 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
-export const MagicRFQService = (payload) => {
+export const getMagicRFQPreview = (file) => {
+  let payload = {};
+  payload.file = file;
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/magic-search-rfq-create`,payload);
+      let response = await axiosFormData.post(`/rfq/magic-search-rfq-preview`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -274,7 +276,7 @@ export const getPastRFQS = (id) => {
 export const provideReview = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/users/create-vendor-review`,payload);
+      let response = await axiosInstance.post(`/users/create-vendor-review`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
