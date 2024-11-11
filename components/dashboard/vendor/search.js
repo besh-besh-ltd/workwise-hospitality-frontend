@@ -87,8 +87,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
   const [showInsights, setShowInsights] = useState(false);
-
-  const [isLoading, setIsLoading] = useState(false);
+  const [vendorName, setVendorName] = useState("");
+  const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -96,6 +96,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     else if (!vendorMetaData?.subscription)
       router.push('dashboard/buyer/subscription');
   }
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedVendorName(vendorName);
+    }, 1000);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [vendorName]);
+
+
 
   useEffect(() => {
     if (s && s != "") {
@@ -150,7 +162,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     cat_id,
     selectedState,
     selectedCity,
-    isLoggedIn
+    isLoggedIn,
+    debouncedVendorName // Use debouncedVendorName instead of vendorName
   ]);
 
   useEffect(() => {
@@ -368,6 +381,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           approved_by: selectedVbaa,
           state: selectedState,
           city: selectedCity,
+          vendor_name: vendorName
         },
         "vendors"
       )
@@ -397,6 +411,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       {
         cat_id,
         search_key: s_key,
+        vendor_name: vendorName,
         // approved_by: selectedVbaa,
       },
       type
@@ -506,7 +521,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setIsOpen(false);
     // Check if the clicked product is already selected
     if (item.product_name === currentSelectedProduct?.product_name) return;
-    
+
     // Set the search key and update the selected product
     setSearch_key(item.product_name);
     setCat_id(item.category_id);
@@ -592,7 +607,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   return (
     <>
-    <Head>
+      <Head>
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "http://schema.org",
@@ -662,7 +677,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         autoComplete="off"
                         value={search_key}
                         onClick={handleSearchClick}
-                        />
+                      />
                       {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
                       </div> */}
 
@@ -1278,9 +1293,30 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="row">
                 {currentSelectedProduct && (
                   <div className="col-md-12">
+
+                    {currentSelectedProduct &&
+                      <div className="d-flex align-items-center justify-content-between mb-4 b-2 " >
+                        <h2 className="fs-5">Available Vendors</h2>
+                        {/* <div className="d-flex justify-content-end"> */}
+                        <div className="col-md-2" >
+                          <input
+                            type="text"
+                            name="vendorName"
+                            value={vendorName}
+                            className="form-control"
+                            placeholder="Search vendors"
+                            onChange={(e) => setVendorName(e.target.value)}
+                          />
+                          {/* </div> */}
+                        </div>
+                      </div>
+
+                    }
+
+
+
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
-                        {currentSelectedProduct && <h2 className="fs-5">Available Vendors</h2>}
                         <div className="col-md-2">
                           <label>
                             <input
@@ -1345,9 +1381,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
                         {!loading && vendors.length == 0 && (
-                          <p className="text-center pt-4">
-                            No vendors found. Please modify your search
-                          </p>
+                          <a
+                            className="text-center pt-4"
+                            href="/dashboard/buyer/vendor-management"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {`Add "${vendorName}" to you vendor list Immediately`}
+                          </a>
                         )}
                         {vendors &&
                           vendors.map((item) => {
