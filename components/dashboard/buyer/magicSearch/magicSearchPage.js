@@ -20,8 +20,13 @@ const initialFormData = {
     rfq_type: '',
     bid_end_date: getFuturedate(),
     location: '',
-    project_id: -1
+    project_id: -1,
+    response_email: '',
+    contact_name: '',
+    contact_number: '',
+    company_name: '',
 }
+
 
 const MagicSearchPage = () => {
     const [file, setFile] = useState(null);
@@ -274,7 +279,7 @@ const MagicSearchPage = () => {
 
     useEffect(() => {
         getAllProjects();
-        getTermsData();
+        // getTermsData();
     }, []);
 
     // Display messages in a rotating fashion
@@ -305,7 +310,11 @@ const MagicSearchPage = () => {
         if (messagesDisplayed && !loading && apiDataRef.current) {
             const { status, validation_errors, data } = apiDataRef.current;
             setReviewData(data);
-
+            setTermList(data?.terms);
+            formData.response_email= data?.response_email
+            formData.contact_name= data?.contact_name
+            formData.contact_number= data?.contact_number
+            formData.company_name= data?.company_name
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
                 toast.success("Review Your Products and submit");
@@ -371,36 +380,50 @@ const MagicSearchPage = () => {
             {/* File Upload Section */}
             <section className="search-sec-1">
                 <div className="container-fluid product-search">
-                    <div className="bg-white rounded-4 p-5">
+                    <div className="container bg-white rounded-4 p-5">
 
                         {!reviewData ?
                             <>
-                                <div className="col-md-8 mx-auto text-center">
-                                    <div
-                                        className="file-drop-area rounded py-4"
-                                        style={{
-                                            border: '2px dashed grey',
-                                            cursor: 'pointer',
-                                            backgroundColor: '#fff',
-                                            color: 'green',
-                                        }}
-                                        onClick={() => document.getElementById('fileInput').click()}
-                                    >
-                                        <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
-                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
-                                    </div>
-
-                                    {/* //{ Hidden File Input } */}
-                                    <input
-                                        id="fileInput"
-                                        type="file"
-                                        accept=".xlsx, .xls"
-                                        style={{ display: 'none' }}
-                                        onChange={handleMagicFileUpload}
-                                    />
+                            <div className="col-md-8 mx-auto mt-2">
+                            <div className="d-flex align-items-center gap-2 mb-3">
+                                <h2 className="title fs-6 mb-0 ">Step 1: </h2>
+                                <a
+                                    title="Download this sample Excel and fill all the columns."
+                                    href="/Sample Bulk Add Vendors Format.xlsx"
+                                    className="d-flex justify-content-between align-items-center "
+                                    style={{ cursor: "pointer" }}>
+                                    <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
+                                    <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
+                                </a>
+                            </div>
+                            </div>
+                            <div className="col-md-8 mx-auto">
+                            <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
+                                <div
+                                    className="file-drop-area text-center rounded py-4"
+                                    style={{
+                                        border: '2px dashed grey',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#fff',
+                                        color: 'green',
+                                    }}
+                                    onClick={() => document.getElementById('fileInput').click()}
+                                >
+                                    <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
+                                    <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
                                 </div>
 
-                                {/* Download Sample Excel */}
+                                {/* //{ Hidden File Input } */}
+                                <input
+                                    id="fileInput"
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    style={{ display: 'none' }}
+                                    onChange={handleMagicFileUpload}
+                                />
+                            </div>
+
+                                {/* Download Sample Excel
                                 <div className="col-md-8 mx-auto mt-2">
                                     <a
                                         title="Download this sample Excel and fill all the columns."
@@ -410,7 +433,7 @@ const MagicSearchPage = () => {
                                         <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
                                         <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
                                     </a>
-                                </div>
+                                </div> */}
                             </>
                             : <>
                                 {reviewData.products && reviewData.products.length > 0 &&
@@ -428,7 +451,7 @@ const MagicSearchPage = () => {
                         }
 
                         {/* Terms and Conditions check-box */}
-                        <div className="col-md-8 mx-auto mt-4">
+                        {termList && <div className=" mt-4">
                             <h3 className="h5">Suggested Terms</h3>
                             {termsLoading ? <FullLoader />
                                 : (termList &&
@@ -445,18 +468,18 @@ const MagicSearchPage = () => {
                                                         checked={item.selected}
                                                     />
                                                     <label htmlFor={`term-item-${item.id}`} className="form-check-label stretched-link text-sm">
-                                                        {`${index + 1}. ${item?.term_content}`}
+                                                        {`${index + 1}. ${item?.name}`}
                                                     </label>
                                                 </li>
                                             );
                                         })}
                                     </ul>
                                 )}
-                        </div>
+                        </div>}
 
 
                         {/* Terms and Conditions text-area */}
-                        <div className="col-md-8 mx-auto mt-4">
+                        {reviewData && <div className="mx-auto mt-4">
                             <label className="form-label ">Enter Terms and Conditions for Vendors</label>
                             <textarea
                                 name="comment"
@@ -466,9 +489,60 @@ const MagicSearchPage = () => {
                                 placeholder="Enter your own terms here..."
                                 value={formData.comment}
                                 onChange={handleFormChange} />
-                        </div>
+                        </div>}
 
-                        <div className="col-md-8 mx-auto mt-2">
+                        {/* Contact information */}
+                        
+                        {reviewData && <div className="mx-auto mt-4">
+                            <h3 className="h5">Contact information</h3>
+                            <div className="row">
+                                <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="response_email" className="form-label">Email</label>
+                                    <input
+                                        type="text"
+                                        name="response_email"
+                                        id="response_email"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.response_email}
+                                        onChange={handleFormChange} />
+                                </div>
+
+                                <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="contact_name" className="form-label">Contact Name</label>
+                                    <input
+                                        type="text"
+                                        name="contact_name"
+                                        id="contact_name"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.contact_name}
+                                        onChange={handleFormChange} />
+                                </div>
+                            </div>
+                            <div className="row">
+                            <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="contact_number" className="form-label">Contact Number</label>
+                                    <input
+                                        type="text"
+                                        name="contact_number"
+                                        id="contact_number"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.contact_number}
+                                        onChange={handleFormChange} />
+                                </div>
+                                <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="company_name" className="form-label">Company Name</label>
+                                    <input
+                                        type="text"
+                                        name="company_name"
+                                        id="company_name"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.company_name}
+                                        onChange={handleFormChange} />
+                                </div>
+                            </div>
+                        </div>}
+
+                        {reviewData && <div className="mx-auto mt-2">
                             <div className="row">
 
                                 <div className="col-md-4 mb-2">
@@ -544,9 +618,9 @@ const MagicSearchPage = () => {
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </div>}
 
-                        <div className="col-md-8 mx-auto mt-4">
+                        <div className="mx-auto mt-4">
                             <div className="row">
                                 <div className="col-7"></div>
                                 <div className="col-5 d-flex">
