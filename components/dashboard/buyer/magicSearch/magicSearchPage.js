@@ -81,7 +81,7 @@ const MagicSearchPage = () => {
         }
 
         try {
-            setLoading(true);            
+            setLoading(true);
             const response = await getMagicRFQPreview(file);
             apiDataRef.current = response;
 
@@ -106,8 +106,8 @@ const MagicSearchPage = () => {
 
         if (type === "terms-checkbox") {
             const termId = parseInt(id.replace("term-item-", ""));
-            const updatedTerms = termList.map((termItem)=> {
-                if(termItem.id === termId)
+            const updatedTerms = termList.map((termItem) => {
+                if (termItem.id === termId)
                     termItem.selected = checked
                 return termItem
             })
@@ -170,10 +170,16 @@ const MagicSearchPage = () => {
                 return item;
             });
         }
-        setReviewData((prevData) => ({
-            ...prevData,
-            products: editedData
-        }))
+
+        if (editedData.length === 0) {
+            setReviewData(null)
+            setValidationErrors(null)
+        } else {
+            setReviewData((prevData) => ({
+                ...prevData,
+                products: editedData
+            }))
+        }
     }
 
     const changeProductData = (type, e, prodItem) => {
@@ -242,14 +248,14 @@ const MagicSearchPage = () => {
         const selectedTerms = termList.filter((term) => term.selected);
 
         setSubmitLoading(true);
-        createRfq({ 
-            ...reviewData, 
-            ...formDataWithoutFile, 
-            terms: selectedTerms.map((item)=> {
-                return {id: item.id}
-            }) 
+        createRfq({
+            ...reviewData,
+            ...formDataWithoutFile,
+            terms: selectedTerms.map((item) => {
+                return { id: item.id }
+            })
         })
-        .then((res) => {
+            .then((res) => {
                 toast.success(
                     <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
                     { position: "top-right" }
