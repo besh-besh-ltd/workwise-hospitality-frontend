@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getMagicRFQReview, getTerms } from "@/services/rfq";
+import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import Loader from "@/components/shared/Loader";
 import FullLoader from "@/components/shared/FullLoader";
@@ -81,8 +81,8 @@ const MagicSearchPage = () => {
         }
 
         try {
-            setLoading(true);
-            const response = await getMagicRFQReview(file);
+            setLoading(true);            
+            const response = await getMagicRFQPreview(file);
             apiDataRef.current = response;
 
             // Delay the state update until all messages are shown
