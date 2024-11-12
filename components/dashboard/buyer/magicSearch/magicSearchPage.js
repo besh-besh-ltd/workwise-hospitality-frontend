@@ -118,10 +118,17 @@ const MagicSearchPage = () => {
             })
             setTermList(updatedTerms);
         } else {
-            setFormData((prevState) => ({
-                ...prevState,
-                [name]: value
-            }));
+            if(name=="reverse_auction"){
+                setFormData((prevState) => ({
+                    ...prevState,
+                    [name]: parseInt(value)
+                }));
+            }else{
+                setFormData((prevState) => ({
+                    ...prevState,
+                    [name]: value
+                }));
+            }
         }
     }
 
@@ -268,6 +275,7 @@ const MagicSearchPage = () => {
                 setFormData(initialFormData)
                 setReviewData(null)
                 setValidationErrors(null)
+                setTermList(null);
             })
             .catch((error) => {
                 console.log(error)
@@ -548,6 +556,7 @@ const MagicSearchPage = () => {
                                 <div className="col-md-4 mb-2">
                                     <label htmlFor="reverse_auction" className="form-label ">Reverse Auction</label>
                                     <select
+                                        type='number'
                                         name="reverse_auction"
                                         id="reverse_auction"
                                         className="form-control border border-dark-subtle"
