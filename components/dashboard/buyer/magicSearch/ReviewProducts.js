@@ -86,7 +86,7 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
                                             <label htmlFor={`files_${prodItem.product_id}_${prodItem.variant}`} className="form-label small mb-1 ">Files Section</label>
                                             <div className="form-control " id={`vendor_list_${prodItem.product_id}_${prodItem.variant}`} style={{ height: "15rem" }}>
 
-                                                <div className="d-flex align-items-center text-sm opacity-75">
+                                                { prodItem.predefined_tds_file && <div className="d-flex align-items-center text-sm opacity-75">
                                                     <input
                                                         type="checkbox"
                                                         name="user_selected_predefined_tds"
@@ -104,9 +104,9 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
                                                         />
                                                         : "No TDS file found"
                                                     }
-                                                </div>
+                                                </div>}
 
-                                                <div className="d-flex align-items-center text-sm opacity-75">
+                                                {prodItem.predefined_qap_file && <div className="d-flex align-items-center text-sm opacity-75">
                                                     <input
                                                         type="checkbox"
                                                         name="user_selected_predefined_qap"
@@ -124,7 +124,7 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
                                                         />
                                                         : "No QAP file found"
                                                     }
-                                                </div>
+                                                </div>}
 
                                                 <div className="row my-2">
                                                     <div className="col-4">
