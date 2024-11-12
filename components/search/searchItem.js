@@ -1,39 +1,19 @@
 import { faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import React, { useState } from "react";
-import { useDispatch } from "react-redux";
 import CommonModal from "../modal/CommonModal";
 
 const SearchItem = ({
-  data,
-  setOpenAuthModal,
-  vendorMetaData,
   type,
-  bulkRFQVendors,
-  setbulkRFQVendors,
-  selectedProduct = false,
-  currentSelectedProduct = {},
-  handleRemoveCurrentSelected,
+  data,
+  vendorMetaData,
+  setOpenAuthModal,
   addToRFQ,
-  isLoading,
-  handleRedirect
+  selectedProduct = false,
+  handleRemoveCurrentSelected,
 }) => {
-  const dispatch = useDispatch();
-  const router = useRouter();
   const [openCommonModal, setOpenCommonModal] = useState(false);
-
-  const handleSelectVendor = (e, item) => {
-    if (e.target.checked) {
-      item.selected = true;
-      setbulkRFQVendors((oldArray) => [...oldArray, item]);
-    } else {
-      item.selected = false;
-      let p = bulkRFQVendors.filter((vendor) => vendor.id != item.id);
-      setbulkRFQVendors(p);
-    }
-  };
 
   return (
     <>
@@ -44,21 +24,17 @@ const SearchItem = ({
             <label>
               <input
                 type="checkbox"
-                onClick={(e) => handleSelectVendor(e, data)}
+                onClick={(e) => addToRFQ(e.target.checked, data)}
                 checked={data.selected}
               />
-              {type == "products" && (
-                <span>By {data?.user_detail[0]?.name}</span>
-              )}
-              {type == "vendors" && (
-                <span>
-                  By{" "}
-                  {data?.company_name ? data?.company_name : data?.vendor_name}
-                </span>
-              )}
+              {type == "products"
+                ? <span>By {data?.user_detail[0]?.name}</span>
+                : <span>{`By ${data?.company_name ? data?.company_name : data?.vendor_name}`}</span>
+              }
             </label>
           )}
         </div>
+
         <div className="mdl-con-btm mb-4">
           {data.id == "**" && !data.sp && (
             <div className="list_item_disabled">
@@ -95,15 +71,6 @@ const SearchItem = ({
                         <b>Website :</b> {data.website}
                       </p>
                     )}
-                    {/*  {data.vendor_approved &&
-                      data.vendor_approved.length > 0 && (
-                        <p>
-                          <b>Approved By :</b>{" "}
-                          {data.vendor_approved
-                            .map((approved) => approved.vendor_approve)
-                            .join(", ")}
-                        </p>
-                      )} */}
                   </div>
                 </>
               )}
@@ -139,31 +106,15 @@ const SearchItem = ({
                 >
                   View Details
                 </Link>
-                {/* <Link
-                  href="#"
-                  className="btn btn-primary custom_primary_btn has_primary-bg"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!vendorMetaData.logged_In)
-                      setOpenAuthModal(true);
-                    else if (!vendorMetaData.subscription)
-                      router.push('dashboard/buyer/subscription');
-                    else
-                      addToRFQ(data);
-                  }}
-                >
-                  Add To RFQ
-                </Link> */}
                 <Link
                   href="#"
                   className="btn btn-primary custom_primary_btn has_primary-bg"
                   onClick={(e) => {
                     e.preventDefault();
-                    addToRFQ(data);
+                    addToRFQ(true, data);
                   }}
-                  disabled={isLoading}
                 >
-                  {isLoading ? 'Adding...' : 'Add To RFQ'}
+                  Add To RFQ
                 </Link>
                 <Link
                   href="#"
@@ -190,13 +141,6 @@ const SearchItem = ({
                         View PTR
                       </Link>
                     )}
-                    {/* <Link
-                    target="_blank"
-                      href="/contactus"
-                      className="btn btn-primary custom_primary_btn"
-                    >
-                      Send Enquiry
-                    </Link> */}
                   </>
                 )}
               </div>
