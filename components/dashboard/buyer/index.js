@@ -170,7 +170,7 @@ const BuyerPage = () => {
       if (item.notification_type == "new_quote_received") {
         return `You've received a new quotation on RFQ #${item.rfq_no}`;
       } else if (item.notification_type == "rfq_created") {
-        return `You've created a new RFQ #${item.rfq_no} and shared with the buyers!`;
+        return `You've created a new RFQ #${item.rfq_no} and shared it with the vendors!`;
       }
     }
   };

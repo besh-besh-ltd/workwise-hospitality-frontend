@@ -3,11 +3,15 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import axiosFormData from "@/lib/axiosFormData";
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate } from "@/utils/sharedFunctions";
+import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
+import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
+import ReviewProducts from "./ReviewProducts";
+import Loader from "@/components/shared/Loader";
+import FullLoader from "@/components/shared/FullLoader";
+
 
 const initialFormData = {
     file: null,
@@ -15,19 +19,30 @@ const initialFormData = {
     reverse_auction: 1,
     rfq_type: '',
     bid_end_date: getFuturedate(),
-    delivery_location: '',
-    project_id: -1
+    location: '',
+    project_id: -1,
+    response_email: '',
+    contact_name: '',
+    contact_number: '',
+    company_name: '',
 }
 
-function MagicSearchPage() {
+
+const MagicSearchPage = () => {
     const [file, setFile] = useState(null);
     const [fileName, setFileName] = useState('');
-    const [loading, setLoading] = useState(false); // Set true for loading UI
-    const [messagesDisplayed, setMessagesDisplayed] = useState(false);
-    const [receivedData, setReceivedData] = useState(null);
+    const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
-    const [projects, setProjects] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
+
+    const [projects, setProjects] = useState([]);
+    const [termList, setTermList] = useState(null);
+
+    const [loading, setLoading] = useState(false);
+    const [termsLoading, setTermsLoading] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [messagesDisplayed, setMessagesDisplayed] = useState(false);
+
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
 
@@ -46,13 +61,13 @@ function MagicSearchPage() {
         'Almost done! Workwise AI has sent your enquiries. Expect responses soon.'
     ];
 
-    const handleFileUpload = (event) => {
+    const handleMagicFileUpload = (event) => {
         const file = event.target.files[0];
         if (file) {
             const fileType = file.name.split('.').pop().toLowerCase();
             const validTypes = ['xlsx', 'xls'];
             if (!validTypes.includes(fileType)) {
-                alert('Please upload a valid Excel file (xlsx, xls)');
+                toast.error('Please upload a valid Excel file (xlsx, xls)');
             } else {
                 setFileName(file.name);
                 setFile(file);
@@ -72,54 +87,207 @@ function MagicSearchPage() {
 
         try {
             setLoading(true);
-            const response = await axiosFormData.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/rfq/magic-search-rfq-create`,
-                formData
-            );
-
+            const response = await getMagicRFQPreview(file);
             apiDataRef.current = response;
 
             // Delay the state update until all messages are shown
             setTimeout(() => {
                 setLoading(false);
                 setFileName('');
-                setFormData(initialFormData);
             }, 2000 * (messages.length - currentMessageIndex));
 
         } catch (error) {
+            console.log(error)
             toast.error(error.message);
             setLoading(false);
         } finally {
             setFile(null);
             setFileName('');
-            setFormData(initialFormData);
         }
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prevState) => ({
-            ...prevState,
-            [name]: value
-        }));
+    const handleFormChange = (e, type) => {
+        const { name, value, checked, id } = e.target;
+
+        if (type === "terms-checkbox") {
+            const termId = parseInt(id.replace("term-item-", ""));
+            const updatedTerms = termList.map((termItem) => {
+                if (termItem.id === termId)
+                    termItem.selected = checked
+                return termItem
+            })
+            setTermList(updatedTerms);
+        } else {
+            if(name=="reverse_auction"){
+                setFormData((prevState) => ({
+                    ...prevState,
+                    [name]: parseInt(value)
+                }));
+            }else{
+                setFormData((prevState) => ({
+                    ...prevState,
+                    [name]: value
+                }));
+            }
+        }
     }
 
-    const getAllProjects = ()=> {
+    const getAllProjects = () => {
         getProjectList()
-          .then((res)=> {
-            let d = [];
-            res.data.map((item) => {
-              d.push({ label: item.name, value: item.id });
+            .then((res) => {
+                let d = [];
+                res.data.map((item) => {
+                    d.push({ label: item.name, value: item.id });
+                });
+                setProjects(d);
+            })
+            .catch((error) => {
+                console.log(error)
+            })
+    }
+
+    const getTermsData = () => {
+        setTermsLoading(true);
+        getTerms()
+            .then((res) => {
+                const terms = res.data?.map((item) => {
+                    return {
+                        ...item,
+                        selected: true
+                    };
+                })
+                setTermList(terms);
+            })
+            .catch((err) => {
+                console.error(err);
+            })
+            .finally(() => setTermsLoading(false));
+    };
+
+    const removeItem = (type, prodItem, vendor_id) => {
+        let editedData = [];
+        if (type === "product") {
+            editedData = reviewData.products.filter((item) =>
+                !(item.product_id === prodItem.product_id &&
+                    item.variant === prodItem.variant)
+            );
+        } else {
+            editedData = reviewData.products.map((item) => {
+                if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                    let updatedVendors = item.vendors.filter((vendorItem) =>
+                        vendorItem.user_id !== vendor_id
+                    );
+                    item.vendors = updatedVendors;
+                }
+                return item;
             });
-            setProjects(d);
-          })
-          .catch((error)=> {
-            console.log(error)
-          })
-      }
+        }
+
+        if (editedData.length === 0) {
+            setReviewData(null)
+            setValidationErrors(null)
+        } else {
+            setReviewData((prevData) => ({
+                ...prevData,
+                products: editedData
+            }))
+        }
+    }
+
+    const changeProductData = (type, e, prodItem) => {
+        let editedData = [];
+        const { name: fieldName, value: fieldValue } = e.target;
+        editedData = reviewData.products.map((item) => {
+            if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                if (type === "spec") {
+                    item.spec = item.spec.map((specItem) =>
+                        specItem.title === fieldName
+                            ? { ...specItem, value: fieldValue }
+                            : specItem
+                    );
+                } else if (type === "predefined_file") {
+                    item[fieldName] = !item[fieldName]
+                } else {
+                    item[fieldName] = fieldValue
+                }
+            }
+            return item;
+        })
+        setReviewData((prevData) => ({
+            ...prevData,
+            products: editedData
+        }))
+    }
+
+    const handleFiles = async (type, e, prodItem, isRemove, fileLink) => {
+        let editedData = [];
+        if (isRemove) {
+            editedData = reviewData.products.map((item) => {
+                if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                    return {
+                        ...item,
+                        [type]: item[type].filter((file) => file !== fileLink)
+                    };
+                }
+                return item;
+            });
+        } else {
+            try {
+                const filePath = await handleFileUpload(e);
+                editedData = reviewData.products.map((item) => {
+                    if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                        return {
+                            ...item,
+                            [type]: [...item[type], filePath]
+                        };
+                    }
+                    return item;
+                });
+            } catch (error) {
+                let message = error.message;
+                toast.error(message);
+                return;
+            }
+        }
+        setReviewData((prevData) => ({
+            ...prevData,
+            products: editedData
+        }))
+    }
+
+    const handleCreateRFQ = () => {
+        const { file, ...formDataWithoutFile } = formData;
+        const selectedTerms = termList.filter((term) => term.selected);
+
+        setSubmitLoading(true);
+        createRfq({
+            ...reviewData,
+            ...formDataWithoutFile,
+            terms: selectedTerms.map((item) => {
+                return { id: item.id }
+            })
+        })
+            .then((res) => {
+                toast.success(
+                    <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
+                    { position: "top-right" }
+                );
+                setFormData(initialFormData)
+                setReviewData(null)
+                setValidationErrors(null)
+                setTermList(null);
+            })
+            .catch((error) => {
+                console.log(error)
+            })
+            .finally(() => {
+                setSubmitLoading(false)
+            })
+    }
 
     useEffect(() => {
         getAllProjects();
+        // getTermsData();
     }, []);
 
     // Display messages in a rotating fashion
@@ -149,17 +317,20 @@ function MagicSearchPage() {
     useEffect(() => {
         if (messagesDisplayed && !loading && apiDataRef.current) {
             const { status, validation_errors, data } = apiDataRef.current;
-
+            setReviewData(data);
+            setTermList(data?.terms);
+            formData.response_email= data?.response_email
+            formData.contact_name= data?.contact_name
+            formData.contact_number= data?.contact_number
+            formData.company_name= data?.company_name
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
-                toast.success("We have Successfully created your RFQ");
+                toast.success("Review Your Products and submit");
             }
-
-            setReceivedData(data);
 
             // Handle partial validation errors
             if (validation_errors) {
-                toast.warning("We are able to Partially create your RFQ");
+                toast.warning("We are able to Partially add Products, please review and submit");
                 setValidationErrors(validation_errors);
             }
 
@@ -202,6 +373,8 @@ function MagicSearchPage() {
                 </div>
             )}
 
+            {submitLoading && <Loader />}
+
             {/* Header Section */}
             <section className="vendor-common-header sc-pt-80">
                 <div className="container-fluid text-center">
@@ -217,82 +390,192 @@ function MagicSearchPage() {
                 <div className="container-fluid product-search">
                     <div className="container bg-white rounded-4 p-5">
 
-                        {/* //{ Drag and Drop Area } */}
-                        <div className="col-md-8 mx-auto text-center">
-                            <div
-                                className="file-drop-area rounded py-4"
-                                style={{
-                                    border: '2px dashed grey',
-                                    cursor: 'pointer',
-                                    backgroundColor: '#fff',
-                                    color: 'green',
-                                }}
-                                onClick={() => document.getElementById('fileInput').click()}
-                            >
-                                <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
-                                <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                        {!reviewData ?
+                            <>
+                            <div className="col-md-8 mx-auto mt-2">
+                            <div className="d-flex align-items-center gap-2 mb-3">
+                                <h2 className="title fs-6 mb-0 ">Step 1: </h2>
+                                <a
+                                    title="Download this sample Excel and fill all the columns."
+                                    href="/Sample BOQ File Format.xlsx"
+                                    className="d-flex justify-content-between align-items-center "
+                                    style={{ cursor: "pointer" }}>
+                                    <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
+                                    <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
+                                </a>
+                            </div>
+                            </div>
+                            <div className="col-md-8 mx-auto">
+                            <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
+                                <div
+                                    className="file-drop-area text-center rounded py-4"
+                                    style={{
+                                        border: '2px dashed grey',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#fff',
+                                        color: 'green',
+                                    }}
+                                    onClick={() => document.getElementById('fileInput').click()}
+                                >
+                                    <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
+                                    <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                                </div>
+
+                                {/* //{ Hidden File Input } */}
+                                <input
+                                    id="fileInput"
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    style={{ display: 'none' }}
+                                    onChange={handleMagicFileUpload}
+                                />
                             </div>
 
-                            {/* //{ Hidden File Input } */}
-                            <input
-                                id="fileInput"
-                                type="file"
-                                accept=".xlsx, .xls"
-                                style={{ display: 'none' }}
-                                onChange={handleFileUpload}
-                            />
-                        </div>
+                                {/* Download Sample Excel
+                                <div className="col-md-8 mx-auto mt-2">
+                                    <a
+                                        title="Download this sample Excel and fill all the columns."
+                                        href="/Sample BOQ File Format.xlsx"
+                                        className="d-flex justify-content-end gap-2 "
+                                        style={{ cursor: "pointer" }}>
+                                        <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
+                                        <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
+                                    </a>
+                                </div> */}
+                            </>
+                            : <>
+                                {reviewData.products && reviewData.products.length > 0 &&
+                                    <>
+                                        <h2 className="h4 mb-3">Review Products</h2>
+                                        <ReviewProducts
+                                            data={reviewData.products}
+                                            changeProductData={changeProductData}
+                                            handleFiles={handleFiles}
+                                            removeItem={removeItem}
+                                        />
+                                    </>
+                                }
+                            </>
+                        }
 
-                        {/* Download Sample Excel */}
-                        <div className="col-md-8 mx-auto mt-2">
-                            <a
-                                title="Download this sample Excel and fill all the columns."
-                                href="/Sample BOQ File Format.xlsx"
-                                className="d-flex justify-content-end gap-2 "
-                                style={{ cursor: "pointer" }}>
-                                <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
-                                <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
-                            </a>
-                        </div>
+                        {/* Terms and Conditions check-box */}
+                        {termList && <div className=" mt-4">
+                            <h3 className="h5">Suggested Terms</h3>
+                            {termsLoading ? <FullLoader />
+                                : (termList &&
+                                    <ul className="list-group">
+                                        {termList.map((item, index) => {
+                                            return (
+                                                <li key={`term-item-${item.id}`} className="list-group-item d-flex align-items-start border border-0">
+                                                    <input
+                                                        onChange={(e) => handleFormChange(e, "terms-checkbox")}
+                                                        type="checkbox"
+                                                        id={`term-item-${item.id}`}
+                                                        className="form-check-input border border-dark-subtle me-2"
+                                                        style={{ marginTop: ".15rem" }}
+                                                        checked={item.selected}
+                                                    />
+                                                    <label htmlFor={`term-item-${item.id}`} className="form-check-label stretched-link text-sm">
+                                                        {`${index + 1}. ${item?.name}`}
+                                                    </label>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                        </div>}
+
 
                         {/* Terms and Conditions text-area */}
-                        <div className="col-md-8 mx-auto mt-4">
-                            <p className="fw-semibold mb-2">Enter Terms and Conditions for Vendors</p>
+                        {reviewData && <div className="mx-auto mt-4">
+                            <label className="form-label ">Enter Terms and Conditions for Vendors</label>
                             <textarea
                                 name="comment"
+                                id="comment"
                                 rows="3"
-                                className="form-control border border-black "
+                                className="form-control border border-dark-subtle text-sm"
                                 placeholder="Enter your own terms here..."
                                 value={formData.comment}
-                                onChange={handleChange} />
-                        </div>
+                                onChange={handleFormChange} />
+                        </div>}
 
-                        {/* Delivery location part */}
-                        <div className="col-md-8 mx-auto mt-4">
+                        {/* Contact information */}
+                        
+                        {reviewData && <div className="mx-auto mt-4">
+                            <h3 className="h5">Contact information</h3>
+                            <div className="row">
+                                <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="response_email" className="form-label">Email</label>
+                                    <input
+                                        type="text"
+                                        name="response_email"
+                                        id="response_email"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.response_email}
+                                        onChange={handleFormChange} />
+                                </div>
+
+                                <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="contact_name" className="form-label">Contact Name</label>
+                                    <input
+                                        type="text"
+                                        name="contact_name"
+                                        id="contact_name"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.contact_name}
+                                        onChange={handleFormChange} />
+                                </div>
+                            </div>
+                            <div className="row">
+                            <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="contact_number" className="form-label">Contact Number</label>
+                                    <input
+                                        type="text"
+                                        name="contact_number"
+                                        id="contact_number"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.contact_number}
+                                        onChange={handleFormChange} />
+                                </div>
+                                <div className="col-md-6 mx-auto mt-2">
+                                    <label htmlFor="company_name" className="form-label">Company Name</label>
+                                    <input
+                                        type="text"
+                                        name="company_name"
+                                        id="company_name"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.company_name}
+                                        onChange={handleFormChange} />
+                                </div>
+                            </div>
+                        </div>}
+
+                        {reviewData && <div className="mx-auto mt-2">
                             <div className="row">
 
-                                <div className="col-md-4">
-                                    <label htmlFor="reverse_auction" className="form-label fw-semibold mb-2">Reverse Auction</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="reverse_auction" className="form-label ">Reverse Auction</label>
                                     <select
+                                        type='number'
                                         name="reverse_auction"
                                         id="reverse_auction"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData?.reverse_auction}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     >
                                         <option value={1}>Enable</option>
                                         <option value={0}>Disable</option>
                                     </select>
                                 </div>
 
-                                <div className="col-md-4">
-                                    <label htmlFor="rfq_type" className="form-label fw-semibold mb-2">RFQ Type</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="rfq_type" className="form-label ">RFQ Type</label>
                                     <select
                                         name="rfq_type"
                                         id="rfq_type"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData?.rfq_type}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     >
                                         <option value="">Select RFQ Type</option>
                                         <option value="budgetary">Budgetary</option>
@@ -300,29 +583,29 @@ function MagicSearchPage() {
                                     </select>
                                 </div>
 
-                                <div className="col-md-4">
-                                    <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Bid End Date</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="bid_end_date" className="form-label ">Bid End Date</label>
                                     <input
                                         type="date"
                                         name="bid_end_date"
                                         id="bid_end_date"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData?.bid_end_date}
-                                        onChange={handleChange} />
+                                        onChange={handleFormChange} />
                                 </div>
 
-                                <div className="col-md-4 mt-3">
-                                    <label htmlFor="bid_end_date" className="form-label fw-semibold mb-2">Project Name</label>
+                                <div className="col-md-4 mb-2">
+                                    <label htmlFor="bid_end_date" className="form-label ">Project Name</label>
                                     <select
                                         name="project_id"
                                         id="project_id"
-                                        className="form-control border border-black"
+                                        className="form-control border border-dark-subtle"
                                         value={formData.project_id}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     >
                                         <option value={-1}>Select Project</option>
                                         {projects && projects.length > 0 &&
-                                            projects.map((projectItem)=> {
+                                            projects.map((projectItem) => {
                                                 return (
                                                     <option value={projectItem.value}>{projectItem.label}</option>
                                                 )
@@ -331,77 +614,48 @@ function MagicSearchPage() {
                                     </select>
                                 </div>
 
-                                <div className="col-md-8 mt-3">
-                                    <label htmlFor="delivery_location" className="form-label fw-semibold mb-2">Delivery Location</label>
+                                <div className="col-md-8 mb-2">
+                                    <label htmlFor="location" className="form-label ">Delivery Location</label>
                                     <input
                                         type="text"
-                                        name="delivery_location"
-                                        id="delivery_location"
-                                        className="form-control border border-black"
+                                        name="location"
+                                        id="location"
+                                        className="form-control border border-dark-subtle"
                                         placeholder="Enter Delivery Location"
                                         value={formData?.location}
-                                        onChange={handleChange}
+                                        onChange={handleFormChange}
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </div>}
 
-                        <div className="col-md-8 mx-auto mt-4">
+                        <div className="mx-auto mt-4">
                             <div className="row">
                                 <div className="col-7"></div>
                                 <div className="col-5 d-flex">
-                                    <Button variant="secondary" className="ms-auto border-0" style={{ width: "280px" }} onClick={uploadToServer}>Automatically Generate RFQ's</Button>
+                                    {reviewData ?
+                                        <Button
+                                            variant="secondary"
+                                            className="ms-auto border-0"
+                                            style={{ width: "280px" }}
+                                            onClick={handleCreateRFQ}
+                                        >
+                                            Submit
+                                        </Button>
+                                        : <Button
+                                            variant="secondary"
+                                            className="ms-auto border-0"
+                                            style={{ width: "280px" }}
+                                            onClick={uploadToServer}
+                                        >
+                                            Automatically Generate RFQ's
+                                        </Button>}
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
-
-            {/* RFQ Products */}
-            {/* {receivedData &&
-                <section className="search-sec-3 pb-4">
-                    <div className="container-fluid col-md-8 mt-5 ">
-                        <h4>RFQ Created for this Products</h4>
-
-                        {receivedData.otherDetails?.length > 0 &&
-                            <div className="details-table">
-                                <div className="table-responsive">
-                                    <table className="table table-striped ">
-                                        <thead>
-                                            <tr>
-                                                <th>Name of product</th>
-                                                <th>Size & specifications</th>
-                                                <th>Quantity & Unit</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {
-                                                receivedData?.otherDetails?.map((item, index) => {
-                                                    console.log(item)
-                                                    return (
-                                                        <tr key={`product_${item?.product_info?.product_id}_${item?.product_info?.variant}`}>
-                                                            <td>{item?.product_info?.product_id}_{item?.product_info?.variant}</td>
-                                                            <td>
-                                                                <p className="mb-2"><b>Size: </b>{item?.spec_info[0]?.value}</p>
-                                                                <p className="mb-0"><b>Spec: </b>{item?.spec_info[1]?.value}</p>
-                                                            </td>
-                                                            <td>{item?.spec_info[2]?.value}, {item?.spec_info[3]?.value}</td>
-                                                            <td className="text-success">Success</td>
-                                                        </tr>
-                                                    )
-                                                })
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        }
-
-                    </div>
-                </section>
-            } */}
 
             {/* Defective Products */}
             {validationErrors &&
