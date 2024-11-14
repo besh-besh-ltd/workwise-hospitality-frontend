@@ -397,7 +397,7 @@ const MagicSearchPage = () => {
                                 <h2 className="title fs-6 mb-0 ">Step 1: </h2>
                                 <a
                                     title="Download this sample Excel and fill all the columns."
-                                    href="/Sample Bulk Add Vendors Format.xlsx"
+                                    href="/Sample BOQ File Format.xlsx"
                                     className="d-flex justify-content-between align-items-center "
                                     style={{ cursor: "pointer" }}>
                                     <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
