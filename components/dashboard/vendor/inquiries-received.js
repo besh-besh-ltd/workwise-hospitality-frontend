@@ -95,7 +95,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                 {!loading && rfqList.length > 0 && (
                   <span className="title">
 
-                    {pageType == 0 && <>You have received {rfqList.length} Inquiries</>}
+                    {pageType == 0 && <>You have received { totalData } Inquiries</>}
                     {pageType == 1 && <>{rfqList.length} Latest Received Inquiries </>}
                   </span>
                 )}
@@ -116,6 +116,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                             <th>Reverse Auction</th>
                             <th>RFQ Status</th>
                             <th>Action</th>
+                            <th>Query</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -148,6 +149,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                               <th>Reverse Auction</th>
                               <th>RFQ Status</th>
                               <th>Action</th>
+                              <th>Query</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -212,6 +214,14 @@ const InquiriesReceived = ({ pageType = 0 }) => {
 
                                         </Link>
                                       </span>
+                                    </td>
+                                    <td>
+                                      <Link
+                                        href={`/dashboard/vendor/query?rfq_id=${item?.id}&role=vendor`}
+                                        className={`page-link me-2 ${item.unseen_query_count!=0 && "text-danger"}`}
+                                      >
+                                        {item.unseen_query_count!=0 ? `View Queries (${item.unseen_query_count} New)` : "View Queries"}
+                                      </Link>
                                     </td>
                                   </tr>
                                 );
