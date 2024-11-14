@@ -144,9 +144,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
-  const handleSearchClick = () => {
-    setIsOpen(!isOpen);
-  };
+  // const handleSearchClick = () => {
+  //   setIsOpen(!isOpen);
+  // };
 
   useEffect(() => {
     getProfileDetails();
@@ -190,7 +190,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getProfileDetails = () => {
     setloading(true);
     getProfile().then((res) => {
-      setloading(true);
+      setloading(false);
       setuserProfile(res.data);
     });
   };
@@ -391,10 +391,21 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
   };
   const handleSearchChange = (e) => {
+    const searchValue = e.target.value;
+
+    if(searchValue.length > 0 && !isOpen){
+      setIsOpen(true);
+    }
+    if(searchValue.length === 0){
+      setIsOpen(false);
+    }
+    if(searchValue.length > 2){
+      getProducts(e.target.value);
+    }
     setSearch_key(e.target.value);
+    setProducts([]);
     setProductsList([]);
     setSearchCategories([]);
-    getProducts(e.target.value);
     setCat_id(null);
     setVendorName("");
     setIs_private(false);
@@ -607,7 +618,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         onFocus={handleSearchChange}
                         autoComplete="off"
                         value={search_key}
-                        onClick={handleSearchClick}
+                        // onClick={handleSearchClick}
                       />
                       {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
                       </div> */}
@@ -627,7 +638,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
+                          {!loading && search_key.length < 3 && search_key.length > 0 && (
+                            <p className="mb-0">Please enter at least 3 characters...</p>
+                          )}
+                          {!loading && search_key !== "" && search_key.length > 2 && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
@@ -999,7 +1013,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           clearVendorFilters();
                         }}
                       >
-                        <FontAwesomeIcon icon={faTimesCircle} /> Clear Filters
+                        <FontAwesomeIcon icon={faTimesCircle} /> clear
                       </Link>
                     )}
                   </div>
@@ -1327,16 +1341,21 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         {loading && <FullLoader />}
                         {!loading && vendors.length == 0 && 
                         (
-                          vendorName &&
+                          debouncedVendorName ?
                           <a
                             className="text-center pt-4"
                             href="/dashboard/buyer/vendor-management"
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            {`Add "${vendorName}" to you vendor list Immediately`}
+                            {`Add "${debouncedVendorName}" to your vendor list Immediately`}
                           </a>
-                        )
+                          :
+                          <h2 className="fs-5">
+                            <b>No Vendors Found</b>
+                          </h2>
+                      
+                      )
                         }
                         {vendors &&
                           vendors.map((item) => {
