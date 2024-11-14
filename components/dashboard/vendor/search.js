@@ -89,6 +89,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [showInsights, setShowInsights] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
+  const [is_private, setIs_private] = useState(false);
+  const [preferred_vendor, setPreferred_vendor] = useState(false);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -163,7 +165,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     selectedState,
     selectedCity,
     isLoggedIn,
-    debouncedVendorName // Use debouncedVendorName instead of vendorName
+    debouncedVendorName, // Use debouncedVendorName instead of vendorName,
+    is_private, // for private vendors list,
+    preferred_vendor // for preferred vendors list
   ]);
 
   useEffect(() => {
@@ -272,7 +276,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           approved_by: selectedVbaa,
           state: selectedState,
           city: selectedCity,
-          vendor_name: vendorName
+          vendor_name: vendorName,
+          is_private: is_private,
+          preferred_vendor: preferred_vendor,
         },
         "vendors"
       )
@@ -303,6 +309,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         cat_id,
         search_key: s_key,
         vendor_name: vendorName,
+        is_private: is_private,
+        preferred_vendor: preferred_vendor,
         // approved_by: selectedVbaa,
       },
       type
@@ -389,6 +397,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProducts(e.target.value);
     setCat_id(null);
     setVendorName("");
+    setIs_private(false);
+    setPreferred_vendor(false);
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -496,7 +506,35 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     storageInstance.setStorage("product_name", "all");
   }
 
+   // Options for the dropdown
+   const optionVendors = [
+    { value: 'is_private', label: 'Private Vendor' },
+    { value: 'preferred_vendor', label: 'Preferred Vendor' }
+  ];
 
+  // Handle selection changes to ensure only one filter is active at a time
+  const handleChange = (selectedOption) => {
+    if (selectedOption.value === 'is_private') {
+      setIs_private(true);
+      setPreferred_vendor(false);
+    } else if (selectedOption.value === 'preferred_vendor') {
+      setIs_private(false);
+      setPreferred_vendor(true);
+    }
+  };
+
+  // Generalized clear filter function to reset both filters
+  const clearVendorFilters = () => {
+    setIs_private(false);
+    setPreferred_vendor(false);
+  };
+
+  // Determine the selected option based on the state
+  const selectedOption = is_private
+    ? optionVendors[0]
+    : preferred_vendor
+    ? optionVendors[1]
+    : null;
 
   return (
     <>
@@ -942,6 +980,29 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="col-md-3">
                 <aside>
                   <h2 className="fs-5">Filter</h2>
+                  <div className="search-con-right-1">
+                    <p>Vendors</p>
+                    <Select 
+                      options={optionVendors} 
+                      onChange={handleChange} 
+                      placeholder="Choose a filter option"
+                      value={selectedOption} // Bind selected option to value prop
+                    />
+                    
+                    {/* Display clear link if any filter is active */}
+                    {(is_private || preferred_vendor) && (
+                      <Link
+                        href="#"
+                        className="clearFilter"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          clearVendorFilters();
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimesCircle} /> Clear Filters
+                      </Link>
+                    )}
+                  </div>
                   <div className="search-con-right-1">
                     <p>Location</p>
                     {selectedState != 0 && (
