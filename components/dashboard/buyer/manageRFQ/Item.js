@@ -56,7 +56,7 @@ const RFQItem = ({ data }) => {
       <tr>
         <td>
           <span className="d-block fw-semibold">{data?.rfq_no}</span>
-          {data?.project_name}
+          <span className="text-truncate">{data?.project_name}</span>
         </td>
         <td>{list_products()}</td>
         <td>{moment(data.timestamp).format("DD/MM/YYYY")}</td>
@@ -68,7 +68,7 @@ const RFQItem = ({ data }) => {
         <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
         <td>{data.status == 1 ? "Open" : "Closed"}</td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
-        <td className="d-flex align-items-center">
+        <td>
           <span>
             <Link
               href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
@@ -77,12 +77,22 @@ const RFQItem = ({ data }) => {
               View
             </Link>
           </span>
-          <span className="d-flex">
+        </td>
+        <td>
+            <Link
+              href={`/dashboard/buyer/query?rfq_id=${data?.id}&role=buyer`}
+              className={`page-link ${data.unseen_query_count!=0 && "text-danger"}`}
+            >
+              {data.unseen_query_count!=0 ? `View Queries (${data.unseen_query_count} New)` : "View Queries"}
+            </Link>
+        </td>
+        <td>  
+
             {data.vendors.length > 0 && (
               <button
                 type="button"
                 onClick={!isRecievedFromAll && handlereminder}
-                className={`page-link-btn border-0 ${isRecievedFromAll ? "btn disabled" : ""}`}
+                className={`page-link-btn border-0 py-3 my-3 ${isRecievedFromAll ? "btn disabled" : ""}`}
                 role="button"
                 disabled={isRecievedFromAll}
                 aria-disabled={isRecievedFromAll}
@@ -106,7 +116,7 @@ const RFQItem = ({ data }) => {
                 }
               </button>
             )}
-          </span>
+
         </td>
       </tr>
     </>

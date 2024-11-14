@@ -1,7 +1,6 @@
 import React from "react";
 import Head from "next/head";
-import QueryComponent from "@/components/dashboard/buyer/query-component";
-// import QuoteComparePage from "@/components/dashboard/buyer/quote-compare";
+import QueryComponent from "@/components/dashboard/buyer/QueryComponent";
 
 const Query = () => {
   return (

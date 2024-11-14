@@ -1229,7 +1229,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                     }`}
                                   onClick={handleBulkAddToRFQ}
                                 >
-                                  Add To All RFQs
+                                  Add Vendors To RFQ
                                 </Link>
                               )}
                               <Link
@@ -1239,7 +1239,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   : ``
                                   }`}
                               >
-                                View All RFQs{" "}
+                                View Current RFQ{" "}
                                 {rfqProductsFromStore.length > 0 && (
                                   <small style={{ display: "none" }}>
                                     ({rfqProductsFromStore.length}{" "}
