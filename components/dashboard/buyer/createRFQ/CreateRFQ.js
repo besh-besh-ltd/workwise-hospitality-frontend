@@ -62,12 +62,6 @@ const CreateRFQ = () => {
       })
   }
 
-  const setRFQProductsFromStore = () => {
-    let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
-    console.log("fpppp = ",fp);
-    setRfqProducts(fp);
-  };
-
   const getVendorApproveList = () => {
     setLoading(true);
     vendorApproveList().then((res) => {
