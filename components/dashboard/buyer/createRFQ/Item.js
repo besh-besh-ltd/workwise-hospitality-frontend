@@ -15,6 +15,7 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import AddClause from "./AddClause";
 
 const Item = ({ data, vendorApprovedList }) => {
   const dispatch = useDispatch();
@@ -36,6 +37,8 @@ const Item = ({ data, vendorApprovedList }) => {
   const [uploadedSpecFile, setuploadedSpecFile] = useState(data?.spec_file);
   const [uploadedDatasheetFile, setuploadedDatasheetFile] = useState(data?.datasheet_file);
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
+
+  const [isModelOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     data.spec.map((item) => {
@@ -205,6 +208,16 @@ const Item = ({ data, vendorApprovedList }) => {
     };
     dispatch(addRfqProduct(item));
   };
+
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  }
+
+
 
   return (
     <>
@@ -409,7 +422,15 @@ const Item = ({ data, vendorApprovedList }) => {
               <FontAwesomeIcon icon={faPlusCircle} /> Add variant
             </button>}
         </td>
+        <td>
+            <button className="upload" onClick={handleOpenModal}>
+              <FontAwesomeIcon icon={faPlusCircle} /> Add Clause
+            </button>
+        </td>
       </tr>
+      <div>
+        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} productName = {data?.name}/>}
+      </div>
     </>
   );
 };

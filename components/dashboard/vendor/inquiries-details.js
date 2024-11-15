@@ -509,6 +509,7 @@ const RfqManagementPreview = () => {
                               }
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
+                              <th>Technical Evaluation</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -603,6 +604,24 @@ const RfqManagementPreview = () => {
                                         ? <ReadMore content={item.comment} maxLength={70} textSmall={true} />
                                         : item.comment
                                       : "N/A"}
+                                  </td>
+                                  <td>
+                                  <a
+                                    href="/dashboard/vendor/technical-evaluation"
+                                    className="text-dark-blue"
+                                    style={{
+                                    fontSize: '0.8rem',
+                                    padding: '5px 10px',
+                                    display: 'inline-block',
+                                    border: 'none',
+                                    backgroundColor: 'lightblue',
+                                    color: 'darkblue',
+                                    textDecoration: 'none',
+                                    }}
+                                    
+                                  >
+                                    View Evaluation
+                                </a>
                                   </td>
                                   {type == "buyer-view" &&
                                     <td>

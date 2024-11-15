@@ -438,13 +438,13 @@ const Header = () => {
 
                           <li
                             className={
-                              router.pathname == "/dashboard/buyer/subscription"
+                              router.pathname == "/dashboard/buyer/technical-evaluation"
                                 ? "active"
                                 : ""
                             }
                           >
-                            <Link href="/dashboard/buyer/subscription">
-                              Subscription
+                            <Link href="/dashboard/buyer/technical-evaluation">
+                              Technical Evaluation
                             </Link>
                           </li>
 
@@ -847,6 +847,20 @@ const Header = () => {
                             onClick={() => setPopoverVisible(false)}
                           >
                             Change Password
+                          </Link>
+                        </li>
+                        <li
+                          className={
+                            router.pathname == "/change-password"
+                              ? "active"
+                              : ""
+                          }
+                        >
+                          <Link
+                            href={`/dashboard/buyer/subscription`}
+                            onClick={() => setPopoverVisible(false)}
+                          >
+                            Subscription
                           </Link>
                         </li>
                         <li className="">
