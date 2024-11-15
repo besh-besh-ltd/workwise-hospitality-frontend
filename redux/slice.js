@@ -2,28 +2,25 @@ const { createSlice } = require("@reduxjs/toolkit");
 import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
-  swSubscription: null,
+  autoSave: false,
   allTerms: [],
+  rfq_id: -1,
   rfqProducts: [],
-  rfqVendors: [],
   rfqFormData: {
-    is_published: 1,
+    is_published: 0,
     comment: "",
     response_email: "",
     contact_name: "",
     contact_number: "",
     company_name: "",
+    terms: [],
     term_and_condition_files: [],
     bid_end_date: getFuturedate(),
     rfq_type: "",
     reverse_auction: 1,
     project_id: -1,
     location: "",
-  },
-  rfqObjData: {
-    terms: [],
-    ownTerm: "",
-  },
+  }
 };
 
 Array.prototype.insert = function (index, ...items) {
@@ -34,6 +31,19 @@ export const rfqProductsSlice = createSlice({
   name: "rfqProducts",
   initialState,
   reducers: {
+
+    intializeRfq: (state, action) => {
+      state.rfq_id = action.payload.rfq_id;
+      state.rfqFormData = action.payload.rfq_form_data;
+      state.rfqProducts = action.payload.rfq_products;
+      if(action.payload.rfq_products.length > 0)
+        state.autoSave = true;
+    },
+
+    clearState: (state, action) => {
+      state = initialState;
+    },
+
     addRfqProduct: (state, action) => {
       let data = {
         product_id: action.payload.product_id,
@@ -42,30 +52,16 @@ export const rfqProductsSlice = createSlice({
         name: action.payload.product_name,
         variant: action.payload.variant ? action.payload.variant : 0,
         spec: [
-          {
-            title: "Size",
-            value: "",
-          },
-          {
-            title: "Spec",
-            value: "",
-          },
-          {
-            title: "Quantity",
-            value: "",
-          },
-          {
-            title: "Unit",
-            value: "",
-          },
+          { title: "Size", value: "" },
+          { title: "Spec", value: "" },
+          { title: "Quantity", value: "" },
+          { title: "Unit", value: "" },
         ],
         vendors: [],
         comment: "",
         defaultSelectedVAB: "",
-        datasheet: "0",
         datasheet_file: [],
         spec_file: [],
-        qap: "0",
         qap_file: [],
         user_selected_predefined_tds: false,
         user_selected_predefined_qap: false,
@@ -87,50 +83,38 @@ export const rfqProductsSlice = createSlice({
       data.variant = maxVariant;
       data.vendors = action.payload.vendors || [];
       state.rfqProducts.push(data)
-
-      // if (true) {
-      //   // removing condition for varient integration [ranit 27-05-24] alreadyExistsProduct.length <= 0        
-      //   const maxVariantProduct = alreadyExistsProducts.reduce((max, product)=> {
-      //     return (product.variant > max.variant) ? product : max;
-      //   })
-
-      //   data.variant = maxVariantProduct.variant + 1;
-      //   data.vendors = action.payload?.vendors?.length > 0 ? action.payload?.vendors : [];
-      //   state.rfqProducts.push(data)
-      // }
     },
 
     removeRfqProduct: (state, action) => {
-
-      let remainingProducts = state.rfqProducts.filter((pitem) => {
-        if (
-          pitem.product_id == action.payload.product_id &&
-          pitem.variant == action.payload.variant
-        ) {
-
-        } else {
-          return pitem;
-        }
-      });
+      let remainingProducts = state.rfqProducts.filter(
+        (pitem) => !(pitem.product_id == action.payload.product_id && pitem.variant == action.payload.variant)
+      );
       state.rfqProducts = remainingProducts;
     },
 
     addProductSpecValue: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          if (item.spec.length > 0) {
-            item.spec.map((specItem) => {
-              if (specItem.title == action.payload.title) {
-                specItem.value = action.payload.value;
-              }
-              return specItem;
-            });
+          if (!item.spec) {
+            item.spec = [
+              { title: "Size", value: "" },
+              { title: "Spec", value: "" },
+              { title: "Quantity", value: "" },
+              { title: "Unit", value: "" },
+            ];
           }
+          item.spec.map((specItem) => {
+            if (specItem.title == action.payload.title) {
+              specItem.value = action.payload.value;
+            }
+            return specItem;
+          });
         }
         return item;
       });
       state.rfqProducts = d;
     },
+
     addFiles: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
@@ -140,6 +124,7 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
+
     removeFiles: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
@@ -149,7 +134,8 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
-    addComment: (state, action) => {
+
+    addProductComment: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
           item.comment = action.payload.value;
@@ -158,24 +144,7 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
-    addDatasheet: (state, action) => {
-      let d = state.rfqProducts.map((item) => {
-        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item.datasheet = action.payload.value;
-        }
-        return item;
-      });
-      state.rfqProducts = d;
-    },
-    addQAP: (state, action) => {
-      let d = state.rfqProducts.map((item) => {
-        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item.qap = action.payload.value;
-        }
-        return item;
-      });
-      state.rfqProducts = d;
-    },
+
     addVendor: (state, action) => {
       // Changes made by Imtiaj [31/08/2024]
       let alreadyExistsProducts = state.rfqProducts.filter(
@@ -216,20 +185,9 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
-    setRfqFormData: (state, action) => {
-      state.rfqFormData = action.payload;
-    },
-    clearState: (state, action) => {
-      state.rfqFormData = initialState.rfqFormData;
-      state.rfqProducts = initialState.rfqProducts;
-      state.rfqVendors = initialState.rfqVendors;
-    },
-    setSwSubscription: (state, action) => {
-      state.swSubscription = action.payload;
-    },
-    removeVendor: (state, action) => {
-      if (action?.payload?.product_id) {
 
+    removeVendor: (state, action) => {
+      if (action.payload?.product_id) {
         let updatedProducts = state.rfqProducts.map((product) => {
           if (product.product_id == action.payload.product_id && product.variant == action.payload.variant) {
             let v = product.vendors.filter((vendor) => vendor.user_id != action.payload.vendor_id);
@@ -240,6 +198,45 @@ export const rfqProductsSlice = createSlice({
         state.rfqProducts = updatedProducts;
       }
     },
+
+    setAllTerms: (state, action) => {
+      let updatedTerms = action.payload.map((termData) => {
+        let checked = state.rfqFormData.terms.some((item) => item.id == termData.id);
+        return { ...termData, selected: checked }
+      })
+      state.allTerms = updatedTerms;
+    },
+
+    setTermsData: (state, action) => {
+      let d = state.allTerms.map((termData) => {
+        let checked = action.payload.some((selectedTerm) => selectedTerm.id == termData.id);
+        termData.selected = checked;
+        return termData;
+      })
+      state.allTerms = d;
+      state.rfqFormData.terms = action.payload;
+    },
+
+    setTermFiles: (state, action) => {
+      let updatedTermFiles = [];
+      if (action.payload.type === "add") {
+        updatedTermFiles = [...state.rfqFormData.term_and_condition_files, action.payload.value]
+      }
+      else {
+        updatedTermFiles = state.rfqFormData.term_and_condition_files.filter((file) => file != action.payload.value);
+      }
+      state.rfqFormData.term_and_condition_files = updatedTermFiles;
+    },
+
+    setOtherFormFields: (state, action) => {
+      const { field_name, value } = action.payload;
+      state.rfqFormData[field_name] = value;
+    },
+
+    setSwSubscription: (state, action) => {
+      state.swSubscription = action.payload;
+    },
+
     setDefaultVAB: (state, action) => {
       if (action?.payload?.product_id) {
         let updatedProducts = state.rfqProducts.map((product) => {
@@ -252,28 +249,7 @@ export const rfqProductsSlice = createSlice({
         state.rfqProducts = updatedProducts;
       }
     },
-    setCustomTerms: (state, action) => {
-      state.rfqObjData.terms = action.payload;
-    },
-    setCustomTermsText: (state, action) => {
-      state.rfqObjData.ownTerm = action.payload;
-      state.rfqFormData.comment = action.payload
-    },
-    addCustomTermsFiles: (state, action) => {
-      state.rfqFormData.term_and_condition_files.push(action.payload.value);
-    },
-    removeCustomTermsFiles: (state, action) => {
-      let d = [];
-      d = state.rfqFormData.term_and_condition_files.filter((terms_file) => terms_file !== action.payload.value)
-      state.rfqFormData.term_and_condition_files = d;
-    },
-    setOtherFormFields: (state, action) => {
-      const { field_name, value } = action.payload;
-      state.rfqFormData[field_name] = value;
-    },
-    setAllTerms: (state, action) => {
-      state.allTerms = action.payload
-    },
+
     setUserSelectedDefaultFile: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
@@ -283,44 +259,37 @@ export const rfqProductsSlice = createSlice({
           } else {
             item.user_selected_predefined_qap = action.payload.is_selected;
           }
-          // if (item.spec.length > 0) {
-          //   item.spec.map((specItem) => {
-          //     if (specItem.title == action.payload.title) {
-          //       specItem.value = action.payload.value;
-          //     }
-          //     return specItem;
-          //   });
-          // }
         }
         return item;
       });
       state.rfqProducts = d;
     },
+
+    toggleAutoSave: (state, action) => {
+      state.autoSave = !state.autoSave
+    },
   },
 });
+
 export const {
+  intializeRfq,
+  clearState,
   addRfqProduct,
-  addProductSpec,
+  removeRfqProduct,
   addProductSpecValue,
   addFiles,
   removeFiles,
-  addComment,
-  addDatasheet,
+  addProductComment,
   addVendor,
-  setRfqFormData,
-  clearState,
-  addQAP,
-  removeRfqProduct,
-  setSwSubscription,
   removeVendor,
-  setDefaultVAB,
-  setCustomTerms,
-  addCustomTermsFiles,
-  removeCustomTermsFiles,
-  setCustomTermsText,
-  setOtherFormFields,
   setAllTerms,
-  setUserSelectedDefaultFile
+  setTermsData,
+  setTermFiles,
+  setOtherFormFields,
+  setSwSubscription,
+  setDefaultVAB,
+  setUserSelectedDefaultFile,
+  toggleAutoSave,
 } = rfqProductsSlice.actions;
 
 export default rfqProductsSlice.reducer;
