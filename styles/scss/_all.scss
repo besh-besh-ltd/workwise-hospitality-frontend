@@ -7534,3 +7534,22 @@ td:hover .tooltip_custom {
 .nopaddingtop {
   margin-top: 0 !important;
 }
+
+.small-size-heading{
+  background-color: #263843;
+  margin-top: 80px !important;
+  padding: 20px 0px !important;
+}
+
+.chat-messages {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.chat-box .chat-input input[type="file"] {
+  max-width: 100px;
+}
+
+.chat-box .message {
+  max-width: 70%;
+}

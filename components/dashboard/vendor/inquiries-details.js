@@ -432,44 +432,65 @@ const RfqManagementPreview = () => {
                     {/* Content for Manage RFQs tab */}
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
-                      {type == "buyer-view" &&
-                        ((rfqDetails.total_quotes_received > 0) ?
-                          <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary my-0"
-                              style={{ width: "260px" }}
-                            >
-                              Compare Received Quotes
-                            </button>
-                          </Link>
-                          :
-                          <button
-                            type="button"
-                            className="btn btn-primary my-0"
-                            style={{ width: "260px" }}
-                            disabled
-                          >
-                            No Quotes Received
-                          </button>
-                        )
 
-                      }
-                      {(rfqDetails.status == 1 && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
-                        ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                      <div>
+                        <Link
+                          href={{
+                            pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                            query: { 
+                              rfq_id: rfqDetails.id, 
+                              role: type === "buyer-view" ? "buyer" : "vendor",
+                            }
+                          }}
+                        >
                           <button
                             type="button"
-                            className="btn btn-secondary m-0"
-                            style={{ width: "240px" }}
+                            className="btn btn-secondary my-0"
+                            style={{ width: "260px" }}
                           >
-                            <>
-                              <FontAwesomeIcon icon={faEdit} className="me-2" />
-                              Update Your Quote
-                            </>
+                            View Queries {rfqDetails.unseen_query_count!=0 ? `(${rfqDetails.unseen_query_count} New)` : ""}
                           </button>
                         </Link>
-                        : null
-                      }
+
+                        {type == "buyer-view" &&
+                          ((rfqDetails.total_quotes_received > 0) ?
+                            <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary my-0"
+                                style={{ width: "260px" }}
+                              >
+                                Compare Received Quotes
+                              </button>
+                            </Link>
+                            :
+                            <button
+                              type="button"
+                              className="btn btn-primary my-0"
+                              style={{ width: "260px" }}
+                              disabled
+                            >
+                              No Quotes Received
+                            </button>
+                          )
+
+                        }
+                        {(rfqDetails.status == 1 && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
+                          ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary m-0"
+                              style={{ width: "240px" }}
+                            >
+                              <>
+                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                Update Your Quote
+                              </>
+                            </button>
+                          </Link>
+                          : null
+                        }
+                      </div>  
                     </div>
 
                     <div className="details-table">
@@ -761,7 +782,7 @@ const RfqManagementPreview = () => {
                                               )
                                             )
                                           ).format(
-                                            "DD/MM/YYYY - HH:mm:ss A"
+                                            "HH:mm A - DD/MM/YYYY"
                                           )}{" "}
                                         </h4>
 

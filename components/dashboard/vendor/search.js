@@ -375,6 +375,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setProductsList([]);
     setSearchCategories([]);
     getProducts(e.target.value);
+    setCat_id(null);
+    setVendorName("");
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -1209,14 +1211,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   className={`btn btn-primary ${!vendorMetaData.subscription || isLoading ? 'disabled' : ''}`}
                                   onClick={handleBulkAddToRFQ}
                                 >
-                                  {isLoading ? 'Adding...' : 'Add To All RFQs'}
+                                  {isLoading ? 'Adding...' : 'Add Vendors To RFQ'}
                                 </Link>
                               )}
                               <Link
                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
                                 className={`btn btn-primary ${!vendorMetaData.subscription ? `disabled` : ``}`}
                               >
-                                View All RFQs{" "}
+                                View Current RFQ{" "}
                                 {rfqProductsFromStore.length > 0 && (
                                   <small style={{ display: "none" }}>
                                     {`${rfqProductsFromStore.length} item${rfqProductsFromStore.length > 1 ? 's' : ''}`}
@@ -1236,7 +1238,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
-                        {!loading && vendors.length == 0 && (
+                        {!loading && vendors.length == 0 && 
+                        (
+                          vendorName &&
                           <a
                             className="text-center pt-4"
                             href="/dashboard/buyer/vendor-management"
@@ -1245,7 +1249,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           >
                             {`Add "${vendorName}" to you vendor list Immediately`}
                           </a>
-                        )}
+                        )
+                        }
                         {vendors &&
                           vendors.map((item) => {
                             return (
