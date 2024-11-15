@@ -177,7 +177,7 @@ const SendQuotePageComp = () => {
     if (alreadyQuoted) {
       let quote_id = rfqDetails.quotations[0].id;
       payload = { ...payload, products: quoteProducts };
-
+      
       setsubmitLoading(true);
       updateQuotation(quote_id, payload)
         .then((res) => {
@@ -200,16 +200,16 @@ const SendQuotePageComp = () => {
         }
       });
 
-      filteredquoteProducts.map((item) => {
-        if (item.total_price <= 0) {
-          isEmpty = true;
-        }
-      });
+      // filteredquoteProducts.map((item) => {
+      //   if (item.total_price <= 0) {
+      //     isEmpty = true;
+      //   }
+      // });
 
-      if (isEmpty) {
-        toast.error("One or more product's total amount is 0");
-        return;
-      }
+      // if (isEmpty) {
+      //   toast.error("One or more product's total amount is 0");
+      //   return;
+      // }
 
       payload = { ...payload, products: filteredquoteProducts };
 
