@@ -4,6 +4,7 @@ import VendorList from "./vendorList.js";
 import ChatBox from "./chatBox.js";
 import { listQueryMessages, listQueries, getRfqDetails } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
+
 const QueryComponent = () => {
   const router = useRouter();
   const { rfq_id, role } = router.query;
@@ -84,7 +85,7 @@ const QueryComponent = () => {
   }, [vendorName]);
 
   useEffect(() => {
-    if (role === "buyer" && debouncedVendorName) {
+    if (role === "buyer") {
       loadVendors(debouncedVendorName);
     }
   }, [rfq_id, debouncedVendorName]);
@@ -92,9 +93,6 @@ const QueryComponent = () => {
   useEffect(() => {
     if (rfq_id) {
       loadRfqDetails();
-      if (role === "buyer") {
-        loadVendors();
-      }
     }
   }, [rfq_id, role]);
 
@@ -112,18 +110,14 @@ const QueryComponent = () => {
       <div className="container-fluid">
         <div className="row">
           {role === "buyer" ? (
-            <div className="col-md-4 my-3"
-            >
-            {vendorsLoading ? (
-              <div className="hasFullLoader h-100"><FullLoader/></div>
-              ) : 
-              (<VendorList
+            <div className="col-md-4 my-3">
+              <VendorList
                 vendors={vendors}
                 onSelectVendor={handleSelectVendor}
                 vendorName={vendorName}
                 setVendorName={setVendorName}
-              />)
-            }  
+                loading={vendorsLoading}
+              />
             </div>
           ) : null}
           <div
@@ -133,10 +127,10 @@ const QueryComponent = () => {
             style={{ height: "65vh" }}
           >
             {messagesLoading ? (
-              <div className="hasFullLoader h-100"><FullLoader /></div>
-            ) :
-            (
-              selectedVendor ? (
+              <div className="hasFullLoader h-100">
+                <FullLoader />
+              </div>
+            ) : selectedVendor ? (
               <ChatBox
                 messages={messages}
                 vendor={selectedVendor}
@@ -145,7 +139,7 @@ const QueryComponent = () => {
               />
             ) : (
               <p>Select a vendor to view messages</p>
-            ))}
+            )}
           </div>
         </div>
       </div>
