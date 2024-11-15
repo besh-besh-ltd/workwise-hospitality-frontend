@@ -3,8 +3,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import VendorResponseTable from "@/components/dashboard/buyer/vendorResponseTable";
 import Loader from "@/components/shared/Loader";
-import PlaceholderLoading from "react-placeholder-loading";
-import * as XLSX from "xlsx-js-style";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 const CompareVendorResponse = () => {

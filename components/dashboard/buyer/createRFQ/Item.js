@@ -15,7 +15,7 @@ import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-
+import AddClause from "./AddClause";
 
 const Item = ({ data, vendorApprovedList }) => {
   const dispatch = useDispatch();
@@ -30,6 +30,7 @@ const Item = ({ data, vendorApprovedList }) => {
   
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
   const [comment, setComment] = useState(data?.comment);
+  const [isModelOpen,setIsModalOpen] = useState(false);
 
   
   useEffect(() => {

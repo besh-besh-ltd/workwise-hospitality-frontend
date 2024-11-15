@@ -265,6 +265,7 @@ const CreateRFQ = () => {
                               <th>Product Comments</th>
                               <th>Selected vendors</th>
                               <th>Action</th>
+                              <th>Technical Evaluation</th>
                             </tr>
                           </thead>
                           <tbody>
