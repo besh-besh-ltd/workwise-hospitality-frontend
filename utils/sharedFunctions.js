@@ -61,3 +61,33 @@ export const handleFileUpload = async (e) => {
         throw new Error("Unsupported file type. Please upload a PDF, Word, Image, or Excel document.");
     }
 };
+
+export const formatDate = (last_message_timestamp) => {
+    const now = new Date();
+    const lastMessageDate = new Date(last_message_timestamp);
+
+    const options = {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+    };
+
+    if (lastMessageDate.toDateString() === now.toDateString()) {
+        return lastMessageDate.toLocaleString("en-US", options);
+    }
+
+    if (lastMessageDate.getFullYear() === now.getFullYear()) {
+        return lastMessageDate.toLocaleString("en-US", {
+            ...options,
+            month: "short",
+            day: "numeric",
+        });
+    }
+
+    return lastMessageDate.toLocaleString("en-US", {
+        ...options,
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+};
