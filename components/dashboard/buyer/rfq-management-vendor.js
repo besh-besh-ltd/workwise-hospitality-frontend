@@ -1,38 +1,39 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { getVendorsByID } from "@/services/rfq";
-import Loader from "@/components/shared/Loader";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowLeft,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { removeVendor } from "@/redux/slice";
 import { toast } from "react-toastify";
+import { getVendorsByID, removeVendorFromDraft } from "@/services/rfq";
+import Loader from "@/components/shared/Loader";
 
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { vendors, productid, variant, type } = router.query;
+  const { productid, variant, type } = router.query;
+  
+  const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
+  const rfq_id = useSelector((data)=> data.rfq_id);
+  
   const [loading, setloading] = useState(false);
-  const [vendorsList, setvendors] = useState([]);
+  const [vendorList, setVendorList] = useState([]);
 
-  useEffect(() => {
-    if (vendors != "") {
-      getVendors();
-    }
-  }, [router]);
+  const vendorsRef = useRef([]);
+
 
   const getVendors = () => {
-    if (vendors) {
+    if (productItem?.vendors?.length > 0) {
       setloading(true);
-      getVendorsByID({ vendors: vendors.split(",") })
+      const vendorIds = productItem.vendors?.map((venItem) => venItem.user_id)
+      getVendorsByID({ vendors: vendorIds })
         .then((res) => {
           setloading(false);
-          setvendors(res.data);
+          setVendorList(res.data);
         })
         .catch((err) => {
           setloading(false);
@@ -41,9 +42,8 @@ const RfqManagementVendorPage = () => {
     }
   };
 
-  const handleRemoveVendor = (e, item) => {
+  const handleRemoveVendorFromStore = (e, item) => {
     e.preventDefault();
-
     dispatch(
       removeVendor({
         vendor_id: item.id,
@@ -51,11 +51,35 @@ const RfqManagementVendorPage = () => {
         variant
       })
     );
-    toast.success("Vendor removed from this product!");
-    const remVendors = vendorsList.filter((venItem) => venItem.id != item.id);
-    const newLink = `rfq-management-vendor?vendors=${remVendors.map((rVendor) => rVendor.id).join(",")}&productid=${productid}&variant=${variant}`;
-    router.push(newLink);
+    setVendorList(vendorList.filter((venItem)=> venItem.id != item.id));
+    vendorsRef.current.push(item.id);
   };
+
+  const saveDraftChanges = () => {
+    const payload = {
+      rfq_id,
+      product_id: productid,
+      variant,
+      vendor_ids: vendorsRef.current
+    }
+
+    removeVendorFromDraft(payload)
+      .then((res)=> {
+        toast.success(res.message)
+        vendorsRef.current = [];
+      })
+      .catch((error)=> {
+        console.log(error)
+        toast.error(error.message);
+      })
+  }
+
+  useEffect(() => {
+    getVendors();
+    return () => {
+      saveDraftChanges();
+    }
+  }, []);
 
   return (
     <>
@@ -64,6 +88,7 @@ const RfqManagementVendorPage = () => {
           <h1 className="heading"></h1>
         </div>
       </section>
+
       {loading && <Loader />}
 
       <section className="buyer-rfq-det-sec-1">
@@ -71,20 +96,11 @@ const RfqManagementVendorPage = () => {
           <div className="row">
             <div className="col-md-12">
               <div className="manage-rfq-con">
-                {/* Content for Manage RFQs tab */}
-                <span className="title">
-                  {" "}
-                  <Link
-                    href={`rfq-management?tab=${(type && type == "rfqVendorList") ? "rfqVendorList" : "create-rfq"}`}
-                    className="mr-4"
-                  >
-                    <FontAwesomeIcon icon={faArrowLeft} /> Back
-                  </Link>{" "}
-                  Vendors List
-                </span>
+
+                <span className="title">Vendors List</span>
 
                 <div className="details-table">
-                  {vendorsList && vendorsList.length > 0 && (
+                  {vendorList && vendorList.length > 0 && (
                     <>
                       <table className="table table-striped ">
                         <thead>
@@ -98,7 +114,7 @@ const RfqManagementVendorPage = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {vendorsList.map((item) => {
+                          {vendorList.map((item) => {
                             return (
                               <>
                                 <tr key={`vendor-${item.name}`}>
@@ -112,15 +128,13 @@ const RfqManagementVendorPage = () => {
                                   </td>
                                   <td>
                                     <p className="has_eclipes">
-                                      {item.products
-                                        .map((product) => product.name)
-                                        .join(",")}
+                                      {item.products?.map((product) => product.name).join(",")}
                                     </p>
                                   </td>
                                   <td>
                                     <span>
                                       <Link
-                                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item.id}&origin=create-rfq&vendors=${vendors}`}
+                                        href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item.id}&origin=create-rfq`}
                                         className="page-links"
                                       >
                                         <FontAwesomeIcon icon={faEye} />
@@ -131,10 +145,10 @@ const RfqManagementVendorPage = () => {
                                     {type != "rfqVendorList" && type != "buyer-view" &&
                                       <span>
                                         <Link
-                                          href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item.id}&origin=create-rfq&vendors=${vendors}`}
+                                          href="#"
                                           className="page-linkd remove-icon"
                                           onClick={(e) =>
-                                            handleRemoveVendor(e, item)
+                                            handleRemoveVendorFromStore(e, item)
                                           }
                                         >
                                           <FontAwesomeIcon icon={faTrash} />
@@ -148,15 +162,19 @@ const RfqManagementVendorPage = () => {
                           })}
                         </tbody>
                       </table>
-
-                      {/* <button
-                        type="submit"
-                        className="btn btn-secondary float-end"
-                      >
-                        Send Reminder for Quotation
-                      </button> */}
                     </>
                   )}
+                </div>
+
+                <div className="d-flex justify-content-end">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: "200px" }}
+                    onClick={saveDraftChanges}
+                  >
+                    Save Changes
+                  </button>
                 </div>
               </div>
             </div>

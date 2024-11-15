@@ -379,7 +379,7 @@ export default function Homepage() {
         <section className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg" aria-label="testimonials">
           <div className="container">
             <div className="home-sec-3-btm common-header">
-              <h2 class="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
+              <h2 className="fs-6" style={{ color: "var(--primary-color)", fontWeight: "500", margin: "0 0 15px", display: "flex", alignItems: "center" }}>
                 What Customers Say About Us
                 <span style={{ width: "48px", height: "3px", display: "block", backgroundColor: "var(--primary-color)", marginLeft: "10px" }}></span>
               </h2>
@@ -639,10 +639,10 @@ export default function Homepage() {
                         },
                       }}
                     >
-                      <div class="modal-header">
+                      <div className="modal-header">
                         <button
                           onClick={closeModal2}
-                          class="btn-close"
+                          className="btn-close"
                           aria-label="Close"
                         ></button>
                       </div>
