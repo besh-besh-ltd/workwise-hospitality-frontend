@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
-import { createRfq, getTerms, vendorApproveList } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -9,15 +9,13 @@ import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  addProductSpec,
+  intializeRfq,
   clearState,
-  setAllTerms,
-  setCustomTerms,
-  setCustomTermsText,
-  setRfqFormData,
+  toggleAutoSave,
   setOtherFormFields,
-  addCustomTermsFiles,
-  removeCustomTermsFiles
+  setTermsData,
+  setTermFiles,
+  setAllTerms,
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -32,39 +30,22 @@ const CreateRFQ = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
-  const [rfqProducts, setRfqProducts] = useState([]);
 
   const [userProfile, setuserProfile] = useState(null);
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
-
-  const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
-  const rfqFormData = useSelector((data) => data.rfqFormData);
-  const stateTerms = useSelector((data) => data.allTerms);
-  const allSelectedTermsFromState = useSelector((data) => data.rfqObjData.terms);
-  const [termFiles, setTermFiles] = useState(rfqFormData.term_and_condition_files);
-
-  const [terms, setTerms] = useState(stateTerms);
-  const [selectedTerms, setSelectedTerms] = useState(allSelectedTermsFromState);
   const [projects, setProjects] = useState([]);
+  const [rfqProducts, setRfqProducts] = useState([]);
 
-  useEffect(() => {
-    if (selectedTerms.length > 0) {
-      dispatch(setCustomTerms(selectedTerms));
-    }
-  }, [selectedTerms]);
+  const rfqDetails = useSelector((data) => data.rfq_id);
+  const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
+  const rfqFormDataFromStore = useSelector((data) => data.rfqFormData);
+  const allTerms = useSelector((data) => data.allTerms);
+  const selectedTerms = useSelector((data) => data.rfqFormData.terms);
+  const termFiles = useSelector((data) => data.rfqFormData.term_and_condition_files);
+  const autoSave = useSelector((data) => data.autoSave);
 
-  useEffect(() => {
-    setRFQProductsFromStore();
-  }, [rfqProductsFromStore]);
-
-  useEffect(() => {
-    getProfileDetails();
-    setRFQProductsFromStore();
-    getVendorApproveList();
-    getAllProjects();
-    if (stateTerms.length == 0)
-      getTermsData();
-  }, []);
+  const rfqProductsRef = useRef([]);
+  const rfqFormDataRef = useRef({});
 
 
   const getAllProjects = () => {
@@ -80,12 +61,6 @@ const CreateRFQ = () => {
         console.log(error)
       })
   }
-
-  const setRFQProductsFromStore = () => {
-    let fp = rfqProductsFromStore.filter((item) => item.vendors.length > 0);
-    console.log("fpppp = ",fp);
-    setRfqProducts(fp);
-  };
 
   const getVendorApproveList = () => {
     setLoading(true);
@@ -104,14 +79,8 @@ const CreateRFQ = () => {
   };
 
   const getTermsData = () => {
-    // setTerms(stateTerms);
     getTerms()
       .then((res) => {
-        setTerms(res.data);
-        const terms = res.data?.map((item) => {
-          return { id: item.id };
-        })
-        setSelectedTerms(terms);
         dispatch(setAllTerms(res.data));
       })
       .catch((err) => {
@@ -119,66 +88,14 @@ const CreateRFQ = () => {
       });
   };
 
-  const gotoAddMoreProducts = () => {
-    router.push("/vendor/all");
-  };
-  const handleGotoPreferredVendors = () => {
-    router.push("/vendors");
-  };
-  const handleCreateRFQ = (values, resetForm) => {
-    setMainLoading(true);
-
-    //router.push('/dashboard/buyer/rfq-management-preview')
-    let payload = {
-      ...values,
-      term_and_condition_files: termFiles,
-      products: rfqProductsFromStore,
-      terms: selectedTerms,
-      reverse_auction: parseInt(values.reverse_auction)
-    };
-
-    createRfq(payload)
-      .then((res) => {
-        setMainLoading(false);
-        dispatch(setRfqFormData(values));
-        toast.success(
-          <h6>
-            <b>RFQ #{res.data.rfq_no}:</b> Successfully created!
-          </h6>,
-          {
-            position: "top-right",
-          }
-        );
-        resetForm();
-        dispatch(clearState());
-        router.push("/dashboard/buyer/rfq-management?tab=manage-rfq");
-      })
-      .catch((err) => {
-        setMainLoading(false);
-      });
-  };
-
-  const handleProductSpec = (specItems, product_id) => {
-    dispatch(addProductSpec({ specItems, product_id }));
-  };
-
-  const handleClickTerms = (e, item) => {
+  const handleTermChange = (e, item) => {
+    let updatedTerms = [];
     if (e.target.checked) {
-      setSelectedTerms((oldArray) => [...oldArray, { id: item.id }]);
+      updatedTerms = [...selectedTerms, { id: item.id }];
     } else {
-      let p = selectedTerms.filter((term) => term.id != item.id);
-      setSelectedTerms(p);
+      updatedTerms = selectedTerms.filter((termItem) => termItem.id != item.id)
     }
-  };
-
-  const handleChange = (e) => {
-    dispatch(setCustomTermsText(e.target.value));
-  };
-  const isAlreadySelected = (id) => {
-    if (allSelectedTermsFromState.length > 0) {
-      let isItThere = allSelectedTermsFromState.filter((item) => item.id == id);
-      return isItThere.length > 0;
-    }
+    dispatch(setTermsData(updatedTerms));
   };
 
   const handleFormFieldChange = (e) => {
@@ -186,43 +103,121 @@ const CreateRFQ = () => {
     dispatch(setOtherFormFields({ field_name: name, value }));
   }
 
+  const handleTermFiles = async (type, dynamicParam) => {
+    if (type === "add") {
+      try {
+        const filePath = await handleFileUpload(dynamicParam);
+        dispatch(setTermFiles({ type, value: filePath }))
 
-  const uploadToServer = async (e) => {
-    try {
-      const filePath = await handleFileUpload(e);
-      setTermFiles((prevFiles) => ([
-        ...prevFiles,
-        filePath
-      ]));
-
-      dispatch(
-        addCustomTermsFiles({
-          value: filePath
-        })
-      );
-
-    } catch (error) {
-      let message = error.message;
-      toast.error(message);
+      } catch (error) {
+        let message = error.message;
+        toast.error(message);
+      }
+    } else {
+      dispatch(setTermFiles({ type, value: dynamicParam }))
     }
   };
 
-  const handleRemoveFile = (fileItem) => {
-    dispatch(
-      removeCustomTermsFiles({
-        value: fileItem,
+  const handleCreateRFQ = (resetForm) => {
+    setMainLoading(true);
+
+    let payload = {
+      rfq_id: rfqDetails,
+      products: rfqProductsRef.current,
+      ...rfqFormDataRef.current,
+    };
+
+    createRfq(payload)
+      .then((res) => {
+        setMainLoading(false);
+        toast.success(
+          <h6>
+            <b>RFQ #{res.data.rfq_no}:</b> Successfully created!
+          </h6>,
+          { position: "top-right" }
+        );
+        dispatch(clearState());
+        rfqProductsRef.current = [];
+        rfqFormDataRef.current = {};
+        resetForm();
+        router.push("/dashboard/buyer/rfq-management?tab=manage-rfq");
       })
-    );
-    let updatedTermsFiles = termFiles.filter((term_file) => term_file !== fileItem);
-    setTermFiles(updatedTermsFiles)
+      .catch((err) => {
+        setMainLoading(false);
+      });
+  };
+
+  const handleSaveDraft = () => {
+    setMainLoading(true);
+
+    const payload = {
+      ...rfqFormDataRef.current,
+      products: rfqProductsRef.current,
+      is_published: 0, // Set as draft
+    };
+
+    saveDraft(payload)
+      .then((res) => {
+        setMainLoading(false);
+        toast.success(
+          <h6>
+            <b>RFQ Draft #{res.message?.rfq_id}:</b> Changes saved successfully!
+          </h6>,
+          { position: "top-right" }
+        );
+      })
+      .catch((err) => {
+        console.log(err)
+        setMainLoading(false);
+        toast.error("Failed to save draft. Please try again.");
+      });
+  };
+
+  const getDraftInitialData = async () => {
+    dispatch(clearState());
+    try {
+      const draftRes = await getDraftData();
+      dispatch(intializeRfq(draftRes.data));
+
+      if (allTerms.length == 0)
+        getTermsData();
+
+    } catch (error) {
+      console.log(error)
+    }
   }
+
+  useEffect(() => {
+    getProfileDetails();
+    getVendorApproveList();
+    getAllProjects();
+    getDraftInitialData();
+
+    return () => {
+      if (autoSave)
+        handleSaveDraft();
+    };
+  }, []);
+
+  useEffect(() => {
+    const validProducts = rfqProductsFromStore.filter(
+      (prodItem) => prodItem.vendors.length > 0);
+    setRfqProducts(validProducts);
+    rfqProductsRef.current = validProducts;
+  }, [rfqProductsFromStore])
+
+  useEffect(() => {
+    rfqFormDataRef.current = rfqFormDataFromStore;
+  }, [rfqFormDataFromStore]);
+
 
   return (
     <>
       {mainLoading && <Loader />}
       <div className="create-rfq-con">
-        {/* Content for Create RFQs tab */}
-        {userProfile && !userProfile?.subscription_plan_id && (
+
+        {/* If no active subscription is found */}
+        {(userProfile && !userProfile?.subscription_plan_id) ? (
           <div class="subscription_required">
             <span>
               You need to purchase subscription to perform this action
@@ -253,7 +248,6 @@ const CreateRFQ = () => {
                     <th>Product Comments</th>
                     <th>Selected vendors</th>
                     <th>Action</th>
-                    <th>Technical Evaluation</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -292,251 +286,270 @@ const CreateRFQ = () => {
                   <div className="col-md-8 createR-ffq-1">
                     <h4>Suggested Terms</h4>
 
-                    <ol className="custom-ol">
-                      {terms.map((item) => {
-                        return (
-                          <li key={`term-item-${item.id}`}>
-                            <input
-                              onClick={(e) => handleClickTerms(e, item)}
-                              type="checkbox"
-                              id={`term-item-${item.id}`}
-                              checked={isAlreadySelected(item.id)}
-                            />
-                            <label htmlFor={`term-item-${item.id}`}>
-                              {item?.term_content}
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </div>
-                )}
+                              <ol className="custom-ol">
+                                {allTerms.map((item) => {
+                                  return (
+                                    <li key={`term-item-${item.id}`}>
+                                      <input
+                                        type="checkbox"
+                                        id={`term-item-${item.id}`}
+                                        checked={item.selected}
+                                        onChange={(e) => handleTermChange(e, item)}
+                                      />
+                                      <label htmlFor={`term-item-${item.id}`}>
+                                        {item?.term_content}
+                                      </label>
+                                    </li>
+                                  );
+                                })}
+                              </ol>
+                            </div>
+                          )}
 
-                <div className="col-md-8 createR-ffq-2">
-                  <Formik
-                    enableReinitialize={true}
-                    validateOnMount={true}
-                    initialValues={{
-                      is_published: rfqFormData.is_published,
-                      comment: rfqFormData.comment,
-                      response_email: rfqFormData.response_email
-                        ? rfqFormData.response_email
-                        : userProfile?.email,
-                      contact_name: rfqFormData.contact_name
-                        ? rfqFormData.contact_name
-                        : userProfile?.name,
-                      contact_number: rfqFormData.contact_number
-                        ? rfqFormData.contact_number
-                        : userProfile?.mobile,
-                      company_name: userProfile?.organization_name
-                        || userProfile?.name
-                        || rfqFormData?.company_name,
-                      bid_end_date: rfqFormData.bid_end_date,
-                      rfq_type: rfqFormData.rfq_type,
-                      reverse_auction: rfqFormData.reverse_auction,
-                      project_id: rfqFormData.project_id,
-                      location: rfqFormData.location
-                    }}
-                    validationSchema={CreateRFQSchema}
-                    onSubmit={(values, { resetForm }) =>
-                      handleCreateRFQ(values, resetForm)
-                    }
-                  >
-                    {({ errors, touched, isValid }) => (
-                      <Form className="add-your-term-form">
-                        <FormikField
-                          label="Add your own terms"
-                          placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
-                          type="textarea"
-                          rows="5"
-                          name="comment"
-                          touched={touched}
-                          errors={errors}
-                          enableHandleChange={true}
-                          handleChange={handleChange}
-                        />
+                          {/* Other Form Field Section */}
+                          <div className="col-md-8 createR-ffq-2">
+                            <Formik
+                              enableReinitialize={true}
+                              validateOnMount={true}
+                              initialValues={{
+                                is_published: rfqFormDataFromStore.is_published,
+                                comment: rfqFormDataFromStore.comment,
+                                response_email: rfqFormDataFromStore.response_email,
+                                contact_name: rfqFormDataFromStore.contact_name,
+                                contact_number: rfqFormDataFromStore.contact_number,
+                                company_name: rfqFormDataFromStore.company_name,
+                                bid_end_date: rfqFormDataFromStore.bid_end_date,
+                                rfq_type: rfqFormDataFromStore.rfq_type,
+                                reverse_auction: rfqFormDataFromStore.reverse_auction,
+                                project_id: rfqFormDataFromStore.project_id,
+                                location: rfqFormDataFromStore.location
+                              }}
+                              validationSchema={CreateRFQSchema}
+                              onSubmit={(values, { resetForm }) =>
+                                handleCreateRFQ(values, resetForm)
+                              }
+                            >
+                              {({ errors, touched, isValid }) => (
+                                <Form className="add-your-term-form">
+                                  <FormikField
+                                    label="Add your own terms"
+                                    placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
+                                    type="textarea"
+                                    rows="5"
+                                    name="comment"
+                                    touched={touched}
+                                    errors={errors}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                  />
 
-                        <div className="row mt-2">
-                          <div className="custom-file">
-                            <label htmlFor="customFile" className="custom-file-label">
-                              Upload Your Terms (Optional)
-                            </label>
-                            <input
-                              type="file"
-                              accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                              className="custom-file-input"
-                              id="customFile"
-                              multiple
-                              onChange={uploadToServer}
-                            />
-                            {termFiles.length > 0 && (
-                              <div className="row mt-2">
-                                {termFiles.map((term_file) => (
-                                  <div key={term_file} className="col-md-6 col-lg-4">
-                                    <a href={term_file} target="_blank" className="file-badge mb-2" type="button" >
-                                      <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file)}</span>
-                                      <FontAwesomeIcon
-                                        icon={faClose}
-                                        fontSize={15}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          handleRemoveFile(term_file)
-                                        }} />
-                                    </a>
+                                  <div className="row mt-2">
+                                    <div className="custom-file">
+                                      <label htmlFor="customFile" className="custom-file-label">
+                                        Upload Your Terms (Optional)
+                                      </label>
+                                      <input
+                                        type="file"
+                                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                        className="custom-file-input"
+                                        id="customFile"
+                                        multiple
+                                        onChange={(e) => handleTermFiles("add", e)}
+                                      />
+                                      {termFiles.length > 0 && (
+                                        <div className="row mt-2">
+                                          {termFiles.map((term_file) => (
+                                            <div key={term_file} className="col-md-6 col-lg-4">
+                                              <a href={term_file} target="_blank" className="file-badge mb-2" type="button" >
+                                                <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file)}</span>
+                                                <FontAwesomeIcon
+                                                  icon={faClose}
+                                                  fontSize={15}
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handleTermFiles("remove", term_file)
+                                                  }} />
+                                              </a>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
 
+                                  <div className="row mt-2">
+                                    <div className="col-md-6">
+                                      <FormikField
+                                        label="Email"
+                                        value={rfqFormDataFromStore.response_email}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="email"
+                                        isRequired={true}
+                                        name="response_email"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-6">
+                                      <FormikField
+                                        label="Contact person"
+                                        value={rfqFormDataFromStore.contact_name}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="text"
+                                        isRequired={true}
+                                        name="contact_name"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-6">
+                                      <FormikField
+                                        label="Contact Number"
+                                        value={rfqFormDataFromStore.contact_number}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="text"
+                                        isRequired={true}
+                                        name="contact_number"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-6">
+                                      <FormikField
+                                        label="Company Name"
+                                        value={rfqFormDataFromStore.company_name}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="text"
+                                        isRequired={true}
+                                        name="company_name"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="row mb-2">
+                                    <div className="col-md-4">
+                                      <FormikField
+                                        label="Bid end date"
+                                        value={rfqFormDataFromStore.bid_end_date}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="date"
+                                        isRequired={true}
+                                        name="bid_end_date"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-4">
+                                      <FormikField
+                                        label="RFQ Type"
+                                        value={rfqFormDataFromStore.rfq_type}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="select"
+                                        selectOptions={[
+                                          { label: "Select RFQ Type", value: '' },
+                                          { label: "Budgetary", value: 'budgetary' },
+                                          { label: "Firm", value: 'firm' }
+                                        ]}
+                                        isRequired={false}
+                                        name="rfq_type"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-4">
+                                      <FormikField
+                                        label="Reverse Auction"
+                                        value={rfqFormDataFromStore.reverse_auction}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="select"
+                                        selectOptions={[
+                                          { label: "Enable", value: 1 },
+                                          { label: "Disable", value: 0 }
+                                        ]}
+                                        isRequired={true}
+                                        name="reverse_auction"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-4">
+                                      <FormikField
+                                        label="Project Name"
+                                        value={rfqFormDataFromStore.project_id}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="select"
+                                        selectOptions={[
+                                          { label: "Select Project", value: -1 },
+                                          ...projects
+                                        ]}
+                                        isRequired={false}
+                                        name="project_id"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                    <div className="col-md-8">
+                                      <FormikField
+                                        label="Delivery location"
+                                        value={rfqFormDataFromStore.location}
+                                        enableHandleChange={true}
+                                        handleChange={handleFormFieldChange}
+                                        type="text"
+                                        isRequired={false}
+                                        name="location"
+                                        touched={touched}
+                                        errors={errors}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="submit"
+                                    className="btn btn-secondary mt-2 me-3"
+                                    disabled={!isValid}
+                                  >
+                                    Create RFQ
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary mt-2"
+                                    onClick={handleSaveDraft}
+                                    disabled={!isValid}
+                                  >
+                                    Save Changes
+                                  </button>
+
+                                </Form>
+                              )}
+                            </Formik>
+                            <p className="mt-2">
+                              This action will send RFQs to all selected vendors for the
+                              relevant product.
+                            </p>
+                          </div>
                         </div>
-
-                        <div className="row mt-2">
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Email"
-                              type="email"
-                              isRequired={true}
-                              name="response_email"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Contact person"
-                              type="text"
-                              isRequired={true}
-                              name="contact_name"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Contact Number"
-                              type="text"
-                              isRequired={true}
-                              name="contact_number"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Company Name"
-                              type="text"
-                              isRequired={true}
-                              name="company_name"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="row mb-2">
-                          <div className="col-md-4">
-                            <FormikField
-                              label="Bid end date"
-                              value={rfqFormData.bid_end_date}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
-                              type="date"
-                              isRequired={true}
-                              name="bid_end_date"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-4">
-                            <FormikField
-                              label="RFQ Type"
-                              value={rfqFormData.rfq_type}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
-                              type="select"
-                              selectOptions={[
-                                { label: "Select RFQ Type", value: '' },
-                                { label: "Budgetary", value: 'budgetary' },
-                                { label: "Firm", value: 'firm' }
-                              ]}
-                              isRequired={false}
-                              name="rfq_type"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-4">
-                            <FormikField
-                              label="Reverse Auction"
-                              value={rfqFormData.reverse_auction}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
-                              type="select"
-                              selectOptions={[
-                                { label: "Enable", value: 1 },
-                                { label: "Disable", value: 0 }
-                              ]}
-                              isRequired={true}
-                              name="reverse_auction"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-4">
-                            <FormikField
-                              label="Project Name"
-                              value={rfqFormData.project_id}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
-                              type="select"
-                              selectOptions={[
-                                { label: "Select Project", value: -1 },
-                                ...projects
-                              ]}
-                              isRequired={false}
-                              name="project_id"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-8">
-                            <FormikField
-                              label="Delivery location"
-                              value={rfqFormData.location}
-                              enableHandleChange={true}
-                              handleChange={handleFormFieldChange}
-                              type="text"
-                              isRequired={false}
-                              name="location"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="btn btn-secondary mt-2"
-                          //onClick={handlePreviewButtonClick}
-                          disabled={!isValid}
-                        >
-                          Create RFQ
-                        </button>
-                      </Form>
-                    )}
-                  </Formik>
-                  <p className="mt-2">
-                    This action will send RFQs to all selected vendors for the
-                    relevant product.
-                  </p>
-                </div>
+                      </div>
+                    </>
+                  )}                  
               </div>
-            </div>
+            </>
           )}
       </div>
     </>
   );
 };
+
 
 export default CreateRFQ;
