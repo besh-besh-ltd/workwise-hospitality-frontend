@@ -387,6 +387,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setProductsList([]);
     setSearchCategories([]);
     getProducts(e.target.value);
+    setCat_id(null);
+    setVendorName("");
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -1262,7 +1264,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
-                        {!loading && vendors.length == 0 && (
+                        {!loading && vendors.length == 0 && 
+                        (
+                          vendorName &&
                           <a
                             className="text-center pt-4"
                             href="/dashboard/buyer/vendor-management"
@@ -1271,7 +1275,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           >
                             {`Add "${vendorName}" to you vendor list Immediately`}
                           </a>
-                        )}
+                        )
+                        }
                         {vendors &&
                           vendors.map((item) => {
                             return (
