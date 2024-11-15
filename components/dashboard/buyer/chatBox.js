@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState([]);
-
+  const [sendButtonLoading, setSendButtonLoading] = useState(false);
   const latestMessageRef = useRef(null);
 
   useEffect(() => {
@@ -35,32 +35,37 @@ const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
   };
 
   const handleSendMessage = async () => {
+    setSendButtonLoading(true);
+  
     if (!messageText) {
-      toast.error("Message text can't be empty!", {
-        position: "top-right",
-      });
+      toast.error("Message text can't be empty!", { position: "top-right" });
+      setSendButtonLoading(false);
       return;
     }
-
+  
     const formData = new FormData();
     formData.append("message_text", messageText);
     formData.append("rfq_id", rfq_id);
     formData.append("receiver_id", vendor.user_id);
-    files.forEach((fileObj) => {
-      formData.append("files", fileObj.file);
-    });
-
+    files.forEach((fileObj) => formData.append("files", fileObj.file));
+  
     try {
       const response = await sendQueryMessage(formData);
-      if (response.status == 1) {
+      if (response.status === 1) {
         onMessageSent();
         setMessageText("");
         setFiles([]);
+      } else {
+        toast.error("Failed to send message. Please try again.", { position: "top-right" });
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      toast.error("An error occurred while sending the message.", { position: "top-right" });
+    } finally {
+      setSendButtonLoading(false);
     }
   };
+  
 
   return (
     <div className="d-flex flex-column h-100">
@@ -177,8 +182,12 @@ const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
           placeholder="Type a message..."
         />
 
-        <button className="btn btn-secondary p-2" onClick={handleSendMessage}>
-          Send
+        <button 
+          className="btn btn-secondary p-2" 
+          onClick={handleSendMessage} 
+          disabled={sendButtonLoading}
+        >
+          {sendButtonLoading ? "Sending..." : "Send"}
         </button>
       </div>
     </div>
