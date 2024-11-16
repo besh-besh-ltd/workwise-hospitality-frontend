@@ -18,9 +18,11 @@ const VendorManagement = () => {
 
     const [openAddVendorModal, setOpenAddVendorModal] = useState(false);
 
-    const handleAddVendor = (values, resetForm) => {
-        setLoading(true);
+    const handleAddVendor = (values, productDetails, resetForm) => {
+        // setLoading(true);
         let payload = values;
+        payload.productDetails = productDetails;
+    
         setOpenAddVendorModal(false);
         
         addPrivateVendor(payload)
