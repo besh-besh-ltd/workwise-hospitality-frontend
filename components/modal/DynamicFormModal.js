@@ -218,14 +218,25 @@ const DynamicFormModal = ({
         }
 
         const handleSingleProductAdd = () => {
+            // Check if the product already exists in productDetails
+            const isDuplicate = vendorProductDetails.some(
+                (product) => product.master_id === currentProduct?.master_id
+            );
+        
+            if (isDuplicate) {
+                toast.error("This product is already added.", { position: "top-right" });
+                return; // Exit the function to prevent adding duplicate products
+            }
+        
+            // Add the product if it does not already exist
             setProductDetails((prevState) => [
                 ...prevState,
                 currentProduct
-            ])
-            setCurrentProduct(null)
-            setSelectedProduct(null)
-            setSelectedApprovedBy([])
-        }
+            ]);
+            setCurrentProduct(null);
+            setSelectedProduct(null);
+            setSelectedApprovedBy([]);
+        };
 
         useEffect(() => {
             getVendorApproveList();
@@ -233,9 +244,21 @@ const DynamicFormModal = ({
         }, [])
 
         const handleSubmit = (values,resetForm) => {
+
+            if(currentProduct){
+                toast.error("Plese Add the selected Product first", { position: "top-right" });
+                return;
+            }
+
             handleAddVendor(values,vendorProductDetails,resetForm);
             closeModal();
         }
+
+        const removeSelectedVendor = (prodItem) => {
+            setProductDetails((prevState) =>
+                prevState.filter((item) => item.master_id !== prodItem.master_id)
+            );
+        };
 
     return (
         <>
@@ -413,7 +436,6 @@ const DynamicFormModal = ({
                                                     //     )}
                                                     // </div>
                                                     <div className="form-group">
-                                                            {console.log(selectedProduct,productLoading)}
                                                             <div className="col-md-10 mb-2">
                                                                 <div className="mb-2">
                                                                     <label>Search Product</label>
@@ -425,10 +447,16 @@ const DynamicFormModal = ({
                                                                         styles={customStyles}
                                                                         isLoading={productLoading}
                                                                         onInputChange={debounceGetVendorProductList}
-                                                                        onChange={handleSelectChange}
+                                                                        onChange={(selectedOption) => {
+                                                                            handleSelectChange(selectedOption, { name: "product" });
+                                                                            // Handle clearing of selection
+                                                                            if (!selectedOption) {
+                                                                                setSelectedProduct(null); // Clear selectedProduct state
+                                                                            }
+                                                                        }}
                                                                         placeholder={vendorProductsList.length===0 ? "Please write at least 3 characters..." : "Search or select an option..."}
-                                                                        isClearable
                                                                         isSearchable
+                                                                        isClearable
                                                                     />
                                                                 </div>
                                                                 <div className="mb-2">
@@ -442,10 +470,10 @@ const DynamicFormModal = ({
                                                                         isMulti
                                                                     />
                                                                 </div>
-                                                                    {currentProduct && <div className="d-flex justify-content-between"> <span className="badge bg-danger p-2">{currentProduct.name}</span>
+                                                                    {currentProduct && 
+                                                                    <div className="d-flex flex-wrap"> <span className="badge bg-danger p-2 me-2 d-flex align-items-center gap-2">{currentProduct.name}</span>
                                                                     <button type="button" className="btn btn-primary btn-sm ms-auto" onClick={handleSingleProductAdd}>Add</button>
-                                                                    </div>
-                                                                    }
+                                                                    </div>}
                                                             </div>
                         
                                                             {vendorProductDetails.length > 0 && (
@@ -455,7 +483,7 @@ const DynamicFormModal = ({
                                                                         {vendorProductDetails.map((prodItem) => (
                                                                             <div key={prodItem.master_id} className="badge bg-success p-2 me-2 d-flex align-items-center gap-2">
                                                                                 {prodItem.name}
-                                                                                <FontAwesomeIcon icon={faClose} fontSize={14} />
+                                                                                <FontAwesomeIcon icon={faClose} onClick={()=> removeSelectedVendor(prodItem)} fontSize={14} />
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -464,7 +492,6 @@ const DynamicFormModal = ({
                                                             {touched.vendorProductDetails && errors.vendorProductDetails && (
                                                             <div className="form-error">{errors.vendorProductDetails}</div>
                                                             )}
-                                                            {console.log("....... ",isValid,errors,touched)}
                                                         </div>
 
 
