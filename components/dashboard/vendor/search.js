@@ -1318,7 +1318,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           debouncedVendorName ?
                           <a
                             className="text-center pt-4"
-                            href="/dashboard/buyer/vendor-management"
+                            href="/dashboard/buyer/vendor-management/?newVendor=true"
                             target="_blank"
                             rel="noopener noreferrer"
                           >
