@@ -69,6 +69,8 @@ const ManageRFQ = () => {
                     <th>Status</th>
                     <th>Reverse Auction</th>
                     <th>Action</th>
+                    <th>Query</th>
+                    <th>Remind Vendors To Send Quote</th>
                   </tr>
                 </thead>
                 <tbody>

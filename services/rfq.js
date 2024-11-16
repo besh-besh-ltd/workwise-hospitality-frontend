@@ -70,7 +70,6 @@ export const categoryListById = (values) => {
 };
 
 export const createRfq = (values) => {
-
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/create`, values);
@@ -80,6 +79,50 @@ export const createRfq = (values) => {
     }
   });
 };
+
+export const getDraftData = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/draft`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const saveDraft = (values) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/save-draft`, values);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const addProductToDraft = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.post(`/rfq/add-product-to-draft`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });  
+};
+
+export const removeVendorFromDraft = (payload) => {
+  return new Promise(async (resolve, reject)=> {
+    try {
+      const response = await axiosInstance.post(`/rfq/remove-vendor-from-draft`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }    
+  })
+}
 
 export const getRFQS = (payload) => {
   return new Promise(async (resolve, reject) => {
@@ -247,7 +290,49 @@ export const provideReview = (payload) => {
   });
 };
 
+export const getRfqDetails = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-details`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
 
+export const sendQueryMessage = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosFormData.post(`/rfq/send-query-message`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const listQueryMessages = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/list-query-messages`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const listQueries = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/list-queries`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
 
 
 
