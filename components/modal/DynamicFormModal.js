@@ -246,7 +246,7 @@ const DynamicFormModal = ({
         const handleSubmit = (values,resetForm) => {
 
             if(currentProduct){
-                toast.error("Plese Add the selected Product first", { position: "top-right" });
+                toast.error("Please Add/Remove The Selected Product First!", { position: "top-right" });
                 return;
             }
 
@@ -471,8 +471,8 @@ const DynamicFormModal = ({
                                                                     />
                                                                 </div>
                                                                     {currentProduct && 
-                                                                    <div className="d-flex flex-wrap"> <span className="badge bg-danger p-2 me-2 d-flex align-items-center gap-2">{currentProduct.name}</span>
-                                                                    <button type="button" className="btn btn-primary btn-sm ms-auto" onClick={handleSingleProductAdd}>Add</button>
+                                                                    <div className="d-flex flex-wrap"> <span className="badge bg-danger p-2 me-2 d-flex align-items-center gap-2">{currentProduct.name}<FontAwesomeIcon icon={faClose} onClick={()=> setCurrentProduct(null)} fontSize={14} /></span>
+                                                                    <button type="button" className="btn btn-primary btn-sm ms-auto" onClick={handleSingleProductAdd}>Add Product</button>
                                                                     </div>}
                                                             </div>
                         
