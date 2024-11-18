@@ -20,6 +20,7 @@ const VendorManagement = () => {
 
     const [openAddVendorModal, setOpenAddVendorModal] = useState(false);
 
+
     useEffect(() => {
         const { newVendor } = router.query;
     
@@ -32,7 +33,10 @@ const VendorManagement = () => {
 
     const handleAddVendor = (values, resetForm) => {
         setLoading(true);
+      
         let payload = values;
+        payload.productDetails = productDetails;
+    
         setOpenAddVendorModal(false);
         
         addPrivateVendor(payload)
@@ -99,10 +103,10 @@ const VendorManagement = () => {
                                                     >
                                                         Add Single Vendor
                                                     </button>
-                                                    <Link 
+                                                    {/* <Link 
                                                         href={`./vendor-management/bulk-vendors`}
                                                         className="btn btn-secondary"
-                                                    >Add Bulk Vendors</Link>
+                                                    >Add Bulk Vendors</Link> */}
                                                 </div>
 
                                                 {/* 
