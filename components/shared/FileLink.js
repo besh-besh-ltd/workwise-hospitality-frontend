@@ -4,7 +4,7 @@ import { faDownload } from '@fortawesome/free-solid-svg-icons';
 import { extractfileName } from '@/utils/sharedFunctions';
 
 
-const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", RemoveFile, FileType }) => {    
+const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", RemoveFile, FileType = '', showDownload = true }) => {    
 
     return (
         <div className="row">
@@ -19,7 +19,7 @@ const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", Remov
                                 className={`text-sm text-decoration-underline text-truncate fw-medium ${Class}`}
                                 style={{ ...Style }}
                             >
-                                <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                {showDownload && <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />}
                                 {extractfileName(file)}
                             </a>
                             {RemoveFile && (

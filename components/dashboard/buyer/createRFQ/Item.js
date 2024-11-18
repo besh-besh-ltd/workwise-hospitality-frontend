@@ -209,8 +209,6 @@ const Item = ({ data, vendorApprovedList }) => {
     setIsModalOpen(false);
   }
 
-
-
   return (
     <>
       <tr key={`rfqpp_${data?.product_id}_${data?.variant}`}>
@@ -401,8 +399,6 @@ const Item = ({ data, vendorApprovedList }) => {
             >
               View selected vendors ({selectedVendors.length})
             </Link>
-
-            {/* <button className="upload">Select vendors</button> */}
           </span>
         </td>
         <td>

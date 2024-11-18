@@ -1,7 +1,6 @@
 import React from "react";
 import Head from "next/head";
-import CompareVendorResponse from "@/components/dashboard/buyer/vendor-response";
-// import QuoteComparePage from "@/components/dashboard/buyer/quote-compare";
+import CompareVendorResponse from "@/components/dashboard/buyer/technical-evaluation/vendor-response";
 
 const TechEvaluation = () => {
     return (
