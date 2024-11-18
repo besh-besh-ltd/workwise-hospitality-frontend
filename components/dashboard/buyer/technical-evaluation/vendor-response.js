@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import VendorResponseTable from "@/components/dashboard/buyer/vendorResponseTable";
 import Loader from "@/components/shared/Loader";
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import VendorResponseTable from "../../vendor/technical-evaluation/vendorResponseTable";
+
+
 const CompareVendorResponse = () => {
   const router = useRouter();
   const { rfq } = router.query;
@@ -32,7 +32,7 @@ const CompareVendorResponse = () => {
     setShowVendorSelection(!showVendorSelection);
   };
 
-  const vendorList = ["vendor 1","vendor 2","vendor 3"];
+  const vendorList = ["vendor 1", "vendor 2", "vendor 3"];
 
   const handleVendorSelect = (vendorIndex) => {
     setSelectedVendor(vendorList[vendorIndex]);
@@ -47,7 +47,7 @@ const CompareVendorResponse = () => {
             <div className="col-md-6">
               <h3 className="heading">Compare Received Vendor Responses</h3>
             </div>
-            
+
           </div>
         </div>
       </section>
@@ -123,7 +123,7 @@ const CompareVendorResponse = () => {
                               <li key={index}>
                                 <a
                                   className="dropdown-item pointer"
-                                  style={{cursor:'pointer'}}
+                                  style={{ cursor: 'pointer' }}
                                   onClick={() => handleVendorSelect(index)}
                                 >
                                   {vendor}
@@ -173,7 +173,7 @@ const CompareVendorResponse = () => {
                     </div>
 
                     {/* Display the table with selected vendor name */}
-                    {selectedVendor && <VendorResponseTable  vendorName={selectedVendor} id="buyer"/>}
+                    {selectedVendor && <VendorResponseTable vendorName={selectedVendor} id="buyer" />}
                   </div>
                 </div>
               </div>

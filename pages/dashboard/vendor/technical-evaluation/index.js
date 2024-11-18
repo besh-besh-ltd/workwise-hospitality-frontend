@@ -1,15 +1,15 @@
 import React from "react";
 import Head from "next/head";
-import CompareVendorResponseTable from "@/components/dashboard/buyer/vendorResponseTable";
-// import QuoteComparePage from "@/components/dashboard/buyer/quote-compare";
+import CompareVendorResponseTable from "@/components/dashboard/vendor/technical-evaluation/vendorResponseTable";
+
 
 const TechEvaluation = () => {
     return (
         <>
-            {/* <Head>
+            <Head>
                 <title>Workwise | Technicial Evaluation Vendor</title>
-            </Head> */}
-            <CompareVendorResponseTable vendorName={"vendor 1"} id="vendor"/>
+            </Head>
+            <CompareVendorResponseTable type={"vendor"} />
         </>
     )
 }

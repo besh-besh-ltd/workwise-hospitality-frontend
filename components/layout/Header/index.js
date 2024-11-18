@@ -375,6 +375,20 @@ const Header = () => {
                               Reviews & Ratings
                             </Link>
                           </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/vendor/technical-evaluation"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/vendor/technical-evaluation">
+                              Technical Evaluation
+                            </Link>
+                          </li>
+
                           <li
                             className={
                               router.pathname == "/change-password"
@@ -786,7 +800,7 @@ const Header = () => {
                           </li>
                         )}
                         {currentUserType == "buyer" && (
-                          <>                            
+                          <>
                             <li
                               className={
                                 router.pathname ==
