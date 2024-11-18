@@ -25,6 +25,7 @@ const VendorManagement = () => {
     
         setOpenAddVendorModal(false);
         
+        
         addPrivateVendor(payload)
             .then((res) => {
                 toast.success(res.message, { position: "top-right", });
