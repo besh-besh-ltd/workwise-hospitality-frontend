@@ -15,7 +15,7 @@ import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-
+import AddClause from "./AddClause";
 
 const Item = ({ data, vendorApprovedList }) => {
   const dispatch = useDispatch();
@@ -30,6 +30,7 @@ const Item = ({ data, vendorApprovedList }) => {
   
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
   const [comment, setComment] = useState(data?.comment);
+  const [isModelOpen,setIsModalOpen] = useState(false);
 
   
   useEffect(() => {
@@ -199,6 +200,16 @@ const Item = ({ data, vendorApprovedList }) => {
     };
     dispatch(addRfqProduct(item));
   };
+
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  }
+
+
 
   return (
     <>
@@ -403,7 +414,15 @@ const Item = ({ data, vendorApprovedList }) => {
               <FontAwesomeIcon icon={faPlusCircle} /> Add variant
             </button>}
         </td>
+        <td>
+            <button className="upload" onClick={handleOpenModal}>
+              <FontAwesomeIcon icon={faPlusCircle} /> Add Clause
+            </button>
+        </td>
       </tr>
+      <div>
+        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} productName = {data?.name}/>}
+      </div>
     </>
   );
 };
