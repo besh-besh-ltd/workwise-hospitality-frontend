@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowLeft,
-  faClose,
   faMagnifyingGlass,
   faPlus,
   faWandMagicSparkles,
@@ -11,7 +9,7 @@ import {
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
 import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -87,6 +85,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
   const [showInsights, setShowInsights] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
 
@@ -191,72 +190,61 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
-  const addToRFQ = (item) => {
-    if (currentSelectedProduct.product_id == tempProdRef.current?.product_id) {
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-    } else {
-      dispatch(addRfqProduct(currentSelectedProduct));
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-      tempProdRef.current = currentSelectedProduct;
+  const canAddItem = () => {
+    if (!vendorMetaData.logged_In) {
+      setOpenAuthModal(true);
+      return false;
+    } else if (!vendorMetaData.subscription) {
+      router.push('dashboard/buyer/subscription');
+      return false;
     }
+    return true;
+  }
+
+  const addToRFQ = async (selected, item) => {
+    if (!canAddItem()) return;
+
+    vendors.map((venItem)=> {
+      if(venItem.id == item.id)
+        venItem.selected = selected
+      return venItem;
+    })
+
+    let d = vendors.filter((item)=> item.selected)
+    setbulkRFQVendors(d);
   };
 
-  const handleBulkAddToRFQ = (e) => {
+  const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
+    if (!canAddItem()) return;
 
-    if (currentSelectedProduct.product_id != tempProdRef.current?.product_id)
-      dispatch(addRfqProduct(currentSelectedProduct));
+    try {
+      setIsLoading(true);
 
-    if (bulkRFQVendors.length > 0) {
-      bulkRFQVendors.map((item) => {
-        dispatch(
-          addVendor({
-            product_id: currentSelectedProduct.product_id,
-            id: item.id,
-            name: item.name,
-          })
-        );
-      });
+      const payload = {
+        product_id: currentSelectedProduct.product_id,
+        vendors: bulkRFQVendors.map(vendor => ({
+          vendor_id: vendor.id
+        }))
+      };
+
+      await addProductToDraft(payload);
       toast.success(
         <h6>
-          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ
-          list!
+          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ list!
         </h6>,
-        {
-          position: "top-right",
-        }
+        { position: "top-right" }
       );
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendors to RFQ. Please try again.</h6>,
+        { position: "top-right" }
+      );
+    } finally {
+      setIsLoading(false);
     }
-    tempProdRef.current = currentSelectedProduct;
   };
+
   const getVendors = () => {
     setloading(true);
     setVendors([]);
@@ -387,6 +375,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setProductsList([]);
     setSearchCategories([]);
     getProducts(e.target.value);
+    setCat_id(null);
+    setVendorName("");
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -400,7 +390,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
       setbulkRFQVendors(d);
     } else {
-      let d = items.map((item) => {
+      items.map((item) => {
         item.selected = false;
         return item;
       });
@@ -422,9 +412,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Update the URL to include the selected product's slug
-    // const newUrl = `/vendor/${item.slug}`;
     router.push(`/vendor/${item.slug}`);
-    // window.history.pushState(null, null, newUrl);
     storageInstance.setStorage("product_name", slug);
   };
 
@@ -1201,10 +1189,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {/* </div> */}
                         </div>
                       </div>
-
                     }
-
-
 
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
@@ -1223,29 +1208,20 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
-                                  className={`btn btn-primary ${!vendorMetaData.subscription
-                                    ? `disabled`
-                                    : ``
-                                    }`}
+                                  className={`btn btn-primary ${!vendorMetaData.subscription || isLoading ? 'disabled' : ''}`}
                                   onClick={handleBulkAddToRFQ}
                                 >
-                                  Add Vendors To RFQ
+                                  {isLoading ? 'Adding...' : 'Add Vendors To RFQ'}
                                 </Link>
                               )}
                               <Link
                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                className={`btn btn-primary ${!vendorMetaData.subscription
-                                  ? `disabled`
-                                  : ``
-                                  }`}
+                                className={`btn btn-primary ${!vendorMetaData.subscription ? `disabled` : ``}`}
                               >
                                 View Current RFQ{" "}
                                 {rfqProductsFromStore.length > 0 && (
                                   <small style={{ display: "none" }}>
-                                    ({rfqProductsFromStore.length}{" "}
-                                    {`item${rfqProductsFromStore.length > 1 ? "s" : ""
-                                      }`}
-                                    )
+                                    {`${rfqProductsFromStore.length} item${rfqProductsFromStore.length > 1 ? 's' : ''}`}
                                   </small>
                                 )}
                               </Link>
@@ -1262,7 +1238,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
-                        {!loading && vendors.length == 0 && (
+                        {!loading && vendors.length == 0 && 
+                        (
+                          vendorName &&
                           <a
                             className="text-center pt-4"
                             href="/dashboard/buyer/vendor-management"
@@ -1271,15 +1249,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           >
                             {`Add "${vendorName}" to you vendor list Immediately`}
                           </a>
-                        )}
+                        )
+                        }
                         {vendors &&
                           vendors.map((item) => {
                             return (
                               <SearchItem
-                                handleRemoveCurrentSelected={handleRemoveCurrentSelected}
-                                currentSelectedProduct={currentSelectedProduct}
-                                setbulkRFQVendors={setbulkRFQVendors}
-                                bulkRFQVendors={bulkRFQVendors}
                                 type={"vendors"}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
@@ -1292,7 +1267,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                       {!loading && (!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
-                          {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
                           <button
                             type="button"
                             className="btn btn-primary w-50"

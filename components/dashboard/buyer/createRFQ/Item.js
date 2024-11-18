@@ -1,5 +1,9 @@
+import React, { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import Link from "next/link";
+import { toast } from "react-toastify";
 import {
-  addComment,
+  addProductComment,
   addFiles,
   addProductSpecValue,
   addRfqProduct,
@@ -11,34 +15,25 @@ import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Link from "next/link";
-import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { toast } from "react-toastify";
+
 
 const Item = ({ data, vendorApprovedList }) => {
   const dispatch = useDispatch();
-  const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const [specSize, setspecSize] = useState("");
   const [specSpec, setspecSpec] = useState("");
   const [quantity, setquantity] = useState("");
   const [unit, setUnit] = useState("");
 
-  const [comment, setComment] = useState(data?.comment);
-  const [datasheet, setDatasheet] = useState(
-    data?.datasheet != "0" ? data?.datasheet : data.defaultSelectedVAB
-  );
-  const [qap, setQAP] = useState(
-    data?.qap != "0" ? data?.qap : data.defaultSelectedVAB
-  );
-
   const [uploadedQapFile, setuploadedQapFile] = useState(data?.qap_file);
   const [uploadedSpecFile, setuploadedSpecFile] = useState(data?.spec_file);
   const [uploadedDatasheetFile, setuploadedDatasheetFile] = useState(data?.datasheet_file);
+  
   const [selectedVendors, setselectedVendors] = useState(data?.vendors);
+  const [comment, setComment] = useState(data?.comment);
 
+  
   useEffect(() => {
-    data.spec.map((item) => {
+    data.spec?.map((item) => {
       switch (item.title) {
         case 'Size':
           setspecSize(item.value);
@@ -59,7 +54,6 @@ const Item = ({ data, vendorApprovedList }) => {
   }, []);
 
   const handleSelectDefaultTDSQAPFile = (e, type, data) => {
-
     dispatch(setUserSelectedDefaultFile({
       file_type: type,
       is_selected: e.target.checked,
@@ -180,10 +174,10 @@ const Item = ({ data, vendorApprovedList }) => {
     }
   }
 
-  const handleAddComment = (e) => {
+  const handleaddProductComment = (e) => {
     setComment(e.target.value);
     dispatch(
-      addComment({
+      addProductComment({
         value: e.target.value,
         product_id: data.product_id,
         variant: data.variant
@@ -208,7 +202,7 @@ const Item = ({ data, vendorApprovedList }) => {
 
   return (
     <>
-      <tr>
+      <tr key={`rfqpp_${data?.product_id}_${data?.variant}`}>
         <td>{data?.name}</td>
         <td >
           <div className="d-flex flex-column justify-content-center align-items-center">
@@ -385,13 +379,13 @@ const Item = ({ data, vendorApprovedList }) => {
             value={comment}
             placeholder="Add Comments..."
             className="item_comment"
-            onChange={handleAddComment}
+            onChange={handleaddProductComment}
           />
         </td>
         <td>
           <span>
             <Link
-              href={`rfq-management-vendor?vendors=${selectedVendors.map((approved) => approved.user_id).join(",")}&productid=${data.product_id}&variant=${data.variant}`}
+              href={`rfq-management-vendor?productid=${data.product_id}&variant=${data.variant}`}
               className="page-link"
             >
               View selected vendors ({selectedVendors.length})
