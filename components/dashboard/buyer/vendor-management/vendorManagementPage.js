@@ -31,14 +31,36 @@ const VendorManagement = () => {
       }, [router.query]);
 
 
-    const handleAddVendor = (values, resetForm) => {
-        setLoading(true);
+    // const handleAddVendor = (values, resetForm) => {
+    //     setLoading(true);
       
+    //     let payload = values;
+    //     payload.productDetails = productDetails;
+    
+    //     setOpenAddVendorModal(false);
+        
+        
+    //     addPrivateVendor(payload)
+    //         .then((res) => {
+    //             toast.success(res.message, { position: "top-right", });
+    //             getPrivateVendorList();
+    //         })
+    //         .catch((error) => {
+    //             toast.error(error.message?.response?.data?.message, { position: "top-right", });
+    //             console.log(error)
+    //         })
+    //         .finally(() => {
+    //             resetForm();
+    //             setLoading(false);
+    //         })
+    // }
+
+    const handleAddVendor = (values, productDetails, resetForm) => {
+        // setLoading(true);
         let payload = values;
         payload.productDetails = productDetails;
     
         setOpenAddVendorModal(false);
-        
         
         addPrivateVendor(payload)
             .then((res) => {
@@ -54,7 +76,7 @@ const VendorManagement = () => {
                 setLoading(false);
             })
     }
-
+    
     const getPrivateVendorList = async () => {
         setLoading(true);
         privateVendorList(limit, page)
