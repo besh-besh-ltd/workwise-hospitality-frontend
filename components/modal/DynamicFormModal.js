@@ -1,8 +1,38 @@
-import React from 'react'
+import React, { useCallback, useEffect, useState } from 'react';
 import Modal from "react-modal";
 import { Field, Form, Formik } from "formik";
 import * as yup from "yup";
+import Select, { components } from 'react-select';
+import { categoryList, vendorApproveList } from "@/services/rfq";
+import {
+    addProducts,
+    approvedProductList,
+    productDetails,
+  } from "@/services/products";
+import { faClose } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { toast, ToastContainer } from 'react-toastify';
 
+// Custom styles for Product Select Component
+const customStyles = {
+    option: (provided, state) => ({
+        ...provided,
+        marginBottom: '1px solid #000',
+        color: state.isSelected ? '#0d6efd' : '#212529',
+        backgroundColor: state.isSelected ? '#f0f0f0' : provided.backgroundColor,
+    }),
+};
+
+// Modified Select Component to show category along with Product Name
+const CustomSelectOption = (props) => (
+    <components.Option {...props}>
+        <div>
+            {props.data.label}
+            <br />
+            <small>{props.data.categories}</small>
+        </div>
+    </components.Option>
+);
 
 const DynamicFormModal = ({
     type,
@@ -18,7 +48,6 @@ const DynamicFormModal = ({
         vendorName: "",
         email: "",
         phone: "",
-        productList: "",
         is_private: 0
     };
 
@@ -28,6 +57,15 @@ const DynamicFormModal = ({
         location: projectData?.location || "",
         ended_at: projectData?.ended_at?.slice(0, 10) || "",
     }
+
+    const [vendorApprovedList, setVendorApprovedList] = useState([]);
+    const [vendorProductsList, setVendorProductsList] = useState([]);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [productLoading, setProductLoading] = useState(false);
+    const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
+    const [currentProduct, setCurrentProduct] = useState(null);
+    const [vendorProductDetails, setProductDetails] = useState([]);
+
 
     const validateVendorSchema = yup.object().shape({
         vendorName: yup.string().required("Name is required")
@@ -46,9 +84,7 @@ const DynamicFormModal = ({
             )
             .min(10, "Min 10 digit is required")
             .max(12, "Mobile number not more than 11 digit long")
-            .required("Mobile number is required"),
-        productList: yup.string().required("product List is Required")
-            .min(2, "product Name not less than 2 characters short")
+            .required("Mobile number is required")
     });
 
     const validateProjectSchema = yup.object().shape({
@@ -59,6 +95,170 @@ const DynamicFormModal = ({
         location: yup.string(),
         ended_at: yup.date()
     });
+
+    // for product related
+
+    // Function to fetch vendor approved-by list
+    const getVendorApproveList = () => {
+        vendorApproveList().then((res) => {
+          let lists = res.data.map((s) => ({
+            label: s.vendor_approve,
+            value: s.id,
+          }));
+          setVendorApprovedList(lists);
+        })
+          .catch((error) => {
+            console.log(error)
+          });
+      };
+
+     // Function to format product data along with it's categories 
+     const formatGroupedData = (groupedData) => {
+        return Object.values(groupedData).flatMap(items =>
+            items.map(item => ({
+                value: item.id,
+                label: item.name,
+                categories: item.product_categories.map(cat => cat.category_name).join(" | ")
+            }))
+        );
+    }
+
+    const groupBySlug = (data) => {
+        const groupedData = data.reduce((acc, item) => {
+            const slug = item.slug;
+            if (!acc[slug]) acc[slug] = [];
+
+            const isUnique = !acc[slug].some((existingItem) =>
+                JSON.stringify(existingItem.product_categories) === JSON.stringify(item.product_categories)
+            );
+            if (isUnique) acc[slug].push(item);
+            return acc;
+        }, {});
+        return formatGroupedData(groupedData);
+    }
+
+     // Search Product Function
+  const getVendorProductList = useCallback((search_key) => {
+
+    if(search_key.length > 2){
+        setProductLoading(true);
+        approvedProductList(20, 1, search_key)
+        .then((res) => {
+            const product_options = groupBySlug(res.data);
+            setVendorProductsList(product_options);
+          })
+          .catch((error) => {
+            console.log(error);
+          })
+          .finally(() => setProductLoading(false));
+    }
+
+  }, []);
+
+
+    // Debouncing the search product API call for 300ms
+    const debounceGetVendorProductList = useCallback(
+        (inputValue) => {
+            const debounceTimeout = 500;
+            clearTimeout(window.debounceTimer);
+            window.debounceTimer = setTimeout(() => {
+                getVendorProductList(inputValue);
+            }, debounceTimeout);
+        },
+        [getVendorProductList]
+    );
+
+    const getProductDetails = (selectedOption, id) => {
+        if (!id) return;
+        productDetails(id)
+            .then((res) => {
+                const prodItem = {
+                    master_id: res.data.id || '',
+                    name: res.data.name || '',
+                    description: res.data.description,
+                    status: 1,
+                    approved_id: [],
+                    approved_name: [],
+                    categories: res.data.product_categories?.map((data) => data.id)
+                }
+                setCurrentProduct(prodItem);
+                setSelectedProduct(selectedOption);
+                setSelectedApprovedBy([]);
+            })
+            .catch((error) => {
+                console.log(error);
+            });
+    };
+
+
+        // Function to add product/approved-by in FormData
+        const handleSelectChange = (selectedOption, { name }) => {
+            if (name === "product") {
+                const prodId = selectedOption?.value || null;
+                if (prodId) getProductDetails(selectedOption, prodId);
+            } else {
+                if (!currentProduct) {
+                    toast.error("Please Choose a Product First.", {position: "top-right"})
+                } else {
+                    let approved_ids = [];
+                    let approved_names = [];
+                    selectedOption.map((option) => {
+                        approved_ids.push(option.value)
+                        approved_names.push(option.label)
+                    })
+    
+                    setSelectedApprovedBy(selectedOption);
+                    setCurrentProduct((prevState) => ({
+                        ...prevState,
+                        approved_id: approved_ids,
+                        approved_name: approved_names
+                    }))
+                }
+            }
+        }
+
+        const handleSingleProductAdd = () => {
+            // Check if the product already exists in productDetails
+            const isDuplicate = vendorProductDetails.some(
+                (product) => product.master_id === currentProduct?.master_id
+            );
+        
+            if (isDuplicate) {
+                toast.error("This product is already added.", { position: "top-right" });
+                return; // Exit the function to prevent adding duplicate products
+            }
+        
+            // Add the product if it does not already exist
+            setProductDetails((prevState) => [
+                ...prevState,
+                currentProduct
+            ]);
+            setCurrentProduct(null);
+            setSelectedProduct(null);
+            setSelectedApprovedBy([]);
+        };
+
+        useEffect(() => {
+            getVendorApproveList();
+            // getVendorProductList();
+        }, [])
+
+        const handleSubmit = (values,resetForm) => {
+
+            if(currentProduct){
+                toast.error("Please Add/Remove The Selected Product First!", { position: "top-right" });
+                return;
+            }
+
+            handleAddVendor(values,vendorProductDetails,resetForm);
+            closeModal();
+        }
+
+        const removeSelectedVendor = (prodItem) => {
+            setProductDetails((prevState) =>
+                prevState.filter((item) => item.master_id !== prodItem.master_id)
+            );
+        };
 
     return (
         <>
@@ -108,13 +308,13 @@ const DynamicFormModal = ({
                                     validationSchema={type === "add-vendor" ? validateVendorSchema : validateProjectSchema}
                                     onSubmit={(values, { resetForm }) => {
                                         type === "add-vendor"
-                                            ? handleAddVendor(values, resetForm)
+                                            ? handleSubmit(values, resetForm)
                                             : type === "create-project"
                                                 ? handleCreateProject(values, resetForm)
                                                 : handleEditProject(values, resetForm)
                                     }}
                                 >
-                                    {({ errors, isValid, touched }) => (
+                                    {({ errors, isValid, touched,setFieldValue }) => (
                                         <Form className="row add-vendor-modal-form">
                                             <div className="col-md-6">
                                                 {type === "add-vendor"
@@ -163,6 +363,10 @@ const DynamicFormModal = ({
                                                                 as="select"
                                                                 name="is_private"
                                                                 className={`form-control ${touched.is_private && errors.is_private ? 'is-invalid' : ''}`}  
+                                                                onChange={(e) => {
+                                                                    // Cast the value to a number and manually set the field value
+                                                                    setFieldValue("is_private", Number(e.target.value));
+                                                                }}
                                                             >
                                                                 <option value={0}>Public</option>
                                                                 <option value={1}>Private</option>
@@ -217,18 +421,81 @@ const DynamicFormModal = ({
                                             <div className="col-md-6">
                                                 {type === "add-vendor"
                                                     ?
+                                                    // Here we have to add product dropdown
+
+                                                    // <div className="form-group">
+                                                    //     <label htmlFor="productList">Product List <sup>*</sup></label>
+                                                    //     <Field
+                                                    //         component="textarea"
+                                                    //         id="productList"
+                                                    //         name="productList"
+                                                    //         placeholder="Brass Binding Wire, Ceramic Marble..."
+                                                    //     />
+                                                    //     {touched.productList && errors.productList && (
+                                                    //         <div className="form-error">{errors.productList}</div>
+                                                    //     )}
+                                                    // </div>
                                                     <div className="form-group">
-                                                        <label htmlFor="productList">Product List <sup>*</sup></label>
-                                                        <Field
-                                                            component="textarea"
-                                                            id="productList"
-                                                            name="productList"
-                                                            placeholder="Brass Binding Wire, Ceramic Marble..."
-                                                        />
-                                                        {touched.productList && errors.productList && (
-                                                            <div className="form-error">{errors.productList}</div>
-                                                        )}
-                                                    </div>
+                                                            <div className="col-md-10 mb-2">
+                                                                <div className="mb-2">
+                                                                    <label>Search Product</label>
+                                                                    <Select
+                                                                        name="product"
+                                                                        options={vendorProductsList}
+                                                                        value={selectedProduct}
+                                                                        components={{ Option: CustomSelectOption }}
+                                                                        styles={customStyles}
+                                                                        isLoading={productLoading}
+                                                                        onInputChange={debounceGetVendorProductList}
+                                                                        onChange={(selectedOption) => {
+                                                                            handleSelectChange(selectedOption, { name: "product" });
+                                                                            // Handle clearing of selection
+                                                                            if (!selectedOption) {
+                                                                                setSelectedProduct(null); // Clear selectedProduct state
+                                                                            }
+                                                                        }}
+                                                                        placeholder={vendorProductsList.length===0 ? "Please write at least 3 characters..." : "Search or select an option..."}
+                                                                        isSearchable
+                                                                        isClearable
+                                                                    />
+                                                                </div>
+                                                                <div className="mb-2">
+                                                                    <label>Approved By</label>
+                                                                    <Select
+                                                                        name="approvedBy"
+                                                                        options={vendorApprovedList}
+                                                                        value={selectedApprovedBy}
+                                                                        placeholder="Select Approved By"
+                                                                        onChange={handleSelectChange}
+                                                                        isMulti
+                                                                    />
+                                                                </div>
+                                                                    {currentProduct && 
+                                                                    <div className="d-flex flex-wrap"> <span className="badge bg-danger p-2 me-2 d-flex align-items-center gap-2">{currentProduct.name}<FontAwesomeIcon icon={faClose} onClick={()=> setCurrentProduct(null)} fontSize={14} /></span>
+                                                                    <button type="button" className="btn btn-primary btn-sm ms-auto" onClick={handleSingleProductAdd}>Add Product</button>
+                                                                    </div>}
+                                                            </div>
+                        
+                                                            {vendorProductDetails.length > 0 && (
+                                                                <div className="col-12">
+                                                                    <label>Added Products</label>
+                                                                    <div className="d-flex flex-wrap">
+                                                                        {vendorProductDetails.map((prodItem) => (
+                                                                            <div key={prodItem.master_id} className="badge bg-success p-2 me-2 d-flex align-items-center gap-2">
+                                                                                {prodItem.name}
+                                                                                <FontAwesomeIcon icon={faClose} onClick={()=> removeSelectedVendor(prodItem)} fontSize={14} />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {touched.vendorProductDetails && errors.vendorProductDetails && (
+                                                            <div className="form-error">{errors.vendorProductDetails}</div>
+                                                            )}
+                                                        </div>
+
+
+
                                                     : <div className="form-group">
                                                         <label htmlFor="projectDescription">Description</label>
                                                         <Field

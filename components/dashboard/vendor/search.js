@@ -88,6 +88,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
+  const [is_private, setIs_private] = useState(false);
+  const [preferred_vendor, setPreferred_vendor] = useState(false);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -141,9 +143,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
-  const handleSearchClick = () => {
-    setIsOpen(!isOpen);
-  };
+  // const handleSearchClick = () => {
+  //   setIsOpen(!isOpen);
+  // };
 
   useEffect(() => {
     getProfileDetails();
@@ -162,7 +164,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     selectedState,
     selectedCity,
     isLoggedIn,
-    debouncedVendorName // Use debouncedVendorName instead of vendorName
+    debouncedVendorName, // Use debouncedVendorName instead of vendorName,
+    is_private, // for private vendors list,
+    preferred_vendor // for preferred vendors list
   ]);
 
   useEffect(() => {
@@ -185,7 +189,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getProfileDetails = () => {
     setloading(true);
     getProfile().then((res) => {
-      setloading(true);
+      setloading(false);
       setuserProfile(res.data);
     });
   };
@@ -260,7 +264,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           approved_by: selectedVbaa,
           state: selectedState,
           city: selectedCity,
-          vendor_name: vendorName
+          vendor_name: vendorName,
+          is_private: is_private,
+          preferred_vendor: preferred_vendor,
         },
         "vendors"
       )
@@ -291,6 +297,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         cat_id,
         search_key: s_key,
         vendor_name: vendorName,
+        is_private: is_private,
+        preferred_vendor: preferred_vendor,
         // approved_by: selectedVbaa,
       },
       type
@@ -371,12 +379,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
   };
   const handleSearchChange = (e) => {
+    const searchValue = e.target.value;
+
+    if(searchValue.length > 0 && !isOpen){
+      setIsOpen(true);
+    }
+    if(searchValue.length === 0){
+      setIsOpen(false);
+    }
+    if(searchValue.length > 2){
+      getProducts(e.target.value);
+    }
     setSearch_key(e.target.value);
+    setProducts([]);
     setProductsList([]);
     setSearchCategories([]);
-    getProducts(e.target.value);
     setCat_id(null);
     setVendorName("");
+    setIs_private(false);
+    setPreferred_vendor(false);
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -482,7 +503,35 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     storageInstance.setStorage("product_name", "all");
   }
 
+   // Options for the dropdown
+   const optionVendors = [
+    { value: 'is_private', label: 'Private Vendor' },
+    { value: 'preferred_vendor', label: 'Preferred Vendor' }
+  ];
 
+  // Handle selection changes to ensure only one filter is active at a time
+  const handleChange = (selectedOption) => {
+    if (selectedOption.value === 'is_private') {
+      setIs_private(true);
+      setPreferred_vendor(false);
+    } else if (selectedOption.value === 'preferred_vendor') {
+      setIs_private(false);
+      setPreferred_vendor(true);
+    }
+  };
+
+  // Generalized clear filter function to reset both filters
+  const clearVendorFilters = () => {
+    setIs_private(false);
+    setPreferred_vendor(false);
+  };
+
+  // Determine the selected option based on the state
+  const selectedOption = is_private
+    ? optionVendors[0]
+    : preferred_vendor
+    ? optionVendors[1]
+    : null;
 
   return (
     <>
@@ -555,7 +604,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         onFocus={handleSearchChange}
                         autoComplete="off"
                         value={search_key}
-                        onClick={handleSearchClick}
+                        // onClick={handleSearchClick}
                       />
                       {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
                       </div> */}
@@ -575,7 +624,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
+                          {!loading && search_key.length < 3 && search_key.length > 0 && (
+                            <p className="mb-0">Please enter at least 3 characters...</p>
+                          )}
+                          {!loading && search_key !== "" && search_key.length > 2 && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
@@ -929,6 +981,29 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 <aside>
                   <h2 className="fs-5">Filter</h2>
                   <div className="search-con-right-1">
+                    <p>Vendors</p>
+                    <Select 
+                      options={optionVendors} 
+                      onChange={handleChange} 
+                      placeholder="Choose a filter option"
+                      value={selectedOption} // Bind selected option to value prop
+                    />
+                    
+                    {/* Display clear link if any filter is active */}
+                    {(is_private || preferred_vendor) && (
+                      <Link
+                        href="#"
+                        className="clearFilter"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          clearVendorFilters();
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimesCircle} /> clear
+                      </Link>
+                    )}
+                  </div>
+                  <div className="search-con-right-1">
                     <p>Location</p>
                     {selectedState != 0 && (
                       <Link
@@ -1240,16 +1315,21 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         {loading && <FullLoader />}
                         {!loading && vendors.length == 0 && 
                         (
-                          vendorName &&
+                          debouncedVendorName ?
                           <a
                             className="text-center pt-4"
-                            href="/dashboard/buyer/vendor-management"
+                            href="/dashboard/buyer/vendor-management/?newVendor=true"
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            {`Add "${vendorName}" to you vendor list Immediately`}
+                            {`Add "${debouncedVendorName}" to your vendor list Immediately`}
                           </a>
-                        )
+                          :
+                          <h2 className="fs-5">
+                            <b>No Vendors Found</b>
+                          </h2>
+                      
+                      )
                         }
                         {vendors &&
                           vendors.map((item) => {

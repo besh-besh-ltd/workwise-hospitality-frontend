@@ -3,10 +3,12 @@ import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
 import { addPrivateVendor, privateVendorList } from '@/services/privateVendors';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react'
 import { toast } from "react-toastify";
 
 const VendorManagement = () => {
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
@@ -18,9 +20,23 @@ const VendorManagement = () => {
 
     const [openAddVendorModal, setOpenAddVendorModal] = useState(false);
 
+
+    useEffect(() => {
+        const { newVendor } = router.query;
+    
+        // Update state based on the `newVendor` query value
+        if (newVendor !== undefined) {
+            setOpenAddVendorModal(newVendor === 'true'); // Set to true if value is 'true'
+        }
+      }, [router.query]);
+
+
     const handleAddVendor = (values, resetForm) => {
         setLoading(true);
+      
         let payload = values;
+        payload.productDetails = productDetails;
+    
         setOpenAddVendorModal(false);
         
         addPrivateVendor(payload)
@@ -87,10 +103,10 @@ const VendorManagement = () => {
                                                     >
                                                         Add Single Vendor
                                                     </button>
-                                                    <Link 
+                                                    {/* <Link 
                                                         href={`./vendor-management/bulk-vendors`}
                                                         className="btn btn-secondary"
-                                                    >Add Bulk Vendors</Link>
+                                                    >Add Bulk Vendors</Link> */}
                                                 </div>
 
                                                 {/* 
