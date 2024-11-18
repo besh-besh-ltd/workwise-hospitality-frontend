@@ -56,7 +56,7 @@ const VendorManagement = () => {
     // }
 
     const handleAddVendor = (values, productDetails, resetForm) => {
-        // setLoading(true);
+        setLoading(true);
         let payload = values;
         payload.productDetails = productDetails;
     
