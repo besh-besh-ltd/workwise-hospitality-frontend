@@ -3,7 +3,20 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import Loader from "@/components/shared/Loader";
 import VendorResponseTable from "../../vendor/technical-evaluation/vendorResponseTable";
-
+import FullLoader from "@/components/shared/FullLoader";
+import PlaceholderLoading from "react-placeholder-loading";
+import { formatPrice } from "@/utils/sharedFunctions";
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import {
+  closeRFQ,
+  downloadQuotesDetails,
+  finalizeQuotation,
+  getQuotes,
+  getRFQS,
+  getVendorDetails,
+  getVendorResponses
+} from "@/services/rfq";
 
 const CompareVendorResponse = () => {
   const router = useRouter();
@@ -17,6 +30,69 @@ const CompareVendorResponse = () => {
   const [totalRFQs, settotalRFQs] = useState(0);
   const [showing, setshowing] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
+  const [currentRFQ, setcurrentRFQ] = useState(null);
+  const [showVendorSelection, setShowVendorSelection] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState([]);
+  const [limit, setlimit] = useState(100);
+  const [myRFQs, setmyRFQs] = useState([]);
+  const [quotes, setquotes] = useState([]);
+
+  const [vendorListNew, setVendorList] = useState([]);
+ const [vendorName,setVendorName] = useState(null);
+  // const [payload,setPayload] = useState([]);
+  const payload = {"rfq_id" : 111, "rfq_product_id" : 222};
+  const handleBadgeClick = () => {
+    setloading(true);
+    setShowVendorSelection(!showVendorSelection);
+    
+    getVendorDetails(payload).then((res) => {
+      console.log("response front end of get vendor names = ",res.data);
+      setVendorList(res.data);
+    })
+  };
+
+  const vendorList = [
+    {
+        "vendor_id": 263,
+        "vendor_name": "gaurav",
+        "company_name": "gaurav",
+        "organization_name": "gaurav"
+    },
+    {
+      "vendor_id": 264,
+      "vendor_name": "Shoaib",
+      // "company_name": "gaurav",
+      "organization_name": "SAJ COmpany"
+  }
+]
+
+  const handleVendorSelect = (vendorIndex,index) => {
+    console.log("vendor id = ",vendorIndex);
+
+    // setSelectedVendor(vendorList[vendorIndex]);
+    payload.vendor_id = vendorIndex;
+    getVendorResponses(payload).then((res) => {
+      console.log("vendor response data select = ",res.data);
+      setSelectedVendor(res.data);
+      console.log("selected vendor = ",selectedVendor);
+
+    })
+    setVendorName(vendorListNew[index].company_name || vendorListNew[index].organization_name || vendorListNew[index].vendor_name);
+    console.log("vendor name = ",vendorName);
+  };
+
+  useEffect(() => {
+    if (rfq) {
+      setcurrentRFQ(rfq);
+      getRespectiveQuotes();
+    } else {
+      setcurrentRFQ(null);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    getAllRFQs();
+  }, [page]);
 
   const loadMoreRFQs = (e) => {
     e.preventDefault();
@@ -25,21 +101,43 @@ const CompareVendorResponse = () => {
     }
   };
 
-  const [showVendorSelection, setShowVendorSelection] = useState(false);
-  const [selectedVendor, setSelectedVendor] = useState(null);
+  const getAllRFQs = () => {
+    setloading(true);
+    getRFQS({ page, sort: "DESC", project_id: -1, reverse_auction: '-1', rfq_type: "", limit })
+      .then((res) => {
+        setloading(false);
+        const newData = res.data?.filter((rItem) => rItem?.quotes?.length > 0);
+        setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
 
-  const handleBadgeClick = () => {
-    setShowVendorSelection(!showVendorSelection);
+        if (page >= Math.ceil(res.total_items / limit)) {
+          sethasMoreQuotes(false);
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+      })
+      .finally(() => {
+        setloading(false);
+      })
   };
 
-  const vendorList = ["vendor 1", "vendor 2", "vendor 3"];
-
-  const handleVendorSelect = (vendorIndex) => {
-    setSelectedVendor(vendorList[vendorIndex]);
+  const getRespectiveQuotes = () => {
+    setquotesLoading(true);
+    setquotes([]);
+    getQuotes(rfq)
+      .then((res) => {
+        setquotes(res.data);
+      })
+      .catch((err) => {
+      })
+      .finally(() => {
+        setquotesLoading(false);
+      })
   };
-
   return (
     <>
+
+    
       {finalizeLoading && <Loader />}
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
@@ -52,47 +150,40 @@ const CompareVendorResponse = () => {
         </div>
       </section>
       <section className="quote-edit-sec-1">
-        <div className="container-fluid">
+      <div className="container-fluid">
           <div className="row">
-            <div className="col-md-2">
+          <div className="col-md-2">
               <div className="hasFullLoader">
                 <h5 className="title">Quotes Received</h5>
-                <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-                  <li className="active">
-                    <Link href={`/dashboard/buyer/technical-evaluation`} className="text-white">
-                      RFQ #1
-                    </Link>
-                  </li>
-                  <li className="">
-                    <Link href={`/dashboard/buyer/technical-evaluation`} className="text-dark">
-                      RFQ #2
-                    </Link>
-                  </li>
-                  <li className="">
-                    <Link href={`/dashboard/buyer/technical-evaluation`} className="text-dark">
-                      RFQ #3
-                    </Link>
-                  </li>
-                  <li className="">
-                    <Link href={`/dashboard/buyer/technical-evaluation`} className="text-dark">
-                      RFQ #4
-                    </Link>
-                  </li>
-                  <li className="">
-                    <Link href={`/dashboard/buyer/technical-evaluation`} className="text-dark">
-                      RFQ #5
-                    </Link>
-                  </li>
+                {!loading && myRFQs && myRFQs.length == 0
+                  ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
+                  :
+                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
+                    {myRFQs.map((item) => {
+                      return (
+                        <li className={`${item.id == currentRFQ ? "active" : ""}`}>
+                          <Link href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`} className={`${item.id == currentRFQ ? "text-white" : "text-dark"}`} > RFQ #{item?.rfq_no} </Link>
+                        </li>
+                      )
+                    }
+                    )}
 
-                  {hasMoreQuotes && !loading && (
-                    <Link
-                      href="#"
-                      className="d-flex justify-content-end px-3 pe-auto"
-                    >
-                      <span className="link-primary">...Load More</span>
-                    </Link>
-                  )}
-                </ul>
+                    {hasMoreQuotes && !loading &&
+                      <Link href="#" className="d-flex justify-content-end px-3 pe-auto" onClick={loadMoreRFQs}>
+                        <span className="link-primary">...Load More</span>
+                      </Link>
+                    }
+
+                    {hasMoreQuotes && loading && (
+                      <div className="d-flex justify-content-center align-items-center" >
+                        Loading ...
+                        <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                    )}
+                  </ul>
+                }
               </div>
             </div>
 
@@ -119,14 +210,14 @@ const CompareVendorResponse = () => {
                             Select Vendor
                           </button>
                           <ul className="dropdown-menu" aria-labelledby="vendorDropdown">
-                            {vendorList.map((vendor, index) => (
-                              <li key={index}>
+                            {vendorListNew.map((vendor, index) => (
+                              <li key={vendor.vendor_id}>
                                 <a
                                   className="dropdown-item pointer"
                                   style={{ cursor: 'pointer' }}
-                                  onClick={() => handleVendorSelect(index)}
+                                  onClick={() => handleVendorSelect(vendor.vendor_id, index)}
                                 >
-                                  {vendor}
+                                  {vendor.company_name || vendor.organization_name || vendor.vendor_name}
                                 </a>
                               </li>
                             ))}
@@ -173,7 +264,7 @@ const CompareVendorResponse = () => {
                     </div>
 
                     {/* Display the table with selected vendor name */}
-                    {selectedVendor && <VendorResponseTable vendorName={selectedVendor} id="buyer" />}
+                    {selectedVendor && <VendorResponseTable vendor={selectedVendor} id="buyer" name = {vendorName} />}
                   </div>
                 </div>
               </div>
