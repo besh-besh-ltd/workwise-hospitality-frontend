@@ -417,7 +417,7 @@ const Item = ({ data, vendorApprovedList }) => {
         </td>
       </tr>
       <div>
-        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} productName = {data?.name}/>}
+        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} product = {data}/>}
       </div>
     </>
   );

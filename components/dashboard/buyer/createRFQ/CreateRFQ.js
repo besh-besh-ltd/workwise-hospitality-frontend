@@ -120,11 +120,16 @@ const CreateRFQ = () => {
 
   const handleCreateRFQ = (resetForm) => {
     setMainLoading(true);
+    const updatedProducts = rfqProductsRef.current.map((prod)=> {
+      const { id, ...withOutRfqProdId } = prod;
+      return withOutRfqProdId;
+    })
 
     let payload = {
       rfq_id: rfqDetails,
-      products: rfqProductsRef.current,
+      products: updatedProducts,
       ...rfqFormDataRef.current,
+      project_id: rfqFormDataRef.current.project_id || -1
     };
 
     createRfq(payload)
