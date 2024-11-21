@@ -19,7 +19,7 @@ import {
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { getProjectList } from "@/services/project";
+import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
@@ -98,10 +98,50 @@ const CreateRFQ = () => {
     dispatch(setTermsData(updatedTerms));
   };
 
-  const handleFormFieldChange = (e) => {
+  const getProjectData = async (projectId) => {
+    try {
+      const res = await getProjectTableDataById(projectId);
+      const projectData = res.data[0];
+      return projectData;
+    } catch (error) {
+      console.error("Error fetching project data:", error.message);
+      throw error;
+    }
+  };
+  
+  const handleFormFieldChange = async (e) => {
     const { name, value } = e.target;
+  
+    if (name === "project_id" && value !== -1) {
+      try {
+        const projectData = await getProjectData(value);
+  
+        if (projectData) {
+          dispatch(setOtherFormFields({ field_name: "rfq_type", value: projectData.rfq_type || "" }));
+          // dispatch(setOtherFormFields({ field_name: "reverse_auction", value: projectData.reverse_auction || 1 }));
+          dispatch(
+            setOtherFormFields({
+              field_name: "reverse_auction",
+              value: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
+            })
+          );          
+          dispatch(
+            setOtherFormFields({
+              field_name: "bid_end_date",
+              value: projectData.ended_at ? new Date(projectData.ended_at).toISOString().split("T")[0] : "",
+            })
+          );
+          dispatch(setOtherFormFields({ field_name: "location", value: projectData.location || "" }));
+        } else {
+          console.error("Project data is empty or undefined.");
+        }
+      } catch (error) {
+        console.error("Failed to handle project_id change:", error.message);
+      }
+    }
+  
     dispatch(setOtherFormFields({ field_name: name, value }));
-  }
+  };
 
   const handleTermFiles = async (type, dynamicParam) => {
     if (type === "add") {
@@ -153,7 +193,7 @@ const CreateRFQ = () => {
     const payload = {
       ...rfqFormDataRef.current,
       products: rfqProductsRef.current,
-      is_published: 0, // Set as draft
+      is_published: 0,
     };
 
     saveDraft(payload)
@@ -201,7 +241,7 @@ const CreateRFQ = () => {
 
   useEffect(() => {
     const validProducts = rfqProductsFromStore.filter(
-      (prodItem) => prodItem.vendors.length > 0);
+      (prodItem) => prodItem.vendors?.length > 0);
     setRfqProducts(validProducts);
     rfqProductsRef.current = validProducts;
   }, [rfqProductsFromStore])
@@ -446,13 +486,17 @@ const CreateRFQ = () => {
                                   <div className="row mb-2">
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Bid end date"
-                                        value={rfqFormDataFromStore.bid_end_date}
+                                        label="Project Name"
+                                        value={rfqFormDataFromStore.project_id}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
-                                        type="date"
-                                        isRequired={true}
-                                        name="bid_end_date"
+                                        type="select"
+                                        selectOptions={[
+                                          { label: "Select Project", value: -1 },
+                                          ...projects
+                                        ]}
+                                        isRequired={false}
+                                        name="project_id"
                                         touched={touched}
                                         errors={errors}
                                       />
@@ -494,17 +538,13 @@ const CreateRFQ = () => {
                                     </div>
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Project Name"
-                                        value={rfqFormDataFromStore.project_id}
+                                        label="Bid end date"
+                                        value={rfqFormDataFromStore.bid_end_date}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
-                                        type="select"
-                                        selectOptions={[
-                                          { label: "Select Project", value: -1 },
-                                          ...projects
-                                        ]}
-                                        isRequired={false}
-                                        name="project_id"
+                                        type="date"
+                                        isRequired={true}
+                                        name="bid_end_date"
                                         touched={touched}
                                         errors={errors}
                                       />
