@@ -447,7 +447,7 @@ export const addVendorAgreement = (payload) => {
 export const fetchVendorAgreement = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/get-vendor-response`, payload);
+      let response = await axiosInstance.post(`/rfq/get-vendor-responses`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
