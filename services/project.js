@@ -36,7 +36,7 @@ export const getProjectTableDataById = (projectId)=> {
 export const getProjectList = ()=> {
   return new Promise(async (resolve, reject) => {
       try {
-        let response = await axiosInstance.get(`project/name_list`);
+        let response = await axiosInstance.get(`project/name/list`);
         resolve(response);
       } catch (error) {
         reject({ message: error });
