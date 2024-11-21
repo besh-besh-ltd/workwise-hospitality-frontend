@@ -230,7 +230,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                             {previousClauses.map((clause, index) => (
                                 <li key={index} className="list-group-item ">
                                     <p className="text-sm mb-0">
-                                        <strong>Message:</strong> {clause.message}
+                                        <strong>Message:</strong> {clause.clause_text}
                                     </p>
                                     {clause.files.length > 0 && (
                                         <div className="d-flex gap-2 align-items-center text-sm">

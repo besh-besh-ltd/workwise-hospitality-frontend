@@ -3,10 +3,10 @@ import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import VendorResponseTable from "./vendorResponseTable";
 import { useRouter } from "next/router";
-import { fetchTechEvaluationRfqList, fetchVendorAgreement, fetchVendorSelectionOption } from "@/services/rfq";
+import { addToTA, fetchTechEvaluationRfqList, fetchVendorAgreement, fetchVendorSelectionOption } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
-import Loader from "@/components/shared/Loader";
 import FullLoader from "@/components/shared/FullLoader";
+
 
 const BuyerTechnicalEvaluation = () => {
   const router = useRouter();
@@ -16,6 +16,7 @@ const BuyerTechnicalEvaluation = () => {
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setCurrentRfq] = useState(null);
   const [selectedVendor, setSelectedVendor] = useState(null);
+
 
   const getUserDetails = async () => {
     try {
@@ -60,10 +61,10 @@ const BuyerTechnicalEvaluation = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const userDetails = await getUserDetails(); 
+        const userDetails = await getUserDetails();
         if (userDetails) {
-          const rfqs = await getTechEvaluationRFQsByUser(userDetails.id); 
-          setcurrentUserProfile(userDetails); 
+          const rfqs = await getTechEvaluationRFQsByUser(userDetails.id);
+          setcurrentUserProfile(userDetails);
           setRfqList(rfqs);
         }
       } catch (error) {
@@ -126,7 +127,7 @@ const BuyerTechnicalEvaluation = () => {
                       </li>
                     ))}
                   </ul>
-                )}                
+                )}
               </div>
             </div>
 
@@ -167,8 +168,8 @@ const BuyerTechnicalEvaluation = () => {
                                 />
                               </div>
                             </div>
-                                
-                            {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor}  />}
+
+                            {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor} />}
 
                           </div>
                         </div>

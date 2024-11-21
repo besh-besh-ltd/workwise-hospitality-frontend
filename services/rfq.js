@@ -454,3 +454,25 @@ export const fetchVendorAgreement = (payload) => {
     }
   });
 };
+
+export const addToTA = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/tech-evaluation-cleared-vendors`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getTechClearedVendorsResult = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-tech-evaluation-result`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
