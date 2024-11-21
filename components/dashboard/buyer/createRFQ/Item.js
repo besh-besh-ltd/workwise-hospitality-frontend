@@ -17,7 +17,7 @@ import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 
-const Item = ({ data, vendorApprovedList }) => {
+const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
   const dispatch = useDispatch();
   const [specSize, setspecSize] = useState("");
   const [specSpec, setspecSpec] = useState("");
@@ -51,7 +51,7 @@ const Item = ({ data, vendorApprovedList }) => {
           console.log('Invalid Title');
       }
     });
-  }, []);
+  }, [data]);
 
   const handleSelectDefaultTDSQAPFile = (e, type, data) => {
     dispatch(setUserSelectedDefaultFile({
@@ -60,6 +60,7 @@ const Item = ({ data, vendorApprovedList }) => {
       product_id: data.product_id,
       variant: data.variant
     }));
+    setHasUnsavedChanges(true);
   }
 
   const handleSpecValue = (type, value) => {
@@ -107,6 +108,7 @@ const Item = ({ data, vendorApprovedList }) => {
         })
       );
     }
+    setHasUnsavedChanges(true);
   };
 
   const uploadToServer = async (e, type) => {
@@ -138,6 +140,7 @@ const Item = ({ data, vendorApprovedList }) => {
           variant: data.variant
         })
       );
+      setHasUnsavedChanges(true);
 
     } catch (error) {
       let message = error.message;
@@ -172,6 +175,7 @@ const Item = ({ data, vendorApprovedList }) => {
       default:
         console.log("Invalid file");
     }
+    setHasUnsavedChanges(true);
   }
 
   const handleaddProductComment = (e) => {
@@ -183,10 +187,12 @@ const Item = ({ data, vendorApprovedList }) => {
         variant: data.variant
       })
     );
+    setHasUnsavedChanges(true);
   };
 
   const handleRemoveProduct = () => {
     dispatch(removeRfqProduct(data));
+    setHasUnsavedChanges(true);
   };
 
   const handleAddVarient = () => {
@@ -199,11 +205,12 @@ const Item = ({ data, vendorApprovedList }) => {
       //fix here (can add datasheet and qap)
     };
     dispatch(addRfqProduct(item));
+    setHasUnsavedChanges(true);
   };
 
   return (
     <>
-      <tr key={`rfqpp_${data?.product_id}_${data?.variant}`}>
+      <tr key={`rfqp_${data.product_id}_${data.variant}`}>
         <td>{data?.name}</td>
         <td >
           <div className="d-flex flex-column justify-content-center align-items-center">

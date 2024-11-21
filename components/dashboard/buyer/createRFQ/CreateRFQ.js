@@ -11,7 +11,6 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   intializeRfq,
   clearState,
-  toggleAutoSave,
   setOtherFormFields,
   setTermsData,
   setTermFiles,
@@ -42,7 +41,7 @@ const CreateRFQ = () => {
   const allTerms = useSelector((data) => data.allTerms);
   const selectedTerms = useSelector((data) => data.rfqFormData.terms);
   const termFiles = useSelector((data) => data.rfqFormData.term_and_condition_files);
-  const autoSave = useSelector((data) => data.autoSave);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const rfqProductsRef = useRef([]);
   const rfqFormDataRef = useRef({});
@@ -96,6 +95,7 @@ const CreateRFQ = () => {
       updatedTerms = selectedTerms.filter((termItem) => termItem.id != item.id)
     }
     dispatch(setTermsData(updatedTerms));
+    setHasUnsavedChanges(true);
   };
 
   const getProjectData = async (projectId) => {
@@ -108,14 +108,14 @@ const CreateRFQ = () => {
       throw error;
     }
   };
-  
+
   const handleFormFieldChange = async (e) => {
     const { name, value } = e.target;
-  
+
     if (name === "project_id" && value !== -1) {
       try {
         const projectData = await getProjectData(value);
-  
+
         if (projectData) {
           dispatch(setOtherFormFields({ field_name: "rfq_type", value: projectData.rfq_type || "" }));
           // dispatch(setOtherFormFields({ field_name: "reverse_auction", value: projectData.reverse_auction || 1 }));
@@ -124,7 +124,7 @@ const CreateRFQ = () => {
               field_name: "reverse_auction",
               value: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
             })
-          );          
+          );
           dispatch(
             setOtherFormFields({
               field_name: "bid_end_date",
@@ -139,8 +139,9 @@ const CreateRFQ = () => {
         console.error("Failed to handle project_id change:", error.message);
       }
     }
-  
+
     dispatch(setOtherFormFields({ field_name: name, value }));
+    setHasUnsavedChanges(true);
   };
 
   const handleTermFiles = async (type, dynamicParam) => {
@@ -156,6 +157,7 @@ const CreateRFQ = () => {
     } else {
       dispatch(setTermFiles({ type, value: dynamicParam }))
     }
+    setHasUnsavedChanges(true);
   };
 
   const handleCreateRFQ = (resetForm) => {
@@ -180,7 +182,8 @@ const CreateRFQ = () => {
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
         resetForm();
-        router.push("/dashboard/buyer/rfq-management?tab=manage-rfq");
+        setHasUnsavedChanges(false);
+        router.push("/dashboard/buyer/rfq-management");
       })
       .catch((err) => {
         setMainLoading(false);
@@ -205,6 +208,7 @@ const CreateRFQ = () => {
           </h6>,
           { position: "top-right" }
         );
+        setHasUnsavedChanges(false);
       })
       .catch((err) => {
         console.log(err)
@@ -218,9 +222,7 @@ const CreateRFQ = () => {
     try {
       const draftRes = await getDraftData();
       dispatch(intializeRfq(draftRes.data));
-
-      if (allTerms.length == 0)
-        getTermsData();
+      getTermsData();
 
     } catch (error) {
       console.log(error)
@@ -233,10 +235,6 @@ const CreateRFQ = () => {
     getAllProjects();
     getDraftInitialData();
 
-    return () => {
-      if (autoSave)
-        handleSaveDraft();
-    };
   }, []);
 
   useEffect(() => {
@@ -249,6 +247,31 @@ const CreateRFQ = () => {
   useEffect(() => {
     rfqFormDataRef.current = rfqFormDataFromStore;
   }, [rfqFormDataFromStore]);
+
+
+  useEffect(() => {
+    const handleRouteChange = async (url) => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm(
+          "You have unsaved changes. Do you want to save them before leaving?"
+        );
+        if (confirmLeave) {
+          handleSaveDraft();
+        } else {
+          // Prevent navigation
+          router.events.emit("routeChangeError");
+          throw "Route change aborted by user."; // Suppress Next.js warning
+        }
+      }
+    };
+
+    // Listen to route change events
+    router.events.on("routeChangeStart", handleRouteChange);
+
+    return () => {
+      router.events.off("routeChangeStart", handleRouteChange);
+    };
+  }, [hasUnsavedChanges, router]);
 
 
   return (
@@ -277,20 +300,6 @@ const CreateRFQ = () => {
                 )
                   : (
                     <>
-                      {/* Auto Save Switch */}
-                      <div className="d-flex justify-content-end">
-                        <div className="form-check form-switch me-2 mb-2">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            role="switch"
-                            id="autoSave"
-                            checked={autoSave}
-                            onChange={() => dispatch(toggleAutoSave())}
-                          />
-                          <label className="form-check-label" for="autoSave">Auto Save</label>
-                        </div>
-                      </div>
 
                       {/* RFQ Products Table */}
                       <div className="table-responsive">
@@ -308,12 +317,13 @@ const CreateRFQ = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {rfqProducts.length > 0 &&
+                            {rfqProducts && rfqProducts.length > 0 &&
                               rfqProducts.map((product) => {
                                 return (
-                                  <Item                                    
+                                  <Item
                                     vendorApprovedList={vendorApprovedList}
                                     data={product}
+                                    setHasUnsavedChanges={setHasUnsavedChanges}
                                   />
                                 );
                               })}
@@ -576,8 +586,8 @@ const CreateRFQ = () => {
                                     type="button"
                                     className="btn btn-secondary mt-2"
                                     onClick={handleSaveDraft}
-                                    // fix here
-                                    // disabled={!isValid}
+                                  // fix here
+                                  // disabled={!isValid}
                                   >
                                     Save Changes
                                   </button>
@@ -593,7 +603,7 @@ const CreateRFQ = () => {
                         </div>
                       </div>
                     </>
-                  )}                  
+                  )}
               </div>
             </>
           )}
