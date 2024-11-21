@@ -47,6 +47,9 @@ export const rfqProductsSlice = createSlice({
     addRfqProduct: (state, action) => {
       let data = {
         product_id: action.payload.product_id,
+        // fix here
+        datasheet: "",
+        qap: "",
         predefined_tds_file: action.payload.pd_tds_file_url ? action.payload.pd_tds_file_url : "",
         predefined_qap_file: action.payload.pd_qap_file_url ? action.payload.pd_qap_file_url : "",
         name: action.payload.product_name,

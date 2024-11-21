@@ -576,7 +576,8 @@ const CreateRFQ = () => {
                                     type="button"
                                     className="btn btn-secondary mt-2"
                                     onClick={handleSaveDraft}
-                                    disabled={!isValid}
+                                    // fix here
+                                    // disabled={!isValid}
                                   >
                                     Save Changes
                                   </button>

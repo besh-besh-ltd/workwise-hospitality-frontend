@@ -196,6 +196,7 @@ const Item = ({ data, vendorApprovedList }) => {
       vendors: data?.vendors,
       pd_tds_file_url: data.predefined_tds_file,
       pd_qap_file_url: data.predefined_qap_file,
+      //fix here (can add datasheet and qap)
     };
     dispatch(addRfqProduct(item));
   };
@@ -398,10 +399,14 @@ const Item = ({ data, vendorApprovedList }) => {
           <button className="upload mr-2 mb-2" onClick={handleRemoveProduct}>
             <FontAwesomeIcon icon={faTrash} /> Remove
           </button>
-          {data?.variant == 0 &&
+          {/* fix here */}
+          <button className="upload" onClick={handleAddVarient}>
+              <FontAwesomeIcon icon={faPlusCircle} /> Add variant
+            </button>
+          {/* {data?.variant == 0 &&
             <button className="upload" onClick={handleAddVarient}>
               <FontAwesomeIcon icon={faPlusCircle} /> Add variant
-            </button>}
+            </button>} */}
         </td>
       </tr>
     </>
