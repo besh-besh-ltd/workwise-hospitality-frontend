@@ -4,12 +4,13 @@ import { faDownload } from '@fortawesome/free-solid-svg-icons';
 import { extractfileName } from '@/utils/sharedFunctions';
 
 
-const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", RemoveFile, FileType = '', showDownload = true }) => {    
+const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", RemoveFile, FileType = '', showDownload = true }) => {
 
     return (
         <div className="row">
             {Array.isArray(Files) && Files.length > 0 ? (
-                Files.map((file) => (
+                Files?.map((file) => {
+                    if (!file) return null;
                     <div key={`${FileType}_${file}`} className={`my-1 ${ColumnClass}`}>
                         <div className="d-flex justify-content-between align-items-center">
                             <a
@@ -31,7 +32,7 @@ const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", Remov
                             )}
                         </div>
                     </div>
-                ))
+                })
             ) : typeof Files === "string" && Files !== "" ? (
                 <div className={ColumnClass}>
                     <div className="d-flex justify-content-between align-items-center">

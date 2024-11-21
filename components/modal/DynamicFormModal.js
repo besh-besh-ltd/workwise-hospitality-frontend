@@ -56,6 +56,8 @@ const DynamicFormModal = ({
         projectDescription: projectData?.description || "",
         location: projectData?.location || "",
         ended_at: projectData?.ended_at?.slice(0, 10) || "",
+        rfq_type: projectData?.rfq_type || "",
+        reverse_auction: (projectData && !projectData.reverse_auction) ? 0 : 1
     }
 
     const [vendorApprovedList, setVendorApprovedList] = useState([]);
@@ -93,7 +95,13 @@ const DynamicFormModal = ({
             .max(50, "Name not more than 50 characters long"),
         projectDescription: yup.string(),
         location: yup.string(),
-        ended_at: yup.date()
+        ended_at: yup.date(),
+        rfq_type: yup.string()
+            .oneOf(['', 'firm', 'budgetary'], 'Invalid RFQ Type')
+            .nullable(),
+        reverse_auction: yup.string()
+            .oneOf(['0', '1', '-1'], 'Invalid Reverse Auction value')
+            .required('Reverse Auction selection is required')
     });
 
     // for product related
@@ -414,6 +422,18 @@ const DynamicFormModal = ({
                                                                 <div className="form-error">{errors.ended_at}</div>
                                                             )}
                                                         </div>
+                                                        
+                                                        <div className="form-group">
+                                                            <label htmlFor="rfq_type">RFQ Type</label>
+                                                            <Field as="select" id="rfq_type" name="rfq_type" className={`form-control ${touched.rfq_type && errors.rfq_type ? 'is-invalid' : ''}`}>
+                                                                <option value="">Select RFQ Type</option>
+                                                                <option value="budgetary">Budgetary</option>
+                                                                <option value="firm">Firm</option>
+                                                            </Field>
+                                                            {touched.rfq_type && errors.rfq_type && (
+                                                                <div className="form-error">{errors.rfq_type}</div>
+                                                            )}
+                                                        </div>
                                                     </>
                                                 }
                                             </div>
@@ -494,20 +514,32 @@ const DynamicFormModal = ({
                                                             )}
                                                         </div>
 
+                                                    : 
+                                                    <>                                                       
+                                                        <div className="form-group">
+                                                            <label htmlFor="reverse_auction">Reverse Auction <sup>*</sup></label>
+                                                            <Field as="select" id="reverse_auction" name="reverse_auction" className={`form-control ${touched.reverse_auction && errors.reverse_auction ? 'is-invalid' : ''}`}>
+                                                                <option value="1">Enable</option>
+                                                                <option value="0">Disable</option>
+                                                            </Field>
+                                                            {touched.reverse_auction && errors.reverse_auction && (
+                                                                <div className="form-error">{errors.reverse_auction}</div>
+                                                            )}
+                                                        </div>
 
-
-                                                    : <div className="form-group">
-                                                        <label htmlFor="projectDescription">Description</label>
-                                                        <Field
-                                                            component="textarea"
-                                                            id="projectDescription"
-                                                            name="projectDescription"
-                                                            placeholder="Enter your text here..."
-                                                        />
-                                                        {touched.projectDescription && errors.projectDescription && (
-                                                            <div className="form-error">{errors.projectDescription}</div>
-                                                        )}
-                                                    </div>
+                                                        <div className="form-group">
+                                                            <label htmlFor="projectDescription">Description</label>
+                                                            <Field
+                                                                component="textarea"
+                                                                id="projectDescription"
+                                                                name="projectDescription"
+                                                                placeholder="Enter your text here..."
+                                                            />
+                                                            {touched.projectDescription && errors.projectDescription && (
+                                                                <div className="form-error">{errors.projectDescription}</div>
+                                                            )}
+                                                        </div>                                                                                                    
+                                                    </>
                                                 }
                                             </div>
 
