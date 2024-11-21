@@ -283,7 +283,7 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
             />
           </div>
         </td>
-        <td className="w200">
+        <td className="w200" key={`${JSON.stringify(data.user_selected_predefined_tds)}`}>
           <p>
             <div>
               {data.predefined_tds_file != '' ?
@@ -329,7 +329,7 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
             </p>
           </p>
         </td>
-        <td className="w200">
+        <td className="w200" key={`${JSON.stringify(data.user_selected_predefined_qap)}`}>
           <p>
             <div>
               {data.predefined_qap_file != '' ?
@@ -381,7 +381,7 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
             </p>
           </p>
         </td>
-        <td>
+        <td key={`cmnt_${data.id}_${data.product_id}_${data.variant}`}>
           <input
             type="text"
             value={comment}
@@ -391,7 +391,7 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
           />
         </td>
         <td>
-          <span>
+          <span key={`${JSON.stringify(selectedVendors)}`}>
             <Link
               href={`rfq-management-vendor?productid=${data.product_id}&variant=${data.variant}`}
               className="page-link"

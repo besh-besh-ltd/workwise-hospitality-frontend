@@ -43,7 +43,7 @@ const CreateRFQ = () => {
   const termFiles = useSelector((data) => data.rfqFormData.term_and_condition_files);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const rfqProductsRef = useRef([]);
+  const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
 
 
@@ -167,6 +167,7 @@ const CreateRFQ = () => {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       ...rfqFormDataRef.current,
+      project_id: rfqFormDataRef.current.project_id || -1
     };
 
     createRfq(payload)
@@ -178,12 +179,12 @@ const CreateRFQ = () => {
           </h6>,
           { position: "top-right" }
         );
-        dispatch(clearState());
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
-        resetForm();
         setHasUnsavedChanges(false);
         router.push("/dashboard/buyer/rfq-management");
+        dispatch(clearState());
+        resetForm();
       })
       .catch((err) => {
         setMainLoading(false);
