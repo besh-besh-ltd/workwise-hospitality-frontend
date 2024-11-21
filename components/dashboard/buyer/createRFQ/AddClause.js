@@ -6,14 +6,20 @@ import { faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
+import { addClause, removeClause, updateClause } from "@/services/rfq";
+import { useSelector } from "react-redux";
 
 
-function AddClauseModal({ show, onClose, productName }) {
+function AddClauseModal({ show, onClose, product }) {
     const [clauses, setClauses] = useState([]);
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
     const [fileLoading, setFileLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
     const fileInputRef = useRef(null);
+    const rfqDetails = useSelector((data) => data.rfq_id);
+    const [currentClause, setCurrentClause] = useState(null);
+    const [update, setUpdate] = useState(false);
 
 
     const handleAttachFileClick = () => {
@@ -34,27 +40,104 @@ function AddClauseModal({ show, onClose, productName }) {
         }
     }
 
-    const handleAddClause = () => {
+    const getPreviousClauses = async ()=> {
+        const payload = {
+            rfq_id, 
+            rfq_product_id: product.id
+        }
+
+        try {
+            const res = await fetch
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    const handleAddClause = async () => {
         if (message.trim() === "") {
             toast.error("Message is required");
             return;
         }
-        // Add new clause to the list
-        const newClause = { message, files };
-        setClauses([...clauses, newClause]);
 
-        // Reset input fields
-        setMessage("");
-        setFiles([]);
+        const payload = {
+            rfq_id: rfqDetails,
+            rfq_product_id: product.id,
+            clause_text: message,
+            file_url: files
+        }
+
+        try {
+            setLoading(true)
+            const res = await addClause(payload);
+            toast.success(res.message)
+
+            // Add new clause to the list
+            const newClause = { message, files };
+            setClauses([...clauses, newClause]);
+
+        } catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false);
+            // Reset input fields
+            setMessage("");
+            setFiles([]);
+        }
     };
 
-    const handleUpdateClause = (index)=> {
-
+    const openUpdateField = (clause, index) => {
+        // Remove clause from the list
+        const updatedClauses = clauses.filter((_, idx) => idx !== index);
+        setClauses(updatedClauses);
+        setMessage(clause.message);
+        setFiles(clause.files);
+        setUpdate(true);
+        setCurrentClause(clause);
     }
 
-    const handleDeleteClause = (index) => {
-        const updatedClauses = clauses.filter((_, idx) => idx !== index);
-        setClauses(updatedClauses)
+    const handleUpdateClause = async () => {
+        const payload = {
+            clause_id: currentClause.clause_id,
+            clause_text: message,
+            file_url: files
+        }
+
+        try {
+            setLoading(true)
+            const res = await updateClause(payload);
+            toast.success(res.message)
+
+            // Add new clause to the list
+            const newClause = { message, files };
+            setClauses([...clauses, newClause]);
+
+        } catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false);
+            // Reset input fields
+            setMessage("");
+            setFiles([]);
+            setCurrentClause(null);
+            setUpdate(false);
+        }
+    }
+
+    const handleDeleteClause = async (clause_id, index) => {
+        try {
+            setLoading(true)
+            const res = await removeClause(clause_id);
+            toast.success(res.message)
+
+            // Remove clause from the list
+            const updatedClauses = clauses.filter((_, idx) => idx !== index);
+            setClauses(updatedClauses)
+
+        } catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
@@ -66,7 +149,7 @@ function AddClauseModal({ show, onClose, productName }) {
         >
             <Modal.Header>
                 <Modal.Title className="text-right w-100 p-3">
-                    Add Technical Clause for - {productName}
+                    Add Technical Clause for - {product.name}
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ minHeight: "200px" }}>
@@ -100,15 +183,27 @@ function AddClauseModal({ show, onClose, productName }) {
                             }
                         </div>
 
-                        <button
-                            type="button"
-                            className="btn btn-primary p-1"
-                            style={{ width: "100px" }}
-                            onClick={handleAddClause}
-                            disabled={message.length == 0 && files.length == 0}
-                        >
-                            Add
-                        </button>
+                        {update ? (
+                            <button
+                                type="button"
+                                className="btn btn-warning p-1"
+                                style={{ width: "100px" }}
+                                onClick={handleUpdateClause}
+                                disabled={message.length == 0 && files.length == 0}
+                            >
+                                Update
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                className="btn btn-primary p-1"
+                                style={{ width: "100px" }}
+                                onClick={handleAddClause}
+                                disabled={message.length == 0 && files.length == 0}
+                            >
+                                Add
+                            </button>
+                        )}
 
                     </div>
                 </div>
@@ -146,7 +241,7 @@ function AddClauseModal({ show, onClose, productName }) {
                                             type="button"
                                             className="btn btn-warning p-1 me-2"
                                             style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => handleUpdateClause(index)}
+                                            onClick={() => openUpdateField(clause, index)}
                                         >
                                             <FontAwesomeIcon icon={faEdit} className="me-2" />
                                             Update
@@ -155,7 +250,7 @@ function AddClauseModal({ show, onClose, productName }) {
                                             type="button"
                                             className="btn btn-danger p-1"
                                             style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => handleDeleteClause(index)}
+                                            onClick={() => handleDeleteClause(clause.clause_id, index)}
                                         >
                                             <FontAwesomeIcon icon={faTrash} className="me-2" />
                                             Remove

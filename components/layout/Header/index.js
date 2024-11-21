@@ -378,19 +378,6 @@ const Header = () => {
 
                           <li
                             className={
-                              router.pathname ==
-                                "/dashboard/vendor/technical-evaluation"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/vendor/technical-evaluation">
-                              Technical Evaluation
-                            </Link>
-                          </li>
-
-                          <li
-                            className={
                               router.pathname == "/change-password"
                                 ? "active hideDesktopItem"
                                 : "hideDesktopItem"

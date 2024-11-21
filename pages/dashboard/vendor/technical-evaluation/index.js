@@ -1,6 +1,6 @@
 import React from "react";
 import Head from "next/head";
-import CompareVendorResponseTable from "@/components/dashboard/vendor/technical-evaluation/vendorResponseTable";
+import VendorTechnicalEvaluation from "@/components/dashboard/vendor/technical-evaluation";
 
 
 const TechEvaluation = () => {
@@ -9,7 +9,7 @@ const TechEvaluation = () => {
             <Head>
                 <title>Workwise | Technicial Evaluation Vendor</title>
             </Head>
-            <CompareVendorResponseTable type={"vendor"} />
+            <VendorTechnicalEvaluation />
         </>
     )
 }
