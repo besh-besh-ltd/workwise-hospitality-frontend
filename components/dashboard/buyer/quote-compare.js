@@ -34,7 +34,14 @@ const QuoteCompare = () => {
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
+  const [TA_Filter, setTA_Filter] = useState(false);
 
+
+  useEffect(() => {
+    if (rfq) {
+      getRespectiveQuotes();
+    }
+  }, [TA_Filter]);
 
   useEffect(() => {
     if (rfq) {
@@ -48,6 +55,11 @@ const QuoteCompare = () => {
   useEffect(() => {
     getAllRFQs();
   }, [page]);
+
+
+  const handleTAFilterChange = (e) => {
+    setTA_Filter(e.target.checked)
+  }
 
   const loadMoreRFQs = (e) => {
     e.preventDefault();
@@ -79,7 +91,7 @@ const QuoteCompare = () => {
   const getRespectiveQuotes = () => {
     setquotesLoading(true);
     setquotes([]);
-    getQuotes(rfq)
+    getQuotes(rfq, TA_Filter)
       .then((res) => {
         setquotes(res.data);
       })
@@ -1006,6 +1018,27 @@ const QuoteCompare = () => {
                               )} */}
                               {/* {item?.product_details[0]?.rfq_details[2]?.value} */}
                             </span>
+
+                            {/* TA Filter Section */}
+                            <div className="d-flex justify-content-end mt-3">
+                              <div className="form-check">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  checked={TA_Filter} // Bind the state to the checkbox
+                                  id="TA_FilterCheck"
+                                  onChange={handleTAFilterChange} // Call handler on change
+                                />
+                                <label
+                                  className="form-check-label"
+                                  htmlFor="TA_FilterCheck"
+                                  style={{ color: 'var(--primary-color)', fontSize: '15px' }}
+                                >
+                                  View Technically Accepted Vendors
+                                </label>
+                              </div>
+                            </div>
+
                             {item?.quotations &&
                               item?.quotations.length == 0 && (
                                 <h4 className="mt-4 text-center">
