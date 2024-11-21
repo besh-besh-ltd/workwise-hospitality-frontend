@@ -1,16 +1,16 @@
 import { toast } from "react-toastify";
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
-import { addClause, removeClause, updateClause } from "@/services/rfq";
+import { addClause, getClausesByRfqProductId, removeClause, updateClause } from "@/services/rfq";
 import { useSelector } from "react-redux";
 
 
-function AddClauseModal({ show, onClose, product }) {
+function AddClauseModal({ rfq_id, show, onClose, product }) {
     const [clauses, setClauses] = useState([]);
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
@@ -20,6 +20,7 @@ function AddClauseModal({ show, onClose, product }) {
     const rfqDetails = useSelector((data) => data.rfq_id);
     const [currentClause, setCurrentClause] = useState(null);
     const [update, setUpdate] = useState(false);
+    const [previousClauses, setPreviousClauses] = useState(null);
 
 
     const handleAttachFileClick = () => {
@@ -40,14 +41,15 @@ function AddClauseModal({ show, onClose, product }) {
         }
     }
 
-    const getPreviousClauses = async ()=> {
+    const getPreviousClauses = async () => {
         const payload = {
-            rfq_id, 
+            rfq_id,
             rfq_product_id: product.id
         }
-
         try {
-            const res = await fetch
+            const res = await getClausesByRfqProductId(payload);
+            if(res.data)
+                setPreviousClauses(res.data);
         } catch (error) {
             console.log(error)
         }
@@ -140,6 +142,10 @@ function AddClauseModal({ show, onClose, product }) {
         }
     }
 
+    useEffect(() => {
+        getPreviousClauses();
+    }, [])
+
     return (
         <Modal
             show={show}
@@ -217,6 +223,51 @@ function AddClauseModal({ show, onClose, product }) {
                     onChange={uploadToServer}
                 />
 
+                {/* Show Previous Clauses */}
+                <div className="mt-4">
+                    {previousClauses && previousClauses.length > 0 && (
+                        <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                            {previousClauses.map((clause, index) => (
+                                <li key={index} className="list-group-item ">
+                                    <p className="text-sm mb-0">
+                                        <strong>Message:</strong> {clause.message}
+                                    </p>
+                                    {clause.files.length > 0 && (
+                                        <div className="d-flex gap-2 align-items-center text-sm">
+                                            <strong className="text-nowrap">Files :</strong>
+                                            <FileLink
+                                                Files={clause.files}
+                                                ColumnClass="col-md-3"
+                                                Style={{ fontSize: "12px" }}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="d-flex justify-content-end">
+                                        <button
+                                            type="button"
+                                            className="btn btn-warning p-1 me-2"
+                                            style={{ width: "110px", fontSize: "12px" }}
+                                            onClick={() => openUpdateField(clause, index)}
+                                        >
+                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                            Update
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-danger p-1"
+                                            style={{ width: "110px", fontSize: "12px" }}
+                                            onClick={() => handleDeleteClause(clause.clause_id, index)}
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} className="me-2" />
+                                            Remove
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 {/* To Do List: Display Added Clauses */}
                 <div className="mt-4">
                     {clauses.length > 0 && (
@@ -261,6 +312,7 @@ function AddClauseModal({ show, onClose, product }) {
                         </div>
                     )}
                 </div>
+
             </Modal.Body>
             <Modal.Footer>
                 <button
