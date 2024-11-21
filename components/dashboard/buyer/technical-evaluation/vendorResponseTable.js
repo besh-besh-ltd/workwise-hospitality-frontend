@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { addVendorAgreement, fetchVendorAgreement, getClausesByRfqProductId } from "@/services/rfq";
+import { addVendorAgreement, fetchVendorAgreement, getClausesByRfqProductId,getTechClearedVendorsResult } from "@/services/rfq";
 import BuyerVendorChat from "./buyerVendorChat";
 import FileLink from "@/components/shared/FileLink";
 import { toast } from "react-toastify";
@@ -12,7 +12,30 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
   const [rowAgreement, setRowAgreement] = useState({});
   const [clauseMap, setClauseMap] = useState(new Map());
   const [agreementMap, setAgreementMap] = useState(new Map());
-  console.log("dataaa = ",data);
+  const [status, setStatus] = useState(false);
+  const [techEvalClearedData, setTechEvalClearedData] = useState("");
+
+useEffect(() => {
+  const getTechEvalResult = async () =>{
+    console.log("current user profile = ",currentUserProfile)
+    const payload = {
+      rfq_id:rfq_id,
+      rfq_product_id:data.id,
+      vendor_id:currentUserProfile.id
+    }
+    try{
+      const res = await getTechClearedVendorsResult(payload);
+      if(res.status === 1){
+        setStatus(true);
+        setTechEvalClearedData(res.data);
+      } 
+    }catch(error){
+      console.error("Error in fetching tech evaluation cleared vendors",error);
+    }
+  }
+  getTechEvalResult();
+},[])
+  
 
   const handleAgreementChange = (clause_id, status) => {
     setAgreementMap((prevMap) => {
@@ -123,6 +146,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
         <>
           {clauseList && clauseList?.length > 0 &&
             <>
+            {status && techEvalClearedData.status === 0 ? <p className="sub-heading mb-0">Technically Not Accepted. Rejection message is {techEvalClearedData.reject_message }</p>: <p className="sub-heading mb-0">Congratulations!!, you have been Technically accepted by the buyer.</p>}
               <div className="table-content" key={`product_item_${data.id}`}>
                 <div className="table-elements">
                   <div className="table-row">

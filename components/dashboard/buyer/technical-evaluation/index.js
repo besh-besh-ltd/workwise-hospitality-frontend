@@ -3,11 +3,13 @@ import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import VendorResponseTable from "./vendorResponseTable";
 import { useRouter } from "next/router";
-import { fetchTechEvaluationRfqList, fetchVendorAgreement, fetchVendorSelectionOption } from "@/services/rfq";
+import { fetchTechEvaluationRfqList, fetchVendorAgreement, fetchVendorSelectionOption, addToTA } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
 import FullLoader from "@/components/shared/FullLoader";
 import { toast } from "react-toastify";
+import NotTA from "./NotTA";
+
 const BuyerTechnicalEvaluation = () => {
   const router = useRouter();
   const { rfq_id } = router.query;
@@ -204,6 +206,51 @@ const BuyerTechnicalEvaluation = () => {
                                 />
                               </div>
                             </div>
+
+                            {/* TA and Not TA */}
+                            { !evaluationStatus && (
+                              <>
+                            <button
+                                    href={`/dashboard/vendor/technical-evaluation`}
+                                    className="text-dark-blue"
+                                    style={{
+                                    fontSize: '0.8rem',
+                                    padding: '5px 10px',
+                                    display: 'inline-block',
+                                    border: 'none',
+                                    backgroundColor: 'lightblue',
+                                    color: 'darkblue',
+                                    textDecoration: 'none',
+                                    marginRight:"10px"
+                                    }}
+                                    onClick={() => handleTechnicallyAccepted()}
+                                  >
+                                    Technically Accepted
+                                </button>
+                                
+                                <button
+                                    href={`/dashboard/vendor/technical-evaluation`}
+                                    className="text-dark-blue"
+                                    style={{
+                                    fontSize: '0.8rem',
+                                    padding: '5px 10px',
+                                    display: 'inline-block',
+                                    border: 'none',
+                                    backgroundColor: 'lightblue',
+                                    color: 'darkblue',
+                                    textDecoration: 'none',
+                                    }}
+                                    onClick={() => handleTechnicallyNotAccepted()}
+                                  >
+                                    Technically Not Accepted
+                                </button>
+                                </>
+                                )}
+                                {evaluationStatus === 'accepted' && (<p className="sub-heading mb-0">
+                                  This Vendor has been techniaclly Accepted
+                                </p>)}
+                            {!technicallyAccepted && showModel &&<NotTA onClose = {handleCloseModal} show={showModel} data={currentRfq} vendor_id={selectedVendor}/>}
+                                
                                 
                             {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor}  />}
 
