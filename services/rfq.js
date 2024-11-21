@@ -200,10 +200,10 @@ export const updateQuotation = (quote_id, payload) => {
   });
 };
 
-export const getQuotes = (id) => {
+export const getQuotes = (id, TA_Filter) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-quotes/${id}`);
+      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter ? '?TA_Vendors=TA': ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

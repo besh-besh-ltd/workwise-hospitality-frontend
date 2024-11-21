@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { addVendorAgreement, getClausesByRfqProductId } from "@/services/rfq";
+import { addVendorAgreement, fetchVendorAgreement, getClausesByRfqProductId } from "@/services/rfq";
 import BuyerVendorChat from "./buyerVendorChat";
 import FileLink from "@/components/shared/FileLink";
 import { toast } from "react-toastify";
 
 
-const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile }) => {
+const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedVendor }) => {
   const [showMessages, setShowMessages] = useState(false);
   const [clauseList, setClauseList] = useState(null);
   const [isModelOpen, setIsModalOpen] = useState(false);
@@ -58,10 +58,16 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile }) => {
     }
   }
 
-  const getClauses = async () => {
+  const getVendorResponse = async () => {
+    const payload = {
+      rfq_id: parseInt(rfq_id),
+      rfq_product_id: type === 'buyer' ? data.rfq_product_id : data.id,
+      vendor_id: type === 'buyer' ? selectedVendor : currentUserProfile.id,
+    }
+
     try {
-      const res = await getClausesByRfqProductId({ rfq_id, rfq_product_id: data.products[0].rfq_product_id });
-      if (!res.success) {
+      const res = await fetchVendorAgreement(payload);
+      if (!res.status) {
         toast.warning(res.message);
         return;
       }
@@ -85,10 +91,31 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile }) => {
     }
   };
 
+  // const getVendorResponse = async ()=> {
+  //   const payload = {
+  //     vendor_id: selectedVendor,
+  //     rfq_id: parseInt(rfq_id),
+  //     rfq_product_id: data.rfq_product_id
+  //   }
 
-  useEffect(() => {
-    getClauses();
-  }, []);
+  //   try {
+  //     const res = await fetchVendorAgreement(payload);
+  //     console.log(res)
+  //   } catch (error) {
+  //     console.log(error)
+  //   }
+  // }
+
+
+  // useEffect(() => {
+  //   getClauses();
+  // }, []);
+
+  useEffect(()=> {
+    console.log(rfq_id, data)
+    if(rfq_id && data)
+      getVendorResponse();
+  }, [rfq_id, data])
 
   return (
     <>

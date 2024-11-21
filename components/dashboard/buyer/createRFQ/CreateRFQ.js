@@ -280,6 +280,7 @@ const CreateRFQ = () => {
                                   <Item                                    
                                     vendorApprovedList={vendorApprovedList}
                                     data={product}
+                                    rfq_id={rfqDetails}
                                   />
                                 );
                               })}

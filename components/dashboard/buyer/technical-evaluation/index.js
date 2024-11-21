@@ -3,7 +3,7 @@ import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import VendorResponseTable from "./vendorResponseTable";
 import { useRouter } from "next/router";
-import { fetchTechEvaluationRfqList, fetchVendorSelectionOption, addToTA } from "@/services/rfq";
+import { fetchTechEvaluationRfqList, fetchVendorAgreement, fetchVendorSelectionOption } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
 import FullLoader from "@/components/shared/FullLoader";
@@ -205,7 +205,7 @@ const BuyerTechnicalEvaluation = () => {
                               </div>
                             </div>
                                 
-                            {selectedVendor && <VendorResponseTable type={"buyer"} data={currentRfq}  currentUserProfile={currentUserProfile}  />}
+                            {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor}  />}
 
                           </div>
                         </div>

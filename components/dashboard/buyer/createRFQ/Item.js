@@ -17,7 +17,7 @@ import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import AddClause from "./AddClause";
 
-const Item = ({ data, vendorApprovedList }) => {
+const Item = ({ rfq_id, data, vendorApprovedList }) => {
   const dispatch = useDispatch();
   const [specSize, setspecSize] = useState("");
   const [specSpec, setspecSpec] = useState("");
@@ -417,7 +417,7 @@ const Item = ({ data, vendorApprovedList }) => {
         </td>
       </tr>
       <div>
-        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} product = {data}/>}
+        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} product = {data} rfq_id={rfq_id} />}
       </div>
     </>
   );
