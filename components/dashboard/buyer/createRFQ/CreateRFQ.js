@@ -15,6 +15,7 @@ import {
   setTermsData,
   setTermFiles,
   setAllTerms,
+  setStoreLoading,
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -35,6 +36,7 @@ const CreateRFQ = () => {
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
 
+  const storeLoading = useSelector((data)=> data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
   const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const rfqFormDataFromStore = useSelector((data) => data.rfqFormData);
@@ -220,6 +222,7 @@ const CreateRFQ = () => {
 
   const getDraftInitialData = async () => {
     dispatch(clearState());
+    dispatch(setStoreLoading(true));
     try {
       const draftRes = await getDraftData();
       dispatch(intializeRfq(draftRes.data));
@@ -227,6 +230,8 @@ const CreateRFQ = () => {
 
     } catch (error) {
       console.log(error)
+    } finally {
+      dispatch(setStoreLoading(false));
     }
   }
 
@@ -277,7 +282,7 @@ const CreateRFQ = () => {
 
   return (
     <>
-      {mainLoading && <Loader />}
+      {(mainLoading || storeLoading) && <Loader />}
       <div className="create-rfq-con">
 
         {/* If no active subscription is found */}
