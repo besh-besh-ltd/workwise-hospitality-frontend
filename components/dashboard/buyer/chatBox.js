@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 
-const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
+const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent }) => {
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState([]);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -36,19 +36,19 @@ const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
 
   const handleSendMessage = async () => {
     setSendButtonLoading(true);
-  
+
     if (!messageText) {
       toast.error("Message text can't be empty!", { position: "top-right" });
       setSendButtonLoading(false);
       return;
     }
-  
+
     const formData = new FormData();
     formData.append("message_text", messageText);
     formData.append("rfq_id", rfq_id);
     formData.append("receiver_id", vendor.user_id);
     files.forEach((fileObj) => formData.append("files", fileObj.file));
-  
+
     try {
       const response = await sendQueryMessage(formData);
       if (response.status === 1) {
@@ -65,22 +65,24 @@ const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
       setSendButtonLoading(false);
     }
   };
-  
+
 
   return (
     <div className="d-flex flex-column h-100">
       <div className="mb-3 border-bottom pb-2 d-flex">
         <h5 className="me-auto mb-0">{vendor.user_name}</h5>
-        <Link
-          href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.user_id}`}
-          className="p-0 mx-2 d-flex align-items-center"
-          aria-label="View Vendor Profile"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <FontAwesomeIcon icon={faInfoCircle} size="lg" className="me-1" />
-          Details
-        </Link>
+        {role === 'buyer' ?
+          <Link
+            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.user_id}`}
+            className="p-0 mx-2 d-flex align-items-center"
+            aria-label="View Vendor Profile"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <FontAwesomeIcon icon={faInfoCircle} size="lg" className="me-1" />
+            Details
+          </Link>
+          : null}
       </div>
 
       <div
@@ -91,9 +93,8 @@ const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
           <div
             key={message.message_id}
             ref={index === messages.length - 1 ? latestMessageRef : null}
-            className={`d-flex ${
-              message.sender_id === vendor.user_id ? "" : "justify-content-end"
-            } mb-2`}
+            className={`d-flex ${message.sender_id === vendor.user_id ? "" : "justify-content-end"
+              } mb-2`}
           >
             <div
               className={`p-3 me-2 bg-light text-dark rounded shadow-sm`}
@@ -182,9 +183,9 @@ const ChatBox = ({ messages, vendor, rfq_id, onMessageSent }) => {
           placeholder="Type a message..."
         />
 
-        <button 
-          className="btn btn-secondary p-2" 
-          onClick={handleSendMessage} 
+        <button
+          className="btn btn-secondary p-2"
+          onClick={handleSendMessage}
           disabled={sendButtonLoading}
         >
           {sendButtonLoading ? "Sending..." : "Send"}

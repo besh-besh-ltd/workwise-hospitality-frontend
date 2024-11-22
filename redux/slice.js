@@ -2,6 +2,7 @@ const { createSlice } = require("@reduxjs/toolkit");
 import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
+  storeLoading: false,
   allTerms: [],
   rfq_id: -1,
   rfqProducts: [],
@@ -35,6 +36,10 @@ export const rfqProductsSlice = createSlice({
       state.rfq_id = action.payload.rfq_id;
       state.rfqFormData = action.payload.rfq_form_data;
       state.rfqProducts = action.payload.rfq_products;
+    },
+
+    setStoreLoading: (state, action) => {
+      state.storeLoading = action.payload;
     },
 
     clearState: (state, action) => {
@@ -94,7 +99,7 @@ export const rfqProductsSlice = createSlice({
           }
           else return pitem;
         });
-        state.rfqProducts = updatedProductList;
+      state.rfqProducts = updatedProductList;
     },
 
     addProductSpecValue: (state, action) => {
@@ -274,6 +279,7 @@ export const rfqProductsSlice = createSlice({
 
 export const {
   intializeRfq,
+  setStoreLoading,
   clearState,
   addRfqProduct,
   removeRfqProduct,
