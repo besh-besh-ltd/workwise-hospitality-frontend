@@ -37,12 +37,9 @@ const QuoteCompare = () => {
 
 
   useEffect(() => {
-    if (rfq) {
-      setcurrentRFQ(rfq);
+    if (rfq)
       getRespectiveQuotes();
-    } else {
-      setcurrentRFQ(null);
-    }
+
   }, [router]);
 
   useEffect(() => {
@@ -81,6 +78,8 @@ const QuoteCompare = () => {
     setquotes([]);
     getQuotes(rfq)
       .then((res) => {
+        const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
+        setcurrentRFQ(rfq_details);
         setquotes(res.data);
       })
       .catch((err) => {
@@ -819,10 +818,10 @@ const QuoteCompare = () => {
               <div className="btn-options float-end">
 
                 {/* Download quote & Close Rfq Buttons */}
-                {currentRFQ && showOverallComparison && (
+                {rfq && showOverallComparison && (
                   <span onClick={handleDownloadQuote}> {downloadLoading ? "Generating Excel file...." : "Download as Excel"} </span>
                 )}
-                {currentRFQ && quotes && quotes.length > 0 && (
+                {rfq && quotes && quotes.length > 0 && (
                   <>
                     {quotes[0]?.rfq[0]?.status == 1 &&
                       <span onClick={handleRFqClose}>{closeRFqLoading ? "Processing request..." : "Mark RFQ as Closed"}</span>
@@ -850,8 +849,8 @@ const QuoteCompare = () => {
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
                       return (
-                        <li className={`${item.id == currentRFQ ? "active" : ""}`}>
-                          <Link href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`} className={`${item.id == currentRFQ ? "text-white" : "text-dark"}`} > RFQ #{item?.rfq_no} </Link>
+                        <li className={`${item.id == rfq ? "active" : ""}`}>
+                          <Link href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`} className={`${item.id == rfq ? "text-white" : "text-dark"}`} > RFQ #{item?.rfq_no} </Link>
                         </li>
                       )
                     }
@@ -877,7 +876,72 @@ const QuoteCompare = () => {
             </div>
 
             <div className="col-md-10">
+
               <div className="quote-sec-table quote-sec-tab">
+
+                {!quotesLoading && currentRFQ &&
+                  <div className="mb-3">
+                    <h3 className="fs-5 mb-3">
+                      <span className="fw-semibold">RFQ No : </span>{currentRFQ.rfq_no}
+                    </h3>
+                    <hr />
+
+                    <div className="row text-sm ">
+
+                      <div className="col-md-6">
+                        <p className="sub-heading mb-0">
+                          <b>Company Name</b> :{" "}
+                          {currentRFQ.company_name}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Contact Person Name</b> :{" "}
+                          {currentRFQ.contact_name}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Response Email</b> :{" "}
+                          {currentRFQ.response_email}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Contact Number</b> :{" "}
+                          {currentRFQ.contact_number}
+                        </p>
+                        {currentRFQ.location && currentRFQ.location != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>Delivery Location</b> :{" "}
+                            {currentRFQ.location}
+                          </p>}
+                      </div>
+
+                      <div className="col-md-6">
+                        {currentRFQ.project_name && currentRFQ.project_name != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>Project Name</b> :{" "}
+                            {currentRFQ.project_name}
+                          </p>}
+                        <p className="sub-heading mb-0">
+                          <b>Reverse Auction</b> :{" "}
+                          {currentRFQ.reverse_auction == 1 ? "Enabled" : "Disabled"}
+                        </p>
+                        {currentRFQ.rfq_type && currentRFQ.rfq_type != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>RFQ Type</b> :{" "}
+                            {currentRFQ.rfq_type}
+                          </p>}
+                        <p className="sub-heading mb-0">
+                          <b>Bid End Date</b> :{" "}
+                          {currentRFQ.bid_end_date}
+                        </p>
+                        {currentRFQ.comment && currentRFQ.comment != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>Comment</b> :{" "}
+                            {currentRFQ.comment}
+                          </p>}
+                      </div>
+
+                    </div>
+                  </div>
+                }
+
                 {"rfq" in router?.query && (
                   <div className="tabs-container">
                     <Link
@@ -898,7 +962,7 @@ const QuoteCompare = () => {
                   </div>
                 )}
 
-                {!currentRFQ && (
+                {!rfq && (
                   <div className="quote-sec-main">
                     <div className="quote-sec-table-sub">
                       <h4 className="text-center">
@@ -908,7 +972,7 @@ const QuoteCompare = () => {
                   </div>
                 )}
 
-                {currentRFQ && (
+                {rfq && (
                   <div className="quote-sec-main">
                     {quotesLoading && (
                       <div className="quote-sec-table-sub hasFullLoader">
