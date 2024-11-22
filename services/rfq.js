@@ -378,10 +378,10 @@ export const updateClause = (payload) => {
   });
 };
 
-export const removeClause = (payload) => {
+export const removeClause = (clause_id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.delete(`/rfq/remove-clause`,payload);
+      let response = await axiosInstance.delete(`/rfq/remove-clause/${clause_id}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

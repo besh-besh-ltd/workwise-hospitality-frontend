@@ -10,7 +10,7 @@ import { addClause, getClausesByRfqProductId, removeClause, updateClause } from 
 import { useSelector } from "react-redux";
 
 
-function AddClauseModal({ rfq_id, show, onClose, product }) {
+function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [clauses, setClauses] = useState([]);
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
@@ -43,12 +43,12 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
 
     const getPreviousClauses = async () => {
         const payload = {
-            rfq_id,
+            // rfq_id,
             rfq_product_id: product.id
         }
         try {
             const res = await getClausesByRfqProductId(payload);
-            if(res.data)
+            if (res.data)
                 setPreviousClauses(res.data);
         } catch (error) {
             console.log(error)
@@ -74,8 +74,9 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             toast.success(res.message)
 
             // Add new clause to the list
-            const newClause = { message, files };
-            setClauses([...clauses, newClause]);
+            // const newClause = { message, files };
+            // setClauses([...clauses, newClause]);
+            getPreviousClauses();
 
         } catch (error) {
             console.log(error)
@@ -91,7 +92,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
         // Remove clause from the list
         const updatedClauses = clauses.filter((_, idx) => idx !== index);
         setClauses(updatedClauses);
-        setMessage(clause.message);
+        setMessage(clause.clause_text);
         setFiles(clause.files);
         setUpdate(true);
         setCurrentClause(clause);
@@ -110,8 +111,9 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             toast.success(res.message)
 
             // Add new clause to the list
-            const newClause = { message, files };
-            setClauses([...clauses, newClause]);
+            // const newClause = { message, files };
+            // setClauses([...clauses, newClause]);
+            getPreviousClauses();
 
         } catch (error) {
             console.log(error)
@@ -125,15 +127,17 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
         }
     }
 
-    const handleDeleteClause = async (clause_id, index) => {
+    const handleDeleteClause = async (clause_id) => {
+        console.log("delete caluse id = ",clause_id);
         try {
             setLoading(true)
             const res = await removeClause(clause_id);
             toast.success(res.message)
 
             // Remove clause from the list
-            const updatedClauses = clauses.filter((_, idx) => idx !== index);
-            setClauses(updatedClauses)
+            // const updatedClauses = clauses.filter((_, idx) => idx !== index);
+            // setClauses(updatedClauses)
+            getPreviousClauses();
 
         } catch (error) {
             console.log(error)
@@ -153,7 +157,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             centered
             size="lg"
         >
-            <Modal.Header closeButton>
+            <Modal.Header>
                 <Modal.Title className="text-right w-100 p-3">
                     Add Technical Clause for - {product.name}
                 </Modal.Title>
@@ -195,7 +199,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                 className="btn btn-warning p-1"
                                 style={{ width: "100px" }}
                                 onClick={handleUpdateClause}
-                                disabled={message.length == 0 && files.length == 0}
+                                disabled={!message || message.length == 0}
                             >
                                 Update
                             </button>
@@ -205,7 +209,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                 className="btn btn-primary p-1"
                                 style={{ width: "100px" }}
                                 onClick={handleAddClause}
-                                disabled={message.length == 0 && files.length == 0}
+                                disabled={!message || message.length == 0}
                             >
                                 Add
                             </button>
@@ -224,94 +228,99 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                 />
 
                 {/* Show Previous Clauses */}
+
                 <div className="mt-4">
-                    {previousClauses && previousClauses.length > 0 && (
-                        <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                            {previousClauses.map((clause, index) => (
-                                <li key={index} className="list-group-item ">
-                                    <p className="text-sm mb-0">
-                                        <strong>Message:</strong> {clause.clause_text}
-                                    </p>
-                                    {clause.files.length > 0 && (
-                                        <div className="d-flex gap-2 align-items-center text-sm">
-                                            <strong className="text-nowrap">Files :</strong>
-                                            <FileLink
-                                                Files={clause.files}
-                                                ColumnClass="col-md-3"
-                                                Style={{ fontSize: "12px" }}
-                                            />
+                        {previousClauses && previousClauses.length > 0 && (
+                            <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                {previousClauses.map((clause, index) => (
+                                    <li key={index} className="list-group-item ">
+                                        <p className="text-sm mb-0">
+                                            <strong>Message:</strong> {clause.clause_text}
+                                        </p>
+                                        {clause.files.length > 0 && (
+                                            <div className="d-flex gap-2 align-items-center text-sm">
+                                                <strong className="text-nowrap">Files :</strong>
+                                                <FileLink
+                                                    Files={clause.files}
+                                                    ColumnClass="col-md-3"
+                                                    Style={{ fontSize: "12px" }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="d-flex justify-content-end">
+                                            <button
+                                                type="button"
+                                                className="btn btn-warning p-1 me-2"
+                                                style={{ width: "110px", fontSize: "12px" }}
+                                                onClick={() => openUpdateField(clause, index)}
+                                            >
+                                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                Update
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-danger p-1"
+                                                style={{ width: "110px", fontSize: "12px" }}
+                                                onClick={() => handleDeleteClause(clause.clause_id)}
+                                            >
+                                                <FontAwesomeIcon icon={faTrash} className="me-2" />
+                                                Remove
+                                            </button>
                                         </div>
-                                    )}
-                                    <div className="d-flex justify-content-end">
-                                        <button
-                                            type="button"
-                                            className="btn btn-warning p-1 me-2"
-                                            style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => openUpdateField(clause, index)}
-                                        >
-                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                            Update
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-danger p-1"
-                                            style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => handleDeleteClause(clause.clause_id, index)}
-                                        >
-                                            <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                            Remove
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                    </li>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
 
                 {/* To Do List: Display Added Clauses */}
-                <div className="mt-4">
-                    {clauses.length > 0 && (
-                        <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                            {clauses.map((clause, index) => (
-                                <li key={index} className="list-group-item ">
-                                    <p className="text-sm mb-0">
-                                        <strong>Message:</strong> {clause.message}
-                                    </p>
-                                    {clause.files.length > 0 && (
-                                        <div className="d-flex gap-2 align-items-center text-sm">
-                                            <strong className="text-nowrap">Files :</strong>
-                                            <FileLink
-                                                Files={clause.files}
-                                                ColumnClass="col-md-3"
-                                                Style={{ fontSize: "12px" }}
-                                            />
+                {/* {!update &&
+                    <div className="mt-4">
+                        {clauses.length > 0 && (
+                            <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                {clauses.map((clause, index) => (
+                                    <li key={index} className="list-group-item ">
+                                        <p className="text-sm mb-0">
+                                            <strong>Message:</strong> {clause.message}
+                                        </p>
+                                        {clause.files.length > 0 && (
+                                            <div className="d-flex gap-2 align-items-center text-sm">
+                                                <strong className="text-nowrap">Files :</strong>
+                                                <FileLink
+                                                    Files={clause.files}
+                                                    ColumnClass="col-md-3"
+                                                    Style={{ fontSize: "12px" }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="d-flex justify-content-end">
+                                            <button
+                                                type="button"
+                                                className="btn btn-warning p-1 me-2"
+                                                style={{ width: "110px", fontSize: "12px" }}
+                                                onClick={() => openUpdateField(clause, index)}
+                                            >
+                                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                Update
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-danger p-1"
+                                                style={{ width: "110px", fontSize: "12px" }}
+                                                onClick={() => handleDeleteClause(clause.clause_id, index)}
+                                            >
+                                                <FontAwesomeIcon icon={faTrash} className="me-2" />
+                                                Remove
+                                            </button>
                                         </div>
-                                    )}
-                                    <div className="d-flex justify-content-end">
-                                        <button
-                                            type="button"
-                                            className="btn btn-warning p-1 me-2"
-                                            style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => openUpdateField(clause, index)}
-                                        >
-                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                            Update
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-danger p-1"
-                                            style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => handleDeleteClause(clause.clause_id, index)}
-                                        >
-                                            <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                            Remove
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                    </li>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                } */}
+
 
             </Modal.Body>
             <Modal.Footer>

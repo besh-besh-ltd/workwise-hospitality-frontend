@@ -11,7 +11,7 @@ import { faFileUpload } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
 
 
-const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedVendor }) => {
+const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, currentRfq,selectedVendor }) => {
   const [showMessages, setShowMessages] = useState(false);
   const [clauseList, setClauseList] = useState(null);
   const [isModelOpen, setIsModalOpen] = useState(false);
@@ -55,10 +55,11 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
     const getTechEvalResult = async () => {
       console.log("current user profile = ", currentUserProfile)
       const payload = {
-        rfq_id: rfq_id,
+        // rfq_id: rfq_id,
         rfq_product_id: data.id,
         vendor_id: currentUserProfile.id
       }
+      console.log("get tech eval result = ",payload);
       try {
         const res = await getTechClearedVendorsResult(payload);
         if (res.status === 1) {
@@ -76,7 +77,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
   const addToTechnicallyAccepted = async () => {
     const payload = {
       vendor_id: selectedVendor,
-      rfq_product_tech_evaluation_id: currentRfq.tbl_rfq_product_tech_evaluation_id,
+      rfq_product_tech_evaluation_id: currentRfq.products[0].tbl_rfq_product_tech_evaluation_id,
       status: 1,
       reject_message: null
     }
@@ -181,6 +182,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
       rfq_product_id: type === 'buyer' ? data.rfq_product_id : data.id,
       vendor_id: type === 'buyer' ? selectedVendor : currentUserProfile.id,
     }
+    console.log("payload for vendor names = ",payload);
 
     try {
       setIsLoading(true);
@@ -213,10 +215,10 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
 
   const getClauses = async () => {
     const payload = {
-      // rfq_id: parseInt(rfq_id),
+      rfq_id: parseInt(rfq_id),
       // rfq_product_id: data.id
       // rfq_id: 35,
-      rfq_product_id: 1848
+      rfq_product_id: data.id
     }
     try {
       const res = await getClausesByRfqProductId(payload)
@@ -483,7 +485,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
           : (clauseList && clauseList.length > 0) &&
           <>
             {/* TA and Not TA */}
-            {!evaluationStatus && (
+            {evaluationStatus === 'accepted' ? <p className="badge text-bg-success">Congratulations!!. You have technically Accepted this vendor.</p> : (
               <>
                 <button
                   href={`/dashboard/vendor/technical-evaluation`}
