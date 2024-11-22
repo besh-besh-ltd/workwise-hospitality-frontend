@@ -353,37 +353,56 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
 
                       {buyerClauses.map(() => {
                         return (
-                          <div className="table-si-row">
-                            <div className="d-flex justify-content-center" onClick={handleAttachFileClick} style={{ cursor: "pointer" }}>
-                              <FontAwesomeIcon icon={faFileUpload} className="me-2" />
-                              Upload
-                            </div>
-                            {fileLoading &&
-                              <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
-                                <span className="visually-hidden">Loading...</span>
+                          <>
+                          {(agreementSent === false && vendorResponse === 0) && (
+                            <div className="table-si-row">
+                              <div
+                                className="d-flex justify-content-center"
+                                onClick={handleAttachFileClick}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <FontAwesomeIcon icon={faFileUpload} className="me-2" />
+                                Upload
                               </div>
-                            }
-
-                            {/* Display the filename below the Attach file button if a file is selected */}
-                            {files &&
-                              <FileLink
-                                Files={files}
-                                ColumnClass="col-md-4"
-                                Style={{ fontSize: "12px" }}
-                                showDownload={false}
+                              {fileLoading && (
+                                <div
+                                  className="spinner-border spinner-border-sm text-primary ms-2"
+                                  role="status"
+                                >
+                                  <span className="visually-hidden">Loading...</span>
+                                </div>
+                              )}
+                          
+                              {/* Display the filename below the Attach file button if a file is selected */}
+                              {files && (
+                                <FileLink
+                                  Files={files}
+                                  ColumnClass="col-md-4"
+                                  Style={{ fontSize: "12px" }}
+                                  showDownload={false}
+                                />
+                              )}
+                          
+                              {/* Hidden file input field triggered by the "Attach file" button */}
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                style={{ display: "none" }}
+                                onChange={uploadToServer}
                               />
-                            }
-
-                            {/* Hidden file input field triggered by the "Attach file" button */}
-                            <input
-                              ref={fileInputRef}
-                              type="file"
-                              accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                              style={{ display: 'none' }}
-                              onChange={uploadToServer}
-                            />
-                          </div>
+                            </div>
+                          )} {(agreementSent === true || vendorResponse === 1) && (
+                            <div className="table-si-row">
+                              {/* Display files if the agreement is already sent or vendor response exists */}
+                              
+                                <p className="text-muted">File uploaded successfully.</p>
+                              
+                            </div>
+                          )}
+                          </>
                         )
+                        
                       })}
                     </div>
 
@@ -438,7 +457,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
                           className="btn btn-secondary border-0"
                           onClick={handleSaveAgreement}
                         >
-                          Save
+                          Submit
                         </button>
                       </div>
                     )}
