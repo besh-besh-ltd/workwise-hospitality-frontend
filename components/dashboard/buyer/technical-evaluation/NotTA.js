@@ -21,9 +21,9 @@ const NotTA = ({ show, onClose, data, vendor_id }) => {
         }
     }
     const handleSend = () => {
-
         if (!message.trim()) {
             toast.error("Message is compolsory")
+            return;
         }
         sendFeedback();
     }

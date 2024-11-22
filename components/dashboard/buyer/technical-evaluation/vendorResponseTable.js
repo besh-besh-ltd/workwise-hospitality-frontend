@@ -31,7 +31,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
   const [fileLoading, setFileLoading] = useState(false);
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
-
+  const [vendorResponse, setVendorResponse] = useState(null);
 
   const handleAttachFileClick = () => {
     fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -105,27 +105,27 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, selectedV
     setShowModel(false);
   }
 
-useEffect(() => {
-  const getTechEvalResult = async () =>{
-    console.log("current user profile = ",currentUserProfile)
-    const payload = {
-      rfq_id:rfq_id,
-      rfq_product_id:data.id,
-      vendor_id:currentUserProfile.id
+  useEffect(() => {
+    const getTechEvalResult = async () => {
+      console.log("current user profile = ", currentUserProfile)
+      const payload = {
+        // rfq_id:rfq_id,
+        rfq_product_id: data.id,
+        vendor_id: currentUserProfile.id
+      }
+      try {
+        const res = await getTechClearedVendorsResult(payload);
+        if (res.status === 1) {
+          setStatus(true);
+          setTechEvalClearedData(res.data);
+        }
+      } catch (error) {
+        console.error("Error in fetching tech evaluation cleared vendors", error);
+      }
     }
-    try{
-      const res = await getTechClearedVendorsResult(payload);
-      if(res.status === 1){
-        setStatus(true);
-        setTechEvalClearedData(res.data);
-      } 
-    }catch(error){
-      console.error("Error in fetching tech evaluation cleared vendors",error);
-    }
-  }
-  getTechEvalResult();
-},[])
-  
+    getTechEvalResult();
+  }, [])
+
 
   const handleAgreementChange = (clause_id, status) => {
     setAgreementMap((prevMap) => {
@@ -213,7 +213,7 @@ useEffect(() => {
 
   const getClauses = async () => {
     const payload = {
-      rfq_id: parseInt(rfq_id),
+      // rfq_id: parseInt(rfq_id),
       // rfq_product_id: data.id
       // rfq_id: 35,
       rfq_product_id: 1848
@@ -221,12 +221,15 @@ useEffect(() => {
     try {
       const res = await getClausesByRfqProductId(payload)
       setBuyerClauses(res.data);
-      console.log(res)
+      const vendor_response = res.vendor_response;
+      console.log("vendor_respons = ", vendor_response)
+      setVendorResponse(vendor_response);
+      console.log("vendorResponse = ", vendorResponse);
+      console.log("get clauses response = ", res)
     } catch (error) {
       console.log(error)
     }
   }
-
   // const getVendorResponse = async ()=> {
   //   const payload = {
   //     vendor_id: selectedVendor,
@@ -248,6 +251,10 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
+    console.log("vendor response useeffect = ", vendorResponse);
+  }, [vendorResponse])
+
+  useEffect(() => {
     console.log(rfq_id, data)
     if (rfq_id && data)
       getVendorResponse();
@@ -259,7 +266,8 @@ useEffect(() => {
         <>
           {buyerClauses && buyerClauses?.length > 0 &&
             <>
-              {status && techEvalClearedData.status === 0 ? <p className="badge text-bg-danger">Technically Not Accepted. Rejection message is {techEvalClearedData.reject_message}</p> : <p className="badge text-bg-success">Congratulations!!, you have been Technically accepted by the buyer.</p>}
+              {status && techEvalClearedData.status === 0 && <p className="badge text-bg-danger">Technically Not Accepted. Rejection message is {techEvalClearedData.reject_message}</p>}
+              {status && techEvalClearedData.status === 1 && <p className="badge text-bg-success">Congratulations!!, you have been Technically accepted by the buyer.</p>}
               <div className="table-content" key={`product_item_${data.id}`}>
                 {isLoading && <Loader />}
                 <div className="table-elements">
@@ -285,7 +293,7 @@ useEffect(() => {
                           <div className="table-si-row" key={`agree_button_${clause.clause_id}`}>
                             {clause.files && clause.files.length > 0 ?
                               <FileLink Files={clause.files} />
-                              : "N/A"}
+                              : <p className="sub-heading mb-0"> N/A</p>}
                           </div>
                         )
                       })}
@@ -346,7 +354,7 @@ useEffect(() => {
                       {buyerClauses.map(() => {
                         return (
                           <div className="table-si-row">
-                            <div className="d-flex justify-content-center" onClick={handleAttachFileClick}>
+                            <div className="d-flex justify-content-center" onClick={handleAttachFileClick} style={{ cursor: "pointer" }}>
                               <FontAwesomeIcon icon={faFileUpload} className="me-2" />
                               Upload
                             </div>
@@ -416,16 +424,33 @@ useEffect(() => {
                           </div>
                         );
                       })}
-
                     </div>
                   </div>
                 </div>
               </div>
-              {!agreementSent ? <div className="d-flex justify-content-center">
-                <button type="button" className="btn btn-secondary border-0" onClick={handleSaveAgreement}>Save</button>
-              </div>
-                : <p>You have already submitted the response.</p>
-              }
+              <>
+                {!status ? (
+                  <>
+                    {(agreementSent === false && vendorResponse === 0) && (
+                      <div className="d-flex justify-content-center">
+                        <button
+                          type="button"
+                          className="btn btn-secondary border-0"
+                          onClick={handleSaveAgreement}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                    {(agreementSent === true || vendorResponse === 1) && (
+                      <p className="d-flex justify-content-center">You have already submitted the response.</p>
+                    )}
+                  </>
+                ) : (
+                  " "
+                )}
+              </>
+
             </>
           }
         </>
@@ -513,8 +538,8 @@ useEffect(() => {
                     {clauseList.map((clause) => {
                       return (
                         <div className="table-si-row" key={`tbl_row_${clause.vendor_response_files}`}>
-                          {clause.vendor_response_files && clause.vendor_response_files.length > 0 &&
-                            <FileLink Files={clause.vendor_response_files} />
+                          {clause.vendor_response_files && clause.vendor_response_files.length > 0 ?
+                            <FileLink Files={clause.vendor_response_files} /> : "N/A"
                           }
                         </div>
                       )
