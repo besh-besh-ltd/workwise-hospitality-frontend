@@ -76,12 +76,21 @@ const OverallComparison = ({ rfq_id }) => {
       const array = item.quotations.filter(
         (item) => item.id != null && item.is_regret != 1
       );
+      // let lowest = array.reduce((lowest, currentItem) => {
+      //   return currentItem.quote_details[0].total_price <
+      //     lowest.quote_details[0].total_price
+      //     ? currentItem
+      //     : lowest;
+      // }, array[0]);
+
       let lowest = array.reduce((lowest, currentItem) => {
-        return currentItem.quote_details[0].total_price <
-          lowest.quote_details[0].total_price
-          ? currentItem
-          : lowest;
-      }, array[0]);
+        if (currentItem.quote_details[0].total_price > 0) {
+            return currentItem.quote_details[0].total_price < lowest.quote_details[0].total_price
+                ? currentItem
+                : lowest;
+        }
+        return lowest;
+    }, array[0]);
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
@@ -358,10 +367,10 @@ const OverallComparison = ({ rfq_id }) => {
                             } else {
                               return (
                                 <td
-                                  className={`${quote_item?.is_lowest ? "is_lowest total_amt_field" : "total_amt_field"}`}
+                                  className={`${quote_item?.is_lowest && quote_item?.quote_details[0]?.total_price ? "is_lowest total_amt_field" : "total_amt_field"}`}
                                   key={`quote_item_${quote_item?.created_by}`}
                                 >
-                                  {quote_item?.quote_details?.length > 0 ? (
+                                  {quote_item?.quote_details?.length > 0 && quote_item?.quote_details[0]?.total_price ? (
                                     <label className="view_breakup">
                                       <div className="tooltip_custom">
                                         Show/hide Breakup
@@ -424,10 +433,11 @@ const OverallComparison = ({ rfq_id }) => {
                                               : "-"}
                                           </td>
                                         </tr>
-                                        <tr className="is_lowest ">
+                                        <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : "" }`}>
                                           <th>Sub Total</th>
                                           <td>
                                             {quote_item?.quote_details.length > 0
+                                             && quote_item.quote_details[0]?.total_price
                                               ? addCommasToNumber(
                                                 quote_item.quote_details[0]
                                                   ?.total_price
@@ -438,6 +448,7 @@ const OverallComparison = ({ rfq_id }) => {
                                       </table>
                                       <p>
                                         {quote_item?.quote_details?.length > 0
+                                         && quote_item.quote_details[0]?.total_price
                                           ? addCommasToNumber(
                                             quote_item?.quote_details[0]
                                               ?.total_price
