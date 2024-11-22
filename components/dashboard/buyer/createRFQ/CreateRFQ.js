@@ -112,7 +112,11 @@ const CreateRFQ = () => {
   };
 
   const handleFormFieldChange = async (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    if(name==="reverse_auction"){
+      value = parseInt(value);
+    }
 
     if (name === "project_id" && value !== -1) {
       try {
