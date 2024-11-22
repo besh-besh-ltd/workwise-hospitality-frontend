@@ -1250,7 +1250,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     {currentSelectedProduct &&
                       <div className="d-flex align-items-center justify-content-between mb-4 b-2 " >
-                        <h2 className="fs-5">Available Vendors</h2>
+                        <h2 className="fs-5">Available Vendors for <span  style={{ fontWeight: '500' }}>{currentSelectedProduct.product_name}</span></h2>
                         {/* <div className="d-flex justify-content-end"> */}
                         <div className="col-md-2" >
                           <input
