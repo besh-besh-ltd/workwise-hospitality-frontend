@@ -34,6 +34,7 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
   }
+
   useEffect(() => {
     console.log(data)
     setRfqProduct(data);

@@ -135,6 +135,7 @@ const QueryComponent = () => {
                 messages={messages}
                 vendor={selectedVendor}
                 rfq_id={rfq_id}
+                role={role}
                 onMessageSent={handleMessageSent}
               />
             ) : (
