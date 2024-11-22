@@ -153,7 +153,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             centered
             size="lg"
         >
-            <Modal.Header>
+            <Modal.Header closeButton>
                 <Modal.Title className="text-right w-100 p-3">
                     Add Technical Clause for - {product.name}
                 </Modal.Title>

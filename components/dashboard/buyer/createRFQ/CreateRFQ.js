@@ -171,6 +171,7 @@ const CreateRFQ = () => {
       ...rfqFormDataRef.current,
       project_id: rfqFormDataRef.current.project_id || -1
     };
+    console.log("payload of create RFQ = ",payload);
 
     createRfq(payload)
       .then((res) => {
