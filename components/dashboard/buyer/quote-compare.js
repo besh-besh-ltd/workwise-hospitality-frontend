@@ -825,7 +825,7 @@ const QuoteCompare = () => {
                 {currentRFQ && quotes && quotes.length > 0 && (
                   <>
                     {quotes[0]?.rfq[0]?.status == 1 &&
-                      <span>{closeRFqLoading ? "Processing request..." : "Mark RFQ as Closed"}</span>
+                      <span onClick={handleRFqClose}>{closeRFqLoading ? "Processing request..." : "Mark RFQ as Closed"}</span>
                     }
                     {quotes[0]?.rfq[0]?.status == 2 && (
                       <span className="disabled-button">RFQ has been closed</span>
@@ -1025,6 +1025,7 @@ const QuoteCompare = () => {
                                         : "-"
                                     }
                                     alreadyFinalized={item?.quotations?.filter((item) => item.finalization != null)}
+                                    isRfqClosed={item.rfq[0]?.status == 2 || false}
                                   />
                                 </>
                               )}

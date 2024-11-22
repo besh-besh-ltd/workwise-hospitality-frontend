@@ -24,14 +24,22 @@ const RfqManagementVendorPage = () => {
   const [loading, setloading] = useState(false);
   const [vendorList, setVendorList] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showBackBtn, setShowBackBtn] = useState(false);
 
   const vendorsRef = useRef([]);
 
 
+  const handleGoBack = (e)=> {
+    e.preventDefault();
+    if(type == "buyer-view") {
+      router.back();
+    }
+    else {
+      router.push('/dashboard/buyer/rfq-management?tab=create-rfq')
+    }
+  }
+
   const getVendors = () => {
     const vendorIds = productItem ? productItem.vendors?.map((venItem) => venItem.user_id) : vendors.split(",");
-    console.log(vendorIds);
 
     if (vendorIds) {
       setloading(true);
@@ -87,8 +95,6 @@ const RfqManagementVendorPage = () => {
 
   useEffect(() => {
     getVendors();
-    if (type != "rfqVendorList" && type != "buyer-view")
-      setShowBackBtn(true);
   }, [router, vendors]);
 
 
@@ -125,13 +131,15 @@ const RfqManagementVendorPage = () => {
         <div className="container-fluid text-center">
           <h1 className="heading"></h1>
 
-          {showBackBtn ?
-            <Link href="/dashboard/buyer/rfq-management?tab=create-rfq" className="fs-6 page-link backBtn" style={{ textDecoration: 'none' }}>
-              <FontAwesomeIcon icon={faArrowLeft} className="me-2" /> Go back
-            </Link>
-            :
-            null
-          }
+          <Link
+            href="#"
+            className="fs-6 page-link backBtn"
+            style={{ textDecoration: 'none' }}
+            onClick={handleGoBack}
+          >
+            <FontAwesomeIcon icon={faArrowLeft} className="me-2" /> Go back
+          </Link>
+
         </div>
       </section>
 
@@ -153,7 +161,8 @@ const RfqManagementVendorPage = () => {
                           <tr>
                             <th>Vendor</th>
                             <th>Region</th>
-                            <th>Contact info</th>
+                            <th>Email</th>
+                            <th>Mobile No.</th>
                             <th>Industry</th>
                             <th>Products</th>
                             <th>Action</th>
@@ -166,6 +175,7 @@ const RfqManagementVendorPage = () => {
                                 <tr key={`vendor-${item.name}`}>
                                   <td>{item.name}</td>
                                   <td>{item.address}</td>
+                                  <td>{item.email}</td>
                                   <td>{item.mobile}</td>
                                   <td>
                                     {item.organization_name
@@ -224,7 +234,7 @@ const RfqManagementVendorPage = () => {
                     </button>
                   </div>
                 }
-                
+
               </div>
             </div>
           </div>

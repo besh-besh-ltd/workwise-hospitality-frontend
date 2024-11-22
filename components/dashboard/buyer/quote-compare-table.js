@@ -9,15 +9,19 @@ import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { extractfileName } from "@/utils/sharedFunctions";
+import { useRouter } from "next/router";
 
 const QuoteCompareTable = ({
   quotations,
   quantity,
   handleFinalize,
   proditem,
-  alreadyFinalized
+  alreadyFinalized,
+  isRfqClosed = false
 }) => {
 
+  const router = useRouter();
+  const { rfq } = router.query;
   const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
   const [lowestQuote, setLowestQuote] = useState(null);
@@ -77,7 +81,7 @@ const QuoteCompareTable = ({
                   <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
                     <div className="table-si-row table-dark-row">
                       <span>
-                        {item?.quote_details?.vendor_details?.organization_name || item?.quote_details?.vendor_details?.name }
+                        {item?.quote_details?.vendor_details?.organization_name || item?.quote_details?.vendor_details?.name}
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (
@@ -98,10 +102,10 @@ const QuoteCompareTable = ({
                         </Dropdown.Toggle>
                         <Dropdown.Menu>
                           {alreadyFinalized?.length == 0 && item?.quote_details?.is_regret == 0 &&
-                            !item.finalization && (
+                            !item.finalization && !isRfqClosed && (
                               <Dropdown.Item
                                 className="negotiate-link"
-                                onClick={() => handleNegotiate(item)}
+                                href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
                               >
                                 Negotiate
                               </Dropdown.Item>
@@ -113,7 +117,7 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {alreadyFinalized?.length == 0 && !item.finalization &&
+                          {alreadyFinalized?.length == 0 && !item.finalization && !isRfqClosed &&
                             item?.quote_details?.is_regret == 0 && (
                               <Dropdown.Item
                                 href="#"
@@ -224,15 +228,25 @@ const QuoteCompareTable = ({
                 </Link>
               </span>
 
-              <button
-                type="submit"
-                className="btn btn-secondary"
-                onClick={(e) =>
-                  handleFinalize(e, lowestQuote, proditem)
-                }
-              >
-                Finalize
-              </button>
+              {isRfqClosed ?
+                <button
+                  type="submit"
+                  className="btn btn-warning btn-outlined"
+                  disabled
+                >
+                  RFQ has been Closed
+                </button>
+                :
+                <button
+                  type="submit"
+                  className="btn btn-secondary"
+                  onClick={(e) =>
+                    handleFinalize(e, lowestQuote, proditem)
+                  }
+                >
+                  Finalize
+                </button>
+              }
             </div>
           )}
         </div>
