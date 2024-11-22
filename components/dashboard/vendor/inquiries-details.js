@@ -475,7 +475,7 @@ const RfqManagementPreview = () => {
                           )
 
                         }
-                        {(rfqDetails.status == 1 && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
+                        {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
                           ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                             <button
                               type="button"

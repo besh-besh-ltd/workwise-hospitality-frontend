@@ -221,6 +221,14 @@ const QuoteCompare = () => {
           ? currentItem
           : lowest;
       }, array[0]);
+      // let lowest = array.reduce((lowest, currentItem) => {
+      //   if (currentItem.quote_details[0].total_price > 0) { 
+      //       return currentItem.quote_details[0].total_price < lowest.quote_details[0].total_price
+      //           ? currentItem
+      //           : lowest;
+      //   }
+      //   return lowest;
+      // }, array[0]);
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
