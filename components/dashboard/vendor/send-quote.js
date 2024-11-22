@@ -16,6 +16,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 const SendQuotePageComp = () => {
   const router = useRouter();
   const { id, token } = router.query;
+  const pageType = router.query.type;
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
@@ -206,16 +207,16 @@ const SendQuotePageComp = () => {
         }
       });
 
-      filteredquoteProducts.map((item) => {
-        if (item.total_price <= 0) {
-          isEmpty = true;
-        }
-      });
+      // filteredquoteProducts.map((item) => {
+      //   if (item.total_price <= 0) {
+      //     isEmpty = true;
+      //   }
+      // });
 
-      if (isEmpty) {
-        toast.error("One or more product's total amount is 0");
-        return;
-      }
+      // if (isEmpty) {
+      //   toast.error("One or more product's total amount is 0");
+      //   return;
+      // }
 
       payload = { ...payload, products: filteredquoteProducts };
 
@@ -966,6 +967,8 @@ const SendQuotePageComp = () => {
                   <div className="quote-sec-btm">
                     <div className="row">
                       <div className="col-md-6">
+                      {pageType!="update-quote" &&
+                      
                         <button
                           type="submit"
                           className="btn btn-primary"
@@ -973,6 +976,7 @@ const SendQuotePageComp = () => {
                         >
                           Regret Quote
                         </button>
+                      }  
                       </div>
                       <div className="col-md-6">
                         <button

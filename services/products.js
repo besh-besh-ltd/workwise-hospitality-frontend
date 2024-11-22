@@ -66,6 +66,8 @@ export const searchProductsV2 = (values, type = "products") => {
       state: values.state == 0 ? "" : values.state,
       city: values.city == 0 ? "" : values.city,
       vendor_name: values.vendor_name,
+      is_private: values.is_private,
+      preferred_vendor: values.preferred_vendor,
     };
 
     return new Promise(async (resolve, reject) => {

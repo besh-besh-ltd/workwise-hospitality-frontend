@@ -22,10 +22,21 @@ export const getProjectById = (projectId, payload)=> {
     });
 }
 
+export const getProjectTableDataById = (projectId)=> {
+  return new Promise(async (resolve, reject) => {
+      try {
+        let response = await axiosInstance.get(`project/${projectId}`);
+        resolve(response);
+      } catch (error) {
+        reject({ message: error });
+      }
+    });
+}
+
 export const getProjectList = ()=> {
   return new Promise(async (resolve, reject) => {
       try {
-        let response = await axiosInstance.get(`project/name_list`);
+        let response = await axiosInstance.get(`project/name/list`);
         resolve(response);
       } catch (error) {
         reject({ message: error });

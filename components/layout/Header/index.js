@@ -436,7 +436,7 @@ const Header = () => {
                             </Link>
                           </li>
 
-                          <li
+                          {/* <li
                             className={
                               router.pathname == "/dashboard/buyer/subscription"
                                 ? "active"
@@ -446,7 +446,7 @@ const Header = () => {
                             <Link href="/dashboard/buyer/subscription">
                               Subscription
                             </Link>
-                          </li>
+                          </li> */}
 
                           {/* <li
 														className={
@@ -754,7 +754,7 @@ const Header = () => {
                             Edit Profile
                           </Link>
                         </li>
-                        {currentUserType === "other" && (
+                        {/* {currentUserType === "other" && (
                           <li
                             className={
                               router.pathname ==
@@ -770,7 +770,7 @@ const Header = () => {
                               Subscription
                             </Link>
                           </li>
-                        )}
+                        )} */}
                         {currentUserType == "vendor" && (
                           <li
                             className={
@@ -787,7 +787,7 @@ const Header = () => {
                         )}
                         {currentUserType == "buyer" && (
                           <>                            
-                            <li
+                            {/* <li
                               className={
                                 router.pathname ==
                                   `/dashboard/${currentUserType}/rfq-report`
@@ -798,7 +798,7 @@ const Header = () => {
                               <Link href="/dashboard/buyer/rfq-report">
                                 RFQ Report
                               </Link>
-                            </li>
+                            </li> */}
 
                             <li
                               className={

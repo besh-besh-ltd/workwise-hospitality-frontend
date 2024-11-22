@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowLeft,
-  faClose,
   faMagnifyingGlass,
   faPlus,
   faWandMagicSparkles,
@@ -11,7 +9,7 @@ import {
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, categoryListById, vendorApproveList } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
 import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -87,8 +85,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
   const [showInsights, setShowInsights] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
+  const [is_private, setIs_private] = useState(false);
+  const [preferred_vendor, setPreferred_vendor] = useState(false);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -142,9 +143,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
-  const handleSearchClick = () => {
-    setIsOpen(!isOpen);
-  };
+  // const handleSearchClick = () => {
+  //   setIsOpen(!isOpen);
+  // };
 
   useEffect(() => {
     getProfileDetails();
@@ -163,7 +164,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     selectedState,
     selectedCity,
     isLoggedIn,
-    debouncedVendorName // Use debouncedVendorName instead of vendorName
+    debouncedVendorName, // Use debouncedVendorName instead of vendorName,
+    is_private, // for private vendors list,
+    preferred_vendor // for preferred vendors list
   ]);
 
   useEffect(() => {
@@ -186,77 +189,66 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const getProfileDetails = () => {
     setloading(true);
     getProfile().then((res) => {
-      setloading(true);
+      setloading(false);
       setuserProfile(res.data);
     });
   };
 
-  const addToRFQ = (item) => {
-    if (currentSelectedProduct.product_id == tempProdRef.current?.product_id) {
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-    } else {
-      dispatch(addRfqProduct(currentSelectedProduct));
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-      tempProdRef.current = currentSelectedProduct;
+  const canAddItem = () => {
+    if (!vendorMetaData.logged_In) {
+      setOpenAuthModal(true);
+      return false;
+    } else if (!vendorMetaData.subscription) {
+      router.push('dashboard/buyer/subscription');
+      return false;
     }
+    return true;
+  }
+
+  const addToRFQ = async (selected, item) => {
+    if (!canAddItem()) return;
+
+    vendors.map((venItem) => {
+      if (venItem.id == item.id)
+        venItem.selected = selected
+      return venItem;
+    })
+
+    let d = vendors.filter((item) => item.selected)
+    setbulkRFQVendors(d);
   };
 
-  const handleBulkAddToRFQ = (e) => {
+  const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
+    if (!canAddItem()) return;
 
-    if (currentSelectedProduct.product_id != tempProdRef.current?.product_id)
-      dispatch(addRfqProduct(currentSelectedProduct));
+    try {
+      setIsLoading(true);
 
-    if (bulkRFQVendors.length > 0) {
-      bulkRFQVendors.map((item) => {
-        dispatch(
-          addVendor({
-            product_id: currentSelectedProduct.product_id,
-            id: item.id,
-            name: item.name,
-          })
-        );
-      });
+      const payload = {
+        product_id: currentSelectedProduct.product_id,
+        vendors: bulkRFQVendors.map(vendor => ({
+          vendor_id: vendor.id
+        }))
+      };
+
+      await addProductToDraft(payload);
       toast.success(
         <h6>
-          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ
-          list!
+          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ list!
         </h6>,
-        {
-          position: "top-right",
-        }
+        { position: "top-right" }
       );
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendors to RFQ. Please try again.</h6>,
+        { position: "top-right" }
+      );
+    } finally {
+      setIsLoading(false);
     }
-    tempProdRef.current = currentSelectedProduct;
   };
+
   const getVendors = () => {
     setloading(true);
     setVendors([]);
@@ -272,7 +264,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           approved_by: selectedVbaa,
           state: selectedState,
           city: selectedCity,
-          vendor_name: vendorName
+          vendor_name: vendorName,
+          is_private: is_private,
+          preferred_vendor: preferred_vendor,
         },
         "vendors"
       )
@@ -303,6 +297,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         cat_id,
         search_key: s_key,
         vendor_name: vendorName,
+        is_private: is_private,
+        preferred_vendor: preferred_vendor,
         // approved_by: selectedVbaa,
       },
       type
@@ -383,10 +379,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
   };
   const handleSearchChange = (e) => {
+    const searchValue = e.target.value;
+
+    if (searchValue.length > 0 && !isOpen) {
+      setIsOpen(true);
+    }
+    if (searchValue.length === 0) {
+      setIsOpen(false);
+    }
+    if (searchValue.length > 2) {
+      getProducts(e.target.value);
+    }
     setSearch_key(e.target.value);
+    setProducts([]);
     setProductsList([]);
     setSearchCategories([]);
-    getProducts(e.target.value);
+    setCat_id(null);
+    setVendorName("");
+    setIs_private(false);
+    setPreferred_vendor(false);
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -400,7 +411,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
       setbulkRFQVendors(d);
     } else {
-      let d = items.map((item) => {
+      items.map((item) => {
         item.selected = false;
         return item;
       });
@@ -422,9 +433,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Update the URL to include the selected product's slug
-    // const newUrl = `/vendor/${item.slug}`;
     router.push(`/vendor/${item.slug}`);
-    // window.history.pushState(null, null, newUrl);
     storageInstance.setStorage("product_name", slug);
   };
 
@@ -494,7 +503,35 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     storageInstance.setStorage("product_name", "all");
   }
 
+  // Options for the dropdown
+  const optionVendors = [
+    { value: 'is_private', label: 'Private Vendor' },
+    { value: 'preferred_vendor', label: 'Preferred Vendor' }
+  ];
 
+  // Handle selection changes to ensure only one filter is active at a time
+  const handleChange = (selectedOption) => {
+    if (selectedOption.value === 'is_private') {
+      setIs_private(true);
+      setPreferred_vendor(false);
+    } else if (selectedOption.value === 'preferred_vendor') {
+      setIs_private(false);
+      setPreferred_vendor(true);
+    }
+  };
+
+  // Generalized clear filter function to reset both filters
+  const clearVendorFilters = () => {
+    setIs_private(false);
+    setPreferred_vendor(false);
+  };
+
+  // Determine the selected option based on the state
+  const selectedOption = is_private
+    ? optionVendors[0]
+    : preferred_vendor
+      ? optionVendors[1]
+      : null;
 
   return (
     <>
@@ -567,7 +604,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         onFocus={handleSearchChange}
                         autoComplete="off"
                         value={search_key}
-                        onClick={handleSearchClick}
+                      // onClick={handleSearchClick}
                       />
                       {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
                       </div> */}
@@ -587,7 +624,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading && search_key !== "" && products.length == 0 && searchCategories.length == 0 && (
+                          {!loading && search_key.length < 3 && search_key.length > 0 && (
+                            <p className="mb-0">Please enter at least 3 characters...</p>
+                          )}
+                          {!loading && search_key !== "" && search_key.length > 2 && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
                           {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
@@ -941,6 +981,29 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 <aside>
                   <h2 className="fs-5">Filter</h2>
                   <div className="search-con-right-1">
+                    <p>Vendors</p>
+                    <Select
+                      options={optionVendors}
+                      onChange={handleChange}
+                      placeholder="Choose a filter option"
+                      value={selectedOption} // Bind selected option to value prop
+                    />
+
+                    {/* Display clear link if any filter is active */}
+                    {(is_private || preferred_vendor) && (
+                      <Link
+                        href="#"
+                        className="clearFilter"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          clearVendorFilters();
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimesCircle} /> clear
+                      </Link>
+                    )}
+                  </div>
+                  <div className="search-con-right-1">
                     <p>Location</p>
                     {selectedState != 0 && (
                       <Link
@@ -1187,7 +1250,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     {currentSelectedProduct &&
                       <div className="d-flex align-items-center justify-content-between mb-4 b-2 " >
-                        <h2 className="fs-5">Available Vendors</h2>
+                        <h2 className="fs-5">Available Vendors for <span  style={{ fontWeight: '500' }}>{currentSelectedProduct.product_name}</span></h2>
                         {/* <div className="d-flex justify-content-end"> */}
                         <div className="col-md-2" >
                           <input
@@ -1201,10 +1264,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {/* </div> */}
                         </div>
                       </div>
-
                     }
-
-
 
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
@@ -1223,32 +1283,31 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
-                                  className={`btn btn-primary ${!vendorMetaData.subscription
-                                    ? `disabled`
-                                    : ``
-                                    }`}
+                                  className={`btn btn-primary ${!vendorMetaData.subscription || isLoading ? 'disabled' : ''}`}
                                   onClick={handleBulkAddToRFQ}
                                 >
-                                  Add Vendors To RFQ
+                                  {isLoading ? 'Adding...' : 'Add Vendors To RFQ'}
                                 </Link>
                               )}
-                              <Link
-                                href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                className={`btn btn-primary ${!vendorMetaData.subscription
-                                  ? `disabled`
-                                  : ``
-                                  }`}
-                              >
-                                View Current RFQ{" "}
-                                {rfqProductsFromStore.length > 0 && (
-                                  <small style={{ display: "none" }}>
-                                    ({rfqProductsFromStore.length}{" "}
-                                    {`item${rfqProductsFromStore.length > 1 ? "s" : ""
-                                      }`}
-                                    )
-                                  </small>
-                                )}
-                              </Link>
+                              {(isLoading || !vendorMetaData.subscription) ? (
+                                <span
+                                  className="btn btn-primary disabled"
+                                  role="button"
+                                  aria-disabled="true"
+                                  tabIndex="-1"
+                                >
+                                  View Current RFQ{" "}
+                                </span>
+                              ) : (
+                                <Link
+                                  href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                                  className="btn btn-primary"
+                                  role="button"
+                                >
+                                  View Current RFQ{" "}
+                                </Link>
+                              )}
+
                             </div>
                           )}
                         </div>
@@ -1262,24 +1321,28 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
-                        {!loading && vendors.length == 0 && (
-                          <a
-                            className="text-center pt-4"
-                            href="/dashboard/buyer/vendor-management"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {`Add "${vendorName}" to you vendor list Immediately`}
-                          </a>
-                        )}
+                        {!loading && vendors.length == 0 &&
+                          (
+                            debouncedVendorName ?
+                              <a
+                                className="text-center pt-4"
+                                href="/dashboard/buyer/vendor-management/?newVendor=true"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {`Add "${debouncedVendorName}" to your vendor list Immediately`}
+                              </a>
+                              :
+                              <h2 className="fs-5">
+                                <b>No Vendors Found</b>
+                              </h2>
+
+                          )
+                        }
                         {vendors &&
                           vendors.map((item) => {
                             return (
                               <SearchItem
-                                handleRemoveCurrentSelected={handleRemoveCurrentSelected}
-                                currentSelectedProduct={currentSelectedProduct}
-                                setbulkRFQVendors={setbulkRFQVendors}
-                                bulkRFQVendors={bulkRFQVendors}
                                 type={"vendors"}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
@@ -1292,7 +1355,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                       {!loading && (!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
-                          {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
                           <button
                             type="button"
                             className="btn btn-primary w-50"
