@@ -1083,7 +1083,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     </div>
                   </div>
 
-                  <div className="search-con-right-1 search-con-right-2">
+                  {/* <div className="search-con-right-1 search-con-right-2">
                     <p>Category</p>
                     {catloading && (
                       <div className="filter-options mt-4">
@@ -1105,7 +1105,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <FontAwesomeIcon icon={faTimesCircle} /> clear
                           </Link>
                         )}
-                        {/* <span>Filter by category</span> */}
+
                         <Select
                           className="mt-2"
                           id={id}
@@ -1239,7 +1239,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         )}
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </aside>
               </div>
             )}

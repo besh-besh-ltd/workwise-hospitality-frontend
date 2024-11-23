@@ -275,7 +275,7 @@ const VendorProfile = () => {
               {/* Vendor Approved by Section */}
               <div className="user-profile hasFullLoader mb-4">
                 {loading && <FullLoader />}
-                <h2 className="title">Vendor Approved By</h2>
+                <h2 className="title">Product Approvals</h2>
                 {approvedProducts && approvedProducts.length === 0 ? (
                   <p>Vendor Products are not Approved!</p>
                 ) : (
