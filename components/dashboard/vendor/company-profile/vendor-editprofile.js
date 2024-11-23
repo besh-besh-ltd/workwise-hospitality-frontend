@@ -223,7 +223,7 @@ const VendorProfile = () => {
                 <div className="user-img">
                   {vendorDetails?.profile_image ? (
                     <Image
-                      src={`${process.env.NEXT_PUBLIC_BASE_URL}/user_image/${vendorDetails?.profile_image?.split("/").pop()}`}
+                      src={vendorDetails?.profile_image}
                       alt="Vendor Profile Image"
                       width={164}
                       height={164}
@@ -256,17 +256,20 @@ const VendorProfile = () => {
                     </p>
                   )}
 
-                  <div className="d-flex justify-content-around w-75 border p-2 rounded-3 mx-auto">
-                    <Link href={vendorDetails?.linkedin ? vendorDetails?.linkedin : '#'} >
-                      <FontAwesomeIcon icon={faLinkedin} fontSize={24} /></Link>
-                    <Link href={vendorDetails?.facebook ? vendorDetails?.facebook : '#'} >
-                      <FontAwesomeIcon icon={faFacebook} fontSize={24} /></Link>
-                    <Link href={vendorDetails?.whatsapp ? vendorDetails?.whatsapp : '#'} >
-                      <FontAwesomeIcon icon={faWhatsapp} fontSize={24} /></Link>
-                    <Link href={vendorDetails?.skype ? vendorDetails?.skype : '#'} >
-                      <FontAwesomeIcon icon={faSkype} fontSize={24} /></Link>
-                  </div>
+                  {(vendorDetails?.linkedin || vendorDetails?.facebook || vendorDetails?.whatsapp || vendorDetails?.skype) &&
+                    <div className="d-flex justify-content-around w-75 border p-2 rounded-3 mx-auto">
+                      <Link href={vendorDetails?.linkedin ? vendorDetails?.linkedin : '#'} >
+                        <FontAwesomeIcon icon={faLinkedin} fontSize={24} /></Link>
+                      <Link href={vendorDetails?.facebook ? vendorDetails?.facebook : '#'} >
+                        <FontAwesomeIcon icon={faFacebook} fontSize={24} /></Link>
+                      <Link href={vendorDetails?.whatsapp ? vendorDetails?.whatsapp : '#'} >
+                        <FontAwesomeIcon icon={faWhatsapp} fontSize={24} /></Link>
+                      <Link href={vendorDetails?.skype ? vendorDetails?.skype : '#'} >
+                        <FontAwesomeIcon icon={faSkype} fontSize={24} /></Link>
+                    </div>
+                  }
                 </div>
+
               </div>
 
               {/* Vendor Approved by Section */}
@@ -354,14 +357,14 @@ const VendorProfile = () => {
 
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <h2 className="title mb-0">Company information</h2>
-                    <Link
+                    {/* <Link
                       href={vendorDetails?.brochure[0]?.brochure_url || '#'}
                       className="page-link fw-medium"
                       style={{ textDecoration: 'none' }}
                     >
                       <FontAwesomeIcon icon={faFileLines} fontSize={18} className="me-1" />
                       Download Brochure
-                    </Link>
+                    </Link> */}
                   </div>
 
                   <div className="col-md-6">
@@ -454,7 +457,30 @@ const VendorProfile = () => {
                     <div className="vendor-profile-sec-con-3 hasFullLoader">
                       {loading && <FullLoader />}
                       <h2 className="title">Vendor’s Products</h2>
-                      <ProductCarousel data={vendorDetails?.product_list} />
+
+                      {/* Product Carousel is ready whenever Product Image will be available uncomment this */}
+                      {/* <ProductCarousel data={vendorDetails?.product_list} /> */}
+
+                      {(vendorDetails?.product_list && vendorDetails?.product_list.length > 0) ?
+                        (
+                          <div className="row">
+                            {vendorDetails?.product_list?.map((prodItem) => {
+                              return (
+                                <div key={`prod_${prodItem.id}`} className="col-sm-2 col-md-3 col-lg-4 mb-2">
+                                  <div className="card">
+                                    <div class="card-body">
+                                      {/* <h5 class="card-title"></h5> */}
+                                      <p class="card-text text-sm">{prodItem.product_name}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) :
+                        <p>NO Product List Available.</p>
+
+                      }
                       <hr />
                     </div>
                   )
