@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faArrowLeft,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
@@ -15,21 +16,33 @@ import Loader from "@/components/shared/Loader";
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { productid, variant, type } = router.query;
-  
+  const { productid, variant, type, vendors } = router.query;
+
   const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
-  const rfq_id = useSelector((data)=> data.rfq_id);
-  
+  const rfq_id = useSelector((data) => data.rfq_id);
+
   const [loading, setloading] = useState(false);
   const [vendorList, setVendorList] = useState([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const vendorsRef = useRef([]);
 
 
+  const handleGoBack = (e)=> {
+    e.preventDefault();
+    if(type == "buyer-view") {
+      router.back();
+    }
+    else {
+      router.push('/dashboard/buyer/rfq-management?tab=create-rfq')
+    }
+  }
+
   const getVendors = () => {
-    if (productItem?.vendors?.length > 0) {
+    const vendorIds = productItem ? productItem.vendors?.map((venItem) => venItem.user_id) : vendors.split(",");
+
+    if (vendorIds) {
       setloading(true);
-      const vendorIds = productItem.vendors?.map((venItem) => venItem.user_id)
       getVendorsByID({ vendors: vendorIds })
         .then((res) => {
           setloading(false);
@@ -51,8 +64,9 @@ const RfqManagementVendorPage = () => {
         variant
       })
     );
-    setVendorList(vendorList.filter((venItem)=> venItem.id != item.id));
+    setVendorList(vendorList.filter((venItem) => venItem.id != item.id));
     vendorsRef.current.push(item.id);
+    setHasUnsavedChanges(true);
   };
 
   const saveDraftChanges = () => {
@@ -63,29 +77,69 @@ const RfqManagementVendorPage = () => {
       vendor_ids: vendorsRef.current
     }
 
+    setloading(true);
     removeVendorFromDraft(payload)
-      .then((res)=> {
+      .then((res) => {
         toast.success(res.message)
         vendorsRef.current = [];
+        setHasUnsavedChanges(false);
       })
-      .catch((error)=> {
+      .catch((error) => {
         console.log(error)
         toast.error(error.message);
+      })
+      .finally(() => {
+        setloading(false);
       })
   }
 
   useEffect(() => {
     getVendors();
+  }, [router, vendors]);
+
+
+  useEffect(() => {
+    const handleRouteChange = async (url) => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm(
+          "You have unsaved changes. Do you want to save them before leaving?"
+        );
+        if (confirmLeave) {
+          saveDraftChanges();
+        } else {
+          // Prevent navigation
+          router.events.emit("routeChangeError");
+          throw "Route change aborted by user."; // Suppress Next.js warning
+        }
+      }
+    };
+
+    // Listen to route change events
+    router.events.on("routeChangeStart", handleRouteChange);
+
     return () => {
-      saveDraftChanges();
-    }
-  }, []);
+      router.events.off("routeChangeStart", handleRouteChange);
+    };
+  }, [hasUnsavedChanges, router]);
+
 
   return (
     <>
-      <section className="buyer-common-header sc-pt-80">
-        <div className="container-fluid">
+
+      {/* Header Section */}
+      <section className="buyer-common-header pt-5">
+        <div className="container-fluid text-center">
           <h1 className="heading"></h1>
+
+          <Link
+            href="#"
+            className="fs-6 page-link backBtn"
+            style={{ textDecoration: 'none' }}
+            onClick={handleGoBack}
+          >
+            <FontAwesomeIcon icon={faArrowLeft} className="me-2" /> Go back
+          </Link>
+
         </div>
       </section>
 
@@ -107,7 +161,8 @@ const RfqManagementVendorPage = () => {
                           <tr>
                             <th>Vendor</th>
                             <th>Region</th>
-                            <th>Contact info</th>
+                            <th>Email</th>
+                            <th>Mobile No.</th>
                             <th>Industry</th>
                             <th>Products</th>
                             <th>Action</th>
@@ -120,6 +175,7 @@ const RfqManagementVendorPage = () => {
                                 <tr key={`vendor-${item.name}`}>
                                   <td>{item.name}</td>
                                   <td>{item.address}</td>
+                                  <td>{item.email}</td>
                                   <td>{item.mobile}</td>
                                   <td>
                                     {item.organization_name
@@ -166,16 +222,19 @@ const RfqManagementVendorPage = () => {
                   )}
                 </div>
 
-                <div className="d-flex justify-content-end">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: "200px" }}
-                    onClick={saveDraftChanges}
-                  >
-                    Save Changes
-                  </button>
-                </div>
+                {type != "rfqVendorList" && type != "buyer-view" &&
+                  <div className="d-flex justify-content-end">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: "200px" }}
+                      onClick={saveDraftChanges}
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                }
+
               </div>
             </div>
           </div>

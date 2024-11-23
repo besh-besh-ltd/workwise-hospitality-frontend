@@ -16,6 +16,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 const SendQuotePageComp = () => {
   const router = useRouter();
   const { id, token } = router.query;
+  const pageType = router.query.type;
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
@@ -36,6 +37,11 @@ const SendQuotePageComp = () => {
       getRFQdetails();
     }
   }, [router]);
+  
+  const getProductSpecValueByTitle = (productSpecs, title) => {
+    const spec = productSpecs.find(spec => spec.title === title);
+    return spec ? spec.value : "";
+  }
 
   const getRFQdetails = () => {
     setloading(true);
@@ -70,7 +76,8 @@ const SendQuotePageComp = () => {
               id: productItem.id,
               product_id: productItem.product_id,
               variant: productItem.variant,
-              quantity: productItem?.product_specs[2]?.value || "",
+              quantity: getProductSpecValueByTitle(productItem?.product_specs, "Quantity"),
+              // quantity: productItem?.product_specs[2]?.value || "",
               product_name: productItem.product_details
                 ? productItem.product_details[0].name
                 : "",
@@ -146,8 +153,8 @@ const SendQuotePageComp = () => {
       let p = rfqDetails.products.filter(
         (pi) => pi.product_id == item.product_id
       );
-
-      let total_qty = p[0].product_specs[2]?.value;
+      let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
+      // let total_qty = p[0].product_specs[2]?.value;
 
       let total_without_fpt = item.unit_price * parseInt(total_qty);
       let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
@@ -276,7 +283,8 @@ const SendQuotePageComp = () => {
         item.variant,
         "document_files",
         "array",
-        item?.product_specs[2]?.value,
+        getProductSpecValueByTitle(item?.product_specs, "Quantity"),
+        // item?.product_specs[2]?.value,
         filePath
       )
     } catch (error) {
@@ -727,14 +735,14 @@ const SendQuotePageComp = () => {
                                     <td>{index + 1}</td>
                                     <td>
                                       <p className="fw-semibold text-nowrap mb-1">{item?.product_details[0]?.name}</p>
-                                      <p className="text-sm mb-1">{item?.product_specs[0]?.value}</p>
+                                      <p className="text-sm mb-1">{getProductSpecValueByTitle(item?.product_specs, "Size")}</p>
                                       {item?.product_specs[1]?.value?.length > 70
-                                        ? <ReadMore content={`- ${item?.product_specs[1]?.value}`} maxLength={70} textSmall={true} />
-                                        : <p className="mb-1 text-sm">{`- ${item?.product_specs[1]?.value}`}</p>
+                                        ? <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLength={70} textSmall={true} />
+                                        : <p className="mb-1 text-sm">{`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`}</p>
                                       }
                                     </td>
                                     <td>
-                                      {`${item?.product_specs[2]?.value} - ${item?.product_specs[3]?.value}`}
+                                      {`${getProductSpecValueByTitle(item?.product_specs, "Quantity")} - ${getProductSpecValueByTitle(item?.product_specs, "Unit")}`}
                                     </td>
                                     <td>
                                       <input
@@ -752,7 +760,7 @@ const SendQuotePageComp = () => {
                                             item.variant,
                                             "unit_price",
                                             "",
-                                            item?.product_specs[2]?.value
+                                            getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
@@ -775,7 +783,7 @@ const SendQuotePageComp = () => {
                                             item.variant,
                                             "freight_price",
                                             "",
-                                            item?.product_specs[2]?.value
+                                            getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
@@ -798,7 +806,7 @@ const SendQuotePageComp = () => {
                                             item.variant,
                                             "package_price",
                                             "",
-                                            item?.product_specs[2]?.value
+                                            getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
@@ -821,7 +829,7 @@ const SendQuotePageComp = () => {
                                             item.variant,
                                             "tax",
                                             "",
-                                            item?.product_specs[2]?.value
+                                            getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
@@ -869,7 +877,7 @@ const SendQuotePageComp = () => {
                                                 item.variant,
                                                 "comment",
                                                 "string",
-                                                item?.product_specs[2]?.value
+                                                getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                               )
                                             }
                                           ></textarea>
@@ -897,7 +905,7 @@ const SendQuotePageComp = () => {
                                             item.variant,
                                             "delivery_period",
                                             "string",
-                                            item?.product_specs[2]?.value
+                                            getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
@@ -930,7 +938,7 @@ const SendQuotePageComp = () => {
                                                   item.variant,
                                                   "document_files",
                                                   "array",
-                                                  item?.product_specs[2]?.value,
+                                                  getProductSpecValueByTitle(item?.product_specs, "Quantity"),
                                                   doc_file,
                                                   "remove"
                                                 )}></span>
@@ -959,6 +967,8 @@ const SendQuotePageComp = () => {
                   <div className="quote-sec-btm">
                     <div className="row">
                       <div className="col-md-6">
+                      {pageType!="update-quote" &&
+                      
                         <button
                           type="submit"
                           className="btn btn-primary"
@@ -966,6 +976,7 @@ const SendQuotePageComp = () => {
                         >
                           Regret Quote
                         </button>
+                      }  
                       </div>
                       <div className="col-md-6">
                         <button

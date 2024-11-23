@@ -49,7 +49,9 @@ const ProjectDetails = () => {
             status: 1,
             description: values.projectDescription,
             location: values.location,
-            ended_at: values.ended_at
+            ended_at: values.ended_at,
+            rfq_type: values.rfq_type,
+            reverse_auction: values.reverse_auction == "1" ? 1 : 0
         };
 
         setOpenEditProject(false);
@@ -173,6 +175,21 @@ const ProjectDetails = () => {
                                                         : <span className="d-block fw-medium text-muted px-2">{projectDetails?.ended_at?.slice(0, 10) || "---"}</span>
                                                     }
                                                 </div>
+                                                <div className="col-md-4 mb-2" />
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">RFQ Type </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.rfq_type == "firm" ? "Firm" : projectDetails?.rfq_type == "budgetary" ? "Budgetary" : "---"}</span>
+                                                    }
+                                                </div>
+                                                <div className="col-md-4 mb-2">
+                                                    <span className="fw-bold">Reverse Auction </span>
+                                                    {loading
+                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
+                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.reverse_auction ? "Enabled" : "Disabled"}</span>
+                                                    }
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -275,7 +292,7 @@ const ProjectDetails = () => {
                         </div>
                     </div>
                 </div>
-            </section >
+            </section>
 
             {/* Edit Project Modal Section */}
             {openEditProject &&
