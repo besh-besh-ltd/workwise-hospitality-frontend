@@ -437,8 +437,8 @@ const RfqManagementPreview = () => {
                         <Link
                           href={{
                             pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
-                            query: { 
-                              rfq_id: rfqDetails.id, 
+                            query: {
+                              rfq_id: rfqDetails.id,
                               role: type === "buyer-view" ? "buyer" : "vendor",
                             }
                           }}
@@ -448,7 +448,7 @@ const RfqManagementPreview = () => {
                             className="btn btn-secondary my-0"
                             style={{ width: "260px" }}
                           >
-                            View Queries {rfqDetails.unseen_query_count!=0 ? `(${rfqDetails.unseen_query_count} New)` : ""}
+                            View Queries {rfqDetails.unseen_query_count != 0 ? `(${rfqDetails.unseen_query_count} New)` : ""}
                           </button>
                         </Link>
 
@@ -490,7 +490,7 @@ const RfqManagementPreview = () => {
                           </Link>
                           : null
                         }
-                      </div>  
+                      </div>
                     </div>
 
                     <div className="details-table">
@@ -627,7 +627,7 @@ const RfqManagementPreview = () => {
                           <div className="col-md-12">
                             <div className="row wacomnamepp">
                               <div className="col-md-3">
-                                <div className="form-group">
+                                <div className="form-group mb-2">
                                   <label
                                     htmlFor="comname"
                                     className="form-label"
@@ -645,8 +645,8 @@ const RfqManagementPreview = () => {
                                   />
                                 </div>
                               </div>
-                              <div className="col-md-3">
-                                <div className="form-group">
+                              <div className="col-md-3 ">
+                                <div className="form-group mb-2">
                                   <label
                                     htmlFor="cperson"
                                     className="form-label"
@@ -665,8 +665,8 @@ const RfqManagementPreview = () => {
                                 </div>
                               </div>
 
-                              <div className="col-md-3">
-                                <div className="form-group">
+                              <div className="col-md-3 ">
+                                <div className="form-group mb-2">
                                   <label htmlFor="email" className="form-label">
                                     Email
                                   </label>
@@ -681,8 +681,8 @@ const RfqManagementPreview = () => {
                                   />
                                 </div>
                               </div>
-                              <div className="col-md-3">
-                                <div className="form-group">
+                              <div className="col-md-3 ">
+                                <div className="form-group mb-2">
                                   <label htmlFor="wapp" className="form-label">
                                     Contact Number
                                   </label>
@@ -697,23 +697,92 @@ const RfqManagementPreview = () => {
                                   />
                                 </div>
                               </div>
-                              {/* 
-                              <div className="col-md-12">
-                                <div className="form-group">
-                                  <label htmlFor="wapp" className="form-label">
-                                    Additional Terms & Conditions
-                                  </label>
-                                  <textarea
-                                    id="comment"
-                                    className="form-control"
-                                    name="comment"
-                                    placeholder="comment here"
-                                    rows={5}
-                                    disabled
-                                    value={rfqDetails?.comment}
-                                  />
-                                </div>
-                              </div> */}
+
+                              {type == "buyer-view" && rfqDetails?.project_name && rfqDetails?.project_name != "" &&
+                                <div className="col-md-3">
+                                  <div className="form-group mt-0 mb-2">
+                                    <label htmlFor="project_name" className="form-label">
+                                      Project Name
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="project_name"
+                                      className="form-control"
+                                      name="project_name"
+                                      disabled
+                                      value={`${rfqDetails?.project_name}`}
+                                    />
+                                  </div>
+                                </div>}
+
+                              {rfqDetails?.rfq_type && rfqDetails?.rfq_type != "" &&
+                                <div className="col-md-3">
+                                  <div className="form-group mt-0 mb-2">
+                                    <label htmlFor="rfq_type" className="form-label">
+                                      RFQ Type
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="rfq_type"
+                                      className="form-control"
+                                      name="rfq_type"
+                                      disabled
+                                      value={`${rfqDetails?.rfq_type}`}
+                                    />
+                                  </div>
+                                </div>}
+
+                              {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction != "" &&
+                                <div className="col-md-3">
+                                  <div className="form-group mt-0 mb-2">
+                                    <label htmlFor="reverse_auction" className="form-label">
+                                      Reverse Auction
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="reverse_auction"
+                                      className="form-control"
+                                      name="reverse_auction"
+                                      disabled
+                                      value={`${rfqDetails?.reverse_auction == 1 ? 'Enabled' : 'Disabled'}`}
+                                    />
+                                  </div>
+                                </div>}
+
+                              {rfqDetails?.bid_end_date && rfqDetails?.bid_end_date != "" &&
+                                <div className="col-md-3">
+                                  <div className="form-group mt-0 mb-2">
+                                    <label htmlFor="bid_end_date" className="form-label">
+                                      Procurement End Date
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="bid_end_date"
+                                      className="form-control"
+                                      name="bid_end_date"
+                                      disabled
+                                      value={`${rfqDetails?.bid_end_date}`}
+                                    />
+                                  </div>
+                                </div>}
+
+                              {rfqDetails?.location && rfqDetails?.location != "" &&
+                                <div className="col-md-6">
+                                  <div className="form-group mt-0">
+                                    <label htmlFor="location" className="form-label">
+                                      Delivery Location
+                                    </label>
+                                    <input
+                                      type="text"
+                                      id="location"
+                                      className="form-control"
+                                      name="location"
+                                      disabled
+                                      value={`${rfqDetails?.location}`}
+                                    />
+                                  </div>
+                                </div>}
+
                             </div>
                           </div>
 
