@@ -674,100 +674,100 @@ const QuoteCompare = () => {
     }
   };
 
-  // const generateExcelFileOld = (data) => {
-  //   if (data.length > 0) {
-  //     setDownloadLoading(true);
-  //     // Create a new workbook
-  //     let workbook = XLSX.utils.book_new();
+  const generateExcelFileOld = (data) => {
+    if (data.length > 0) {
+      setDownloadLoading(true);
+      // Create a new workbook
+      let workbook = XLSX.utils.book_new();
 
-  //     data.map((rfqItem) => {
-  //       if (rfqItem?.id) {
-  //         let sheetData = [
-  //           [
-  //             "Vendon Name",
-  //             "Organization Name",
-  //             "Vendor Email",
-  //             "Vendor Mobile",
-  //             "Product Name",
-  //             "Unit Price",
-  //             "Package Price",
-  //             "Tax",
-  //             "Freight Price",
-  //             "Total Price",
-  //             "Comment",
-  //             "Delivery Period",
-  //           ],
-  //         ];
+      data.map((rfqItem) => {
+        if (rfqItem?.id) {
+          let sheetData = [
+            [
+              "Vendon Name",
+              "Organization Name",
+              "Vendor Email",
+              "Vendor Mobile",
+              "Product Name",
+              "Unit Price",
+              "Package Price",
+              "Tax",
+              "Freight Price",
+              "Total Price",
+              "Comment",
+              "Delivery Period",
+            ],
+          ];
 
-  //         if (rfqItem?.quotations.length > 0) {
-  //           rfqItem?.quotations.map((item) => {
-  //             sheetData.push([
-  //               "" + item?.vendor_details[0]?.name,
-  //               "" + item?.vendor_details[0]?.organization_name,
-  //               "" + item?.vendor_details[0]?.email,
-  //               "" + item?.vendor_details[0]?.mobile,
-  //             ]);
+          if (rfqItem?.quotations.length > 0) {
+            rfqItem?.quotations.map((item) => {
+              sheetData.push([
+                "" + item?.vendor_details[0]?.name,
+                "" + item?.vendor_details[0]?.organization_name,
+                "" + item?.vendor_details[0]?.email,
+                "" + item?.vendor_details[0]?.mobile,
+              ]);
 
-  //             if (item.products.length > 0) {
-  //               item?.products.map((productItem) => {
-  //                 sheetData.push([
-  //                   "",
-  //                   "",
-  //                   "",
-  //                   "",
-  //                   productItem.product_name,
-  //                   productItem.unit_price,
-  //                   productItem.package_price,
-  //                   productItem.tax,
-  //                   productItem.freight_price,
-  //                   productItem.total_price,
-  //                   productItem.comment,
-  //                   productItem.delivery_period,
-  //                 ]);
-  //               });
-  //             }
-  //           });
-  //         }
-  //         // Add sheet1 to the workbook
-  //         const sheet = XLSX.utils.aoa_to_sheet(sheetData);
-  //         XLSX.utils.book_append_sheet(
-  //           workbook,
-  //           sheet,
-  //           `RFQ #${rfqItem?.rfq_no}`
-  //         );
-  //       }
-  //     });
+              if (item.products.length > 0) {
+                item?.products.map((productItem) => {
+                  sheetData.push([
+                    "",
+                    "",
+                    "",
+                    "",
+                    productItem.product_name,
+                    productItem.unit_price,
+                    productItem.package_price,
+                    productItem.tax,
+                    productItem.freight_price,
+                    productItem.total_price,
+                    productItem.comment,
+                    productItem.delivery_period,
+                  ]);
+                });
+              }
+            });
+          }
+          // Add sheet1 to the workbook
+          const sheet = XLSX.utils.aoa_to_sheet(sheetData);
+          XLSX.utils.book_append_sheet(
+            workbook,
+            sheet,
+            `RFQ #${rfqItem?.rfq_no}`
+          );
+        }
+      });
 
-  //     // Generate a binary string from the workbook
-  //     const excelBuffer = XLSX.write(workbook, {
-  //       bookType: "xlsx",
-  //       type: "array",
-  //     });
+      // Generate a binary string from the workbook
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
 
-  //     // Convert binary string to a Blob
-  //     const blob = new Blob([excelBuffer], {
-  //       type: "application/octet-stream",
-  //     });
+      // Convert binary string to a Blob
+      const blob = new Blob([excelBuffer], {
+        type: "application/octet-stream",
+      });
 
-  //     // Create a download link
-  //     const url = URL.createObjectURL(blob);
-  //     const a = document.createElement("a");
-  //     a.href = url;
-  //     const filename = `RFQ_details_${Date.now()}.xlsx`;
-  //     a.download = filename;
-  //     document.body.appendChild(a);
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = `RFQ_details_${Date.now()}.xlsx`;
+      a.download = filename;
+      document.body.appendChild(a);
 
-  //     // Trigger the download
-  //     a.click();
-  //     setDownloadLoading(false);
+      // Trigger the download
+      a.click();
+      setDownloadLoading(false);
 
-  //     // Cleanup
-  //     setTimeout(() => {
-  //       window.URL.revokeObjectURL(url);
-  //       document.body.removeChild(a);
-  //     }, 0);
-  //   }
-  // };
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 0);
+    }
+  };
 
   const excelColumnName = (columnNumber) => {
     let result = "";
