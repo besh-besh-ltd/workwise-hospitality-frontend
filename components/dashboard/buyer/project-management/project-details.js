@@ -177,7 +177,7 @@ const ProjectDetails = () => {
                                                 </div>
                                                 <div className="col-md-4 mb-2" />
                                                 <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">RFQ Type </span>
+                                                    <span className="fw-bold">Project Stage </span>
                                                     {loading
                                                         ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
                                                         : <span className="d-block fw-medium text-muted px-2">{projectDetails?.rfq_type == "firm" ? "Firm" : projectDetails?.rfq_type == "budgetary" ? "Budgetary" : "---"}</span>
