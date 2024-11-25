@@ -170,10 +170,6 @@ const CreateRFQ = () => {
 
   const handleCreateRFQ = (resetForm) => {
     setMainLoading(true);
-    // const updatedProducts = rfqProductsRef.current.map((prod)=> {
-    //   const { id, ...withOutRfqProdId } = prod;
-    //   return withOutRfqProdId;
-    // })
 
     let payload = {
       rfq_id: rfqDetails,
@@ -181,7 +177,6 @@ const CreateRFQ = () => {
       ...rfqFormDataRef.current,
       project_id: rfqFormDataRef.current.project_id || -1
     };
-    console.log("payload of create RFQ = ",payload);
 
     createRfq(payload)
       .then((res) => {
@@ -192,9 +187,9 @@ const CreateRFQ = () => {
           </h6>,
           { position: "top-right" }
         );
+        setHasUnsavedChanges(false);
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
-        setHasUnsavedChanges(false);
         router.push("/dashboard/buyer/rfq-management");
         dispatch(clearState());
         resetForm();
@@ -373,6 +368,7 @@ const CreateRFQ = () => {
                                     data={product}
                                     rfq_id={rfqDetails}
                                     setHasUnsavedChanges={setHasUnsavedChanges}
+                                    getDraftInitialData={getDraftInitialData}
                                   />
                                 );
                               })}

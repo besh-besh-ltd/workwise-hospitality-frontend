@@ -605,24 +605,7 @@ const RfqManagementPreview = () => {
                                         : item.comment
                                       : "N/A"}
                                   </td>
-                                  <td>
-                                  <a
-                                    href={`/dashboard/vendor/technical-evaluation?rfq_id=${id}`}
-                                    className="text-dark-blue"
-                                    style={{
-                                    fontSize: '0.8rem',
-                                    padding: '5px 10px',
-                                    display: 'inline-block',
-                                    border: 'none',
-                                    backgroundColor: 'lightblue',
-                                    color: 'darkblue',
-                                    textDecoration: 'none',
-                                    }}
-                                    
-                                  >
-                                    View Evaluation
-                                </a>
-                                  </td>
+
                                   {type == "buyer-view" &&
                                     <td>
                                       <span>
@@ -635,6 +618,25 @@ const RfqManagementPreview = () => {
                                       </span>
                                     </td>
                                   }
+
+                                  <td>
+                                    <a
+                                      href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}`}
+                                      className="text-dark-blue"
+                                      style={{
+                                        fontSize: '0.8rem',
+                                        padding: '5px 10px',
+                                        display: 'inline-block',
+                                        border: 'none',
+                                        backgroundColor: 'lightblue',
+                                        color: 'darkblue',
+                                        textDecoration: 'none',
+                                      }}
+
+                                    >
+                                      View Evaluation
+                                    </a>
+                                  </td>
                                 </tr>
                               );
                             })}

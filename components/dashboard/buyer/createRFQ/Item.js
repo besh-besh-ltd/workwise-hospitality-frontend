@@ -5,7 +5,6 @@ import {
   addProductComment,
   addFiles,
   addProductSpecValue,
-  addRfqProduct,
   removeFiles,
   removeRfqProduct,
   setUserSelectedDefaultFile,
@@ -16,16 +15,17 @@ import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
+import { addProductToDraft } from "@/services/rfq";
 
-const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges }) => {
+const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraftInitialData }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
   const [uploadedQapFile, setUploadedQapFile] = useState(data?.qap_file);
   const [uploadedSpecFile, setUploadedSpecFile] = useState(data?.spec_file);
   const [uploadedDatasheetFile, setUploadedDatasheetFile] = useState(data?.datasheet_file);
   const [comment, setComment] = useState(data?.comment);
-  const [isModelOpen,setIsModalOpen] = useState(false);
-  const [rfqId,setRfqId] = useState(null);
+  const [isModelOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
 
   useEffect(() => {
@@ -135,17 +135,28 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges }) => {
     setHasUnsavedChanges(true);
   };
 
-  const handleAddVarient = () => {
-    const item = {
-      product_id: data.product_id,
-      product_name: data?.name,
-      vendors: data?.vendors,
-      pd_tds_file_url: data.predefined_tds_file,
-      pd_qap_file_url: data.predefined_qap_file,
-      //fix here (can add datasheet and qap)
-    };
-    dispatch(addRfqProduct(item));
-    setHasUnsavedChanges(true);
+  const handleAddVarient = async () => {
+    try {
+      setHasUnsavedChanges(true);
+      setLoading(true);
+
+      console.log(data.vendors)
+      const payload = {
+        product_id: data.product_id,
+        vendors: data.vendors.map(vendor => ({
+          vendor_id: vendor.user_id
+        }))
+      };
+      await addProductToDraft(payload);
+      getDraftInitialData();
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendors to RFQ. Please try again.</h6>,
+        { position: "top-right" }
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenModal = () => {
@@ -350,27 +361,22 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges }) => {
             <FontAwesomeIcon icon={faTrash} /> Remove
           </button>
           {/* fix here */}
-          <button className="upload" onClick={handleAddVarient}>
-            <FontAwesomeIcon icon={faPlusCircle} /> Add variant
+          <button className="upload" onClick={handleAddVarient} disabled={loading}>
+            {loading
+              ? "Adding..."
+              : <><FontAwesomeIcon icon={faPlusCircle} /> Add variant</>
+            }
           </button>
-          {/* {data?.variant == 0 &&
-            <button className="upload" onClick={handleAddVarient}>
-              <FontAwesomeIcon icon={faPlusCircle} /> Add variant
-            </button>} */}
         </td>
+
         <td>
-            <button className="upload" onClick={handleOpenModal}>
-              <FontAwesomeIcon icon={faPlusCircle} /> Add Clause
-            </button>
-        </td>
-        <td>
-            <button className="upload" onClick={handleOpenModal}>
-              <FontAwesomeIcon icon={faPlusCircle} /> Add Clause
-            </button>
+          <button className="upload" onClick={handleOpenModal}>
+            <FontAwesomeIcon icon={faPlusCircle} /> Add Clause
+          </button>
         </td>
       </tr>
       <div>
-        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} product = {data} />}
+        {isModelOpen && <AddClause show={isModelOpen} onClose={handleCloseModal} product={data} rfq_id={rfq_id} />}
       </div>
     </>
   );
