@@ -437,7 +437,7 @@ const Header = () => {
                             </Link>
                           </li>
 
-                          {/* <li
+                          <li
                             className={
                               router.pathname == "/dashboard/buyer/technical-evaluation"
                                 ? "active"
@@ -447,7 +447,7 @@ const Header = () => {
                             <Link href="/dashboard/buyer/technical-evaluation">
                               Technical Evaluation
                             </Link>
-                          </li> */}
+                          </li>
 
                           {/* <li
 														className={

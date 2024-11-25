@@ -29,6 +29,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
       const filePath = await handleFileUpload(e);
       const newList = [...files, filePath];
       setFiles(newList);
+      toast.success("File attached successfully.");
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -120,7 +121,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
             >
             </button>
           </div>
-  
+
           <div
             className="modal-body hasFullLoader"
             style={{
@@ -149,21 +150,13 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
                     {message.comment_files && message.comment_files.length > 0 && (
                       <div className="mt-2">
                         {message.comment_files.map((file, idx) => (
-                          <Link
+                          <FileLink
                             key={idx}
-                            href={file}
-                            download={file}
                             target="_blank"
-                            className="d-inline-block badge bg-secondary me-1"
-                            style={{
-                              maxWidth: "100%",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {file}
-                          </Link>
+                            Files={file}
+                            Style={{ backgroundColor: "#f0f0f0", fontSize: "10px" }}
+                            // ColumnClass="col-md-4"
+                            showDownload={false} />
                         ))}
                       </div>
                     )}
@@ -184,13 +177,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
               boxSizing: 'border-box', // Ensures padding and border are included in the width
             }}
           >
-            {files.length > 0 &&
-              <FileLink
-                Files={files}
-                Style={{ backgroundColor: "#f0f0f0" }}
-                Class="px-3 py-1 rounded-4"
-                showDownload={false} />
-            }
+
 
             <textarea
               rows="2"
@@ -245,6 +232,18 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
                     <span className="visually-hidden">Loading...</span>
                   </div>
                 }
+                {/* {files && files.length > 0 &&
+                  files.map((file) => (
+                    <FileLink
+                      Files={file}
+                      Style={{ backgroundColor: "#f0f0f0", fontSize:"10px" }}
+                      ColumnClass="col-md-4"
+                      showDownload={false} />
+                      
+                  ))
+                  
+
+                } */}
               </div>
 
               {/* Hidden file input field triggered by the "Attach file" button */}

@@ -3,14 +3,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
 import { addClause, getClausesByRfqProductId, removeClause, updateClause } from "@/services/rfq";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import Loader from "@/components/shared/Loader";
+import FullLoader from "@/components/shared/FullLoader";
+import {
+    removeFiles,
+} from "@/redux/slice";
 
-
-function AddClauseModal({ rfq_id, show, onClose, product }) {
+function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [clauses, setClauses] = useState([]);
     const [message, setMessage] = useState("");
     const [files, setFiles] = useState([]);
@@ -21,8 +25,17 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
     const [currentClause, setCurrentClause] = useState(null);
     const [update, setUpdate] = useState(false);
     const [previousClauses, setPreviousClauses] = useState(null);
+    const dispatch = useDispatch();
 
-
+    const handleRemoveFile = (fileUrl, type) => {
+        const updatedFiles = files.filter((file) => file !== fileUrl);
+        setFiles(updatedFiles);
+        dispatch(
+            removeFiles({
+                value: fileUrl,
+            })
+        );
+    };
     const handleAttachFileClick = () => {
         fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
     };
@@ -43,15 +56,18 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
 
     const getPreviousClauses = async () => {
         const payload = {
-            rfq_id,
+            // rfq_id,
             rfq_product_id: product.id
         }
         try {
+            setLoading(true);
             const res = await getClausesByRfqProductId(payload);
-            if(res.data)
+            if (res.data)
                 setPreviousClauses(res.data);
         } catch (error) {
             console.log(error)
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -74,8 +90,9 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             toast.success(res.message)
 
             // Add new clause to the list
-            const newClause = { message, files };
-            setClauses([...clauses, newClause]);
+            // const newClause = { message, files };
+            // setClauses([...clauses, newClause]);
+            getPreviousClauses();
 
         } catch (error) {
             console.log(error)
@@ -91,7 +108,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
         // Remove clause from the list
         const updatedClauses = clauses.filter((_, idx) => idx !== index);
         setClauses(updatedClauses);
-        setMessage(clause.message);
+        setMessage(clause.clause_text);
         setFiles(clause.files);
         setUpdate(true);
         setCurrentClause(clause);
@@ -110,8 +127,9 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             toast.success(res.message)
 
             // Add new clause to the list
-            const newClause = { message, files };
-            setClauses([...clauses, newClause]);
+            // const newClause = { message, files };
+            // setClauses([...clauses, newClause]);
+            getPreviousClauses();
 
         } catch (error) {
             console.log(error)
@@ -125,15 +143,17 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
         }
     }
 
-    const handleDeleteClause = async (clause_id, index) => {
+    const handleDeleteClause = async (clause_id) => {
+        console.log("delete caluse id = ", clause_id);
         try {
             setLoading(true)
             const res = await removeClause(clause_id);
             toast.success(res.message)
 
             // Remove clause from the list
-            const updatedClauses = clauses.filter((_, idx) => idx !== index);
-            setClauses(updatedClauses)
+            // const updatedClauses = clauses.filter((_, idx) => idx !== index);
+            // setClauses(updatedClauses)
+            getPreviousClauses();
 
         } catch (error) {
             console.log(error)
@@ -153,7 +173,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
             centered
             size="lg"
         >
-            <Modal.Header>
+            <Modal.Header closeButton>
                 <Modal.Title className="text-right w-100 p-3">
                     Add Technical Clause for - {product.name}
                 </Modal.Title>
@@ -178,16 +198,67 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                 </div>
                             }
 
+
                             {/* Display the filename below the Attach file button if a file is selected */}
-                            {files &&
-                                <FileLink
-                                    Files={files}
-                                    ColumnClass="col-md-4"
-                                    Style={{ fontSize: "12px" }}
-                                    showDownload={false}
-                                />
+                            {files && files.length > 0 &&
+                                files.map(file => (
+                                    <>
+                                        <div
+                                            key={file}
+                                            className="d-flex justify-content-between align-items-center mt-2"
+                                            style={{ fontSize: "12px" }}
+                                        >
+                                            <FileLink
+                                                Files={file}
+                                                // ColumnClass="col-md-4"
+                                                Style={{ fontSize: "12px" }}
+                                                showDownload={false}
+                                            />
+                                            <span
+                                                style={{
+                                                    fontSize: '16px',
+                                                    color: 'grey',
+                                                    cursor: 'pointer',
+                                                    marginLeft: '5px',
+                                                    // left:"0",
+                                                    fontWeight:"700",
+                                                    textDecoration: 'none',
+                                                }}
+                                                onMouseOver={(e) => (e.target.style.color = 'darkred')}
+                                                onMouseOut={(e) => (e.target.style.color = 'grey')}
+                                                onClick={(e) => {e.stopPropagation();handleRemoveFile(file)}}
+                                            >
+                                                x
+                                            </span>
+
+                                        </div>
+                                    </>
+                                ))
                             }
+                            {/* {files && files.length > 0 && (
+                                files.map((file) => {
+                                    return (
+                                        <span
+                                            style={{
+                                                fontSize: '16px',
+                                                color: 'grey',
+                                                cursor: 'pointer',
+                                                marginLeft: '20px',
+                                                textDecoration: 'none',
+                                            }}
+                                            onMouseOver={(e) => (e.target.style.color = 'darkred')}
+                                            onMouseOut={(e) => (e.target.style.color = 'grey')}
+                                            onClick={(e) => handleRemoveFile(file)}
+                                        >
+                                            x
+                                        </span>
+
+                                    )
+                                })
+                            )} */}
+
                         </div>
+
 
                         {update ? (
                             <button
@@ -195,7 +266,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                 className="btn btn-warning p-1"
                                 style={{ width: "100px" }}
                                 onClick={handleUpdateClause}
-                                disabled={message.length == 0 && files.length == 0}
+                                disabled={!message || message.length == 0}
                             >
                                 Update
                             </button>
@@ -205,7 +276,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                 className="btn btn-primary p-1"
                                 style={{ width: "100px" }}
                                 onClick={handleAddClause}
-                                disabled={message.length == 0 && files.length == 0}
+                                disabled={!message || message.length == 0}
                             >
                                 Add
                             </button>
@@ -220,10 +291,12 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                     type="file"
                     accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                     style={{ display: 'none' }}
-                    onChange={uploadToServer}
+                    onChange={(e) => uploadToServer(e)}
                 />
 
+
                 {/* Show Previous Clauses */}
+                {loading && <FullLoader />}
                 <div className="mt-4">
                     {previousClauses && previousClauses.length > 0 && (
                         <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
@@ -232,16 +305,16 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                     <p className="text-sm mb-0">
                                         <strong>Message:</strong> {clause.clause_text}
                                     </p>
-                                    {clause.files.length > 0 && (
+                                    {clause.files.length > 0 && clause.files.map((file) => ((
                                         <div className="d-flex gap-2 align-items-center text-sm">
                                             <strong className="text-nowrap">Files :</strong>
                                             <FileLink
-                                                Files={clause.files}
+                                                Files={file}
                                                 ColumnClass="col-md-3"
                                                 Style={{ fontSize: "12px" }}
                                             />
                                         </div>
-                                    )}
+                                    )))}
                                     <div className="d-flex justify-content-end">
                                         <button
                                             type="button"
@@ -256,7 +329,7 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                                             type="button"
                                             className="btn btn-danger p-1"
                                             style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => handleDeleteClause(clause.clause_id, index)}
+                                            onClick={() => handleDeleteClause(clause.clause_id)}
                                         >
                                             <FontAwesomeIcon icon={faTrash} className="me-2" />
                                             Remove
@@ -268,50 +341,54 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                     )}
                 </div>
 
+
                 {/* To Do List: Display Added Clauses */}
-                <div className="mt-4">
-                    {clauses.length > 0 && (
-                        <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                            {clauses.map((clause, index) => (
-                                <li key={index} className="list-group-item ">
-                                    <p className="text-sm mb-0">
-                                        <strong>Message:</strong> {clause.message}
-                                    </p>
-                                    {clause.files.length > 0 && (
-                                        <div className="d-flex gap-2 align-items-center text-sm">
-                                            <strong className="text-nowrap">Files :</strong>
-                                            <FileLink
-                                                Files={clause.files}
-                                                ColumnClass="col-md-3"
-                                                Style={{ fontSize: "12px" }}
-                                            />
+                {/* {!update &&
+                    <div className="mt-4">
+                        {clauses.length > 0 && (
+                            <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                {clauses.map((clause, index) => (
+                                    <li key={index} className="list-group-item ">
+                                        <p className="text-sm mb-0">
+                                            <strong>Message:</strong> {clause.message}
+                                        </p>
+                                        {clause.files.length > 0 && (
+                                            <div className="d-flex gap-2 align-items-center text-sm">
+                                                <strong className="text-nowrap">Files :</strong>
+                                                <FileLink
+                                                    Files={clause.files}
+                                                    ColumnClass="col-md-3"
+                                                    Style={{ fontSize: "12px" }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="d-flex justify-content-end">
+                                            <button
+                                                type="button"
+                                                className="btn btn-warning p-1 me-2"
+                                                style={{ width: "110px", fontSize: "12px" }}
+                                                onClick={() => openUpdateField(clause, index)}
+                                            >
+                                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                Update
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-danger p-1"
+                                                style={{ width: "110px", fontSize: "12px" }}
+                                                onClick={() => handleDeleteClause(clause.clause_id, index)}
+                                            >
+                                                <FontAwesomeIcon icon={faTrash} className="me-2" />
+                                                Remove
+                                            </button>
                                         </div>
-                                    )}
-                                    <div className="d-flex justify-content-end">
-                                        <button
-                                            type="button"
-                                            className="btn btn-warning p-1 me-2"
-                                            style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => openUpdateField(clause, index)}
-                                        >
-                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                            Update
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-danger p-1"
-                                            style={{ width: "110px", fontSize: "12px" }}
-                                            onClick={() => handleDeleteClause(clause.clause_id, index)}
-                                        >
-                                            <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                            Remove
-                                        </button>
-                                    </div>
-                                </li>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                    </li>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                } */}
+
 
             </Modal.Body>
             <Modal.Footer>
@@ -327,8 +404,9 @@ function AddClauseModal({ rfq_id, show, onClose, product }) {
                     Save
                 </button>
             </Modal.Footer>
-        </Modal>
+        </Modal >
     );
 }
 
 export default AddClauseModal;
+

@@ -2,7 +2,7 @@ import { toast } from "react-toastify";
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { addToTA } from "@/services/rfq";
-const NotTA = ({ show, onClose, data, vendor_id }) => {
+const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
 
     const [message, setMessage] = useState("");
     const sendFeedback = async () => {
@@ -26,6 +26,7 @@ const NotTA = ({ show, onClose, data, vendor_id }) => {
             return;
         }
         sendFeedback();
+        onClickSend();
     }
 
     useEffect(() => {

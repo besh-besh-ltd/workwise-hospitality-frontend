@@ -55,10 +55,12 @@ const QuoteCompare = () => {
   }, [page]);
 
 
-  const handleTAFilterChange = (e) => {
-    setTA_Filter(e.target.checked)
+  const handleTAFilterChange = () => {
+    setTA_Filter((prev) => !prev);
   }
-
+  const handleTAFilterChange1 = (e) => {
+    setTA_Filter(e.target.checked);
+  }
   const loadMoreRFQs = (e) => {
     e.preventDefault();
     if (hasMoreQuotes) {
@@ -921,8 +923,10 @@ const QuoteCompare = () => {
             </div>
 
             <div className="col-md-10">
+            
 
               <div className="quote-sec-table quote-sec-tab">
+              
 
                 {!quotesLoading && currentRFQ &&
                   <div className="mb-3">
@@ -986,7 +990,6 @@ const QuoteCompare = () => {
                     </div>
                   </div>
                 }
-
                 {"rfq" in router?.query && (
                   <div className="tabs-container">
                     <Link
@@ -1004,8 +1007,18 @@ const QuoteCompare = () => {
                     >
                       Overall Comparison
                     </Link>
+                    <Link
+                      href="#"
+                      className={`tab ${!showOverallComparison ? "active" : ""
+                        }`}
+                      onClick={handleTAFilterChange}
+                    >
+                      Technically Accepted
+                    </Link>
                   </div>
                 )}
+
+                
 
                 {!rfq && (
                   <div className="quote-sec-main">
@@ -1117,14 +1130,14 @@ const QuoteCompare = () => {
                             </span>
 
                             {/* TA Filter Section */}
-                            <div className="d-flex justify-content-end mt-3">
+                            {/* <div className="d-flex justify-content-end mt-3">
                               <div className="form-check">
                                 <input
                                   className="form-check-input"
                                   type="checkbox"
                                   checked={TA_Filter} // Bind the state to the checkbox
                                   id="TA_FilterCheck"
-                                  onChange={handleTAFilterChange} // Call handler on change
+                                  onChange={handleTAFilterChange1} // Call handler on change
                                 />
                                 <label
                                   className="form-check-label"
@@ -1134,7 +1147,7 @@ const QuoteCompare = () => {
                                   View Technically Accepted Vendors
                                 </label>
                               </div>
-                            </div>
+                            </div> */}
 
                             {item?.quotations &&
                               item?.quotations.length == 0 && (

@@ -25,8 +25,9 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges }) => {
   const [uploadedDatasheetFile, setUploadedDatasheetFile] = useState(data?.datasheet_file);
   const [comment, setComment] = useState(data?.comment);
   const [isModelOpen,setIsModalOpen] = useState(false);
+  const [rfqId,setRfqId] = useState(null);
 
-  
+
   useEffect(() => {
     console.log(data)
     setRfqProduct(data);
@@ -369,7 +370,7 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges }) => {
         </td>
       </tr>
       <div>
-        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} product = {data} rfq_id={rfq_id} />}
+        {isModelOpen && <AddClause show = {isModelOpen} onClose = {handleCloseModal} product = {data} />}
       </div>
     </>
   );

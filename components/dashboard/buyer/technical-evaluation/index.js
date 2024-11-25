@@ -43,13 +43,14 @@ const BuyerTechnicalEvaluation = () => {
   const getVendorSelectionOption = async (rfq_product_id) => {
     if (!rfq_product_id) return [];
     const payload = {
-      rfq_id,
-      rfq_product_id,
+      rfq_id:currentRfq.rfq_id,
+      rfq_product_id: rfq_product_id - 1,
     };
     console.log("payloaad = ",payload);
 
     try {
       const res = await fetchVendorSelectionOption(payload);
+      console.log("vendor names response = ",res.data)
       return res.data.map((vendor) => ({
         value: vendor.vendor_id,
         label: vendor.company_name || vendor.organization_name || vendor.vendor_name,
@@ -204,7 +205,7 @@ const BuyerTechnicalEvaluation = () => {
                               </div>
                             </div>
 
-                            {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor} />}
+                            {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor} currentRfq={currentRfq}/>}
 
                           </div>
                         </div>
