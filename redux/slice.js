@@ -2,7 +2,7 @@ const { createSlice } = require("@reduxjs/toolkit");
 import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
-  autoSave: false,
+  storeLoading: false,
   allTerms: [],
   rfq_id: -1,
   rfqProducts: [],
@@ -36,17 +36,22 @@ export const rfqProductsSlice = createSlice({
       state.rfq_id = action.payload.rfq_id;
       state.rfqFormData = action.payload.rfq_form_data;
       state.rfqProducts = action.payload.rfq_products;
-      if(action.payload.rfq_products.length > 0)
-        state.autoSave = true;
+    },
+
+    setStoreLoading: (state, action) => {
+      state.storeLoading = action.payload;
     },
 
     clearState: (state, action) => {
-      state = initialState;
+      return initialState;
     },
 
     addRfqProduct: (state, action) => {
       let data = {
         product_id: action.payload.product_id,
+        // fix here
+        datasheet: "",
+        qap: "",
         predefined_tds_file: action.payload.pd_tds_file_url ? action.payload.pd_tds_file_url : "",
         predefined_qap_file: action.payload.pd_qap_file_url ? action.payload.pd_qap_file_url : "",
         name: action.payload.product_name,
@@ -86,10 +91,15 @@ export const rfqProductsSlice = createSlice({
     },
 
     removeRfqProduct: (state, action) => {
-      let remainingProducts = state.rfqProducts.filter(
-        (pitem) => !(pitem.product_id == action.payload.product_id && pitem.variant == action.payload.variant)
-      );
-      state.rfqProducts = remainingProducts;
+      const updatedProductList = state.rfqProducts.filter(
+        (pitem) => {
+          if (pitem.product_id === action.payload.product_id &&
+            pitem.variant === action.payload.variant) {
+            // Exclude this product
+          }
+          else return pitem;
+        });
+      state.rfqProducts = updatedProductList;
     },
 
     addProductSpecValue: (state, action) => {
@@ -264,15 +274,12 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
-
-    toggleAutoSave: (state, action) => {
-      state.autoSave = !state.autoSave
-    },
   },
 });
 
 export const {
   intializeRfq,
+  setStoreLoading,
   clearState,
   addRfqProduct,
   removeRfqProduct,
@@ -289,7 +296,6 @@ export const {
   setSwSubscription,
   setDefaultVAB,
   setUserSelectedDefaultFile,
-  toggleAutoSave,
 } = rfqProductsSlice.actions;
 
 export default rfqProductsSlice.reducer;

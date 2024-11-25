@@ -253,7 +253,8 @@ const ProductManagement = () => {
                   {!enableBulkUpload && (
 
                     <div className="row ">
-                      <div className="col-5">
+                      {/* <div className="col-5"> */}
+                      <div className="col-sm-4 col-md-3">
                         <div className="d-flex">
                           <Link
                             href="add-products"
@@ -261,7 +262,7 @@ const ProductManagement = () => {
                           >
                             Add Single Product
                           </Link>
-                          <button
+                          {/* <button
                             type="button"
                             className="btn btn-primary d-flex flex-column justify-content-center align-items-center"
                             onClick={() => {
@@ -271,11 +272,11 @@ const ProductManagement = () => {
                           >
                             Add Bulk Products
                             <span className="text-sm">(By Uploading Excel File)</span>
-                          </button>
+                          </button> */}
                         </div>
 
 
-                        <div className="row mt-1">
+                        {/* <div className="row mt-1">
                           <div className="col"></div>
                           <a
                             title="Download this sample Excel and fill all the mandatory red columns."
@@ -296,7 +297,7 @@ const ProductManagement = () => {
                               />
                             </span>
                           </a>
-                        </div>
+                        </div> */}
 
 
                       </div>
