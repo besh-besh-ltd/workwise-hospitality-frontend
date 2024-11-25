@@ -140,7 +140,6 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraft
       setHasUnsavedChanges(true);
       setLoading(true);
 
-      console.log(data.vendors)
       const payload = {
         product_id: data.product_id,
         vendors: data.vendors.map(vendor => ({

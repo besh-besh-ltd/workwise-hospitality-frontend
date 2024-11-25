@@ -7,7 +7,7 @@ import Loader from "@/components/shared/Loader";
 
 const VendorTechnicalEvaluation = () => {
     const router = useRouter();
-    const { rfq_id } = router.query;
+    const { rfq_id, prod_id } = router.query;
     const [loading, setLoading] = useState(false);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [currentRfq, setCurrentRfq] = useState(null);
@@ -15,7 +15,7 @@ const VendorTechnicalEvaluation = () => {
 
     // Fetch user details
     const getUserDetails = async () => {
-        if(currentUserProfile) return currentUserProfile;
+        if (currentUserProfile) return currentUserProfile;
         try {
             const res = await getProfile();
             return res.data;
@@ -47,7 +47,7 @@ const VendorTechnicalEvaluation = () => {
                     const rfqdata = await getRfqDetails(rfq_id);
                     setCurrentUserProfile(userDetails);
                     setCurrentRfq(rfqdata);
-                    console.log("dataa rfqq",currentRfq)
+                    console.log("dataa rfqq", currentRfq)
                 }
             } catch (error) {
                 console.error("Error in fetch process:", error);
@@ -83,31 +83,35 @@ const VendorTechnicalEvaluation = () => {
                             <div className="quote-sec-table quote-sec-tab">
                                 <div className="quote-sec-main">
                                     {currentRfq?.products?.length > 0 &&
-                                        currentRfq?.products?.map((product, index) => (
-                                            <div
-                                                className="quote-sec-table-sub"
-                                                key={`product_${index}`}
-                                            >
-                                                <div className="row">
-                                                    <div className="col-12">
-                                                        <p className="sub-heading mb-0">
-                                                            <b>Product</b>:{" "}
-                                                            {product?.product_details[0]?.name || "N/A"}
-                                                        </p>
-                                                        <p className="sub-heading mb-0">
-                                                            <b>Product Specification</b>:{" "}
-                                                            {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
-                                                        </p>
-                                                        <VendorResponseTable
-                                                            data={product}
-                                                            type="vendor"
-                                                            rfq_id={rfq_id}
-                                                            currentUserProfile={currentUserProfile}
-                                                        />
+                                        currentRfq?.products?.map((product, index) => {
+                                            if (product.id == prod_id)
+                                                return (
+                                                    <div
+                                                        className="quote-sec-table-sub"
+                                                        key={`product_${index}`}
+                                                    >
+                                                        <div className="row">
+                                                            <div className="col-12">
+                                                                <p className="sub-heading mb-0">
+                                                                    <b>Product</b>:{" "}
+                                                                    {product?.product_details[0]?.name || "N/A"}
+                                                                </p>
+                                                                <p className="sub-heading mb-0">
+                                                                    <b>Product Specification</b>:{" "}
+                                                                    {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
+                                                                </p>
+                                                                <VendorResponseTable
+                                                                    data={product}
+                                                                    type="vendor"
+                                                                    rfq_id={rfq_id}
+                                                                    currentUserProfile={currentUserProfile}
+                                                                />
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                )
+                                        }
+                                        )}
                                 </div>
                             </div>
                         </div>

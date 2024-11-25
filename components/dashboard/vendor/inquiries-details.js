@@ -621,7 +621,7 @@ const RfqManagementPreview = () => {
 
                                   <td>
                                     <a
-                                      href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}`}
+                                      href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
                                       className="text-dark-blue"
                                       style={{
                                         fontSize: '0.8rem',

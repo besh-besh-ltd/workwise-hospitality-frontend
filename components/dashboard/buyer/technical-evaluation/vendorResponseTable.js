@@ -195,7 +195,7 @@ const VendorResponseTable = ({ data, type, rfq_id, currentUserProfile, currentRf
   const getVendorResponse = async () => {
     const payload = {
       rfq_id: parseInt(rfq_id),
-      rfq_product_id: type === 'buyer' ? data.rfq_product_id - 1 : data.id - 1,
+      rfq_product_id: type === 'buyer' ? data.rfq_product_id : data.id,
       vendor_id: type === 'buyer' ? selectedVendor : currentUserProfile.id,
     }
     console.log("payload for vendor names = ", payload);
