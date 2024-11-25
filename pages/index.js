@@ -24,7 +24,7 @@ export default function Home() {
                         "name": "Workwise",
                         "description": pageInfo?.description,
                         "url": process.env.NEXT_PUBLIC_FRONTEND_URL,
-                        "logo": "https://letsworkwise.com/_next/image?url=%2Fassets%2Fimages%2Flogo.png&w=256&q=75",
+                        "logo": "/assets/images/logo.png",
                         "foundingDate": "2023-08-01",
                         "keywords": "Procurement, Automation, Industrial Supplies",
                         "legalName": "Workwise Technologies Pvt. Ltd.",

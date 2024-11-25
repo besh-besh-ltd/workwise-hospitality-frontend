@@ -38,7 +38,7 @@ const Subscription = () => {
       currency: "INR", // your 3 letter currency code
       name: "Workwise", // project or transaction name
       description: "Workwise Subscription",
-      image: "https://letsworkwise.com/_next/image?url=%2Fassets%2Fimages%2Flogo.png&w=256&q=75", // your project logo
+      image: "/assets/images/logo.png",
       handler: function (response) {
         // console.log("response", response);
         navigate.push(`/dashboard/buyer/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff

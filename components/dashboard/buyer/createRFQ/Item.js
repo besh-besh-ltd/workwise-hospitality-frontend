@@ -26,7 +26,7 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
   const [comment, setComment] = useState(data?.comment);
 
   useEffect(() => {
-    console.log(data)
+    // console.log(data)
     setRfqProduct(data);
     setUploadedQapFile(data?.qap_file || []);
     setUploadedSpecFile(data?.spec_file || []);

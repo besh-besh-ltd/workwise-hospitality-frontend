@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
+import Select from 'react-select';
 import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
@@ -36,7 +37,7 @@ const CreateRFQ = () => {
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
 
-  const storeLoading = useSelector((data)=> data.storeLoading);
+  const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
   const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const rfqFormDataFromStore = useSelector((data) => data.rfqFormData);
@@ -111,10 +112,11 @@ const CreateRFQ = () => {
     }
   };
 
-  const handleFormFieldChange = async (e) => {
-    let { name, value } = e.target;
+  const handleFormFieldChange = async (e, selectedOption, actionMeta) => {
+    let name = e?.target?.name || actionMeta.name;
+    let value = e?.target?.value || selectedOption.value || -1;
 
-    if(name==="reverse_auction"){
+    if (name === "reverse_auction") {
       value = parseInt(value);
     }
 
@@ -124,7 +126,6 @@ const CreateRFQ = () => {
 
         if (projectData) {
           dispatch(setOtherFormFields({ field_name: "rfq_type", value: projectData.rfq_type || "" }));
-          // dispatch(setOtherFormFields({ field_name: "reverse_auction", value: projectData.reverse_auction || 1 }));
           dispatch(
             setOtherFormFields({
               field_name: "reverse_auction",
@@ -310,6 +311,36 @@ const CreateRFQ = () => {
                 )
                   : (
                     <>
+                      {/* <div className="col-md-4">
+                        <FormikField
+                          label="Project Name"
+                          value={rfqFormDataFromStore.project_id}
+                          enableHandleChange={true}
+                          handleChange={handleFormFieldChange}
+                          type="select"
+                          selectOptions={[
+                            { label: "Select Project", value: -1 },
+                            ...projects
+                          ]}
+                          isRequired={false}
+                          name="project_id"
+                          touched={touched}
+                          errors={errors}
+                        />
+                      </div> */}
+
+                      <div className="col-md-3 mb-2 ">
+                        <label>Select Project</label>
+                        <Select
+                          options={projects}
+                          value={projects.find((project) => project.value === rfqFormDataFromStore.project_id)}
+                          defaultValue={-1}
+                          onChange={(selectedOption, actionMeta)=> handleFormFieldChange(null, selectedOption, actionMeta)}
+                          name="project_id"
+                          placeholder="Select"
+                          isClearable
+                        />
+                      </div>
 
                       {/* RFQ Products Table */}
                       <div className="table-responsive">
@@ -391,7 +422,6 @@ const CreateRFQ = () => {
                                 bid_end_date: rfqFormDataFromStore.bid_end_date,
                                 rfq_type: rfqFormDataFromStore.rfq_type,
                                 reverse_auction: rfqFormDataFromStore.reverse_auction,
-                                project_id: rfqFormDataFromStore.project_id,
                                 location: rfqFormDataFromStore.location
                               }}
                               validationSchema={CreateRFQSchema}
@@ -506,24 +536,7 @@ const CreateRFQ = () => {
                                   <div className="row mb-2">
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Project Name"
-                                        value={rfqFormDataFromStore.project_id}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="select"
-                                        selectOptions={[
-                                          { label: "Select Project", value: -1 },
-                                          ...projects
-                                        ]}
-                                        isRequired={false}
-                                        name="project_id"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-4">
-                                      <FormikField
-                                        label="RFQ Type"
+                                        label="Project Stage"
                                         value={rfqFormDataFromStore.rfq_type}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
@@ -543,6 +556,7 @@ const CreateRFQ = () => {
                                       <FormikField
                                         label="Reverse Auction"
                                         value={rfqFormDataFromStore.reverse_auction}
+                                        defaultValue={0}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
                                         type="select"
@@ -558,7 +572,7 @@ const CreateRFQ = () => {
                                     </div>
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Bid end date"
+                                        label="Project procurement end date"
                                         value={rfqFormDataFromStore.bid_end_date}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
@@ -569,7 +583,7 @@ const CreateRFQ = () => {
                                         errors={errors}
                                       />
                                     </div>
-                                    <div className="col-md-8">
+                                    <div className="col-md-12">
                                       <FormikField
                                         label="Delivery location"
                                         value={rfqFormDataFromStore.location}
