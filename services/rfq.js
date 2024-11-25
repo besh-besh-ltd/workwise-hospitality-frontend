@@ -356,6 +356,18 @@ export const getClausesByRfqProductId = (payload) => {
   });
 };
 
+export const getClausesByRfqVendorSide = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-clauses-of-product-vendor-side`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+  
+}
+
 export const addClause = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

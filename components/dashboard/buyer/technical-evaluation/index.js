@@ -44,7 +44,7 @@ const BuyerTechnicalEvaluation = () => {
     if (!rfq_product_id) return [];
     const payload = {
       rfq_id:currentRfq.rfq_id,
-      rfq_product_id,
+      rfq_product_id: rfq_product_id - 1,
     };
     console.log("payloaad = ",payload);
 
