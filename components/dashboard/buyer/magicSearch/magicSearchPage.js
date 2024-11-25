@@ -42,6 +42,7 @@ const MagicSearchPage = () => {
     const [termsLoading, setTermsLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [messagesDisplayed, setMessagesDisplayed] = useState(false);
+    const [apiData, setApiData] = useState(null)
 
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
@@ -88,7 +89,8 @@ const MagicSearchPage = () => {
         try {
             setLoading(true);
             const response = await getMagicRFQPreview(file);
-            apiDataRef.current = response;
+            setApiData(response)
+            // apiDataRef.current = response;
 
             // Delay the state update until all messages are shown
             setTimeout(() => {
@@ -183,6 +185,8 @@ const MagicSearchPage = () => {
             });
         }
 
+        // console.log(" remove it before if editedData ", editedData)
+        // console.log(" remove it before if reviewData ", reviewData)
         if (editedData.length === 0) {
             setReviewData(null)
             setValidationErrors(null)
@@ -192,6 +196,7 @@ const MagicSearchPage = () => {
                 products: editedData
             }))
         }
+        // console.log(" remove it before else setReviewData ", reviewData)
     }
 
     const changeProductData = (type, e, prodItem) => {
@@ -213,10 +218,12 @@ const MagicSearchPage = () => {
             }
             return item;
         })
+        // console.log(" remove it re reviewData ", reviewData )
         setReviewData((prevData) => ({
             ...prevData,
             products: editedData
         }))
+        // console.log("remove it reviewData ", reviewData)
     }
 
     const handleFiles = async (type, e, prodItem, isRemove, fileLink) => {
@@ -249,10 +256,15 @@ const MagicSearchPage = () => {
                 return;
             }
         }
+        // console.log(" editedData  ",editedData )
+        // console.log(" reviewData  ",reviewData )
+
         setReviewData((prevData) => ({
             ...prevData,
             products: editedData
         }))
+        // console.log(" reviewData  ",reviewData )
+
     }
 
     const handleCreateRFQ = () => {
@@ -315,8 +327,14 @@ const MagicSearchPage = () => {
 
     // Handle API response and state update after all messages are shown
     useEffect(() => {
-        if (messagesDisplayed && !loading && apiDataRef.current) {
-            const { status, validation_errors, data } = apiDataRef.current;
+        // console.log("messagesDisplayed && !loading && apiData ", messagesDisplayed, !loading, apiData, (messagesDisplayed && !loading && apiData))
+        // console.log("before if and set data in reniewdata ", apiData)
+        // console.log("before if and set data in reniewdata products ", apiData?.data?.projects)
+        // if (messagesDisplayed && !loading && apiDataRef.current) {
+            if (apiData) {
+                // const { status, validation_errors, data } = apiDataRef.current;
+                const { status, validation_errors, data } = apiData;
+                // console.log(" api response data reniew data inslide if ", data)
             setReviewData(data);
             setTermList(data?.terms);
             formData.response_email= data?.response_email
@@ -344,10 +362,17 @@ const MagicSearchPage = () => {
                 }
             }, 300);
 
-            apiDataRef.current = null;
+            // apiDataRef.current = null;
+            setApiData(null)
             setMessagesDisplayed(false); // Reset the state for future uploads
         }
+        // console.log("after if and set data in reniewdata ", reviewData)
+
     }, [messagesDisplayed, loading]);
+
+//     useEffect(()=>{
+// // console.log(" please remove it ", reviewData)
+//     },[reviewData])
 
     return (
         <>
@@ -607,7 +632,7 @@ const MagicSearchPage = () => {
                                         {projects && projects.length > 0 &&
                                             projects.map((projectItem) => {
                                                 return (
-                                                    <option value={projectItem.value}>{projectItem.label}</option>
+                                                    <option value={projectItem.value} key={projectItem.value}>{projectItem.label}</option>
                                                 )
                                             })
                                         }
