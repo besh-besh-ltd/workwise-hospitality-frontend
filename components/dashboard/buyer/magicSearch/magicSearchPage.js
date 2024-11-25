@@ -569,7 +569,7 @@ const MagicSearchPage = () => {
                                 </div>
 
                                 <div className="col-md-4 mb-2">
-                                    <label htmlFor="rfq_type" className="form-label ">RFQ Type</label>
+                                    <label htmlFor="rfq_type" className="form-label ">Project Stage</label>
                                     <select
                                         name="rfq_type"
                                         id="rfq_type"
@@ -584,7 +584,7 @@ const MagicSearchPage = () => {
                                 </div>
 
                                 <div className="col-md-4 mb-2">
-                                    <label htmlFor="bid_end_date" className="form-label ">Bid End Date</label>
+                                    <label htmlFor="bid_end_date" className="form-label ">Project Procurement End Date</label>
                                     <input
                                         type="date"
                                         name="bid_end_date"

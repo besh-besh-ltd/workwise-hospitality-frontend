@@ -15,6 +15,7 @@ import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
 import { formatPrice } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
+import { toast } from "react-toastify";
 
 const QuoteCompare = () => {
   const router = useRouter();
@@ -111,17 +112,6 @@ const QuoteCompare = () => {
     setquotes(quotes);
   };
 
-  const handleDownloadQuote = (e) => {
-    e.preventDefault();
-    setDownloadLoading(true);
-    downloadQuotesDetails(rfq)
-      .then((res) => {
-        generateExcelFile(res.data);
-      })
-      .catch((err) => {
-        setDownloadLoading(false);
-      });
-  };
   const getDeliveryRange = (items) => {
     if (items && items.length > 0) {
       // Find the smallest number
@@ -135,18 +125,38 @@ const QuoteCompare = () => {
       return "-";
     }
   };
+
+  const handleDownloadQuote = async (e) => {
+    e.preventDefault();
+    setDownloadLoading(true);
+
+    try {
+      const res = await downloadQuotesDetails(rfq);
+      generateExcelFile(res.data);
+    } catch (error) {
+      console.log(error);
+      toast.error("Failed to download quotes. Please try again.")
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+
   const generateExcelFile = (api_data) => {
-    let totalRFQItems = 0;
     let l1totaltemp = 0;
     let allVendors = api_data[0].all_vendors;
+
     let heading_array = [["Product Name", "Qty"]];
-    let ampount_array = ["", ""];
+    let amount_array = ["", ""];
+
     let total_array = ["TOTAL"];
     let l1array = ["Lowest total (L1 Total)"];
     let paymentTermsArray = ["Payment Terms", ""];
     let commentsArray = ["Vendor Comment", ""];
     let deliveryArray = ["Delivery", ""];
     let totalArray = ["Total"];
+    let filesArray = ["Attached Files", ""];
+
     allVendors.map((item) => {
       heading_array[0].push(`${item.organization_name}`);
       heading_array[0].push("");
@@ -154,11 +164,11 @@ const QuoteCompare = () => {
       heading_array[0].push("");
       heading_array[0].push("");
 
-      ampount_array.push("Unit Rate");
-      ampount_array.push("Freight(%)");
-      ampount_array.push("Packaging(%)");
-      ampount_array.push("GST(%)");
-      ampount_array.push("Total Amount");
+      amount_array.push("Unit Rate");
+      amount_array.push("Freight(%)");
+      amount_array.push("Packaging(%)");
+      amount_array.push("GST(%)");
+      amount_array.push("Total Amount");
 
       paymentTermsArray.push(
         item.global_payment_term[0].details
@@ -170,9 +180,11 @@ const QuoteCompare = () => {
       paymentTermsArray.push("");
       paymentTermsArray.push("");
 
+      const sanitizeComment = (comment) => comment.replace(/[\n\r,"]/g, " ").trim();
+
       commentsArray.push(
-        item.global_payment_term[0].comment
-          ? item.global_payment_term[0].comment
+        item.global_payment_term[0]?.comment
+          ? sanitizeComment(item.global_payment_term[0]?.comment)
           : "-"
       );
       commentsArray.push("");
@@ -203,7 +215,7 @@ const QuoteCompare = () => {
     heading_array[0].push("LOWEST");
 
     let data = heading_array;
-    data.push(ampount_array);
+    data.push(amount_array);
     let totalQty = 0;
     api_data.map((item, index) => {
       let qq = api_data[index]?.quotations.filter((qi) => qi.id != null);
@@ -221,21 +233,12 @@ const QuoteCompare = () => {
         (item) => item.id != null && item.is_regret != 1
       );
 
-      let currentItem = item;
       let lowest = array.reduce((lowest, currentItem) => {
         return currentItem.quote_details[0].total_price <
           lowest.quote_details[0].total_price
           ? currentItem
           : lowest;
       }, array[0]);
-      // let lowest = array.reduce((lowest, currentItem) => {
-      //   if (currentItem.quote_details[0].total_price > 0) { 
-      //       return currentItem.quote_details[0].total_price < lowest.quote_details[0].total_price
-      //           ? currentItem
-      //           : lowest;
-      //   }
-      //   return lowest;
-      // }, array[0]);
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
@@ -280,13 +283,23 @@ const QuoteCompare = () => {
               : "-"
           );
         }
+
+        filesArray.push(
+          q.quote_details[0]?.document_files[0]?.file_url
+            ? q.quote_details[0]?.document_files[0]?.file_url
+            : "-"
+        );
+        filesArray.push("");
+        filesArray.push("");
+        filesArray.push("");
+        filesArray.push("");
       });
       temp_arr.push(0);
       data.push(temp_arr);
     });
+
     total_array.push(totalQty);
     totalArray.push(totalQty);
-    //data.push(total_array)
     l1array.push(l1totaltemp);
 
     let emptyArr = ["", ""];
@@ -329,7 +342,8 @@ const QuoteCompare = () => {
 
     data.push(deliveryArray);
     data.push(paymentTermsArray);
-    //data.push(commentsArray);
+    data.push(commentsArray);
+    data.push(filesArray);
 
     const ws = XLSX.utils.aoa_to_sheet(data);
     const width = 25; // Width in characters (adjust according to your requirement)
@@ -409,19 +423,29 @@ const QuoteCompare = () => {
         s: { r: 0, c: columnToMergeStart }, // Start cell (first row, first column)
         e: { r: 0, c: columnToMergeEnd }, // End cell (first row, second column)
       };
-      const mergeRangePaymentTerms = {
-        s: { r: api_data.length + 9, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: api_data.length + 9, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
       const mergeRangeDelivery = {
         s: { r: api_data.length + 8, c: columnToMergeStart }, // Start cell (first row, first column)
         e: { r: api_data.length + 8, c: columnToMergeEnd }, // End cell (first row, second column)
       };
+      const mergeRangePaymentTerms = {
+        s: { r: api_data.length + 9, c: columnToMergeStart }, // Start cell (first row, first column)
+        e: { r: api_data.length + 9, c: columnToMergeEnd }, // End cell (first row, second column)
+      };
+      const mergeRangeComments = {
+        s: { r: api_data.length + 10, c: columnToMergeStart }, // Start cell (first row, first column)
+        e: { r: api_data.length + 10, c: columnToMergeEnd }, // End cell (first row, second column)
+      };
+      const mergeRangeFiles = {
+        s: { r: api_data.length + 11, c: columnToMergeStart }, // Start cell (first row, first column)
+        e: { r: api_data.length + 11, c: columnToMergeEnd }, // End cell (first row, second column)
+      };
 
       if (!ws["!merges"]) ws["!merges"] = [];
       ws["!merges"].push(mergeRange);
-      ws["!merges"].push(mergeRangePaymentTerms);
       ws["!merges"].push(mergeRangeDelivery);
+      ws["!merges"].push(mergeRangePaymentTerms);
+      ws["!merges"].push(mergeRangeComments);
+      ws["!merges"].push(mergeRangeFiles);
     }
 
     // Packaging & Fright column width
@@ -475,8 +499,8 @@ const QuoteCompare = () => {
 
     // Bold footer items
     for (
-      let i = api_data.length + 4 + 2;
-      i < api_data.length + 4 + 2 + 4;
+      let i = 2 + api_data.length + 4;
+      i < 2 + api_data.length + 4 + 6;
       i++
     ) {
       const cellAddress = XLSX.utils.encode_cell({ r: i, c: 0 }); // First row, current column
@@ -556,8 +580,8 @@ const QuoteCompare = () => {
     //     ws[cellAddress].t = 's'; // Set cell type to string
     //   }
     // }
-    // color
 
+    // color
     for (let col = range.s.c; col <= range.e.c; col++) {
       const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col }); // First row, current column
       if (!ws[cellAddress]) ws[cellAddress] = {};
@@ -567,9 +591,9 @@ const QuoteCompare = () => {
       ws[cellAddress].s.font = { color: { rgb: "000000" }, sz: 12, bold: true }; // White text color
     }
 
-    // FORMULA
 
-    for (let row = 2; row <= range.e.r - 8; row++) {
+    // FORMULA
+    for (let row = 2; row <= range.e.r - 10; row++) {
       let row_numb = row + 1;
 
       for (let col = 3; col <= range.e.c; col += 5) {
@@ -591,11 +615,11 @@ const QuoteCompare = () => {
     }
     // Total Formula
     {
-      let total_row = api_data.length + 4 + 2 + 1;
+      let total_row = 2 + api_data.length + 4 + 1;
       for (let col = 2; col <= range.e.c + 1; col += 5) {
         let col_n = excelColumnName(col);
         let col_formula = "";
-        for (let row = 3; row <= range.e.r - 7; row++) {
+        for (let row = 3; row <= 2 + api_data.length; row++) {
           if (col_formula != "") {
             col_formula = `${col_formula}+${col_n}${row}`;
           } else {
@@ -605,14 +629,14 @@ const QuoteCompare = () => {
         const total_cellAddress = XLSX.utils.encode_cell({
           r: total_row - 1,
           c: col - 1,
-        }); // First row, current column
+        });
         let total_cell = ws[total_cellAddress];
         total_cell.f = `TRUNC(${col_formula},0)`;
       }
     }
     // Lowest formula
     {
-      for (let row = 2; row <= range.e.r - 8; row++) {
+      for (let row = 2; row <= range.e.r - 10; row++) {
         let row_numb = row + 1;
         let row_cols = [];
         for (let col = 7; col <= range.e.c + 1; col += 5) {
@@ -657,6 +681,7 @@ const QuoteCompare = () => {
       console.error("Error generating Excel file:", error);
     }
   };
+
   const generateExcelFileOld = (data) => {
     if (data.length > 0) {
       setDownloadLoading(true);
