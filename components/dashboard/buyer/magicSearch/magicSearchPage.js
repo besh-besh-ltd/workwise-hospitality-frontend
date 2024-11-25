@@ -44,6 +44,12 @@ const MagicSearchPage = () => {
     const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [apiData, setApiData] = useState(null)
 
+    const [fileUploadMessageIndex, setFileUploadMessageIndex] = useState(0);
+    const [fileUploadMessagesDisplayed, setFileUploadMessagesDisplayed] = useState(false);
+
+    const [submitMessageIndex, setSubmitMessageIndex] = useState(0);
+    const [submitMessagesDisplayed, setSubmitMessagesDisplayed] = useState(false);
+
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
 
@@ -51,16 +57,19 @@ const MagicSearchPage = () => {
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
     // Array of messages to display during loading
-    const messages = [
+    const fileUploadMessage = [
         'Workwise AI is scanning your BOQ… Extracting all product details.',
         'Analyzing specifications, sizes, and quantities with precision…',
         'AI is matching products with the most relevant vendors…',
         'Identifying top vendors based on your specific requirements…',
+    ];
+
+    const submitMessage = [
         'Creating custom RFQs for each vendor—tailored to your needs…',
         'AI is sending RFQs directly to the selected vendors…',
         'Your AI-powered sourcing is underway… Sit back and relax!',
         'Almost done! Workwise AI has sent your enquiries. Expect responses soon.'
-    ];
+    ]
 
     const handleMagicFileUpload = (event) => {
         const file = event.target.files[0];
@@ -96,7 +105,7 @@ const MagicSearchPage = () => {
             setTimeout(() => {
                 setLoading(false);
                 setFileName('');
-            }, 2000 * (messages.length - currentMessageIndex));
+            }, 2000 * (fileUploadMessage.length - fileUploadMessageIndex));
 
         } catch (error) {
             console.log(error)
@@ -120,12 +129,12 @@ const MagicSearchPage = () => {
             })
             setTermList(updatedTerms);
         } else {
-            if(name=="reverse_auction"){
+            if (name == "reverse_auction") {
                 setFormData((prevState) => ({
                     ...prevState,
                     [name]: parseInt(value)
                 }));
-            }else{
+            } else {
                 setFormData((prevState) => ({
                     ...prevState,
                     [name]: value
@@ -185,8 +194,6 @@ const MagicSearchPage = () => {
             });
         }
 
-        // console.log(" remove it before if editedData ", editedData)
-        // console.log(" remove it before if reviewData ", reviewData)
         if (editedData.length === 0) {
             setReviewData(null)
             setValidationErrors(null)
@@ -196,7 +203,6 @@ const MagicSearchPage = () => {
                 products: editedData
             }))
         }
-        // console.log(" remove it before else setReviewData ", reviewData)
     }
 
     const changeProductData = (type, e, prodItem) => {
@@ -218,12 +224,11 @@ const MagicSearchPage = () => {
             }
             return item;
         })
-        // console.log(" remove it re reviewData ", reviewData )
+
         setReviewData((prevData) => ({
             ...prevData,
             products: editedData
         }))
-        // console.log("remove it reviewData ", reviewData)
     }
 
     const handleFiles = async (type, e, prodItem, isRemove, fileLink) => {
@@ -256,15 +261,11 @@ const MagicSearchPage = () => {
                 return;
             }
         }
-        // console.log(" editedData  ",editedData )
-        // console.log(" reviewData  ",reviewData )
 
         setReviewData((prevData) => ({
             ...prevData,
             products: editedData
         }))
-        // console.log(" reviewData  ",reviewData )
-
     }
 
     const handleCreateRFQ = () => {
@@ -302,45 +303,66 @@ const MagicSearchPage = () => {
         // getTermsData();
     }, []);
 
-    // Display messages in a rotating fashion
+    // Display FileUploadMessages in a rotating fashion
     useEffect(() => {
-        let messageInterval;
-        let messageDisplayTime = 2000; // 2 seconds per message
-        let messageCount = 0;
+        let fileMessageInterval;
+        const fileMessageDisplayTime = 2000; // 2 seconds per message
+        let fileMessageCount = 0;
 
-        if (loading && !messagesDisplayed) {
-            messageInterval = setInterval(() => {
-                setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % messages.length);
-                if (messageCount < messages.length) {
-                    messageCount++;
+        if (loading && !fileUploadMessagesDisplayed) {
+            fileMessageInterval = setInterval(() => {
+                setFileUploadMessageIndex((prevIndex) => (prevIndex + 1) % fileUploadMessage.length);
+                if (fileMessageCount < fileUploadMessage.length) {
+                    fileMessageCount++;
                 } else {
-                    setMessagesDisplayed(true);
-                    clearInterval(messageInterval);
+                    setFileUploadMessagesDisplayed(true);
+                    clearInterval(fileMessageInterval);
                 }
-            }, messageDisplayTime);
+            }, fileMessageDisplayTime);
         }
 
         return () => {
-            clearInterval(messageInterval);
+            clearInterval(fileMessageInterval);
         };
-    }, [loading, messagesDisplayed]);
+    }, [loading, fileUploadMessagesDisplayed]);
+
+
+    // Display submitMessages in a rotating fashion
+    useEffect(() => {
+        let submitMessageInterval;
+        const submitMessageDisplayTime = 2000; // 2 seconds per message
+        let submitMessageCount = 0;
+
+        if (submitLoading && !submitMessagesDisplayed) {
+            submitMessageInterval = setInterval(() => {
+                setSubmitMessageIndex((prevIndex) => (prevIndex + 1) % submitMessage.length);
+                if (submitMessageCount < submitMessage.length) {
+                    submitMessageCount++;
+                } else {
+                    setSubmitMessagesDisplayed(true);
+                    clearInterval(submitMessageInterval);
+                }
+            }, submitMessageDisplayTime);
+        }
+
+        return () => {
+            clearInterval(submitMessageInterval);
+        };
+    }, [submitLoading, submitMessagesDisplayed]);
 
     // Handle API response and state update after all messages are shown
     useEffect(() => {
-        // console.log("messagesDisplayed && !loading && apiData ", messagesDisplayed, !loading, apiData, (messagesDisplayed && !loading && apiData))
-        // console.log("before if and set data in reniewdata ", apiData)
-        // console.log("before if and set data in reniewdata products ", apiData?.data?.projects)
         // if (messagesDisplayed && !loading && apiDataRef.current) {
-            if (apiData) {
-                // const { status, validation_errors, data } = apiDataRef.current;
-                const { status, validation_errors, data } = apiData;
-                // console.log(" api response data reniew data inslide if ", data)
+        if (fileUploadMessagesDisplayed && !loading && apiData) {
+            // const { status, validation_errors, data } = apiDataRef.current;
+            const { status, validation_errors, data } = apiData;
+
             setReviewData(data);
             setTermList(data?.terms);
-            formData.response_email= data?.response_email
-            formData.contact_name= data?.contact_name
-            formData.contact_number= data?.contact_number
-            formData.company_name= data?.company_name
+            formData.response_email = data?.response_email
+            formData.contact_name = data?.contact_name
+            formData.contact_number = data?.contact_number
+            formData.company_name = data?.company_name
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
                 toast.success("Review Your Products and submit");
@@ -366,13 +388,9 @@ const MagicSearchPage = () => {
             setApiData(null)
             setMessagesDisplayed(false); // Reset the state for future uploads
         }
-        // console.log("after if and set data in reniewdata ", reviewData)
 
-    }, [messagesDisplayed, loading]);
+    }, [fileUploadMessagesDisplayed, loading]);
 
-//     useEffect(()=>{
-// // console.log(" please remove it ", reviewData)
-//     },[reviewData])
 
     return (
         <>
@@ -394,11 +412,31 @@ const MagicSearchPage = () => {
                         fontSize: '24px'
                     }}
                 >
-                    <p>{messages[currentMessageIndex]}</p>
+                    <p>{fileUploadMessage[fileUploadMessageIndex]}</p>
                 </div>
             )}
 
-            {submitLoading && <Loader />}
+            {submitLoading && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        color: 'white',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        flexDirection: 'column',
+                        zIndex: 9999,
+                        fontSize: '24px'
+                    }}
+                >
+                    <p>{submitMessage[submitMessageIndex]}</p>
+                </div>
+            )}
 
             {/* Header Section */}
             <section className="vendor-common-header sc-pt-80">
@@ -417,44 +455,44 @@ const MagicSearchPage = () => {
 
                         {!reviewData ?
                             <>
-                            <div className="col-md-8 mx-auto mt-2">
-                            <div className="d-flex align-items-center gap-2 mb-3">
-                                <h2 className="title fs-6 mb-0 ">Step 1: </h2>
-                                <a
-                                    title="Download this sample Excel and fill all the columns."
-                                    href="/Sample BOQ File Format.xlsx"
-                                    className="d-flex justify-content-between align-items-center "
-                                    style={{ cursor: "pointer" }}>
-                                    <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
-                                    <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
-                                </a>
-                            </div>
-                            </div>
-                            <div className="col-md-8 mx-auto">
-                            <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
-                                <div
-                                    className="file-drop-area text-center rounded py-4"
-                                    style={{
-                                        border: '2px dashed grey',
-                                        cursor: 'pointer',
-                                        backgroundColor: '#fff',
-                                        color: 'green',
-                                    }}
-                                    onClick={() => document.getElementById('fileInput').click()}
-                                >
-                                    <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
-                                    <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                                <div className="col-md-8 mx-auto mt-2">
+                                    <div className="d-flex align-items-center gap-2 mb-3">
+                                        <h2 className="title fs-6 mb-0 ">Step 1: </h2>
+                                        <a
+                                            title="Download this sample Excel and fill all the columns."
+                                            href="/Sample BOQ File Format.xlsx"
+                                            className="d-flex justify-content-between align-items-center "
+                                            style={{ cursor: "pointer" }}>
+                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
+                                            <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
+                                        </a>
+                                    </div>
                                 </div>
+                                <div className="col-md-8 mx-auto">
+                                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
+                                    <div
+                                        className="file-drop-area text-center rounded py-4"
+                                        style={{
+                                            border: '2px dashed grey',
+                                            cursor: 'pointer',
+                                            backgroundColor: '#fff',
+                                            color: 'green',
+                                        }}
+                                        onClick={() => document.getElementById('fileInput').click()}
+                                    >
+                                        <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
+                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                                    </div>
 
-                                {/* //{ Hidden File Input } */}
-                                <input
-                                    id="fileInput"
-                                    type="file"
-                                    accept=".xlsx, .xls"
-                                    style={{ display: 'none' }}
-                                    onChange={handleMagicFileUpload}
-                                />
-                            </div>
+                                    {/* //{ Hidden File Input } */}
+                                    <input
+                                        id="fileInput"
+                                        type="file"
+                                        accept=".xlsx, .xls"
+                                        style={{ display: 'none' }}
+                                        onChange={handleMagicFileUpload}
+                                    />
+                                </div>
 
                                 {/* Download Sample Excel
                                 <div className="col-md-8 mx-auto mt-2">
@@ -525,7 +563,7 @@ const MagicSearchPage = () => {
                         </div>}
 
                         {/* Contact information */}
-                        
+
                         {reviewData && <div className="mx-auto mt-4">
                             <h3 className="h5">Contact information</h3>
                             <div className="row">
@@ -552,7 +590,7 @@ const MagicSearchPage = () => {
                                 </div>
                             </div>
                             <div className="row">
-                            <div className="col-md-6 mx-auto mt-2">
+                                <div className="col-md-6 mx-auto mt-2">
                                     <label htmlFor="contact_number" className="form-label">Contact Number</label>
                                     <input
                                         type="text"
