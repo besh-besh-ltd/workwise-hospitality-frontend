@@ -125,21 +125,20 @@ const CreateRFQ = () => {
         const projectData = await getProjectData(value);
 
         if (projectData) {
-          dispatch(setOtherFormFields({ field_name: "rfq_type", value: projectData[0].rfq_type || "" }));
-          // dispatch(setOtherFormFields({ field_name: "reverse_auction", value: projectData.reverse_auction || 1 }));
+          dispatch(setOtherFormFields({ field_name: "rfq_type", value: projectData.rfq_type || "" }));
           dispatch(
             setOtherFormFields({
               field_name: "reverse_auction",
-              value: projectData.reverse_auction !== undefined ? projectData[0].reverse_auction : 1,
+              value: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
             })
           );
           dispatch(
             setOtherFormFields({
               field_name: "bid_end_date",
-              value: projectData.ended_at ? new Date(projectData[0].ended_at).toISOString().split("T")[0] : "",
+              value: projectData.ended_at ? new Date(projectData.ended_at).toISOString().split("T")[0] : "",
             })
           );
-          dispatch(setOtherFormFields({ field_name: "location", value: projectData[0].location || "" }));
+          dispatch(setOtherFormFields({ field_name: "location", value: projectData.location || "" }));
         } else {
           console.error("Project data is empty or undefined.");
         }
