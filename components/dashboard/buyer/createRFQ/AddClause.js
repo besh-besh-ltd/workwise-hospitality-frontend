@@ -3,16 +3,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
 import { addClause, getClausesByRfqProductId, removeClause, updateClause } from "@/services/rfq";
-import { useSelector, useDispatch } from "react-redux";
-import Loader from "@/components/shared/Loader";
 import FullLoader from "@/components/shared/FullLoader";
-import {
-    removeFiles,
-} from "@/redux/slice";
+
 
 function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [clauses, setClauses] = useState([]);
@@ -21,21 +17,11 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [fileLoading, setFileLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef(null);
-    const rfqDetails = useSelector((data) => data.rfq_id);
     const [currentClause, setCurrentClause] = useState(null);
     const [update, setUpdate] = useState(false);
     const [previousClauses, setPreviousClauses] = useState(null);
-    const dispatch = useDispatch();
 
-    const handleRemoveFile = (fileUrl, type) => {
-        const updatedFiles = files.filter((file) => file !== fileUrl);
-        setFiles(updatedFiles);
-        dispatch(
-            removeFiles({
-                value: fileUrl,
-            })
-        );
-    };
+
     const handleAttachFileClick = () => {
         fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
     };
@@ -88,17 +74,12 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             setLoading(true)
             const res = await addClause(payload);
             toast.success(res.message)
-
-            // Add new clause to the list
-            // const newClause = { message, files };
-            // setClauses([...clauses, newClause]);
             getPreviousClauses();
 
         } catch (error) {
             console.log(error)
         } finally {
             setLoading(false);
-            // Reset input fields
             setMessage("");
             setFiles([]);
         }
@@ -125,17 +106,12 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             setLoading(true)
             const res = await updateClause(payload);
             toast.success(res.message)
-
-            // Add new clause to the list
-            // const newClause = { message, files };
-            // setClauses([...clauses, newClause]);
             getPreviousClauses();
 
         } catch (error) {
             console.log(error)
         } finally {
             setLoading(false);
-            // Reset input fields
             setMessage("");
             setFiles([]);
             setCurrentClause(null);
@@ -144,15 +120,10 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     }
 
     const handleDeleteClause = async (clause_id) => {
-        console.log("delete caluse id = ", clause_id);
         try {
             setLoading(true)
             const res = await removeClause(clause_id);
             toast.success(res.message)
-
-            // Remove clause from the list
-            // const updatedClauses = clauses.filter((_, idx) => idx !== index);
-            // setClauses(updatedClauses)
             getPreviousClauses();
 
         } catch (error) {
@@ -210,7 +181,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         >
                                             <FileLink
                                                 Files={file}
-                                                // ColumnClass="col-md-4"
                                                 Style={{ fontSize: "12px" }}
                                                 showDownload={false}
                                             />
@@ -220,7 +190,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                                     color: 'grey',
                                                     cursor: 'pointer',
                                                     marginLeft: '5px',
-                                                    // left:"0",
                                                     fontWeight:"700",
                                                     textDecoration: 'none',
                                                 }}

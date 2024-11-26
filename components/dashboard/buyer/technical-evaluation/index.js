@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
-import VendorResponseTable from "./vendorResponseTable";
 import { useRouter } from "next/router";
-import { addToTA, fetchTechEvaluationRfqList, fetchVendorAgreement, fetchVendorSelectionOption } from "@/services/rfq";
+import { fetchTechEvaluationRfqList, fetchVendorSelectionOption } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
-import { toast } from "react-toastify";
-import NotTA from "./NotTA";
+import ClauseProductItem from "./ClauseProductItem";
+
 
 
 const BuyerTechnicalEvaluation = () => {
@@ -16,8 +15,8 @@ const BuyerTechnicalEvaluation = () => {
   const [loading, setLoading] = useState(false);
   const [currentUserProfile, setcurrentUserProfile] = useState(null);
   const [rfqList, setRfqList] = useState([]);
-  const [currentRfq, setCurrentRfq] = useState(null);
-  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [currentRfq, setcurrentRfq] = useState(null);
+  const [vendorMap, setVendorMap] = useState(null);
 
 
   const getUserDetails = async () => {
@@ -43,14 +42,12 @@ const BuyerTechnicalEvaluation = () => {
   const getVendorSelectionOption = async (rfq_product_id) => {
     if (!rfq_product_id) return [];
     const payload = {
-      rfq_id:currentRfq.rfq_id,
-      rfq_product_id: rfq_product_id,
+      rfq_id,
+      rfq_product_id
     };
-    console.log("payloaad = ",payload);
 
     try {
       const res = await fetchVendorSelectionOption(payload);
-      console.log("vendor names response = ",res.data)
       return res.data.map((vendor) => ({
         value: vendor.vendor_id,
         label: vendor.company_name || vendor.organization_name || vendor.vendor_name,
@@ -81,47 +78,22 @@ const BuyerTechnicalEvaluation = () => {
     fetchData();
   }, []);
 
+
   useEffect(() => {
     if (rfq_id && rfqList.length > 0) {
-      const selectedRfq = rfqList.find((rfqItem) => rfqItem.rfq_id === parseInt(rfq_id));
-      console.log("selected RFQ = ",selectedRfq);
-      setCurrentRfq(selectedRfq || null);
+      const selectedRfq = rfqList.find((rfqItem) => rfqItem.id === parseInt(rfq_id));
+      const vMap = new Map();
+      selectedRfq.products.map((prodItem) => {
+        vMap.set(prodItem.id, null)
+      })
+      setcurrentRfq(selectedRfq || null);
+      setVendorMap(vMap);
     } else {
-      setCurrentRfq(null);
+      setcurrentRfq(null);
     }
   }, [rfq_id, rfqList]);
 
-  const addToTechnicallyAccepted = async () => {
-    const payload = {
-      vendor_id:selectedVendor,
-      rfq_product_tech_evaluation_id:currentRfq.products[0].tbl_rfq_product_tech_evaluation_id,
-      status:1,
-      reject_message:null
-    }
-    console.log("selected vendor = ",selectedVendor);
-    console.log("padyload of TAA = ",payload);
-    try{
-      const res = await addToTA(payload);
-      if(res.status == 1){
-        console.log("successfully added to TA");
-      }
-      toast.success("Congratulations, this Vendor is technically Accepted!!")
 
-    }catch(error){
-      console.error("Error in the process:", error);
-    }
-  }
-  const handleTechnicallyAccepted = () =>{
-    addToTechnicallyAccepted();
-    setEvaluationStatus('accepted')
-  }
-  const handleTechnicallyNotAccepted = () => {
-    setTechnicallyAccepted(false);
-    setShowModel(true);
-  }
-  const handleCloseModal = () => {
-    setShowModel(false);
-  }
   return (
     <>
       <section className="quote-common-header compare-received-quote sc-pt-80">
@@ -137,6 +109,7 @@ const BuyerTechnicalEvaluation = () => {
       <section className="quote-edit-sec-1">
         <div className="container-fluid">
           <div className="row">
+
             {/* RFQ List */}
             <div className="col-md-2">
               <div className="hasFullLoader">
@@ -149,13 +122,13 @@ const BuyerTechnicalEvaluation = () => {
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {rfqList.map((item) => (
                       <li
-                        className={item.rfq_id === currentRfq?.rfq_id ? "active" : ""}
+                        className={item.id === currentRfq?.id ? "active" : ""}
                         key={`rfq_no_${item.rfq_no}`}
                       >
                         <Link
-                          href={`/dashboard/buyer/technical-evaluation?rfq_id=${item.rfq_id}`}
+                          href={`/dashboard/buyer/technical-evaluation?rfq_id=${item.id}`}
                           className={
-                            item.rfq_id === currentRfq?.rfq_id ? "text-white" : "text-dark"
+                            item.id === currentRfq?.id ? "text-white" : "text-dark"
                           }
                         >
                           RFQ #{item.rfq_no}
@@ -167,50 +140,135 @@ const BuyerTechnicalEvaluation = () => {
               </div>
             </div>
 
-            {/* RFQ Details */}
+            {/* Main Container */}
             <div className="col-md-10">
               <div className="quote-sec-table quote-sec-tab">
+
+                {/* RFQ Details */}
+                {!loading && currentRfq &&
+                  <div className="mb-3">
+                    <h3 className="fs-5 mb-3">
+                      <span className="fw-semibold">RFQ No : </span>{currentRfq.rfq_no}
+                    </h3>
+                    <hr />
+
+                    <div className="row text-sm ">
+
+                      <div className="col-md-6">
+                        <p className="sub-heading mb-0">
+                          <b>Company Name</b> :{" "}
+                          {currentRfq.company_name}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Contact Person Name</b> :{" "}
+                          {currentRfq.contact_name}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Response Email</b> :{" "}
+                          {currentRfq.response_email}
+                        </p>
+                        <p className="sub-heading mb-0">
+                          <b>Contact Number</b> :{" "}
+                          {currentRfq.contact_number}
+                        </p>
+                        {currentRfq.location && currentRfq.location != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>Delivery Location</b> :{" "}
+                            {currentRfq.location}
+                          </p>}
+                      </div>
+
+                      <div className="col-md-6">
+                        {currentRfq.project_name && currentRfq.project_name != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>Project Name</b> :{" "}
+                            {currentRfq.project_name}
+                          </p>}
+                        <p className="sub-heading mb-0">
+                          <b>Reverse Auction</b> :{" "}
+                          {currentRfq.reverse_auction == 1 ? "Enabled" : "Disabled"}
+                        </p>
+                        {currentRfq.rfq_type && currentRfq.rfq_type != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>RFQ Type</b> :{" "}
+                            {currentRfq.rfq_type}
+                          </p>}
+                        <p className="sub-heading mb-0">
+                          <b>Bid End Date</b> :{" "}
+                          {currentRfq.bid_end_date}
+                        </p>
+                        {currentRfq.comment && currentRfq.comment != "" &&
+                          <p className="sub-heading mb-0">
+                            <b>Comment</b> :{" "}
+                            {currentRfq.comment}
+                          </p>}
+                      </div>
+
+                    </div>
+                  </div>
+                }
+
                 <div className="quote-sec-main">
-                  {currentRfq &&
-                    currentRfq.products.map((product, index) => (
-                      <div className="quote-sec-table-sub" key={`product_${index}`}>
-                        <div className="row">
-                          <div className="col-12">
+                  <>
+                    {!loading && currentRfq &&
+                      <>
+                        <h3 className="fs-5 mb-2 mt-4">
+                          <span className="fw-semibold">RFQ Products </span>
+                        </h3>
+                        <hr />
+                      </>}
 
-                            <div className="d-flex justify-content-between">
-                              {/* Product Details */}
-                              <div className="d-flex-flex-column">
-                                <p className="sub-heading mb-0">
-                                  <b>Product</b>: {product.product_name}
-                                </p>
-                                <p className="sub-heading mb-0">
-                                  <b>Product Specification</b>:{" "}
-                                  {product.specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
-                                </p>
+                    {currentRfq &&
+                      currentRfq.products.map((product) => (
+                        <div className="quote-sec-table-sub pt-2" key={`product_${product.id}`}>
+                          <div className="row">
+                            <div className="col-12">
+
+                              <div className="d-flex justify-content-between">
+                                {/* Product Details */}
+                                <div className="d-flex-flex-column">
+                                  <p className="sub-heading mb-0">
+                                    <b>Product</b>: {product.product_details[0]?.name}
+                                  </p>
+                                  <p className="sub-heading mb-0">
+                                    <b>Product Specification</b>:{" "}
+                                    {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
+                                  </p>
+                                </div>
+
+                                {/* Vendor Selection */}
+                                <div className="col-md-3 col-lg-3 text-sm">
+                                  <label>Select Vendor</label>
+                                  <AsyncSelect
+                                    cacheOptions
+                                    loadOptions={() => getVendorSelectionOption(product.id)}
+                                    defaultOptions
+                                    placeholder="Select"
+                                    isClearable
+                                    onChange={(selectedOption) => {
+                                      const updatedVendorMap = new Map(vendorMap);
+                                      updatedVendorMap.set(product.id, selectedOption ? selectedOption : null);
+                                      setVendorMap(updatedVendorMap);
+                                    }}
+                                    noOptionsMessage={() => "No vendors responded"}
+                                  />
+                                </div>
                               </div>
 
-                              {/* Vendor Selection */}
-                              <div className="col-md-3 col-lg-3 text-sm">
-                                <label>Select Vendor</label>
-                                <AsyncSelect
-                                  cacheOptions
-                                  loadOptions={() => getVendorSelectionOption(product.rfq_product_id)}
-                                  defaultOptions
-                                  placeholder="Select"
-                                  isClearable
-                                  onChange={(selectedOption) =>
-                                    setSelectedVendor(selectedOption ? selectedOption.value : null)
-                                  }
-                                />
-                              </div>
+                              <ClauseProductItem
+                                type={"buyer"}
+                                rfq_id={rfq_id}
+                                product={product}
+                                currentUserProfile={currentUserProfile}
+                                selectedVendor={vendorMap.get(product.id)}
+                                currentRfq={currentRfq}
+                              />
+
                             </div>
-
-                            {selectedVendor && <VendorResponseTable type={"buyer"} data={product} rfq_id={rfq_id} currentUserProfile={currentUserProfile} selectedVendor={selectedVendor} currentRfq={currentRfq}/>}
-
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                  </>
                 </div>
               </div>
             </div>

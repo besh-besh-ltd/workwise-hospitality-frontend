@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getRFQById } from "@/services/rfq";
 import { useRouter } from "next/router";
-import VendorResponseTable from "../../buyer/technical-evaluation/vendorResponseTable";
+import VendorResponseTable from "./vendorResponseTable";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
 
@@ -72,11 +72,10 @@ const VendorTechnicalEvaluation = () => {
                 </div>
             </section>
 
+            {loading && <Loader />}
             <section className="quote-edit-sec-1">
                 <div className="container-fluid">
-                    <div className="row">
-
-                        {loading && <Loader />}
+                    <div className="row">                        
 
                         {/* RFQ Details */}
                         <div className="col-md-12">
@@ -101,7 +100,7 @@ const VendorTechnicalEvaluation = () => {
                                                                     {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
                                                                 </p>
                                                                 <VendorResponseTable
-                                                                    data={product}
+                                                                    product={product}
                                                                     type="vendor"
                                                                     rfq_id={rfq_id}
                                                                     currentUserProfile={currentUserProfile}
