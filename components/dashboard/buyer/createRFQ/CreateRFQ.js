@@ -113,8 +113,8 @@ const CreateRFQ = () => {
   };
 
   const handleFormFieldChange = async (e, selectedOption, actionMeta) => {
-    let name = e?.target?.name || actionMeta.name;
-    let value = e?.target?.value || selectedOption.value || -1;
+    let name = e?.target?.name || actionMeta?.name;
+    let value = e?.target?.value || selectedOption?.value || "";
 
     if (name === "reverse_auction") {
       value = parseInt(value);
@@ -169,6 +169,7 @@ const CreateRFQ = () => {
 
   const handleCreateRFQ = (resetForm) => {
     setMainLoading(true);
+    setHasUnsavedChanges(false);
 
     let payload = {
       rfq_id: rfqDetails,
@@ -189,12 +190,14 @@ const CreateRFQ = () => {
         setHasUnsavedChanges(false);
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
+        
         router.push("/dashboard/buyer/rfq-management");
         dispatch(clearState());
         resetForm();
       })
       .catch((err) => {
         setMainLoading(false);
+        setHasUnsavedChanges(true);
       });
   };
 
