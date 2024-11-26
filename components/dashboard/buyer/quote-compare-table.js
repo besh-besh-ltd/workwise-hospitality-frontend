@@ -32,10 +32,12 @@ const QuoteCompareTable = ({
 
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
-    const quoteWithLowestPrice = removeRegretQuotes?.reduce((lowest, quote) => {
-      return (lowest.total_price < quote.total_price) ? lowest : quote;
-    });
-    setLowestQuote(quoteWithLowestPrice);
+    if(removeRegretQuotes.length > 0){
+      const quoteWithLowestPrice = removeRegretQuotes?.reduce((lowest, quote) => {
+        return (lowest.total_price < quote.total_price) ? lowest : quote;
+      });
+      setLowestQuote(quoteWithLowestPrice);
+    }
   };
 
   const handleNegotiate = (item) => {
@@ -86,9 +88,11 @@ const QuoteCompareTable = ({
 
                       {item?.quote_details?.is_regret == 1 && (
                         <div className="vendor_regreted_quote">
-                          {" "}
-                          <span>RFQ Declined by the vendor</span>{" "}
-                        </div>
+                          <div>
+                        <span style={{ fontWeight: "bold",fontSize: "1rem" }}>RFQ Declined by the vendor</span>
+                        <span style={{ fontSize: "0.85rem" }}>{item?.quote_details?.regret_reason || ""}</span>
+                      </div>
+                      </div>
                       )}
 
                       <Dropdown className="dots-nav-anchor">
@@ -176,7 +180,7 @@ const QuoteCompareTable = ({
                       }
                     </div>
                     <div className="table-si-row">
-                      {item?.comment.length > 60
+                      {item?.comment?.length > 60
                         ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
                         : item.comment || "--"
                       }
