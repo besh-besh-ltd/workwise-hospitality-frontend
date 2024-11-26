@@ -29,7 +29,7 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraft
 
 
   useEffect(() => {
-    console.log(data)
+    // console.log(data)
     setRfqProduct(data);
     setUploadedQapFile(data?.qap_file || []);
     setUploadedSpecFile(data?.spec_file || []);
