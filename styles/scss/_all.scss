@@ -7063,6 +7063,16 @@ a.btn.disabled {
       color: #fff;
       text-align: center;
     }
+    
+    div {
+      background: red;
+      border-radius: 0;
+      user-select: none;
+      color: #fff;
+      display: grid;
+      align-items: left;
+    }
+
   }
 
   // .table-si-row:nth-child(2) {
