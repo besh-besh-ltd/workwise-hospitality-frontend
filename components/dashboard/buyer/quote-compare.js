@@ -189,8 +189,8 @@ const QuoteCompare = () => {
       const sanitizeComment = (comment) => comment.replace(/[\n\r,"]/g, " ").trim();
 
       commentsArray.push(
-        item.global_payment_term[0]?.comment
-          ? sanitizeComment(item.global_payment_term[0]?.comment)
+        (item?.global_payment_term && item?.global_payment_term[0]?.comment)
+          ? sanitizeComment(item?.global_payment_term[0]?.comment)
           : "-"
       );
       commentsArray.push("");
@@ -291,7 +291,7 @@ const QuoteCompare = () => {
         }
 
         filesArray.push(
-          q.quote_details[0]?.document_files[0]?.file_url
+          (q.quote_details[0]?.document_files && q.quote_details[0]?.document_files[0]?.file_url)
             ? q.quote_details[0]?.document_files[0]?.file_url
             : "-"
         );
