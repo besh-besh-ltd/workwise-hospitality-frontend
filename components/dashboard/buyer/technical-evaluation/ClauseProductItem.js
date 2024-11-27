@@ -19,11 +19,13 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
     const tableRef = useRef(null);
 
     const getBuyerClauses = async () => {
-        const payload = { rfq_product_id: product.id }
+        const payload = { 
+            rfq_product_id: product.id,
+            vendor_id: selectedVendor?.value || null
+        }
         try {
             setLoading(true);
             const res = await getClausesByRfqProductId(payload);
-            console.log(res.data)
             setBuyerClauses(res.data);
         } catch (error) {
             console.log(error)
@@ -257,6 +259,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                                                 type="Buyer"
                                                 data={clauseItem}
                                                 userData={currentUserProfile}
+                                                otherUserData={selectedVendor}
                                             />
                                         }
                                     </>)

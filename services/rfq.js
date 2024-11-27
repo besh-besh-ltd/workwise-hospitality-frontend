@@ -211,10 +211,10 @@ export const getQuotes = (id, TA_Filter) => {
   });
 };
 
-export const downloadQuotesDetails = (id) => {
+export const downloadQuotesDetails = (id, TA_Filter) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}`);
+      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}${TA_Filter ? '?TA_Vendors=TA' : ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

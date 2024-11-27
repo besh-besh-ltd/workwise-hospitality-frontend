@@ -61,11 +61,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
     };
     try {
       const res = await getTechClearedVendorsResult(payload);
-      if (res.status === 1) {
-        setTechEvalStatus(1)
-      } else {
-        setTechEvalStatus(0)
-      }
+      setTechEvalStatus(res.status);
       setTechEvalCleared(res.data)
     } catch (error) {
       console.error("Error fetching tech evaluation data", error);
@@ -73,7 +69,10 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
   };
 
   const getBuyerClauses = async () => {
-    const payload = { rfq_product_id: product.id }
+    const payload = {
+      rfq_product_id: product.id,
+      vendor_id: currentUserProfile.id
+    }
     try {
       setLoading(true);
       const res = await getClausesByRfqProductId(payload);
@@ -185,17 +184,32 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
       {vendorResponseSent ?
         <div className="my-3">
           {techEvalStatus == 1 ?
+            techEvalCleared.status == 1 ?
+              <span
+                className="fw-medium text-bg-success px-3 py-2"
+                style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
+              >
+                Congratulations...! You are Technically Accepted
+              </span>
+              :
+              <>
+                <p className="sub-heading mb-3">
+                  <b>Reject Reason</b>:{" "}
+                  {techEvalCleared.reject_message}
+                </p>
+                <span
+                  className="fw-medium text-bg-danger px-3 py-2 "
+                  style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
+                >
+                  You are not Technically Cleared.
+                </span>
+              </>
+            :
             <span
-              className="fw-medium text-bg-success px-3 py-2"
+              className="fw-medium text-bg-warning px-3 py-2"
               style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
             >
-              You are Technically Accepted
-            </span>
-            : <span
-              className="fw-medium text-bg-danger px-3 py-2"
-              style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
-            >
-              You are Not Technically Accepted
+              Your response has been sent. Please wait for Buyer Clearance.
             </span>}
         </div>
         : null
@@ -324,8 +338,8 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
                           style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff" }}
                           onClick={() => toggleChat(clauseItem.clause_id)}
                         >
-                            <FontAwesomeIcon icon={faMessage} className="me-2" fontSize={13} />
-                            Chat
+                          <FontAwesomeIcon icon={faMessage} className="me-2" fontSize={13} />
+                          Chat
                         </button>
                       </td>
 

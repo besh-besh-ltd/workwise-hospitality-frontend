@@ -55,12 +55,10 @@ const QuoteCompare = () => {
   }, [page]);
 
 
-  const handleTAFilterChange = () => {
-    setTA_Filter((prev) => !prev);
-  }
-  const handleTAFilterChange1 = (e) => {
+  const handleTAFilterChange = (e) => {
     setTA_Filter(e.target.checked);
   }
+
   const loadMoreRFQs = (e) => {
     e.preventDefault();
     if (hasMoreQuotes) {
@@ -923,10 +921,10 @@ const QuoteCompare = () => {
             </div>
 
             <div className="col-md-10">
-            
+
 
               <div className="quote-sec-table quote-sec-tab">
-              
+
 
                 {!quotesLoading && currentRFQ &&
                   <div className="mb-3">
@@ -1007,18 +1005,22 @@ const QuoteCompare = () => {
                     >
                       Overall Comparison
                     </Link>
-                    <Link
-                      href="#"
-                      className={`tab ${!showOverallComparison ? "active" : ""
-                        }`}
-                      onClick={handleTAFilterChange}
-                    >
-                      Technically Accepted
-                    </Link>
+
+                    <div className="form-check ms-auto page-link fs-6">
+                      <input
+                        className="form-check-input "
+                        type="checkbox"
+                        value={TA_Filter}
+                        id="TA_check"
+                        onChange={handleTAFilterChange}
+                      />
+                      <label className="form-check-label" for="TA_check">
+                        View Technically Accepted Vendors
+                      </label>
+                    </div>
                   </div>
                 )}
 
-                
 
                 {!rfq && (
                   <div className="quote-sec-main">
@@ -1043,7 +1045,7 @@ const QuoteCompare = () => {
                       </div>
                     )}
                     {showOverallComparison && (
-                      <OverallComparison rfq_id={rfq} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} />
                     )}
                     {quotes &&
                       quotes.length > 0 &&
@@ -1128,26 +1130,6 @@ const QuoteCompare = () => {
                               )} */}
                               {/* {item?.product_details[0]?.rfq_details[2]?.value} */}
                             </span>
-
-                            {/* TA Filter Section */}
-                            {/* <div className="d-flex justify-content-end mt-3">
-                              <div className="form-check">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  checked={TA_Filter} // Bind the state to the checkbox
-                                  id="TA_FilterCheck"
-                                  onChange={handleTAFilterChange1} // Call handler on change
-                                />
-                                <label
-                                  className="form-check-label"
-                                  htmlFor="TA_FilterCheck"
-                                  style={{ color: 'var(--primary-color)', fontSize: '15px' }}
-                                >
-                                  View Technically Accepted Vendors
-                                </label>
-                              </div>
-                            </div> */}
 
                             {item?.quotations &&
                               item?.quotations.length == 0 && (
