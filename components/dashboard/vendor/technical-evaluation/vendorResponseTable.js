@@ -11,7 +11,7 @@ import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import Loader from "@/components/shared/Loader";
 
 
-const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
+const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser }) => {
 
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [vendorResponse, setVendorResponse] = useState(null);
@@ -352,6 +352,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
                         type="Vendor"
                         data={clauseItem}
                         userData={currentUserProfile}
+                        otherUser={otherUser}
                       />
                     }
                   </>)

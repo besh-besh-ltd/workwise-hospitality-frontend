@@ -5,10 +5,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperclip, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { handleFileUpload } from '@/utils/sharedFunctions';
 import FileLink from '@/components/shared/FileLink';
-import Link from 'next/link';
 import FullLoader from '@/components/shared/FullLoader';
 
-const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
+
+const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => {
   const [messages, setMessages] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState([]);
@@ -39,9 +39,14 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
   }
 
   const getChatData = async () => {
-    setLoading(true)
+    const payload = {
+      clause_id: data.clause_id,
+      sender_id: userData.id,
+      receiver_id: otherUser
+    }
     try {
-      const res = await fetchChatData(data.clause_id);
+      setLoading(true)
+      const res = await fetchChatData(payload);
       setMessages(res.data);
     } catch (error) {
       console.log(error)
@@ -59,7 +64,8 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData }) => {
 
     let payload = {
       clause_id: data.clause_id,
-      created_by: userData.id,
+      sender_id: userData.id,
+      receiver_id: otherUser,
       text: messageText,
       file_url: files
     }

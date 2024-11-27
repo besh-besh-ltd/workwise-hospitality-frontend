@@ -47,7 +47,6 @@ const VendorTechnicalEvaluation = () => {
                     const rfqdata = await getRfqDetails(rfq_id);
                     setCurrentUserProfile(userDetails);
                     setCurrentRfq(rfqdata);
-                    console.log("dataa rfqq", currentRfq)
                 }
             } catch (error) {
                 console.error("Error in fetch process:", error);
@@ -104,6 +103,7 @@ const VendorTechnicalEvaluation = () => {
                                                                     type="vendor"
                                                                     rfq_id={rfq_id}
                                                                     currentUserProfile={currentUserProfile}
+                                                                    otherUser={currentRfq.created_by}
                                                                 />
                                                             </div>
                                                         </div>

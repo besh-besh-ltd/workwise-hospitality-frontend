@@ -401,10 +401,10 @@ export const removeClause = (clause_id) => {
   });
 };
 
-export const fetchChatData = (clause_id) => {
+export const fetchChatData = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-comments/${clause_id}`);
+      let response = await axiosInstance.post(`/rfq/get-tech-comments`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -415,7 +415,7 @@ export const fetchChatData = (clause_id) => {
 export const addChatComment = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/add-comment`, payload);
+      let response = await axiosInstance.post(`/rfq/add-tech-comment`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });

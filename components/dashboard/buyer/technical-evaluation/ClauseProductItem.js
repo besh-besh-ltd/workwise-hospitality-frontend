@@ -259,7 +259,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                                                 type="Buyer"
                                                 data={clauseItem}
                                                 userData={currentUserProfile}
-                                                otherUserData={selectedVendor}
+                                                otherUser={selectedVendor.value}
                                             />
                                         }
                                     </>)
