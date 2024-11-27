@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMessage } from "@fortawesome/free-regular-svg-icons";
 import BuyerVendorChat from "../../buyer/technical-evaluation/buyerVendorChat";
 import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
+import Loader from "@/components/shared/Loader";
 
 
 const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
@@ -18,6 +19,8 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
   const [filesMap, setFilesMap] = useState(null);
   const [agreementMap, setAgreementMap] = useState(null);
   const [vendorResponseSent, setVendorResponseSent] = useState(0);
+  const [techEvalStatus, setTechEvalStatus] = useState(0);
+  const [techEvalCleared, setTechEvalCleared] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [responseLoading, setResponseLoading] = useState(false);
@@ -59,10 +62,11 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
     try {
       const res = await getTechClearedVendorsResult(payload);
       if (res.status === 1) {
-        // setStatus(true);
-        // setTechEvalClearedData(res.data);
+        setTechEvalStatus(1)
+      } else {
+        setTechEvalStatus(0)
       }
-      console.log(res.data)
+      setTechEvalCleared(res.data)
     } catch (error) {
       console.error("Error fetching tech evaluation data", error);
     }
@@ -177,6 +181,26 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
     <>
       {submitLoading && <Loader />}
 
+      {/* Technical Evaluation Status */}
+      {vendorResponseSent ?
+        <div className="my-3">
+          {techEvalStatus == 1 ?
+            <span
+              className="fw-medium text-bg-success px-3 py-2"
+              style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
+            >
+              You are Technically Accepted
+            </span>
+            : <span
+              className="fw-medium text-bg-danger px-3 py-2"
+              style={{ borderRadius: "0 18px 18px 0", fontSize: "16px" }}
+            >
+              You are Not Technically Accepted
+            </span>}
+        </div>
+        : null
+      }
+
       {/* Buyer All Clauses */}
       <div className="text-sm my-3 hasFullLoader" >
         {loading ?
@@ -217,7 +241,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
           vendorResponse && vendorResponse.length > 0 &&
           <>
             <h3 className="fs-5 mb-3">
-              <span className="fw-semibold">Response</span>
+              <span className="fw-semibold">Action</span>
             </h3>
             <table className="table table-bordered table-striped" >
               <thead>
@@ -260,7 +284,9 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
                       </td>
                       <td style={{ maxWidth: "260px" }}>
                         {vendorResponseSent ?
-                          <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                          clauseItem.vendor_response_files.length > 0 ?
+                            <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                            : "N/A"
                           : <>
                             <span
                               role="button"
@@ -294,14 +320,12 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile }) => {
                       <td>
                         <button
                           type="button"
-                          className="btn btn-primary text-sm border-0 p-1"
-                          style={{ width: "100px" }}
+                          className="d-flex justify-content-center align-items-center text-sm border-0 p-1 rounded-2"
+                          style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff" }}
                           onClick={() => toggleChat(clauseItem.clause_id)}
                         >
-                          <span className="d-flex justify-content-center align-items-center gap-2">
-                            <FontAwesomeIcon icon={faMessage} fontSize={13} />
+                            <FontAwesomeIcon icon={faMessage} className="me-2" fontSize={13} />
                             Chat
-                          </span>
                         </button>
                       </td>
 

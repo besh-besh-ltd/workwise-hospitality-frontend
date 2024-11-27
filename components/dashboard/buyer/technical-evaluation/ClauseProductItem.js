@@ -1,15 +1,19 @@
 import FileLink from '@/components/shared/FileLink';
-import { fetchVendorAgreement, getClausesByRfqProductId } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getTechClearedVendorsResult } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
 import BuyerVendorChat from './buyerVendorChat';
 import FullLoader from '@/components/shared/FullLoader';
+import TE_Modal from './TE_Modal';
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor = null }) => {
     const [buyerClauses, setBuyerClauses] = useState(null);
     const [vendorResponse, setVendorResponse] = useState(null);
+    const [openModal, setOpenModal] = useState(false);
     const [chatMap, setChatMap] = useState(null);
+    const [techEvalStatus, setTechEvalStatus] = useState(0);
+    const [techEvalCleared, setTechEvalCleared] = useState(false);
     const [loading, setLoading] = useState(false);
     const [responseLoading, setResponseLoading] = useState(false);
     const tableRef = useRef(null);
@@ -57,6 +61,47 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
         }
     };
 
+    // Fetch technical evaluation result
+    const getTechEvalResult = async () => {
+        const payload = {
+            rfq_id: parseInt(rfq_id),
+            rfq_product_id: product.id,
+            vendor_id: selectedVendor.value,
+        };
+        try {
+            const res = await getTechClearedVendorsResult(payload);
+            if (res.status === 1) {
+                setTechEvalStatus(1)
+            } else {
+                setTechEvalStatus(0)
+            }
+            setTechEvalCleared(res.data)
+        } catch (error) {
+            console.error("Error fetching tech evaluation data", error);
+        }
+    };
+
+    const addToTechnicallyAccepted = async () => {
+        const payload = {
+            vendor_id: selectedVendor.value,
+            rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
+            status: 1,
+            reject_message: null
+        }
+
+        try {
+            const res = await addToTA(payload);
+            if (res.status == 1) {
+                console.log("successfully added to TA");
+            }
+            toast.success("Congratulations, this Vendor is technically Accepted!!")
+            getBuyerClauses();
+
+        } catch (error) {
+            console.error("Error in the process:", error);
+        }
+    }
+
     const toggleChat = (clause_id) => {
         setChatMap((prevMap) => {
             const newMap = new Map(prevMap);
@@ -74,8 +119,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
     }, [product])
 
     useEffect(() => {
-        if (selectedVendor)
+        if (selectedVendor) {
+            getTechEvalResult();
             getVendorResponse();
+        }
         else {
             setChatMap(null);
             setVendorResponse(null);
@@ -117,15 +164,54 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
             }
 
             {/* Vendor Responses */}
-            <div className="hasFullLoader">
+            <div className="hasFullLoader my-4">
                 {responseLoading ?
                     <FullLoader />
                     :
                     vendorResponse && vendorResponse.length > 0 &&
                     <>
-                        <h3 className="fs-5 mb-3">
-                            <span className="fw-semibold">{selectedVendor?.label}</span>
-                        </h3>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <h3 className="fs-5 mb-0">
+                                <span className="fw-semibold">{selectedVendor?.label}</span>
+                            </h3>
+                            <div className="d-flex gap-2">
+                                {techEvalStatus == 1 ?
+                                    techEvalCleared.status == 1
+                                        ? <span
+                                            className="fw-medium text-bg-success px-3 py-2"
+                                            style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
+                                        >
+                                            Vendor is Technically Accepted
+                                        </span>
+                                        : <span
+                                            className="fw-medium text-bg-danger px-3 py-2"
+                                            style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
+                                        >
+                                            Vendor is Not Technically Accepted
+                                        </span>
+                                    :
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary border-0 p-2"
+                                            style={{ width: "175px" }}
+                                            onClick={addToTechnicallyAccepted}
+                                        >
+                                            Accept Vendor
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-danger border-0 p-2"
+                                            style={{ width: "175px" }}
+                                            onClick={() => setOpenModal(true)}
+                                        >
+                                            Reject Vendor
+                                        </button>
+                                    </>
+                                }
+                            </div>
+                        </div>
+
                         <table className="table table-bordered table-striped" ref={tableRef}>
                             <thead>
                                 <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
@@ -154,14 +240,12 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                                             <td>
                                                 <button
                                                     type="button"
-                                                    className="btn btn-primary text-sm border-0 p-1"
-                                                    style={{ width: "100px" }}
+                                                    className="d-flex justify-content-center align-items-center text-sm border-0 p-1 rounded-2"
+                                                    style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff" }}
                                                     onClick={() => toggleChat(clauseItem.clause_id)}
                                                 >
-                                                    <span className="d-flex justify-content-center align-items-center gap-2">
-                                                        <FontAwesomeIcon icon={faMessage} fontSize={13} />
-                                                        Chat
-                                                    </span>
+                                                    <FontAwesomeIcon icon={faMessage} className="me-2" fontSize={13} />
+                                                    Chat
                                                 </button>
                                             </td>
 
@@ -180,6 +264,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                             </tbody>
                         </table>
                     </>}
+
+                {openModal &&
+                    <TE_Modal
+                        openModal={openModal}
+                        closeModal={() => setOpenModal(false)}
+                        data={product}
+                        vendor_id={selectedVendor.value}
+                        getTechEvalResult={getTechEvalResult}
+                    />
+                }
             </div>
 
             <hr />

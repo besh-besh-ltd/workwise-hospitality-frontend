@@ -1,8 +1,10 @@
 import { toast } from "react-toastify";
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { addToTA } from "@/services/rfq";
-const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
+
+
+const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult }) => {
 
     const [message, setMessage] = useState("");
     const sendFeedback = async () => {
@@ -15,7 +17,8 @@ const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
         try {
             const res = await addToTA(payload);
             toast.success("Message Sent successfully.")
-            onClose();
+            getTechEvalResult();
+            closeModal();
         } catch (error) {
             console.error("Error in the process:", error);
         }
@@ -26,7 +29,6 @@ const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
             return;
         }
         sendFeedback();
-        onClickSend();
     }
 
     useEffect(() => {
@@ -35,8 +37,8 @@ const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
 
     return (
         <Modal
-            show={show}
-            onHide={onClose}
+            show={openModal}
+            onHide={closeModal}
             centered
         >
             <Modal.Header closeButton>
@@ -56,14 +58,13 @@ const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
                     />
 
                 </div>
-                <div className="d-flex justify-content-between align-items-start mt-2">
+                <div className="d-flex justify-content-end mt-2">
 
                     <button
                         type="button"
                         className="btn btn-secondary border-0 p-2"
                         style={{ width: "120px" }}
                         onClick={() => handleSend()}
-
                     >
                         Send
                     </button>
@@ -73,4 +74,4 @@ const NotTA = ({ show, onClose, data, vendor_id, onClickSend }) => {
     );
 }
 
-export default NotTA;
+export default TE_Modal;

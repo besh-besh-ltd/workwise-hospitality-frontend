@@ -64,7 +64,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         }
 
         const payload = {
-            rfq_id: rfqDetails,
+            rfq_id,
             rfq_product_id: product.id,
             clause_text: message,
             file_url: files
@@ -204,27 +204,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     </>
                                 ))
                             }
-                            {/* {files && files.length > 0 && (
-                                files.map((file) => {
-                                    return (
-                                        <span
-                                            style={{
-                                                fontSize: '16px',
-                                                color: 'grey',
-                                                cursor: 'pointer',
-                                                marginLeft: '20px',
-                                                textDecoration: 'none',
-                                            }}
-                                            onMouseOver={(e) => (e.target.style.color = 'darkred')}
-                                            onMouseOut={(e) => (e.target.style.color = 'grey')}
-                                            onClick={(e) => handleRemoveFile(file)}
-                                        >
-                                            x
-                                        </span>
-
-                                    )
-                                })
-                            )} */}
 
                         </div>
 
