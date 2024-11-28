@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import BuyerVendorChat from './buyerVendorChat';
 import FullLoader from '@/components/shared/FullLoader';
 import TE_Modal from './TE_Modal';
+import { toast } from 'react-toastify';
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor = null }) => {
     const [buyerClauses, setBuyerClauses] = useState(null);
@@ -96,8 +97,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
             if (res.status == 1) {
                 console.log("successfully added to TA");
             }
+            getTechEvalResult();
             toast.success("Congratulations, this Vendor is technically Accepted!!")
-            getBuyerClauses();
 
         } catch (error) {
             console.error("Error in the process:", error);

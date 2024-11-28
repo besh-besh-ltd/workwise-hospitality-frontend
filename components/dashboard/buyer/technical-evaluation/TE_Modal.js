@@ -1,12 +1,15 @@
 import { toast } from "react-toastify";
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, Form } from 'react-bootstrap';
 import { addToTA } from "@/services/rfq";
+import FullLoader from "@/components/shared/FullLoader";
 
 
 const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult }) => {
 
     const [message, setMessage] = useState("");
+    const [loading, setLoading] = useState(false);
+
     const sendFeedback = async () => {
         const payload = {
             vendor_id: vendor_id,
@@ -15,12 +18,15 @@ const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult })
             reject_message: message
         }
         try {
+            setLoading(true)
             const res = await addToTA(payload);
-            toast.success("Message Sent successfully.")
+            toast.success("Your response has been sent.")
             getTechEvalResult();
             closeModal();
         } catch (error) {
             console.error("Error in the process:", error);
+        } finally {
+            setLoading(false);
         }
     }
     const handleSend = () => {
@@ -31,9 +37,6 @@ const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult })
         sendFeedback();
     }
 
-    useEffect(() => {
-        console.log(data)
-    }, [])
 
     return (
         <Modal
@@ -47,6 +50,7 @@ const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult })
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ minHeight: "200px" }}>
+                {loading && <FullLoader />}
                 <div className="d-flex flex-column mb-3">
                     <Form.Control
                         as="textarea"
