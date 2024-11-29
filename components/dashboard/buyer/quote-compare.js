@@ -652,8 +652,8 @@ const QuoteCompare = () => {
         }); // First row, current column
         let total_cell = ws[total_cellAddress];
 
-          const formula = `TRUNC((${qty_cell} * ${unit_price_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${freight_cell})+ ((${qty_cell} * ${unit_price_cell}) * ${packaging_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${gst_cell}),0)`;
-          total_cell.f = formula;
+        const formula = `TRUNC((${qty_cell} * ${unit_price_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${freight_cell})+ ((${qty_cell} * ${unit_price_cell}) * ${packaging_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${gst_cell}),0)`;
+        total_cell.f = formula;
       }
     }
     // Total Formula
