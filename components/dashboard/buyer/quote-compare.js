@@ -216,7 +216,7 @@ const QuoteCompare = () => {
       totalQty = totalQty + parseInt(qq[0]?.quote_details[0]?.quantity);
       let temp_arr = [
         item.product_details[0].name,
-        item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-" ,
+        item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
         item.product_specs.find((specItem) => specItem.title == 'Size')?.value || "-",
         qq[0]?.quote_details[0]?.quantity,
       ];
@@ -225,15 +225,27 @@ const QuoteCompare = () => {
         (item) => item.id != null && item.is_regret != 1
       );
 
-      let lowest = array.reduce((lowest, currentItem) => {
-        if (currentItem.quote_details[0].total_price > 0) {
-          return currentItem.quote_details[0].total_price < 
-          lowest.quote_details[0].total_price
-            ? currentItem
-            : lowest;
+      let lowest = null;
+
+      if (array.length === 1) {
+        // Handle single-element case
+        if (array[0].quote_details[0].total_price > 0) {
+          lowest = array[0];
+        } else {
+          lowest = null;
         }
-        return lowest;
-      }, array[0]);
+      } else {
+        // Reduce logic for multiple elements
+        lowest = array.reduce((lowest, currentItem) => {
+          if (currentItem.quote_details[0].total_price > 0) {
+            return currentItem.quote_details[0].total_price <
+              lowest.quote_details[0].total_price
+              ? currentItem
+              : lowest;
+          }
+          return lowest;
+        }, array[0]);
+      }
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
@@ -246,7 +258,7 @@ const QuoteCompare = () => {
             q.is_lowest = false;
           }
         });
-      }      
+      }
 
       item.quotations.map((q) => {
         if (q.is_regret == 1) {
