@@ -205,6 +205,7 @@ const QuoteCompare = () => {
     });
     // Lowest
     heading_array[0].push("LOWEST");
+    amount_array.push("");
 
     let data = heading_array;
     data.push(amount_array);
@@ -292,23 +293,9 @@ const QuoteCompare = () => {
           );
         }
       });
-      temp_arr.push(0);
+      temp_arr.push(lowest ? 0 : "-");
       data.push(temp_arr);
     });
-
-    const globalFiles = FilterOutGlobalTermsFiles(api_data);
-    globalFiles.map((item) => {
-
-      filesArray.push(
-        item
-          ? item.map(link => link.file_url).join("\n")
-          : "-"
-      );
-      filesArray.push("");
-      filesArray.push("");
-      filesArray.push("");
-      filesArray.push("");
-    })
 
     total_array.push(totalQty);
     totalArray.push(totalQty);
@@ -356,7 +343,34 @@ const QuoteCompare = () => {
     data.push(deliveryArray);
     data.push(paymentTermsArray);
     data.push(commentsArray);
+
+    const globalFiles = FilterOutGlobalTermsFiles(api_data);
+    const maxFileLen = globalFiles
+      .filter(Array.isArray)
+      .reduce((max, arr) => Math.max(max, arr.length), 0);
+
+    globalFiles.map((item) => {
+      filesArray.push(
+        item
+          ? item[0].file_url
+          : "-"
+      );
+      filesArray.push("");
+      filesArray.push("");
+      filesArray.push("");
+      filesArray.push("");
+    })
+
     data.push(filesArray);
+    for (let i = 1; i < maxFileLen; i++) {
+      let temp = ["", "", "", ""];
+      globalFiles.map((fileArr) => {
+        if (fileArr && fileArr[i])
+          temp = [...temp, fileArr[i].file_url, "", "", "", ""]
+        else temp = [...temp, "-", "", "", "", ""]
+      })
+      data.push(temp);
+    }
 
 
     const ws = XLSX.utils.aoa_to_sheet(data);
@@ -469,6 +483,15 @@ const QuoteCompare = () => {
       ws["!merges"].push(mergeRangePaymentTerms);
       ws["!merges"].push(mergeRangeComments);
       ws["!merges"].push(mergeRangeFiles);
+
+      for (let i = 1; i < maxFileLen; i++) {
+        const mergeConfig = {
+          s: { r: api_data.length + 11 + i, c: columnToMergeStart }, // Start cell (first row, first column)
+          e: { r: api_data.length + 11 + i, c: columnToMergeEnd }, // End cell (first row, second column)
+        }
+        if (!ws["!merges"]) ws["!merges"] = [];
+        ws["!merges"].push(mergeConfig);
+      }
     }
 
     // Packaging & Fright column width
@@ -492,6 +515,10 @@ const QuoteCompare = () => {
       };
       ws["!merges"].push(mergeConfig);
     }
+    ws["!merges"].push({
+      s: { r: 0, c: range.e.c }, // Start cell
+      e: { r: 1, c: range.e.c }, // End cell
+    });
 
     for (let row = range.s.r; row <= range.e.r; row++) {
       const col = 0; // Column A
@@ -558,11 +585,12 @@ const QuoteCompare = () => {
       }; // Text align left
 
       // Bold second heading
-      const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col }); // First row, current column
-      if (!ws[cellAddress2]) ws[cellAddress2] = {};
-      if (!ws[cellAddress2].s) ws[cellAddress2].s = {}; // Cell style
-      ws[cellAddress2].s.font = { bold: false, sz: 8 }; // Make text bold
-      // ws[cellAddress2].s.alignment = { wrapText: true, horizontal: 'center', vertical: 'center' }; // Text align left
+      if (col >= 4 && col < range.e.c) {
+        const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col }); // First row, current column
+        if (!ws[cellAddress2]) ws[cellAddress2] = {};
+        if (!ws[cellAddress2].s) ws[cellAddress2].s = {}; // Cell style
+        ws[cellAddress2].s.font = { bold: true, sz: 9 }; // Make text bold
+      }
     }
 
     // BORDER
@@ -618,25 +646,53 @@ const QuoteCompare = () => {
     // Add File Links
     let fileRow = 2 + api_data.length + 9;
 
-    if (!ws["!rows"]) ws["!rows"] = [];
-    ws["!rows"][fileRow] = { hpx: 100 };
+    for (let row_i = fileRow; row_i < fileRow + maxFileLen; row_i++) {
+      if (!ws["!rows"]) ws["!rows"] = [];
+      ws["!rows"][row_i] = { hpx: 35 };
 
-    for (let col = 4; col <= api_data.length * 5 + 4; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: fileRow, c: col }); // file row, current column
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
+      for (let col = 4; col <= api_data.length * 5 + 4; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row_i, c: col }); // file row, current column
+        if (!ws[cellAddress]) ws[cellAddress] = {};
+        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
 
-      if (ws[cellAddress].v !== "" && ws[cellAddress].v !== "-") {
-        ws[cellAddress].s.alignment = {
-          wrapText: true,
-          horizontal: "left",
-          vertical: "top"
+        if (ws[cellAddress].v !== "" && ws[cellAddress].v !== "-") {
+          const file_link = ws[cellAddress].v;
+          ws[cellAddress].l = { Target: file_link };
+
+          ws[cellAddress].s = {
+            alignment: {
+              wrapText: true,
+              horizontal: "left",
+              vertical: "top"
+            },
+            font: {
+              color: { rgb: "0000FF" },
+              underline: true,
+            },
+            border: {
+              right: { style: "thin" },
+              top: { style: "thin" },
+              bottom: { style: "thin" },
+            }
+          }
         }
       }
     }
 
+    // Merge maxFileLen rows of first 4 columns
+    if (maxFileLen > 1) {
+      for (let c = 0; c < columns; c++) {
+        const mergeConfig = {
+          s: { r: fileRow, c }, // Start cell
+          e: { r: fileRow + maxFileLen - 1, c }, // End cell
+        };
+        ws["!merges"].push(mergeConfig);
+      }
+    }
+
+
     // FORMULA
-    for (let row = 2; row <= range.e.r - 10; row++) {
+    for (let row = 2; row < 2 + api_data.length; row++) {
       let row_numb = row + 1;
 
       for (let col = 5; col <= range.e.c; col += 5) {
@@ -679,7 +735,7 @@ const QuoteCompare = () => {
     }
     // Lowest formula
     {
-      for (let row = 2; row <= range.e.r - 10; row++) {
+      for (let row = 2; row < 2 + api_data.length; row++) {
         let row_numb = row + 1;
         let row_cols = [];
         for (let col = 9; col <= range.e.c + 1; col += 5) {
@@ -696,7 +752,7 @@ const QuoteCompare = () => {
         let low_cell = XLSX.utils.encode_cell({
           r: row_numb - 1,
           c: range.e.c,
-        }); // First row, current column
+        });
         let low_cell_address = ws[low_cell];
         let d = `MIN(${row_cols.join(",")})`;
 
