@@ -29,9 +29,9 @@ const BuyerTechnicalEvaluation = () => {
     }
   };
 
-  const getTechEvaluationRFQsByUser = async (user_id) => {
+  const getTechEvaluationRFQsByUser = async () => {
     try {
-      const res = await fetchTechEvaluationRfqList(user_id);
+      const res = await fetchTechEvaluationRfqList();
       return res.data || [];
     } catch (error) {
       console.error("Error fetching technical evaluation RFQs:", error);
@@ -64,7 +64,7 @@ const BuyerTechnicalEvaluation = () => {
       try {
         const userDetails = await getUserDetails();
         if (userDetails) {
-          const rfqs = await getTechEvaluationRFQsByUser(userDetails.id);
+          const rfqs = await getTechEvaluationRFQsByUser();
           setcurrentUserProfile(userDetails);
           setRfqList(rfqs);
         }
