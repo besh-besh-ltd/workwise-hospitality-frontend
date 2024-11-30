@@ -205,6 +205,7 @@ const QuoteCompare = () => {
     });
     // Lowest
     heading_array[0].push("LOWEST");
+    amount_array.push("");
 
     let data = heading_array;
     data.push(amount_array);
@@ -216,7 +217,7 @@ const QuoteCompare = () => {
       totalQty = totalQty + parseInt(qq[0]?.quote_details[0]?.quantity);
       let temp_arr = [
         item.product_details[0].name,
-        item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-" ,
+        item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
         item.product_specs.find((specItem) => specItem.title == 'Size')?.value || "-",
         qq[0]?.quote_details[0]?.quantity,
       ];
@@ -225,15 +226,27 @@ const QuoteCompare = () => {
         (item) => item.id != null && item.is_regret != 1
       );
 
-      let lowest = array.reduce((lowest, currentItem) => {
-        if (currentItem.quote_details[0].total_price > 0) {
-          return currentItem.quote_details[0].total_price < 
-          lowest.quote_details[0].total_price
-            ? currentItem
-            : lowest;
+      let lowest = null;
+
+      if (array.length === 1) {
+        // Handle single-element case
+        if (array[0].quote_details[0].total_price > 0) {
+          lowest = array[0];
+        } else {
+          lowest = null;
         }
-        return lowest;
-      }, array[0]);
+      } else {
+        // Reduce logic for multiple elements
+        lowest = array.reduce((lowest, currentItem) => {
+          if (currentItem.quote_details[0].total_price > 0) {
+            return currentItem.quote_details[0].total_price <
+              lowest.quote_details[0].total_price
+              ? currentItem
+              : lowest;
+          }
+          return lowest;
+        }, array[0]);
+      }
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
@@ -246,7 +259,7 @@ const QuoteCompare = () => {
             q.is_lowest = false;
           }
         });
-      }      
+      }
 
       item.quotations.map((q) => {
         if (q.is_regret == 1) {
@@ -280,23 +293,9 @@ const QuoteCompare = () => {
           );
         }
       });
-      temp_arr.push(0);
+      temp_arr.push(lowest ? lowest.quote_details[0].total_price : "-");
       data.push(temp_arr);
     });
-
-    const globalFiles = FilterOutGlobalTermsFiles(api_data);
-    globalFiles.map((item) => {
-
-      filesArray.push(
-        item
-          ? item.map(link => link.file_url).join("\n")
-          : "-"
-      );
-      filesArray.push("");
-      filesArray.push("");
-      filesArray.push("");
-      filesArray.push("");
-    })
 
     total_array.push(totalQty);
     totalArray.push(totalQty);
@@ -344,7 +343,34 @@ const QuoteCompare = () => {
     data.push(deliveryArray);
     data.push(paymentTermsArray);
     data.push(commentsArray);
+
+    const globalFiles = FilterOutGlobalTermsFiles(api_data);
+    const maxFileLen = globalFiles
+      .filter(Array.isArray)
+      .reduce((max, arr) => Math.max(max, arr.length), 0);
+
+    globalFiles.map((item) => {
+      filesArray.push(
+        item
+          ? item[0].file_url
+          : "-"
+      );
+      filesArray.push("");
+      filesArray.push("");
+      filesArray.push("");
+      filesArray.push("");
+    })
+
     data.push(filesArray);
+    for (let i = 1; i < maxFileLen; i++) {
+      let temp = ["", "", "", ""];
+      globalFiles.map((fileArr) => {
+        if (fileArr && fileArr[i])
+          temp = [...temp, fileArr[i].file_url, "", "", "", ""]
+        else temp = [...temp, "-", "", "", "", ""]
+      })
+      data.push(temp);
+    }
 
 
     const ws = XLSX.utils.aoa_to_sheet(data);
@@ -457,6 +483,15 @@ const QuoteCompare = () => {
       ws["!merges"].push(mergeRangePaymentTerms);
       ws["!merges"].push(mergeRangeComments);
       ws["!merges"].push(mergeRangeFiles);
+
+      for (let i = 1; i < maxFileLen; i++) {
+        const mergeConfig = {
+          s: { r: api_data.length + 11 + i, c: columnToMergeStart }, // Start cell (first row, first column)
+          e: { r: api_data.length + 11 + i, c: columnToMergeEnd }, // End cell (first row, second column)
+        }
+        if (!ws["!merges"]) ws["!merges"] = [];
+        ws["!merges"].push(mergeConfig);
+      }
     }
 
     // Packaging & Fright column width
@@ -480,6 +515,10 @@ const QuoteCompare = () => {
       };
       ws["!merges"].push(mergeConfig);
     }
+    ws["!merges"].push({
+      s: { r: 0, c: range.e.c }, // Start cell
+      e: { r: 1, c: range.e.c }, // End cell
+    });
 
     for (let row = range.s.r; row <= range.e.r; row++) {
       const col = 0; // Column A
@@ -546,11 +585,12 @@ const QuoteCompare = () => {
       }; // Text align left
 
       // Bold second heading
-      const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col }); // First row, current column
-      if (!ws[cellAddress2]) ws[cellAddress2] = {};
-      if (!ws[cellAddress2].s) ws[cellAddress2].s = {}; // Cell style
-      ws[cellAddress2].s.font = { bold: false, sz: 8 }; // Make text bold
-      // ws[cellAddress2].s.alignment = { wrapText: true, horizontal: 'center', vertical: 'center' }; // Text align left
+      if (col >= 4 && col < range.e.c) {
+        const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col }); // First row, current column
+        if (!ws[cellAddress2]) ws[cellAddress2] = {};
+        if (!ws[cellAddress2].s) ws[cellAddress2].s = {}; // Cell style
+        ws[cellAddress2].s.font = { bold: true, sz: 9 }; // Make text bold
+      }
     }
 
     // BORDER
@@ -606,100 +646,130 @@ const QuoteCompare = () => {
     // Add File Links
     let fileRow = 2 + api_data.length + 9;
 
-    if (!ws["!rows"]) ws["!rows"] = [];
-    ws["!rows"][fileRow] = { hpx: 100 };
+    for (let row_i = fileRow; row_i < fileRow + maxFileLen; row_i++) {
+      if (!ws["!rows"]) ws["!rows"] = [];
+      ws["!rows"][row_i] = { hpx: 35 };
 
-    for (let col = 4; col <= api_data.length * 5 + 4; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: fileRow, c: col }); // file row, current column
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
+      for (let col = 4; col <= api_data.length * 5 + 4; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row_i, c: col }); // file row, current column
+        if (!ws[cellAddress]) ws[cellAddress] = {};
+        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
 
-      if (ws[cellAddress].v !== "" && ws[cellAddress].v !== "-") {
-        ws[cellAddress].s.alignment = {
-          wrapText: true,
-          horizontal: "left",
-          vertical: "top"
+        if (ws[cellAddress].v !== "" && ws[cellAddress].v !== "-") {
+          const file_link = ws[cellAddress].v;
+          ws[cellAddress].l = { Target: file_link };
+
+          ws[cellAddress].s = {
+            alignment: {
+              wrapText: true,
+              horizontal: "left",
+              vertical: "top"
+            },
+            font: {
+              color: { rgb: "0000FF" },
+              underline: true,
+            },
+            border: {
+              right: { style: "thin" },
+              top: { style: "thin" },
+              bottom: { style: "thin" },
+            }
+          }
         }
       }
     }
+
+    // Merge maxFileLen rows of first 4 columns
+    if (maxFileLen > 1) {
+      for (let c = 0; c < columns; c++) {
+        const mergeConfig = {
+          s: { r: fileRow, c }, // Start cell
+          e: { r: fileRow + maxFileLen - 1, c }, // End cell
+        };
+        ws["!merges"].push(mergeConfig);
+      }
+    }
+
 
     // FORMULA
-    for (let row = 2; row <= range.e.r - 10; row++) {
-      let row_numb = row + 1;
+    // for (let row = 2; row < 2 + api_data.length; row++) {
+    //   let row_numb = row + 1;
 
-      for (let col = 5; col <= range.e.c; col += 5) {
-        let qty_cell = `${excelColumnName(4)}${row_numb}`;
-        let unit_price_cell = `${excelColumnName(col)}${row_numb}`;
-        let freight_cell = `${excelColumnName(col + 1)}${row_numb}`;
-        let packaging_cell = `${excelColumnName(col + 2)}${row_numb}`;
-        let gst_cell = `${excelColumnName(col + 3)}${row_numb}`;
+    //   for (let col = 5; col <= range.e.c; col += 5) {
+    //     let qty_cell = `${excelColumnName(4)}${row_numb}`;
+    //     let unit_price_cell = `${excelColumnName(col)}${row_numb}`;
+    //     let freight_cell = `${excelColumnName(col + 1)}${row_numb}`;
+    //     let packaging_cell = `${excelColumnName(col + 2)}${row_numb}`;
+    //     let gst_cell = `${excelColumnName(col + 3)}${row_numb}`;
 
-        const total_cellAddress = XLSX.utils.encode_cell({
-          r: row_numb - 1,
-          c: col + 3,
-        }); // First row, current column
-        let total_cell = ws[total_cellAddress];
+    //     const total_cellAddress = XLSX.utils.encode_cell({
+    //       r: row_numb - 1,
+    //       c: col + 3,
+    //     }); // First row, current column
+    //     let total_cell = ws[total_cellAddress];
 
-        const formula = `TRUNC((${qty_cell} * ${unit_price_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${freight_cell})+ ((${qty_cell} * ${unit_price_cell}) * ${packaging_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${gst_cell}),0)`;
-        total_cell.f = formula;
-      }
-    }
+    //     const formula = `TRUNC((${qty_cell} * ${unit_price_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${freight_cell})+ ((${qty_cell} * ${unit_price_cell}) * ${packaging_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${gst_cell}),0)`;
+    //     total_cell.f = formula;
+    //   }
+    // }
+
     // Total Formula
-    {
-      let total_row = 2 + api_data.length + 4 + 1;
-      for (let col = 4; col <= range.e.c + 1; col += 5) {
-        let col_n = excelColumnName(col);
-        let col_formula = "";
-        for (let row = 3; row <= 2 + api_data.length; row++) {
-          if (col_formula != "") {
-            col_formula = `${col_formula}+${col_n}${row}`;
-          } else {
-            col_formula = `${col_n}${row}`;
-          }
-        }
-        const total_cellAddress = XLSX.utils.encode_cell({
-          r: total_row - 1,
-          c: col - 1,
-        });
-        let total_cell = ws[total_cellAddress];
-        total_cell.f = `TRUNC(${col_formula},0)`;
-      }
-    }
+    // {
+    //   let total_row = 2 + api_data.length + 4 + 1;
+    //   for (let col = 4; col <= range.e.c + 1; col += 5) {
+    //     let col_n = excelColumnName(col);
+    //     let col_formula = "";
+    //     for (let row = 3; row <= 2 + api_data.length; row++) {
+    //       if (col_formula != "") {
+    //         col_formula = `${col_formula}+${col_n}${row}`;
+    //       } else {
+    //         col_formula = `${col_n}${row}`;
+    //       }
+    //     }
+    //     const total_cellAddress = XLSX.utils.encode_cell({
+    //       r: total_row - 1,
+    //       c: col - 1,
+    //     });
+    //     let total_cell = ws[total_cellAddress];
+    //     total_cell.f = `TRUNC(${col_formula},0)`;
+    //   }
+    // }
+
     // Lowest formula
-    {
-      for (let row = 2; row <= range.e.r - 10; row++) {
-        let row_numb = row + 1;
-        let row_cols = [];
-        for (let col = 9; col <= range.e.c + 1; col += 5) {
-          let cellAddressTemp = XLSX.utils.encode_cell({ r: row, c: col - 1 });
+    // {
+    //   for (let row = 2; row < 2 + api_data.length; row++) {
+    //     let row_numb = row + 1;
+    //     let row_cols = [];
+    //     for (let col = 9; col <= range.e.c + 1; col += 5) {
+    //       let cellAddressTemp = XLSX.utils.encode_cell({ r: row, c: col - 1 });
 
-          const cellValue = ws[cellAddressTemp] ? ws[cellAddressTemp].v : 0; // Cell value
+    //       const cellValue = ws[cellAddressTemp] ? ws[cellAddressTemp].v : 0; // Cell value
 
-          if (parseInt(cellValue) > 0) {
-            let total_cell = `${excelColumnName(col)}${row_numb}`;
-            row_cols.push(total_cell);
-          }
-        }
+    //       if (parseInt(cellValue) > 0) {
+    //         let total_cell = `${excelColumnName(col)}${row_numb}`;
+    //         row_cols.push(total_cell);
+    //       }
+    //     }
 
-        let low_cell = XLSX.utils.encode_cell({
-          r: row_numb - 1,
-          c: range.e.c,
-        }); // First row, current column
-        let low_cell_address = ws[low_cell];
-        let d = `MIN(${row_cols.join(",")})`;
+    //     let low_cell = XLSX.utils.encode_cell({
+    //       r: row_numb - 1,
+    //       c: range.e.c,
+    //     });
+    //     let low_cell_address = ws[low_cell];
+    //     let d = `MIN(${row_cols.join(",")})`;
 
-        low_cell_address.f = `${d}`;
-      }
-    }
+    //     low_cell_address.f = `${d}`;
+    //   }
+    // }
 
     // L1 total Formula
-    {
-      const l1value = XLSX.utils.encode_cell({ r: api_data.length + 7, c: 4 }); // First row, current column
-      const l1valuecell = ws[l1value];
-      let start_col = `${excelColumnName(range.e.c + 1)}3`;
-      let end_col = `${excelColumnName(range.e.c + 1)}${api_data.length + 2}`;
-      l1valuecell.f = `SUM(${start_col}:${end_col})`;
-    }
+    // {
+    //   const l1value = XLSX.utils.encode_cell({ r: api_data.length + 7, c: 4 }); // First row, current column
+    //   const l1valuecell = ws[l1value];
+    //   let start_col = `${excelColumnName(range.e.c + 1)}3`;
+    //   let end_col = `${excelColumnName(range.e.c + 1)}${api_data.length + 2}`;
+    //   l1valuecell.f = `SUM(${start_col}:${end_col})`;
+    // }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");

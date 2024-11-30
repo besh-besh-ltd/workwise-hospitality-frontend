@@ -37,7 +37,7 @@ const SendQuotePageComp = () => {
       getRFQdetails();
     }
   }, [router]);
-  
+
   const getProductSpecValueByTitle = (productSpecs, title) => {
     const spec = productSpecs.find(spec => spec.title === title);
     return spec ? spec.value : "";
@@ -132,14 +132,22 @@ const SendQuotePageComp = () => {
           item[type] = value;
         }
 
-        let total_without_fpt = item.unit_price * parseInt(total_qty);
-        let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
-        let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
+        const totalWithoutFPT = item.unit_price * total_qty; // Total Price before Freight, Packaging, and Tax
 
-        let total_with_fpt = total_without_fpt + (FP > 0 ? FP : 0) + PP;
-        let T = (total_without_fpt * parseFloat(item.tax)) / 100;
+        // Calculate Freight (percentage of totalWithoutFPT)
+        const freightPrice = (totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100;
 
-        let getTotalPrice = +total_with_fpt + +T;
+        // Calculate Packaging (percentage of totalWithoutFPT)
+        const packagePrice = (totalWithoutFPT * parseFloat(item.package_price || 0)) / 100;
+
+        // Subtotal before Tax
+        const subtotalBeforeTax = totalWithoutFPT + freightPrice + packagePrice;
+
+        // Calculate Tax (percentage of subtotalBeforeTax)
+        const tax = (subtotalBeforeTax * parseFloat(item.tax || 0)) / 100;
+
+        // Final total price
+        const getTotalPrice = subtotalBeforeTax + tax;
         item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
 
       }
@@ -148,7 +156,30 @@ const SendQuotePageComp = () => {
     setquoteProducts(d);
   };
 
+  // const calculateTotal = () => {
+  //   let d = quoteProducts.map((item) => {
+  //     let p = rfqDetails.products.filter(
+  //       (pi) => pi.product_id == item.product_id
+  //     );
+  //     let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
+  //     // let total_qty = p[0].product_specs[2]?.value;
+
+  //     let total_without_fpt = item.unit_price * parseInt(total_qty);
+  //     let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
+  //     let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
+
+  //     let total_with_fpt = total_without_fpt + FP + PP;
+  //     let T = (total_without_fpt * parseFloat(item.tax)) / 100;
+
+  //     let getTotalPrice = +total_with_fpt + +T;
+  //     item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
+  //     return item;
+  //   });
+  //   setquoteProducts(d);
+  // };
+
   const calculateTotal = () => {
+
     let d = quoteProducts.map((item) => {
       let p = rfqDetails.products.filter(
         (pi) => pi.product_id == item.product_id
@@ -156,19 +187,33 @@ const SendQuotePageComp = () => {
       let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
       // let total_qty = p[0].product_specs[2]?.value;
 
-      let total_without_fpt = item.unit_price * parseInt(total_qty);
-      let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
-      let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
+      const totalWithoutFPT = item.unit_price * total_qty; // Total Price before Freight, Packaging, and Tax
 
-      let total_with_fpt = total_without_fpt + FP + PP;
-      let T = (total_without_fpt * parseFloat(item.tax)) / 100;
+      // Calculate Freight (percentage of totalWithoutFPT)
+      const freightPrice = (totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100;
 
-      let getTotalPrice = +total_with_fpt + +T;
-      item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
+      // Calculate Packaging (percentage of totalWithoutFPT)
+      const packagePrice = (totalWithoutFPT * parseFloat(item.package_price || 0)) / 100;
+
+      // Subtotal before Tax
+      const subtotalBeforeTax = totalWithoutFPT + freightPrice + packagePrice;
+
+      // Calculate Tax (percentage of subtotalBeforeTax)
+      const tax = (subtotalBeforeTax * parseFloat(item.tax || 0)) / 100;
+
+      // Final total price
+      const totalPrice = subtotalBeforeTax + tax;
+
+      // Return the rounded total price
+      const total = Math.round(totalPrice) || 0;
+      item.total_price = total ? Math.round(total) : 0;
+
+      console.log(item, total)
       return item;
     });
+
     setquoteProducts(d);
-  };
+  }
 
   const handleSendQuote = () => {
     let payload = {
@@ -184,7 +229,7 @@ const SendQuotePageComp = () => {
     if (alreadyQuoted) {
       let quote_id = rfqDetails.quotations[0].id;
       payload = { ...payload, products: quoteProducts };
-      
+
       setsubmitLoading(true);
       updateQuotation(quote_id, payload)
         .then((res) => {
@@ -967,16 +1012,16 @@ const SendQuotePageComp = () => {
                   <div className="quote-sec-btm">
                     <div className="row">
                       <div className="col-md-6">
-                      {pageType!="update-quote" &&
-                      
-                        <button
-                          type="submit"
-                          className="btn btn-primary"
-                          onClick={() => setregretModal(true)}
-                        >
-                          Regret Quote
-                        </button>
-                      }  
+                        {pageType != "update-quote" &&
+
+                          <button
+                            type="submit"
+                            className="btn btn-primary"
+                            onClick={() => setregretModal(true)}
+                          >
+                            Regret Quote
+                          </button>
+                        }
                       </div>
                       <div className="col-md-6">
                         <button
