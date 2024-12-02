@@ -434,10 +434,10 @@ export const fetchVendorSelectionOption = (payload) => {
   });
 };
 
-export const fetchTechEvaluationRfqList = (user_id) => {
+export const fetchTechEvaluationRfqList = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-tech-evaluation-rfqs/${user_id}`);
+      let response = await axiosInstance.get(`/rfq/get-tech-evaluation-rfqs`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

@@ -22,20 +22,21 @@ const BuyerTechnicalEvaluation = () => {
   const getUserDetails = async () => {
     try {
       const res = await getProfile();
-      return res.data;
+      setcurrentUserProfile(res.data);
     } catch (error) {
       console.error("Error fetching user details:", error);
-      return null;
     }
   };
 
-  const getTechEvaluationRFQsByUser = async (user_id) => {
+  const getTechEvaluationRFQsByUser = async () => {
     try {
-      const res = await fetchTechEvaluationRfqList(user_id);
-      return res.data || [];
+      setLoading(true);
+      const res = await fetchTechEvaluationRfqList();
+      setRfqList(res.data);
     } catch (error) {
       console.error("Error fetching technical evaluation RFQs:", error);
-      return [];
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,23 +60,8 @@ const BuyerTechnicalEvaluation = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const userDetails = await getUserDetails();
-        if (userDetails) {
-          const rfqs = await getTechEvaluationRFQsByUser(userDetails.id);
-          setcurrentUserProfile(userDetails);
-          setRfqList(rfqs);
-        }
-      } catch (error) {
-        console.error("Error in fetch process:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    getUserDetails();
+    getTechEvaluationRFQsByUser();
   }, []);
 
 
