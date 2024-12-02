@@ -28,24 +28,12 @@ const QuoteCompare = () => {
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
-  const [totalRFQs, settotalRFQs] = useState(0);
-  const [showing, setshowing] = useState(0);
   const [currentRFQ, setcurrentRFQ] = useState(null);
   const [quotes, setquotes] = useState([]);
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
 
-
-  useEffect(() => {
-    if (rfq)
-      getRespectiveQuotes();
-
-  }, [router]);
-
-  useEffect(() => {
-    getAllRFQs();
-  }, [page]);
 
   const loadMoreRFQs = (e) => {
     e.preventDefault();
@@ -79,8 +67,6 @@ const QuoteCompare = () => {
     setquotes([]);
     getQuotes(rfq)
       .then((res) => {
-        const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
-        setcurrentRFQ(rfq_details);
         setquotes(res.data);
       })
       .catch((err) => {
@@ -90,43 +76,29 @@ const QuoteCompare = () => {
       })
   };
 
-  const calculateLowestQuote = () => {
-    quotes.map((item) => {
-      lowest = item.quotations.reduce((lowest, currentItem) => {
-        return currentItem.total_price < lowest.total_price ? currentItem : lowest;
-      }, item.quotations[0]);
-
-      // Mark the lowest quotation
-      item.quotations.map((q) => {
-        q.is_lowest = q.quote_id === lowest?.quote_id || false;
-      });
-    });
-    setquotes(quotes);
-  };
-
   const getDeliveryRange = (items) => {
     const validItems = items.filter(num => typeof num === "number" && !isNaN(num) && num > 0);
-  
+
     if (validItems.length > 0) {
       // Find the smallest delivery week
       let smallest = Math.min(...validItems);
-  
+
       // Find the largest delivery week
       let largest = Math.max(...validItems);
-  
+
       if (smallest === largest) {
         return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
       }
-  
+
       let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
       let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
-  
+
       return `Within ${smallestStr} - ${largestStr}`;
     } else {
       return "-";
     }
   };
-  
+
 
   const handleDownloadQuote = async (e) => {
     e.preventDefault();
@@ -945,27 +917,28 @@ const QuoteCompare = () => {
       });
   };
 
-  const handleOverallComparison = (e) => {
-    e.preventDefault();
-    setshowOverallComparison(!showOverallComparison);
-  };
-
   const handleOverallComparisonTab = (e) => {
     e.preventDefault();
     setshowOverallComparison(!showOverallComparison);
   };
 
-  const calculateTotalQuantity = (data) => {
-    // Filter items where title is "Quantity"
-    const quantities = data.filter((item) => item.title === "Quantity");
+  useEffect(() => {
+    if (rfq)
+      getRespectiveQuotes();
 
-    // Extract and sum the quantities
-    const totalQuantity = quantities.reduce((total, item) => {
-      return total + parseInt(item.value, 10); // Convert value to integer and sum up
-    }, 0); // Initial total is 0
+  }, [rfq]);
 
-    return totalQuantity;
-  };
+  useEffect(() => {
+    if (rfq && myRFQs) {
+      const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
+      setcurrentRFQ(rfq_details);
+    }
+  }, [rfq, myRFQs])
+
+  useEffect(() => {
+    getAllRFQs();
+  }, [page]);
+
 
   return (
     <>
