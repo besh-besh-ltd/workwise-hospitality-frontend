@@ -903,7 +903,16 @@ const SendQuotePageComp = () => {
                                             disabled
                                           />
                                         </td>
-                                        : null
+                                        : 
+                                        <td>
+                                          <input
+                                            type="number"
+                                            name=""
+                                            id=""
+                                            placeholder="--"
+                                            disabled
+                                          />
+                                        </td>
                                     }
                                     <td>
                                       <div className="comment">
