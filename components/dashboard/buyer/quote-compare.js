@@ -105,18 +105,28 @@ const QuoteCompare = () => {
   };
 
   const getDeliveryRange = (items) => {
-    if (items && items.length > 0) {
-      // Find the smallest number
-      let smallest = Math.min(...items);
-
-      // Find the largest number
-      let largest = Math.max(...items);
-
-      return `Within ${smallest || 0} - ${largest || 0} Weeks`;
+    const validItems = items.filter(num => typeof num === "number" && !isNaN(num) && num > 0);
+  
+    if (validItems.length > 0) {
+      // Find the smallest delivery week
+      let smallest = Math.min(...validItems);
+  
+      // Find the largest delivery week
+      let largest = Math.max(...validItems);
+  
+      if (smallest === largest) {
+        return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
+      }
+  
+      let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
+      let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
+  
+      return `Within ${smallestStr} - ${largestStr}`;
     } else {
       return "-";
     }
   };
+  
 
   const handleDownloadQuote = async (e) => {
     e.preventDefault();
@@ -211,15 +221,14 @@ const QuoteCompare = () => {
     data.push(amount_array);
     let totalQty = 0;
 
-    api_data.map((item, index) => {
-      let qq = api_data[index]?.quotations.filter((qi) => qi.id != null);
+    api_data.map((item) => {
 
-      totalQty = totalQty + parseInt(qq[0]?.quote_details[0]?.quantity);
+      totalQty = totalQty + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
       let temp_arr = [
         item.product_details[0].name,
         item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
         item.product_specs.find((specItem) => specItem.title == 'Size')?.value || "-",
-        qq[0]?.quote_details[0]?.quantity,
+        item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || "-"
       ];
 
       const array = item.quotations.filter(
@@ -314,14 +323,8 @@ const QuoteCompare = () => {
       l1array.push("");
       l1array.push("");
 
-      deliveryArray.push(
-        item?.quoted_products && item?.quoted_products?.length == 1
-          ? `Within ${item.quoted_products[0] == 1
-            ? item.quoted_products[0] || 0 + "Week"
-            : item.quoted_products[0] || 0 + " Weeks"
-          }`
-          : `${getDeliveryRange(item.quoted_products)}`
-      );
+      let deliveryRange = getDeliveryRange(item.quoted_products);
+      deliveryArray.push(deliveryRange);
       deliveryArray.push("");
       deliveryArray.push("");
       deliveryArray.push("");
@@ -352,7 +355,7 @@ const QuoteCompare = () => {
     globalFiles.map((item) => {
       filesArray.push(
         item
-          ? item[0].file_url
+          ? item[0]?.file_url
           : "-"
       );
       filesArray.push("");
@@ -501,7 +504,7 @@ const QuoteCompare = () => {
       ws["!cols"][i - 1] = { width: 10 };
       ws["!cols"][i] = { width: 12 };
       ws["!cols"][i + 1] = { width: 10 };
-      ws["!cols"][i + 2] = { width: 14 };
+      ws["!cols"][i + 2] = { width: 12 };
     }
 
     if (!ws["!merges"]) ws["!merges"] = [];
@@ -889,17 +892,20 @@ const QuoteCompare = () => {
   };
 
   const FilterOutGlobalTermsFiles = (all_data) => {
+    let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
 
-    let fileObj = all_data.map((item) => {
-      return (
-        item.quotations &&
-        item.quotations.length > 0 &&
-        item.quotations.map((quoteItem) => {
-          return quoteItem.quote_details[0]?.document_files;
+    all_data.forEach((prodItem) => {
+      if (
+        prodItem.quotations &&
+        prodItem.quotations.length > 0
+      ) {
+        prodItem.quotations.forEach((quoteItem, index) => {
+          if (fileArr[index].length == 0)
+            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
         })
-      );
-    })
-    return fileObj[0] || null;
+      }
+    });
+    return fileArr;
   }
 
   const handleRFqClose = (e) => {

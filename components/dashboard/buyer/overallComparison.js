@@ -44,17 +44,20 @@ const OverallComparison = ({ rfq_id }) => {
   };
 
   const FilterOutGlobalTermsFiles = (all_data) => {
+    let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
 
-    let fileObj = all_data.map((item) => {
-      return (
-        item.quotations &&
-        item.quotations.length > 0 &&
-        item.quotations.map((quoteItem) => {
-          return quoteItem.quote_details[0]?.document_files;
+    all_data.forEach((prodItem) => {
+      if (
+        prodItem.quotations &&
+        prodItem.quotations.length > 0
+      ) {
+        prodItem.quotations.forEach((quoteItem, index) => {
+          if (fileArr[index].length == 0)
+            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
         })
-      );
-    })
-    return fileObj[0] || null;
+      }
+    });
+    return fileArr;
   }
 
   const getQty = (item, index) => {
@@ -85,12 +88,12 @@ const OverallComparison = ({ rfq_id }) => {
 
       let lowest = array.reduce((lowest, currentItem) => {
         if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price < lowest.quote_details[0].total_price
-                ? currentItem
-                : lowest;
+          return currentItem.quote_details[0].total_price < lowest.quote_details[0].total_price
+            ? currentItem
+            : lowest;
         }
         return lowest;
-    }, array[0]);
+      }, array[0]);
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
@@ -140,9 +143,9 @@ const OverallComparison = ({ rfq_id }) => {
 
   const addCommasToNumber = (number) => {
 
-    if(number<=0 || !number){
-       return 0
-     }
+    if (number <= 0 || !number) {
+      return 0
+    }
 
     // Convert number to string
     let numberString = number.toString();
@@ -271,17 +274,17 @@ const OverallComparison = ({ rfq_id }) => {
                         <td>
                           <div className="row">
                             {<p className="col-12 mb-1" >
-                              
+
                               <strong>Size: </strong>
                               {item.product_specs[0]?.value
-                              ? item.product_specs[0]?.value
-                              : "--"}
+                                ? item.product_specs[0]?.value
+                                : "--"}
                             </p>}
                             {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
                               <strong>Spec: </strong>
                               {item.product_specs[1]?.value
-                              ? item.product_specs[1]?.value
-                              : "--"}
+                                ? item.product_specs[1]?.value
+                                : "--"}
                             </p>}
                           </div>
                         </td>
@@ -433,11 +436,11 @@ const OverallComparison = ({ rfq_id }) => {
                                               : "-"}
                                           </td>
                                         </tr>
-                                        <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : "" }`}>
+                                        <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : ""}`}>
                                           <th>Sub Total</th>
                                           <td>
                                             {quote_item?.quote_details.length > 0
-                                             && quote_item.quote_details[0]?.total_price
+                                              && quote_item.quote_details[0]?.total_price
                                               ? addCommasToNumber(
                                                 quote_item.quote_details[0]
                                                   ?.total_price
@@ -448,7 +451,7 @@ const OverallComparison = ({ rfq_id }) => {
                                       </table>
                                       <p>
                                         {quote_item?.quote_details?.length > 0
-                                         && quote_item.quote_details[0]?.total_price
+                                          && quote_item.quote_details[0]?.total_price
                                           ? addCommasToNumber(
                                             quote_item?.quote_details[0]
                                               ?.total_price
@@ -590,14 +593,14 @@ const OverallComparison = ({ rfq_id }) => {
                     attachedFiles.map((vendor_files, index) => {
                       return (
                         <td key={`gloal_files_${index}`} style={{ maxWidth: "200px" }} >
-                            {vendor_files?.map((file_item) => {
-                              return (
-                                <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
-                                  <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                  <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
-                                </a>
-                              )
-                            })}
+                          {vendor_files?.map((file_item) => {
+                            return (
+                              <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
+                                <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
+                              </a>
+                            )
+                          })}
                         </td>
                       )
                     })}
