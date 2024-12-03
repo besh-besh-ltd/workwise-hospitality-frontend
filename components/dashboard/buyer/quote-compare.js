@@ -28,24 +28,12 @@ const QuoteCompare = () => {
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
-  const [totalRFQs, settotalRFQs] = useState(0);
-  const [showing, setshowing] = useState(0);
   const [currentRFQ, setcurrentRFQ] = useState(null);
   const [quotes, setquotes] = useState([]);
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
 
-
-  useEffect(() => {
-    if (rfq)
-      getRespectiveQuotes();
-
-  }, [router]);
-
-  useEffect(() => {
-    getAllRFQs();
-  }, [page]);
 
   const loadMoreRFQs = (e) => {
     e.preventDefault();
@@ -79,8 +67,6 @@ const QuoteCompare = () => {
     setquotes([]);
     getQuotes(rfq)
       .then((res) => {
-        const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
-        setcurrentRFQ(rfq_details);
         setquotes(res.data);
       })
       .catch((err) => {
@@ -90,33 +76,29 @@ const QuoteCompare = () => {
       })
   };
 
-  const calculateLowestQuote = () => {
-    quotes.map((item) => {
-      lowest = item.quotations.reduce((lowest, currentItem) => {
-        return currentItem.total_price < lowest.total_price ? currentItem : lowest;
-      }, item.quotations[0]);
-
-      // Mark the lowest quotation
-      item.quotations.map((q) => {
-        q.is_lowest = q.quote_id === lowest?.quote_id || false;
-      });
-    });
-    setquotes(quotes);
-  };
-
   const getDeliveryRange = (items) => {
-    if (items && items.length > 0) {
-      // Find the smallest number
-      let smallest = Math.min(...items);
+    const validItems = items.filter(num => typeof num === "number" && !isNaN(num) && num > 0);
 
-      // Find the largest number
-      let largest = Math.max(...items);
+    if (validItems.length > 0) {
+      // Find the smallest delivery week
+      let smallest = Math.min(...validItems);
 
-      return `Within ${smallest || 0} - ${largest || 0} Weeks`;
+      // Find the largest delivery week
+      let largest = Math.max(...validItems);
+
+      if (smallest === largest) {
+        return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
+      }
+
+      let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
+      let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
+
+      return `Within ${smallestStr} - ${largestStr}`;
     } else {
       return "-";
     }
   };
+
 
   const handleDownloadQuote = async (e) => {
     e.preventDefault();
@@ -211,15 +193,14 @@ const QuoteCompare = () => {
     data.push(amount_array);
     let totalQty = 0;
 
-    api_data.map((item, index) => {
-      let qq = api_data[index]?.quotations.filter((qi) => qi.id != null);
+    api_data.map((item) => {
 
-      totalQty = totalQty + parseInt(qq[0]?.quote_details[0]?.quantity);
+      totalQty = totalQty + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
       let temp_arr = [
         item.product_details[0].name,
         item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
         item.product_specs.find((specItem) => specItem.title == 'Size')?.value || "-",
-        qq[0]?.quote_details[0]?.quantity,
+        item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || "-"
       ];
 
       const array = item.quotations.filter(
@@ -314,14 +295,8 @@ const QuoteCompare = () => {
       l1array.push("");
       l1array.push("");
 
-      deliveryArray.push(
-        item?.quoted_products && item?.quoted_products?.length == 1
-          ? `Within ${item.quoted_products[0] == 1
-            ? item.quoted_products[0] || 0 + "Week"
-            : item.quoted_products[0] || 0 + " Weeks"
-          }`
-          : `${getDeliveryRange(item.quoted_products)}`
-      );
+      let deliveryRange = getDeliveryRange(item.quoted_products);
+      deliveryArray.push(deliveryRange);
       deliveryArray.push("");
       deliveryArray.push("");
       deliveryArray.push("");
@@ -352,7 +327,7 @@ const QuoteCompare = () => {
     globalFiles.map((item) => {
       filesArray.push(
         item
-          ? item[0].file_url
+          ? item[0]?.file_url
           : "-"
       );
       filesArray.push("");
@@ -501,7 +476,7 @@ const QuoteCompare = () => {
       ws["!cols"][i - 1] = { width: 10 };
       ws["!cols"][i] = { width: 12 };
       ws["!cols"][i + 1] = { width: 10 };
-      ws["!cols"][i + 2] = { width: 14 };
+      ws["!cols"][i + 2] = { width: 12 };
     }
 
     if (!ws["!merges"]) ws["!merges"] = [];
@@ -889,17 +864,20 @@ const QuoteCompare = () => {
   };
 
   const FilterOutGlobalTermsFiles = (all_data) => {
+    let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
 
-    let fileObj = all_data.map((item) => {
-      return (
-        item.quotations &&
-        item.quotations.length > 0 &&
-        item.quotations.map((quoteItem) => {
-          return quoteItem.quote_details[0]?.document_files;
+    all_data.forEach((prodItem) => {
+      if (
+        prodItem.quotations &&
+        prodItem.quotations.length > 0
+      ) {
+        prodItem.quotations.forEach((quoteItem, index) => {
+          if (fileArr[index].length == 0)
+            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
         })
-      );
-    })
-    return fileObj[0] || null;
+      }
+    });
+    return fileArr;
   }
 
   const handleRFqClose = (e) => {
@@ -939,27 +917,28 @@ const QuoteCompare = () => {
       });
   };
 
-  const handleOverallComparison = (e) => {
-    e.preventDefault();
-    setshowOverallComparison(!showOverallComparison);
-  };
-
   const handleOverallComparisonTab = (e) => {
     e.preventDefault();
     setshowOverallComparison(!showOverallComparison);
   };
 
-  const calculateTotalQuantity = (data) => {
-    // Filter items where title is "Quantity"
-    const quantities = data.filter((item) => item.title === "Quantity");
+  useEffect(() => {
+    if (rfq)
+      getRespectiveQuotes();
 
-    // Extract and sum the quantities
-    const totalQuantity = quantities.reduce((total, item) => {
-      return total + parseInt(item.value, 10); // Convert value to integer and sum up
-    }, 0); // Initial total is 0
+  }, [rfq]);
 
-    return totalQuantity;
-  };
+  useEffect(() => {
+    if (rfq && myRFQs) {
+      const rfq_details = myRFQs.find((rfq_item) => rfq_item.id == rfq);
+      setcurrentRFQ(rfq_details);
+    }
+  }, [rfq, myRFQs])
+
+  useEffect(() => {
+    getAllRFQs();
+  }, [page]);
+
 
   return (
     <>
@@ -1006,7 +985,16 @@ const QuoteCompare = () => {
                     {myRFQs.map((item) => {
                       return (
                         <li className={`${item.id == rfq ? "active" : ""}`}>
-                          <Link href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`} className={`${item.id == rfq ? "text-white" : "text-dark"}`} > RFQ #{item?.rfq_no} </Link>
+                          <Link
+                            href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                            className={`${item.id == rfq ? "text-white" : "text-dark"}`}
+                          >
+                            RFQ #{item?.rfq_no}
+                            {item.project_name && item.project_name != "" &&
+                              <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
+                                {item.project_name}
+                              </b>}
+                          </Link>
                         </li>
                       )
                     }
@@ -1037,9 +1025,13 @@ const QuoteCompare = () => {
 
                 {!quotesLoading && currentRFQ &&
                   <div className="mb-3">
-                    <h3 className="fs-5 mb-3">
+                    <h3 className="fs-5 mb-1">
                       <span className="fw-semibold">RFQ No : </span>{currentRFQ.rfq_no}
                     </h3>
+                    {currentRFQ.project_name && currentRFQ.project_name != "" &&
+                      <p className="sub-heading fs-6 mb-2">
+                        {currentRFQ.project_name}
+                      </p>}
                     <hr />
 
                     <div className="row text-sm ">
@@ -1069,11 +1061,6 @@ const QuoteCompare = () => {
                       </div>
 
                       <div className="col-md-6">
-                        {currentRFQ.project_name && currentRFQ.project_name != "" &&
-                          <p className="sub-heading mb-0">
-                            <b>Project Name</b> :{" "}
-                            {currentRFQ.project_name}
-                          </p>}
                         <p className="sub-heading mb-0">
                           <b>Reverse Auction</b> :{" "}
                           {currentRFQ.reverse_auction == 1 ? "Enabled" : "Disabled"}

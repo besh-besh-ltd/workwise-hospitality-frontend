@@ -32,7 +32,7 @@ const QuoteCompareTable = ({
 
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
-    if(removeRegretQuotes.length > 0){
+    if (removeRegretQuotes.length > 0) {
       const quoteWithLowestPrice = removeRegretQuotes?.reduce((lowest, quote) => {
         return (lowest.total_price < quote.total_price) ? lowest : quote;
       });
@@ -89,10 +89,10 @@ const QuoteCompareTable = ({
                       {item?.quote_details?.is_regret == 1 && (
                         <div className="vendor_regreted_quote">
                           <div>
-                        <span style={{ fontWeight: "bold",fontSize: "1rem" }}>RFQ Declined by the vendor</span>
-                        <span style={{ fontSize: "0.85rem" }}>{item?.quote_details?.regret_reason || ""}</span>
-                      </div>
-                      </div>
+                            <span style={{ fontWeight: "bold", fontSize: "1rem" }}>RFQ Declined by the vendor</span>
+                            <span style={{ fontSize: "0.85rem" }}>{item?.quote_details?.regret_reason || ""}</span>
+                          </div>
+                        </div>
                       )}
 
                       <Dropdown className="dots-nav-anchor">
@@ -168,9 +168,11 @@ const QuoteCompareTable = ({
                       }
                     </div>
                     <div className="table-si-row">
-                      {parseInt(item.delivery_period) <= 1
-                        ? `${item.delivery_period} Week`
-                        : `${item.delivery_period} Weeks`}
+                      {item.delivery_period != ""
+                        ? parseInt(item.delivery_period) <= 1
+                          ? `${item.delivery_period} Week`
+                          : `${item.delivery_period} Weeks`
+                        : "--"}
                       {itemUpdated && (itemUpdated.delivery_period != item.delivery_period) &&
                         <span className="d-block buyer-individual-quote-compare-text-strike ">
                           {parseInt(itemUpdated.delivery_period) <= 1
