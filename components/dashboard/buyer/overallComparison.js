@@ -44,17 +44,20 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   };
 
   const FilterOutGlobalTermsFiles = (all_data) => {
+    let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
 
-    let fileObj = all_data.map((item) => {
-      return (
-        item.quotations &&
-        item.quotations.length > 0 &&
-        item.quotations.map((quoteItem) => {
-          return quoteItem.quote_details[0]?.document_files;
+    all_data.forEach((prodItem) => {
+      if (
+        prodItem.quotations &&
+        prodItem.quotations.length > 0
+      ) {
+        prodItem.quotations.forEach((quoteItem, index) => {
+          if (fileArr[index].length == 0)
+            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
         })
-      );
-    })
-    return fileObj[0] || null;
+      }
+    });
+    return fileArr;
   }
 
   const getQty = (item, index) => {
@@ -69,46 +72,53 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const getLowestBidAmount = (all_data) => {
     let l1totaltemp = 0;
     let totalRFQItems = 0;
-    let edited_data = all_data.map((item) => {
-      totalRFQItems =
-        totalRFQItems + parseInt(getQty(item) == "-" ? 0 : getQty(item));
-      settotalRfqProducts(totalRFQItems);
-      const array = item.quotations.filter(
-        (item) => item.id != null && item.is_regret != 1
-      );
-      // let lowest = array.reduce((lowest, currentItem) => {
-      //   return currentItem.quote_details[0].total_price <
-      //     lowest.quote_details[0].total_price
-      //     ? currentItem
-      //     : lowest;
-      // }, array[0]);
 
-      let lowest = array.reduce((lowest, currentItem) => {
-        if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price < lowest.quote_details[0].total_price
-                ? currentItem
-                : lowest;
+    let edited_data = all_data.map((item) => {
+      totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
+
+      const array = item.quotations.filter(
+        (Q_item) => Q_item.id != null && Q_item.is_regret != 1
+      );
+
+      let lowest = null;
+
+      if (array.length === 1) {
+        // Handle single-element case
+        if (array[0].quote_details[0].total_price > 0) {
+          lowest = array[0];
+        } else {
+          lowest = null;
         }
-        return lowest;
-    }, array[0]);
+      } else {
+        // Reduce logic for multiple elements
+        lowest = array.reduce((lowest, currentItem) => {
+          if (currentItem.quote_details[0].total_price > 0) {
+            return currentItem.quote_details[0].total_price <
+              lowest.quote_details[0].total_price
+              ? currentItem
+              : lowest;
+          }
+          return lowest;
+        }, array[0]);
+      }
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
-
-        setl1total(l1totaltemp);
+        item.quotations.map((q) => {
+          if (q.id == lowest.id) {
+            q.is_lowest = true;
+          } else {
+            q.is_lowest = false;
+          }
+        });
       }
-      item.quotations.map((q) => {
-        if (q.id == lowest.id) {
-          q.is_lowest = true;
-        } else {
-          q.is_lowest = false;
-        }
-      });
+
       return item;
     });
+
+    settotalRfqProducts(totalRFQItems);
     setdata(edited_data);
-    //setl1total(l1totaltemp);
-    //settotalRfqProducts(totalRFQItems);
+    setl1total(l1totaltemp);
   };
 
   let calculateVendorwiseTotalBid = () => {
@@ -140,9 +150,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
   const addCommasToNumber = (number) => {
 
-    if(number<=0 || !number){
-       return 0
-     }
+    if (number <= 0 || !number) {
+      return 0
+    }
 
     // Convert number to string
     let numberString = number.toString();
@@ -177,15 +187,25 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     });
     setallvendors(ev);
   };
+
   const getDeliveryRange = (items) => {
-    if (items && items.length > 0) {
-      // Find the smallest number
-      let smallest = Math.min(...items);
+    const validItems = items.filter(num => typeof num === "number" && !isNaN(num) && num > 0);
 
-      // Find the largest number
-      let largest = Math.max(...items);
+    if (validItems.length > 0) {
+      // Find the smallest delivery week
+      let smallest = Math.min(...validItems);
 
-      return `Within ${smallest || 0} - ${largest || 0} Weeks`;
+      // Find the largest delivery week
+      let largest = Math.max(...validItems);
+
+      if (smallest === largest) {
+        return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
+      }
+
+      let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
+      let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
+
+      return `Within ${smallestStr} - ${largestStr}`;
     } else {
       return "-";
     }
@@ -211,7 +231,19 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
       <div className="quote-sec-table-sub hasFullLoader">
         {!loading && (
           <div className="table-responsive">
-            <table className="table table-responsive table-bordered overall-table">
+            <table className="table table-bordered overall-table">
+              <colgroup>
+                <col style={{ width: "75px" }} />
+                <col style={{ width: "250px" }} />
+                <col style={{ width: "250px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "250px" }} />
+                {allvendors.map((_, index)=> {
+                  return (
+                    <col key={`col_item_${index}`} style={{ width: "250px" }} />
+                  )
+                })}
+              </colgroup>
               <thead class="thead-dark">
                 <tr>
                   <th
@@ -271,17 +303,17 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                         <td>
                           <div className="row">
                             {<p className="col-12 mb-1" >
-                              
+
                               <strong>Size: </strong>
                               {item.product_specs[0]?.value
-                              ? item.product_specs[0]?.value
-                              : "--"}
+                                ? item.product_specs[0]?.value
+                                : "--"}
                             </p>}
                             {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
                               <strong>Spec: </strong>
                               {item.product_specs[1]?.value
-                              ? item.product_specs[1]?.value
-                              : "--"}
+                                ? item.product_specs[1]?.value
+                                : "--"}
                             </p>}
                           </div>
                         </td>
@@ -433,11 +465,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                               : "-"}
                                           </td>
                                         </tr>
-                                        <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : "" }`}>
+                                        <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : ""}`}>
                                           <th>Sub Total</th>
                                           <td>
                                             {quote_item?.quote_details.length > 0
-                                             && quote_item.quote_details[0]?.total_price
+                                              && quote_item.quote_details[0]?.total_price
                                               ? addCommasToNumber(
                                                 quote_item.quote_details[0]
                                                   ?.total_price
@@ -448,7 +480,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                       </table>
                                       <p>
                                         {quote_item?.quote_details?.length > 0
-                                         && quote_item.quote_details[0]?.total_price
+                                          && quote_item.quote_details[0]?.total_price
                                           ? addCommasToNumber(
                                             quote_item?.quote_details[0]
                                               ?.total_price
@@ -535,13 +567,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                     allvendors.map((item) => {
                       return (
                         <td key={`tp_${item.id}_total`}>
-                          {item?.quoted_products &&
-                            item?.quoted_products?.length == 1
-                            ? `Within ${item.quoted_products[0] == 1
-                              ? item.quoted_products[0] || 0 + "Week"
-                              : item.quoted_products[0] || 0 + " Weeks"
-                            }`
-                            : `${getDeliveryRange(item.quoted_products)}`}
+                          {item?.quoted_products && getDeliveryRange(item.quoted_products)}
                         </td>
                       );
                     })}
@@ -590,14 +616,14 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                     attachedFiles.map((vendor_files, index) => {
                       return (
                         <td key={`gloal_files_${index}`} style={{ maxWidth: "200px" }} >
-                            {vendor_files?.map((file_item) => {
-                              return (
-                                <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
-                                  <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                  <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
-                                </a>
-                              )
-                            })}
+                          {vendor_files?.map((file_item) => {
+                            return (
+                              <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
+                                <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
+                              </a>
+                            )
+                          })}
                         </td>
                       )
                     })}

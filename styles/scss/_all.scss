@@ -7253,6 +7253,8 @@ a.btn.disabled {
 }
 
 .overall-table {
+  table-layout: fixed;
+  width: 100%;
   text-align: center;
   --bs-table-border-color: #1a1a1a;
 
@@ -7294,16 +7296,7 @@ a.btn.disabled {
   }
 
   .all_vendors {
-    width: 200px;
     background-color: #ddd;
-  }
-
-  .sl_no {
-    width: 20px;
-  }
-
-  .description {
-    width: 150px;
   }
 
   .bggray {
@@ -7335,7 +7328,6 @@ a.btn.disabled {
   .has_inner_border_table {
     background-color: #fff;
     font-size: 12px;
-    max-width: 250px;
     margin: auto;
 
     th {
@@ -7344,7 +7336,6 @@ a.btn.disabled {
     }
 
     td {
-      width: 50%;
       text-align: right;
       padding-right: 20px;
     }
