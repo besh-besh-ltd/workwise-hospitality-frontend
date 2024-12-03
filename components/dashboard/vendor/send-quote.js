@@ -31,6 +31,7 @@ const SendQuotePageComp = () => {
   const [previousGlobalFiles, setPreviousGlobalFiles] = useState(null);
   const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
+  const [currentLowest, setCurrentLowest] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -42,6 +43,15 @@ const SendQuotePageComp = () => {
     const spec = productSpecs.find(spec => spec.title === title);
     return spec ? spec.value : "";
   }
+
+  const updatecurrentLowest = (products) => {
+    if (products && Array.isArray(products)) {
+      const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
+      setCurrentLowest(hasLowestQuotation);
+    } else {
+      setCurrentLowest(null);
+    }
+  };
 
   const getRFQdetails = () => {
     setloading(true);
@@ -96,6 +106,7 @@ const SendQuotePageComp = () => {
           if (res.data.quotations.length > 0)
             setalreadyQuoted(res.data.quotations)
         }
+        updatecurrentLowest(res.data.products);
         setrfqDetails(res.data);
       })
       .catch((error) => {
@@ -132,12 +143,8 @@ const SendQuotePageComp = () => {
           item[type] = value;
         }
 
-        const totalWithoutFPT = item.unit_price * total_qty; // Total Price before Freight, Packaging, and Tax
-
-        // Calculate Freight (percentage of totalWithoutFPT)
+        const totalWithoutFPT = item.unit_price * total_qty;
         const freightPrice = (totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100;
-
-        // Calculate Packaging (percentage of totalWithoutFPT)
         const packagePrice = (totalWithoutFPT * parseFloat(item.package_price || 0)) / 100;
 
         // Subtotal before Tax
@@ -149,34 +156,11 @@ const SendQuotePageComp = () => {
         // Final total price
         const getTotalPrice = subtotalBeforeTax + tax;
         item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
-
       }
       return item;
     });
     setquoteProducts(d);
   };
-
-  // const calculateTotal = () => {
-  //   let d = quoteProducts.map((item) => {
-  //     let p = rfqDetails.products.filter(
-  //       (pi) => pi.product_id == item.product_id
-  //     );
-  //     let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
-  //     // let total_qty = p[0].product_specs[2]?.value;
-
-  //     let total_without_fpt = item.unit_price * parseInt(total_qty);
-  //     let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
-  //     let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
-
-  //     let total_with_fpt = total_without_fpt + FP + PP;
-  //     let T = (total_without_fpt * parseFloat(item.tax)) / 100;
-
-  //     let getTotalPrice = +total_with_fpt + +T;
-  //     item.total_price = getTotalPrice ? Math.round(getTotalPrice) : 0;
-  //     return item;
-  //   });
-  //   setquoteProducts(d);
-  // };
 
   const calculateTotal = () => {
 
@@ -184,15 +168,11 @@ const SendQuotePageComp = () => {
       let p = rfqDetails.products.filter(
         (pi) => pi.product_id == item.product_id
       );
+
       let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
-      // let total_qty = p[0].product_specs[2]?.value;
 
-      const totalWithoutFPT = item.unit_price * total_qty; // Total Price before Freight, Packaging, and Tax
-
-      // Calculate Freight (percentage of totalWithoutFPT)
+      const totalWithoutFPT = item.unit_price * total_qty;
       const freightPrice = (totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100;
-
-      // Calculate Packaging (percentage of totalWithoutFPT)
       const packagePrice = (totalWithoutFPT * parseFloat(item.package_price || 0)) / 100;
 
       // Subtotal before Tax
@@ -204,11 +184,9 @@ const SendQuotePageComp = () => {
       // Final total price
       const totalPrice = subtotalBeforeTax + tax;
 
-      // Return the rounded total price
       const total = Math.round(totalPrice) || 0;
-      item.total_price = total ? Math.round(total) : 0;
+      item.total_price = total;
 
-      console.log(item, total)
       return item;
     });
 
@@ -234,6 +212,7 @@ const SendQuotePageComp = () => {
       updateQuotation(quote_id, payload)
         .then((res) => {
           setsubmitLoading(false);
+          toast.success("Quote updated Successfully...!");
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
@@ -269,6 +248,7 @@ const SendQuotePageComp = () => {
       sendQuotation(payload, token)
         .then((res) => {
           setsubmitLoading(false);
+          toast.success("Quote sent Successfully...!");
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
@@ -760,7 +740,7 @@ const SendQuotePageComp = () => {
                               Taxes <small>(In %)</small>
                             </th>
                             <th>Total</th>
-                            {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
+                            {currentLowest ? <th>Current Lowest</th> : null}
                             <th>Product Specific Comments</th>
                             <th>
                               Delivery Period <small>(In Weeks)</small>
@@ -891,7 +871,7 @@ const SendQuotePageComp = () => {
                                         disabled
                                       />
                                     </td>
-                                    {
+                                    {currentLowest ?
                                       rfqDetails?.products[index]?.lowest_quotation ?
                                         <td>
                                           <input
@@ -903,7 +883,17 @@ const SendQuotePageComp = () => {
                                             disabled
                                           />
                                         </td>
-                                        : null
+                                        :
+                                        <td>
+                                          <input
+                                            type="number"
+                                            name=""
+                                            id=""
+                                            placeholder="--"
+                                            disabled
+                                          />
+                                        </td>
+                                      : null
                                     }
                                     <td>
                                       <div className="comment">

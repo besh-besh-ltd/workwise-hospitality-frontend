@@ -13,6 +13,7 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
+import storageInstance from "@/utils/storageInstance";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -25,6 +26,9 @@ const RfqManagementPreview = () => {
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
+  const [currentLowest, setCurrentLowest] = useState(null);
+
+  const [isLoggedIn, setisLoggedIn] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -32,6 +36,9 @@ const RfqManagementPreview = () => {
     }
     if (type && type == "buyer-view") {
       setEnableBuyerView(true);
+    }
+    if (storageInstance.getStorage("token")) {
+      setisLoggedIn(true);
     }
   }, [router]);
 
@@ -45,10 +52,20 @@ const RfqManagementPreview = () => {
         setIsSubmitable(!val);
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
+        updatecurrentLowest(res.data?.products);
       })
       .catch((error) => {
         setloading(false);
       });
+  };
+
+  const updatecurrentLowest = (products) => {
+    if (products && Array.isArray(products)) {
+      const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
+      setCurrentLowest(hasLowestQuotation);
+    } else {
+      setCurrentLowest(null);
+    }
   };
 
   const handleRFqClose = (e) => {
@@ -434,23 +451,24 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                        <Link
-                          href={{
-                            pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
-                            query: {
-                              rfq_id: rfqDetails.id,
-                              role: type === "buyer-view" ? "buyer" : "vendor",
-                            }
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="btn btn-secondary my-0"
-                            style={{ width: "260px" }}
+                        {isLoggedIn &&
+                          <Link
+                            href={{
+                              pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                              query: {
+                                rfq_id: rfqDetails.id,
+                                role: type === "buyer-view" ? "buyer" : "vendor",
+                              }
+                            }}
                           >
-                            View Queries {rfqDetails.unseen_query_count != 0 ? `(${rfqDetails.unseen_query_count} New)` : ""}
-                          </button>
-                        </Link>
+                            <button
+                              type="button"
+                              className="btn btn-secondary my-0"
+                              style={{ width: "260px" }}
+                            >
+                              View Queries {rfqDetails.unseen_query_count != 0 ? `(${rfqDetails.unseen_query_count} New)` : ""}
+                            </button>
+                          </Link>}
 
                         {type == "buyer-view" &&
                           ((rfqDetails.total_quotes_received > 0) ?
@@ -501,7 +519,8 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
-                              {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
+                              {currentLowest ? <th>Current Lowest</th> : null}
+                              {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
                               <th>TDS</th>
                               <th>QAP</th>
                               {type != "buyer-view" &&
@@ -560,7 +579,7 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : null}
+                                  {currentLowest ? (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>) : null}
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
