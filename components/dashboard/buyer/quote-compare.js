@@ -1037,9 +1037,13 @@ const QuoteCompare = () => {
 
                 {!quotesLoading && currentRFQ &&
                   <div className="mb-3">
-                    <h3 className="fs-5 mb-3">
+                    <h3 className="fs-5 mb-1">
                       <span className="fw-semibold">RFQ No : </span>{currentRFQ.rfq_no}
                     </h3>
+                    {currentRFQ.project_name && currentRFQ.project_name != "" &&
+                      <p className="sub-heading fs-6 mb-2">
+                        {currentRFQ.project_name}
+                      </p>}
                     <hr />
 
                     <div className="row text-sm ">
@@ -1069,11 +1073,6 @@ const QuoteCompare = () => {
                       </div>
 
                       <div className="col-md-6">
-                        {currentRFQ.project_name && currentRFQ.project_name != "" &&
-                          <p className="sub-heading mb-0">
-                            <b>Project Name</b> :{" "}
-                            {currentRFQ.project_name}
-                          </p>}
                         <p className="sub-heading mb-0">
                           <b>Reverse Auction</b> :{" "}
                           {currentRFQ.reverse_auction == 1 ? "Enabled" : "Disabled"}
