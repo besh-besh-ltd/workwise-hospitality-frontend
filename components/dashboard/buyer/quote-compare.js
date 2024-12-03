@@ -985,7 +985,16 @@ const QuoteCompare = () => {
                     {myRFQs.map((item) => {
                       return (
                         <li className={`${item.id == rfq ? "active" : ""}`}>
-                          <Link href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`} className={`${item.id == rfq ? "text-white" : "text-dark"}`} > RFQ #{item?.rfq_no} </Link>
+                          <Link
+                            href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                            className={`${item.id == rfq ? "text-white" : "text-dark"}`}
+                          >
+                            RFQ #{item?.rfq_no}
+                            {item.project_name && item.project_name != "" &&
+                              <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
+                                {item.project_name}
+                              </b>}
+                          </Link>
                         </li>
                       )
                     }

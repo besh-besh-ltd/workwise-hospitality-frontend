@@ -13,6 +13,7 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
+import storageInstance from "@/utils/storageInstance";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -25,7 +26,7 @@ const RfqManagementPreview = () => {
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
-  const [showLowestPrice, setShowLowestPrice] = useState(false);
+  const [currentLowest, setCurrentLowest] = useState(null);
 
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
@@ -36,7 +37,7 @@ const RfqManagementPreview = () => {
     if (type && type == "buyer-view") {
       setEnableBuyerView(true);
     }
-    if (localStorage.get(token)) {
+    if (storageInstance.getStorage("token")) {
       setisLoggedIn(true);
     }
   }, [router]);
@@ -51,21 +52,21 @@ const RfqManagementPreview = () => {
         setIsSubmitable(!val);
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
-        updateShowLowestPrice(res.data?.products);
+        updatecurrentLowest(res.data?.products);
       })
       .catch((error) => {
         setloading(false);
       });
   };
 
-const updateShowLowestPrice = (products) => {
-  if (products && Array.isArray(products)) {
+  const updatecurrentLowest = (products) => {
+    if (products && Array.isArray(products)) {
       const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
-      setShowLowestPrice(hasLowestQuotation);
-  } else {
-      setShowLowestPrice(false);
-  }
-};
+      setCurrentLowest(hasLowestQuotation);
+    } else {
+      setCurrentLowest(null);
+    }
+  };
 
   const handleRFqClose = (e) => {
     setcloseRFqLoading(true);
@@ -518,7 +519,7 @@ const updateShowLowestPrice = (products) => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
-                              {showLowestPrice ? <th>Current Lowest</th> : null}
+                              {currentLowest ? <th>Current Lowest</th> : null}
                               {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
                               <th>TDS</th>
                               <th>QAP</th>
@@ -578,7 +579,7 @@ const updateShowLowestPrice = (products) => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {showLowestPrice ? (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>) : null}
+                                  {currentLowest ? (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>) : null}
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
