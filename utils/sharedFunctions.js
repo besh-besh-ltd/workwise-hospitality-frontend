@@ -37,7 +37,7 @@ export const extractfileName = (file_url) => {
     return file_url.split('/').pop();
 }
 
-export const handleFileUpload = async (e) => {
+export const handleFileUpload = async (e,token) => {
     const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "png", "jpg", "jpeg"];
 
     const files = e.target.files;
@@ -46,7 +46,7 @@ export const handleFileUpload = async (e) => {
 
     if (allowedExtensions.includes(fileExtension)) {
         try {
-            const res = await handleUploadFile(file);
+            const res = await handleUploadFile(file,token);
             const filePath = res.data[0]?.file_path;
 
             if (filePath) {
