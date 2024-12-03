@@ -39,7 +39,15 @@ const parseJwt = (token) => {
 	}
 	const base64Url = token.split(".")[1];
 	const base64 = base64Url.replace("-", "+").replace("_", "/");
-	return JSON.parse(window.atob(base64));
+	// return JSON.parse(window.atob(base64));
+	const payload = JSON.parse(window.atob(base64));
+    
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < currentTime) {
+        return;
+    }
+    
+    return payload;
 };
 
 export const getProfile = () => {

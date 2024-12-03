@@ -25,6 +25,8 @@ const RfqManagementPreview = () => {
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
+  const [showLowestPrice, setShowLowestPrice] = useState(false);
+
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -49,11 +51,21 @@ const RfqManagementPreview = () => {
         setIsSubmitable(!val);
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
+        updateShowLowestPrice(res.data?.products);
       })
       .catch((error) => {
         setloading(false);
       });
   };
+
+const updateShowLowestPrice = (products) => {
+  if (products && Array.isArray(products)) {
+      const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
+      setShowLowestPrice(hasLowestQuotation);
+  } else {
+      setShowLowestPrice(false);
+  }
+};
 
   const handleRFqClose = (e) => {
     setcloseRFqLoading(true);
@@ -506,7 +518,8 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
-                              {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null}
+                              {showLowestPrice ? <th>Current Lowest</th> : null}
+                              {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
                               <th>TDS</th>
                               <th>QAP</th>
                               {type != "buyer-view" &&
@@ -565,7 +578,7 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : null}
+                                  {showLowestPrice ? (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>) : null}
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
