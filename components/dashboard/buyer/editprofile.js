@@ -97,6 +97,7 @@ const EditProfile = () => {
       .then((res) => {
         setsocialLoading(false);
         getProfileDetails();
+        toast(res.message);
       })
       .catch((error) => {
         setsocialLoading(false);
@@ -133,7 +134,6 @@ const EditProfile = () => {
           <h1 className="heading">Edit profile</h1>
         </div>
       </section>
-      <ToastContainer />
 
       <section className="buyer-edit-sec-1">
         {mainLoading && <Loader />}
@@ -232,11 +232,10 @@ const EditProfile = () => {
                           <div className="col-md-4">
                             <FormikField
                               label="Country"
-                              isRequired={true}
                               type="select"
-                              name="country"
+                              name="country"                          
                               selectOptions={countryList}
-                              value={selectedCountry}
+                              value={1}
                               touched={touched}
                               errors={errors}
                               enableHandleChange={true}
@@ -355,7 +354,6 @@ const EditProfile = () => {
                           <div className="col-md-12">
                             <FormikField
                               label="Add a sort descrption"
-                              isRequired={true}
                               type="textarea"
                               name="profile"
                               touched={touched}

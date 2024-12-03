@@ -161,35 +161,40 @@ const ProductManagement = () => {
       (acc, ele) => (ele.isChecked == true ? acc.concat(ele.id) : acc),
       []
     );
-    setLoading(true);
-    exportProduct(
-      limit,
-      page,
-      search,
-      selectedVendor,
-      checkedProduct.length > 0 ? JSON.stringify(checkedProduct) : [],
-      checkedProduct.length > 0 ? false : true
-    )
-      .then((res) => {
-        setLoading(false);
-        setProducts((prev) =>
-          prev?.map((item) => ({ ...item, isChecked: false }))
-        );
-        const downloadLink = document.createElement("a");
-        downloadLink.href = window.URL.createObjectURL(res);
-        downloadLink.setAttribute("download", "export_product.xlsx"); // Set desired file name
-        document.body.appendChild(downloadLink);
+    if (checkedProduct.length > 0) {
+      setLoading(true);
+      exportProduct(
+        limit,
+        page,
+        search,
+        selectedVendor,
+        checkedProduct.length > 0 ? JSON.stringify(checkedProduct) : [],
+        checkedProduct.length > 0 ? false : true
+      )
+        .then((res) => {
+          setLoading(false);
+          setProducts((prev) =>
+            prev?.map((item) => ({ ...item, isChecked: false }))
+          );
+          const downloadLink = document.createElement("a");
+          downloadLink.href = window.URL.createObjectURL(res);
+          downloadLink.setAttribute("download", "export_product.xlsx"); // Set desired file name
+          document.body.appendChild(downloadLink);
 
-        // Trigger the download
-        downloadLink.click();
+          // Trigger the download
+          downloadLink.click();
 
-        // Cleanup
-        document.body.removeChild(downloadLink);
-      })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      });
+          // Cleanup
+          document.body.removeChild(downloadLink);
+        })
+        .catch((err) => {
+          console.log(err);
+          setLoading(false);
+        });
+    }
+    else {
+      toast.warning("Please select products to export", {position: "top-center"});
+    }
   };
 
   const handleUpdateProducts = (item) => {
@@ -206,10 +211,10 @@ const ProductManagement = () => {
 
   const handlePageChange = (event) => {
     const newValue = event.target.value;
-      if(newValue >= 1 || newValue <= totalPages || newValue)
-        setPage(newValue)
-      else 
-        setPage(1)
+    if (newValue >= 1 || newValue <= totalPages || newValue)
+      setPage(newValue)
+    else
+      setPage(1)
 
     // setInputValue(newValue);
     // setPage(event.target.value)
@@ -248,7 +253,8 @@ const ProductManagement = () => {
                   {!enableBulkUpload && (
 
                     <div className="row ">
-                      <div className="col-5">
+                      {/* <div className="col-5"> */}
+                      <div className="col-sm-4 col-md-3">
                         <div className="d-flex">
                           <Link
                             href="add-products"
@@ -256,7 +262,7 @@ const ProductManagement = () => {
                           >
                             Add Single Product
                           </Link>
-                          <button
+                          {/* <button
                             type="button"
                             className="btn btn-primary d-flex flex-column justify-content-center align-items-center"
                             onClick={() => {
@@ -266,11 +272,11 @@ const ProductManagement = () => {
                           >
                             Add Bulk Products
                             <span className="text-sm">(By Uploading Excel File)</span>
-                          </button>
+                          </button> */}
                         </div>
 
 
-                        <div className="row mt-1">
+                        {/* <div className="row mt-1">
                           <div className="col"></div>
                           <a
                             title="Download this sample Excel and fill all the mandatory red columns."
@@ -291,7 +297,7 @@ const ProductManagement = () => {
                               />
                             </span>
                           </a>
-                        </div>
+                        </div> */}
 
 
                       </div>
@@ -518,7 +524,6 @@ const ProductManagement = () => {
           </div>
         </div>
       </section>
-      <ToastContainer />
     </>
   );
 };

@@ -39,7 +39,15 @@ const parseJwt = (token) => {
 	}
 	const base64Url = token.split(".")[1];
 	const base64 = base64Url.replace("-", "+").replace("_", "/");
-	return JSON.parse(window.atob(base64));
+	// return JSON.parse(window.atob(base64));
+	const payload = JSON.parse(window.atob(base64));
+    
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < currentTime) {
+        return;
+    }
+    
+    return payload;
 };
 
 export const getProfile = () => {
@@ -236,12 +244,35 @@ export const setCommunicaitonSettings = (payload) => {
 export const getDashboardData = (payload) => {
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/users/get-dashboard-data`);
+			let response = await axiosInstance.post(`/users/get-dashboard-data`, payload);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
 		}
 	});
 };
+
+export const editSpoc = (payload,spocId) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.put(`users/update-spoc/${spocId}`, payload);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+  }
+
+  export const addSpoc = (payload) => {
+    return new Promise(async (resolve, reject)=> {
+        try{
+            let response = await axiosInstance.post(`users/add-spoc`,payload);
+            resolve(response);
+        } catch (error){
+            reject({message: error});
+        }
+    })
+  }
+  
 
 

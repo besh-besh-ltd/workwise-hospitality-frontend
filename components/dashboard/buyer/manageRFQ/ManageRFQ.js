@@ -1,35 +1,33 @@
 import FullLoader from "@/components/shared/FullLoader";
 import { getRFQS } from "@/services/rfq";
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import RFQItem from "./Item";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAngleDoubleLeft, faAngleDoubleRight } from "@fortawesome/free-solid-svg-icons";
+import Pagination from "@/components/shared/Pagination";
+import FilterSection from "@/components/shared/FilterSection";
+
+const initialFilterData = {
+  project_id: -1,
+  rfq_type: "",
+  reverse_auction: "-1",
+  sort: "DESC"
+}
 
 const ManageRFQ = () => {
   const [loading, setloading] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(10);
+  const [filterData, setFilterData] = useState(initialFilterData);
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
-  const [showing, setshowing] = useState(0);
-
-  useEffect(() => {
-    getAllRFQs();
-  }, []);
-  useEffect(() => {
-    getAllRFQs();
-  }, [page, limit]);
 
   const getAllRFQs = () => {
     setloading(true);
-    getRFQS({ page, limit })
+
+    getRFQS({ ...filterData, page })
       .then((res) => {
         setloading(false);
         setmyRFQs(res.data);
         settotalRFQs(res.total_items);
-        const items = page * limit;
-        setshowing(items > res.total_items ? res.total_items : items);
       })
       .catch((err) => {
         setloading(false);
@@ -37,14 +35,23 @@ const ManageRFQ = () => {
       });
   };
 
+  useEffect(() => {
+    getAllRFQs();
+  }, [page, filterData]);
+
+
   return (
     <>
       <div className="manage-rfq-con">
         {/* Content for Manage RFQs tab */}
-        <h3 className="title">Manage RFQs</h3>
+        {/* <h3 className="title">Manage RFQs</h3> */}
 
-        <div className="details-table hasFullLoader">
+        <div className="details-table hasFullLoader mt-0">
 
+          {/* Table Filter Section */}
+          <FilterSection setFilterData={setFilterData} />
+
+          {/* Table Data Section */}
           {loading && <FullLoader />}
           {!loading && myRFQs.length == 0 && (
             <p>You haven't created any RFQs yet!</p>
@@ -54,13 +61,14 @@ const ManageRFQ = () => {
               <table className="table table-striped ">
                 <thead>
                   <tr>
-                    <th>Group RFQ Code</th>
-                    {/* <th>Category</th> */}
+                    <th>RFQ No & Project</th>
                     <th>Products</th>
-                    <th>Published Date</th>
-                    <th>End Date</th>
-                    <th>Status</th>
+                    <th>Timeline</th>
+                    <th>RFQ Type</th>
+                    <th>Reverse Auction</th>
                     <th>Action</th>
+                    <th>Query</th>
+                    <th>Remind Vendors To Send Quote</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -73,47 +81,13 @@ const ManageRFQ = () => {
           )}
 
           {!loading && myRFQs.length > 0 && (
-            <div className="table-footer">
-              <span>
-                Showing {showing} of {totalRFQs} results
-              </span>
-              <div className="pagination">                
-                <ul>
-                  <li className={page<=1?'disabled-pagination':''} onClick={()=> setpage(page>1? page-1:1)}><FontAwesomeIcon icon={faAngleDoubleLeft}/> Previous</li>                  
-                    {Array.from(Array(Math.ceil(totalRFQs / limit)), (e, i) => {
-                      let currentIndex = i + 1;
-                      {currentIndex}
-                      if(currentIndex>=1 && currentIndex<=3 ){
-                        return (
-                          <li
-                            onClick={() => setpage(currentIndex)}
-                            className={`${currentIndex == page ? "current" : ""}`}
-                            key={currentIndex}
-                          >
-                            {currentIndex}
-                          </li>
-                        );
-                      }
-                      if(currentIndex>3 && currentIndex<Math.ceil(totalRFQs / limit) ){
-                        return(<>...</>)
-                      }
-                      if(currentIndex == Math.ceil(totalRFQs / limit)){
-                        return (
-                          <li
-                            onClick={() => setpage(currentIndex)}
-                            className={`${currentIndex == page ? "current" : ""}`}
-                            key={currentIndex}
-                          >
-                            {currentIndex}
-                          </li>
-                        );
-                      }
-                    })}                   
-                  
-                  <li className={page>=Math.ceil(totalRFQs / limit)?'disabled-pagination':''} onClick={()=> setpage(page<Math.ceil(totalRFQs / limit)? page+1:Math.ceil(totalRFQs / limit))}>Next <FontAwesomeIcon icon={faAngleDoubleRight}/></li>
-                </ul>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              setPage={setpage}
+              limit={limit}
+              setLimit={setlimit}
+              totalData={totalRFQs}
+            />
           )}
 
         </div>

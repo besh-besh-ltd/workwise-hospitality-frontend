@@ -2,17 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowLeft,
-  faLocation,
-  faLocationDot,
   faMagnifyingGlass,
   faPlus,
+  faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import Image from "next/image";
 import { searchProducts, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
-import { categoryList, vendorApproveList } from "@/services/rfq";
+import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
 import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -21,14 +18,17 @@ import {
   removeRfqProduct,
   setDefaultVAB,
 } from "@/redux/slice";
-import { ToastContainer, toast } from "react-toastify";
-import Loader from "@/components/shared/Loader";
+import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
+import { faLightbulb as faSolidLightbulb } from '@fortawesome/free-solid-svg-icons';
 import { getProfile } from "@/services/Auth";
-import { getCities, getStates } from "@/services/cms";
 import { useRouter } from "next/router";
-import AuthModal from "@/components/modal/AuthModal";
-import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import LocationFilter from "@/components/shared/LocationFilter";
+import storageInstance from "@/utils/storageInstance";
+import ProductOverview from "@/components/shared/ProductOverview";
+import Head from "next/head";
+
 
 const customSelectStyles = {
   control: (base) => ({
@@ -40,7 +40,7 @@ const customSelectStyles = {
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
-  const { s } = router.query;
+  const { slug, s, loggedin } = router.query;
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -48,7 +48,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const searchLabelRef = useRef(null);
   const rfqProductsFromStore = useSelector((data) => data.rfqProducts);
   const dispatch = useDispatch();
-  const [cat_id, setCat_id] = useState("");
+  const [cat_id, setCat_id] = useState(null);
   const [search_key, setSearch_key] = useState("");
   const [approved_by, setApproved_by] = useState([]);
   const [products, setProducts] = useState([]);
@@ -57,7 +57,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [selectedVbaa, setselectedVbaa] = useState("");
   const [catloading, setcatloading] = useState(false);
   const [vabloading, setvabloading] = useState(false);
-  const [bulkRFQProducts, setbulkRFQProducts] = useState([]);
+  const [bulkRFQVendors, setbulkRFQVendors] = useState([]);
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
@@ -71,28 +71,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [levelSixCat, setlevelSixCat] = useState([]);
   const [userProfile, setuserProfile] = useState(null);
 
-  const [statesLoading, setstatesLoading] = useState(false);
-  const [states, setstates] = useState([]);
   const [selectedState, setselectedState] = useState(0);
 
-  const [citiesLoading, setcitiesLoading] = useState(false);
-  const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
-  const [showModal, setShowModal] = useState(false);
-  const [loginWith, setLoginWith] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  const handleClose = () => {
-    setShowModal(false);
-    setLoginWith("");
-  };
-
-  // Set State Change
-  const handleChange = (setState) => (event) => {
-    setState(event);
-  };
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
+  const tempProdRef = useRef(null);
+  const [searchCategories, setSearchCategories] = useState([]);
+  const [searchSubCategories, setSearchSubCategories] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  const categoryLvlRef = useRef(new Map());
+  const [firstVisit, setFirstVisit] = useState(true);
+  const [showInsights, setShowInsights] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [vendorName, setVendorName] = useState("");
+  const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
+  const [is_private, setIs_private] = useState(false);
+  const [preferred_vendor, setPreferred_vendor] = useState(false);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -100,6 +97,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     else if (!vendorMetaData?.subscription)
       router.push('dashboard/buyer/subscription');
   }
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedVendorName(vendorName);
+    }, 1000);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [vendorName]);
+
+
 
   useEffect(() => {
     if (s && s != "") {
@@ -111,7 +120,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
       // getProducts();
     }
-  }, [router]);
+    if (localStorage.getItem("token")) {
+      setIsLoggedIn(true);
+    }
+    if (redirectAfterLogin) {
+      const url = redirectAfterLogin;
+      router.push(url);
+    }
+    setRedirectAfterLogin(null);
+  }, [router, loggedin]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -126,23 +143,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, []);
 
-  const handleSearchClick = () => {
-    setIsOpen(!isOpen);
-  };
+  // const handleSearchClick = () => {
+  //   setIsOpen(!isOpen);
+  // };
 
   useEffect(() => {
     getProfileDetails();
-    getProducts();
+    getProducts(slug);
     getCategories();
     getVendorApprovedby();
-    getAllStates();
   }, []);
 
-  useEffect(() => {
-    if (selectedState) {
-      getAllCities();
-    }
-  }, [selectedState]);
 
   useEffect(() => {
     getVendors();
@@ -152,7 +163,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     cat_id,
     selectedState,
     selectedCity,
-    isLoggedIn
+    isLoggedIn,
+    debouncedVendorName, // Use debouncedVendorName instead of vendorName,
+    is_private, // for private vendors list,
+    preferred_vendor // for preferred vendors list
   ]);
 
   useEffect(() => {
@@ -166,91 +180,126 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     }
   }, [selectedVbaa]);
 
+  const cleanAndAddHyphen = (input) => {
+    let lowerCaseString = input.toLowerCase();
+    let cleanedString = lowerCaseString.replace(/[\s\-\/()]+/g, ' ').trim();
+    return cleanedString.replace(/\s+/g, '-');
+  }
+
   const getProfileDetails = () => {
     setloading(true);
     getProfile().then((res) => {
-      setloading(true);
+      setloading(false);
       setuserProfile(res.data);
     });
   };
 
-  const getAllStates = () => {
-    setstatesLoading(true);
-    getStates().then((res) => {
-      setstatesLoading(false);
-      setstates(res.data);
-    });
+  const canAddItem = () => {
+    if (!vendorMetaData.logged_In) {
+      setOpenAuthModal(true);
+      return false;
+    } else if (!vendorMetaData.subscription) {
+      router.push('dashboard/buyer/subscription');
+      return false;
+    }
+    return true;
+  }
+
+  const addToRFQ = async (selected, item) => {
+    if (!canAddItem()) return;
+
+    vendors.map((venItem) => {
+      if (venItem.id == item.id)
+        venItem.selected = selected
+      return venItem;
+    })
+
+    let d = vendors.filter((item) => item.selected)
+    setbulkRFQVendors(d);
   };
 
-  const getAllCities = () => {
-    setcitiesLoading(true);
-    getCities(selectedState).then((res) => {
-      setcitiesLoading(false);
-      setcities(res.data);
-    });
-  };
-
-  const handleBulkAddToRFQ = (e) => {
+  const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
-    if (bulkRFQProducts.length > 0) {
-      bulkRFQProducts.map((item) => {
-        dispatch(
-          addVendor({
-            product_id: currentSelectedProduct.product_id,
-            id: item.id,
-            name: item.name,
-          })
-        );
-      });
+    if (!canAddItem()) return;
+
+    try {
+      setIsLoading(true);
+
+      const payload = {
+        product_id: currentSelectedProduct.product_id,
+        vendors: bulkRFQVendors.map(vendor => ({
+          vendor_id: vendor.id
+        }))
+      };
+
+      await addProductToDraft(payload);
       toast.success(
         <h6>
-          <b>{bulkRFQProducts.length} vendors</b> Successfully added to RFQ
-          list!
+          <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ list!
         </h6>,
-        {
-          position: "top-right",
-        }
+        { position: "top-right" }
       );
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendors to RFQ. Please try again.</h6>,
+        { position: "top-right" }
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
+
   const getVendors = () => {
     setloading(true);
     setVendors([]);
-    searchProductsV2(
-      {
-        cat_id,
-        search_key,
-        approved_by: selectedVbaa,
-        state: selectedState,
-        city: selectedCity,
-      },
-      "vendors"
-    )
-      .then((rsp) => {
-        console.log(rsp)
-        setloading(false);
-        let d = rsp.data.map((item) => {
-          item.selected = false;
-          return item;
+    setSearchSubCategories([]);
+
+    // changes by mukul jatav 29-08-2024 
+    setbulkRFQVendors([]);
+    if (search_key != "") {
+      searchProductsV2(
+        {
+          cat_id,
+          search_key,
+          approved_by: selectedVbaa,
+          state: selectedState,
+          city: selectedCity,
+          vendor_name: vendorName,
+          is_private: is_private,
+          preferred_vendor: preferred_vendor,
+        },
+        "vendors"
+      )
+        .then((rsp) => {
+
+          setloading(false);
+          let d = rsp.data.map((item) => {
+            item.selected = false;
+            return item;
+          });
+          setVendors(d);
+          setVendorMetaData(rsp)
+          currentSelectedProduct
+            ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
+            : null;
+        })
+        .catch((error) => {
+          setloading(false);
+          setVendorMetaData(error?.response?.data)
         });
-        setVendors(d);
-        setVendorMetaData(rsp)
-        currentSelectedProduct
-          ? vendor_area_ref.current.scrollIntoView({ behavior: "smooth" })
-          : null;
-      })
-      .catch((error) => {
-        setloading(false);
-        console.log(error);
-      });
+    }
   };
   const getProducts = (s_key = search_key) => {
     setloading(true);
+    categoryLvlRef.current = new Map();
     searchProductsV2(
       {
         cat_id,
         search_key: s_key,
-        approved_by: selectedVbaa,
+        vendor_name: vendorName,
+        is_private: is_private,
+        preferred_vendor: preferred_vendor,
+        // approved_by: selectedVbaa,
       },
       type
     )
@@ -260,13 +309,43 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           item.selected = false;
           return item;
         });
-        setProducts(d);
+        if (slug && slug != "all" && firstVisit) {
+          handleAutocompleteClick(d[0])
+          setFirstVisit(false);
+        } else {
+          setProducts(d);
+          setSearchCategories(rsp.categoryData);
+        }
       })
       .catch((error) => {
         setloading(false);
-        console.log(error);
       });
   };
+
+  const getCategoriesById = (category_id, category_name) => {
+    setloading(true)
+    categoryLvlRef.current.set(category_id, category_name)
+
+    categoryListById({ category_id })
+      .then((res) => {
+        setProductsList(res.productList);
+        setcurrentSelectedProduct(null);
+        setSearchSubCategories(res.subCategoryList);
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .finally(() => {
+        setloading(false)
+        setIsOpen(false);
+
+        // Update the URL to include the selected product's name
+        const newUrl = `/vendor/${cleanAndAddHyphen(category_name)}`;
+        window.history.pushState(null, null, newUrl);
+
+      })
+  };
+
   const getCategories = () => {
     setcatloading(true);
     categoryList()
@@ -287,6 +366,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setcatloading(false);
       });
   };
+
   const getVendorApprovedby = () => {
     setvabloading(true);
     vendorApproveList()
@@ -299,8 +379,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       });
   };
   const handleSearchChange = (e) => {
+    const searchValue = e.target.value;
+
+    if (searchValue.length > 0 && !isOpen) {
+      setIsOpen(true);
+    }
+    if (searchValue.length === 0) {
+      setIsOpen(false);
+    }
+    if (searchValue.length > 2) {
+      getProducts(e.target.value);
+    }
     setSearch_key(e.target.value);
-    getProducts(e.target.value);
+    setProducts([]);
+    setProductsList([]);
+    setSearchCategories([]);
+    setCat_id(null);
+    setVendorName("");
+    setIs_private(false);
+    setPreferred_vendor(false);
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -312,24 +409,32 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         item.selected = true;
         return item;
       });
-      setbulkRFQProducts(d);
+      setbulkRFQVendors(d);
     } else {
-      let d = items.map((item) => {
+      items.map((item) => {
         item.selected = false;
         return item;
       });
-      setbulkRFQProducts([]);
+      setbulkRFQVendors([]);
     }
   };
 
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
-    setSearch_key(item.product_name);
-    //dispatch(removeRfqProduct(currentSelectedProduct));
-    setcurrentSelectedProduct(null);
+    // Check if the clicked product is already selected
+    if (item.product_name === currentSelectedProduct?.product_name) return;
 
+    // Set the search key and update the selected product
+    setSearch_key(item.product_name);
+    setCat_id(item.category_id);
+    setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
-    dispatch(addRfqProduct(item));
+    setShowInsights(true);
+    tempProdRef.current = null;
+
+    // Update the URL to include the selected product's slug
+    router.push(`/vendor/${item.slug}`);
+    storageInstance.setStorage("product_name", slug);
   };
 
   const getChildCategories = (id, level) => {
@@ -382,59 +487,127 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     });
   };
 
-  const handleStateChange = (e) => {
-    setcities([]);
-    setselectedState(e.target.value);
-  };
-  const handleCityChange = (e) => {
-    setselectedCity(e.target.value);
-  };
-  const clearLocationFilter = (e) => {
-    setcities([]);
+  const clearLocationFilter = () => {
     setselectedState(0);
     setselectedCity(0);
   };
 
+  const mapEntries = Array.from(categoryLvlRef.current.entries());
+
+  // for clear the search from the input of search vendor
+  const clearProductSearch = () => {
+    setcurrentSelectedProduct(null);
+    setCat_id(null);
+    setSearch_key("");
+    router.push(`/vendor/all`);
+    storageInstance.setStorage("product_name", "all");
+  }
+
+  // Options for the dropdown
+  const optionVendors = [
+    { value: 'is_private', label: 'Private Vendor' },
+    { value: 'preferred_vendor', label: 'Preferred Vendor' }
+  ];
+
+  // Handle selection changes to ensure only one filter is active at a time
+  const handleChange = (selectedOption) => {
+    if (selectedOption.value === 'is_private') {
+      setIs_private(true);
+      setPreferred_vendor(false);
+    } else if (selectedOption.value === 'preferred_vendor') {
+      setIs_private(false);
+      setPreferred_vendor(true);
+    }
+  };
+
+  // Generalized clear filter function to reset both filters
+  const clearVendorFilters = () => {
+    setIs_private(false);
+    setPreferred_vendor(false);
+  };
+
+  // Determine the selected option based on the state
+  const selectedOption = is_private
+    ? optionVendors[0]
+    : preferred_vendor
+      ? optionVendors[1]
+      : null;
+
   return (
     <>
-      <ToastContainer />
-      <section className="vendor-common-header sc-pt-80">
+      <Head>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "http://schema.org",
+            "@type": "Product",
+            name: currentSelectedProduct?.product_name,
+            image: currentSelectedProduct?.image_url || "",
+            description: currentSelectedProduct?.description || "",
+            sku: currentSelectedProduct?.slug,
+            offers: {
+              "@type": "Offer",
+              url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`,
+              availability: "http://schema.org/InStock",
+            },
+          })}
+        </script>
+        <meta property="og:image" content={currentSelectedProduct?.image_url || ""} />
+      </Head>
+
+      <section className="vendor-common-header sc-pt-80" aria-label="header" >
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
-          <Link
-            href="/dashboard/buyer/rfq-management?tab=create-rfq"
-            className="page-link backBtn"
-          >
-            {" "}
-            <FontAwesomeIcon icon={faArrowLeft} /> Go back
-          </Link>
+          <div className="d-flex justify-content-end">
+
+            <Link
+              href="/dashboard/buyer/magic-search"
+              className="page-link backBtn btn btn-secondary text-white px-2 "
+              style={{ minWidth: "280px" }}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!isLoggedIn) {
+                  setOpenAuthModal(true)
+                  setRedirectAfterLogin("/dashboard/buyer/magic-search")
+                }
+                else router.push("/dashboard/buyer/magic-search")
+              }}
+            >
+              {" "}
+              <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section className="search-sec-1">
+      <section className="search-sec-1" aria-label="search-box">
         <div className="container-fluid product-search">
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
                 <form onSubmit={handleSearch}>
                   <div className="row filter">
-                    <div className="col-md-2"></div>
-                    <div className="col-md-5 searchbox " ref={searchRef}>
+                    <div className="col-md-1"></div>
+                    <div className="col-md-8 searchbox " ref={searchRef}>
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
+
                       <label ref={searchLabelRef} htmlFor="search"></label>
+                      {/* <div className="d-flex justify-content-between align-items-center"> */}
                       <input
-                        type="search"
+                        className="no-clear"
+                        type="text"
                         name="search"
                         id="search"
-                        placeholder="Ex. Deluge Valve"
+                        placeholder="Ex. Flanges"
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
                         value={search_key}
-                        onClick={handleSearchClick}
+                      // onClick={handleSearchClick}
                       />
+                      {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
+                      </div> */}
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
@@ -448,36 +621,79 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               Fetching..
                             </p>
                           )}
-                          {!loading && products.length == 0 && (
+                          {!loading && search_key === "" && (
+                            <p className="mb-0">Start Typing Product Name...</p>
+                          )}
+                          {!loading && search_key.length < 3 && search_key.length > 0 && (
+                            <p className="mb-0">Please enter at least 3 characters...</p>
+                          )}
+                          {!loading && search_key !== "" && search_key.length > 2 && products.length == 0 && searchCategories.length == 0 && (
                             <p className="mb-0">No Products found!</p>
                           )}
-                          {!loading && products.length > 0 && (
-                            <ul>
-                              {products.map((item, index) => {
-                                return (
-                                  <li
-                                    key={`mp_${index}`}
-                                    onClick={() =>
-                                      handleAutocompleteClick(item)
-                                    }
-                                    title={`${item.product_name} - ${item.description}`}
-                                  >
-                                    <i>
-                                      <FontAwesomeIcon icon={faPlus} />
-                                    </i>
-                                    <div>
-                                      <h4>{item.product_name}</h4>
-                                      <p>
-                                        <small>
-                                          <b>{item.category_name} </b> |{" "}
-                                          {item.description}
-                                        </small>
-                                      </p>
-                                    </div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
+                          {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
+                            <>
+                              <p className="text-center fw-bold " style={{ color: "var(--secondary-color)" }}>Select an option from dropdown</p>
+                              <div className="row">
+                                <div className="col-7">
+                                  <div className="container">
+                                    <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Product List</h2>
+                                    <ul>
+                                      {products.map((item, index) => {
+                                        return (
+                                          <li
+                                            key={`mp_${index}`}
+                                            className="ps-2"
+                                            onClick={() =>
+                                              handleAutocompleteClick(item)
+                                            }
+                                            title={`${item.product_name} - ${item.description}`}
+                                          >
+                                            <div>
+                                              <h3>{item.product_name}</h3>
+                                              <p>
+                                                <small>
+                                                  <b>{item.category_name} </b>
+                                                </small>
+                                              </p>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                                <div className="col-5">
+                                  <div className="container">
+                                    <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Category List</h2>
+                                    <ul>
+                                      {searchCategories.map((item, index) => {
+                                        return (
+                                          <li
+                                            key={`search_cat_${index}`}
+                                            onClick={() =>
+                                              getCategoriesById(item.category_id, item.category_name)
+                                            }
+                                            title={`${item.category_name}`}
+                                          >
+                                            <i>
+                                              <FontAwesomeIcon icon={faPlus} />
+                                            </i>
+                                            <div>
+                                              <h3>{item.category_name}</h3>
+                                              <p>
+                                                <small>
+                                                  <b>{item.parent_category_name} </b>
+                                                </small>
+                                              </p>
+                                            </div>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
                           )}
                         </div>
                       )}
@@ -491,7 +707,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
 
-                    <div className="col-md-4 hasNoBlur">
+                    <div className="col-md-3 hasNoBlur">
                       <div className="action-top mb-0">
                         {vabloading && (
                           <select>
@@ -502,6 +718,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           <select
                             name="vab"
                             id="vab"
+                            value={selectedVbaa}
                             onChange={(e) => {
                               localStorage.setItem(
                                 "selected_vab",
@@ -513,24 +730,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <option value="">Vendor Approved By</option>
                             {approved_by &&
                               approved_by.map((item) => {
-                                return (
-                                  <option value={item.id} key={`va_${item.id}`}>
-                                    {item.vendor_approve}
-                                  </option>
-                                );
+                                if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
+                                  return (
+                                    <option value={item.id} key={`va_${item.id}`}>
+                                      {item.vendor_approve}
+                                    </option>
+                                  );
+                                }
                               })}
                           </select>
                         )}
-
-                        <span>
-                          <Link
-                            href="#"
-                            className="btn btn-secondary mt-0 mb-0"
-                            onClick={handleSearch}
-                          >
-                            Search
-                          </Link>
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -670,30 +879,130 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           </div>
         </div>
       </section>
-      <section className="search-sec-2">
+
+      <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
-          {currentSelectedProduct && (
-            <div className=" col-md-12">
-              <div className="search-sec-3-mdl">
+
+          {/* Search Categories Section */}
+          {searchSubCategories.length > 0 && (
+            <div className=" col-md-12 bg-white rounded-5 p-4">
+              <div className="search-sec-3-mdl my-3">
                 <div className="search-sec-3-mdl-con ">
-                  <SearchItem
-                    handleRemoveCurrentSelected={handleRemoveCurrentSelected}
-                    selectedProduct={true}
-                    setbulkRFQProducts={setbulkRFQProducts}
-                    bulkRFQProducts={bulkRFQProducts}
-                    type={type}
-                    key={`product-item-${currentSelectedProduct.id}`}
-                    data={currentSelectedProduct}
-                  />
+                  <div className="container">
+                    <h2 className="fs-3">Sub Categories List</h2>
+                    <div className="parent-categories">
+                      {
+                        mapEntries?.map(([category_id, category_name], index) => {
+                          const isLastItem = index === mapEntries?.size - 1;
+                          return (
+                            <p
+                              role="button"
+                              key={category_id}
+                              className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
+                              onClick={() => {
+                                categoryLvlRef.current = new Map(mapEntries.slice(0, index + 1));
+                                getCategoriesById(category_id, category_name)
+                              }}
+                            >
+                              {category_name}
+                              <span className="ms-1">{!isLastItem ? " > " : ""}</span>
+                            </p>
+                          );
+                        })
+                      }
+                    </div>
+                    {loading && !currentSelectedProduct && <FullLoader />}
+                    {!loading && searchSubCategories.length <= 1 && productsList.length == 0
+                      ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
+                      : searchSubCategories.map((item) => {
+                        if (!categoryLvlRef.current.has(item.id)) {
+                          return (
+                            <p
+                              role="button"
+                              key={item.id}
+                              className="badge text-bg-primary mx-1 px-3 py-2 "
+                              onClick={() => getCategoriesById(item.id, item.title)}
+                            >
+                              {item.title}
+                            </p>
+                          )
+                        }
+                      })}
+
+                    {productsList.length > 0 && (
+                      <>
+                        <h2 className="fs-3 mt-4">Product List</h2>
+                        <div className="row">
+                          {productsList.map((item, index) => {
+                            return (
+                              <div className="col-md-6 col-lg-4">
+                                <p
+                                  role="button"
+                                  key={`srch_prod_${index}`}
+                                  className={`border border-2 rounded-3 px-3 py-2 ${item.product_name == (tempProdRef.current?.product_name || currentSelectedProduct?.product_name) ? "bg-success border-success text-white" : ""}`}
+
+                                  onClick={() => handleAutocompleteClick(item)}
+                                >
+                                  {item.product_name}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Product Price Stats Section */}
+          {isLoggedIn && currentSelectedProduct && showInsights && (
+            <div className=" col-md-12 bg-white rounded-5 p-4">
+              <div className="search-sec-3-mdl mt-2 mb-0">
+                <div className="search-sec-3-mdl-con ">
+                  <div className="container">
+                    <h2 className="fs-3">
+                      Product Insight{"  "}
+                      <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
+                    </h2>
+                    <ProductOverview data={currentSelectedProduct} setShowInsights={setShowInsights} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
-                  <h4>Filter</h4>
+                  <h2 className="fs-5">Filter</h2>
+                  <div className="search-con-right-1">
+                    <p>Vendors</p>
+                    <Select
+                      options={optionVendors}
+                      onChange={handleChange}
+                      placeholder="Choose a filter option"
+                      value={selectedOption} // Bind selected option to value prop
+                    />
+
+                    {/* Display clear link if any filter is active */}
+                    {(is_private || preferred_vendor) && (
+                      <Link
+                        href="#"
+                        className="clearFilter"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          clearVendorFilters();
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimesCircle} /> clear
+                      </Link>
+                    )}
+                  </div>
                   <div className="search-con-right-1">
                     <p>Location</p>
                     {selectedState != 0 && (
@@ -708,43 +1017,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         <FontAwesomeIcon icon={faTimesCircle} /> clear
                       </Link>
                     )}
-                    <select
-                      onChange={(e) => {
-                        if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
-                          setOpenAuthModal(true)
-                        else
-                          handleStateChange(e)
-                      }}
-                      value={selectedState}
-                    >
-                      <option value={0}>Select State</option>
-                      {states &&
-                        states.map((item) => {
-                          return (
-                            <option key={item.id} value={item.id}>
-                              {item.state_name}
-                            </option>
-                          );
-                        })}
-                    </select>
+
                     <div className="hasFullLoader">
-                      {citiesLoading && <FullLoader />}
-                      <select
-                        onChange={(e) => handleCityChange(e)}
-                        value={selectedCity}
-                        className="mt-2"
-                      >
-                        <option value={0}>Select City</option>
-                        {cities &&
-                          cities.map((item) => {
-                            return (
-                              <option key={item.id} value={item.id}>
-                                {item.city_name}
-                              </option>
-                            );
-                          })}
-                      </select>
+                      <LocationFilter
+                        selectedState={selectedState}
+                        setselectedState={setselectedState}
+                        selectedCity={selectedCity}
+                        setselectedCity={setselectedCity}
+                        vendorMetaData={vendorMetaData}
+                        setOpenAuthModal={setOpenAuthModal}
+                      />
                     </div>
+
                   </div>
                   <div className="search-con-right-1">
                     <p>Vendor Approved By</p>
@@ -774,11 +1058,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           <option value="">Select Vendor</option>
                           {approved_by &&
                             approved_by.map((item) => {
-                              return (
-                                <option value={item.id} key={`va_${item.id}`}>
-                                  {item.vendor_approve}
-                                </option>
-                              );
+                              if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
+                                return (
+                                  <option value={item.id} key={`va_${item.id}`}>
+                                    {item.vendor_approve}
+                                  </option>
+                                );
+                              }
                             })}
                         </select>
                       )}
@@ -797,7 +1083,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     </div>
                   </div>
 
-                  <div className="search-con-right-1 search-con-right-2">
+                  {/* <div className="search-con-right-1 search-con-right-2">
                     <p>Category</p>
                     {catloading && (
                       <div className="filter-options mt-4">
@@ -819,7 +1105,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <FontAwesomeIcon icon={faTimesCircle} /> clear
                           </Link>
                         )}
-                        {/* <span>Filter by category</span> */}
+
                         <Select
                           className="mt-2"
                           id={id}
@@ -953,7 +1239,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         )}
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </aside>
               </div>
             )}
@@ -961,9 +1247,27 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="row">
                 {currentSelectedProduct && (
                   <div className="col-md-12">
+
+                    {currentSelectedProduct &&
+                      <div className="d-flex align-items-center justify-content-between mb-4 b-2 " >
+                        <h2 className="fs-5">Available Vendors for <span  style={{ fontWeight: '500' }}>{currentSelectedProduct.product_name}</span></h2>
+                        {/* <div className="d-flex justify-content-end"> */}
+                        <div className="col-md-2" >
+                          <input
+                            type="text"
+                            name="vendorName"
+                            value={vendorName}
+                            className="form-control"
+                            placeholder="Search vendors"
+                            onChange={(e) => setVendorName(e.target.value)}
+                          />
+                          {/* </div> */}
+                        </div>
+                      </div>
+                    }
+
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
-                        {currentSelectedProduct && <h4>Available Vendors</h4>}
                         <div className="col-md-2">
                           <label>
                             <input
@@ -974,37 +1278,36 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           </label>
                         </div>
                         <div className="col-md-10">
-                          {userProfile?.subscription_plan_id && (
+                          {vendorMetaData.subscription && (
                             <div className="actions">
-                              {bulkRFQProducts.length > 0 && (
+                              {bulkRFQVendors.length > 0 && (
                                 <Link
                                   href="#"
-                                  className={`btn btn-primary ${!userProfile.subscription_plan_id
-                                    ? `disabled`
-                                    : ``
-                                    }`}
+                                  className={`btn btn-primary ${!vendorMetaData.subscription || isLoading ? 'disabled' : ''}`}
                                   onClick={handleBulkAddToRFQ}
                                 >
-                                  Add To All RFQs
+                                  {isLoading ? 'Adding...' : 'Add Vendors To RFQ'}
                                 </Link>
                               )}
-                              <Link
-                                href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                className={`btn btn-primary ${!userProfile.subscription_plan_id
-                                  ? `disabled`
-                                  : ``
-                                  }`}
-                              >
-                                View All RFQs{" "}
-                                {rfqProductsFromStore.length > 0 && (
-                                  <small style={{ display: "none" }}>
-                                    ({rfqProductsFromStore.length}{" "}
-                                    {`item${rfqProductsFromStore.length > 1 ? "s" : ""
-                                      }`}
-                                    )
-                                  </small>
-                                )}
-                              </Link>
+                              {(isLoading || !vendorMetaData.subscription) ? (
+                                <span
+                                  className="btn btn-primary disabled"
+                                  role="button"
+                                  aria-disabled="true"
+                                  tabIndex="-1"
+                                >
+                                  View Current RFQ{" "}
+                                </span>
+                              ) : (
+                                <Link
+                                  href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                                  className="btn btn-primary"
+                                  role="button"
+                                >
+                                  View Current RFQ{" "}
+                                </Link>
+                              )}
+
                             </div>
                           )}
                         </div>
@@ -1013,43 +1316,51 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     <hr />
 
+                    {loading && <FullLoader />}
+
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
-                        {!loading && vendors.length == 0 && (
-                          <p className="text-center pt-4">
-                            No vendors found. Please modify your search
-                          </p>
-                        )}
+                        {!loading && vendors.length == 0 &&
+                          (
+                            debouncedVendorName ?
+                              <a
+                                className="text-center pt-4"
+                                href="/dashboard/buyer/vendor-management/?newVendor=true"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {`Add "${debouncedVendorName}" to your vendor list Immediately`}
+                              </a>
+                              :
+                              <h2 className="fs-5">
+                                <b>No Vendors Found</b>
+                              </h2>
+
+                          )
+                        }
                         {vendors &&
                           vendors.map((item) => {
                             return (
                               <SearchItem
-                                handleRemoveCurrentSelected={
-                                  handleRemoveCurrentSelected
-                                }
-                                currentSelectedProduct={currentSelectedProduct}
-                                setbulkRFQProducts={setbulkRFQProducts}
-                                bulkRFQProducts={bulkRFQProducts}
                                 type={"vendors"}
-                                key={`product-item-${item.id}`}
                                 data={item}
                                 vendorMetaData={vendorMetaData}
                                 setOpenAuthModal={setOpenAuthModal}
+                                addToRFQ={addToRFQ}
                               />
                             );
                           })}
                       </div>
 
-                      {(!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
+                      {!loading && (!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
                         <div className="container text-center my-4 ">
-                          {/* <p>Total Vendors Found - {vendorMetaData?.total}</p> */}
                           <button
                             type="button"
                             className="btn btn-primary w-50"
                             onClick={handleRedirect}
                           >
-                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 && vendorMetaData?.total} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 && vendorMetaData?.total} more Vendors`}
+                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more Vendors`}
                           </button>
                         </div>
                       }
@@ -1058,10 +1369,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 )}
                 {!currentSelectedProduct && (
                   <div className="col-md-12 hasblankpadding">
-                    <h4 className="text-center">
+                    <h2 className="fs-5 text-center">
                       <b>Search & Select a product</b>
                       <br /> to see the available vendors!
-                    </h4>
+                    </h2>
                   </div>
                 )}
               </div>
@@ -1070,21 +1381,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         </div>
 
         {/* ------------- Auth Modal ------------- */}
-        <AuthModal
-          showModal={openAuthModal}
-          closeModal={() => {
-            setOpenAuthModal(false);
-          }}
-          activeTab={activeAuthTab}
-          setActiveTab={handleChange(setActiveAuthTab)}
-          setIsLoggedIn={setIsLoggedIn}
+        <LoginContainer
           loading={loading}
+          setloading={setloading}
+          openAuthModal={openAuthModal}
           setOpenAuthModal={setOpenAuthModal}
-        />
-        <LoginWithOtherDeviceModal
-          show={showModal}
-          onHide={handleClose}
-          loginWith={loginWith}
+          activeAuthTab={activeAuthTab}
+          setActiveAuthTab={setActiveAuthTab}
         />
 
       </section>

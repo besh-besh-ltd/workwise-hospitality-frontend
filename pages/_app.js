@@ -22,7 +22,8 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Providers } from "@/redux/provider";
 import LogRocket from 'logrocket';
 import storageInstance from "@/utils/storageInstance";
-
+import Script from "next/script";
+import Head from "next/head";
 
 
 // Tell Font Awesome to skip adding the CSS automatically
@@ -36,20 +37,22 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => {
 
-    // record user session
-    if (!isLogRocketInitialized.current) {
-      LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
-        dom: {
-          inputSanitizer: true, // Mask input fields
-        },
-      });
-      isLogRocketInitialized.current = true;
+    // initialize log rocket only in prod mode
+    if (process.env.NEXT_PUBLIC_ENV === 'production') {
+      // Identify user if available
+      const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
+      LogRocket.identify(userId);
+
+      // record user session
+      if (!isLogRocketInitialized.current) {
+        LogRocket.init(process.env.NEXT_PUBLIC_LOG_ROCKET_KEY, {
+          dom: {
+            inputSanitizer: true, // Mask input fields
+          },
+        });
+        isLogRocketInitialized.current = true;
+      }
     }
-
-    // Identify user if available
-    const userId = storageInstance.getStorage('current-user-name') || 'not_auth_user';
-    LogRocket.identify(userId);
-
 
     const handleStart = () => setLoading(true);
     const handleComplete = () => {
@@ -72,13 +75,34 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
-      <ToastContainer />
+      {/* Only load Google tag managerin production */}
+      <Head />
+
+      <ToastContainer style={{ zIndex: 10000 }} />
       {loading && <Loader />}
       <Providers>
         <GoogleOAuthProvider clientId="866474332918-fi599o8btdrikvi9ieq7pqksngvh2mlv.apps.googleusercontent.com">
           <Layout>
+            {/* Only load Google Analytics and tag manager script in production */}
+            {process.env.NEXT_PUBLIC_ENV == 'production' && (
+              <>
+                <Script
+                  async
+                  src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID}`}
+                ></Script>
+
+                <Script id='google-analytics'> {`
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('js', new Date());
+                    gtag('config', '${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_MEASUREMENT_ID}');
+                  `}
+                </Script>
+              </>
+            )}
 
             <Component {...pageProps} />
+
           </Layout>
         </GoogleOAuthProvider>
       </Providers>

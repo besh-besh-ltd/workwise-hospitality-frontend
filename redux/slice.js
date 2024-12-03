@@ -1,24 +1,26 @@
 const { createSlice } = require("@reduxjs/toolkit");
+import { getFuturedate } from "@/utils/sharedFunctions";
 
 const initialState = {
-  swSubscription: null,
+  storeLoading: false,
   allTerms: [],
+  rfq_id: -1,
   rfqProducts: [],
-  rfqVendors: [],
   rfqFormData: {
-    is_published: 1,
+    is_published: 0,
     comment: "",
     response_email: "",
     contact_name: "",
     contact_number: "",
-    location: "",
-    bid_end_date: "",
     company_name: "",
-  },
-  rfqObjData: {
     terms: [],
-    ownTerm: "",
-  },
+    term_and_condition_files: [],
+    bid_end_date: getFuturedate(),
+    rfq_type: "",
+    reverse_auction: 1,
+    project_id: -1,
+    location: "",
+  }
 };
 
 Array.prototype.insert = function (index, ...items) {
@@ -29,97 +31,121 @@ export const rfqProductsSlice = createSlice({
   name: "rfqProducts",
   initialState,
   reducers: {
+
+    intializeRfq: (state, action) => {
+      state.rfq_id = action.payload.rfq_id;
+      state.rfqFormData = action.payload.rfq_form_data;
+      state.rfqProducts = action.payload.rfq_products;
+    },
+
+    setStoreLoading: (state, action) => {
+      state.storeLoading = action.payload;
+    },
+
+    clearState: (state, action) => {
+      return initialState;
+    },
+
     addRfqProduct: (state, action) => {
-      console.log("PAYLOAD RFQ ADD", action.payload)
-      let alreadyExistsProduct = state.rfqProducts.filter(
-        (item) => item.product_id == action.payload.product_id
-      );
       let data = {
         product_id: action.payload.product_id,
+        // fix here
+        datasheet: "",
+        qap: "",
         predefined_tds_file: action.payload.pd_tds_file_url ? action.payload.pd_tds_file_url : "",
         predefined_qap_file: action.payload.pd_qap_file_url ? action.payload.pd_qap_file_url : "",
         name: action.payload.product_name,
         variant: action.payload.variant ? action.payload.variant : 0,
         spec: [
-          {
-            title: "Size",
-            value: "",
-          },
-          {
-            title: "Spec",
-            value: "",
-          },
-          {
-            title: "Quantity",
-            value: "",
-          },
-          {
-            title: "Unit",
-            value: "",
-          },
+          { title: "Size", value: "" },
+          { title: "Spec", value: "" },
+          { title: "Quantity", value: "" },
+          { title: "Unit", value: "" },
         ],
         vendors: [],
         comment: "",
         defaultSelectedVAB: "",
-        datasheet: "0",
-        datasheet_file: "",
-        spec_file: "",
-        qap: "0",
-        qap_file: "",
+        datasheet_file: [],
+        spec_file: [],
+        qap_file: [],
         user_selected_predefined_tds: false,
         user_selected_predefined_qap: false,
       };
-      if (true) {
-        // removing condition for varient integration [ranit 27-05-24] alreadyExistsProduct.length <= 0
-        data.variant = alreadyExistsProduct.length;
-        data.vendors = action.payload?.vendors?.length > 0 ? action.payload?.vendors : [];
-        state.rfqProducts.push(data)
-        // state.rfqProducts.push(data);
+
+      // Changes made by Imtiaj [28/08/2024]
+      let alreadyExistsProducts = state.rfqProducts.filter(
+        (item) => item.product_id == action.payload.product_id
+      );
+
+      let maxVariant = 0;
+      if (alreadyExistsProducts.length > 0) {
+        const maxVariantProduct = alreadyExistsProducts.reduce((max, product) => {
+          return (product.variant > max.variant) ? product : max;
+        })
+        maxVariant = parseInt(maxVariantProduct?.variant) + 1;
       }
+
+      data.variant = maxVariant;
+      data.vendors = action.payload.vendors || [];
+      state.rfqProducts.push(data)
     },
 
     removeRfqProduct: (state, action) => {
-      console.log(state.rfqProducts);
-
-      let remainingProducts = state.rfqProducts.filter((pitem) => {
-        if (
-          pitem.product_id == action.payload.product_id &&
-          pitem.variant == action.payload.variant
-        ) {
-
-        } else {
-          return pitem;
-        }
-      });
-      state.rfqProducts = remainingProducts;
+      const updatedProductList = state.rfqProducts.filter(
+        (pitem) => {
+          if (pitem.product_id === action.payload.product_id &&
+            pitem.variant === action.payload.variant) {
+            // Exclude this product
+          }
+          else return pitem;
+        });
+      state.rfqProducts = updatedProductList;
     },
 
     addProductSpecValue: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          if (item.spec.length > 0) {
-            item.spec.map((specItem) => {
-              if (specItem.title == action.payload.title) {
-                specItem.value = action.payload.value;
-              }
-              return specItem;
-            });
+          if (!item.spec) {
+            item.spec = [
+              { title: "Size", value: "" },
+              { title: "Spec", value: "" },
+              { title: "Quantity", value: "" },
+              { title: "Unit", value: "" },
+            ];
           }
+          item.spec.map((specItem) => {
+            if (specItem.title == action.payload.title) {
+              specItem.value = action.payload.value;
+            }
+            return specItem;
+          });
         }
         return item;
       });
       state.rfqProducts = d;
     },
+
     addFiles: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item[action.payload.type] = action.payload.value;
+          item[action.payload.type].push(action.payload.value);
         }
         return item;
       });
       state.rfqProducts = d;
     },
-    addComment: (state, action) => {
+
+    removeFiles: (state, action) => {
+      let d = state.rfqProducts.map((item) => {
+        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
+          item[action.payload.type] = item[action.payload.type].filter((file_link) => file_link !== action.payload.value)
+        }
+        return item;
+      });
+      state.rfqProducts = d;
+    },
+
+    addProductComment: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
           item.comment = action.payload.value;
@@ -128,27 +154,23 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
-    addDatasheet: (state, action) => {
-      let d = state.rfqProducts.map((item) => {
-        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item.datasheet = action.payload.value;
-        }
-        return item;
-      });
-      state.rfqProducts = d;
-    },
-    addQAP: (state, action) => {
-      let d = state.rfqProducts.map((item) => {
-        if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
-          item.qap = action.payload.value;
-        }
-        return item;
-      });
-      state.rfqProducts = d;
-    },
+
     addVendor: (state, action) => {
+      // Changes made by Imtiaj [31/08/2024]
+      let alreadyExistsProducts = state.rfqProducts.filter(
+        (item) => item.product_id == action.payload.product_id
+      );
+
+      let maxVariant = 0;
+      if (alreadyExistsProducts.length > 0) {
+        const maxVariantProduct = alreadyExistsProducts.reduce((max, product) => {
+          return (product.variant > max.variant) ? product : max;
+        })
+        maxVariant = parseInt(maxVariantProduct?.variant);
+      }
+
       let d = state.rfqProducts.map((item) => {
-        if (item.product_id == action.payload.product_id) {
+        if (item.product_id == action.payload.product_id && item.variant == maxVariant) {
           if (item.vendors.length > 0) {
             let existsVendor = item.vendors.filter((vendor) => {
               if (vendor.user_id == action.payload.id) {
@@ -173,30 +195,58 @@ export const rfqProductsSlice = createSlice({
       });
       state.rfqProducts = d;
     },
-    setRfqFormData: (state, action) => {
-      state.rfqFormData = action.payload;
-    },
-    clearState: (state, action) => {
-      state.rfqFormData = initialState.rfqFormData;
-      state.rfqProducts = initialState.rfqProducts;
-      state.rfqVendors = initialState.rfqVendors;
-    },
-    setSwSubscription: (state, action) => {
-      state.swSubscription = action.payload;
-    },
+
     removeVendor: (state, action) => {
-      if (action?.payload?.product_id) {
-        
+      if (action.payload?.product_id) {
         let updatedProducts = state.rfqProducts.map((product) => {
-          if(product.product_id == action.payload.product_id && product.variant == action.payload.variant) {
+          if (product.product_id == action.payload.product_id && product.variant == action.payload.variant) {
             let v = product.vendors.filter((vendor) => vendor.user_id != action.payload.vendor_id);
             product.vendors = v;
-          }          
+          }
           return product;
         });
         state.rfqProducts = updatedProducts;
       }
     },
+
+    setAllTerms: (state, action) => {
+      let updatedTerms = action.payload.map((termData) => {
+        let checked = state.rfqFormData.terms.some((item) => item.id == termData.id);
+        return { ...termData, selected: checked }
+      })
+      state.allTerms = updatedTerms;
+    },
+
+    setTermsData: (state, action) => {
+      let d = state.allTerms.map((termData) => {
+        let checked = action.payload.some((selectedTerm) => selectedTerm.id == termData.id);
+        termData.selected = checked;
+        return termData;
+      })
+      state.allTerms = d;
+      state.rfqFormData.terms = action.payload;
+    },
+
+    setTermFiles: (state, action) => {
+      let updatedTermFiles = [];
+      if (action.payload.type === "add") {
+        updatedTermFiles = [...state.rfqFormData.term_and_condition_files, action.payload.value]
+      }
+      else {
+        updatedTermFiles = state.rfqFormData.term_and_condition_files.filter((file) => file != action.payload.value);
+      }
+      state.rfqFormData.term_and_condition_files = updatedTermFiles;
+    },
+
+    setOtherFormFields: (state, action) => {
+      const { field_name, value } = action.payload;
+      state.rfqFormData[field_name] = value;
+    },
+
+    setSwSubscription: (state, action) => {
+      state.swSubscription = action.payload;
+    },
+
     setDefaultVAB: (state, action) => {
       if (action?.payload?.product_id) {
         let updatedProducts = state.rfqProducts.map((product) => {
@@ -209,22 +259,7 @@ export const rfqProductsSlice = createSlice({
         state.rfqProducts = updatedProducts;
       }
     },
-    setCustomTerms: (state, action) => {
-      state.rfqObjData.terms = action.payload;
-    },
-    setCustomTermsText: (state, action) => {
-      state.rfqObjData.ownTerm = action.payload;
-      state.rfqFormData.comment = action.payload
-    },
-    setLocation: (state, action) => {
-      state.rfqFormData.location = action.payload
-    },
-    setBidEndDate: (state, action) => {
-      state.rfqFormData.bid_end_date = action.payload
-    },
-    setAllTerms: (state, action) => {
-      state.allTerms = action.payload
-    },
+
     setUserSelectedDefaultFile: (state, action) => {
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
@@ -234,14 +269,6 @@ export const rfqProductsSlice = createSlice({
           } else {
             item.user_selected_predefined_qap = action.payload.is_selected;
           }
-          // if (item.spec.length > 0) {
-          //   item.spec.map((specItem) => {
-          //     if (specItem.title == action.payload.title) {
-          //       specItem.value = action.payload.value;
-          //     }
-          //     return specItem;
-          //   });
-          // }
         }
         return item;
       });
@@ -249,27 +276,26 @@ export const rfqProductsSlice = createSlice({
     },
   },
 });
+
 export const {
+  intializeRfq,
+  setStoreLoading,
+  clearState,
   addRfqProduct,
-  addProductSpec,
+  removeRfqProduct,
   addProductSpecValue,
   addFiles,
-  addComment,
-  addDatasheet,
+  removeFiles,
+  addProductComment,
   addVendor,
-  setRfqFormData,
-  clearState,
-  addQAP,
-  removeRfqProduct,
-  setSwSubscription,
   removeVendor,
-  setDefaultVAB,
-  setCustomTerms,
-  setCustomTermsText,
-  setLocation,
-  setBidEndDate,
   setAllTerms,
-  setUserSelectedDefaultFile
+  setTermsData,
+  setTermFiles,
+  setOtherFormFields,
+  setSwSubscription,
+  setDefaultVAB,
+  setUserSelectedDefaultFile,
 } = rfqProductsSlice.actions;
 
 export default rfqProductsSlice.reducer;

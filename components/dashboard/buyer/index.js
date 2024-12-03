@@ -125,7 +125,13 @@ const BuyerPage = () => {
 
   useEffect(() => {
     setloading(true);
-    getDashboardData()
+    getDashboardData({
+      project_id: -1,
+      rfq_type: "",
+      reverse_auction: "-1",
+      sort: "DESC",
+      page: 1
+    })
       .then((res) => {
         setloading(false);
         setDashboardData(res.data);
@@ -164,8 +170,8 @@ const BuyerPage = () => {
       if (item.notification_type == "new_quote_received") {
         return `You've received a new quotation on RFQ #${item.rfq_no}`;
       } else if (item.notification_type == "rfq_created") {
-        return `You've created a new RFQ #${item.rfq_no} and shared with the buyers!`;
-      } 
+        return `You've created a new RFQ #${item.rfq_no} and shared it with the vendors!`;
+      }
     }
   };
 
@@ -304,44 +310,44 @@ const BuyerPage = () => {
               </div>
             </div>
           </div>
-          <section className="vendor-sec-1"> 
-            <div className="container-fluid" style={{marginTop:0, paddingTop:0,paddingLeft:0}}>        
+          <section className="vendor-sec-1">
+            <div className="container-fluid" style={{marginTop:0, paddingTop:0,paddingLeft:0}}>
               <div className="row">
                 <div className="col-md-4 hasFullLoader">
-                    {loading && <FullLoader />}
-                    <div className="recent-activity">
-                      <div className="recent-activity-top">
-                        <h4>Latest Activity</h4>
-                      </div>
-                      <div className="recent-activity-bottom">
-                        {dashboardData?.notificaiton_data?.length > 0 ? (
-                          <ul>
-                            {dashboardData?.notificaiton_data.map((item) => {
-                              return (
-                                <li>
-                                  <h5>
-                                    <p>{get_notification_title(item, "title")}</p>
-                                    <span>
-                                      <div className="badge badge-primary">
-                                        {moment(item.readable_date_time).format(
-                                          "D MMMM, YYYY on HH:mm:ss A"
-                                        )}
-                                      </div>
-                                    </span>
-                                  </h5>
-                                  <p>{get_notification_title(item, "description")}</p>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : (
-                          <p>No Reviews Yet!</p>
-                        )}
-                      </div>
+                  {loading && <FullLoader />}
+                  <div className="recent-activity">
+                    <div className="recent-activity-top">
+                      <h4>Latest Activity</h4>
+                    </div>
+                    <div className="recent-activity-bottom">
+                      {dashboardData?.notificaiton_data?.length > 0 ? (
+                        <ul>
+                          {dashboardData?.notificaiton_data.map((item) => {
+                            return (
+                              <li>
+                                <h5>
+                                  <p>{get_notification_title(item, "title")}</p>
+                                  <span>
+                                    <div className="badge badge-primary">
+                                      {moment(item.readable_date_time).format(
+                                        "D MMMM, YYYY on HH:mm:ss A"
+                                      )}
+                                    </div>
+                                  </span>
+                                </h5>
+                                <p>{get_notification_title(item, "description")}</p>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <p>No Reviews Yet!</p>
+                      )}
                     </div>
                   </div>
+                </div>
               </div>
-            </div>  
+            </div>
           </section>
 
           {/* <div className="buy-stats">

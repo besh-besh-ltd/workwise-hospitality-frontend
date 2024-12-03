@@ -370,17 +370,16 @@ const EditProductReview = () => {
   }, [id]);
   return (
     <>
-      <ToastContainer />
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
           <h1 className="heading">Product Management</h1>
-          <Link
+          {/* <Link
             href="/dashboard/vendor/product-review"
             className="page-link backBtn"
           >
             {" "}
             <FontAwesomeIcon icon={faArrowLeft} /> Go back
-          </Link>
+          </Link> */}
         </div>
       </section>
 

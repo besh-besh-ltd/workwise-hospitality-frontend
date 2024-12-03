@@ -32,21 +32,21 @@ const Subscription = () => {
     }
 
     const options = {
-      key: "rzp_test_dqkSkuFKnzKXKO",
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
       order_id: orderId, // This is Api key. you will get it from razorpay dashboard > account and settings > API keys
       // amount: parseInt(amount * 100),
       currency: "INR", // your 3 letter currency code
       name: "Workwise", // project or transaction name
-      description: "Test Transaction",
-      image: "https://avatars.githubusercontent.com/u/76506184?v=4", // your project logo
+      description: "Workwise Subscription",
+      image: "/assets/images/logo.png",
       handler: function (response) {
         // console.log("response", response);
         navigate.push(`/dashboard/buyer/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff
       },
       prefill: {
-        name: "Workwise ",
-        email: "test@gmail.com",
-        contact: "998",
+        name: "Workwise",
+        email: "",
+        contact: "",
       },
       notes: {
         address: "India",

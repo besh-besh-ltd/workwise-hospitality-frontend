@@ -1,12 +1,5 @@
 "use client";
-import AuthModal from "@/components/modal/AuthModal";
-import LoginWithOtherDeviceModal from "@/components/modal/LoginWithOtherDeviceModal";
-import {
-  LoginService,
-  SWSubscribe,
-  getUserDetails,
-  handleSocialLogin,
-} from "@/services/Auth";
+import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
 import { faBell, faUser } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
@@ -17,8 +10,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
-import { useGoogleLogin } from "@react-oauth/google";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
 
 const initialMainNavs = [
   "/",
@@ -31,12 +23,14 @@ const initialMainNavs = [
   "/privacypolicy",
   "/terms-of-use",
   "/products",
+  "/dashboard/vendor/inquiries-details",
+  "/dashboard/buyer/rfq-management-vendor/vendor-profile"
 ];
 
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { type, user_registered, redirect } = router.query;
+  const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [sticky, setSticky] = useState("");
@@ -44,21 +38,10 @@ const Header = () => {
   const [popoverVisible, setPopoverVisible] = useState(false);
   const popoverRef = useRef(null);
   const [loggedinUser, setLoggedinUser] = useState(null);
-  const [currentUserType, setcurrentUserType] = useState("buyer");
+  const [currentUserType, setcurrentUserType] = useState("vendor");
   const [loading, setloading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginWith, setLoginWith] = useState("");
   const [mainNavs, setMainNavs] = useState(initialMainNavs);
 
-  const handleClose = () => {
-    setShowModal(false);
-    setLoginWith("");
-  };
-  const handleOtherDeviceLoginModalOpen = () => {
-    setShowModal(true);
-  };
   const togglePopover = () => {
     setPopoverVisible(!popoverVisible);
   };
@@ -77,6 +60,7 @@ const Header = () => {
     setMenuClass(false);
   }, [router]);
   useEffect(() => {
+    setUserDetails();
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -104,7 +88,7 @@ const Header = () => {
     handleChange(setSticky(stickyClass));
   };
 
-  useEffect(() => {
+  const setUserDetails = () => {
     const user = getUserDetails();
     if (user?.name) {
       setLoggedinUser(user);
@@ -112,20 +96,31 @@ const Header = () => {
       setLoggedinUser(null);
     }
     setcurrentUserType(storageInstance.getStorage("current-user-type"));
+  }
 
+  useEffect(() => {
+    setUserDetails();
     if (user_registered == 1) {
       toast.success("Now login to get started!");
       handleChange(setActiveAuthTab("login"));
       handleChange(setOpenAuthModal(true));
     }
 
-    if (localStorage.getItem('token')) {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
+    if (localStorage.getItem('token') || loggedin == 'true') {
+      let revisedNavs = mainNavs.filter((navItem) =>
+        navItem != "/products" &&
+        navItem != "/dashboard/vendor/inquiries-details" &&
+        navItem != "/dashboard/buyer/rfq-management-vendor/vendor-profile");
       setMainNavs(revisedNavs);
     }
-    else if (pathname === '/products') {
-      let revisedNavs = mainNavs.filter((navItem) => navItem != "/products");
-      revisedNavs.push('/products');
+    else {
+      let revisedNavs = mainNavs.filter((navItem) => (navItem != "/products" || navItem != "/dashboard/vendor/inquiries-details"));
+      if (pathname === '/products') {
+        revisedNavs.push('/products');
+      }
+      else if (pathname.includes("/dashboard/vendor/inquiries-details")) {
+        revisedNavs.push("/dashboard/vendor/inquiries-details");
+      }
       setMainNavs(revisedNavs)
     }
 
@@ -135,154 +130,12 @@ const Header = () => {
   const handleLogout = (e) => {
     e.preventDefault();
     storageInstance.removeStorege("token");
-    //storageInstance.removeStorege("current-user-type");
+    storageInstance.removeStorege("current-user-type");
     setPopoverVisible(false);
+    setLoggedinUser(null);
+    setMainNavs(initialMainNavs);
     router.push("/");
   };
-
-  const swSubscription = useSelector((data) => data.swSubscription);
-
-  // const loginSubmitHandler = (values, isFromOtherModal = false) => {
-  //   setloading(true);
-  //   LoginService(values, isFromOtherModal)
-  //     .then((response) => {
-  //       if (isFromOtherModal) {
-  //         handleClose();
-  //       }
-  //       // subscribe to SW
-  //       SWSubscribe({ subscription: swSubscription, token: response.token })
-  //         .then((res) => {
-  //           console.log("PUSH SENT");
-  //         })
-  //         .catch((err) => { });
-  //       setloading(false);
-  //       toast.success(response.message, {
-  //         position: "top-center",
-  //       });
-
-  //       let userType = "";
-  //       if (response.user_detail[0].user_type == 2) {
-  //         userType = "buyer";
-  //       } else if (response.user_detail[0].user_type == 3) {
-  //         userType = "vendor";
-  //       } else if (response.user_detail[0].user_type == 4) {
-  //         userType = "other";
-  //       }
-  //       storageInstance.setStorage("current-user-type", userType);
-
-  //       handleChange(setOpenAuthModal(false));
-  //       if (redirect && redirect != "") {
-  //         router.push(window.atob(redirect));
-  //         return;
-  //       } else {
-  //         if (userType == "buyer") {
-  //           router.push(`/products`);
-  //         } else {
-  //           router.push(`/dashboard/${userType}`);
-  //         }
-  //       }
-  //       //router.push(`/dashboard`);
-  //     })
-  //     .catch((error) => {
-  //       setloading(false);
-  //       if (
-  //         error?.message?.response?.status === 400 &&
-  //         error?.message?.response?.data?.status === 4
-  //       ) {
-  //         toast.error(error?.message?.response?.data?.message, {
-  //           position: "top-center",
-  //         });
-  //         setTimeout(() => {
-  //           handleChange(setOpenAuthModal(false));
-  //         }, 2000);
-
-  //         setTimeout(() => {
-  //           setLoginWith("email");
-  //           handleOtherDeviceLoginModalOpen();
-  //         }, 1000);
-  //       } else if (error?.message?.response?.data) {
-  //         toast.error(error?.message?.response?.data?.message, {
-  //           position: "top-center",
-  //         });
-  //       }
-
-  //       if (error?.response?.status === 400) {
-  //       } else {
-  //         toast.error(error?.message, {
-  //           position: "top-center",
-  //         });
-  //       }
-  //     });
-  // };
-
-  // const loginWithGoogle = useGoogleLogin({
-  //   onSuccess: (tokenResponse) => {
-  //     handleSocialLogin(
-  //       {
-  //         login_type: "google",
-  //         access_token: tokenResponse.access_token,
-  //       },
-  //       loginWith ? true : false
-  //     )
-  //       .then((response) => {
-  //         if (loginWith === "google") {
-  //           handleClose();
-  //         }
-  //         // subscribe to SW
-  //         SWSubscribe({ subscription: swSubscription, token: response.token })
-  //           .then((res) => {
-  //             console.log("PUSH SENT");
-  //           })
-  //           .catch((err) => { });
-  //         setloading(false);
-  //         toast.success(response.message, {
-  //           position: "top-center",
-  //         });
-  //         console.log(response, "response *");
-  //         console.log(response?.profile?.user_type, "response type *");
-
-  //         let userType = "";
-  //         if (response?.profile?.user_type == 2) {
-  //           userType = "buyer";
-  //         } else if (response?.profile?.user_type == 3) {
-  //           userType = "vendor";
-  //         }
-  //         storageInstance.setStorage("current-user-type", userType);
-  //         handleChange(setOpenAuthModal(false));
-  //         if (userType == "buyer") {
-  //           router.push(`/products`);
-  //         } else {
-  //           router.push(`/dashboard/${userType}`);
-  //         }
-  //       })
-  //       .catch((error) => {
-  //         setloading(false);
-  //         if (
-  //           error?.message?.response?.status === 400 &&
-  //           error?.message?.response?.data?.status === 4
-  //         ) {
-  //           toast.error(error?.message?.response?.data?.message, {
-  //             position: "top-center",
-  //           });
-  //           setTimeout(() => {
-  //             handleChange(setOpenAuthModal(false));
-  //           }, 2000);
-
-  //           setTimeout(() => {
-  //             setLoginWith("google");
-  //             handleOtherDeviceLoginModalOpen();
-  //           }, 1000);
-  //         } else if (error?.message?.response?.data) {
-  //           toast.error(error?.message?.response?.data?.message, {
-  //             position: "top-center",
-  //           });
-  //         }
-  //       });
-  //   },
-  //   onError: (error) => {
-  //     setloading(false);
-  //   },
-  // });
 
   return (
     <>
@@ -292,7 +145,7 @@ const Header = () => {
         <div className="container-fluid">
           <div className="header-container">
             <div className="logo">
-              <Link href="/">
+              <Link href={loggedinUser ? currentUserType === "vendor" ? "/dashboard/vendor" : "/dashboard/buyer" : "/"}>
                 <Image
                   src="/assets/images/logo.png"
                   alt="Workwise"
@@ -304,7 +157,7 @@ const Header = () => {
             </div>
             {/* for Login Users only */}
 
-            {mainNavs.includes(pathname) && (
+            {(mainNavs.includes(pathname) || (!loggedinUser && pathname?.startsWith("/vendor"))) && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   <nav className="main-menu">
@@ -358,7 +211,7 @@ const Header = () => {
                         <Link href="/contactus">Contact Us</Link>
                       </li>
 
-                      <li
+                      {/* <li
                         className={
                           router.pathname == "/login" ? "active login" : "login"
                         }
@@ -373,7 +226,7 @@ const Header = () => {
                         }
                       >
                         <Link href="/register">Register</Link>
-                      </li>
+                      </li> */}
                     </ul>
                   </nav>
 
@@ -554,7 +407,7 @@ const Header = () => {
                               router.pathname == "/products" ? "active " : ""
                             }
                           >
-                            <Link href="/products">Search Vendor</Link>
+                            <Link href="/vendor/all">Search Vendor</Link>
                           </li>
 
                           <li
@@ -583,7 +436,7 @@ const Header = () => {
                             </Link>
                           </li>
 
-                          <li
+                          {/* <li
                             className={
                               router.pathname == "/dashboard/buyer/subscription"
                                 ? "active"
@@ -593,7 +446,7 @@ const Header = () => {
                             <Link href="/dashboard/buyer/subscription">
                               Subscription
                             </Link>
-                          </li>
+                          </li> */}
 
                           {/* <li
 														className={
@@ -640,7 +493,7 @@ const Header = () => {
                               router.pathname == "/products" ? "active " : ""
                             }
                           >
-                            <Link href="/products">Search Vendor</Link>
+                            <Link href="/vendor/all">Search Vendor</Link>
                           </li>
 
                           <li
@@ -901,7 +754,7 @@ const Header = () => {
                             Edit Profile
                           </Link>
                         </li>
-                        {currentUserType === "other" && (
+                        {/* {currentUserType === "other" && (
                           <li
                             className={
                               router.pathname ==
@@ -917,7 +770,7 @@ const Header = () => {
                               Subscription
                             </Link>
                           </li>
-                        )}
+                        )} */}
                         {currentUserType == "vendor" && (
                           <li
                             className={
@@ -933,8 +786,8 @@ const Header = () => {
                           </li>
                         )}
                         {currentUserType == "buyer" && (
-                          <>
-                            <li
+                          <>                            
+                            {/* <li
                               className={
                                 router.pathname ==
                                   `/dashboard/${currentUserType}/rfq-report`
@@ -945,7 +798,7 @@ const Header = () => {
                               <Link href="/dashboard/buyer/rfq-report">
                                 RFQ Report
                               </Link>
-                            </li>
+                            </li> */}
 
                             <li
                               className={
@@ -957,6 +810,18 @@ const Header = () => {
                             >
                               <Link href="/dashboard/buyer/vendor-management">
                                 Vendor Management
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/project-management`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link href="/dashboard/buyer/project-management">
+                                Project Management
                               </Link>
                             </li>
                           </>
@@ -998,30 +863,15 @@ const Header = () => {
           </div>
         </div>
       </header>
+
       {/* ------------- Auth Modal ------------- */}
-      <AuthModal
-        showModal={openAuthModal}
-        closeModal={() => {
-          handleChange(setOpenAuthModal(false));
-        }}
-        activeTab={activeAuthTab}
-        setActiveTab={handleChange(setActiveAuthTab)}
-        // setEmail={setEmail}
-        // setPassword={setPassword}
+      <LoginContainer
         loading={loading}
+        setloading={setloading}
+        openAuthModal={openAuthModal}
         setOpenAuthModal={setOpenAuthModal}
-      // setloading={setloading}
-      // loginSubmitHandler={loginSubmitHandler}
-      // loginWithGoogle={loginWithGoogle}
-      />
-      <LoginWithOtherDeviceModal
-        show={showModal}
-        onHide={handleClose}
-        email={email}
-        password={password}
-        // loginSubmitHandler={loginSubmitHandler}
-        // loginWithGoogle={loginWithGoogle}
-        loginWith={loginWith}
+        activeAuthTab={activeAuthTab}
+        setActiveAuthTab={setActiveAuthTab}
       />
     </>
   );

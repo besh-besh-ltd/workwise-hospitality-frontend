@@ -1,95 +1,41 @@
-import { addRfqProduct, addVendor } from "@/redux/slice";
-import { faLocationDot, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import React, { useState } from "react";
-import { useDispatch } from "react-redux";
-import { toast } from "react-toastify";
+import CommonModal from "../modal/CommonModal";
 
 const SearchItem = ({
-  data,
-  setOpenAuthModal,
-  vendorMetaData,
   type,
-  bulkRFQProducts,
-  setbulkRFQProducts,
+  data,
+  vendorMetaData,
+  setOpenAuthModal,
+  addToRFQ,
   selectedProduct = false,
-  currentSelectedProduct = {},
   handleRemoveCurrentSelected,
-  handleRedirect
 }) => {
-  const dispatch = useDispatch();
-  const router = useRouter();
-
-  const addToRFQ = (item) => {
-    if (type == "products") {
-      dispatch(addRfqProduct(item));
-      toast.success(
-        <h6>
-          <b>{item.product_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-    } else {
-      dispatch(
-        addVendor({
-          product_id: currentSelectedProduct.product_id,
-          id: item.id,
-          name: item.vendor_name,
-        })
-      );
-      toast.success(
-        <h6>
-          <b>{item.vendor_name}:</b> Successfully added to RFQ list!
-        </h6>,
-        {
-          position: "top-right",
-        }
-      );
-    }
-  };
-
-  const handleBulkRFQ = (e, item) => {
-    console.log(bulkRFQProducts, item);
-    if (e.target.checked) {
-      item.selected = true;
-      setbulkRFQProducts((oldArray) => [...oldArray, item]);
-    } else {
-      item.selected = false;
-      let p = bulkRFQProducts.filter((product) => product.id != item.id);
-      setbulkRFQProducts(p);
-    }
-  };
+  const [openCommonModal, setOpenCommonModal] = useState(false);
 
   return (
     <>
       <div className={`list_item item-${type}`}>
         <div className="mdl-con-top">
-          {selectedProduct && <h4>Selected Product</h4>}
+          {selectedProduct && <h2 className="fs-5">Selected Product</h2>}
           {!selectedProduct && (
             <label>
               <input
                 type="checkbox"
-                onClick={(e) => handleBulkRFQ(e, data)}
+                onClick={(e) => addToRFQ(e.target.checked, data)}
                 checked={data.selected}
               />
-              {type == "products" && (
-                <span>By {data?.user_detail[0]?.name}</span>
-              )}
-              {type == "vendors" && (
-                <span>
-                  By{" "}
-                  {data?.company_name ? data?.company_name : data?.vendor_name}
-                </span>
-              )}
+              {type == "products"
+                ? <span>By {data?.user_detail[0]?.name}</span>
+                : <span>{`By ${data?.company_name ? data?.company_name : data?.vendor_name}`}</span>
+              }
             </label>
           )}
         </div>
-        <div className="mdl-con-btm">
+
+        <div className="mdl-con-btm mb-4">
           {data.id == "**" && !data.sp && (
             <div className="list_item_disabled">
               <span>You need to purchase subscription to view this vendor</span>
@@ -104,73 +50,18 @@ const SearchItem = ({
             </button>
           )}
           <div className="row">
-            <div className="col-md-3">
-              <div className="vendor-img">
-                {type == "products" && data.image_url ? (
-                  <>
-                    <img
-                      src={data.image_url}
-                      alt="Workwise"
-                      width={98}
-                      height={98}
-                      priority={true}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Image
-                      src="/assets/images/client3.png"
-                      alt="Workwise"
-                      width={98}
-                      height={98}
-                      priority={true}
-                    />
-                  </>
-                )}
-
-                {type != "products" && (
-                  <>
-                    <img
-                      src={
-                        data.image_url
-                          ? data.image_url
-                          : "/assets/images/client3.png"
-                      }
-                      alt="Workwise"
-                      width={98}
-                      height={98}
-                    />
-
-                    {data.address && (
-                      <p>
-                        <FontAwesomeIcon icon={faLocationDot} /> {data.address}
-                      </p>
-                    )}
-                    <p>
-                      <Link
-                        href="#"
-                        className="btn btn-primary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (!vendorMetaData.logged_In)
-                            setOpenAuthModal(true);
-                          else
-                            router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
-                        }}
-                      >
-                        Show Contact Info
-                      </Link>
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="col-md-7">
+            <div className="ps-5 col-md-9 ">
+              <h3 className="h3 mt-3 mb-3">{data.vendor_name}</h3>
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
-                    {data.about && (
+                    {data.address && (
                       <p>
+                        <b>Location :</b> {data.city_name ? `${data.city_name}, ${data.state_name}` : data.state_name ? data.state_name : ''}
+                      </p>
+                    )}
+                    {data.about && (
+                      <p className="truncate-text " style={{ maxHeight: "100px", WebkitLineClamp: 3 }}>
                         <b>About :</b> {data.about}
                       </p>
                     )}
@@ -180,15 +71,6 @@ const SearchItem = ({
                         <b>Website :</b> {data.website}
                       </p>
                     )}
-                    {/*  {data.vendor_approved &&
-                      data.vendor_approved.length > 0 && (
-                        <p>
-                          <b>Approved By :</b>{" "}
-                          {data.vendor_approved
-                            .map((approved) => approved.vendor_approve)
-                            .join(", ")}
-                        </p>
-                      )} */}
                   </div>
                 </>
               )}
@@ -201,16 +83,6 @@ const SearchItem = ({
                     <p className="mb-0">
                       <b>Description :</b> {data.description}
                     </p>
-                    {/* <p>
-                  <b>About :</b> Lorem Ipsum is simply dummy text of the
-                  printing and typesetting industry. Lorem Ipsum has been the
-                  industry's standard.
-                </p>
-                
-                <p>
-                  <b>Products :</b> Pipes, Alloy Steel, Carbon Steel & 8 more
-                </p> */}
-                    {/* */}
                     {type != "products" && (
                       <>
                         <p>
@@ -226,17 +98,11 @@ const SearchItem = ({
               )}
             </div>
             {!selectedProduct && (
-              <div className="col-md-2">
+              <div className="col-md-3 d-flex flex-column gap-3 my-auto pe-5">
                 <Link
-                  href="#"
+                  href={`/vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!vendorMetaData.logged_In)
-                      setOpenAuthModal(true);
-                    else
-                      router.push(`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${data.id}`)
-                  }}
+                  target="_blank"
                 >
                   View Details
                 </Link>
@@ -245,15 +111,23 @@ const SearchItem = ({
                   className="btn btn-primary custom_primary_btn has_primary-bg"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (!vendorMetaData.logged_In)
-                      setOpenAuthModal(true);
-                    else if(!vendorMetaData.subscription)
-                      router.push('dashboard/buyer/subscription');
-                    else
-                      addToRFQ(data);
+                    addToRFQ(true, data);
                   }}
                 >
                   Add To RFQ
+                </Link>
+                <Link
+                  href="#"
+                  className="btn btn-primary custom_primary_btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!vendorMetaData.logged_In)
+                      setOpenAuthModal(true);
+                    else
+                      setOpenCommonModal(true);
+                  }}
+                >
+                  Contact Info
                 </Link>
 
                 {type != "products" && (
@@ -267,13 +141,6 @@ const SearchItem = ({
                         View PTR
                       </Link>
                     )}
-                    {/* <Link
-                    target="_blank"
-                      href="/contactus"
-                      className="btn btn-primary custom_primary_btn"
-                    >
-                      Send Enquiry
-                    </Link> */}
                   </>
                 )}
               </div>
@@ -281,6 +148,19 @@ const SearchItem = ({
           </div>
         </div>
       </div>
+
+      {/* ------------- Show Vendors contact info in Modal ------------- */}
+      {openCommonModal &&
+        <CommonModal
+          data={{
+            title: "Contact Information",
+            email: data.email,
+            mobile: data.mobile
+          }}
+          openCommonModal={openCommonModal}
+          closeModal={() => setOpenCommonModal(false)}
+        />
+      }
     </>
   );
 };

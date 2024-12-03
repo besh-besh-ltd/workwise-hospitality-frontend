@@ -1,19 +1,18 @@
-import AddVendorModal from '@/components/modal/AddVendorModal';
+import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
+import Pagination from '@/components/shared/Pagination';
 import { addPrivateVendor, privateVendorList } from '@/services/privateVendors';
-import { faEdit } from '@fortawesome/free-regular-svg-icons';
-import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react'
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 
 const VendorManagement = () => {
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
+    const [totalData, setTotalData] = useState(1);
     const [privateVendors, setPrivateVendors] = useState([]);
     const [enableBulkUpload, setEnableBulkUpload] = useState(false);
     const [file, setFile] = useState(null);
@@ -21,11 +20,48 @@ const VendorManagement = () => {
 
     const [openAddVendorModal, setOpenAddVendorModal] = useState(false);
 
-    const handleAddVendor = (values, resetForm) => {
+
+    useEffect(() => {
+        const { newVendor } = router.query;
+    
+        // Update state based on the `newVendor` query value
+        if (newVendor !== undefined) {
+            setOpenAddVendorModal(newVendor === 'true'); // Set to true if value is 'true'
+        }
+      }, [router.query]);
+
+
+    // const handleAddVendor = (values, resetForm) => {
+    //     setLoading(true);
+      
+    //     let payload = values;
+    //     payload.productDetails = productDetails;
+    
+    //     setOpenAddVendorModal(false);
+        
+        
+    //     addPrivateVendor(payload)
+    //         .then((res) => {
+    //             toast.success(res.message, { position: "top-right", });
+    //             getPrivateVendorList();
+    //         })
+    //         .catch((error) => {
+    //             toast.error(error.message?.response?.data?.message, { position: "top-right", });
+    //             console.log(error)
+    //         })
+    //         .finally(() => {
+    //             resetForm();
+    //             setLoading(false);
+    //         })
+    // }
+
+    const handleAddVendor = (values, productDetails, resetForm) => {
         setLoading(true);
         let payload = values;
-        console.log(values);
-
+        payload.productDetails = productDetails;
+    
+        setOpenAddVendorModal(false);
+        
         addPrivateVendor(payload)
             .then((res) => {
                 toast.success(res.message, { position: "top-right", });
@@ -37,18 +73,17 @@ const VendorManagement = () => {
             })
             .finally(() => {
                 resetForm();
-                setOpenAddVendorModal(false);
                 setLoading(false);
             })
     }
-
+    
     const getPrivateVendorList = async () => {
         setLoading(true);
         privateVendorList(limit, page)
             .then((res) => {
                 setLoading(false)
                 let totalVendors = res.data?.length || 0;
-                setTotalPages(Math.ceil(totalVendors / limit));
+                setTotalData(totalVendors);
                 setPrivateVendors(res.data);
 
             })
@@ -82,29 +117,22 @@ const VendorManagement = () => {
                                     {!enableBulkUpload && (
 
                                         <div className="row ">
-                                            <div className="col-5">
+                                            <div className="col-md-7 col-lg-5">
                                                 <div className="d-flex">
                                                     <button
                                                         type="button"
-                                                        className="btn btn-secondary d-flex align-items-center justify-content-center "
+                                                        className="btn btn-secondary "
                                                         onClick={() => setOpenAddVendorModal(true)}
                                                     >
                                                         Add Single Vendor
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-primary d-flex flex-column justify-content-center align-items-center"
-                                                        onClick={() => {
-                                                            setuploadProgress(0);
-                                                            setEnableBulkUpload(!enableBulkUpload);
-                                                        }}
-                                                    >
-                                                        Add Bulk Vendors
-                                                        <span className="text-sm">(By Uploading Excel File)</span>
-                                                    </button>
+                                                    {/* <Link 
+                                                        href={`./vendor-management/bulk-vendors`}
+                                                        className="btn btn-secondary"
+                                                    >Add Bulk Vendors</Link> */}
                                                 </div>
 
-
+                                                {/* 
                                                 <div className="row mt-1">
                                                     <div className="col"></div>
                                                     <a
@@ -125,7 +153,7 @@ const VendorManagement = () => {
                                                             />
                                                         </span>
                                                     </a>
-                                                </div>
+                                                </div> */}
 
 
                                             </div>
@@ -212,12 +240,12 @@ const VendorManagement = () => {
                                                                     <td>{item.mobile}</td>
                                                                     <td>
                                                                         <span className={`badge ${item.status == -1 ? "text-bg-warning"
-                                                                                : item.status == 1 ? "text-bg-success"
+                                                                            : item.status == 1 ? "text-bg-success"
                                                                                 : item.status == 2 ? "text-bg-danger" : "text-bg-primary"}`}>
                                                                             {
                                                                                 item.status == -1 ? "Pending"
                                                                                     : item.status == 1 ? "Approved"
-                                                                                    : item.status == 2 ? "Rejected" : "Reviewed"
+                                                                                        : item.status == 2 ? "Rejected" : "Reviewed"
                                                                             }
                                                                         </span>
                                                                     </td>
@@ -234,51 +262,27 @@ const VendorManagement = () => {
                                         </table>
                                     </div>
 
-                                    <div className="pagination">
-                                        {Math.ceil(totalPages / limit) > 1 && (
-                                            <>
-                                                <div
-                                                    className="arrow-prev"
-                                                    onClick={() => {
-                                                        setPage((prevState) => {
-                                                            return prevState - 1;
-                                                        });
-                                                    }}
-                                                >
-                                                    <FontAwesomeIcon icon={faChevronLeft} />
-                                                </div>
-                                                <div
-                                                    className="arrow-next"
-                                                    onClick={() => {
-                                                        setPage((prevState) => {
-                                                            return prevState + 1;
-                                                        });
-                                                    }}
-                                                >
-                                                    <FontAwesomeIcon icon={faChevronRight} />
-                                                </div>
-                                            </>
-                                        )}
-
-                                        <span>Page</span>
-                                        <input type="number" min={1} max={totalPages} value={page} onChange={() => { }} />
-                                        <span> of {totalPages}</span>
-                                    </div>
-                                    {/* <Pagination pageNo={page} totalPages={totalPages} /> */}
+                                    <Pagination 
+                                        page={page}
+                                        setPage={setPage}
+                                        limit={limit}
+                                        setLimit={setLimit}
+                                        totalData={totalData}
+                                    />
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 {openAddVendorModal &&
-                    <AddVendorModal
-                        openAddVendorModal={openAddVendorModal}
+                    <DynamicFormModal
+                        type="add-vendor"
+                        openModal={openAddVendorModal}
                         closeModal={() => setOpenAddVendorModal(false)}
                         handleAddVendor={handleAddVendor}
                     />
                 }
             </section>
-            <ToastContainer />
         </>
     )
 }

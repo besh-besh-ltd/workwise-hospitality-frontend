@@ -1,11 +1,11 @@
 import FullLoader from "@/components/shared/FullLoader";
-import Loader from "@/components/shared/Loader";
 import { downloadQuotesDetails } from "@/services/rfq";
-import { faEye } from "@fortawesome/free-regular-svg-icons";
+import { extractfileName } from "@/utils/sharedFunctions";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import "react-tooltip/dist/react-tooltip.css";
-import { Tooltip } from "react-tooltip";
+
 
 const OverallComparison = ({ rfq_id }) => {
   const [loading, setloading] = useState(false);
@@ -13,6 +13,8 @@ const OverallComparison = ({ rfq_id }) => {
   const [data, setdata] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
+  const [attachedFiles, setAttachedFiles] = useState(null);
+
   useEffect(() => {
     handleDownloadQuote();
   }, [rfq_id]);
@@ -31,6 +33,8 @@ const OverallComparison = ({ rfq_id }) => {
         ) {
           setallvendors(data[0].all_vendors);
         }
+        let globalFiles = FilterOutGlobalTermsFiles(res.data);
+        setAttachedFiles(globalFiles);
         getLowestBidAmount(res.data);
         setloading(false);
       })
@@ -39,12 +43,27 @@ const OverallComparison = ({ rfq_id }) => {
       });
   };
 
+  const FilterOutGlobalTermsFiles = (all_data) => {
+    let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
+
+    all_data.forEach((prodItem) => {
+      if (
+        prodItem.quotations &&
+        prodItem.quotations.length > 0
+      ) {
+        prodItem.quotations.forEach((quoteItem, index) => {
+          if (fileArr[index].length == 0)
+            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
+        })
+      }
+    });
+    return fileArr;
+  }
+
   const getQty = (item, index) => {
-    // console.log("item====>>>>>>>>>>>>>", item);
     let qq = item.quotations.filter((qi) => qi.id != null);
     if (qq.length > 0) {
-      // return qq[0].quote_details[0].rfq_details[2]?.value;
-      return qq[0].quote_details[0].quantity;
+      return qq[0]?.quote_details[0]?.quantity;
     } else {
       return "-";
     }
@@ -53,37 +72,53 @@ const OverallComparison = ({ rfq_id }) => {
   const getLowestBidAmount = (all_data) => {
     let l1totaltemp = 0;
     let totalRFQItems = 0;
+
     let edited_data = all_data.map((item) => {
-      totalRFQItems =
-        totalRFQItems + parseInt(getQty(item) == "-" ? 0 : getQty(item));
-      settotalRfqProducts(totalRFQItems);
+      totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
+
       const array = item.quotations.filter(
-        (item) => item.id != null && item.is_regret != 1
+        (Q_item) => Q_item.id != null && Q_item.is_regret != 1
       );
-      let lowest = array.reduce((lowest, currentItem) => {
-        return currentItem.quote_details[0].total_price <
-          lowest.quote_details[0].total_price
-          ? currentItem
-          : lowest;
-      }, array[0]);
+
+      let lowest = null;
+
+      if (array.length === 1) {
+        // Handle single-element case
+        if (array[0].quote_details[0].total_price > 0) {
+          lowest = array[0];
+        } else {
+          lowest = null;
+        }
+      } else {
+        // Reduce logic for multiple elements
+        lowest = array.reduce((lowest, currentItem) => {
+          if (currentItem.quote_details[0].total_price > 0) {
+            return currentItem.quote_details[0].total_price <
+              lowest.quote_details[0].total_price
+              ? currentItem
+              : lowest;
+          }
+          return lowest;
+        }, array[0]);
+      }
 
       if (lowest) {
         l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
-
-        setl1total(l1totaltemp);
+        item.quotations.map((q) => {
+          if (q.id == lowest.id) {
+            q.is_lowest = true;
+          } else {
+            q.is_lowest = false;
+          }
+        });
       }
-      item.quotations.map((q) => {
-        if (q.id == lowest.id) {
-          q.is_lowest = true;
-        } else {
-          q.is_lowest = false;
-        }
-      });
+
       return item;
     });
+
+    settotalRfqProducts(totalRFQItems);
     setdata(edited_data);
-    //setl1total(l1totaltemp);
-    //settotalRfqProducts(totalRFQItems);
+    setl1total(l1totaltemp);
   };
 
   let calculateVendorwiseTotalBid = () => {
@@ -95,7 +130,7 @@ const OverallComparison = ({ rfq_id }) => {
         );
 
         if (q_item.length > 0) {
-          total = total + parseInt(q_item[0].quote_details[0].total_price);
+          total = total + parseInt(q_item[0]?.quote_details[0]?.total_price);
         }
       });
 
@@ -112,7 +147,13 @@ const OverallComparison = ({ rfq_id }) => {
       getDeliveryDetails();
     }
   }, [data]);
+
   const addCommasToNumber = (number) => {
+
+    if (number <= 0 || !number) {
+      return 0
+    }
+
     // Convert number to string
     let numberString = number.toString();
 
@@ -138,7 +179,7 @@ const OverallComparison = ({ rfq_id }) => {
             quotation.is_regret != 1
         );
         if (q.length > 0) {
-          vq.push(parseInt(q[0].quote_details[0].delivery_period));
+          vq.push(parseInt(q[0]?.quote_details[0]?.delivery_period));
         }
       });
       vendor.quoted_products = vq;
@@ -146,33 +187,69 @@ const OverallComparison = ({ rfq_id }) => {
     });
     setallvendors(ev);
   };
+
   const getDeliveryRange = (items) => {
-    if (items && items.length > 0) {
-      // Find the smallest number
-      let smallest = Math.min(...items);
+    const validItems = items.filter(num => typeof num === "number" && !isNaN(num) && num > 0);
 
-      // Find the largest number
-      let largest = Math.max(...items);
+    if (validItems.length > 0) {
+      // Find the smallest delivery week
+      let smallest = Math.min(...validItems);
 
-      return `Within ${smallest || 0} - ${largest || 0} Weeks`;
+      // Find the largest delivery week
+      let largest = Math.max(...validItems);
+
+      if (smallest === largest) {
+        return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
+      }
+
+      let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
+      let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
+
+      return `Within ${smallestStr} - ${largestStr}`;
     } else {
       return "-";
     }
   };
 
+  const calculateTotal = (item, quantity) => {
+    let total_qty = parseInt(quantity) || 0;
+
+    let total_without_fpt = item.unit_price * total_qty;
+    let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
+    let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
+
+    let total_with_fpt = total_without_fpt + FP + PP;
+    let T = (total_without_fpt * parseFloat(item.tax)) / 100;
+
+    let TotalPrice = total_with_fpt + T;
+    return Math.round(TotalPrice);
+  }
+
   return (
     <>
+      {loading && <FullLoader />}
       <div className="quote-sec-table-sub hasFullLoader">
-        {loading && <FullLoader />}
         {!loading && (
           <div className="table-responsive">
-            <table className="table table-responsive table-bordered overall-table">
+            <table className="table table-bordered overall-table">
+              <colgroup>
+                <col style={{ width: "75px" }} />
+                <col style={{ width: "250px" }} />
+                <col style={{ width: "250px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "250px" }} />
+                {allvendors.map((_, index)=> {
+                  return (
+                    <col key={`col_item_${index}`} style={{ width: "250px" }} />
+                  )
+                })}
+              </colgroup>
               <thead class="thead-dark">
                 <tr>
                   <th
                     scope="col"
                     className="sl_no heading"
-                    colSpan={allvendors.length + 4}
+                    colSpan={allvendors.length + 5}
                   >
                     OVERALL COMPARISON CHART
                     <br />
@@ -187,10 +264,13 @@ const OverallComparison = ({ rfq_id }) => {
                     Product Name
                   </th>
                   <th scope="col" className="description" rowSpan={2}>
-                    Product Variant Details (specification)
+                    Product Variant Details
                   </th>
                   <th scope="col" className="sl_no" rowSpan={2}>
-                    Qty<small>(Nos.)</small>
+                    Quantity
+                  </th>
+                  <th scope="col" className="all_vendors" rowSpan={2} style={{ backgroundColor: "#fff8db" }} >
+                    Last Purchase Details
                   </th>
                   {allvendors &&
                     allvendors.length > 0 &&
@@ -198,10 +278,11 @@ const OverallComparison = ({ rfq_id }) => {
                       return (
                         <th
                           key={`v_${item.id}`}
-                          className="all_vendors"
                           scope="col"
+                          className="all_vendors"
+                          rowSpan={2}
                         >
-                          {item.organization_name}
+                          {item.organization_name || item.name}
                         </th>
                       );
                     })}
@@ -216,16 +297,97 @@ const OverallComparison = ({ rfq_id }) => {
                         <td>{index + 1} </td>
                         <td>
                           {item.product_details.length > 0
-                            ? item.product_details[0].name
+                            ? item.product_details[0]?.name
                             : "-"}
                         </td>
                         <td>
-                          {item.quotations.length > 0
-                            && item.quotations[0].quote_details[0]?.rfq_details
-                            ? item.quotations[0].quote_details[0]?.rfq_details[1]?.value
-                            : "-"}
+                          <div className="row">
+                            {<p className="col-12 mb-1" >
+
+                              <strong>Size: </strong>
+                              {item.product_specs[0]?.value
+                                ? item.product_specs[0]?.value
+                                : "--"}
+                            </p>}
+                            {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                              <strong>Spec: </strong>
+                              {item.product_specs[1]?.value
+                                ? item.product_specs[1]?.value
+                                : "--"}
+                            </p>}
+                          </div>
                         </td>
-                        <td>{getQty(item)}</td>
+                        <td>{`${item.product_specs[2]?.value}-${item.product_specs[3]?.value}`}</td>
+
+                        {item.last_purchase_rate
+                          ? <td className="total_amt_field">
+                            <label className="view_breakup">
+                              <div className="tooltip_custom">
+                                Show/hide Breakup
+                              </div>
+                              <span></span>
+                              <input type="checkbox" />
+                              <table className="table has_inner_border_table">
+                                <tr>
+                                  <th>Base Price</th>
+                                  <td>
+                                    {item.last_purchase_rate?.unit_price
+                                      ? addCommasToNumber(item.last_purchase_rate?.unit_price)
+                                      : "-"}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th>Total Rate</th>
+                                  <td>
+                                    {item.last_purchase_rate?.total_price
+                                      ? addCommasToNumber(item.last_purchase_rate?.unit_price * parseInt(item.quotations[0]?.quote_details[0]?.quantity))
+                                      : "-"}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th>Packaging(%)</th>
+                                  <td>
+                                    {item.last_purchase_rate?.package_price
+                                      ? addCommasToNumber(item.last_purchase_rate?.package_price)
+                                      : "-"}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th>Freight(%)</th>
+                                  <td>
+                                    {item.last_purchase_rate?.freight_price
+                                      ? addCommasToNumber(item.last_purchase_rate?.freight_price)
+                                      : "-"}
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th>GST(%)</th>
+                                  <td>
+                                    {item.last_purchase_rate?.tax
+                                      ? `${addCommasToNumber(item.last_purchase_rate?.tax)}%`
+                                      : "-"}
+                                  </td>
+                                </tr>
+                                <tr className="is_lowest ">
+                                  <th>Sub Total</th>
+                                  <td>
+                                    {item.last_purchase_rate
+                                      ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
+                                      : "-"}
+                                  </td>
+                                </tr>
+                              </table>
+                              <p>
+                                {item.last_purchase_rate?.total_price
+                                  ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
+                                  : "-"}
+                              </p>
+                            </label>
+                          </td>
+                          : <td>-</td>
+                        }
+
+
                         {item.quotations.length > 0 &&
                           item.quotations.map((quote_item) => {
                             if (quote_item.is_regret == 1) {
@@ -237,14 +399,10 @@ const OverallComparison = ({ rfq_id }) => {
                             } else {
                               return (
                                 <td
-                                  className={`${
-                                    quote_item.is_lowest
-                                      ? "is_lowest total_amt_field"
-                                      : "total_amt_field"
-                                  }`}
-                                  key={`quote_item_${quote_item.created_by}`}
+                                  className={`${quote_item?.is_lowest && quote_item?.quote_details[0]?.total_price ? "is_lowest total_amt_field" : "total_amt_field"}`}
+                                  key={`quote_item_${quote_item?.created_by}`}
                                 >
-                                  {quote_item.quote_details.length > 0 ? (
+                                  {quote_item?.quote_details?.length > 0 && quote_item?.quote_details[0]?.total_price ? (
                                     <label className="view_breakup">
                                       <div className="tooltip_custom">
                                         Show/hide Breakup
@@ -253,78 +411,80 @@ const OverallComparison = ({ rfq_id }) => {
                                       <input type="checkbox" />
                                       <table className="table has_inner_border_table">
                                         <tr>
-                                          <th>Unit Rate</th>
+                                          <th>Base Price</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    .unit_price
-                                                )
+                                                quote_item?.quote_details[0]
+                                                  ?.unit_price
+                                              )
                                               : "-"}
                                           </td>
                                         </tr>
                                         <tr>
                                           <th>Total Rate</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    .unit_price * getQty(item)
-                                                )
+                                                quote_item?.quote_details[0]
+                                                  ?.unit_price * getQty(item)
+                                              )
                                               : "-"}
                                           </td>
                                         </tr>
                                         <tr>
                                           <th>Packaging(%)</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    .package_price
-                                                ) + "%"
+                                                quote_item?.quote_details[0]
+                                                  ?.package_price
+                                              ) + "%"
                                               : "-"}
                                           </td>
                                         </tr>
                                         <tr>
                                           <th>Freight(%)</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    .freight_price
-                                                ) + "%"
+                                                quote_item?.quote_details[0]
+                                                  ?.freight_price
+                                              ) + "%"
                                               : "-"}
                                           </td>
                                         </tr>
                                         <tr>
                                           <th>GST(%)</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details?.length > 0
                                               ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    .tax
-                                                ) + "%"
+                                                quote_item?.quote_details[0]
+                                                  ?.tax
+                                              ) + "%"
                                               : "-"}
                                           </td>
                                         </tr>
-                                        <tr className="is_lowest ">
+                                        <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : ""}`}>
                                           <th>Sub Total</th>
                                           <td>
-                                            {quote_item.quote_details.length > 0
+                                            {quote_item?.quote_details.length > 0
+                                              && quote_item.quote_details[0]?.total_price
                                               ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    .total_price
-                                                )
+                                                quote_item.quote_details[0]
+                                                  ?.total_price
+                                              )
                                               : "-"}
                                           </td>
                                         </tr>
                                       </table>
                                       <p>
-                                        {quote_item.quote_details.length > 0
+                                        {quote_item?.quote_details?.length > 0
+                                          && quote_item.quote_details[0]?.total_price
                                           ? addCommasToNumber(
-                                              quote_item.quote_details[0]
-                                                .total_price
-                                            )
+                                            quote_item?.quote_details[0]
+                                              ?.total_price
+                                          )
                                           : "-"}
                                       </p>
                                     </label>
@@ -371,10 +531,10 @@ const OverallComparison = ({ rfq_id }) => {
                   <th scope="col" colSpan={4 + allvendors.length}></th>
                 </tr>
                 <tr className="last_row">
-                  <th colSpan={3} scope="col">
+                  <th colSpan={5} scope="col">
                     TOTAL
                   </th>
-                  <th scope="col">{totalRfqProducts}</th>
+
                   {allvendors &&
                     allvendors.length > 0 &&
                     allvendors.map((item) => {
@@ -386,7 +546,7 @@ const OverallComparison = ({ rfq_id }) => {
                     })}
                 </tr>
                 <tr className="last_row">
-                  <th colSpan={4} scope="col" className="bggray">
+                  <th colSpan={5} scope="col" className="bggray">
                     LOWEST TOTAL ( L1 Total )
                   </th>
                   <th
@@ -398,7 +558,7 @@ const OverallComparison = ({ rfq_id }) => {
                   </th>
                 </tr>
                 <tr className="last_row">
-                  <th colSpan={4} scope="col">
+                  <th colSpan={5} scope="col">
                     Delivery{" "}
                   </th>
 
@@ -407,20 +567,13 @@ const OverallComparison = ({ rfq_id }) => {
                     allvendors.map((item) => {
                       return (
                         <td key={`tp_${item.id}_total`}>
-                          {item?.quoted_products &&
-                          item?.quoted_products?.length == 1
-                            ? `Within ${
-                                item.quoted_products[0] == 1
-                                  ? item.quoted_products[0] || 0 + "Week"
-                                  : item.quoted_products[0] || 0 + " Weeks"
-                              }`
-                            : `${getDeliveryRange(item.quoted_products)}`}
+                          {item?.quoted_products && getDeliveryRange(item.quoted_products)}
                         </td>
                       );
                     })}
                 </tr>
                 <tr className="last_row">
-                  <th colSpan={4} scope="col">
+                  <th colSpan={5} scope="col">
                     Payment{" "}
                   </th>
 
@@ -437,7 +590,7 @@ const OverallComparison = ({ rfq_id }) => {
                     })}
                 </tr>
                 <tr className="last_row">
-                  <th colSpan={4} scope="col">
+                  <th colSpan={5} scope="col">
                     Vendor comment{" "}
                   </th>
 
@@ -451,6 +604,28 @@ const OverallComparison = ({ rfq_id }) => {
                             : "-"}{" "}
                         </td>
                       );
+                    })}
+                </tr>
+                <tr className="last_row">
+                  <th colSpan={5} scope="col">
+                    Attached Files{" "}
+                  </th>
+
+                  {attachedFiles &&
+                    attachedFiles.length > 0 &&
+                    attachedFiles.map((vendor_files, index) => {
+                      return (
+                        <td key={`gloal_files_${index}`} style={{ maxWidth: "200px" }} >
+                          {vendor_files?.map((file_item) => {
+                            return (
+                              <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
+                                <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                                <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
+                              </a>
+                            )
+                          })}
+                        </td>
+                      )
                     })}
                 </tr>
                 {/* <tr className="last_row">

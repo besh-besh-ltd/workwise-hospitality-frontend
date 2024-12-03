@@ -46,7 +46,8 @@ export const searchProductsV2 = (values, type = "products") => {
     let payload = {
       category_id: values.cat_id,
       search_key: values.search_key,
-      approved_by_id: values.approved_by,
+      vendor_name: values.vendor_name,
+      // approved_by_id: values.approved_by,
     };
 
     return new Promise(async (resolve, reject) => {
@@ -64,6 +65,9 @@ export const searchProductsV2 = (values, type = "products") => {
       approved_by_id: values.approved_by,
       state: values.state == 0 ? "" : values.state,
       city: values.city == 0 ? "" : values.city,
+      vendor_name: values.vendor_name,
+      is_private: values.is_private,
+      preferred_vendor: values.preferred_vendor,
     };
 
     return new Promise(async (resolve, reject) => {
@@ -90,16 +94,48 @@ export const vendorProductList = (limit, page, productName, vendorApprove) => {
   });
 };
 
-export const approvedProductList = () => {
+// export const approvedProductList = () => {
+//   return new Promise(async (resolve, reject) => {
+//     try {
+//       let response = await axiosInstance.get(`products/approved-product-list`);
+//       resolve(response);
+//     } catch (error) {
+//       reject({ message: error });
+//     }
+//   });
+// };
+
+export const approvedProductList = (limit = 10, page = 1, searchString, vendorApprove, vendorId, isFeatured) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`products/approved-product-list`);
+      let response;
+      let url = `products/approved-product-list?limit=${limit}&page=${page}`;
+
+      const queryParams = [];
+
+      if(searchString){
+        queryParams.push(`productName=${searchString}`);
+      }
+      if(vendorApprove){
+        queryParams.push(`vendorApprove=${vendorApprove}`);
+      }
+      if(vendorId){
+        queryParams.push(`vendorId=${vendorId}`);
+      }
+      if(isFeatured){
+        queryParams.push(`isFeatured=${isFeatured}`);
+      }
+      if (queryParams.length > 0) {
+        url += `&${queryParams.join('&')}`;
+      }
+
+      response = await axiosInstance.get(url);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject({ error });
     }
   });
-};
+}
 
 export const addProducts = (payload) => {
   return new Promise(async (resolve, reject) => {

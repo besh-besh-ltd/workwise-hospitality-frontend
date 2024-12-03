@@ -29,117 +29,99 @@ const FormikField = ({
             {label} {isRequired ? <sup>*</sup> : <>(Optional)</>}
           </label>
         )}
-        {type == "select" ? (
+
+        {/* Handle select input */}
+        {type === "select" ? (
           enableHandleChange ? (
-            <>
-              <Field
-                value={value}
-                onChange={handleChange}
-                as="select"
-                id={`${name}`}
-                name={`${name}`}
-                placeholder={
-                  placeholder ? placeholder : label ? `Enter ${label}` : ""
-                }
-                disabled={isDisabled}
-              >
-                {selectOptions?.map((item, index) => {
-                  return (
-                    <option
-                      key={index}
-                      value={item.value}
-                      disabled={item.disabled ? item.disabled : false}
-                    >
-                      {item.label}
-                    </option>
-                  );
-                })}
-              </Field>
-            </>
+            <Field
+              value={value}
+              onChange={handleChange}
+              as="select"
+              id={name}
+              name={name}
+              placeholder={placeholder || `Enter ${label}`}
+              disabled={isDisabled}
+            >
+              {selectOptions?.map((item, index) => (
+                <option
+                  key={index}
+                  value={item.value}
+                  disabled={item.disabled || false}
+                >
+                  {item.label}
+                </option>
+              ))}
+            </Field>
           ) : (
-            <>
-              <Field
-                value={value}
-                as="select"
-                id={`${name}`}
-                name={`${name}`}
-                placeholder={
-                  placeholder ? placeholder : label ? `Enter ${label}` : ""
-                }
-                disabled={isDisabled}
-              >
-                {selectOptions?.map((item, index) => {
-                  return (
-                    <option
-                      key={index}
-                      value={item.value}
-                      disabled={item.disabled ? item.disabled : false}
-                    >
-                      {item.label}
-                    </option>
-                  );
-                })}
-              </Field>
-            </>
+            <Field
+              value={value}
+              as="select"
+              id={name}
+              name={name}
+              placeholder={placeholder || `Enter ${label}`}
+              disabled={isDisabled}
+            >
+              {selectOptions?.map((item, index) => (
+                <option
+                  key={index}
+                  value={item.value}
+                  disabled={item.disabled || false}
+                >
+                  {item.label}
+                </option>
+              ))}
+            </Field>
           )
-        ) : type == "textarea" ? (
+        ) : type === "textarea" ? (
           enableHandleChange ? (
-            <>
-              <Field
-                as="textarea"
-                id={`${name}`}
-                name={`${name}`}
-                placeholder={
-                  placeholder ? placeholder : label ? `Enter ${label}` : ""
-                }
-                cols={cols}
-                rows={rows}
-                className={className}
-                onKeyUp={handleChange}
-                disabled={isDisabled}
-                // onChange={(e)=>console.log(e.target.value)}
-              />
-            </>
+            <Field
+              as="textarea"
+              id={name}
+              name={name}
+              placeholder={placeholder || `Enter ${label}`}
+              cols={cols}
+              rows={rows}
+              className={className}
+              onKeyUp={handleChange}
+              disabled={isDisabled}
+            />
           ) : (
-            <>
-              <Field
-                as="textarea"
-                id={`${name}`}
-                name={`${name}`}
-                placeholder={
-                  placeholder ? placeholder : label ? `Enter ${label}` : ""
-                }
-                cols={cols}
-                rows={rows}
-                className={className}
-                disabled={isDisabled}
-                // onChange={(e)=>console.log(e.target.value)}
-              />
-            </>
+            <Field
+              as="textarea"
+              id={name}
+              name={name}
+              placeholder={placeholder || `Enter ${label}`}
+              cols={cols}
+              rows={rows}
+              className={className}
+              disabled={isDisabled}
+            />
           )
         ) : enableHandleChange ? (
+          // Handle number, date input types
           <Field
-            type={`${type}`}
-            id={`${name}`}
-            name={`${name}`}
-            onKeyUp={handleChange}
-            placeholder={
-              placeholder ? placeholder : label ? `Enter ${label}` : ""
-            }
+            type={type}
+            id={name}
+            name={name}
+            value={value}
+            onChange={handleChange} 
+            placeholder={placeholder || `Enter ${label}`}
             disabled={isDisabled}
+            // If it's a number field, set min to 0 to prevent negative values
+            {...(type === "number" && { min: 0 })}
           />
         ) : (
+          // Handle text and other input types
           <Field
-            type={`${type}`}
-            id={`${name}`}
-            name={`${name}`}
-            placeholder={
-              placeholder ? placeholder : label ? `Enter ${label}` : ""
-            }
+            type={type}
+            id={name}
+            name={name}
+            placeholder={placeholder || `Enter ${label}`}
             disabled={isDisabled}
           />
         )}
 
+        {/* Display validation errors */}
         {touched[name] && errors[name] && (
           <div className="form-error">{errors[name]}</div>
         )}

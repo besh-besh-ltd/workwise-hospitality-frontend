@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import Select, { components } from 'react-select';
 import Image from "next/image";
 import Link from "next/link";
 import FormikField from "@/components/shared/FormikField";
 import * as yup from "yup";
 import { ErrorMessage, Field, FieldArray, Form, Formik } from "formik";
 import { categoryList, vendorApproveList } from "@/services/rfq";
-import Select from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import Loader from "@/components/shared/Loader";
 import { ToastContainer, toast } from "react-toastify";
@@ -19,6 +19,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 
+
+// Modified Select Component to show category along with Product Name
+const CustomSelectOption = (props) => (
+  <components.Option {...props}>
+      <div>
+          {props.data.label}
+          <br />
+          <small>{props.data.categories}</small>
+      </div>
+  </components.Option>
+);
+
+
 const AddProducts = () => {
   const id = Date.now().toString();
   const parentSelectRef = useRef();
@@ -30,6 +43,7 @@ const AddProducts = () => {
   const levelSixSelectRef = useRef();
 
   const [catloading, setcatloading] = useState(false);
+  const [productLoading, setProductLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [parentCategories, setParentCategories] = useState([]);
   const [cat_id, setCat_id] = useState("");
@@ -73,6 +87,10 @@ const AddProducts = () => {
   const [levelFiveSelectValue, setlevelFiveSelectValue] = useState([]);
   const [levelSixSelectValue, setlevelSixSelectValue] = useState([]);
   const [galleryImages, setGalleryImages] = useState([]);
+
+  const [currentProduct, setCurrentProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
 
   const router = useRouter();
   const uploadedImage = React.useRef(null);
@@ -259,24 +277,81 @@ const AddProducts = () => {
         value: s.id,
       }));
       setVendorApprovedList(lists);
-    });
+    })
+      .catch((error) => {
+        console.log(error)
+      });
   };
 
-  const getVendorProductList = () => {
-    approvedProductList().then((res) => {
-      let lists = res.data.map((s) => ({
-        label: s.name,
-        value: s.id,
-      }));
-      lists.push({ label: "Other", value: "01" });
-      setVendorProductLists(lists);
-    });
-  };
+  // const getVendorProductList = () => {
+  //   approvedProductList().then((res) => {
+  //     let lists = res.data.map((s) => ({
+  //       label: s.name,
+  //       value: s.id,
+  //     }));
+  //     lists.push({ label: "Other", value: "01" });
+  //     setVendorProductLists(lists);
+  //   });
+  // };
+
+    // Function to format product data along with it's categories 
+    const formatGroupedData = (groupedData) => {
+      return Object.values(groupedData).flatMap(items =>
+          items.map(item => ({
+              value: item.id,
+              label: item.name,
+              categories: item.product_categories.map(cat => cat.category_name).join(" | ")
+          }))
+      );
+  }
+
+  // Function to filter out unique products with categories
+  const groupBySlug = (data) => {
+    const groupedData = data.reduce((acc, item) => {
+      const slug = item.slug;
+      if (!acc[slug]) acc[slug] = [];
+
+      const isUnique = !acc[slug].some((existingItem) =>
+        JSON.stringify(existingItem.product_categories) === JSON.stringify(item.product_categories)
+      );
+      if (isUnique) acc[slug].push(item);
+      return acc;
+    }, {});
+    return formatGroupedData(groupedData);
+  }
+
+  // Search Product Function
+  const getVendorProductList = useCallback((search_key) => {
+    setProductLoading(true);
+    approvedProductList(20, 1, search_key)
+      .then((res) => {
+        const product_options = groupBySlug(res.data);
+        setVendorProductLists(product_options);
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .finally(() => setProductLoading(false));
+  }, []);
+
+   // Debouncing the search product API call for 300ms
+   const debounceGetVendorProductList = useCallback(
+    (inputValue) => {
+        const debounceTimeout = 300;
+        clearTimeout(window.debounceTimer);
+        window.debounceTimer = setTimeout(() => {
+            getVendorProductList(inputValue);
+        }, debounceTimeout);
+    },
+    [getVendorProductList]
+);
 
   const submitHandler = (values) => {
     const payload = new FormData();
-    payload.append(`master_id`, masterId == "01" ? "" : masterId);
-    payload.append(`name`, masterProductName ? masterProductName : values.name);
+    // console.log(currentProduct);
+    payload.append(`master_id`, values.master_id == "01" ? "" : values.master_id);
+    // console.log(values.master_id);
+    payload.append(`name`, values.name);
     payload.append(`description`, values.description);
     // payload.append(`manufacturer`, values.manufacturer);
     // payload.append(`availability`, values.availability);
@@ -287,9 +362,10 @@ const AddProducts = () => {
     );
     payload.append(
       `approved_name`,
-      values.approved_id == "o" ? values.approved_name : ""
+      values.approved_id == "o" ? "" : values.approved_name
     );
-    payload.append(`variations`, JSON.stringify(values.variations));
+    payload.append(`variations`, [{ attribute: "", attributeValue: "" }]);
+    
     selectedGalleryFiles.forEach((file, i) => {
       payload.append(`gallery`, file, file.name);
     });
@@ -302,10 +378,11 @@ const AddProducts = () => {
     selectedTdsFiles.forEach((file, i) => {
       payload.append(`tds`, file, file.name);
     });
+    
     let selectedCategories = [];
     if (masterId != "01") {
-      values.categories[0].forEach((cats) => {
-        selectedCategories.push(cats.id);
+      values.categories.forEach((cats) => {
+        selectedCategories.push(cats);
       });
     } else {
       selectedCategories = [
@@ -322,7 +399,9 @@ const AddProducts = () => {
     }
     // console.log("selectedCategories ==>", selectedCategories);
     payload.append(`categories`, JSON.stringify(selectedCategories));
-    console.log(payload);
+    // for (const [key, value] of payload.entries()) {
+    //   console.log(`${key}: ${value}`);
+    // }
     setMainLoading(true);
     addProducts(payload)
       .then((res) => {
@@ -336,47 +415,92 @@ const AddProducts = () => {
       });
   };
 
-  const getProductDetails = (id) => {
+  // const getProductDetails = (id) => {
+  //   productDetails(id)
+  //     .then((response) => {
+  //       setProductDetailsData(response.data);
+  //       let category = [];
+  //       response.data.product_categories?.map((data) => {
+  //         category.push({
+  //           label: data.category_name,
+  //           value: data.id,
+  //         });
+  //       });
+  //       setCategoryData(category);
+  //       let variant = [];
+  //       response.data.product_variants.map((data) => {
+  //         variant.push({
+  //           attribute: data.variant_name,
+  //           attributeValue: data.variant_value,
+  //         });
+  //       });
+  //       setVariantData(variant);
+  //     })
+  //     .catch((error) => {
+  //       setcatloading(false);
+  //     });
+  // };
+
+  const getProductDetails = (selectedOption, id) => {
+    if (!id) return;
     productDetails(id)
-      .then((response) => {
-        setProductDetailsData(response.data);
-        let category = [];
-        response.data.product_categories?.map((data) => {
-          category.push({
-            label: data.category_name,
-            value: data.id,
-          });
+        .then((res) => {
+            const prodItem = {
+                master_id: res.data.id || '',
+                name: res.data.name || '',
+                description: res.data.description,
+                status: 1,
+                approved_id: [],
+                approved_name: [],
+                categories: res.data.product_categories?.map((data) => data.id)
+            }
+            setCurrentProduct(prodItem);
+            setSelectedProduct(selectedOption);
+            setSelectedApprovedBy([]);
+        })
+        .catch((error) => {
+            console.log(error);
         });
-        setCategoryData(category);
-        let variant = [];
-        response.data.product_variants.map((data) => {
-          variant.push({
-            attribute: data.variant_name,
-            attributeValue: data.variant_value,
-          });
-        });
-        setVariantData(variant);
-      })
-      .catch((error) => {
-        setcatloading(false);
-      });
-  };
+};
+
+const handleSelectChange = (selectedOption, {name}) => {
+  if (name === "product") {
+    const prodId = selectedOption?.value || null;
+    if (prodId) getProductDetails(selectedOption, prodId);
+} else {
+    if (!currentProduct) {
+        toast.error("Please Choose a Product First.", {position: "top-right"})
+    } else {
+        let approved_ids = [];
+        let approved_names = [];
+        selectedOption.map((option) => {
+            approved_ids.push(option.value)
+            approved_names.push(option.label)
+        })
+        setSelectedApprovedBy(selectedOption);
+        setCurrentProduct((prevState) => ({
+            ...prevState,
+            approved_id: approved_ids,
+            approved_name: approved_names
+        }))
+    }
+}
+}
 
   return (
     <>
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
           <h1 className="heading">Product Management</h1>
-          <Link
+          {/* <Link
             href="/dashboard/vendor/product-management"
             className="page-link backBtn"
           >
             {" "}
             <FontAwesomeIcon icon={faArrowLeft} /> Go back
-          </Link>
+          </Link> */}
         </div>
       </section>
-      <ToastContainer />
       <section className="add-prod-sec-1">
         {mainLoading && <Loader />}
         <div className="container-fluid">
@@ -389,8 +513,7 @@ const AddProducts = () => {
                   initialValues={initialValues}
                   validationSchema={validationSchema}
                   onSubmit={(values, { resetForm }) => {
-                    console.log("values", values);
-                    submitHandler(values);
+                    submitHandler(currentProduct);
                   }}
                 >
                   {({
@@ -404,38 +527,44 @@ const AddProducts = () => {
                       <div className="row add-product">
                         <div className="col-md-12">
                           <Select
+                            name="product"
                             options={vendorProductLists}
                             placeholder="Product Name"
                             isClearable={false}
+                            isSearchable
                             styles={customSelectStyles}
-                            onChange={(options) => {
-                              setFieldValue("master_id", options.value);
-                              setMasterId(options.value);
+                            // onChange={(options) => {
+                            //   setFieldValue("master_id", options.value);
+                            //   setMasterId(options.value);
 
-                              if (options.value != "01") {
-                                getProductDetails(options.value);
-                                setFieldValue("name", options.label);
-                                setMasterProductName(options.label);
-                              } else {
-                                setMasterProductName("");
-                                setProductDetailsData(null);
-                                setFieldValue("name", "");
-                                setFieldValue("description", "");
-                                setFieldValue("categories", []);
-                                setFieldValue("featured", "");
-                                setFieldValue("approved_id", "");
-                                setFieldValue("approved_name", "");
-                                setFieldValue("variations", [
-                                  { attribute: "", attributeValue: "" },
-                                ]);
-                                setlevelOneCat([]);
-                                setlevelTwoCat([]);
-                                setlevelThreeCat([]);
-                                setlevelFourCat([]);
-                                setlevelFiveCat([]);
-                                setlevelSixCat([]);
-                              }
-                            }}
+                            //   if (options.value != "01") {
+                            //     getProductDetails(options.value);
+                            //     setFieldValue("name", options.label);
+                            //     setMasterProductName(options.label);
+                            //   } else {
+                            //     setMasterProductName("");
+                            //     setProductDetailsData(null);
+                            //     setFieldValue("name", "");
+                            //     setFieldValue("description", "");
+                            //     setFieldValue("categories", []);
+                            //     setFieldValue("featured", "");
+                            //     setFieldValue("approved_id", "");
+                            //     setFieldValue("approved_name", "");
+                            //     setFieldValue("variations", [
+                            //       { attribute: "", attributeValue: "" },
+                            //     ]);
+                            //     setlevelOneCat([]);
+                            //     setlevelTwoCat([]);
+                            //     setlevelThreeCat([]);
+                            //     setlevelFourCat([]);
+                            //     setlevelFiveCat([]);
+                            //     setlevelSixCat([]);
+                            //   }
+                            // }}
+                            components={{ Option: CustomSelectOption }}
+                            value={selectedProduct}
+                            onChange={handleSelectChange}
+                            onInputChange={debounceGetVendorProductList}
                           />
                           <ErrorMessage
                             name={"master_id"}
@@ -717,15 +846,8 @@ const AddProducts = () => {
                               isClearable={true}
                               //   isDisabled={masterId != "01" ? true : false}
                               styles={customSelectStyles}
-                              value={vendorApprovedList.filter((option) =>
-                                values?.approved_id?.includes(option?.value)
-                              )}
-                              onChange={(options) => {
-                                setFieldValue(
-                                  "approved_id",
-                                  options.map((option) => option.value)
-                                );
-                              }}
+                              value={selectedApprovedBy}
+                              onChange={handleSelectChange}
                             />
                             <ErrorMessage
                               name={"approved_id"}
@@ -983,7 +1105,7 @@ const AddProducts = () => {
                       <button
                         type="submit"
                         className="page-link btn btn-secondary"
-                      >
+                                              >
                         Save
                       </button>
                     </Form>

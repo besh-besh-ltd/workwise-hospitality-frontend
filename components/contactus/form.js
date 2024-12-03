@@ -43,7 +43,7 @@ const ContactUsForm = ({ isModalForm = false, closeModal, fromType }) => {
           "please enter valid contact number"
         )
         .min(10, "Min 10 digit is required")
-        .max(11, "Mobile number not more than 11 digit long")
+        .max(12, "Mobile number not more than 12 digit long")
         .required("Mobile number is required"),
       subject: yup.string().optional(),
       comment: yup.string().optional(),
@@ -239,7 +239,6 @@ const ContactUsForm = ({ isModalForm = false, closeModal, fromType }) => {
           </Form>
         )}
       </Formik>
-      <ToastContainer />
     </>
   );
 };

@@ -12,6 +12,17 @@ export const addPrivateVendor = (payload) => {
     });
 };
 
+export const addBulkPrivateVendors = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosFormData.post(`users/buyer-excel-add-vendor`, payload);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+};
+
 export const vendorProductList = (limit, page, productName, vendorApprove) => {
     return new Promise(async (resolve, reject) => {
         try {
@@ -38,4 +49,4 @@ export const privateVendorList = () => {
       }
     });
   };
-  
+
