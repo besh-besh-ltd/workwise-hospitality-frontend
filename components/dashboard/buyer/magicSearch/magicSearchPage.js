@@ -9,7 +9,6 @@ import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
 import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
-import Loader from "@/components/shared/Loader";
 import FullLoader from "@/components/shared/FullLoader";
 
 
@@ -41,7 +40,6 @@ const MagicSearchPage = () => {
     const [loading, setLoading] = useState(false);
     const [termsLoading, setTermsLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
-    const [messagesDisplayed, setMessagesDisplayed] = useState(false);
     const [apiData, setApiData] = useState(null)
 
     const [fileUploadMessageIndex, setFileUploadMessageIndex] = useState(0);
@@ -359,10 +357,14 @@ const MagicSearchPage = () => {
 
             setReviewData(data);
             setTermList(data?.terms);
-            formData.response_email = data?.response_email
-            formData.contact_name = data?.contact_name
-            formData.contact_number = data?.contact_number
-            formData.company_name = data?.company_name
+            setFormData((prevData)=> ({
+                ...prevData,
+                response_email: data?.response_email,
+                contact_name: data?.contact_name,
+                contact_number: data?.contact_number,
+                company_name: data?.company_name
+            }))
+            
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
                 toast.success("Review Your Products and submit");
@@ -386,7 +388,7 @@ const MagicSearchPage = () => {
 
             // apiDataRef.current = null;
             setApiData(null)
-            setMessagesDisplayed(false); // Reset the state for future uploads
+            setFileUploadMessagesDisplayed(false)
         }
 
     }, [fileUploadMessagesDisplayed, loading]);
