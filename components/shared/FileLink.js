@@ -26,14 +26,17 @@ const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", Remov
                                 <span
                                     className="btn-close btn-close-sm"
                                     aria-label="Close"
-                                    onClick={() => RemoveFile(FileType, file)}
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        RemoveFile(FileType, file)
+                                    }}
                                 ></span>
                             )}
                         </div>
                     </div>
                 ))
             ) : typeof Files === "string" && Files !== "" ? (
-                <div className={ColumnClass}>
+                <div className={`my-1 ${ColumnClass}`}>
                     <div className="d-flex justify-content-between align-items-center">
                         <a
                             href={Files}
@@ -42,14 +45,17 @@ const FileLink = ({ Files, Class = "", Style = {}, ColumnClass = "col-12", Remov
                             className={`text-sm text-decoration-underline text-truncate fw-medium ${Class}`}
                             style={{ ...Style }}
                         >
-                            <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
+                            {showDownload && <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />}
                             {extractfileName(Files)}
                         </a>
                         {RemoveFile && (
                             <span
                                 className="btn-close btn-close-sm"
                                 aria-label="Close"
-                                onClick={() => RemoveFile(FileType, Files)}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    RemoveFile(FileType, Files)
+                                }}
                             ></span>
                         )}
                     </div>

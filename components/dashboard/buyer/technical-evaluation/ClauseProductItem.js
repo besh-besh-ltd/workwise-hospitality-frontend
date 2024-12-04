@@ -20,7 +20,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
     const tableRef = useRef(null);
 
     const getBuyerClauses = async () => {
-        const payload = { 
+        const payload = {
             rfq_product_id: product.id,
             vendor_id: selectedVendor?.value || null
         }
@@ -93,6 +93,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
         }
 
         try {
+            setLoading(true)
             const res = await addToTA(payload);
             if (res.status == 1) {
                 console.log("successfully added to TA");
@@ -102,6 +103,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
 
         } catch (error) {
             console.error("Error in the process:", error);
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -140,145 +143,148 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
             {loading ?
                 <FullLoader />
                 :
-                <table className="table table-bordered table-striped">
-                    <thead>
-                        <tr className="table-dark">
-                            <th className="col-8">Clause Terms</th>
-                            <th className="col-4">File Attachments</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {buyerClauses && buyerClauses.length > 0 &&
-                            buyerClauses.map((clauseItem, index) => (
-                                <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
-                                    <td className="col-8">
-                                        {index + 1}{". "}{clauseItem.clause_text}
-                                    </td>
-                                    <td className="col-4">
-                                        {clauseItem.files && clauseItem.files.length > 0 &&
-                                            <FileLink key={clauseItem.clause_id} Files={clauseItem.files} ColumnClass="col-md-6" />
-                                        }
-                                    </td>
-                                </tr>)
-                            )}
-                    </tbody>
-                </table>
-            }
-
-            {/* Vendor Responses */}
-            <div className="hasFullLoader my-4">
-                {responseLoading ?
-                    <FullLoader />
-                    :
-                    vendorResponse && vendorResponse.length > 0 &&
-                    <>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <h3 className="fs-5 mb-0">
-                                <span className="fw-semibold">{selectedVendor?.label}</span>
-                            </h3>
-                            <div className="d-flex gap-2">
-                                {techEvalStatus == 1 ?
-                                    techEvalCleared.status == 1
-                                        ? <span
-                                            className="fw-medium text-bg-success px-3 py-2"
-                                            style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
-                                        >
-                                            Vendor is Technically Accepted
-                                        </span>
-                                        : <span
-                                            className="fw-medium text-bg-danger px-3 py-2"
-                                            style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
-                                        >
-                                            Vendor is Not Technically Accepted
-                                        </span>
-                                    :
-                                    <>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary border-0 p-2"
-                                            style={{ width: "175px" }}
-                                            onClick={addToTechnicallyAccepted}
-                                        >
-                                            Accept Vendor
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-danger border-0 p-2"
-                                            style={{ width: "175px" }}
-                                            onClick={() => setOpenModal(true)}
-                                        >
-                                            Reject Vendor
-                                        </button>
-                                    </>
-                                }
-                            </div>
-                        </div>
-
-                        <table className="table table-bordered table-striped" ref={tableRef}>
+                <>
+                    {!vendorResponse &&
+                        <table className="table table-bordered table-striped">
                             <thead>
-                                <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
-                                    <th>Clause Terms</th>
-                                    <th>Vendor Response</th>
-                                    <th>Vendor Files</th>
-                                    <th>Chat Box</th>
+                                <tr className="table-dark">
+                                    <th className="col-8">Clause Terms</th>
+                                    <th className="col-4">Files Attached</th>
                                 </tr>
                             </thead>
 
                             <tbody>
-                                {vendorResponse.map((clauseItem, index) => (
-                                    <>
-                                        <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
-                                            <td>
+                                {buyerClauses && buyerClauses.length > 0 &&
+                                    buyerClauses.map((clauseItem, index) => (
+                                        <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
+                                            <td className="col-8">
                                                 {index + 1}{". "}{clauseItem.clause_text}
                                             </td>
-                                            <td>
-                                                <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>
-                                            </td>
-                                            <td style={{ maxWidth: "260px" }}>
-                                                {clauseItem.vendor_response_files && clauseItem.vendor_response_files.length > 0 &&
-                                                    <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                                            <td className="col-4">
+                                                {clauseItem.files && clauseItem.files.length > 0 
+                                                    ? <FileLink key={clauseItem.clause_id} Files={clauseItem.files} ColumnClass="col-md-6" />
+                                                    : "N/A"
                                                 }
                                             </td>
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    className="d-flex justify-content-center align-items-center text-sm border-0 p-1 rounded-2"
-                                                    style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff" }}
-                                                    onClick={() => toggleChat(clauseItem.clause_id)}
-                                                >
-                                                    <FontAwesomeIcon icon={faMessage} className="me-2" fontSize={13} />
-                                                    Chat
-                                                </button>
-                                            </td>
-
-                                        </tr>
-                                        {chatMap.get(clauseItem.clause_id) &&
-                                            <BuyerVendorChat
-                                                showChat={chatMap.get(clauseItem.clause_id)}
-                                                closeChat={() => toggleChat(clauseItem.clause_id)}
-                                                type="Buyer"
-                                                data={clauseItem}
-                                                userData={currentUserProfile}
-                                                otherUser={selectedVendor.value}
-                                            />
-                                        }
-                                    </>)
-                                )}
+                                        </tr>)
+                                    )}
                             </tbody>
                         </table>
-                    </>}
+                    }
+                </>
+            }
 
-                {openModal &&
-                    <TE_Modal
-                        openModal={openModal}
-                        closeModal={() => setOpenModal(false)}
-                        data={product}
-                        vendor_id={selectedVendor.value}
-                        getTechEvalResult={getTechEvalResult}
-                    />
-                }
-            </div>
+            {/* Vendor Responses */}
+            {responseLoading ?
+                <FullLoader />
+                :
+                vendorResponse && vendorResponse.length > 0 &&
+                <>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h3 className="fs-5 mb-0">
+                            <span className="fw-semibold">{selectedVendor?.label}</span>
+                        </h3>
+                        <div className="d-flex gap-2">
+                            {techEvalStatus == 1 ?
+                                techEvalCleared.status == 1
+                                    ? <span
+                                        className="fw-medium text-bg-success px-3 py-2"
+                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
+                                    >
+                                        Vendor is Technically Accepted
+                                    </span>
+                                    : <span
+                                        className="fw-medium text-bg-danger px-3 py-2"
+                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
+                                    >
+                                        Vendor is Not Technically Accepted
+                                    </span>
+                                :
+                                <>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary border-0 p-2"
+                                        style={{ width: "220px" }}
+                                        onClick={addToTechnicallyAccepted}
+                                    >
+                                        Technically Accepted
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-danger border-0 p-2"
+                                        style={{ width: "255px" }}
+                                        onClick={() => setOpenModal(true)}
+                                    >
+                                        Technically Not Accepted
+                                    </button>
+                                </>
+                            }
+                        </div>
+                    </div>
+
+                    <table className="table table-bordered table-striped" ref={tableRef}>
+                        <thead>
+                            <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
+                                <th>Clause Terms</th>
+                                <th>Vendor Response</th>
+                                <th>Cross Reference Documents</th>
+                                <th>Comment</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {vendorResponse.map((clauseItem, index) => (
+                                <>
+                                    <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
+                                        <td>
+                                            {index + 1}{". "}{clauseItem.clause_text}
+                                        </td>
+                                        <td>
+                                            <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>
+                                        </td>
+                                        <td style={{ maxWidth: "260px" }}>
+                                            {clauseItem.vendor_response_files && clauseItem.vendor_response_files.length > 0
+                                                ? <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                                                : "N/A"
+                                            }
+                                        </td>
+                                        <td>
+                                            <button
+                                                type="button"
+                                                className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
+                                                style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
+                                                onClick={() => toggleChat(clauseItem.clause_id)}
+                                            >
+                                                Explanation / Deviation
+                                            </button>
+                                        </td>
+
+                                    </tr>
+                                    {chatMap.get(clauseItem.clause_id) &&
+                                        <BuyerVendorChat
+                                            showChat={chatMap.get(clauseItem.clause_id)}
+                                            closeChat={() => toggleChat(clauseItem.clause_id)}
+                                            type="Buyer"
+                                            data={clauseItem}
+                                            userData={currentUserProfile}
+                                            otherUser={selectedVendor.value}
+                                        />
+                                    }
+                                </>)
+                            )}
+                        </tbody>
+                    </table>
+                </>}
+
+            {openModal &&
+                <TE_Modal
+                    openModal={openModal}
+                    closeModal={() => setOpenModal(false)}
+                    data={product}
+                    vendor_id={selectedVendor.value}
+                    getTechEvalResult={getTechEvalResult}
+                />
+            }
 
             <hr />
         </div>

@@ -134,13 +134,22 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
 
   // Handle agreement status change
   const handleAgreementChange = (clauseId, status) => {
-    console.log(clauseId, status)
     setAgreementMap((prevMap) => {
       const newMap = new Map(prevMap);
       newMap.set(clauseId, status);
       return newMap;
     });
   };
+
+  const handleRemoveFile = (clauseId, file) => {
+    setFilesMap((prevFiles) => {
+      const newFiles = new Map(prevFiles);
+      const existingFiles = newFiles.get(clauseId) || [];
+      const updatedFiles = existingFiles.filter((fileItem) => fileItem != file);
+      newFiles.set(clauseId, updatedFiles);
+      return newFiles;
+    });
+  }
 
   // Submit the agreement
   const handleSendAgreement = async () => {
@@ -216,7 +225,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
       }
 
       {/* Buyer All Clauses */}
-      <div className="text-sm my-3 hasFullLoader" >
+      {/* <div className="text-sm my-3 hasFullLoader" >
         {loading ?
           <FullLoader />
           :
@@ -245,7 +254,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
             </tbody>
           </table>
         }
-      </div>
+      </div> */}
 
       {/* Vendor Responses */}
       <div className="text-sm hasFullLoader">
@@ -261,9 +270,10 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
               <thead>
                 <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
                   <th>Clause Terms</th>
+                  <th>Attached Files</th>
                   <th>Vendor Response</th>
-                  <th>Attach Files</th>
-                  <th>Chat Box</th>
+                  <th>Cross Reference Document</th>
+                  <th>Comment</th>
                 </tr>
               </thead>
 
@@ -273,6 +283,12 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
                     <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
                       <td>
                         {index + 1}{". "}{clauseItem.clause_text}
+                      </td>
+                      <td style={{ maxWidth: "260px" }}>
+                        {clauseItem.clause_files && clauseItem.clause_files?.length > 0
+                          ? <FileLink Files={clauseItem.clause_files} />
+                          : "N/A"
+                        }
                       </td>
                       <td>
                         <span className="d-flex gap-2 text-nowrap">
@@ -299,7 +315,10 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
                       <td style={{ maxWidth: "260px" }}>
                         {vendorResponseSent ?
                           clauseItem.vendor_response_files.length > 0 ?
-                            <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                            <FileLink
+                              key={clauseItem.clause_id}
+                              Files={clauseItem.vendor_response_files}
+                            />
                             : "N/A"
                           : <>
                             <span
@@ -316,6 +335,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
                               <FileLink
                                 Files={filesMap.get(clauseItem.clause_id)}
                                 showDownload={false}
+                                RemoveFile={(fileType, file) => handleRemoveFile(clauseItem.clause_id, file)}
                               />
                             }
 
@@ -334,12 +354,11 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
                       <td>
                         <button
                           type="button"
-                          className="d-flex justify-content-center align-items-center text-sm border-0 p-1 rounded-2"
-                          style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff" }}
+                          className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
+                          style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
                           onClick={() => toggleChat(clauseItem.clause_id)}
                         >
-                          <FontAwesomeIcon icon={faMessage} className="me-2" fontSize={13} />
-                          Chat
+                          Explanation / Deviation
                         </button>
                       </td>
 

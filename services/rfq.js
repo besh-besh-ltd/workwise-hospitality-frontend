@@ -334,10 +334,10 @@ export const listQueries = (payload) => {
   });
 };
 
-export const getAllClauses = (payload) => {
+export const getAllClauses = (rfq_id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/get-clauses`,payload);
+      let response = await axiosInstance.get(`/rfq/get-clauses/${rfq_id}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

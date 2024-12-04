@@ -5,6 +5,7 @@ import {
   closeRFQ,
   downloadQuotesDetails,
   finalizeQuotation,
+  getAllClauses,
   getQuotes,
   getRFQS,
 } from "@/services/rfq";
@@ -34,19 +35,15 @@ const QuoteCompare = () => {
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
+  const [TEavailable, setTEavailable] = useState(false);
+
 
 
   useEffect(() => {
     if (rfq) {
       getRespectiveQuotes();
     }
-  }, [TA_Filter]);
-
-  useEffect(() => {
-    if (rfq)
-      getRespectiveQuotes();
-
-  }, [router]);
+  }, [router, TA_Filter]);
 
   useEffect(() => {
     getAllRFQs();
@@ -87,15 +84,28 @@ const QuoteCompare = () => {
   const getRespectiveQuotes = () => {
     setquotesLoading(true);
     setquotes([]);
+    setTEavailable(false);
+
     getQuotes(rfq, TA_Filter)
       .then((res) => {
         setquotes(res.data);
+        getRFQClauses();
       })
       .catch((err) => {
       })
       .finally(() => {
         setquotesLoading(false);
       })
+  };
+
+  const getRFQClauses = async () => {
+    try {
+      const res = await getAllClauses(rfq);
+      if(res.data && res.data.length > 0)
+        setTEavailable(true);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const getDeliveryRange = (items) => {
@@ -1126,18 +1136,20 @@ const QuoteCompare = () => {
                       Overall Comparison
                     </Link>
 
-                    <div className="form-check ms-auto page-link fs-6">
-                      <input
-                        className="form-check-input "
-                        type="checkbox"
-                        value={TA_Filter}
-                        id="TA_check"
-                        onChange={handleTAFilterChange}
-                      />
-                      <label className="form-check-label" for="TA_check">
-                        View Technically Accepted Vendors
-                      </label>
-                    </div>
+                    {TEavailable &&
+                      <div className="form-check form-switch ms-auto page-link fs-6">
+                        <input
+                          className="form-check-input border-dark-subtle"
+                          type="checkbox"
+                          role="switch"
+                          value={TA_Filter}
+                          id="TA_check"
+                          onChange={handleTAFilterChange}
+                        />
+                        <label className="form-check-label" for="TA_check">
+                          View Technically Accepted Vendors
+                        </label>
+                      </div>}
                   </div>
                 )}
 

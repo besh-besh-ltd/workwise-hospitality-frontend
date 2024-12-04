@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
-import { fetchTechEvaluationRfqList, fetchVendorSelectionOption } from "@/services/rfq";
+import { fetchTechEvaluationRfqList, fetchVendorSelectionOption, getAllClauses } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import ClauseProductItem from "./ClauseProductItem";
+import { toast } from "react-toastify";
 
 
 
@@ -17,6 +18,7 @@ const BuyerTechnicalEvaluation = () => {
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setcurrentRfq] = useState(null);
   const [vendorMap, setVendorMap] = useState(null);
+  const [clauseMap, setClauseMap] = useState(null);
 
 
   const getUserDetails = async () => {
@@ -40,6 +42,7 @@ const BuyerTechnicalEvaluation = () => {
     }
   };
 
+
   const getVendorSelectionOption = async (rfq_product_id) => {
     if (!rfq_product_id) return [];
     const payload = {
@@ -59,6 +62,34 @@ const BuyerTechnicalEvaluation = () => {
     }
   };
 
+  const listProducts = async () => {
+    try {
+      const res = await getAllClauses(rfq_id);
+
+      const selectedRfq = rfqList.find((rfqItem) => rfqItem.id === parseInt(rfq_id));
+      const vMap = new Map();
+      selectedRfq.products.map((prodItem) => {
+        vMap.set(prodItem.id, null)
+      })
+
+      let c_map = new Map();
+      selectedRfq?.products?.map((pItem) => {
+        c_map.set(pItem.id, false);
+      })
+
+      res.data?.map((pItem) => {
+        c_map.set(pItem.rfq_product_id, true);
+      })
+      setcurrentRfq(selectedRfq || null);
+      setVendorMap(vMap);
+      setClauseMap(c_map);
+
+    } catch (error) {
+      console.log(error)
+      toast.error(error.message);
+    }
+  }
+
   useEffect(() => {
     getUserDetails();
     getTechEvaluationRFQsByUser();
@@ -67,13 +98,7 @@ const BuyerTechnicalEvaluation = () => {
 
   useEffect(() => {
     if (rfq_id && rfqList.length > 0) {
-      const selectedRfq = rfqList.find((rfqItem) => rfqItem.id === parseInt(rfq_id));
-      const vMap = new Map();
-      selectedRfq.products.map((prodItem) => {
-        vMap.set(prodItem.id, null)
-      })
-      setcurrentRfq(selectedRfq || null);
-      setVendorMap(vMap);
+      listProducts();
     } else {
       setcurrentRfq(null);
     }
@@ -118,6 +143,10 @@ const BuyerTechnicalEvaluation = () => {
                           }
                         >
                           RFQ #{item.rfq_no}
+                          {item.project_name && item.project_name != "" &&
+                            <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
+                              {item.project_name}
+                            </b>}
                         </Link>
                       </li>
                     ))}
@@ -133,9 +162,13 @@ const BuyerTechnicalEvaluation = () => {
                 {/* RFQ Details */}
                 {!loading && currentRfq &&
                   <div className="mb-3">
-                    <h3 className="fs-5 mb-3">
+                    <h3 className="fs-5 mb-1">
                       <span className="fw-semibold">RFQ No : </span>{currentRfq.rfq_no}
                     </h3>
+                    {currentRfq.project_name && currentRfq.project_name != "" &&
+                      <p className="sub-heading fs-6 mb-2">
+                        {currentRfq.project_name}
+                      </p>}
                     <hr />
 
                     <div className="row text-sm ">
@@ -165,11 +198,6 @@ const BuyerTechnicalEvaluation = () => {
                       </div>
 
                       <div className="col-md-6">
-                        {currentRfq.project_name && currentRfq.project_name != "" &&
-                          <p className="sub-heading mb-0">
-                            <b>Project Name</b> :{" "}
-                            {currentRfq.project_name}
-                          </p>}
                         <p className="sub-heading mb-0">
                           <b>Reverse Auction</b> :{" "}
                           {currentRfq.reverse_auction == 1 ? "Enabled" : "Disabled"}
@@ -205,55 +233,60 @@ const BuyerTechnicalEvaluation = () => {
                       </>}
 
                     {currentRfq &&
-                      currentRfq.products.map((product) => (
-                        <div className="quote-sec-table-sub pt-2" key={`product_${product.id}`}>
-                          <div className="row">
-                            <div className="col-12">
+                      currentRfq.products.map((product) => {
+                        if (clauseMap.get(product.id)) {
+                          return (
+                            <div className="quote-sec-table-sub pt-0" key={`product_${product.id}`}>
+                              <div className="row">
+                                <div className="col-12">
 
-                              <div className="d-flex justify-content-between">
-                                {/* Product Details */}
-                                <div className="d-flex-flex-column">
-                                  <p className="sub-heading mb-0">
-                                    <b>Product</b>: {product.product_details[0]?.name}
-                                  </p>
-                                  <p className="sub-heading mb-0">
-                                    <b>Product Specification</b>:{" "}
-                                    {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
-                                  </p>
-                                </div>
+                                  <div className="d-flex justify-content-between">
+                                    {/* Product Details */}
+                                    <div className="d-flex-flex-column mt-3">
+                                      <p className="sub-heading mb-0">
+                                        <b>Product</b>: {product.product_details[0]?.name}
+                                      </p>
+                                      <p className="sub-heading mb-0">
+                                        <b>Product Specification</b>:{" "}
+                                        {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
+                                      </p>
+                                    </div>
 
-                                {/* Vendor Selection */}
-                                <div className="col-md-3 col-lg-3 text-sm">
-                                  <label>Select Vendor</label>
-                                  <AsyncSelect
-                                    cacheOptions
-                                    loadOptions={() => getVendorSelectionOption(product.id)}
-                                    defaultOptions
-                                    placeholder="Select"
-                                    isClearable
-                                    onChange={(selectedOption) => {
-                                      const updatedVendorMap = new Map(vendorMap);
-                                      updatedVendorMap.set(product.id, selectedOption ? selectedOption : null);
-                                      setVendorMap(updatedVendorMap);
-                                    }}
-                                    noOptionsMessage={() => "No vendors responded"}
+                                    {/* Vendor Selection */}
+                                    <div className="col-md-3 col-lg-3 text-sm">
+                                      <label>Select Vendor</label>
+                                      <AsyncSelect
+                                        cacheOptions
+                                        loadOptions={() => getVendorSelectionOption(product.id)}
+                                        defaultOptions
+                                        placeholder="Select"
+                                        isClearable
+                                        onChange={(selectedOption) => {
+                                          const updatedVendorMap = new Map(vendorMap);
+                                          updatedVendorMap.set(product.id, selectedOption ? selectedOption : null);
+                                          setVendorMap(updatedVendorMap);
+                                        }}
+                                        noOptionsMessage={() => "No vendors responded"}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <ClauseProductItem
+                                    type={"buyer"}
+                                    rfq_id={rfq_id}
+                                    product={product}
+                                    currentUserProfile={currentUserProfile}
+                                    selectedVendor={vendorMap.get(product.id)}
+                                    currentRfq={currentRfq}
                                   />
+
                                 </div>
                               </div>
-
-                              <ClauseProductItem
-                                type={"buyer"}
-                                rfq_id={rfq_id}
-                                product={product}
-                                currentUserProfile={currentUserProfile}
-                                selectedVendor={vendorMap.get(product.id)}
-                                currentRfq={currentRfq}
-                              />
-
                             </div>
-                          </div>
-                        </div>
-                      ))}
+                          )
+                        }
+                      }
+                      )}
                   </>
                 </div>
               </div>

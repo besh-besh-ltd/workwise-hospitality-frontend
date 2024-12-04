@@ -190,7 +190,7 @@ const CreateRFQ = () => {
         setHasUnsavedChanges(false);
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
-        
+
         router.push("/dashboard/buyer/rfq-management");
         dispatch(clearState());
         resetForm();
@@ -201,7 +201,7 @@ const CreateRFQ = () => {
       });
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     setMainLoading(true);
 
     const payload = {
@@ -210,22 +210,22 @@ const CreateRFQ = () => {
       is_published: 0,
     };
 
-    saveDraft(payload)
-      .then((res) => {
-        setMainLoading(false);
-        toast.success(
-          <h6>
-            <b>RFQ Draft #{res.message?.rfq_id}:</b> Changes saved successfully!
-          </h6>,
-          { position: "top-right" }
-        );
-        setHasUnsavedChanges(false);
-      })
-      .catch((err) => {
-        console.log(err)
-        setMainLoading(false);
-        toast.error("Failed to save draft. Please try again.");
-      });
+    try {
+      const res = await saveDraft(payload);
+      setMainLoading(false);
+      toast.success(
+        <h6>
+          <b>RFQ Draft #{res.message?.rfq_id}:</b> Changes saved successfully!
+        </h6>,
+        { position: "top-right" }
+      );
+      setHasUnsavedChanges(false);
+
+    } catch (error) {
+      console.log(error)
+      setMainLoading(false);
+      toast.error("Failed to save draft. Please try again.");
+    }
   };
 
   const getDraftInitialData = async () => {
@@ -338,7 +338,7 @@ const CreateRFQ = () => {
                           options={projects}
                           value={projects.find((project) => project.value === rfqFormDataFromStore.project_id)}
                           defaultValue={-1}
-                          onChange={(selectedOption, actionMeta)=> handleFormFieldChange(null, selectedOption, actionMeta)}
+                          onChange={(selectedOption, actionMeta) => handleFormFieldChange(null, selectedOption, actionMeta)}
                           name="project_id"
                           placeholder="Select"
                           isClearable
@@ -371,6 +371,7 @@ const CreateRFQ = () => {
                                     rfq_id={rfqDetails}
                                     setHasUnsavedChanges={setHasUnsavedChanges}
                                     getDraftInitialData={getDraftInitialData}
+                                    saveDraft={handleSaveDraft}
                                   />
                                 );
                               })}

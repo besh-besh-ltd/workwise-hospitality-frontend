@@ -4,7 +4,7 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getRFQById, sendQuotation } from "@/services/rfq";
+import { closeRFQ, getAllClauses, getRFQById, sendQuotation } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -27,12 +27,15 @@ const RfqManagementPreview = () => {
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
+  const [buyerClauses, setBuyerClauses] = useState(null);
+  const [clauseMap, setClauseMap] = useState(null);
 
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
   useEffect(() => {
     if (id) {
       getRFQdetails();
+      getRFQClauses();
     }
     if (type && type == "buyer-view") {
       setEnableBuyerView(true);
@@ -41,6 +44,21 @@ const RfqManagementPreview = () => {
       setisLoggedIn(true);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (rfqDetails && buyerClauses) {
+      let c_map = new Map();
+      rfqDetails.products?.map((pItem) => {
+        c_map.set(pItem.id, false);
+      })
+
+      buyerClauses?.map((pItem) => {
+        c_map.set(pItem.rfq_product_id, true);
+      })
+      setClauseMap(c_map);
+    }
+
+  }, [rfqDetails, buyerClauses])
 
   const getRFQdetails = () => {
     setloading(true);
@@ -65,6 +83,15 @@ const RfqManagementPreview = () => {
       setCurrentLowest(hasLowestQuotation);
     } else {
       setCurrentLowest(null);
+    }
+  };
+
+  const getRFQClauses = async () => {
+    try {
+      const res = await getAllClauses(id);
+      setBuyerClauses(res.data);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -639,22 +666,25 @@ const RfqManagementPreview = () => {
                                   }
 
                                   <td>
-                                    <a
-                                      href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
-                                      className="text-dark-blue"
-                                      style={{
-                                        fontSize: '0.8rem',
-                                        padding: '5px 10px',
-                                        display: 'inline-block',
-                                        border: 'none',
-                                        backgroundColor: 'lightblue',
-                                        color: 'darkblue',
-                                        textDecoration: 'none',
-                                      }}
+                                    {clauseMap && clauseMap.get(item.id)
+                                      ? <a
+                                        href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
+                                        className="text-dark-blue"
+                                        style={{
+                                          fontSize: '0.8rem',
+                                          padding: '5px 10px',
+                                          display: 'inline-block',
+                                          border: 'none',
+                                          backgroundColor: 'lightblue',
+                                          color: 'darkblue',
+                                          textDecoration: 'none',
+                                        }}
 
-                                    >
-                                      View Evaluation
-                                    </a>
+                                      >
+                                        View Evaluation
+                                      </a>
+                                      : "N/A"
+                                    }
                                   </td>
                                 </tr>
                               );

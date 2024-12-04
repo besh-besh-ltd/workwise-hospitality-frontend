@@ -85,16 +85,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         }
     };
 
-    const openUpdateField = (clause, index) => {
-        // Remove clause from the list
-        const updatedClauses = clauses.filter((_, idx) => idx !== index);
-        setClauses(updatedClauses);
-        setMessage(clause.clause_text);
-        setFiles(clause.files);
-        setUpdate(true);
-        setCurrentClause(clause);
-    }
-
     const handleUpdateClause = async () => {
         const payload = {
             clause_id: currentClause.clause_id,
@@ -133,6 +123,20 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         }
     }
 
+    const openUpdateField = (clause, index) => {
+        const updatedClauses = previousClauses.filter((_, idx) => idx !== index);
+        setPreviousClauses(updatedClauses);
+        setMessage(clause.clause_text);
+        setFiles(clause.files);
+        setUpdate(true);
+        setCurrentClause(clause);
+    }
+
+    const handleRemoveFile = (fileType, file) => {
+        const fileList = files.filter((fileItem) => fileItem !== file);
+        setFiles(fileList);
+    }
+
     useEffect(() => {
         getPreviousClauses();
     }, [])
@@ -146,7 +150,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         >
             <Modal.Header closeButton>
                 <Modal.Title className="text-right w-100 p-3">
-                    Add Technical Clause for - {product.name}
+                    Technical Clause for - {product.name}
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ minHeight: "200px" }}>
@@ -160,7 +164,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                         onChange={(e) => setMessage(e.target.value)}
                     />
                     <div className="d-flex justify-content-between align-items-start mt-2">
-                        <div role="button" onClick={handleAttachFileClick} className="text-sm">
+                        <div role="button" onClick={handleAttachFileClick} className="text-sm" style={{ maxWidth: "80%" }}>
                             <FontAwesomeIcon icon={faPaperclip} className="opacity-75 me-2" />
                             Attach File
                             {fileLoading &&
@@ -169,42 +173,16 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                 </div>
                             }
 
-
                             {/* Display the filename below the Attach file button if a file is selected */}
                             {files && files.length > 0 &&
-                                files.map(file => (
-                                    <>
-                                        <div
-                                            key={file}
-                                            className="d-flex justify-content-between align-items-center mt-2"
-                                            style={{ fontSize: "12px" }}
-                                        >
-                                            <FileLink
-                                                Files={file}
-                                                Style={{ fontSize: "12px" }}
-                                                showDownload={false}
-                                            />
-                                            <span
-                                                style={{
-                                                    fontSize: '16px',
-                                                    color: 'grey',
-                                                    cursor: 'pointer',
-                                                    marginLeft: '5px',
-                                                    fontWeight:"700",
-                                                    textDecoration: 'none',
-                                                }}
-                                                onMouseOver={(e) => (e.target.style.color = 'darkred')}
-                                                onMouseOut={(e) => (e.target.style.color = 'grey')}
-                                                onClick={(e) => {e.stopPropagation();handleRemoveFile(file)}}
-                                            >
-                                                x
-                                            </span>
-
-                                        </div>
-                                    </>
-                                ))
+                                <FileLink
+                                    Files={files}
+                                    ColumnClass="col-md-6"
+                                    Style={{ fontSize: "12px" }}
+                                    showDownload={false}
+                                    RemoveFile={handleRemoveFile}
+                                />
                             }
-
                         </div>
 
 
@@ -250,19 +228,22 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                         <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                             {previousClauses.map((clause, index) => (
                                 <li key={index} className="list-group-item ">
-                                    <p className="text-sm mb-0">
+                                    <p className="text-sm mb-1">
                                         <strong>Message:</strong> {clause.clause_text}
                                     </p>
-                                    {clause.files.length > 0 && clause.files.map((file) => ((
-                                        <div className="d-flex gap-2 align-items-center text-sm">
-                                            <strong className="text-nowrap">Files :</strong>
-                                            <FileLink
-                                                Files={file}
-                                                ColumnClass="col-md-3"
-                                                Style={{ fontSize: "12px" }}
-                                            />
+                                    {clause.files.length > 0 &&
+                                        <div className="d-flex gap-2 align-items-start text-sm mb-1">
+                                            <strong className="text-nowrap my-1">Files :</strong>
+                                            <div style={{ width: "90%" }}>
+                                                <FileLink
+                                                    Files={clause.files}
+                                                    ColumnClass="col-md-5"
+                                                    Style={{ fontSize: "12px" }}
+                                                    showDownload={true}
+                                                />
+                                            </div>
                                         </div>
-                                    )))}
+                                    }
                                     <div className="d-flex justify-content-end">
                                         <button
                                             type="button"
@@ -289,62 +270,16 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                     )}
                 </div>
 
-
-                {/* To Do List: Display Added Clauses */}
-                {/* {!update &&
-                    <div className="mt-4">
-                        {clauses.length > 0 && (
-                            <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                {clauses.map((clause, index) => (
-                                    <li key={index} className="list-group-item ">
-                                        <p className="text-sm mb-0">
-                                            <strong>Message:</strong> {clause.message}
-                                        </p>
-                                        {clause.files.length > 0 && (
-                                            <div className="d-flex gap-2 align-items-center text-sm">
-                                                <strong className="text-nowrap">Files :</strong>
-                                                <FileLink
-                                                    Files={clause.files}
-                                                    ColumnClass="col-md-3"
-                                                    Style={{ fontSize: "12px" }}
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="d-flex justify-content-end">
-                                            <button
-                                                type="button"
-                                                className="btn btn-warning p-1 me-2"
-                                                style={{ width: "110px", fontSize: "12px" }}
-                                                onClick={() => openUpdateField(clause, index)}
-                                            >
-                                                <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                                Update
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-danger p-1"
-                                                style={{ width: "110px", fontSize: "12px" }}
-                                                onClick={() => handleDeleteClause(clause.clause_id, index)}
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                                Remove
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                } */}
-
-
             </Modal.Body>
+
             <Modal.Footer>
                 <button
                     type="button"
                     className="btn btn-secondary border-0 p-2"
                     style={{ width: "120px" }}
-                    onClick={() => {
+                    onClick={async () => {
+                        if (message != "")
+                            await handleAddClause();
                         toast.success("Clauses Saved successfully.")
                         onClose()
                     }}

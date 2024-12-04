@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import {
@@ -10,14 +10,15 @@ import {
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
-import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { faEye, faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
-import { addProductToDraft } from "@/services/rfq";
+import { addProductToDraft, getClausesByRfqProductId } from "@/services/rfq";
 
-const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraftInitialData }) => {
+
+const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraftInitialData, saveDraft }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
   const [uploadedQapFile, setUploadedQapFile] = useState(data?.qap_file);
@@ -26,16 +27,8 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraft
   const [comment, setComment] = useState(data?.comment);
   const [isModelOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [buyerClauses, setBuyerClauses] = useState(null);
 
-
-  useEffect(() => {
-    // console.log(data)
-    setRfqProduct(data);
-    setUploadedQapFile(data?.qap_file || []);
-    setUploadedSpecFile(data?.spec_file || []);
-    setUploadedDatasheetFile(data?.datasheet_file || []);
-    setComment(data?.comment || "");
-  }, [data]);
 
   const handleSpecValue = (type, value) => {
     if (rfqProduct.spec) {
@@ -138,6 +131,8 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraft
   const handleAddVarient = async () => {
     try {
       setHasUnsavedChanges(true);
+
+      await saveDraft();
       setLoading(true);
 
       const payload = {
@@ -158,13 +153,40 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraft
     }
   };
 
+  const getProductClauses = useCallback(async () => {
+    const payload = {
+      rfq_product_id: data.id,
+      vendor_id: null,
+    };
+    try {
+      const res = await getClausesByRfqProductId(payload);
+      setBuyerClauses(res.data);
+    } catch (error) {
+      console.error(error);
+    } 
+  }, [data.id]);
+
   const handleOpenModal = () => {
     setIsModalOpen(true);
   }
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    getProductClauses();
   }
+
+  useEffect(() => {
+    getProductClauses();
+  }, []);
+
+  useEffect(() => {
+    setRfqProduct(data);
+    setUploadedQapFile(data?.qap_file || []);
+    setUploadedSpecFile(data?.spec_file || []);
+    setUploadedDatasheetFile(data?.datasheet_file || []);
+    setComment(data?.comment || "");
+  }, [data]);
+
 
   return (
     <>
@@ -369,9 +391,16 @@ const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraft
         </td>
 
         <td>
+          {buyerClauses?.length > 0 &&
+            <button className="upload mb-2" onClick={handleOpenModal}>
+              <FontAwesomeIcon icon={faEye} /> {`${buyerClauses.length} Clauses`}
+            </button>
+          }
+
           <button className="upload" onClick={handleOpenModal}>
-            <FontAwesomeIcon icon={faPlusCircle} /> Add Clause
+            <FontAwesomeIcon icon={faPlusCircle} /> Add Clauses
           </button>
+
         </td>
       </tr>
       <div>
