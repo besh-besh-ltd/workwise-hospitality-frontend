@@ -351,7 +351,9 @@ const MagicSearchPage = () => {
     // Handle API response and state update after all messages are shown
     useEffect(() => {
         // if (messagesDisplayed && !loading && apiDataRef.current) {
-        if (fileUploadMessagesDisplayed && !loading && apiData) {
+        // console.log(" apidata ", apiData)
+        if (apiData) {
+            // console.log(" if is executed ")
             // const { status, validation_errors, data } = apiDataRef.current;
             const { status, validation_errors, data } = apiData;
 
