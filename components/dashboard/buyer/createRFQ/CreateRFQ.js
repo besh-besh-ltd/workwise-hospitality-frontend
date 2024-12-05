@@ -206,6 +206,7 @@ const CreateRFQ = () => {
 
     const payload = {
       ...rfqFormDataRef.current,
+      rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       is_published: 0,
     };
