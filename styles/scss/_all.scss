@@ -369,17 +369,17 @@ select::-ms-expand {
   .modal-header {
     border: 0;
     padding: 0;
-  }
 
-  .btn-close {
-    position: absolute;
-    right: -12px;
-    top: -14px;
-    width: 20px;
-    height: 20px;
-    background-color: var(--secondary-color);
-    border-radius: 100px;
-    opacity: 1;
+    .btn-close {
+      position: absolute;
+      right: -10px;
+      top: -10px;
+      width: 20px;
+      height: 20px;
+      background-color: var(--secondary-color);
+      border-radius: 100px;
+      opacity: 1;
+    }
   }
 }
 
@@ -402,8 +402,7 @@ textarea {
     justify-content: space-between;
     align-items: center;
     position: relative;
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding: 8px 0;
     transition: var(--primary-transition);
 
     .logo {
@@ -4041,7 +4040,8 @@ textarea {
       padding-right: 0;
     }
 
-    .col-md-10 {
+    .col-md-10,
+    .col-md-12 {
       .quote-sec-table {
         background-color: var(--white-color);
         padding: 30px;
@@ -6013,7 +6013,7 @@ textarea {
       }
 
       table {
-        text-align: left;        
+        text-align: left;
 
         tbody {
           tr {
@@ -6712,7 +6712,7 @@ h2.pdf-icon {
       .table-col {
         .table-si-row {
           min-width: 200px;
-          padding: 15px;
+          padding: 10px 15px;
           height: 54px;
           border-left: 1px solid #e7e7e7;
 
@@ -6735,7 +6735,8 @@ h2.pdf-icon {
           }
         }
 
-        .table-si-row:last-child {
+        .table-si-row:last-child,
+        .table-si-row:nth-last-child(2) {
           height: 100px;
           overflow-y: auto;
         }
@@ -7067,7 +7068,7 @@ a.btn.disabled {
       color: #fff;
       text-align: center;
     }
-    
+
     div {
       background: red;
       border-radius: 0;
@@ -7112,7 +7113,8 @@ a.btn.disabled {
         overflow: hidden;
         border-radius: 50%;
 
-        img, svg {
+        img,
+        svg {
           width: 100%;
           height: 100%;
           object-fit: contain;

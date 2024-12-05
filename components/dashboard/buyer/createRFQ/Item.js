@@ -1,38 +1,34 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 import {
   addProductComment,
   addFiles,
   addProductSpecValue,
-  addRfqProduct,
   removeFiles,
   removeRfqProduct,
   setUserSelectedDefaultFile,
 } from "@/redux/slice";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
-import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { faEye, faFile } from "@fortawesome/free-regular-svg-icons";
 import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
+import AddClause from "./AddClause";
+import { addProductToDraft, getClausesByRfqProductId } from "@/services/rfq";
 
 
-const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
+const Item = ({ rfq_id, data, vendorApprovedList, setHasUnsavedChanges, getDraftInitialData, saveDraft }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
   const [uploadedQapFile, setUploadedQapFile] = useState(data?.qap_file);
   const [uploadedSpecFile, setUploadedSpecFile] = useState(data?.spec_file);
   const [uploadedDatasheetFile, setUploadedDatasheetFile] = useState(data?.datasheet_file);
   const [comment, setComment] = useState(data?.comment);
+  const [isModelOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [buyerClauses, setBuyerClauses] = useState(null);
 
-  useEffect(() => {
-    // console.log(data)
-    setRfqProduct(data);
-    setUploadedQapFile(data?.qap_file || []);
-    setUploadedSpecFile(data?.spec_file || []);
-    setUploadedDatasheetFile(data?.datasheet_file || []);
-    setComment(data?.comment || "");
-  }, [data]);
 
   const handleSpecValue = (type, value) => {
     if (rfqProduct.spec) {
@@ -132,18 +128,64 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
     setHasUnsavedChanges(true);
   };
 
-  const handleAddVarient = () => {
-    const item = {
-      product_id: data.product_id,
-      product_name: data?.name,
-      vendors: data?.vendors,
-      pd_tds_file_url: data.predefined_tds_file,
-      pd_qap_file_url: data.predefined_qap_file,
-      //fix here (can add datasheet and qap)
-    };
-    dispatch(addRfqProduct(item));
-    setHasUnsavedChanges(true);
+  const handleAddVarient = async () => {
+    try {
+      setHasUnsavedChanges(true);
+
+      await saveDraft();
+      setLoading(true);
+
+      const payload = {
+        product_id: data.product_id,
+        vendors: data.vendors.map(vendor => ({
+          vendor_id: vendor.user_id
+        }))
+      };
+      await addProductToDraft(payload);
+      getDraftInitialData();
+    } catch (error) {
+      toast.error(
+        <h6>Failed to add vendors to RFQ. Please try again.</h6>,
+        { position: "top-right" }
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const getProductClauses = useCallback(async () => {
+    const payload = {
+      rfq_product_id: data.id,
+      vendor_id: null,
+    };
+    try {
+      const res = await getClausesByRfqProductId(payload);
+      setBuyerClauses(res.data);
+    } catch (error) {
+      console.error(error);
+    } 
+  }, [data.id]);
+
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    getProductClauses();
+  }
+
+  useEffect(() => {
+    getProductClauses();
+  }, []);
+
+  useEffect(() => {
+    setRfqProduct(data);
+    setUploadedQapFile(data?.qap_file || []);
+    setUploadedSpecFile(data?.spec_file || []);
+    setUploadedDatasheetFile(data?.datasheet_file || []);
+    setComment(data?.comment || "");
+  }, [data]);
 
 
   return (
@@ -340,15 +382,30 @@ const Item = ({ data, vendorApprovedList, setHasUnsavedChanges }) => {
             <FontAwesomeIcon icon={faTrash} /> Remove
           </button>
           {/* fix here */}
-          <button className="upload" onClick={handleAddVarient}>
-            <FontAwesomeIcon icon={faPlusCircle} /> Add variant
+          <button className="upload" onClick={handleAddVarient} disabled={loading}>
+            {loading
+              ? "Adding..."
+              : <><FontAwesomeIcon icon={faPlusCircle} /> Add variant</>
+            }
           </button>
-          {/* {data?.variant == 0 &&
-            <button className="upload" onClick={handleAddVarient}>
-              <FontAwesomeIcon icon={faPlusCircle} /> Add variant
-            </button>} */}
+        </td>
+
+        <td>
+          {buyerClauses?.length > 0 &&
+            <button className="upload mb-2" onClick={handleOpenModal}>
+              <FontAwesomeIcon icon={faEye} /> {`${buyerClauses.length} Clauses`}
+            </button>
+          }
+
+          <button className="upload" onClick={handleOpenModal}>
+            <FontAwesomeIcon icon={faPlusCircle} /> Add Clauses
+          </button>
+
         </td>
       </tr>
+      <div>
+        {isModelOpen && <AddClause show={isModelOpen} onClose={handleCloseModal} product={data} rfq_id={rfq_id} />}
+      </div>
     </>
   );
 };
