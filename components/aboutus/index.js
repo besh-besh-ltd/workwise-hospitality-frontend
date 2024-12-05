@@ -3,20 +3,25 @@ import { getAboutProfiles, getCmsData, getPageBanner } from "@/services/cms";
 import { HomeLists1Service } from "@/services/Home";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { toast } from "react-toastify";
+import Slider from "react-slick";
+import Link from "next/link";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLinkedin } from "@fortawesome/free-brands-svg-icons";
 
 
 const Aboutus = (props) => {
   const [cmsdata, setCmsdata] = useState([]);
   const [bannerdata, setBanner] = useState(null);
   const [showHomeLists1, setHomeLists1] = useState([]);
+  const [teamList, setTeamList] = useState(null);
 
   const [bod, setbod] = useState([]);
   const [kp, setkp] = useState([]);
 
   useEffect(() => {
+    getBanner();
     getCmsSections();
     getHomeLists1();
-    getBanner();
     getBod();
     getKp();
   }, []);
@@ -25,7 +30,14 @@ const Aboutus = (props) => {
     getCmsData(2)
       .then((response) => {
         if (response.data.length > 0) {
-          setCmsdata(response.data);
+          const teamData = response.data.find((item)=> item.section_name === "team-member-details");
+          let cmsData = response.data;
+
+          if(teamData) {
+            cmsData = response.data.filter((item)=> item.id != teamData.id);
+            setTeamList(JSON.parse(teamData.content));
+          }
+          setCmsdata(cmsData);
         }
       })
       .catch((error) => {
@@ -33,7 +45,6 @@ const Aboutus = (props) => {
       });
   };
 
-  // ----------- Why Choose Us / Process Overview  -----------
   const getHomeLists1 = () => {
     HomeLists1Service()
       .then((response) => {
@@ -95,6 +106,31 @@ const Aboutus = (props) => {
     });
   };
 
+  const sliderSettings = {
+    dots: false,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 4, // Default for extra-large screens
+    slidesToScroll: 1,
+    responsive: [
+      {
+        breakpoint: 1200, // Tablets (up to 1200px)
+        settings: {
+          slidesToShow: 3,
+          slidesToScroll: 1,
+        },
+      },
+      {
+        breakpoint: 576, // Mobile (up to 576px)
+        settings: {
+          slidesToShow: 2,
+          slidesToScroll: 1,
+        },
+      },
+    ],
+  };
+
+
   return (
     <>
       <section
@@ -141,6 +177,58 @@ const Aboutus = (props) => {
           return <DynamicSection content={item.content} key={item.id} />;
         }
       })}
+
+      {/* ---------- Meet the Team ---------- */}
+      {teamList &&
+        <section className="about-sec-5 sc-pt-80" aria-label="Meet our team" >
+          <div className="container">
+            <div className="about-sec-5-top">
+              <div className="common-header text-center">
+
+                <h2><strong >Meet Our Team<br /></strong></h2>
+
+                <div className="member-container mt-5" >
+                  <Slider {...sliderSettings}>
+                    {teamList.map((member, index) => (
+                      <div key={`team_member_${index}`} className="card-wrapper p-3">
+                        <div className="team-card rounded-4 p-3" style={{ backgroundColor: "#eaedf1" }} >
+                          <div
+                            className="image-container mb-4"
+                            style={{
+                              overflow: "hidden",
+                              width: "100%",
+                              maxHeight: "220px",
+                              margin: "0 auto",
+                              position: "relative",
+                            }}
+                          >
+                            <img
+                              src={member.image}
+                              alt={member.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          </div>
+                          <h2 className="fs-5" style={{ margin: "10px 0 5px" }}>{member.name}</h2>
+                          <p style={{ fontSize: "14px" }}>{member.role}</p>
+                          <Link 
+                            href={member.linkedIn || "#"}
+                            target="_blank"
+                          >
+                            <FontAwesomeIcon icon={faLinkedin} className="me-2" />
+                            LinkedIn Profile
+                            </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </Slider>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
+      }
 
       {/* {bod && <PersonalProfiles profiles={bod}/>}
       		{kp &&<PersonalProfiles pb={80} title="Other key Personnel" subtitle="International Subsidiaries" profiles={kp}/>} */}
