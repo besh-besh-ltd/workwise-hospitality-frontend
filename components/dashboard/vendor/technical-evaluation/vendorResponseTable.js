@@ -9,6 +9,7 @@ import { faMessage } from "@fortawesome/free-regular-svg-icons";
 import BuyerVendorChat from "../../buyer/technical-evaluation/buyerVendorChat";
 import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import Loader from "@/components/shared/Loader";
+import ReadMore from "@/components/shared/ReadMore";
 
 
 const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser }) => {
@@ -282,7 +283,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
                   <>
                     <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
                       <td>
-                        {index + 1}{". "}{clauseItem.clause_text}
+                        <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
                       </td>
                       <td style={{ maxWidth: "260px" }}>
                         {clauseItem.clause_files && clauseItem.clause_files?.length > 0

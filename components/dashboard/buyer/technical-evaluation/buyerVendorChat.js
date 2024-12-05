@@ -11,7 +11,7 @@ import FullLoader from '@/components/shared/FullLoader';
 const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => {
   const [messages, setMessages] = useState(null);
   const [messageText, setMessageText] = useState("");
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,6 +36,11 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
       setFileLoading(false);
       e.target.value = null;
     }
+  }
+
+  const removeChatFile = (fileType, file) => {
+    const updatedList = files.filter((fileItem) => fileItem != file);
+    setFiles(updatedList);
   }
 
   const getChatData = async () => {
@@ -74,7 +79,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
     try {
       const res = await addChatComment(payload);
       setMessageText("");
-      setFiles([]);
+      setFiles(null);
       getChatData();
     } catch (error) {
       console.log(error)
@@ -117,7 +122,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
           }}
         >
           <div className="modal-header" style={{ borderBottom: '1px solid #ddd' }}>
-            <h5 className="modal-title">Queries Inbox</h5>
+            <h5 className="modal-title">Evaluation / Deviation</h5>
             <button
               type="button"
               className="btn-close"
@@ -155,15 +160,11 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
                     <p className="mb-0">{message.comment_text}</p>
                     {message.comment_files && message.comment_files.length > 0 && (
                       <div className="mt-2">
-                        {message.comment_files.map((file, idx) => (
-                          <FileLink
-                            key={idx}
-                            target="_blank"
-                            Files={file}
-                            Style={{ backgroundColor: "#f0f0f0", fontSize: "10px" }}
-                            // ColumnClass="col-md-4"
-                            showDownload={false} />
-                        ))}
+                        <FileLink
+                          Files={message.comment_files}
+                          Class="badge text-bg-secondary rounded-pill py-0"
+                          Style={{ fontSize: "10px" }}
+                        />
                       </div>
                     )}
                   </div>
@@ -183,7 +184,12 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
               boxSizing: 'border-box', // Ensures padding and border are included in the width
             }}
           >
-
+            {files &&
+              <>
+                <FileLink Files={files} ColumnClass="col-md-6" showDownload={false} RemoveFile={removeChatFile} />
+                <hr />
+              </>
+            }
 
             <textarea
               rows="2"
@@ -238,18 +244,6 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
                     <span className="visually-hidden">Loading...</span>
                   </div>
                 }
-                {/* {files && files.length > 0 &&
-                  files.map((file) => (
-                    <FileLink
-                      Files={file}
-                      Style={{ backgroundColor: "#f0f0f0", fontSize:"10px" }}
-                      ColumnClass="col-md-4"
-                      showDownload={false} />
-                      
-                  ))
-                  
-
-                } */}
               </div>
 
               {/* Hidden file input field triggered by the "Attach file" button */}

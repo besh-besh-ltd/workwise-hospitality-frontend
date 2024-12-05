@@ -74,7 +74,10 @@ const LoginContainer = (props) => {
                         router.push(`/vendor/${prod_name}`);
                     } else if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
-                    } else {
+                    } else if (userType == "vendor") {
+                        "Do Nothing"
+                    }    
+                    else {
                         router.push(`/dashboard/${userType}`);
                     }
                 }

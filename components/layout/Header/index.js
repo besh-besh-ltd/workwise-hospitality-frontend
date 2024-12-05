@@ -426,19 +426,6 @@ const Header = () => {
 
                           <li
                             className={
-                              router.pathname ==
-                                "/dashboard/buyer/quote-compare"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/quote-compare">
-                              Compare received quotes
-                            </Link>
-                          </li>
-
-                          <li
-                            className={
                               router.pathname == "/dashboard/buyer/technical-evaluation"
                                 ? "active"
                                 : ""
@@ -448,6 +435,19 @@ const Header = () => {
                               Technical Evaluation
                             </Link>
                           </li>
+
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/buyer/quote-compare"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/quote-compare">
+                              Compare received quotes
+                            </Link>
+                          </li>                          
 
                           {/* <li
 														className={
@@ -507,6 +507,18 @@ const Header = () => {
                           >
                             <Link href="/dashboard/other/rfq-management">
                               RFQ management
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/technical-evaluation"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/technical-evaluation">
+                              Technical Evaluation
                             </Link>
                           </li>
 

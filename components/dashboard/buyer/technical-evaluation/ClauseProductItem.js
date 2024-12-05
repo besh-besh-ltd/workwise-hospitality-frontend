@@ -7,6 +7,7 @@ import BuyerVendorChat from './buyerVendorChat';
 import FullLoader from '@/components/shared/FullLoader';
 import TE_Modal from './TE_Modal';
 import { toast } from 'react-toastify';
+import ReadMore from '@/components/shared/ReadMore';
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor = null }) => {
     const [buyerClauses, setBuyerClauses] = useState(null);
@@ -158,10 +159,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                                     buyerClauses.map((clauseItem, index) => (
                                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
                                             <td className="col-8">
-                                                {index + 1}{". "}{clauseItem.clause_text}
+                                                <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
                                             </td>
                                             <td className="col-4">
-                                                {clauseItem.files && clauseItem.files.length > 0 
+                                                {clauseItem.files && clauseItem.files.length > 0
                                                     ? <FileLink key={clauseItem.clause_id} Files={clauseItem.files} ColumnClass="col-md-6" />
                                                     : "N/A"
                                                 }
@@ -222,58 +223,66 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                         </div>
                     </div>
 
-                    <table className="table table-bordered table-striped" ref={tableRef}>
-                        <thead>
-                            <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
-                                <th>Clause Terms</th>
-                                <th>Vendor Response</th>
-                                <th>Cross Reference Documents</th>
-                                <th>Comment</th>
-                            </tr>
-                        </thead>
+                    <div className="table-responsive w-100">
+                        <table className="table table-bordered table-striped" ref={tableRef} style={{ tableLayout: "fixed" }}>
+                            <colgroup>
+                                <col style={{ width: "600px" }} />
+                                <col style={{ width: "140px" }} />
+                                <col style={{ width: "230px" }} />
+                                <col style={{ width: "125px" }} />
+                            </colgroup>
+                            <thead>
+                                <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
+                                    <th scope="col" >Clause Terms</th>
+                                    <th scope="col" >Vendor Response</th>
+                                    <th scope="col" >Cross Reference Documents</th>
+                                    <th scope="col" >Comment</th>
+                                </tr>
+                            </thead>
 
-                        <tbody>
-                            {vendorResponse.map((clauseItem, index) => (
-                                <>
-                                    <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
-                                        <td>
-                                            {index + 1}{". "}{clauseItem.clause_text}
-                                        </td>
-                                        <td>
-                                            <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>
-                                        </td>
-                                        <td style={{ maxWidth: "260px" }}>
-                                            {clauseItem.vendor_response_files && clauseItem.vendor_response_files.length > 0
-                                                ? <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
-                                                : "N/A"
-                                            }
-                                        </td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
-                                                style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
-                                                onClick={() => toggleChat(clauseItem.clause_id)}
-                                            >
-                                                Explanation / Deviation
-                                            </button>
-                                        </td>
+                            <tbody>
+                                {vendorResponse.map((clauseItem, index) => (
+                                    <>
+                                        <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
+                                            <td>
+                                                <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
+                                            </td>
+                                            <td>
+                                                <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>
+                                            </td>
+                                            <td style={{ maxWidth: "260px" }}>
+                                                {clauseItem.vendor_response_files && clauseItem.vendor_response_files.length > 0
+                                                    ? <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                                                    : "N/A"
+                                                }
+                                            </td>
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
+                                                    style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
+                                                    onClick={() => toggleChat(clauseItem.clause_id)}
+                                                >
+                                                    Explanation / Deviation
+                                                </button>
+                                            </td>
 
-                                    </tr>
-                                    {chatMap.get(clauseItem.clause_id) &&
-                                        <BuyerVendorChat
-                                            showChat={chatMap.get(clauseItem.clause_id)}
-                                            closeChat={() => toggleChat(clauseItem.clause_id)}
-                                            type="Buyer"
-                                            data={clauseItem}
-                                            userData={currentUserProfile}
-                                            otherUser={selectedVendor.value}
-                                        />
-                                    }
-                                </>)
-                            )}
-                        </tbody>
-                    </table>
+                                        </tr>
+                                        {chatMap.get(clauseItem.clause_id) &&
+                                            <BuyerVendorChat
+                                                showChat={chatMap.get(clauseItem.clause_id)}
+                                                closeChat={() => toggleChat(clauseItem.clause_id)}
+                                                type="Buyer"
+                                                data={clauseItem}
+                                                userData={currentUserProfile}
+                                                otherUser={selectedVendor.value}
+                                            />
+                                        }
+                                    </>)
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </>}
 
             {openModal &&

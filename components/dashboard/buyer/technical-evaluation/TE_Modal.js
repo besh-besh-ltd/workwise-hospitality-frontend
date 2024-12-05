@@ -70,7 +70,7 @@ const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult })
                         style={{ width: "120px" }}
                         onClick={() => handleSend()}
                     >
-                        Send
+                        Confirm
                     </button>
                 </div>
             </Modal.Body>

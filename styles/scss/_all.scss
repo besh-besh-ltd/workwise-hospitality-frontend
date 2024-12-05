@@ -6712,7 +6712,7 @@ h2.pdf-icon {
       .table-col {
         .table-si-row {
           min-width: 200px;
-          padding: 15px;
+          padding: 10px 15px;
           height: 54px;
           border-left: 1px solid #e7e7e7;
 
@@ -6735,7 +6735,8 @@ h2.pdf-icon {
           }
         }
 
-        .table-si-row:last-child {
+        .table-si-row:last-child,
+        .table-si-row:nth-last-child(2) {
           height: 100px;
           overflow-y: auto;
         }
