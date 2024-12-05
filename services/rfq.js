@@ -12,12 +12,12 @@ export const getTerms = (values) => {
   });
 };
 
-export const handleUploadFile = (file) => {
+export const handleUploadFile = (file, token=null) => {
   let payload = {};
   payload.file = file;
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(`/users/upload-file`, payload);
+      let response = await axiosFormData.post(`/users/upload-file${token!=null ? '?token='+ token : ''}`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });

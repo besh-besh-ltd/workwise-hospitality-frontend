@@ -300,7 +300,7 @@ const SendQuotePageComp = () => {
 
   const uploadQuoteItemFiles = async (e, item) => {
     try {
-      const filePath = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e,token);
       handleUpdateData(
         item.id,
         e,
@@ -321,7 +321,7 @@ const SendQuotePageComp = () => {
 
   const uploadGlobalDocumentFiles = async (e) => {
     try {
-      const filePath = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e, token);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
         ...prevGlobalDocumentFiles,
