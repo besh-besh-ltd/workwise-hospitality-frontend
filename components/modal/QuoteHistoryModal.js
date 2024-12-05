@@ -24,7 +24,7 @@ const QuoteHistoryModal = (props) => {
                         left: "50%",
                         transform: "translate(-50%, -50%)",
                         maxWidth: "90vw", // Adjust this value as needed
-                        width: "50%", // Set to 'auto' or a specific value based on your design
+                        width: "70%", // Set to 'auto' or a specific value based on your design
                         border: "none",
                         background: "transparent",
                         overflow: "hidden",
@@ -44,6 +44,8 @@ const QuoteHistoryModal = (props) => {
                 <div className="modal-body contact-sec-modal p-4">
                     <h3 className="tab-titlex py-2">Quote History</h3>
                     <div>
+
+                   <hr class="hr" />
 
                         <div className='d-flex justify-content-between'>
                             <div>
@@ -75,24 +77,26 @@ const QuoteHistoryModal = (props) => {
                         </div>
                     </div>
 
-                    <div className="details-table hasFullLoader mt-0">
+                    <div className="details-table hasFullLoader mt-4">
                         <div className="table-responsive">
                             <table className="table table-striped ">
                                 <thead>
                                     <tr className='align-middle'>
+                                        <th>SR</th>
                                         <th>Base Price</th>
                                         <th>Packaging (%)</th>
                                         <th>Freight (%)</th>
                                         <th>GST (%)</th>
                                         <th>Total Rate</th>
                                         {/* <th>Sub Total</th> */}
-                                        <th>Delivery Period (In Weeks)</th>
+                                        <th>Delivery Period <p> (In Weeks) </p></th>
                                         <th>Comments</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {props.quotehistorydata.previous_quotes.map((item) => (
+                                    {props.quotehistorydata?.previous_quotes?.map((item, index) => (
                                         <tr key={item.id}>
+                                            <td>{index+1}</td>
                                             <td>{item.unit_price}</td>
                                             <td>{item.package_price}</td>
                                             <td>{item.freight_price}</td>
