@@ -128,7 +128,7 @@ const ProjectManagement = () => {
                                                                 <td>{projectItem.name}</td>
                                                                 <td style={{ maxWidth: "450px" }}>
                                                                     {projectItem.description
-                                                                        ? <ReadMore content={projectItem.description} maxLength={180} />
+                                                                        ? <ReadMore content={projectItem.description} maxLines={2} />
                                                                         : "---"
                                                                     }
                                                                 </td>

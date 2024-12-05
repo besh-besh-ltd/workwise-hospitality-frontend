@@ -762,7 +762,7 @@ const SendQuotePageComp = () => {
                                       <p className="fw-semibold text-nowrap mb-1">{item?.product_details[0]?.name}</p>
                                       <p className="text-sm mb-1">{getProductSpecValueByTitle(item?.product_specs, "Size")}</p>
                                       {item?.product_specs[1]?.value?.length > 70
-                                        ? <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLength={70} textSmall={true} />
+                                        ? <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLines={2} additionalClasses="text-sm" />
                                         : <p className="mb-1 text-sm">{`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`}</p>
                                       }
                                     </td>

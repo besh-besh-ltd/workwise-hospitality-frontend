@@ -5,6 +5,7 @@ import {
   closeRFQ,
   downloadQuotesDetails,
   finalizeQuotation,
+  getAllClauses,
   getQuotes,
   getRFQS,
 } from "@/services/rfq";
@@ -33,7 +34,25 @@ const QuoteCompare = () => {
   const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
+  const [TA_Filter, setTA_Filter] = useState(false);
+  const [TEavailable, setTEavailable] = useState(false);
 
+
+
+  useEffect(() => {
+    if (rfq) {
+      getRespectiveQuotes();
+    }
+  }, [router, TA_Filter]);
+
+  useEffect(() => {
+    getAllRFQs();
+  }, [page]);
+
+
+  const handleTAFilterChange = (e) => {
+    setTA_Filter(e.target.checked);
+  }
 
   const loadMoreRFQs = (e) => {
     e.preventDefault();
@@ -65,15 +84,28 @@ const QuoteCompare = () => {
   const getRespectiveQuotes = () => {
     setquotesLoading(true);
     setquotes([]);
-    getQuotes(rfq)
+    setTEavailable(false);
+
+    getQuotes(rfq, TA_Filter)
       .then((res) => {
         setquotes(res.data);
+        getRFQClauses();
       })
       .catch((err) => {
       })
       .finally(() => {
         setquotesLoading(false);
       })
+  };
+
+  const getRFQClauses = async () => {
+    try {
+      const res = await getAllClauses(rfq);
+      if(res.data && res.data.length > 0)
+        setTEavailable(true);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const getDeliveryRange = (items) => {
@@ -1021,7 +1053,9 @@ const QuoteCompare = () => {
 
             <div className="col-md-10">
 
+
               <div className="quote-sec-table quote-sec-tab">
+
 
                 {!quotesLoading && currentRFQ &&
                   <div className="mb-3">
@@ -1084,7 +1118,6 @@ const QuoteCompare = () => {
                     </div>
                   </div>
                 }
-
                 {"rfq" in router?.query && (
                   <div className="tabs-container">
                     <Link
@@ -1102,8 +1135,24 @@ const QuoteCompare = () => {
                     >
                       Overall Comparison
                     </Link>
+
+                    {TEavailable &&
+                      <div className="form-check form-switch ms-auto page-link fs-6">
+                        <input
+                          className="form-check-input border-dark-subtle"
+                          type="checkbox"
+                          role="switch"
+                          value={TA_Filter}
+                          id="TA_check"
+                          onChange={handleTAFilterChange}
+                        />
+                        <label className="form-check-label" for="TA_check">
+                          View Technically Accepted Vendors
+                        </label>
+                      </div>}
                   </div>
                 )}
+
 
                 {!rfq && (
                   <div className="quote-sec-main">
@@ -1128,7 +1177,7 @@ const QuoteCompare = () => {
                       </div>
                     )}
                     {showOverallComparison && (
-                      <OverallComparison rfq_id={rfq} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} />
                     )}
                     {quotes &&
                       quotes.length > 0 &&
@@ -1213,6 +1262,7 @@ const QuoteCompare = () => {
                               )} */}
                               {/* {item?.product_details[0]?.rfq_details[2]?.value} */}
                             </span>
+
                             {item?.quotations &&
                               item?.quotations.length == 0 && (
                                 <h4 className="mt-4 text-center">

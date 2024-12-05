@@ -375,6 +375,7 @@ const Header = () => {
                               Reviews & Ratings
                             </Link>
                           </li>
+
                           <li
                             className={
                               router.pathname == "/change-password"
@@ -425,6 +426,18 @@ const Header = () => {
 
                           <li
                             className={
+                              router.pathname == "/dashboard/buyer/technical-evaluation"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/technical-evaluation">
+                              Technical Evaluation
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
                               router.pathname ==
                                 "/dashboard/buyer/quote-compare"
                                 ? "active"
@@ -434,19 +447,7 @@ const Header = () => {
                             <Link href="/dashboard/buyer/quote-compare">
                               Compare received quotes
                             </Link>
-                          </li>
-
-                          {/* <li
-                            className={
-                              router.pathname == "/dashboard/buyer/subscription"
-                                ? "active"
-                                : ""
-                            }
-                          >
-                            <Link href="/dashboard/buyer/subscription">
-                              Subscription
-                            </Link>
-                          </li> */}
+                          </li>                          
 
                           {/* <li
 														className={
@@ -506,6 +507,18 @@ const Header = () => {
                           >
                             <Link href="/dashboard/other/rfq-management">
                               RFQ management
+                            </Link>
+                          </li>
+
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/technical-evaluation"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/technical-evaluation">
+                              Technical Evaluation
                             </Link>
                           </li>
 
@@ -847,6 +860,20 @@ const Header = () => {
                             onClick={() => setPopoverVisible(false)}
                           >
                             Change Password
+                          </Link>
+                        </li>
+                        <li
+                          className={
+                            router.pathname == "/change-password"
+                              ? "active"
+                              : ""
+                          }
+                        >
+                          <Link
+                            href={`/dashboard/buyer/subscription`}
+                            onClick={() => setPopoverVisible(false)}
+                          >
+                            Subscription
                           </Link>
                         </li>
                         <li className="">

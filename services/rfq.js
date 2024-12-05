@@ -200,10 +200,10 @@ export const updateQuotation = (quote_id, payload) => {
   });
 };
 
-export const getQuotes = (id) => {
+export const getQuotes = (id, TA_Filter) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-quotes/${id}`);
+      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter ? '?TA_Vendors=TA': ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -211,10 +211,10 @@ export const getQuotes = (id) => {
   });
 };
 
-export const downloadQuotesDetails = (id) => {
+export const downloadQuotesDetails = (id, TA_Filter) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}`);
+      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}${TA_Filter ? '?TA_Vendors=TA' : ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -334,7 +334,157 @@ export const listQueries = (payload) => {
   });
 };
 
+export const getAllClauses = (rfq_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-clauses/${rfq_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
 
+export const getClausesByRfqProductId = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-clauses-of-product`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
 
+export const getClausesByRfqVendorSide = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-clauses-of-product-vendor-side`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+  
+}
 
+export const addClause = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/add-clause`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
 
+export const updateClause = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.put(`/rfq/update-clause`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const removeClause = (clause_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.delete(`/rfq/remove-clause/${clause_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const fetchChatData = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-tech-comments`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const addChatComment = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/add-tech-comment`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const fetchVendorSelectionOption = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-vendor-names`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const fetchTechEvaluationRfqList = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-tech-evaluation-rfqs`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const addVendorAgreement = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/add-vendor-response`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const fetchVendorAgreement = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-vendor-responses`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const addToTA = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/tech-evaluation-cleared-vendors`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getTechClearedVendorsResult = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-tech-evaluation-result`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
