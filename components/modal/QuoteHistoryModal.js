@@ -6,6 +6,39 @@ const QuoteHistoryModal = (props) => {
 
     const [productDetails, setProductDetails] = useState(props.quotehistorydata.product_details[0]);
 
+
+    const formatTimestampToIST = (timestamp) => {
+        // Parse the timestamp as UTC
+        const date = new Date(timestamp);
+      
+        // Convert to IST by adding 5 hours 30 minutes (19800000 ms)
+        const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+        const istDate = new Date(date.getTime() + istOffset);
+      
+        // Format the IST date
+        const day = istDate.getDate().toString().padStart(2, "0"); // Two-digit day
+        const month = istDate.toLocaleString("en-US", { month: "short" }); // Abbreviated month name
+        const year = istDate.getFullYear();
+        const hours = istDate.getHours();
+        const minutes = istDate.getMinutes().toString().padStart(2, "0"); // Two-digit minutes
+        const ampm = hours >= 12 ? "PM" : "AM";
+      
+        // Format hours for 12-hour clock
+        const formattedHours = (hours % 12 || 12).toString().padStart(2, "0");
+      
+        // Construct the formatted string
+        return `${day}-${month}-${year} ${formattedHours}:${minutes}${ampm}`;
+      };
+      
+      // Example usage
+      const timestamp = "2024-12-05T02:40:23.408316";
+      console.log(formatTimestampToIST(timestamp)); // Output: "05-Dec-2024 08:10AM"
+      
+      
+            
+ 
+    
+
     return (
         <div>
             <Modal
@@ -24,7 +57,7 @@ const QuoteHistoryModal = (props) => {
                         left: "50%",
                         transform: "translate(-50%, -50%)",
                         maxWidth: "90vw", // Adjust this value as needed
-                        width: "70%", // Set to 'auto' or a specific value based on your design
+                        width: "80%", // Set to 'auto' or a specific value based on your design
                         border: "none",
                         background: "transparent",
                         overflow: "hidden",
@@ -41,7 +74,11 @@ const QuoteHistoryModal = (props) => {
                         aria-label="Close"
                     ></button>
                 </div>
-                <div className="modal-body contact-sec-modal p-4">
+                <div className="modal-body contact-sec-modal p-4"    
+                 style={{
+                 overflowY: "auto", // Enables vertical scrolling
+                 maxHeight: "calc(90vh - 100px)", // Adjust for header/footer or padding
+                 }}>
                     <h3 className="tab-titlex py-2">Quote History</h3>
                     <div>
 
@@ -89,8 +126,9 @@ const QuoteHistoryModal = (props) => {
                                         <th>GST (%)</th>
                                         <th>Total Rate</th>
                                         {/* <th>Sub Total</th> */}
-                                        <th>Delivery Period <p> (In Weeks) </p></th>
+                                        <th>Delivery Period</th>
                                         <th>Comments</th>
+                                        <th>Date & Time</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -103,9 +141,10 @@ const QuoteHistoryModal = (props) => {
                                             <td>{item.tax}</td>
                                             <td>{item.total_price}</td>
                                             {/* <td>{item.delivery_period}</td> */}
-                                            <td>{item.delivery_period ? item.delivery_period + " week" : '-'}</td>
+                                            <td>{item.delivery_period ? item.delivery_period + " weeks" : '-'}</td>
                                             <td>{item.comment ? item.comment : '-'}</td>
-                                        </tr>
+                                            <td>{formatTimestampToIST(item.timestamp)}</td>
+                                            </tr>
                                     ))}
                                 </tbody>
                             </table>
