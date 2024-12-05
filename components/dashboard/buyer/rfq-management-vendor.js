@@ -234,7 +234,6 @@ const RfqManagementVendorPage = () => {
                     </button>
                   </div>
                 }
-
               </div>
             </div>
           </div>

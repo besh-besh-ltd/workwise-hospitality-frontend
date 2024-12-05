@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import "react-tooltip/dist/react-tooltip.css";
 
 
-const OverallComparison = ({ rfq_id }) => {
+const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState([]);
   const [data, setdata] = useState([]);
@@ -17,11 +17,11 @@ const OverallComparison = ({ rfq_id }) => {
 
   useEffect(() => {
     handleDownloadQuote();
-  }, [rfq_id]);
+  }, [rfq_id, TA_Filter]);
 
   const handleDownloadQuote = () => {
     setloading(true);
-    downloadQuotesDetails(rfq_id)
+    downloadQuotesDetails(rfq_id, TA_Filter)
       .then((res) => {
         setdata(res.data);
 
