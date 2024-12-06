@@ -1142,7 +1142,7 @@ const QuoteCompare = () => {
                           className="form-check-input border-dark-subtle"
                           type="checkbox"
                           role="switch"
-                          value={TA_Filter}
+                          checked={TA_Filter}
                           id="TA_check"
                           onChange={handleTAFilterChange}
                         />

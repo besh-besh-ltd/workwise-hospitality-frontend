@@ -45,7 +45,6 @@ const RfqManagementPreview = () => {
     }
     if (storageInstance.getStorage("token")) {
       setisLoggedIn(true);
-      getRFQClauses();
     }
     if (redirectAfterLogin) {
       const url = redirectAfterLogin;
@@ -75,6 +74,9 @@ const RfqManagementPreview = () => {
 
       .then((res) => {
         setloading(false);
+        if (isLoggedIn) {
+          getRFQClauses();
+        }
         let val = checkBidExpired(res.data?.bid_end_date);
         setIsSubmitable(!val);
         setrfqDetails(res.data);
@@ -487,18 +489,14 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                        <button
-                          type="button"
-                          className="page-link-btn border-0 text-white p-2 my-0 rounded-2"
-                          style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (!isLoggedIn) {
-                              setOpenAuthModal(true);
-                              setRedirectAfterLogin(
-                                `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query?rfq_id=${rfqDetails.id}&role=${type === "buyer-view" ? "buyer" : "vendor"}`
-                              );
-                            } else {
+
+                        {isLoggedIn &&
+                          <button
+                            type="button"
+                            className="page-link-btn border-0 text-white p-2 my-0 rounded-2"
+                            style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
+                            onClick={(e) => {
+                              e.preventDefault();
                               router.push({
                                 pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
                                 query: {
@@ -506,12 +504,26 @@ const RfqManagementPreview = () => {
                                   role: type === "buyer-view" ? "buyer" : "vendor",
                                 },
                               });
-                            }
-                          }}
-                        >
-                          Queries
-                          {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
-                        </button>
+                              // if (!isLoggedIn) {
+                              //   setOpenAuthModal(true);
+                              //   setRedirectAfterLogin(
+                              //     `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query?rfq_id=${rfqDetails.id}&role=${type === "buyer-view" ? "buyer" : "vendor"}`
+                              //   );
+                              // } else {
+                              //   router.push({
+                              //     pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                              //     query: {
+                              //       rfq_id: rfqDetails.id,
+                              //       role: type === "buyer-view" ? "buyer" : "vendor",
+                              //     },
+                              //   });
+                              // }
+                            }}
+                          >
+                            Queries
+                            {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
+                          </button>
+                        }
 
                         {type == "buyer-view" &&
                           ((rfqDetails.total_quotes_received > 0) ?
