@@ -35,7 +35,6 @@ const DynamicFormSpoc = ({
             )
             .min(10, "Minimum 10 digits are required")
             .max(15, "Mobile number cannot exceed 15 digits")
-            .required("Mobile number is required")
     })
 
 
