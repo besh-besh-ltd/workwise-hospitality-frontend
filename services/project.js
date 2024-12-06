@@ -1,4 +1,5 @@
 import axiosInstance from "@/lib/axios";
+import axiosFormData from "@/lib/axiosFormData";
 
 export const getAllProjects = ()=> {
     return new Promise(async (resolve, reject) => {
@@ -66,3 +67,14 @@ export const updateProject = (projectId, payload)=> {
     });
 }
 
+export const uploadProjectFile = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosFormData.post(`/project/upload-file`,payload);
+      // console.log("response: ", response)
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
