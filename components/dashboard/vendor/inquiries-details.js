@@ -39,13 +39,13 @@ const RfqManagementPreview = () => {
   useEffect(() => {
     if (id) {
       getRFQdetails();
-      getRFQClauses();
     }
     if (type && type == "buyer-view") {
       setEnableBuyerView(true);
     }
     if (storageInstance.getStorage("token")) {
       setisLoggedIn(true);
+      getRFQClauses();
     }
     if (redirectAfterLogin) {
       const url = redirectAfterLogin;
@@ -509,7 +509,7 @@ const RfqManagementPreview = () => {
                             }
                           }}
                         >
-                          Queries 
+                          Queries
                           {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
                         </button>
 
@@ -566,12 +566,10 @@ const RfqManagementPreview = () => {
                               {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
                               <th>TDS</th>
                               <th>QAP</th>
-                              {type != "buyer-view" &&
-                                <th>Finalization Status</th>
-                              }
+                              {type != "buyer-view" && <th>Finalization Status</th>}
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
-                              <th>Technical Evaluation</th>
+                              {isLoggedIn ? <th>Technical Evaluation</th> : null}
                             </tr>
                           </thead>
                           <tbody>
@@ -679,27 +677,29 @@ const RfqManagementPreview = () => {
                                     </td>
                                   }
 
-                                  <td>
-                                    {clauseMap && clauseMap.get(item.id)
-                                      ? <a
-                                        href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
-                                        className="text-dark-blue"
-                                        style={{
-                                          fontSize: '0.8rem',
-                                          padding: '5px 10px',
-                                          display: 'inline-block',
-                                          border: 'none',
-                                          backgroundColor: 'lightblue',
-                                          color: 'darkblue',
-                                          textDecoration: 'none',
-                                        }}
+                                  {isLoggedIn &&
+                                    <td>
+                                      {clauseMap && clauseMap.get(item.id)
+                                        ? <a
+                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
+                                          className="text-dark-blue"
+                                          style={{
+                                            fontSize: '0.8rem',
+                                            padding: '5px 10px',
+                                            display: 'inline-block',
+                                            border: 'none',
+                                            backgroundColor: 'lightblue',
+                                            color: 'darkblue',
+                                            textDecoration: 'none',
+                                          }}
 
-                                      >
-                                        View Evaluation
-                                      </a>
-                                      : "N/A"
-                                    }
-                                  </td>
+                                        >
+                                          View Evaluation
+                                        </a>
+                                        : "N/A"
+                                      }
+                                    </td>
+                                  }
                                 </tr>
                               );
                             })}

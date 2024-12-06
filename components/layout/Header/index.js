@@ -862,7 +862,7 @@ const Header = () => {
                             Change Password
                           </Link>
                         </li>
-                        <li
+                        {/* <li
                           className={
                             router.pathname == "/change-password"
                               ? "active"
@@ -875,7 +875,7 @@ const Header = () => {
                           >
                             Subscription
                           </Link>
-                        </li>
+                        </li> */}
                         <li className="">
                           <Link href="/" onClick={handleLogout}>
                             Logout
