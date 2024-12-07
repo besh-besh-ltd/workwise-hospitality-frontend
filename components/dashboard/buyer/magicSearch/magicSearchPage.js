@@ -10,6 +10,7 @@ import { getProjectList } from "@/services/project";
 import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 
 const initialFormData = {
@@ -47,6 +48,9 @@ const MagicSearchPage = () => {
 
     const [submitMessageIndex, setSubmitMessageIndex] = useState(0);
     const [submitMessagesDisplayed, setSubmitMessagesDisplayed] = useState(false);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [pendingRemoval, setPendingRemoval] = useState(null);
 
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
@@ -183,18 +187,27 @@ const MagicSearchPage = () => {
         } else {
             editedData = reviewData.products.map((item) => {
                 if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
-                    let updatedVendors = item.vendors.filter((vendorItem) =>
+                    const remainingVendors = item.vendors.filter((vendorItem) =>
                         vendorItem.user_id !== vendor_id
                     );
-                    item.vendors = updatedVendors;
+
+                    if (remainingVendors.length === 0) {
+                        setPendingRemoval({ prodItem });
+                        setIsModalOpen(true);
+                        return item;
+                    } else {
+                        item.vendors = remainingVendors;
+                    }
                 }
                 return item;
-            });
+            }).filter(item => item !== null);
         }
+
 
         if (editedData.length === 0) {
             setReviewData(null)
             setValidationErrors(null)
+            setTermList(null);
         } else {
             setReviewData((prevData) => ({
                 ...prevData,
@@ -202,6 +215,30 @@ const MagicSearchPage = () => {
             }))
         }
     }
+
+    // to handle the modal response
+    const handleConfirm = () => {
+        if (pendingRemoval) {
+            const { prodItem } = pendingRemoval;
+            setReviewData(prevData => ({
+                ...prevData,
+                products: prevData.products.filter(item =>
+                    !(item.product_id === prodItem.product_id && item.variant === prodItem.variant)
+                )
+            }));
+        }
+        setIsModalOpen(false);
+        setPendingRemoval(null);
+        if(reviewData.length===0){
+            setValidationErrors(null)
+            setTermList(null);
+        }
+    };
+
+    const handleClose = () => {
+        setIsModalOpen(false);
+        setPendingRemoval(null);
+    };
 
     const changeProductData = (type, e, prodItem) => {
         let editedData = [];
@@ -366,7 +403,7 @@ const MagicSearchPage = () => {
                 contact_number: data?.contact_number,
                 company_name: data?.company_name
             }))
-            
+
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
                 toast.success("Review Your Products and submit");
@@ -771,7 +808,7 @@ const MagicSearchPage = () => {
                     </div>
                 </section>
             }
-
+            <ConfirmationModal isOpen={isModalOpen} onClose={handleClose} onConfirm={handleConfirm} message={"This will remove all vendors for this product. Do you want to continue?"} />
         </>
     );
 }
