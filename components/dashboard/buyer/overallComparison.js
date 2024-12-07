@@ -650,7 +650,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
           )
             : (
               <h4 className="mt-4 text-center">
-                No Technically Accepted Quotes Found!
+                No Technically Accepted Quotes Yet!
               </h4>
             )
           }

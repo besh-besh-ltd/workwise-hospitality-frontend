@@ -137,7 +137,7 @@ const QuoteCompare = () => {
     setDownloadLoading(true);
 
     try {
-      const res = await downloadQuotesDetails(rfq);
+      const res = await downloadQuotesDetails(rfq, TA_Filter);
       generateExcelFile(res.data);
     } catch (error) {
       console.log(error);

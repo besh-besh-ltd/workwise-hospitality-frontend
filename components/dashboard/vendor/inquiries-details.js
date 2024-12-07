@@ -36,21 +36,33 @@ const RfqManagementPreview = () => {
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
+
   useEffect(() => {
     if (id) {
       getRFQdetails();
     }
-    if (type && type == "buyer-view") {
+  }, [id]);
+  
+  useEffect(() => {
+    if (id && isLoggedIn) {
+      getRFQClauses();
+    }
+  }, [id, isLoggedIn]);
+
+  useEffect(() => {
+    if (type === "buyer-view") {
       setEnableBuyerView(true);
     }
-    if (storageInstance.getStorage("token")) {
+
+    const token = storageInstance.getStorage("token");
+    if (token) {
       setisLoggedIn(true);
     }
+
     if (redirectAfterLogin) {
-      const url = redirectAfterLogin;
-      router.push(url);
+      router.push(redirectAfterLogin);
+      setRedirectAfterLogin(null);
     }
-    setRedirectAfterLogin(null);
   }, [router]);
 
   useEffect(() => {
@@ -74,9 +86,6 @@ const RfqManagementPreview = () => {
 
       .then((res) => {
         setloading(false);
-        if (isLoggedIn) {
-          getRFQClauses();
-        }
         let val = checkBidExpired(res.data?.bid_end_date);
         setIsSubmitable(!val);
         setrfqDetails(res.data);
