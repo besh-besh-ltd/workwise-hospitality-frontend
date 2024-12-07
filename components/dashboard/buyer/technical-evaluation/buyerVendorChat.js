@@ -27,9 +27,8 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
     setFileLoading(true)
     try {
       const filePath = await handleFileUpload(e);
-      const newList = [...files, filePath];
+      const newList = [...(files || []), filePath];
       setFiles(newList);
-      toast.success("File attached successfully.");
     } catch (error) {
       toast.error(error.message);
     } finally {
