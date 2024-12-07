@@ -7,7 +7,7 @@ import FullLoader from "@/components/shared/FullLoader";
 
 const QueryComponent = () => {
   const router = useRouter();
-  const { rfq_id, role } = router.query;
+  const { rfq_id, role, token } = router.query;
 
   const [vendors, setVendors] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -22,7 +22,7 @@ const QueryComponent = () => {
     setVendorsLoading(true);
     try {
       const payload = { rfq_id, user_name: name };
-      const response = await listQueries(payload);
+      const response = await listQueries(payload, token);
       setVendors(response.data);
       if (!selectedVendor) {
         handleSelectVendor(response.data[0]);
@@ -36,16 +36,17 @@ const QueryComponent = () => {
 
   const loadMessages = async () => {
     if (rfq_id && selectedVendor) {
-      setMessagesLoading(true);
+      // setMessagesLoading(true);
       try {
         const payload = { rfq_id, receiver_id: selectedVendor.user_id };
-        const response = await listQueryMessages(payload);
+        const response = await listQueryMessages(payload, token);
         setMessages(response.data);
       } catch (error) {
         console.error("Error fetching messages:", error);
-      } finally {
-        setMessagesLoading(false);
       }
+      //  finally {
+      //   setMessagesLoading(false);
+      // }
     }
   };
 
@@ -60,7 +61,7 @@ const QueryComponent = () => {
 
   const loadRfqDetails = async () => {
     try {
-      const response = await getRfqDetails({ rfq_id });
+      const response = await getRfqDetails({ rfq_id }, token);
       setRfqDetails(response.data);
 
       if (role === "vendor") {
@@ -137,6 +138,7 @@ const QueryComponent = () => {
                 rfq_id={rfq_id}
                 role={role}
                 onMessageSent={handleMessageSent}
+                vendorwithoutlogintoken={token}
               />
             ) : (
               <p>Select a vendor to view messages</p>

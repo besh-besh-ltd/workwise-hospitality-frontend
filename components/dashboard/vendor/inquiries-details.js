@@ -36,22 +36,33 @@ const RfqManagementPreview = () => {
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
+
   useEffect(() => {
     if (id) {
       getRFQdetails();
     }
-    if (type && type == "buyer-view") {
-      setEnableBuyerView(true);
-    }
-    if (storageInstance.getStorage("token")) {
-      setisLoggedIn(true);
+  }, [id]);
+  
+  useEffect(() => {
+    if (id && isLoggedIn) {
       getRFQClauses();
     }
-    if (redirectAfterLogin) {
-      const url = redirectAfterLogin;
-      router.push(url);
+  }, [id, isLoggedIn]);
+
+  useEffect(() => {
+    if (type === "buyer-view") {
+      setEnableBuyerView(true);
     }
-    setRedirectAfterLogin(null);
+
+    const token = storageInstance.getStorage("token");
+    if (token) {
+      setisLoggedIn(true);
+    }
+
+    if (redirectAfterLogin) {
+      router.push(redirectAfterLogin);
+      setRedirectAfterLogin(null);
+    }
   }, [router]);
 
   useEffect(() => {
@@ -493,25 +504,20 @@ const RfqManagementPreview = () => {
                           style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
                           onClick={(e) => {
                             e.preventDefault();
-                            if (!isLoggedIn) {
-                              setOpenAuthModal(true);
-                              setRedirectAfterLogin(
-                                `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query?rfq_id=${rfqDetails.id}&role=${type === "buyer-view" ? "buyer" : "vendor"}`
-                              );
-                            } else {
-                              router.push({
-                                pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
-                                query: {
-                                  rfq_id: rfqDetails.id,
-                                  role: type === "buyer-view" ? "buyer" : "vendor",
-                                },
-                              });
-                            }
+                            router.push({
+                              pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                              query: {
+                                rfq_id: rfqDetails.id,
+                                role: type === "buyer-view" ? "buyer" : "vendor",
+                                token: token
+                              }
+                            });
                           }}
                         >
                           Queries
                           {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
                         </button>
+
 
                         {type == "buyer-view" &&
                           ((rfqDetails.total_quotes_received > 0) ?
