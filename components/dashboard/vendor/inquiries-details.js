@@ -40,14 +40,9 @@ const RfqManagementPreview = () => {
   useEffect(() => {
     if (id) {
       getRFQdetails();
-    }
-  }, [id]);
-  
-  useEffect(() => {
-    if (id && isLoggedIn) {
       getRFQClauses();
     }
-  }, [id, isLoggedIn]);
+  }, [id]);
 
   useEffect(() => {
     if (type === "buyer-view") {
@@ -575,7 +570,7 @@ const RfqManagementPreview = () => {
                               {type != "buyer-view" && <th>Finalization Status</th>}
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
-                              {isLoggedIn ? <th>Technical Evaluation</th> : null}
+                              {<th>Technical Evaluation</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -683,11 +678,10 @@ const RfqManagementPreview = () => {
                                     </td>
                                   }
 
-                                  {isLoggedIn &&
-                                    <td>
+                                        <td>
                                       {clauseMap && clauseMap.get(item.id)
                                         ? <a
-                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
+                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}&token=${token}`}
                                           className="text-dark-blue"
                                           style={{
                                             fontSize: '0.8rem',
@@ -705,7 +699,6 @@ const RfqManagementPreview = () => {
                                         : "N/A"
                                       }
                                     </td>
-                                  }
                                 </tr>
                               );
                             })}

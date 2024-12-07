@@ -7,7 +7,7 @@ import Loader from "@/components/shared/Loader";
 
 const VendorTechnicalEvaluation = () => {
     const router = useRouter();
-    const { rfq_id, prod_id } = router.query;
+    const { rfq_id, prod_id, token } = router.query;
     const [loading, setLoading] = useState(false);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [currentRfq, setCurrentRfq] = useState(null);
@@ -17,7 +17,7 @@ const VendorTechnicalEvaluation = () => {
     const getUserDetails = async () => {
         if (currentUserProfile) return currentUserProfile;
         try {
-            const res = await getProfile();
+            const res = await getProfile(token);
             return res.data;
         } catch (error) {
             console.error("Error fetching user details:", error);
@@ -29,7 +29,7 @@ const VendorTechnicalEvaluation = () => {
     const getRfqDetails = async () => {
         if (!rfq_id) return;
         try {
-            const res = await getRFQById(rfq_id);
+            const res = await getRFQById(rfq_id,token);
             return res.data || [];
         } catch (error) {
             console.error("Error fetching technical evaluation RFQs:", error);
@@ -55,8 +55,10 @@ const VendorTechnicalEvaluation = () => {
             }
         };
 
-        fetchData();
-    }, [rfq_id]);
+        if(token){
+            fetchData();
+        }
+    }, [rfq_id,token]);
 
 
     return (
