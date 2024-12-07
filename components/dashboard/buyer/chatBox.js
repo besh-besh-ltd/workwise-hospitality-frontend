@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 
-const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent }) => {
+const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent,vendorwithoutlogintoken }) => {
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState([]);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -50,7 +50,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent }) => {
     files.forEach((fileObj) => formData.append("files", fileObj.file));
 
     try {
-      const response = await sendQueryMessage(formData);
+      const response = await sendQueryMessage(formData, vendorwithoutlogintoken);
       if (response.status === 1) {
         onMessageSent();
         setMessageText("");
