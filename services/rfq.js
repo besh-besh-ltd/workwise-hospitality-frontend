@@ -290,10 +290,10 @@ export const provideReview = (payload) => {
   });
 };
 
-export const getRfqDetails = (payload) => {
+export const getRfqDetails = (payload, token = null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/get-details`,payload);
+      let response = await axiosInstance.post(`/rfq/get-details${token==null ? ``: `?token=`+token}`,payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -301,10 +301,10 @@ export const getRfqDetails = (payload) => {
   });
 };
 
-export const sendQueryMessage = (payload) => {
+export const sendQueryMessage = (payload,token=null ) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(`/rfq/send-query-message`,payload);
+      let response = await axiosFormData.post(`/rfq/send-query-message${token==null ? ``: `?token=`+token}`,payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -312,10 +312,10 @@ export const sendQueryMessage = (payload) => {
   });
 };
 
-export const listQueryMessages = (payload) => {
+export const listQueryMessages = (payload,token=null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/list-query-messages`,payload);
+      let response = await axiosInstance.post(`/rfq/list-query-messages${token==null ? `` : `?token=`+token}`,payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -323,10 +323,10 @@ export const listQueryMessages = (payload) => {
   });
 };
 
-export const listQueries = (payload) => {
+export const listQueries = (payload, token=null) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/list-queries`,payload);
+      let response = await axiosInstance.post(`/rfq/list-queries${token==null ? `` : `?token=`+token}`,payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });

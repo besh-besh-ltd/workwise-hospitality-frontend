@@ -493,20 +493,14 @@ const RfqManagementPreview = () => {
                           style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
                           onClick={(e) => {
                             e.preventDefault();
-                            if (!isLoggedIn) {
-                              setOpenAuthModal(true);
-                              setRedirectAfterLogin(
-                                `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query?rfq_id=${rfqDetails.id}&role=${type === "buyer-view" ? "buyer" : "vendor"}`
-                              );
-                            } else {
-                              router.push({
-                                pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
-                                query: {
-                                  rfq_id: rfqDetails.id,
-                                  role: type === "buyer-view" ? "buyer" : "vendor",
-                                },
-                              });
-                            }
+                            router.push({
+                              pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                              query: {
+                                rfq_id: rfqDetails.id,
+                                role: type === "buyer-view" ? "buyer" : "vendor",
+                                token: token
+                              }
+                            });
                           }}
                         >
                           Queries
