@@ -221,6 +221,7 @@ const CreateRFQ = () => {
         { position: "top-right" }
       );
       setHasUnsavedChanges(false);
+      getDraftInitialData();
 
     } catch (error) {
       console.log(error)

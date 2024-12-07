@@ -36,22 +36,33 @@ const RfqManagementPreview = () => {
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
+
   useEffect(() => {
     if (id) {
       getRFQdetails();
     }
-    if (type && type == "buyer-view") {
-      setEnableBuyerView(true);
-    }
-    if (storageInstance.getStorage("token")) {
-      setisLoggedIn(true);
+  }, [id]);
+  
+  useEffect(() => {
+    if (id && isLoggedIn) {
       getRFQClauses();
     }
-    if (redirectAfterLogin) {
-      const url = redirectAfterLogin;
-      router.push(url);
+  }, [id, isLoggedIn]);
+
+  useEffect(() => {
+    if (type === "buyer-view") {
+      setEnableBuyerView(true);
     }
-    setRedirectAfterLogin(null);
+
+    const token = storageInstance.getStorage("token");
+    if (token) {
+      setisLoggedIn(true);
+    }
+
+    if (redirectAfterLogin) {
+      router.push(redirectAfterLogin);
+      setRedirectAfterLogin(null);
+    }
   }, [router]);
 
   useEffect(() => {
@@ -506,6 +517,7 @@ const RfqManagementPreview = () => {
                           Queries
                           {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
                         </button>
+
 
                         {type == "buyer-view" &&
                           ((rfqDetails.total_quotes_received > 0) ?
