@@ -6,10 +6,11 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
-import { getProjectList } from "@/services/project";
+import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 
 const initialFormData = {
@@ -47,6 +48,9 @@ const MagicSearchPage = () => {
 
     const [submitMessageIndex, setSubmitMessageIndex] = useState(0);
     const [submitMessagesDisplayed, setSubmitMessagesDisplayed] = useState(false);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [pendingRemoval, setPendingRemoval] = useState(null);
 
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
@@ -115,31 +119,72 @@ const MagicSearchPage = () => {
         }
     };
 
-    const handleFormChange = (e, type) => {
-        const { name, value, checked, id } = e.target;
+    // const handleFormChange = (e, type) => {
+    //     const { name, value, checked, id } = e.target;
 
+    //     if (type === "terms-checkbox") {
+    //         const termId = parseInt(id.replace("term-item-", ""));
+    //         const updatedTerms = termList.map((termItem) => {
+    //             if (termItem.id === termId)
+    //                 termItem.selected = checked
+    //             return termItem
+    //         })
+    //         setTermList(updatedTerms);
+    //     } else {
+    //         if (name == "reverse_auction") {
+    //             setFormData((prevState) => ({
+    //                 ...prevState,
+    //                 [name]: parseInt(value)
+    //             }));
+    //         } else {
+    //             setFormData((prevState) => ({
+    //                 ...prevState,
+    //                 [name]: value
+    //             }));
+    //         }
+    //     }
+    // }
+
+    const handleFormChange = async (e, type) => {
+        const { name, value, checked, id } = e.target;
+    
         if (type === "terms-checkbox") {
             const termId = parseInt(id.replace("term-item-", ""));
             const updatedTerms = termList.map((termItem) => {
-                if (termItem.id === termId)
-                    termItem.selected = checked
-                return termItem
-            })
+                if (termItem.id === termId) {
+                    return { ...termItem, selected: checked }; // Immutable update
+                }
+                return termItem;
+            });
             setTermList(updatedTerms);
-        } else {
-            if (name == "reverse_auction") {
-                setFormData((prevState) => ({
-                    ...prevState,
-                    [name]: parseInt(value)
-                }));
-            } else {
-                setFormData((prevState) => ({
-                    ...prevState,
-                    [name]: value
-                }));
+        } else if (name === "project_id" && value !== -1) {
+            try {
+                const projectData = await getProjectData(value);
+    
+                if (projectData) {
+                    // Update form fields based on project data
+                    setFormData((prevState) => ({
+                        ...prevState,
+                        rfq_type: projectData.rfq_type || "",
+                        reverse_auction: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
+                        bid_end_date: projectData.ended_at ? new Date(projectData.ended_at).toISOString().split("T")[0] : "",
+                        location: projectData.location || "",
+                    }));
+                } else {
+                    console.error("Project data is empty or undefined.");
+                }
+            } catch (error) {
+                console.error("Failed to handle project_id change:", error.message);
             }
+        } else {
+            // Handle other field updates
+            setFormData((prevState) => ({
+                ...prevState,
+                [name]: name === "reverse_auction" ? parseInt(value) : value,
+            }));
         }
-    }
+    };
+    
 
     const getAllProjects = () => {
         getProjectList()
@@ -154,6 +199,17 @@ const MagicSearchPage = () => {
                 console.log(error)
             })
     }
+
+    const getProjectData = async (projectId) => {
+        try {
+          const res = await getProjectTableDataById(projectId);
+          const projectData = res.data[0];
+          return projectData;
+        } catch (error) {
+          console.error("Error fetching project data:", error.message);
+          throw error;
+        }
+      };
 
     const getTermsData = () => {
         setTermsLoading(true);
@@ -183,18 +239,27 @@ const MagicSearchPage = () => {
         } else {
             editedData = reviewData.products.map((item) => {
                 if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
-                    let updatedVendors = item.vendors.filter((vendorItem) =>
+                    const remainingVendors = item.vendors.filter((vendorItem) =>
                         vendorItem.user_id !== vendor_id
                     );
-                    item.vendors = updatedVendors;
+
+                    if (remainingVendors.length === 0) {
+                        setPendingRemoval({ prodItem });
+                        setIsModalOpen(true);
+                        return item;
+                    } else {
+                        item.vendors = remainingVendors;
+                    }
                 }
                 return item;
-            });
+            }).filter(item => item !== null);
         }
+
 
         if (editedData.length === 0) {
             setReviewData(null)
             setValidationErrors(null)
+            setTermList(null);
         } else {
             setReviewData((prevData) => ({
                 ...prevData,
@@ -202,6 +267,30 @@ const MagicSearchPage = () => {
             }))
         }
     }
+
+    // to handle the modal response
+    const handleConfirm = () => {
+        if (pendingRemoval) {
+            const { prodItem } = pendingRemoval;
+            setReviewData(prevData => ({
+                ...prevData,
+                products: prevData.products.filter(item =>
+                    !(item.product_id === prodItem.product_id && item.variant === prodItem.variant)
+                )
+            }));
+        }
+        setIsModalOpen(false);
+        setPendingRemoval(null);
+        if(reviewData.length===0){
+            setValidationErrors(null)
+            setTermList(null);
+        }
+    };
+
+    const handleClose = () => {
+        setIsModalOpen(false);
+        setPendingRemoval(null);
+    };
 
     const changeProductData = (type, e, prodItem) => {
         let editedData = [];
@@ -358,7 +447,7 @@ const MagicSearchPage = () => {
             const { status, validation_errors, data } = apiData;
 
             setReviewData(data);
-            setTermList(data?.terms);
+            setTermList(data?.terms.map(term => ({ ...term, selected: true })));
             setFormData((prevData)=> ({
                 ...prevData,
                 response_email: data?.response_email,
@@ -366,7 +455,7 @@ const MagicSearchPage = () => {
                 contact_number: data?.contact_number,
                 company_name: data?.company_name
             }))
-            
+
             // Handle successful response
             if (status === 1 && validation_errors?.length === 0) {
                 toast.success("Review Your Products and submit");
@@ -771,7 +860,7 @@ const MagicSearchPage = () => {
                     </div>
                 </section>
             }
-
+            <ConfirmationModal isOpen={isModalOpen} onClose={handleClose} onConfirm={handleConfirm} message={"This will remove all vendors for this product. Do you want to continue?"} />
         </>
     );
 }

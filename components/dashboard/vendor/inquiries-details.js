@@ -36,22 +36,28 @@ const RfqManagementPreview = () => {
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
 
+
   useEffect(() => {
     if (id) {
       getRFQdetails();
-    }
-    if (type && type == "buyer-view") {
-      setEnableBuyerView(true);
-    }
-    if (storageInstance.getStorage("token")) {
-      setisLoggedIn(true);
       getRFQClauses();
     }
-    if (redirectAfterLogin) {
-      const url = redirectAfterLogin;
-      router.push(url);
+  }, [id]);
+
+  useEffect(() => {
+    if (type === "buyer-view") {
+      setEnableBuyerView(true);
     }
-    setRedirectAfterLogin(null);
+
+    const token = storageInstance.getStorage("token");
+    if (token) {
+      setisLoggedIn(true);
+    }
+
+    if (redirectAfterLogin) {
+      router.push(redirectAfterLogin);
+      setRedirectAfterLogin(null);
+    }
   }, [router]);
 
   useEffect(() => {
@@ -493,25 +499,20 @@ const RfqManagementPreview = () => {
                           style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
                           onClick={(e) => {
                             e.preventDefault();
-                            if (!isLoggedIn) {
-                              setOpenAuthModal(true);
-                              setRedirectAfterLogin(
-                                `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query?rfq_id=${rfqDetails.id}&role=${type === "buyer-view" ? "buyer" : "vendor"}`
-                              );
-                            } else {
-                              router.push({
-                                pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
-                                query: {
-                                  rfq_id: rfqDetails.id,
-                                  role: type === "buyer-view" ? "buyer" : "vendor",
-                                },
-                              });
-                            }
+                            router.push({
+                              pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                              query: {
+                                rfq_id: rfqDetails.id,
+                                role: type === "buyer-view" ? "buyer" : "vendor",
+                                token: token
+                              }
+                            });
                           }}
                         >
                           Queries
                           {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
                         </button>
+
 
                         {type == "buyer-view" &&
                           ((rfqDetails.total_quotes_received > 0) ?
@@ -569,7 +570,7 @@ const RfqManagementPreview = () => {
                               {type != "buyer-view" && <th>Finalization Status</th>}
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
-                              {isLoggedIn ? <th>Technical Evaluation</th> : null}
+                              {<th>Technical Evaluation</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -677,11 +678,10 @@ const RfqManagementPreview = () => {
                                     </td>
                                   }
 
-                                  {isLoggedIn &&
-                                    <td>
+                                        <td>
                                       {clauseMap && clauseMap.get(item.id)
                                         ? <a
-                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}`}
+                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}&token=${token}`}
                                           className="text-dark-blue"
                                           style={{
                                             fontSize: '0.8rem',
@@ -699,7 +699,6 @@ const RfqManagementPreview = () => {
                                         : "N/A"
                                       }
                                     </td>
-                                  }
                                 </tr>
                               );
                             })}

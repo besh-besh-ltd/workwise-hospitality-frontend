@@ -23,9 +23,9 @@ const SendQuotePageComp = () => {
   const [quoteProducts, setquoteProducts] = useState([]);
   const [submitLoading, setsubmitLoading] = useState(false);
 
-  const [globalFreight, setglobalFreight] = useState(3);
-  const [globalPackaging, setglobalPackaging] = useState(4);
-  const [globalTax, setglobalTax] = useState(18);
+  const [globalFreight, setglobalFreight] = useState(null);
+  const [globalPackaging, setglobalPackaging] = useState(null);
+  const [globalTax, setglobalTax] = useState(null);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [previousGlobalFiles, setPreviousGlobalFiles] = useState(null);
@@ -92,9 +92,9 @@ const SendQuotePageComp = () => {
                 ? productItem.product_details[0].name
                 : "",
               unit_price: quoteItem.unit_price || "",
-              package_price: quoteItem.package_price || globalPackaging,
-              tax: quoteItem.tax || globalTax,
-              freight_price: quoteItem.freight_price || globalFreight,
+              package_price: quoteItem.package_price || globalPackaging || 4,
+              tax: quoteItem.tax || globalTax || 18,
+              freight_price: quoteItem.freight_price || globalFreight || 3,
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
@@ -300,7 +300,7 @@ const SendQuotePageComp = () => {
 
   const uploadQuoteItemFiles = async (e, item) => {
     try {
-      const filePath = await handleFileUpload(e,token);
+      const filePath = await handleFileUpload(e, token);
       handleUpdateData(
         item.id,
         e,
@@ -604,6 +604,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               min={0}
                               value={globalFreight}
+                              placeholder="3%"
                               onChange={(e) => setglobalFreight(e.target.value)}
                               onWheel={(e) => e.target.blur()}
                             />
@@ -615,6 +616,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               min={0}
                               value={globalPackaging}
+                              placeholder="4%"
                               onChange={(e) => setglobalPackaging(e.target.value)}
                               onWheel={(e) => e.target.blur()}
                             />
@@ -626,6 +628,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               min={0}
                               value={globalTax}
+                              placeholder="18%"
                               onChange={(e) => setglobalTax(e.target.value)}
                               onWheel={(e) => e.target.blur()}
                             />
@@ -761,9 +764,8 @@ const SendQuotePageComp = () => {
                                     <td>
                                       <p className="fw-semibold text-nowrap mb-1">{item?.product_details[0]?.name}</p>
                                       <p className="text-sm mb-1">{getProductSpecValueByTitle(item?.product_specs, "Size")}</p>
-                                      {item?.product_specs[1]?.value?.length > 70
-                                        ? <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLines={2} additionalClasses="text-sm" />
-                                        : <p className="mb-1 text-sm">{`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`}</p>
+                                      {item?.product_specs[1]?.value &&
+                                        <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLines={2} additionalClasses="text-sm" />
                                       }
                                     </td>
                                     <td>
