@@ -51,11 +51,18 @@ const DynamicFormModal = ({
         is_private: 0
     };
 
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Tomorrow's date
+
+    const defaultEndDate = new Date(today);
+    defaultEndDate.setDate(today.getDate() + 30); // Default to 30 days ahead
+
     const initialProjectValues = {
         projectName: projectData?.name || "",
         projectDescription: projectData?.description || "",
         location: projectData?.location || "",
-        ended_at: projectData?.ended_at?.slice(0, 10) || "",
+        ended_at: projectData?.ended_at?.slice(0, 10) || defaultEndDate.toISOString().slice(0, 10),
         rfq_type: projectData?.rfq_type || "",
         reverse_auction: (projectData && !projectData.reverse_auction) ? 0 : 1
     }
@@ -417,6 +424,7 @@ const DynamicFormModal = ({
                                                                 type="date"
                                                                 id="ended_at"
                                                                 name="ended_at"
+                                                                min={tomorrow.toISOString().slice(0, 10)}
                                                             />
                                                             {touched.ended_at && errors.ended_at && (
                                                                 <div className="form-error">{errors.ended_at}</div>

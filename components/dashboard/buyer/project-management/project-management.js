@@ -42,7 +42,7 @@ const ProjectManagement = () => {
             name: values.projectName,
             description: values.projectDescription,
             location: values.location,
-            ended_at: values.ended_at,
+            ended_at: values.ended_at ? values.ended_at: null,
             rfq_type: values.rfq_type,
             reverse_auction: values.reverse_auction
         };
