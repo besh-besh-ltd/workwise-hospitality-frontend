@@ -157,7 +157,7 @@ const MagicSearchPage = () => {
                 return termItem;
             });
             setTermList(updatedTerms);
-        } else if (name === "project_id" && value !== -1) {
+        } else if (name === "project_id" && value != -1) {
             try {
                 const projectData = await getProjectData(value);
     
@@ -165,6 +165,7 @@ const MagicSearchPage = () => {
                     // Update form fields based on project data
                     setFormData((prevState) => ({
                         ...prevState,
+                        project_id: value,
                         rfq_type: projectData.rfq_type || "",
                         reverse_auction: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
                         bid_end_date: projectData.ended_at ? new Date(projectData.ended_at).toISOString().split("T")[0] : "",
