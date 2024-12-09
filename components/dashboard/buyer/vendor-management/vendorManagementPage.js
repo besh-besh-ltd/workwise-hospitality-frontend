@@ -82,8 +82,8 @@ const VendorManagement = () => {
         privateVendorList(limit, page)
             .then((res) => {
                 setLoading(false)
-                let totalVendors = res.data?.length || 0;
-                setTotalData(totalVendors);
+                // let totalVendors = res.data?.length || 0;
+                setTotalData(res.count);
                 setPrivateVendors(res.data);
 
             })
@@ -95,7 +95,7 @@ const VendorManagement = () => {
 
     useEffect(() => {
         getPrivateVendorList();
-    }, []);
+    }, [page]);
 
     return (
         <>
