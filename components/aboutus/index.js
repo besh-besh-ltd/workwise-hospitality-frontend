@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getAboutProfiles, getCmsData, getPageBanner } from "@/services/cms";
+import { getAboutProfiles, getCmsData, getPageBanner, getTeamMembers } from "@/services/cms";
 import { HomeLists1Service } from "@/services/Home";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { toast } from "react-toastify";
@@ -21,7 +21,8 @@ const Aboutus = (props) => {
   useEffect(() => {
     getBanner();
     getCmsSections();
-    getHomeLists1();
+    getTeamData();
+    // getHomeLists1();
     getBod();
     getKp();
   }, []);
@@ -30,14 +31,7 @@ const Aboutus = (props) => {
     getCmsData(2)
       .then((response) => {
         if (response.data.length > 0) {
-          const teamData = response.data.find((item)=> item.section_name === "team-member-details");
-          let cmsData = response.data;
-
-          if(teamData) {
-            cmsData = response.data.filter((item)=> item.id != teamData.id);
-            setTeamList(JSON.parse(teamData.content));
-          }
-          setCmsdata(cmsData);
+          setCmsdata(response.data);
         }
       })
       .catch((error) => {
@@ -89,6 +83,15 @@ const Aboutus = (props) => {
         }
       });
   };
+
+  const getTeamData = async ()=> {
+    try {
+      const res = await getTeamMembers();
+      setTeamList(res.data);
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
 
   // Set State Change
   const handleChange = (setState) => (event) => {
@@ -203,20 +206,20 @@ const Aboutus = (props) => {
                             }}
                           >
                             <img
-                              src={member.image}
+                              src={member.profile_image}
                               alt={member.name}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              style={{ width: "250px", height: "250px", objectFit: "cover" }}
                             />
                           </div>
                           <h2 className="fs-5" style={{ margin: "10px 0 5px" }}>{member.name}</h2>
                           <p style={{ fontSize: "14px" }}>{member.role}</p>
-                          <Link 
-                            href={member.linkedIn || "#"}
+                          <Link
+                            href={member.linkedin || "#"}
                             target="_blank"
                           >
                             <FontAwesomeIcon icon={faLinkedin} className="me-2" />
                             LinkedIn Profile
-                            </Link>
+                          </Link>
                         </div>
                       </div>
                     ))}
