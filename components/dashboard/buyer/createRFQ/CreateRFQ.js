@@ -116,6 +116,17 @@ const CreateRFQ = () => {
     let name = e?.target?.name || actionMeta?.name;
     let value = e?.target?.value || selectedOption?.value || "";
 
+    if (name === "bid_end_date"){
+      const today = new Date();
+      if(value){
+        const selectedDate = new Date(value);
+        if (selectedDate <= today) {
+            toast.error(`Project procurement end date must be greater than ${today.toISOString().slice(0, 10)}`);;
+            return;
+        }
+      }
+    }
+
     if (name === "reverse_auction") {
       value = parseInt(value);
     }

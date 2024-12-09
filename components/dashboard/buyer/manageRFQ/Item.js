@@ -76,7 +76,7 @@ const RFQItem = ({ data }) => {
           </span>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">End Date: </b>
-            {moment(data.bid_end_date).format("DD/MM/YYYY")}
+            {data.bid_end_date ? moment(data.bid_end_date).format("DD/MM/YYYY") : "---"}
           </span>
           <span>
             <b className="fw-semibold ">Status: </b>
