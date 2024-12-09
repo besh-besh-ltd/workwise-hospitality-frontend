@@ -381,14 +381,14 @@ const ProjectDetails = () => {
                                         <div className="col-sm-4 col-md-6"></div>
                                         <div className="col-sm-8 col-md-6">
                                             <div className="d-flex justify-content-end">
-                                                <button
-                                                    type="button"
+                                            <Link
+                                                    href="/dashboard/buyer/vendor-management"
                                                     className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
                                                     style={{ flex: "0 0 250px" }}
                                                 >
-                                                    <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
-                                                    Upload your Vendors
-                                                </button>
+                                                    {" "}
+                                                    <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" /> Upload your Vendors
+                                                </Link>
                                                 <Link
                                                     href="/dashboard/buyer/magic-search"
                                                     className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "

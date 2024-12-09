@@ -50,10 +50,10 @@ const parseJwt = (token) => {
     return payload;
 };
 
-export const getProfile = () => {
+export const getProfile = (token=null) => {
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/users/get-profile`);
+			let response = await axiosInstance.get(`/users/get-profile${token==null ? `` : `?token=`+ token}`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
