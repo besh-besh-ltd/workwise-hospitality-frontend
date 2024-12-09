@@ -52,6 +52,13 @@ const MagicSearchPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);
 
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Tomorrow's date
+
+    const defaultEndDate = new Date(today);
+    defaultEndDate.setDate(today.getDate() + 30); // Default to 30 days ahead
+
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
 
@@ -454,7 +461,8 @@ const MagicSearchPage = () => {
                 response_email: data?.response_email,
                 contact_name: data?.contact_name,
                 contact_number: data?.contact_number,
-                company_name: data?.company_name
+                company_name: data?.company_name,
+                bid_end_date: data?.bid_end_date ? data.bid_end_date : defaultEndDate.toISOString().slice(0, 10)
             }))
 
             // Handle successful response
@@ -748,6 +756,7 @@ const MagicSearchPage = () => {
                                         id="bid_end_date"
                                         className="form-control border border-dark-subtle"
                                         value={formData?.bid_end_date}
+                                        min={tomorrow.toISOString().slice(0, 10)}
                                         onChange={handleFormChange} />
                                 </div>
 
