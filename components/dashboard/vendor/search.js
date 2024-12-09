@@ -148,7 +148,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   // };
 
   useEffect(() => {
-    getProfileDetails();
+    // getProfileDetails();
     getProducts(slug);
     getCategories();
     getVendorApprovedby();
