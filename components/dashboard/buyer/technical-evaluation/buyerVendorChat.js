@@ -103,20 +103,18 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
     <>
       {showChat && (
         <div
-          className="modal fade show"
+          className="modal fade show d-flex flex-column bg-white shadow-lg"
           style={{
             position: 'fixed',
             top: '0',
-            left: '1070px',
-            bottom: '0',
-            width: '450px',
-            backgroundColor: 'white',
-            boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.3)',
+            right: '0',
+            left: 'auto', 
             zIndex: 1050,
-            borderLeft: '2px solid #ddd',
+            width: 'calc(100% - 450px)', 
+            maxWidth: '450px', 
             height: '100vh',
+            borderLeft: '2px solid #ddd',
             padding: '10px',
-            display: 'block',
             overflow: 'hidden',
           }}
         >
@@ -135,7 +133,6 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
           <div
             className="modal-body hasFullLoader"
             style={{
-              maxHeight: 'calc(100vh - 120px)',
               overflowY: 'auto',
               padding: '10px 0',
             }}
@@ -176,11 +173,9 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
               border: '1px solid #ddd',
               borderRadius: '8px',
               padding: '10px',
-              position: 'absolute',
               bottom: '10px',
               backgroundColor: 'white',
-              width: 'calc(100% - 20px)', // Adjusted for both left and right spacing
-              boxSizing: 'border-box', // Ensures padding and border are included in the width
+              boxSizing: 'border-box', 
             }}
           >
             {files &&
