@@ -88,6 +88,17 @@ export const getTestimonials = (pageId=1) => {
 	});
 };
 
+export const getTeamMembers = () => {  
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`admin/cms/team-member-list`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const getProducts = (type) => {  
 	return new Promise(async (resolve, reject) => {
 		try {
