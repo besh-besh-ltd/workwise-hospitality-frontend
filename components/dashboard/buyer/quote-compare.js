@@ -17,6 +17,8 @@ import OverallComparison from "./overallComparison";
 import { formatPrice } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
+import { getProjectList } from '@/services/project';
+import Select from 'react-select';
 
 const QuoteCompare = () => {
   const router = useRouter();
@@ -36,8 +38,9 @@ const QuoteCompare = () => {
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
-
-
+  const [rfqNo, setRfqNo] =useState(null);
+  const [projects, setProjects] = useState(null);
+  const [selectedproject, setSelectedproject] = useState(null);
 
   useEffect(() => {
     if (rfq) {
@@ -48,7 +51,35 @@ const QuoteCompare = () => {
   useEffect(() => {
     getAllRFQs();
   }, [page]);
+  
+  useEffect(() => {
+    getAllProjects();
+  }, []);
 
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+        getAllRFQs(true);
+    }, 1000);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [rfqNo,selectedproject]);
+
+  const getAllProjects = () => {
+    getProjectList()
+        .then((res) => {
+            let d = [];
+            res.data.map((item) => {
+                d.push({ label: item.name, value: item.id });
+            });
+            setProjects(d);
+        })
+        .catch((error) => {
+            console.log(error)
+        })
+}
 
   const handleTAFilterChange = (e) => {
     setTA_Filter(e.target.checked);
@@ -61,13 +92,23 @@ const QuoteCompare = () => {
     }
   };
 
-  const getAllRFQs = () => {
+  const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRFQS({ page, sort: "DESC", project_id: -1, reverse_auction: '-1', rfq_type: "", limit })
+    getRFQS({ page, sort: "DESC", project_id: selectedproject ? selectedproject : -1, reverse_auction: '-1', rfq_type: "", limit,rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null})
       .then((res) => {
         setloading(false);
         const newData = res.data?.filter((rItem) => rItem?.quotes?.length > 0);
-        setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
+        
+        if(rfqNumberChange){
+          setpage(1);
+          setlimit(100);
+          setmyRFQs(newData);
+          sethasMoreQuotes(true);  
+        }else{
+          setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
+        }
+
+        console.log("checking the fuck...",page,res.total_items,newData.length);
 
         if (page >= Math.ceil(res.total_items / limit)) {
           sethasMoreQuotes(false);
@@ -971,7 +1012,6 @@ const QuoteCompare = () => {
     getAllRFQs();
   }, [page]);
 
-
   return (
     <>
       {finalizeLoading && <Loader />}
@@ -1010,6 +1050,30 @@ const QuoteCompare = () => {
             <div className="col-md-2">
               <div className="hasFullLoader">
                 <h5 className="title">Quotes Received</h5>
+                {loading && <FullLoader/>}
+                <div className="py-1">
+                    <label>Search RFQ No.</label>
+                    <input
+                        className="form-control react-select" 
+                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
+                        value={rfqNo}
+                        onChange={(e)=> setRfqNo(e.target.value)}
+                        name="rfq_type"
+                        placeholder="Ex. 123456"
+                        isClearable
+                    />
+                </div>
+                <div className="py-2">
+                    <label>Select Project</label>
+                    <Select
+                        options={projects}
+                        onChange={(selectedOption,actionMeta)=> setSelectedproject(selectedOption?.value ? selectedOption.value : -1)}
+                        // value={selectedproject}
+                        name="project_id"
+                        placeholder="Select"
+                        isClearable
+                    />
+                </div>
                 {!loading && myRFQs && myRFQs.length == 0
                   ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
                   :
