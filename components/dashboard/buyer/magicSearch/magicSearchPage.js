@@ -52,6 +52,13 @@ const MagicSearchPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);
 
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Tomorrow's date
+
+    const defaultEndDate = new Date(today);
+    defaultEndDate.setDate(today.getDate() + 30); // Default to 30 days ahead
+
     const tableRef = useRef(null);
     const apiDataRef = useRef(null);
 
@@ -157,7 +164,7 @@ const MagicSearchPage = () => {
                 return termItem;
             });
             setTermList(updatedTerms);
-        } else if (name === "project_id" && value !== -1) {
+        } else if (name === "project_id" && value != -1) {
             try {
                 const projectData = await getProjectData(value);
     
@@ -165,6 +172,7 @@ const MagicSearchPage = () => {
                     // Update form fields based on project data
                     setFormData((prevState) => ({
                         ...prevState,
+                        project_id: value,
                         rfq_type: projectData.rfq_type || "",
                         reverse_auction: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
                         bid_end_date: projectData.ended_at ? new Date(projectData.ended_at).toISOString().split("T")[0] : "",
@@ -453,7 +461,8 @@ const MagicSearchPage = () => {
                 response_email: data?.response_email,
                 contact_name: data?.contact_name,
                 contact_number: data?.contact_number,
-                company_name: data?.company_name
+                company_name: data?.company_name,
+                bid_end_date: data?.bid_end_date ? data.bid_end_date : defaultEndDate.toISOString().slice(0, 10)
             }))
 
             // Handle successful response
@@ -747,6 +756,7 @@ const MagicSearchPage = () => {
                                         id="bid_end_date"
                                         className="form-control border border-dark-subtle"
                                         value={formData?.bid_end_date}
+                                        min={tomorrow.toISOString().slice(0, 10)}
                                         onChange={handleFormChange} />
                                 </div>
 
