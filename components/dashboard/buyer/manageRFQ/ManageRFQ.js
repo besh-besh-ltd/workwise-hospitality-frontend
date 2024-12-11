@@ -9,7 +9,8 @@ const initialFilterData = {
   project_id: -1,
   rfq_type: "",
   reverse_auction: "-1",
-  sort: "DESC"
+  sort: "DESC",
+  rfq_no: null,
 }
 
 const ManageRFQ = () => {
