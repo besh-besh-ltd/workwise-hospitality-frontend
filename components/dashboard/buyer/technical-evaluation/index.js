@@ -7,6 +7,8 @@ import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import ClauseProductItem from "./ClauseProductItem";
 import { toast } from "react-toastify";
+import { getProjectList } from '@/services/project';
+import Select from 'react-select';
 
 
 
@@ -19,7 +21,33 @@ const BuyerTechnicalEvaluation = () => {
   const [currentRfq, setcurrentRfq] = useState(null);
   const [vendorMap, setVendorMap] = useState(null);
   const [clauseMap, setClauseMap] = useState(null);
+  const [rfqNo, setRfqNo] =useState(null);
+  const [projects, setProjects] = useState(null);
+  const [selectedproject, setSelectedproject] = useState(null);
 
+  const getAllProjects = () => {
+    getProjectList()
+        .then((res) => {
+            let d = [];
+            res.data.map((item) => {
+                d.push({ label: item.name, value: item.id });
+            });
+            setProjects(d);
+        })
+        .catch((error) => {
+            console.log(error)
+        })
+}
+
+useEffect(() => {
+  const handler = setTimeout(() => {
+    getTechEvaluationRFQsByUser();
+  }, 1000);
+
+  return () => {
+    clearTimeout(handler);
+  };
+}, [rfqNo,selectedproject]);
 
   const getUserDetails = async () => {
     try {
@@ -33,7 +61,7 @@ const BuyerTechnicalEvaluation = () => {
   const getTechEvaluationRFQsByUser = async () => {
     try {
       setLoading(true);
-      const res = await fetchTechEvaluationRfqList();
+      const res = await fetchTechEvaluationRfqList({rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null ,project_id:selectedproject ? selectedproject : -1});
       setRfqList(res.data);
     } catch (error) {
       console.error("Error fetching technical evaluation RFQs:", error);
@@ -93,6 +121,7 @@ const BuyerTechnicalEvaluation = () => {
   useEffect(() => {
     getUserDetails();
     getTechEvaluationRFQsByUser();
+    getAllProjects();
   }, []);
 
 
@@ -127,6 +156,31 @@ const BuyerTechnicalEvaluation = () => {
                 <h5 className="title">List Of RFQ's</h5>
 
                 {loading && <FullLoader />}
+
+                <div className="py-1">
+                    <label>Search RFQ No.</label>
+                    <input
+                        className="form-control react-select" 
+                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
+                        value={rfqNo}
+                        onChange={(e)=> setRfqNo(e.target.value)}
+                        name="rfq_type"
+                        placeholder="Ex. 123456"
+                        isClearable
+                    />
+                </div>
+                <div className="py-2">
+                    <label>Select Project</label>
+                    <Select
+                        options={projects}
+                        onChange={(selectedOption,actionMeta)=> setSelectedproject(selectedOption?.value ? selectedOption.value : -1)}
+                        // value={selectedproject}
+                        name="project_id"
+                        placeholder="Select"
+                        isClearable
+                    />
+                </div>
+
                 {!loading && rfqList.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No RFQs yet!</p>
                 ) : (
