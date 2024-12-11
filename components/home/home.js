@@ -23,7 +23,7 @@ import axios from "axios";
 const initialSections = [
   "homepage-section-1",
   "homepage-section-2",
-  "homepage-section-3",
+  // "homepage-section-3",
 ];
 
 const predefinedPageSections = [
