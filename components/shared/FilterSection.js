@@ -69,6 +69,8 @@ const FilterSection = ({ title, setFilterData }) => {
                     />
                 </div>
 
+                <div className="col-lg-2"></div>
+
 
                 <div className="col-md-3 col-lg-2">
                     <label>RFQ Type</label>
@@ -108,8 +110,6 @@ const FilterSection = ({ title, setFilterData }) => {
                         isClearable
                     />
                 </div>
-
-                <div className="col-lg-2"></div>
 
                 <div className="col-md-3 col-lg-2">
                     <label>Sort By</label>
