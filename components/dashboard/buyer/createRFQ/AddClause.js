@@ -159,6 +159,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                 setClauseFile(file);
             }
         }
+        // when we have already taken the file in the state
+        event.target.value = null;
     };
 
     const uploadClauseFile = async () => {
@@ -178,7 +180,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
             // Send the FormData to your endpoint
             const res = await addClauseUsingFile(formData);
-            toast.success(res.message)            
+            toast.success(res.data)            
         } catch (error) {
             console.log(error)
             toast.error(error.message);
@@ -360,7 +362,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         type="file"
                                         accept=".xlsx, .xls"
                                         style={{ display: 'none' }}
-                                        onClick={handleMagicFileUpload}
+                                        onChange={handleMagicFileUpload}
                                     />
                                 </div>
                             
