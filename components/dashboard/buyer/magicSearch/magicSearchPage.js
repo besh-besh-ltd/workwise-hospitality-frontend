@@ -1,11 +1,11 @@
-import { faCloudArrowUp, faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faDownload,faClose } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate, handleFileUpload } from "@/utils/sharedFunctions";
+import { getFuturedate, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
@@ -37,6 +37,7 @@ const MagicSearchPage = () => {
 
     const [projects, setProjects] = useState([]);
     const [termList, setTermList] = useState(null);
+    const [termFiles, setTermFiles] = useState([]);
 
     const [loading, setLoading] = useState(false);
     const [termsLoading, setTermsLoading] = useState(false);
@@ -96,6 +97,8 @@ const MagicSearchPage = () => {
                 }));
             }
         }
+        // when we upload the same file again.
+        event.target.value = null;
     };
 
     const uploadToServer = async () => {
@@ -118,7 +121,7 @@ const MagicSearchPage = () => {
 
         } catch (error) {
             console.log(error)
-            toast.error(error.message);
+            toast.error(error.message?.response?.data?.message);
             setLoading(false);
         } finally {
             setFile(null);
@@ -192,7 +195,26 @@ const MagicSearchPage = () => {
             }));
         }
     };
-    
+
+    const handleTermFiles = async (type, dynamicParam) => {
+        try {
+          if (type === "add") {
+            const filePath = await handleFileUpload(dynamicParam);
+            // Append the new file to the existing array
+            setTermFiles(prevTermFiles => [...prevTermFiles, { type, value: filePath }]);
+            dynamicParam.target.value = null;
+          } else {
+            // For other types, just add the dynamicParam as a new entry
+            setTermFiles(prevTermFiles => [
+                ...prevTermFiles.filter(file => file.value !== dynamicParam)
+              ]);
+          }
+        } catch (error) {
+          let message = error.message;
+          toast.error(message);
+        }
+      }
+
 
     const getAllProjects = () => {
         getProjectList()
@@ -366,7 +388,8 @@ const MagicSearchPage = () => {
     const handleCreateRFQ = () => {
         const { file, ...formDataWithoutFile } = formData;
         const selectedTerms = termList.filter((term) => term.selected);
-
+        let valuesArray = termFiles.map(file => file.value);
+        reviewData.term_and_condition_files=valuesArray;
         setSubmitLoading(true);
         createRfq({
             ...reviewData,
@@ -454,6 +477,7 @@ const MagicSearchPage = () => {
             // const { status, validation_errors, data } = apiDataRef.current;
             const { status, validation_errors, data } = apiData;
 
+            setTermFiles(data?.term_and_condition_files);
             setReviewData(data);
             setTermList(data?.terms.map(term => ({ ...term, selected: true })));
             setFormData((prevData)=> ({
@@ -609,9 +633,28 @@ const MagicSearchPage = () => {
                                 </div> */}
                             </>
                             : <>
+                                <div className="col-md-4 mb-3">
+                                    <h3 className="h5 mb-3">Select Project</h3>
+                                    <select
+                                        name="project_id"
+                                        id="project_id"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData.project_id}
+                                        onChange={handleFormChange}
+                                    >
+                                        <option value={-1}>Select Project</option>
+                                        {projects && projects.length > 0 &&
+                                            projects.map((projectItem) => {
+                                                return (
+                                                    <option value={projectItem.value} key={projectItem.value}>{projectItem.label}</option>
+                                                )
+                                            })
+                                        }
+                                    </select>
+                                </div>
                                 {reviewData.products && reviewData.products.length > 0 &&
                                     <>
-                                        <h2 className="h4 mb-3">Review Products</h2>
+                                        <h3 className="h5 mb-3">Review Products</h3>
                                         <ReviewProducts
                                             data={reviewData.products}
                                             changeProductData={changeProductData}
@@ -653,7 +696,7 @@ const MagicSearchPage = () => {
 
                         {/* Terms and Conditions text-area */}
                         {reviewData && <div className="mx-auto mt-4">
-                            <label className="form-label ">Enter Terms and Conditions for Vendors</label>
+                            <label className="form-label ">Add your own terms (Optional)</label>
                             <textarea
                                 name="comment"
                                 id="comment"
@@ -667,7 +710,46 @@ const MagicSearchPage = () => {
                         {/* Contact information */}
 
                         {reviewData && <div className="mx-auto mt-4">
-                            <h3 className="h5">Contact information</h3>
+
+                            <div className="row mt-2">
+                                <div className="custom-file">
+                                    <label htmlFor="customFile" className="form-label">
+                                        Upload Your Terms (Optional)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                        className="form-control border border-dark-subtle"
+                                        id="customFile"
+                                        multiple
+                                        onChange={(e) => handleTermFiles("add", e)}
+                                    />
+
+                                    {console.log(termFiles)}
+                                    {termFiles?.length > 0 && (
+                                        <div className="row mt-2">
+                                            {termFiles?.map((term_file) => (
+                                                <div key={term_file.value} className="col-md-6 col-lg-4">
+                                                    <a href={term_file.value} target="_blank" className="file-badge mb-2" type="button" >
+                                                        <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file?.value)}</span>
+                                                        <FontAwesomeIcon
+                                                            icon={faClose}
+                                                            style={{ fontSize: "20" }}
+                                                            onClick={(e) => {
+                                                            e.preventDefault();
+                                                            handleTermFiles("remove", term_file.value);
+                                                            }}
+                                                        />
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                </div>
+
+
+                            <h3 className="h5 mt-5">Contact information</h3>
                             <div className="row">
                                 <div className="col-md-6 mx-auto mt-2">
                                     <label htmlFor="response_email" className="form-label">Email</label>
@@ -681,7 +763,7 @@ const MagicSearchPage = () => {
                                 </div>
 
                                 <div className="col-md-6 mx-auto mt-2">
-                                    <label htmlFor="contact_name" className="form-label">Contact Name</label>
+                                    <label htmlFor="contact_name" className="form-label">Contact Person</label>
                                     <input
                                         type="text"
                                         name="contact_name"
@@ -719,6 +801,21 @@ const MagicSearchPage = () => {
                             <div className="row">
 
                                 <div className="col-md-4 mb-2">
+                                    <label htmlFor="rfq_type" className="form-label ">RFQ Type (Optional)</label>
+                                    <select
+                                        name="rfq_type"
+                                        id="rfq_type"
+                                        className="form-control border border-dark-subtle"
+                                        value={formData?.rfq_type}
+                                        onChange={handleFormChange}
+                                    >
+                                        <option value="">Select RFQ Type</option>
+                                        <option value="budgetary">Budgetary</option>
+                                        <option value="firm">Firm</option>
+                                    </select>
+                                </div>
+
+                                <div className="col-md-4 mb-2">
                                     <label htmlFor="reverse_auction" className="form-label ">Reverse Auction</label>
                                     <select
                                         type='number'
@@ -734,22 +831,7 @@ const MagicSearchPage = () => {
                                 </div>
 
                                 <div className="col-md-4 mb-2">
-                                    <label htmlFor="rfq_type" className="form-label ">Project Stage</label>
-                                    <select
-                                        name="rfq_type"
-                                        id="rfq_type"
-                                        className="form-control border border-dark-subtle"
-                                        value={formData?.rfq_type}
-                                        onChange={handleFormChange}
-                                    >
-                                        <option value="">Select RFQ Type</option>
-                                        <option value="budgetary">Budgetary</option>
-                                        <option value="firm">Firm</option>
-                                    </select>
-                                </div>
-
-                                <div className="col-md-4 mb-2">
-                                    <label htmlFor="bid_end_date" className="form-label ">Project Procurement End Date</label>
+                                    <label htmlFor="bid_end_date" className="form-label ">Procurement End Date</label>
                                     <input
                                         type="date"
                                         name="bid_end_date"
@@ -760,28 +842,8 @@ const MagicSearchPage = () => {
                                         onChange={handleFormChange} />
                                 </div>
 
-                                <div className="col-md-4 mb-2">
-                                    <label htmlFor="bid_end_date" className="form-label ">Project Name</label>
-                                    <select
-                                        name="project_id"
-                                        id="project_id"
-                                        className="form-control border border-dark-subtle"
-                                        value={formData.project_id}
-                                        onChange={handleFormChange}
-                                    >
-                                        <option value={-1}>Select Project</option>
-                                        {projects && projects.length > 0 &&
-                                            projects.map((projectItem) => {
-                                                return (
-                                                    <option value={projectItem.value} key={projectItem.value}>{projectItem.label}</option>
-                                                )
-                                            })
-                                        }
-                                    </select>
-                                </div>
-
-                                <div className="col-md-8 mb-2">
-                                    <label htmlFor="location" className="form-label ">Delivery Location</label>
+                                <div className="col-md-12 mb-2">
+                                    <label htmlFor="location" className="form-label ">Delivery Location (Optional)</label>
                                     <input
                                         type="text"
                                         name="location"
