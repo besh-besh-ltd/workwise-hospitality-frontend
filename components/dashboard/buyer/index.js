@@ -8,6 +8,7 @@ import moment from "moment";
 import RfqOverview from "./dashboard-components/RfqOverview";
 import VendorOverview from "./dashboard-components/VendorOverview";
 import AnalyticsReport from "./dashboard-components/AnalyticsReport";
+import { toast } from "react-toastify";
 
 
 const BuyerPage = () => {

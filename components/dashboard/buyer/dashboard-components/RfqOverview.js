@@ -7,6 +7,7 @@ import Select from 'react-select';
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 import FullLoader from '@/components/shared/FullLoader';
+import { getRfqChartData } from '@/services/rfq';
 
 
 const RfqOverview = ({ data, loading }) => {
@@ -15,6 +16,18 @@ const RfqOverview = ({ data, loading }) => {
     const [chartData, setChartData] = useState(null);
     const [chartLoding, setchartLoading] = useState(false);
 
+    const getChartData = async ()=> {
+        setchartLoading(true);
+        try {
+            const res = await getRfqChartData(filter.value);
+            console.log(res)
+            generateChartData();
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setchartLoading(false);
+        }
+    }
 
     const handleRangeChange = (selectedOption, actionMeta) => {
         setFilter(selectedOption);
@@ -40,9 +53,8 @@ const RfqOverview = ({ data, loading }) => {
     };
 
     useEffect(() => {
-        if (chartAPIdata)
-            generateChartData();
-    }, [chartAPIdata, filter])
+        getChartData();
+    }, [filter])
 
     return (
         <section className='hasFullloader mb-3'>
