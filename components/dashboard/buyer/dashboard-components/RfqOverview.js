@@ -7,42 +7,154 @@ import Select from 'react-select';
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 import FullLoader from '@/components/shared/FullLoader';
+import { getRfqChartData } from '@/services/rfq';
 
 
-const RfqOverview = ({ data, loading }) => {
-    const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
-    const [chartAPIdata, setChartAPIdata] = useState(null);
+const RfqOverview = ({ tableRfqData, tableLoading }) => {
+    const [rfqData, setRfqData] = useState(null);
     const [chartData, setChartData] = useState(null);
-    const [chartLoding, setchartLoading] = useState(false);
+    const [chartTitle, setChartTitle] = useState('');
+    const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
+    const [chartType, setChartType] = useState({ label: 'Line Chart', value: 'line' });
+    const [loading, setLoading] = useState(false);
 
-
-    const handleRangeChange = (selectedOption, actionMeta) => {
-        setFilter(selectedOption);
+    const getChartData = async () => {
+        setLoading(true);
+        try {
+            const res = await getRfqChartData(filter.value);
+            generateChartData(res.data);
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setLoading(false);
+        }
     }
 
-    const generateChartData = () => {
-        const { labels } = Utils.dateRange({ rangeType: filter.value });
-        const data = Utils.numbers({ count: labels.length, min: 10, max: 100 });
+    const handleChange = (selectedOption, actionMeta) => {
+        const { name } = actionMeta;
+        if (name == 'date_range')
+            setFilter(selectedOption);
+        else
+            setChartType(selectedOption);
+    }
 
+    const generateChartData = (api_data) => {
+        const title = Utils.CHART_TITLE({ labelType: filter.value });
+        const { result: actualDates, labels: fullDateRange } = Utils.DATE_RANGE({ rangeType: filter.value });
+
+        const dateDataMap = actualDates.reduce((acc, date) => {
+            acc[date] = {
+                new_rfqs: 0,
+                closed_rfqs: 0,
+                completed_rfqs: 0,
+                quotes_received: 0,
+            };
+            return acc;
+        }, {});
+
+        let total_new_rfqs = 0;
+        let total_closed_rfqs = 0;
+        let total_completed_rfqs = 0;
+        let total_quotes_received = 0;
+
+
+        if (filter.value === 'past3months' || filter.value === 'past6months' || filter.value === 'wholeYear') {
+            // Monthly data
+            api_data.forEach(item => {
+                const formattedMonth = new Date(`${item.month}-01`).toLocaleDateString('en-IN');
+                if (dateDataMap[formattedMonth]) {
+                    dateDataMap[formattedMonth] = {
+                        new_rfqs: parseInt(item.new_rfqs, 10),
+                        closed_rfqs: parseInt(item.closed_rfqs, 10),
+                        completed_rfqs: parseInt(item.completed_rfqs, 10),
+                        quotes_received: parseInt(item.quotes_received, 10),
+                    };
+
+                    total_new_rfqs += parseInt(item.new_rfqs);
+                    total_closed_rfqs += parseInt(item.closed_rfqs);
+                    total_completed_rfqs += parseInt(item.completed_rfqs);
+                    total_quotes_received += parseInt(item.quotes_received);
+                }
+            });
+        } else {
+            // Date Wise data
+            api_data.forEach(item => {
+                const formattedDate = new Date(item.date).toLocaleDateString('en-IN');
+                if (dateDataMap[formattedDate]) {
+                    dateDataMap[formattedDate] = {
+                        new_rfqs: parseInt(item.new_rfqs, 10),
+                        closed_rfqs: parseInt(item.closed_rfqs, 10),
+                        completed_rfqs: parseInt(item.completed_rfqs, 10),
+                        quotes_received: parseInt(item.quotes_received, 10),
+                    };
+
+                    total_new_rfqs += parseInt(item.new_rfqs);
+                    total_closed_rfqs += parseInt(item.closed_rfqs);
+                    total_completed_rfqs += parseInt(item.completed_rfqs);
+                    total_quotes_received += parseInt(item.quotes_received);
+                }
+            });
+        }
+
+        const labels = Object.keys(dateDataMap);
+        const preparedData = {
+            new_rfqs: labels.map(label => dateDataMap[label].new_rfqs),
+            closed_rfqs: labels.map(label => dateDataMap[label].closed_rfqs),
+            completed_rfqs: labels.map(label => dateDataMap[label].completed_rfqs),
+            quotes_received: labels.map(label => dateDataMap[label].quotes_received),
+        };
+
+        setRfqData({
+            total_new_rfqs,
+            total_closed_rfqs,
+            total_completed_rfqs,
+            total_quotes_received,
+        })
+        setChartTitle(title);
         setChartData({
-            labels,
+            labels: fullDateRange,
             datasets: [
                 {
-                    label: 'Example Data',
-                    data,
+                    label: 'New RFQs',
+                    data: preparedData.new_rfqs,
                     backgroundColor: Utils.CHART_COLORS.blue,
                     borderColor: Utils.CHART_COLORS.blue,
-                    borderWidth: 1,
-                    fill: true,
+                    fill: false,
+                    tension: 0.4,
+                },
+                {
+                    label: 'Closed RFQs',
+                    data: preparedData.closed_rfqs,
+                    backgroundColor: Utils.CHART_COLORS.red,
+                    borderColor: Utils.CHART_COLORS.red,
+                    fill: false,
+                    tension: 0.4,
+                },
+                {
+                    label: 'Completed RFQs',
+                    data: preparedData.completed_rfqs,
+                    backgroundColor: Utils.CHART_COLORS.green,
+                    borderColor: Utils.CHART_COLORS.green,
+                    fill: false,
+                    tension: 0.4,
+                },
+                {
+                    label: 'Quotes Received',
+                    data: preparedData.quotes_received,
+                    backgroundColor: Utils.CHART_COLORS.yellow,
+                    borderColor: Utils.CHART_COLORS.yellow,
+                    fill: false,
+                    tension: 0.4,
                 },
             ],
         });
     };
 
+
     useEffect(() => {
-        if (chartAPIdata)
-            generateChartData();
-    }, [chartAPIdata, filter])
+        getChartData();
+    }, [filter])
+
 
     return (
         <section className='hasFullloader mb-3'>
@@ -52,91 +164,104 @@ const RfqOverview = ({ data, loading }) => {
                 <div className="overview-container col-md-3 pe-2">
                     <div className="bg-primary text-white rounded-2 shadow p-4 h-100 hasFullLoader">
                         <h2 className="fs-4 text-white fw-semibold">RFQ Overview</h2>
-                        {loading
-                            ? <FullLoader />
-                            : <div className="d-flex flex-column justify-content-between gap-2">
-                                <div className="border border-white rounded-4 px-4 py-3">
-                                    <div className="d-flex justify-content-between align-items-center">
-                                        <h3 className="fs-4 fw-medium text-white mb-0">
-                                            {data ? (data.new_rfqs || 0) : 0}
-                                            <span className="d-block fs-6 text-white">New RFQs</span>
-                                        </h3>
-                                        <FontAwesomeIcon icon={faCartPlus} fontSize={28} />
-                                    </div>
+                        {loading && <FullLoader />}
+                        <div className="d-flex flex-column justify-content-between gap-2">
+                            <div className="border border-white rounded-4 px-4 py-3">
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                        {rfqData ? (rfqData.total_new_rfqs || 0) : 0}
+                                        <span className="d-block fs-6 text-white">New RFQs</span>
+                                    </h3>
+                                    <FontAwesomeIcon icon={faCartPlus} fontSize={28} />
                                 </div>
+                            </div>
 
-                                <div className="border border-white rounded-4 px-4 py-3">
-                                    <div className="d-flex justify-content-between align-items-center">
-                                        <h3 className="fs-4 fw-medium text-white mb-0">
-                                            {data ? (data.pending_responses || 0) : 0}
-                                            <span className="d-block fs-6 text-white">Pending RFQs</span>
-                                        </h3>
-                                        <FontAwesomeIcon icon={faStopwatch} fontSize={28} />
-                                    </div>
+                            <div className="border border-white rounded-4 px-4 py-3">
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                        {rfqData ? (rfqData.total_quotes_received || 0) : 0}
+                                        <span className="d-block fs-6 text-white">Quotes Received</span>
+                                    </h3>
+                                    <FontAwesomeIcon icon={faStopwatch} fontSize={28} />
                                 </div>
+                            </div>
 
-                                <div className="border border-white rounded-4 px-4 py-3">
-                                    <div className="d-flex justify-content-between align-items-center">
-                                        <h3 className="fs-4 fw-medium text-white mb-0">
-                                            {data ? (data.completed_rfqs || 0) : 0}
-                                            <span className="d-block fs-6 text-white">Completed RFQs</span>
-                                        </h3>
-                                        <FontAwesomeIcon icon={faCheckToSlot} fontSize={28} />
-                                    </div>
+                            <div className="border border-white rounded-4 px-4 py-3">
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                        {rfqData ? (rfqData.total_completed_rfqs || 0) : 0}
+                                        <span className="d-block fs-6 text-white">Completed RFQs</span>
+                                    </h3>
+                                    <FontAwesomeIcon icon={faCheckToSlot} fontSize={28} />
                                 </div>
+                            </div>
 
-                                <div className="border border-white rounded-4 px-4 py-3">
-                                    <div className="d-flex justify-content-between align-items-center">
-                                        <h3 className="fs-4 fw-medium text-white mb-0">
-                                            {data ? (data.closed_rfqs || 0) : 0}
-                                            <span className="d-block fs-6 text-white">Closed RFQs</span>
-                                        </h3>
-                                        <FontAwesomeIcon icon={faRectangleXmark} fontSize={28} />
-                                    </div>
+                            <div className="border border-white rounded-4 px-4 py-3">
+                                <div className="d-flex justify-content-between align-items-center">
+                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                        {rfqData ? (rfqData.total_closed_rfqs || 0) : 0}
+                                        <span className="d-block fs-6 text-white">Closed RFQs</span>
+                                    </h3>
+                                    <FontAwesomeIcon icon={faRectangleXmark} fontSize={28} />
                                 </div>
+                            </div>
 
-                                <div className="d-flex justify-content-center mt-2">
-                                    <Link
-                                        href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                        className="btn btn-secondary border-0 py-2"
-                                    >
-                                        Create New RFQ
-                                    </Link>
-                                </div>
-                            </div>}
+                            <div className="d-flex justify-content-center mt-2">
+                                <Link
+                                    href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                                    className="btn btn-secondary border-0 py-2"
+                                >
+                                    Create New RFQ
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* RFQ Chart */}
                 <div className="rfq-chart-container col-md-9 ps-2">
                     <div className="bg-white shadow rounded-2 p-4 h-100 hasFullLoader">
-                        {chartLoding
-                            ? <FullLoader />
-                            : <>
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium mb-0">RFQ Stats</h3>
-                                    <div className="col-md-2">
-                                        <Select
-                                            options={[
-                                                { label: 'Last 7 days', value: 'past7days' },
-                                                { label: 'This Month', value: 'currentMonth' },
-                                                { label: 'Past 3 Months', value: 'past3months' },
-                                                { label: 'Past 6 Months', value: 'past6months' },
-                                                { label: 'Current Year', value: 'wholeYear' }
-                                            ]}
-                                            onChange={handleRangeChange}
-                                            value={filter}
-                                            defaultValue={{ label: 'Last 7 days', value: 'past7days' }}
-                                            name="rfq_range"
-                                            className="text-sm"
-                                            placeholder="Choose Range"
-                                            isClearable={false}
-                                        />
-                                    </div>
-                                </div>
-                                {chartData && <ChartComponent data={chartData} chartType='line' />}
-                            </>
-                        }
+                        {loading && <FullLoader />}
+                        <div className="d-flex justify-content-between align-items-center mb-4">
+                            <h3 className="fs-4 fw-medium mb-0">RFQ Stats</h3>
+
+                            <div className="col-md-4 d-flex gap-2">
+                                <Select
+                                    options={[
+                                        { label: 'Line Chart', value: 'line' },
+                                        { label: 'Bar Chart', value: 'bar' },
+                                        // { label: 'Polar Chart', value: 'polarArea' },
+                                        // { label: 'Radar Chart', value: 'radar' },
+                                    ]}
+                                    onChange={handleChange}
+                                    value={chartType}
+                                    defaultValue={{ label: 'Line Chart', value: 'line' }}
+                                    name="chart_type"
+                                    className="text-sm col-md-6"
+                                    placeholder="Choose Type"
+                                    isClearable={false}
+                                />
+
+                                <Select
+                                    options={[
+                                        { label: 'Last 7 days', value: 'past7days' },
+                                        { label: 'This Month', value: 'currentMonth' },
+                                        { label: 'Past 3 Months', value: 'past3months' },
+                                        { label: 'Past 6 Months', value: 'past6months' },
+                                        { label: 'Current Year', value: 'wholeYear' }
+                                    ]}
+                                    onChange={handleChange}
+                                    value={filter}
+                                    defaultValue={{ label: 'Last 7 days', value: 'past7days' }}
+                                    name="date_range"
+                                    className="text-sm col-md-6"
+                                    placeholder="Choose Range"
+                                    isClearable={false}
+                                />
+
+                            </div>
+                        </div>
+                        {chartData && <ChartComponent data={chartData} chartTitle={chartTitle} chartType={chartType.value} />}
                     </div>
                 </div>
             </div>
@@ -156,59 +281,58 @@ const RfqOverview = ({ data, loading }) => {
                                 View All
                             </Link>
                         </div>
-                        {loading
-                            ? <FullLoader />
-                            : <>
-                                {(data && data.rfq_data)
-                                    ? (data.rfq_data.length > 0 ?
-                                        <table className="table table-hover table-borderless table-sm text-center">
-                                            <thead>
-                                                <tr style={{ fontSize: "14px", fontWeight: "200" }}>
-                                                    <th>RFQ Details</th>
-                                                    <th>New Quotes</th>
-                                                    <th>New Queries</th>
-                                                    <th>Status</th>
-                                                    <th>Send Reminder</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className='text-sm'>
-                                                {data.rfq_data.map(() => (
-                                                    <tr className="align-middle border-bottom">
-                                                        <td>
-                                                            <span className="d-block">402763</span>
-                                                            <span className="d-block">Kolkata Metro</span>
-                                                        </td>
-                                                        <td>
-                                                            <span className="text-sm text-bg-success px-2 py-1 rounded-3">
-                                                                Quotes <span className="badge text-bg-danger ms-1">+4</span>
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <span className="text-sm text-bg-primary px-2 py-1 rounded-3">
-                                                                Queries <span className="badge text-bg-danger ms-1">+7</span>
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <span className="text-sm text-bg-warning px-2 py-1 rounded-3">
-                                                                Pending
-                                                            </span>
-                                                        </td>
-                                                        <td className="d-block mt-2">
-                                                            <span className="text-sm text-bg-warning px-2 py-1 rounded-3">
-                                                                Send Reminder
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                                }
-                                            </tbody>
-                                        </table>
-                                        : <h3>You don't Have any RFQ's Yet...!</h3>
-                                    )
-                                    : <h3>No RFQ's Found...!</h3>
-                                }
-                            </>
-                        }
+                        {tableLoading ? (
+                            <FullLoader />
+                        ) : tableRfqData ? (
+                            tableRfqData.length > 0 ? (
+                                <table className="table table-hover table-borderless table-sm text-center">
+                                    <thead>
+                                        <tr style={{ fontSize: "14px", fontWeight: "200" }}>
+                                            <th>RFQ Details</th>
+                                            <th>New Quotes</th>
+                                            <th>New Queries</th>
+                                            <th>Status</th>
+                                            <th>Send Reminder</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {tableRfqData.map((rfq, index) => (
+                                            <tr key={index} className="align-middle border-bottom">
+                                                <td>
+                                                    <span className="d-block">{rfq.id}</span>
+                                                    <span className="d-block">{rfq.project_name}</span>
+                                                </td>
+                                                <td>
+                                                    <span className="text-sm text-bg-success px-2 py-1 rounded-3">
+                                                        Quotes <span className="badge text-bg-danger ms-1">+{rfq.new_quotes}</span>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className="text-sm text-bg-primary px-2 py-1 rounded-3">
+                                                        Queries <span className="badge text-bg-danger ms-1">+{rfq.new_queries}</span>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className="text-sm text-bg-warning px-2 py-1 rounded-3">
+                                                        {rfq.status}
+                                                    </span>
+                                                </td>
+                                                <td className="d-block mt-2">
+                                                    <span className="text-sm text-bg-warning px-2 py-1 rounded-3">
+                                                        Send Reminder
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <h3>You don't Have any RFQ's Yet...!</h3>
+                            )
+                        ) : (
+                            <h3>No RFQ's Found...!</h3>
+                        )}
+
                     </div>
                 </div>
 

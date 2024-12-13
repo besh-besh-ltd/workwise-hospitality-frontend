@@ -489,3 +489,14 @@ export const getTechClearedVendorsResult = (payload) => {
     }
   });
 };
+
+export const getRfqChartData = (filter) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/rfq-chart-data?chart_filter=${filter}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};

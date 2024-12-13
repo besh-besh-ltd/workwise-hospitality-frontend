@@ -32,14 +32,18 @@ const Utils = {
     const daysInMonth = new Date(year, month, 0).getDate();
     return Array.from({ length: daysInMonth }, (_, i) => i + 1);
   },
-  dateRange({ rangeType, today = new Date() }) {
+  DATE_RANGE({ rangeType, today = new Date() }) {
     const result = [];
     const labels = [];
     const now = new Date(today);
 
+    const formatDate = (date) => {
+      return date.toLocaleDateString('en-IN'); 
+    };
+
     switch (rangeType) {
       case 'today':
-        result.push(now.toISOString().split('T')[0]);
+        result.push(formatDate(now));
         labels.push('Today');
         break;
 
@@ -47,8 +51,8 @@ const Utils = {
         for (let i = 6; i >= 0; i--) {
           const date = new Date();
           date.setDate(now.getDate() - i);
-          result.push(date.toISOString().split('T')[0]);
-          labels.push(date.toDateString().split(' ')[0]); 
+          result.push(formatDate(date));
+          labels.push(date.toLocaleDateString('en-IN', { weekday: 'short' }));
         }
         break;
 
@@ -59,7 +63,7 @@ const Utils = {
           0
         ).getDate();
         for (let i = 1; i <= daysInCurrentMonth; i++) {
-          result.push(new Date(now.getFullYear(), now.getMonth(), i).toISOString().split('T')[0]);
+          result.push(formatDate(new Date(now.getFullYear(), now.getMonth(), i)));
           labels.push(i);
         }
         break;
@@ -69,7 +73,7 @@ const Utils = {
         const monthsToShow = rangeType === 'past3months' ? 3 : 6;
         for (let i = 0; i < monthsToShow; i++) {
           const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          result.push(date.toISOString().split('T')[0]);
+          result.push(formatDate(date));
           labels.push(`${Utils.months({ count: 12 })[date.getMonth()]} ${date.getFullYear()}`);
         }
         labels.reverse();
@@ -78,7 +82,7 @@ const Utils = {
       case 'wholeYear':
         for (let i = 0; i < 12; i++) {
           const date = new Date(now.getFullYear(), i, 1);
-          result.push(date.toISOString().split('T')[0]);
+          result.push(formatDate(date));
           labels.push(Utils.months({ count: 12 })[i]);
         }
         break;
@@ -88,6 +92,40 @@ const Utils = {
     }
 
     return { result, labels };
+  },  
+  CHART_TITLE({ labelType, today = new Date() }) {
+    const year = today.getFullYear();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+
+    switch (labelType) {
+      case 'today':
+        return `Chart Report for ${today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+      case 'past7days': {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(today.getDate() - 6);
+        return `Chart Report from ${startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      }
+      case 'currentMonth':
+        return `Chart Report for ${monthNames[today.getMonth()]} ${year}`;
+      case 'past3months': {
+        const currentMonth = today.getMonth();
+        const startMonth = currentMonth - 2 >= 0 ? currentMonth - 2 : 0;
+        return `Chart Report from ${monthNames[startMonth]} - ${monthNames[currentMonth]} ${year}`;
+      }
+      case 'past6months': {
+        const currentMonth = today.getMonth();
+        const startMonth = currentMonth - 5 >= 0 ? currentMonth - 5 : 0;
+        return `Chart Report from ${monthNames[startMonth]} - ${monthNames[currentMonth]} ${year}`;
+      }
+      case 'wholeYear':
+        return `Chart Report for the Year ${year}`;
+      default:
+        return 'Chart Report';
+    }
   },
   numbers({ count, min, max }) {
     const data = [];

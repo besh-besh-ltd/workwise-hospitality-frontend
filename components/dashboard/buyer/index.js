@@ -8,6 +8,7 @@ import moment from "moment";
 import RfqOverview from "./dashboard-components/RfqOverview";
 import VendorOverview from "./dashboard-components/VendorOverview";
 import AnalyticsReport from "./dashboard-components/AnalyticsReport";
+import { toast } from "react-toastify";
 
 
 const BuyerPage = () => {
@@ -204,7 +205,7 @@ const BuyerPage = () => {
             </div>
           </div>
 
-          <RfqOverview rfqData={dashboardData} loading={loading} />
+          <RfqOverview tableRfqData={dashboardData?.rfq_data} tableLoading={loading} />
           <VendorOverview />
           <AnalyticsReport />
 
