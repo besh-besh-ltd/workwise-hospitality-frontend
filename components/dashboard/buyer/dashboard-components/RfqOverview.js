@@ -7,7 +7,7 @@ import Select from 'react-select';
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 import FullLoader from '@/components/shared/FullLoader';
-import { getRfqChartData } from '@/services/rfq';
+import { getRfqChartData, sendReminder } from '@/services/rfq';
 
 
 const RfqOverview = ({ tableRfqData, tableLoading }) => {
@@ -17,6 +17,7 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
     const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
     const [chartType, setChartType] = useState({ label: 'Line Chart', value: 'line' });
     const [loading, setLoading] = useState(false);
+    const [reminderMap, setReminderMap] = useState(null);
 
     const getChartData = async () => {
         setLoading(true);
@@ -150,10 +151,44 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
         });
     };
 
+    const handleReminder = (e, data) => {
+        e.preventDefault();
+        setReminderMap((prevState) => {
+            const newMap = new Map(prevState);
+            newMap.set(data.id, true);
+            return newMap;
+        });
+        sendReminder(data.id)
+            .then((res) => {
+                if (res.message && res.message != "") {
+                    toast.success(res.message);
+                }
+            })
+            .catch((err) => {
+                toast.error(err.message);
+            })
+            .finally(() => {
+                setReminderMap((prevState) => {
+                    const newMap = new Map(prevState);
+                    newMap.set(data.id, false);
+                    return newMap;
+                });
+            })
+    };
 
     useEffect(() => {
         getChartData();
     }, [filter])
+
+    useEffect(() => {
+        if (tableRfqData) {
+            let rMap = new Map();
+            tableRfqData.forEach((rfqItem) => {
+                rMap.set(rfqItem.id, false)
+            })
+            setReminderMap(rMap);
+        }
+    }, [tableRfqData])
 
 
     return (
@@ -271,11 +306,11 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
                 {/* RFQ Table */}
                 <div className="rfq-table-container col-md-9 pe-2">
                     <div className="bg-white shadow rounded-2 p-4 h-100 hasFullLoader">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
                             <h2 className="fs-4 fw-medium mb-0">Latest RFQs</h2>
                             <Link
                                 href="/dashboard/buyer/rfq-management"
-                                className="border border-2 px-2 py-1 rounded-3"
+                                style={{ borderColor: "var(--primary-color)" }}
                             >
                                 <FontAwesomeIcon icon={faArrowRight} className="me-2" />
                                 View All
@@ -285,47 +320,103 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
                             <FullLoader />
                         ) : tableRfqData ? (
                             tableRfqData.length > 0 ? (
-                                <table className="table table-hover table-borderless table-sm text-center">
-                                    <thead>
-                                        <tr style={{ fontSize: "14px", fontWeight: "200" }}>
-                                            <th>RFQ Details</th>
-                                            <th>New Quotes</th>
-                                            <th>New Queries</th>
-                                            <th>Status</th>
-                                            <th>Send Reminder</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-sm">
-                                        {tableRfqData.map((rfq, index) => (
-                                            <tr key={index} className="align-middle border-bottom">
-                                                <td>
-                                                    <span className="d-block">{rfq.id}</span>
-                                                    <span className="d-block">{rfq.project_name}</span>
-                                                </td>
-                                                <td>
-                                                    <span className="text-sm text-bg-success px-2 py-1 rounded-3">
-                                                        Quotes <span className="badge text-bg-danger ms-1">+{rfq.new_quotes}</span>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className="text-sm text-bg-primary px-2 py-1 rounded-3">
-                                                        Queries <span className="badge text-bg-danger ms-1">+{rfq.new_queries}</span>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className="text-sm text-bg-warning px-2 py-1 rounded-3">
-                                                        {rfq.status}
-                                                    </span>
-                                                </td>
-                                                <td className="d-block mt-2">
-                                                    <span className="text-sm text-bg-warning px-2 py-1 rounded-3">
-                                                        Send Reminder
-                                                    </span>
-                                                </td>
+                                <div className="table-responsive">
+                                    <table className="table table-borderless table-sm text-center">
+                                        <thead className="text-nowrap">
+                                            <tr style={{ fontSize: "14px", fontWeight: "200" }}>
+                                                <th>RFQ Details</th>
+                                                <th>Total Products</th>
+                                                <th>Quotes Recieved</th>
+                                                <th>Queries</th>
+                                                <th>Reminder</th>
+                                                <th>Details</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="text-sm">
+                                            {tableRfqData.map((rfq, index) => {
+                                                let isRecievedFromAll = rfq.vendors[0]?.total_vendors - rfq.vendors[0]?.quote_received <= 0;
+                                                return (
+                                                    <tr key={index} className="align-middle border-bottom">
+                                                        <td className="py-2">
+                                                            <span className="d-block">{rfq.rfq_no}</span>
+                                                            <span className="d-block">{rfq.project_name}</span>
+                                                        </td>
+                                                        <td className="py-2">
+                                                            <span className="text-sm text-primary border border-primary px-2 py-1 rounded-3">
+                                                                {rfq.products?.length} {rfq.products?.length == 1 ? ' Product' : 'Products'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2">
+                                                            <span className="text-sm text-success border border-success px-2 py-1 rounded-3">
+                                                                {rfq.quotes?.length > 0
+                                                                    ? `${rfq.quotes?.length} ${rfq.quotes?.length == 1 ? ' Quote' : 'Quotes'}`
+                                                                    : 'No Quotes Yet'
+                                                                }
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2">
+                                                            <Link
+                                                                href={`/dashboard/buyer/query?rfq_id=${rfq?.id}&role=buyer`}
+                                                                className="position-relative text-sm text-primary border border-primary px-2 py-1 rounded-3"
+                                                            >
+                                                                View
+                                                                {rfq.unseen_query_count > 0 &&
+                                                                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                                                        + {rfq.unseen_query_count}
+                                                                        <span class="visually-hidden">unread messages</span>
+                                                                    </span>}
+                                                            </Link>
+                                                        </td>
+                                                        <td className="py-2">
+                                                            {rfq.vendors.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        if (!isRecievedFromAll) {
+                                                                            handleReminder(e, rfq)
+                                                                        }
+                                                                    }}
+                                                                    className={`page-link-btn border-0 p-2 my-3 rounded-2 ${isRecievedFromAll ? "btn disabled" : ""}`}
+                                                                    role="button"
+                                                                    disabled={isRecievedFromAll}
+                                                                    aria-disabled={isRecievedFromAll}
+                                                                    style={{ width: "200px", backgroundColor: isRecievedFromAll ? "var(--primary-color)" : "var(--secondary-color)" }}
+                                                                >
+                                                                    {(reminderMap && reminderMap.get(rfq.id)) ? (
+                                                                        <>
+                                                                            <span
+                                                                                className="spinner-border spinner-border-sm"
+                                                                                role="status"
+                                                                            ></span>{" "}
+                                                                            Processing request...
+                                                                        </>
+                                                                    ) : (
+                                                                        isRecievedFromAll
+                                                                            ? "All Quotes Received"
+                                                                            : `Send Reminder (${rfq.vendors[0]?.total_vendors - rfq.vendors[0]?.quote_received}/${rfq.vendors[0]?.total_vendors})`
+                                                                    )
+                                                                    }
+                                                                </button>
+                                                            )}
+
+                                                        </td>
+                                                        <td>
+                                                            <span>
+                                                                <Link
+                                                                    href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq?.id}`}
+                                                                    className='text-sm fw-medium page-link'
+                                                                >
+                                                                    View
+                                                                </Link>
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            }
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             ) : (
                                 <h3>You don't Have any RFQ's Yet...!</h3>
                             )
