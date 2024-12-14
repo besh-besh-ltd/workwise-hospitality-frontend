@@ -216,6 +216,7 @@ const SendQuotePageComp = () => {
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
+          toast.error("Unable to Send Quote");
           setsubmitLoading(false)
         })
     }
