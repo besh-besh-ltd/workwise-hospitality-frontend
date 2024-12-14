@@ -1,6 +1,6 @@
 import ChartComponent from '@/components/shared/ChartConfig/ChartComponent';
 import Utils from '@/components/shared/ChartConfig/utils';
-import { faArrowRight, faCartPlus, faCheckToSlot, faRectangleXmark, faStopwatch } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRight, faBell, faCartPlus, faCheckToSlot, faRectangleXmark, faStopwatch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Link from 'next/link';
 import Select from 'react-select';
@@ -10,12 +10,12 @@ import FullLoader from '@/components/shared/FullLoader';
 import { getRfqChartData, sendReminder } from '@/services/rfq';
 
 
-const RfqOverview = ({ tableRfqData, tableLoading }) => {
+const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
     const [rfqData, setRfqData] = useState(null);
     const [chartData, setChartData] = useState(null);
     const [chartTitle, setChartTitle] = useState('');
     const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
-    const [chartType, setChartType] = useState({ label: 'Line Chart', value: 'line' });
+    const [chartType, setChartType] = useState({ label: 'Cubic Line Chart', value: 'cubic' });
     const [loading, setLoading] = useState(false);
     const [reminderMap, setReminderMap] = useState(null);
 
@@ -105,6 +105,43 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
             quotes_received: labels.map(label => dateDataMap[label].quotes_received),
         };
 
+        let dataSets = [
+            {
+                label: 'New RFQs',
+                data: preparedData.new_rfqs,
+                backgroundColor: Utils.CHART_COLORS.blue,
+                borderColor: Utils.CHART_COLORS.blue,
+                fill: false,
+            },
+            {
+                label: 'Closed RFQs',
+                data: preparedData.closed_rfqs,
+                backgroundColor: Utils.CHART_COLORS.red,
+                borderColor: Utils.CHART_COLORS.red,
+                fill: false,
+            },
+            {
+                label: 'Completed RFQs',
+                data: preparedData.completed_rfqs,
+                backgroundColor: Utils.CHART_COLORS.green,
+                borderColor: Utils.CHART_COLORS.green,
+                fill: false,
+            },
+            {
+                label: 'Quotes Received',
+                data: preparedData.quotes_received,
+                backgroundColor: Utils.CHART_COLORS.yellow,
+                borderColor: Utils.CHART_COLORS.yellow,
+                fill: false,
+            },
+        ]
+
+        if (chartType.value === 'cubic') {
+            dataSets = dataSets.map((item) => (
+                { ...item, tension: 0.4 }
+            ))
+        }
+
         setRfqData({
             total_new_rfqs,
             total_closed_rfqs,
@@ -114,40 +151,7 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
         setChartTitle(title);
         setChartData({
             labels: fullDateRange,
-            datasets: [
-                {
-                    label: 'New RFQs',
-                    data: preparedData.new_rfqs,
-                    backgroundColor: Utils.CHART_COLORS.blue,
-                    borderColor: Utils.CHART_COLORS.blue,
-                    fill: false,
-                    tension: 0.4,
-                },
-                {
-                    label: 'Closed RFQs',
-                    data: preparedData.closed_rfqs,
-                    backgroundColor: Utils.CHART_COLORS.red,
-                    borderColor: Utils.CHART_COLORS.red,
-                    fill: false,
-                    tension: 0.4,
-                },
-                {
-                    label: 'Completed RFQs',
-                    data: preparedData.completed_rfqs,
-                    backgroundColor: Utils.CHART_COLORS.green,
-                    borderColor: Utils.CHART_COLORS.green,
-                    fill: false,
-                    tension: 0.4,
-                },
-                {
-                    label: 'Quotes Received',
-                    data: preparedData.quotes_received,
-                    backgroundColor: Utils.CHART_COLORS.yellow,
-                    borderColor: Utils.CHART_COLORS.yellow,
-                    fill: false,
-                    tension: 0.4,
-                },
-            ],
+            datasets: dataSets,
         });
     };
 
@@ -181,6 +185,25 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
     }, [filter])
 
     useEffect(() => {
+        if (chartData) {
+            const newDataset = chartData.datasets.map((item) => {
+                if (chartType.value === 'cubic') {
+                    return { ...item, tension: 0.4 };
+                } else if (chartType.value === 'line') {
+                    const { tension, ...otherParts } = item;
+                    return otherParts;
+                }
+                return item;
+            });
+
+            setChartData((prevState) => ({
+                ...prevState,
+                datasets: newDataset,
+            }));
+        }
+    }, [chartType])
+
+    useEffect(() => {
         if (tableRfqData) {
             let rMap = new Map();
             tableRfqData.forEach((rfqItem) => {
@@ -197,7 +220,7 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
 
                 {/* RFQ Overview */}
                 <div className="overview-container col-md-3 pe-2">
-                    <div className="bg-primary text-white rounded-2 shadow p-4 h-100 hasFullLoader">
+                    <div className="text-white rounded-2 shadow p-4 h-100 hasFullLoader" style={{ backgroundColor: '#1096f0' }}>
                         <h2 className="fs-4 text-white fw-semibold">RFQ Overview</h2>
                         {loading && <FullLoader />}
                         <div className="d-flex flex-column justify-content-between gap-2">
@@ -260,9 +283,10 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
                         <div className="d-flex justify-content-between align-items-center mb-4">
                             <h3 className="fs-4 fw-medium mb-0">RFQ Stats</h3>
 
-                            <div className="col-md-4 d-flex gap-2">
+                            <div className="col-md-5 d-flex justify-content-between gap-2">
                                 <Select
                                     options={[
+                                        { label: 'Cubic Line Chart', value: 'cubic' },
                                         { label: 'Line Chart', value: 'line' },
                                         { label: 'Bar Chart', value: 'bar' },
                                         // { label: 'Polar Chart', value: 'polarArea' },
@@ -270,9 +294,9 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
                                     ]}
                                     onChange={handleChange}
                                     value={chartType}
-                                    defaultValue={{ label: 'Line Chart', value: 'line' }}
+                                    defaultValue={{ label: 'Cubic Line Chart', value: 'cubic' }}
                                     name="chart_type"
-                                    className="text-sm col-md-6"
+                                    className="text-sm w-100"
                                     placeholder="Choose Type"
                                     isClearable={false}
                                 />
@@ -289,14 +313,20 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
                                     value={filter}
                                     defaultValue={{ label: 'Last 7 days', value: 'past7days' }}
                                     name="date_range"
-                                    className="text-sm col-md-6"
+                                    className="text-sm w-100"
                                     placeholder="Choose Range"
                                     isClearable={false}
                                 />
 
                             </div>
                         </div>
-                        {chartData && <ChartComponent data={chartData} chartTitle={chartTitle} chartType={chartType.value} />}
+                        {chartData &&
+                            <ChartComponent
+                                key={JSON.stringify(chartData.datasets)}
+                                data={chartData}
+                                chartTitle={chartTitle}
+                                chartType={chartType.value === 'cubic' ? 'line' : chartType.value}
+                            />}
                     </div>
                 </div>
             </div>
@@ -428,10 +458,20 @@ const RfqOverview = ({ tableRfqData, tableLoading }) => {
                 </div>
 
                 {/* Notifications */}
-                <div className="rfq-table-container col-md-3 ps-2">
-                    <div className="bg-white shadow rounded-2 p-4 h-100">
-                        <h2 className="fs-4 fw-medium ">Notifications</h2>
-                        <hr className="my-1" />
+                <div className="notification-container col-md-3 ps-2">
+                    <div className="bg-white d-flex flex-column shadow rounded-2 p-4 h-100">
+                        <h2 className="fs-4 fw-medium  ">Notifications</h2>
+                        <div className="notification-section list-group h-100 border-2 border-top overflow-y-auto">
+                            {!notificationData
+                                ? <Link href="#"></Link>
+                                : <div className="h-100 d-flex flex-column justify-content-center align-items-center">
+                                    <FontAwesomeIcon icon={faBell} fontSize={64} className='opacity-25 mb-4' />
+                                    <h3 className="fs-6 text-center">
+                                        You Don't have any Notifications Yet...!
+                                    </h3>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
