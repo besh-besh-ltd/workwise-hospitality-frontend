@@ -121,7 +121,7 @@ const SendQuotePageComp = () => {
     variant,
     type,
     valueType = "integer",
-    total_qty,
+    total_qty = parseFloat(total_qty),
     file,
     fileOperation
   ) => {
@@ -162,24 +162,27 @@ const SendQuotePageComp = () => {
     setquoteProducts(d);
   };
 
-  const calculateTotal = () => {
+  const calculateTotal = (products) => {
 
-    let d = quoteProducts.map((item) => {
-      let p = rfqDetails.products.filter(
-        (pi) => pi.product_id == item.product_id
-      );
+    const d = products.map((item) => {
+      
+      let prod = rfqDetails.products.find((pi) => pi.id == item.id);
 
-      let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
+      let unit_price = parseFloat(item.unit_price) || 0;
+      let freight_price = parseFloat(item.freight_price) || 0;
+      let package_price = parseFloat(item.package_price) || 0;
+      let item_tax = parseFloat(item.tax) || 0;
+      let total_qty = parseFloat(getProductSpecValueByTitle(prod.product_specs, "Quantity")) || 0;
 
-      const totalWithoutFPT = item.unit_price * total_qty;
-      const freightPrice = (totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100;
-      const packagePrice = (totalWithoutFPT * parseFloat(item.package_price || 0)) / 100;
+      const totalWithoutFPT = unit_price * total_qty;
+      const freightPrice = (totalWithoutFPT * freight_price) / 100;
+      const packagePrice = (totalWithoutFPT * package_price) / 100;
 
       // Subtotal before Tax
       const subtotalBeforeTax = totalWithoutFPT + freightPrice + packagePrice;
 
       // Calculate Tax (percentage of subtotalBeforeTax)
-      const tax = (subtotalBeforeTax * parseFloat(item.tax || 0)) / 100;
+      const tax = (subtotalBeforeTax * item_tax) / 100;
 
       // Final total price
       const totalPrice = subtotalBeforeTax + tax;
@@ -342,13 +345,12 @@ const SendQuotePageComp = () => {
 
   useEffect(() => {
     let p = quoteProducts.map((item) => {
-      item["freight_price"] = globalFreight;
-      item["package_price"] = globalPackaging;
-      item["tax"] = globalTax;
+      item["freight_price"] = globalFreight ? globalFreight : item.freight_price;
+      item["package_price"] = globalPackaging ? globalPackaging : item.package_price;
+      item["tax"] = globalTax ? globalTax : item.tax;
       return item;
     });
-    setquoteProducts(p);
-    calculateTotal();
+    calculateTotal(p);
   }, [globalTax, globalPackaging, globalFreight]);
 
   return (
