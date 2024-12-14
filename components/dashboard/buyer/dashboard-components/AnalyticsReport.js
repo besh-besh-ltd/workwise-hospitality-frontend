@@ -10,7 +10,7 @@ const AnalyticsReport = () => {
     const [chartData, setChartData] = useState(null);
     const [chartTitle, setChartTitle] = useState('');
     const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
-    const [chartType, setChartType] = useState({ label: 'Cubic Line Chart', value: 'cubic' });
+    const [chartType, setChartType] = useState({ label: 'Bar Chart', value: 'bar' });
     const [dataType, setDataType] = useState({ label: 'Finalized Quotes', value: 'quotes' });
     const [loading, setLoading] = useState(false);
 
@@ -88,8 +88,8 @@ const AnalyticsReport = () => {
             }
         ]
 
-        if(chartType.value === 'cubic') {
-            dataSets = dataSets.map((item)=> (
+        if (chartType.value === 'cubic') {
+            dataSets = dataSets.map((item) => (
                 { ...item, tension: 0.4 }
             ))
         }
@@ -109,12 +109,12 @@ const AnalyticsReport = () => {
         if (chartData) {
             const newDataset = chartData.datasets.map((item) => {
                 if (chartType.value === 'cubic') {
-                    return { ...item, tension: 0.4 }; 
+                    return { ...item, tension: 0.4 };
                 } else if (chartType.value === 'line') {
                     const { tension, ...otherParts } = item;
                     return otherParts;
                 }
-                return item; 
+                return item;
             });
 
             setChartData((prevState) => ({
@@ -150,16 +150,14 @@ const AnalyticsReport = () => {
                             <div className="col-md-6 d-flex justify-content-between gap-2">
                                 <Select
                                     options={[
-                                        { label: 'Last 7 days', value: 'past7days' },
-                                        { label: 'This Month', value: 'currentMonth' },
-                                        { label: 'Past 3 Months', value: 'past3months' },
-                                        { label: 'Past 6 Months', value: 'past6months' },
-                                        { label: 'Current Year', value: 'wholeYear' }
+                                        { label: 'Finalized Quotes', value: 'quotes' },
+                                        { label: 'Quotes Costing', value: 'quote_costing' },
+                                        // { label: 'Product Costing', value: 'product_costing' }
                                     ]}
                                     onChange={handleChange}
-                                    value={filter}
-                                    defaultValue={{ label: 'Last 7 days', value: 'past7days' }}
-                                    name="date_range"
+                                    value={dataType}
+                                    defaultValue={{ label: 'Finalized Quotes', value: 'quotes' }}
+                                    name="cost_type"
                                     className="text-sm w-100"
                                     placeholder="Choose Range"
                                     isClearable={false}
@@ -175,22 +173,25 @@ const AnalyticsReport = () => {
                                     ]}
                                     onChange={handleChange}
                                     value={chartType}
-                                    defaultValue={{ label: 'Cubic Line Chart', value: 'cubic' }}
+                                    defaultValue={{ label: 'Bar Chart', value: 'bar' }}
                                     name="chart_type"
                                     className="text-sm w-100"
                                     placeholder="Choose Type"
                                     isClearable={false}
                                 />
+
                                 <Select
                                     options={[
-                                        { label: 'Finalized Quotes', value: 'quotes' },
-                                        { label: 'Quotes Costing', value: 'quote_costing' },
-                                        // { label: 'Product Costing', value: 'product_costing' }
+                                        { label: 'Last 7 days', value: 'past7days' },
+                                        { label: 'This Month', value: 'currentMonth' },
+                                        { label: 'Past 3 Months', value: 'past3months' },
+                                        { label: 'Past 6 Months', value: 'past6months' },
+                                        { label: 'Current Year', value: 'wholeYear' }
                                     ]}
                                     onChange={handleChange}
-                                    value={dataType}
-                                    defaultValue={{ label: 'Finalized Quotes', value: 'quotes' }}
-                                    name="cost_type"
+                                    value={filter}
+                                    defaultValue={{ label: 'Last 7 days', value: 'past7days' }}
+                                    name="date_range"
                                     className="text-sm w-100"
                                     placeholder="Choose Range"
                                     isClearable={false}
@@ -203,9 +204,8 @@ const AnalyticsReport = () => {
                                 <ChartComponent data={pieData} chartTitle={'RFQ Analysis'} chartType='pie' height={350} />
                             </div>
                             <div className="col-md-8 my-4 hasFullLoader">
-                                {loading
-                                    ? <FullLoader />
-                                    : chartData &&
+                                {loading && <FullLoader />}
+                                {chartData &&
                                     <ChartComponent
                                         key={JSON.stringify(chartData.datasets)}
                                         data={chartData}

@@ -512,6 +512,17 @@ export const getRfqChartData = (filter) => {
   });
 };
 
+export const getTopVendorsandProducts = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/dashboard-top-vendors-and-products`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getAnalyticsChartData = (filter, type) => {
   return new Promise(async (resolve, reject) => {
     try {
