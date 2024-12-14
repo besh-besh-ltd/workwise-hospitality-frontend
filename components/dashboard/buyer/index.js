@@ -69,11 +69,12 @@ const BuyerPage = () => {
       </section>
 
       <section className="buyer-sec-1">
-        <div className="container-fluid">
+        <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
+          <h3 className="fs-4 fw-medium mb-3">Summary</h3>
           <div className="row">
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.total_rfqs
@@ -95,7 +96,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.active_rfqs
@@ -117,7 +118,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.completed_rfqs
@@ -140,7 +141,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.closed_rfqs
@@ -163,7 +164,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.quotes_received
@@ -185,7 +186,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.pending_responses
@@ -205,10 +206,9 @@ const BuyerPage = () => {
                 </div>
               </div>
             </div>
-
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con">
+              <div className="detail-con shadow">
                 <div className="detail-con-text">
                   <h2>
                     &#8377;
@@ -231,15 +231,17 @@ const BuyerPage = () => {
             </div>
           </div>
 
-          <RfqOverview
+
+
+        </div>
+
+        <RfqOverview
             tableRfqData={dashboardData?.rfq_data}
             notificationData={dashboardData?.notificaiton_data}
             tableLoading={loading}
           />
           <VendorOverview />
           <AnalyticsReport />
-
-        </div>
       </section>
     </>
   );

@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 import FullLoader from '@/components/shared/FullLoader';
 import { getRfqChartData, sendReminder } from '@/services/rfq';
-
+import { formatDate } from "@/utils/sharedFunctions";
 
 const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
     const [rfqData, setRfqData] = useState(null);
@@ -220,45 +220,45 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
 
                 {/* RFQ Overview */}
                 <div className="overview-container col-md-3 pe-2">
-                    <div className="text-white rounded-2 shadow p-4 h-100 hasFullLoader" style={{ backgroundColor: '#1096f0' }}>
-                        <h2 className="fs-4 text-white fw-semibold">RFQ Overview</h2>
+                    <div className="rounded-2 shadow p-4 h-100 hasFullLoader">
+                        <h2 className="fs-4 fw-medium">RFQ Overview</h2>
                         {loading && <FullLoader />}
                         <div className="d-flex flex-column justify-content-between gap-2">
-                            <div className="border border-white rounded-4 px-4 py-3">
+                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
                                 <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                    <h3 className="fs-4 fw-medium mb-0">
                                         {rfqData ? (rfqData.total_new_rfqs || 0) : 0}
-                                        <span className="d-block fs-6 text-white">New RFQs</span>
+                                        <span className="d-block fs-6">New RFQs</span>
                                     </h3>
                                     <FontAwesomeIcon icon={faCartPlus} fontSize={28} />
                                 </div>
                             </div>
 
-                            <div className="border border-white rounded-4 px-4 py-3">
+                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
                                 <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                    <h3 className="fs-4 fw-medium mb-0">
                                         {rfqData ? (rfqData.total_quotes_received || 0) : 0}
-                                        <span className="d-block fs-6 text-white">Quotes Received</span>
+                                        <span className="d-block fs-6">Quotes Received</span>
                                     </h3>
                                     <FontAwesomeIcon icon={faStopwatch} fontSize={28} />
                                 </div>
                             </div>
 
-                            <div className="border border-white rounded-4 px-4 py-3">
+                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
                                 <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                    <h3 className="fs-4 fw-medium mb-0">
                                         {rfqData ? (rfqData.total_completed_rfqs || 0) : 0}
-                                        <span className="d-block fs-6 text-white">Completed RFQs</span>
+                                        <span className="d-block fs-6">Completed RFQs</span>
                                     </h3>
                                     <FontAwesomeIcon icon={faCheckToSlot} fontSize={28} />
                                 </div>
                             </div>
 
-                            <div className="border border-white rounded-4 px-4 py-3">
+                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
                                 <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium text-white mb-0">
+                                    <h3 className="fs-4 fw-medium mb-0">
                                         {rfqData ? (rfqData.total_closed_rfqs || 0) : 0}
-                                        <span className="d-block fs-6 text-white">Closed RFQs</span>
+                                        <span className="d-block fs-6">Closed RFQs</span>
                                     </h3>
                                     <FontAwesomeIcon icon={faRectangleXmark} fontSize={28} />
                                 </div>
@@ -267,7 +267,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                             <div className="d-flex justify-content-center mt-2">
                                 <Link
                                     href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                    className="btn btn-secondary border-0 py-2"
+                                    className="btn btn-primary border-0 py-2"
                                 >
                                     Create New RFQ
                                 </Link>
@@ -334,7 +334,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
             <div className="row mb-3 align-items-stretch">
 
                 {/* RFQ Table */}
-                <div className="rfq-table-container col-md-9 pe-2">
+                <div className="rfq-table-container col-md-8 pe-2">
                     <div className="bg-white shadow rounded-2 p-4 h-100 hasFullLoader">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h2 className="fs-4 fw-medium mb-0">Latest RFQs</h2>
@@ -372,12 +372,12 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                             <span className="d-block">{rfq.project_name}</span>
                                                         </td>
                                                         <td className="py-2">
-                                                            <span className="text-sm text-primary border border-primary px-2 py-1 rounded-3">
+                                                            <span className="text-sm px-2 py-1">
                                                                 {rfq.products?.length} {rfq.products?.length == 1 ? ' Product' : 'Products'}
                                                             </span>
                                                         </td>
                                                         <td className="py-2">
-                                                            <span className="text-sm text-success border border-success px-2 py-1 rounded-3">
+                                                            <span className="text-sm px-2 py-1">
                                                                 {rfq.quotes?.length > 0
                                                                     ? `${rfq.quotes?.length} ${rfq.quotes?.length == 1 ? ' Quote' : 'Quotes'}`
                                                                     : 'No Quotes Yet'
@@ -410,7 +410,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                                     role="button"
                                                                     disabled={isRecievedFromAll}
                                                                     aria-disabled={isRecievedFromAll}
-                                                                    style={{ width: "200px", backgroundColor: isRecievedFromAll ? "var(--primary-color)" : "var(--secondary-color)" }}
+                                                                    style={{ width: "200px", backgroundColor: isRecievedFromAll ? "var(--secondary-color)" : "var(--primary-color)" }}
                                                                 >
                                                                     {(reminderMap && reminderMap.get(rfq.id)) ? (
                                                                         <>
@@ -430,11 +430,11 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                             )}
 
                                                         </td>
-                                                        <td>
+                                                        <td className="py-2">
                                                             <span>
                                                                 <Link
                                                                     href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq?.id}`}
-                                                                    className='text-sm fw-medium page-link'
+                                                                    className='position-relative text-sm text-primary border border-primary px-2 py-1 rounded-3'
                                                                 >
                                                                     View
                                                                 </Link>
@@ -458,16 +458,32 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                 </div>
 
                 {/* Notifications */}
-                <div className="notification-container col-md-3 ps-2">
+                <div className="notification-container col-md-4 ps-2">
                     <div className="bg-white d-flex flex-column shadow rounded-2 p-4 h-100">
                         <h2 className="fs-4 fw-medium  ">Notifications</h2>
-                        <div className="notification-section list-group h-100 border-2 border-top overflow-y-auto">
-                            {!notificationData
-                                ? <Link href="#"></Link>
+                        <div className="notification-section list-group h-100 overflow-auto"
+                            style={{ maxHeight: "450px", overflowY: "auto" }}
+                        >
+                            {notificationData && notificationData.length > 0
+                                ? notificationData.map((notification) => (
+                                    <div class="card mb-1">
+                                        <div class="card-body p-2">
+                                            <h5 class="card-title my-1" style={{ fontSize: "16px", fontWeight: "600" }}>{notification?.notification_type == 'rfq_created'
+                                              ? "New RFQ created" : "New Quotation Received"}</h5>
+                                            <p class="card-text mb-0" style={{ fontSize: "16px", fontWeight: "400" }}>{notification?.notification_type == 'rfq_created'
+                                              ? `You created a new RFQ #${notification?.rfq_no} and shared it with the vendors.`
+                                              : ` ${notification?.organization_name || notification?.vendor_name} has sent you a new quotation on RFQ #${notification?.rfq_no}.`}</p>
+                                            {/* <span className="badge bg-primary rounded-pill">
+                                                {formatDate(notification?.timestamp)}
+                                            </span> */}
+                                            <p className='m-0' style={{ fontSize: "14px", fontWeight: "200", color: "grey" }}>{formatDate(notification?.timestamp)}</p>
+                                        </div>
+                                    </div>
+                                ))
                                 : <div className="h-100 d-flex flex-column justify-content-center align-items-center">
                                     <FontAwesomeIcon icon={faBell} fontSize={64} className='opacity-25 mb-4' />
                                     <h3 className="fs-6 text-center">
-                                        You Don't have any Notifications Yet...!
+                                        You don't have any notifications yet...!
                                     </h3>
                                 </div>
                             }
