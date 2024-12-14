@@ -275,6 +275,15 @@ const DynamicFormModal = ({
             );
         };
 
+        const placeholderText = `Include details like:
+- The scope of work (e.g., fabrication, pipeline installation, civil construction).
+- Project timelines and critical milestones.
+- Any specific technical requirements or challenges.
+- Location of the project or areas it covers.
+
+Example:
+'Construction of a 500-meter pipeline at XYZ site, including material procurement, welding, and testing. The project duration is 6 months, with a deadline of [specific date]. Requires adherence to ISO standards and includes three key phases: excavation, installation, and testing.'`;
+
     return (
         <>
             <Modal
@@ -419,7 +428,7 @@ const DynamicFormModal = ({
                                                             )}
                                                         </div>
                                                         <div className="form-group">
-                                                            <label htmlFor="ended_at">End Date</label>
+                                                            <label htmlFor="ended_at">Project Procurement End Date</label>
                                                             <Field
                                                                 type="date"
                                                                 id="ended_at"
@@ -432,7 +441,7 @@ const DynamicFormModal = ({
                                                         </div>
                                                         
                                                         <div className="form-group">
-                                                            <label htmlFor="rfq_type">RFQ Type</label>
+                                                            <label htmlFor="rfq_type">Project Stage</label>
                                                             <Field as="select" id="rfq_type" name="rfq_type" className={`form-control ${touched.rfq_type && errors.rfq_type ? 'is-invalid' : ''}`}>
                                                                 <option value="">Select RFQ Type</option>
                                                                 <option value="budgetary">Budgetary</option>
@@ -541,7 +550,7 @@ const DynamicFormModal = ({
                                                                 component="textarea"
                                                                 id="projectDescription"
                                                                 name="projectDescription"
-                                                                placeholder="Enter your text here..."
+                                                                placeholder={placeholderText}
                                                             />
                                                             {touched.projectDescription && errors.projectDescription && (
                                                                 <div className="form-error">{errors.projectDescription}</div>
