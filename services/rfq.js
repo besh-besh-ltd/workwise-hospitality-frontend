@@ -368,6 +368,17 @@ export const getClausesByRfqVendorSide = (payload) => {
   
 }
 
+export const addClauseUsingFile = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosFormData.post(`/rfq/add-clause-using-file`,payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const addClause = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
