@@ -22,6 +22,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [update, setUpdate] = useState(false);
     const [previousClauses, setPreviousClauses] = useState(null);
     const [fileName, setFileName] = useState('');
+    const [clauseErrors, setClauseErrors] = useState([]);
 
     const handleAttachFileClick = () => {
         fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -55,10 +56,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             console.log(error)
         } finally {
             setLoading(false);
-            console.log("setClauseFile ", clauseFile)
             setClauseFile(null);
             setFileName('');
-
         }
     }
 
@@ -116,6 +115,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
     const handleDeleteClause = async (clause_id) => {
         try {
+            setClauseErrors([]);
             setLoading(true)
             const res = await removeClause(clause_id);
             toast.success(res.message)
@@ -123,8 +123,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
         } catch (error) {
             console.log(error)
-        } finally {
-            setLoading(false);
         }
     }
 
@@ -170,6 +168,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         }
 
         try {
+            setClauseErrors([]);
             setLoading(true);
 
             // Create a new FormData object
@@ -180,7 +179,12 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
             // Send the FormData to your endpoint
             const res = await addClauseUsingFile(formData);
-            toast.success(res.data)            
+            if(res?.status){
+                toast.success(res.message);            
+            }else{
+                setClauseErrors(res?.errors);
+                toast.error("Error file uploading the file");
+            }
         } catch (error) {
             console.log(error)
             toast.error(error.message);
@@ -275,9 +279,10 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                             />
 
                             {/* Show Previous Clauses */}
+                            <strong className="text-primary">List of Clauses</strong>
                             {loading && <FullLoader />}
-                            <div className="mt-4">
-                                {previousClauses && previousClauses.length > 0 && (
+                            <div className="mt-2">
+                                {!loading && previousClauses && previousClauses.length > 0 && (
                                     <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                                         {previousClauses.map((clause, index) => (
                                             <li key={index} className="list-group-item ">
@@ -365,9 +370,23 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         onChange={handleMagicFileUpload}
                                     />
                                 </div>
-                            
-                            {loading && <FullLoader />}
-                            <div className="mt-4">
+                            <div className="mt-2">
+                                {!loading && clauseErrors && clauseErrors.length > 0 && (
+                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                                        <strong className="text-danger">Errors</strong>
+                                        {clauseErrors.map((error, index) => (
+                                            <li key={index} className="list-group-item ">
+                                                <p className="text-sm mb-1">
+                                                    <strong>Row {error?.Row + 1} : </strong> {error?.error}
+                                                </p>
+                                            </li>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className={clauseErrors.length>0 ? `mt-4`: `mt-3`}>
+                                <strong className="text-primary">List of Clauses</strong>
+                                {loading && <FullLoader />}
                                 {!loading && previousClauses && previousClauses.length > 0 && (
                                     <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                                         {previousClauses.map((clause, index) => (
@@ -389,15 +408,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                                     </div>
                                                 )}
                                                 <div className="d-flex justify-content-end">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-warning p-1 me-2"
-                                                        style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => openUpdateField(clause)}
-                                                    >
-                                                        <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                                        Update
-                                                    </button>
                                                     <button
                                                         type="button"
                                                         className="btn btn-danger p-1"
