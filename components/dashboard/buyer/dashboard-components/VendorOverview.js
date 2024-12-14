@@ -35,7 +35,7 @@ const VendorOverview = () => {
                         <h2 className="fs-4 fw-medium ">Top Vendors</h2>
                         <hr className="my-1" />
 
-                        <table className="table table-sm table-hover table-borderless">
+                        <table className="table table-sm table-borderless">
                             <tbody>
                                 <tr className="border-bottom ">
                                     <td className="py-2">
@@ -50,7 +50,7 @@ const VendorOverview = () => {
                                 </tr>
                                 <tr className="border-bottom ">
                                     <td className="py-2">
-                                        <span className="d-block">De's Techniqo Pvt. Ltd.</span>
+                                        <span className="d-block">De's Technico Pvt. Ltd.</span>
                                         <span className="d-block text-sm">Kolkata, West Bengal </span>
                                     </td>
                                     <td className="py-2">
@@ -114,7 +114,7 @@ const VendorOverview = () => {
                         <h2 className="fs-4 fw-medium ">Top Products</h2>
                         <hr className="my-1" />
 
-                        <table className="table table-sm table-hover table-borderless">
+                        <table className="table table-sm table-borderless">
                             <tbody>
                                 <tr className="border-bottom ">
                                     <td className="py-2">

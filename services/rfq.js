@@ -500,3 +500,14 @@ export const getRfqChartData = (filter) => {
     }
   });
 };
+
+export const getAnalyticsChartData = (filter, type) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/get-dashboard-Analytics?chart_filter=${filter}&data_type=${type}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};

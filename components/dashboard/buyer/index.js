@@ -1,10 +1,8 @@
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import Head from "next/head";
 import { getDashboardData } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
-import moment from "moment";
 import RfqOverview from "./dashboard-components/RfqOverview";
 import VendorOverview from "./dashboard-components/VendorOverview";
 import AnalyticsReport from "./dashboard-components/AnalyticsReport";
@@ -37,23 +35,6 @@ const BuyerPage = () => {
     }
   }
 
-  const convertMinutesToHoursAndMinutes = (totalMinutes) => {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    return {
-      hours: hours,
-      minutes: minutes,
-    };
-  };
-  const getTimeSavings = () => {
-    let m =
-      (dashboardData.active_rfqs + dashboardData.completed_rfqs) * 5 +
-      dashboardData.quote_received * 10;
-    const time = convertMinutesToHoursAndMinutes(m);
-    return `${time.hours} hrs ${time.minutes} mins`;
-  };
-
   const get_notification_title = (item, type) => {
     if (type == "title") {
       if (item.notification_type == "new_quote_received") {
@@ -70,7 +51,7 @@ const BuyerPage = () => {
     }
   };
 
-  
+
   useEffect(() => {
     getData();
   }, []);
@@ -90,6 +71,28 @@ const BuyerPage = () => {
       <section className="buyer-sec-1">
         <div className="container-fluid">
           <div className="row">
+            <div className="col-md-3 buyer-col hasFullLoader">
+              {loading && <FullLoader />}
+              <div className="detail-con">
+                <div className="detail-con-text">
+                  <h2>
+                    {dashboardData?.total_rfqs
+                      ? dashboardData?.total_rfqs
+                      : 0}
+                  </h2>
+                  <span>Total RFQs</span>
+                </div>
+                <div className="detail-con-icon p-order">
+                  <Image
+                    src="/assets/images/p-order-icon.png"
+                    alt="Workwise"
+                    width={26}
+                    height={30}
+                    priority={true}
+                  />
+                </div>
+              </div>
+            </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
               <div className="detail-con">
@@ -140,11 +143,34 @@ const BuyerPage = () => {
               <div className="detail-con">
                 <div className="detail-con-text">
                   <h2>
-                    {dashboardData?.pending_responses
-                      ? dashboardData?.pending_responses
+                    {dashboardData?.closed_rfqs
+                      ? dashboardData?.closed_rfqs
                       : 0}
                   </h2>
-                  <span>Pending Responses</span>
+                  <span>Closed RFQs</span>
+                </div>
+
+                <div className="detail-con-icon buy">
+                  <Image
+                    src="/assets/images/buy-icon.png"
+                    alt="Workwise"
+                    width={30}
+                    height={30}
+                    priority={true}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3 buyer-col hasFullLoader">
+              {loading && <FullLoader />}
+              <div className="detail-con">
+                <div className="detail-con-text">
+                  <h2>
+                    {dashboardData?.quotes_received
+                      ? dashboardData?.quotes_received
+                      : 0}
+                  </h2>
+                  <span>Quotes for Active RFQs</span>
                 </div>
                 <div className="detail-con-icon reject">
                   <Image
@@ -162,11 +188,11 @@ const BuyerPage = () => {
               <div className="detail-con">
                 <div className="detail-con-text">
                   <h2>
-                    {dashboardData?.quotes_received
-                      ? dashboardData?.quotes_received
+                    {dashboardData?.pending_responses
+                      ? dashboardData?.pending_responses
                       : 0}
                   </h2>
-                  <span>Quotes Received</span>
+                  <span>Pending Responses</span>
                 </div>
                 <div className="detail-con-icon reject">
                   <Image
@@ -205,7 +231,11 @@ const BuyerPage = () => {
             </div>
           </div>
 
-          <RfqOverview tableRfqData={dashboardData?.rfq_data} tableLoading={loading} />
+          <RfqOverview
+            tableRfqData={dashboardData?.rfq_data}
+            notificationData={dashboardData?.notificaiton_data}
+            tableLoading={loading}
+          />
           <VendorOverview />
           <AnalyticsReport />
 
