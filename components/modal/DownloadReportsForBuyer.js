@@ -4,6 +4,974 @@ import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
+const productData = [
+  {
+    rfq_id: 683,
+    rfq_no: 402820,
+    product_name: "FUSE",
+    product_description: "null",
+    rfq_comment: "",
+    company_name: "Imtiaj Pvt. Ltd. Rename",
+    contact_name: "Imtiaj Buyer",
+    contact_number: "1234567897",
+    bid_end_date: "2024-12-15",
+    location: "Mumbai, Maharastra",
+    rfq_status: 1,
+    rfq_timestamp: "2024-12-08 15:22:53.01598",
+    product_specs: [
+      {
+        variant: 0,
+        spec_title: "Quantity",
+        spec_value: "56",
+      },
+      {
+        variant: 0,
+        spec_title: "Size",
+        spec_value: "sie",
+      },
+      {
+        variant: 0,
+        spec_title: "Spec",
+        spec_value: "fuse tech on, 1 ven",
+      },
+      {
+        variant: 0,
+        spec_title: "Unit",
+        spec_value: "un",
+      },
+    ],
+    vendors: [
+      {
+        variant: 0,
+        vendor_id: 333,
+        vendor_name: "yashmukul testing vendor 4",
+        vendor_email: "mukul@dtplindia.in",
+        quote_details: [
+          {
+            status: 1,
+            quote_id: 276,
+            is_regret: 0,
+            quote_items: [
+              {
+                tax: 18,
+                comment: "71 t",
+                quantity: "56",
+                unit_price: 1,
+                total_price: 71,
+                product_name: "FUSE",
+                freight_price: 3,
+                package_price: 4,
+                delivery_period: "",
+              },
+            ],
+            regret_reason: null,
+            global_comment: "",
+            global_payment_term: "",
+          },
+        ],
+        vendor_mobile: "8958200049",
+        organization_name: null,
+      },
+    ],
+  },
+  {
+    rfq_id: 682,
+    rfq_no: 402819,
+    product_name: "FUSE",
+    product_description: "null",
+    rfq_comment: "sd",
+    company_name: "Imtiaj Pvt. Ltd. Rename",
+    contact_name: "Imtiaj Buyer",
+    contact_number: "1234567897",
+    bid_end_date: "2024-12-26",
+    location: "Mumbai, Maharastra",
+    rfq_status: 1,
+    rfq_timestamp: "2024-12-08 12:50:34.04161",
+    product_specs: [
+      {
+        variant: 0,
+        spec_title: "Quantity",
+        spec_value: "23",
+      },
+      {
+        variant: 0,
+        spec_title: "Size",
+        spec_value: "fus tds attached",
+      },
+      {
+        variant: 0,
+        spec_title: "Spec",
+        spec_value: "fuse spec, changes to check state manageent",
+      },
+      {
+        variant: 0,
+        spec_title: "Unit",
+        spec_value: "Pieces",
+      },
+    ],
+    vendors: [
+      {
+        variant: 0,
+        vendor_id: 134,
+        vendor_name: "Imtiaj Vendor",
+        vendor_email: "imtiaj@letsworkwise.com",
+        quote_details: [
+          {
+            status: 1,
+            quote_id: 274,
+            is_regret: 0,
+            quote_items: [
+              {
+                tax: 18,
+                comment: "total 26136, latest",
+                quantity: "23",
+                unit_price: 900,
+                total_price: 26136,
+                product_name: "FUSE",
+                freight_price: 3,
+                package_price: 4,
+                delivery_period: "",
+              },
+            ],
+            regret_reason: null,
+            global_comment: "wer",
+            global_payment_term: "FUSE total 26136",
+          },
+        ],
+        vendor_mobile: "32165478901",
+        organization_name: "Pacific Industrial Supply",
+      },
+    ],
+  },
+];
+
+const response = {
+  projectDetail: [
+    {
+      project_id: 31,
+      project_name: "project new 1",
+      project_description: "Des",
+      project_location: "new 1",
+      project_status: 1,
+      rfq_details: [
+        {
+          rfq_id: 691,
+          rfq_no: 402828,
+          comment: "sd",
+          company_name: "Imtiaj Pvt. Ltd. Rename",
+          response_email: "imtiaj.dev@gmail.com",
+          contact_name: "Imtiaj Buyer",
+          contact_number: "1234567897",
+          bid_end_date: "2025-02-06",
+          location: "new 1",
+          is_published: 1,
+          status: 1,
+          rfq_type: "firm",
+          reverse_auction: 0,
+          rfq_files: null,
+          terms: [
+            {
+              term_content:
+                "Manufacturing Clearance: All items shall be manufactured after providing you with manufacturing clearance\r\n",
+            },
+            {
+              term_content:
+                "Inspection: Materials will be Inspected at your works by approved Third Party Inspection Agency (TPIA) as per Approved QAP only.\r\n",
+            },
+            {
+              term_content:
+                "Testing Certificates: The Manufacturing Test certificate, Internal Inspection Report by TPIA & All materials Test Certificate shall be dispatched by the vendor to our Office along with the materials without any extra charges. All Testing shall be carried out as per approved QAP/ITP\r\n",
+            },
+            {
+              term_content:
+                "Other Important Original Documents: All Original documents including Tax Invoice, E-Way Bill, IRN & IVR along with Material Test Certificate, Manufacturer's Test Certificate, Internal Inspection Report to be courier to our Office\r\n",
+            },
+            {
+              term_content:
+                "Warranty: The material are to be guaranteed by you against defective design, material and workmanship for a period of 18 months from the date of receipt of material or 12 months from the date of commissioning whichever is earlier. Any defect found during the course of guarantee period, must be replaced/rectified free of cost within 5 days of receipt of such information, in case you fail to attend the same , it will be done through other sources and all expenses incurred towards such replacement/rectification will be borne by you.\r\n",
+            },
+            {
+              term_content:
+                "Quantity Variation: The quantities indicated in this may vary due to engineering & Actual site requirement. We reserve our right to change the size/quantities due to such change without any increase in prices. Any decreases in your prices shall be passed to our company.\r\n",
+            },
+            {
+              term_content:
+                "Shortage & Rejection: In case any shortage/rejection is observed at the time of delivery of goods at final destination, such items shall be replaced within seven (7) days from the date of receipt of any such notice from our end\r\n",
+            },
+            {
+              term_content:
+                "Order Cancellation: Our company reserves the right to cancel the order due to non-satisfactory performance of the vendor without any prior notice",
+            },
+          ],
+          products: [
+            {
+              product_id: 6810,
+              product_name: "Temperature (T) Instruments",
+              comment: "com com",
+              datasheet: "",
+              spec_file: "",
+              qap_file: "",
+              datasheet_file: "",
+              variant: 0,
+              product_files: null,
+              specs: [
+                {
+                  title: "Size",
+                  value: "size temp",
+                },
+                {
+                  title: "Spec",
+                  value: "spec temp",
+                },
+                {
+                  title: "Quantity",
+                  value: "11",
+                },
+                {
+                  title: "Unit",
+                  value: "un1",
+                },
+              ],
+              vendors: [
+                {
+                  vendor_id: 439,
+                  vendor_name: "testing yash1",
+                  vendor_email: "yash+testing1@gmail.com",
+                  vendor_mobile: "4563459871",
+                  vendor_address: null,
+                },
+                {
+                  vendor_id: 446,
+                  vendor_name: "gt1",
+                  vendor_email: "gt@g.com",
+                  vendor_mobile: "343452342634",
+                  vendor_address: null,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          rfq_id: 700,
+          rfq_no: 402837,
+          comment: "global comment",
+          company_name: "Imtiaj Pvt. Ltd. Rename",
+          response_email: "imtiaj.dev@gmail.com",
+          contact_name: "Imtiaj Buyer",
+          contact_number: "1234567897",
+          bid_end_date: "2024-12-25",
+          location: "new 1",
+          is_published: 1,
+          status: 1,
+          rfq_type: "firm",
+          reverse_auction: 0,
+          rfq_files: [
+            {
+              file_id: 62,
+              file_type: "term_and_condition",
+              file_url:
+                "https://api.letsworkwise.com/user_document/1734228935905-ca9e903c-b453-4fbb-8312-7fe854e6fe17.jpg",
+            },
+            {
+              file_id: 63,
+              file_type: "term_and_condition",
+              file_url:
+                "https://api.letsworkwise.com/user_document/1734228942051-7468a8f8-481b-4631-bef5-bc360df849cf.jpg",
+            },
+          ],
+          terms: [
+            {
+              term_content:
+                "Quantity Variation: The quantities indicated in this may vary due to engineering & Actual site requirement. We reserve our right to change the size/quantities due to such change without any increase in prices. Any decreases in your prices shall be passed to our company.\r\n",
+            },
+          ],
+          products: [
+            {
+              product_id: 6810,
+              product_name: "Temperature (T) Instruments",
+              comment: "com",
+              datasheet: "",
+              spec_file: "",
+              qap_file: "",
+              datasheet_file: "",
+              variant: 0,
+              product_files: [
+                {
+                  file_id: 271,
+                  file_type: "TDS",
+                  file_url:
+                    "https://api.letsworkwise.com/user_document/1734228875233-c65bde90-c2db-45c4-a0a5-39051694994f.jpg",
+                },
+                {
+                  file_id: 272,
+                  file_type: "QAP",
+                  file_url:
+                    "https://api.letsworkwise.com/user_document/1734228886823-b8dedcbc-816a-4723-b1ec-cf8440745df2.png",
+                },
+                {
+                  file_id: 273,
+                  file_type: "QAP",
+                  file_url:
+                    "https://api.letsworkwise.com/user_document/1734228895250-bcae2966-e4f0-4242-bc48-86f5d961e694.jpg",
+                },
+                {
+                  file_id: 274,
+                  file_type: "SPEC",
+                  file_url:
+                    "https://api.letsworkwise.com/user_document/1734228864743-02caff0a-2bae-4c97-abb9-227eb3ba92f1.jpg",
+                },
+                {
+                  file_id: 275,
+                  file_type: "SPEC",
+                  file_url:
+                    "https://api.letsworkwise.com/user_document/1734228867527-b0bfb537-ba0e-4f9a-9de0-bf25efbb5fa9.png",
+                },
+              ],
+              specs: [
+                {
+                  title: "Size",
+                  value: "size 1",
+                },
+                {
+                  title: "Spec",
+                  value: "temp 1",
+                },
+                {
+                  title: "Quantity",
+                  value: "1",
+                },
+                {
+                  title: "Unit",
+                  value: "un1",
+                },
+              ],
+              vendors: [
+                {
+                  vendor_id: 445,
+                  vendor_name: "gtry1",
+                  vendor_email: "gyan+try1@g.com",
+                  vendor_mobile: "2352345234",
+                  vendor_address: null,
+                },
+                {
+                  vendor_id: 267,
+                  vendor_name: "gyan Pvt ltd",
+                  vendor_email: "gyan@letsworkwise.com",
+                  vendor_mobile: "8987676752",
+                  vendor_address: null,
+                },
+                {
+                  vendor_id: 134,
+                  vendor_name: "Imtiaj Vendor",
+                  vendor_email: "imtiaj@letsworkwise.com",
+                  vendor_mobile: "32165478901",
+                  vendor_address: "jbr tech park, Karnataka, Bengaluru",
+                },
+              ],
+            },
+            {
+              product_id: 6818,
+              product_name: "PIPE/LOW TEMP STEEL",
+              comment: "com",
+              datasheet: "",
+              spec_file: "",
+              qap_file: "",
+              datasheet_file: "",
+              variant: 0,
+              product_files: null,
+              specs: [
+                {
+                  title: "Size",
+                  value: "size 2",
+                },
+                {
+                  title: "Spec",
+                  value: "pipe 1",
+                },
+                {
+                  title: "Quantity",
+                  value: "2",
+                },
+                {
+                  title: "Unit",
+                  value: "un2",
+                },
+              ],
+              vendors: [
+                {
+                  vendor_id: 439,
+                  vendor_name: "testing yash1",
+                  vendor_email: "yash+testing1@gmail.com",
+                  vendor_mobile: "4563459871",
+                  vendor_address: null,
+                },
+                {
+                  vendor_id: 270,
+                  vendor_name: "Vendor Workwise Imtiaj",
+                  vendor_email: "vendor@letsworkwise.com",
+                  vendor_mobile: "9876543333",
+                  vendor_address: "",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+
+const ProjectDetailsData = {
+  "quoteList": [
+      [
+          {
+              "rfq_id": 691,
+              "comment": "com com",
+              "datasheet": "",
+              "spec_file": "",
+              "qap_file": "",
+              "product_id": 6810,
+              "id": 2620,
+              "qap": "",
+              "datasheet_file": "",
+              "variant": 0,
+              "rfq": [
+                  {
+                      "rfq_no": 402828,
+                      "response_email": "imtiaj.dev@gmail.com",
+                      "contact_name": "Imtiaj Buyer",
+                      "contact_number": "1234567897",
+                      "status": 1
+                  }
+              ],
+              "last_purchase_rate": {
+                  "unit_price": 5000,
+                  "package_price": 4,
+                  "tax": 18,
+                  "freight_price": 3,
+                  "total_price": 6313,
+                  "quantity": "1",
+                  "timestamp": "2024-12-15T06:22:11.456141"
+              },
+              "product_details": [
+                  {
+                      "product_name": "Temperature (T) Instruments",
+                      "rfq_details": [
+                          {
+                              "title": "Size",
+                              "value": "size temp"
+                          },
+                          {
+                              "title": "Spec",
+                              "value": "spec temp"
+                          },
+                          {
+                              "title": "Quantity",
+                              "value": "11"
+                          },
+                          {
+                              "title": "Unit",
+                              "value": "un1"
+                          }
+                      ]
+                  }
+              ],
+              "quotations": []
+          }
+      ],
+      [
+          {
+              "rfq_id": 700,
+              "comment": "com",
+              "datasheet": "",
+              "spec_file": "",
+              "qap_file": "",
+              "product_id": 6810,
+              "id": 2678,
+              "qap": "",
+              "datasheet_file": "",
+              "variant": 0,
+              "rfq": [
+                  {
+                      "rfq_no": 402837,
+                      "response_email": "imtiaj.dev@gmail.com",
+                      "contact_name": "Imtiaj Buyer",
+                      "contact_number": "1234567897",
+                      "status": 1
+                  }
+              ],
+              "last_purchase_rate": {
+                  "unit_price": 2000,
+                  "package_price": 4,
+                  "tax": 4,
+                  "freight_price": 3,
+                  "total_price": 55640,
+                  "quantity": "25",
+                  "timestamp": "2024-12-05T02:32:12.395109"
+              },
+              "product_details": [
+                  {
+                      "product_name": "Temperature (T) Instruments",
+                      "rfq_details": [
+                          {
+                              "title": "Size",
+                              "value": "size 1"
+                          },
+                          {
+                              "title": "Spec",
+                              "value": "temp 1"
+                          },
+                          {
+                              "title": "Quantity",
+                              "value": "1"
+                          },
+                          {
+                              "title": "Unit",
+                              "value": "un1"
+                          }
+                      ]
+                  }
+              ],
+              "quotations": [
+                  {
+                      "quote_id": 284,
+                      "unit_price": 18,
+                      "package_price": 4,
+                      "tax": 18,
+                      "freight_price": 3,
+                      "total_price": 23,
+                      "comment": "com pro",
+                      "delivery_period": "",
+                      "quantity": "1",
+                      "finalization": null,
+                      "quote_details": {
+                          "status": 1,
+                          "created_by": 445,
+                          "is_regret": 0,
+                          "regret_reason": null,
+                          "vendor_details": {
+                              "id": 445,
+                              "name": "gtry1",
+                              "email": "gyan+try1@g.com",
+                              "mobile": "2352345234",
+                              "address": null,
+                              "organization_name": null
+                          }
+                      },
+                      "document_files": [
+                          {
+                              "file_type": "DOC",
+                              "file_url": "https://api.letsworkwise.com/user_document/1734232627190-cbafdbf0-a5d2-40ea-9532-506ae410bc56.png"
+                          },
+                          {
+                              "file_type": "DOC",
+                              "file_url": "https://api.letsworkwise.com/user_document/1734232630666-4e094b4e-42b3-4fd5-9852-e734542b4d39.jpg"
+                          }
+                      ],
+                      "global_document_files": [
+                          {
+                              "file_type": "term_and_condition",
+                              "file_url": "https://api.letsworkwise.com/user_document/1734232618521-a3edcde6-5416-422c-a051-317dcc97fc92.png"
+                          },
+                          {
+                              "file_type": "term_and_condition",
+                              "file_url": "https://api.letsworkwise.com/user_document/1734232623158-ba65ca8d-3701-42b3-8969-e7194285c190.jpg"
+                          }
+                      ],
+                      "previous_quotes": [
+                          {
+                              "id": 229,
+                              "quote_item_id": 504,
+                              "rfq_id": 700,
+                              "product_id": 6810,
+                              "unit_price": 20,
+                              "package_price": 4,
+                              "tax": 18,
+                              "freight_price": 3,
+                              "total_price": 25,
+                              "comment": "com pro",
+                              "delivery_period": "",
+                              "quantity": "1",
+                              "variant": 0,
+                              "timestamp": "2024-12-15T03:23:45.886423"
+                          },
+                          {
+                              "id": 228,
+                              "quote_item_id": 504,
+                              "rfq_id": 700,
+                              "product_id": 6810,
+                              "unit_price": 23,
+                              "package_price": 4,
+                              "tax": 18,
+                              "freight_price": 3,
+                              "total_price": 29,
+                              "comment": "com pro",
+                              "delivery_period": "",
+                              "quantity": "1",
+                              "variant": 0,
+                              "timestamp": "2024-12-15T03:23:30.290067"
+                          }
+                      ]
+                  },
+                  {
+                      "quote_id": 285,
+                      "unit_price": 5000,
+                      "package_price": 4,
+                      "tax": 18,
+                      "freight_price": 3,
+                      "total_price": 6313,
+                      "comment": "vo",
+                      "delivery_period": "",
+                      "quantity": "1",
+                      "finalization": {
+                          "id": 60,
+                          "product_id": 6810,
+                          "timestamp": "2024-12-15T06:22:11.456141",
+                          "winning_vendor": {
+                              "id": 134,
+                              "name": "Imtiaj Vendor",
+                              "email": "imtiaj@letsworkwise.com",
+                              "mobile": "32165478901",
+                              "address": "jbr tech park, Karnataka, Bengaluru",
+                              "organization_name": "Pacific Industrial Supply"
+                          }
+                      },
+                      "quote_details": {
+                          "status": 1,
+                          "created_by": 134,
+                          "is_regret": 0,
+                          "regret_reason": null,
+                          "vendor_details": {
+                              "id": 134,
+                              "name": "Imtiaj Vendor",
+                              "email": "imtiaj@letsworkwise.com",
+                              "mobile": "32165478901",
+                              "address": "jbr tech park, Karnataka, Bengaluru",
+                              "organization_name": "Pacific Industrial Supply"
+                          }
+                      },
+                      "document_files": null,
+                      "global_document_files": null,
+                      "previous_quotes": null
+                  }
+              ]
+          },
+          {
+              "rfq_id": 700,
+              "comment": "com",
+              "datasheet": "",
+              "spec_file": "",
+              "qap_file": "",
+              "product_id": 6818,
+              "id": 2679,
+              "qap": "",
+              "datasheet_file": "",
+              "variant": 0,
+              "rfq": [
+                  {
+                      "rfq_no": 402837,
+                      "response_email": "imtiaj.dev@gmail.com",
+                      "contact_name": "Imtiaj Buyer",
+                      "contact_number": "1234567897",
+                      "status": 1
+                  }
+              ],
+              "last_purchase_rate": {
+                  "unit_price": 560,
+                  "package_price": 4,
+                  "tax": 18,
+                  "freight_price": 3,
+                  "total_price": 70706,
+                  "quantity": "100",
+                  "timestamp": "2024-12-05T00:43:03.746981"
+              },
+              "product_details": [
+                  {
+                      "product_name": "PIPE/LOW TEMP STEEL",
+                      "rfq_details": [
+                          {
+                              "title": "Size",
+                              "value": "size 2"
+                          },
+                          {
+                              "title": "Spec",
+                              "value": "pipe 1"
+                          },
+                          {
+                              "title": "Quantity",
+                              "value": "2"
+                          },
+                          {
+                              "title": "Unit",
+                              "value": "un2"
+                          }
+                      ]
+                  }
+              ],
+              "quotations": []
+          }
+      ]
+  ],
+  "rfqDetails": [
+      {
+          "project_id": 31,
+          "project_name": "project new 1",
+          "project_description": "Des",
+          "project_location": "new 1",
+          "project_status": 1,
+          "rfq_details": [
+              {
+                  "rfq_id": 691,
+                  "rfq_no": 402828,
+                  "comment": "sd",
+                  "company_name": "Imtiaj Pvt. Ltd. Rename",
+                  "response_email": "imtiaj.dev@gmail.com",
+                  "contact_name": "Imtiaj Buyer",
+                  "contact_number": "1234567897",
+                  "bid_end_date": "2025-02-06",
+                  "location": "new 1",
+                  "is_published": 1,
+                  "status": 1,
+                  "rfq_type": "firm",
+                  "reverse_auction": 0,
+                  "rfq_files": null,
+                  "terms": [
+                      {
+                          "term_content": "Manufacturing Clearance: All items shall be manufactured after providing you with manufacturing clearance\r\n"
+                      },
+                      {
+                          "term_content": "Inspection: Materials will be Inspected at your works by approved Third Party Inspection Agency (TPIA) as per Approved QAP only.\r\n"
+                      },
+                      {
+                          "term_content": "Testing Certificates: The Manufacturing Test certificate, Internal Inspection Report by TPIA & All materials Test Certificate shall be dispatched by the vendor to our Office along with the materials without any extra charges. All Testing shall be carried out as per approved QAP/ITP\r\n"
+                      },
+                      {
+                          "term_content": "Other Important Original Documents: All Original documents including Tax Invoice, E-Way Bill, IRN & IVR along with Material Test Certificate, Manufacturer's Test Certificate, Internal Inspection Report to be courier to our Office\r\n"
+                      },
+                      {
+                          "term_content": "Warranty: The material are to be guaranteed by you against defective design, material and workmanship for a period of 18 months from the date of receipt of material or 12 months from the date of commissioning whichever is earlier. Any defect found during the course of guarantee period, must be replaced/rectified free of cost within 5 days of receipt of such information, in case you fail to attend the same , it will be done through other sources and all expenses incurred towards such replacement/rectification will be borne by you.\r\n"
+                      },
+                      {
+                          "term_content": "Quantity Variation: The quantities indicated in this may vary due to engineering & Actual site requirement. We reserve our right to change the size/quantities due to such change without any increase in prices. Any decreases in your prices shall be passed to our company.\r\n"
+                      },
+                      {
+                          "term_content": "Shortage & Rejection: In case any shortage/rejection is observed at the time of delivery of goods at final destination, such items shall be replaced within seven (7) days from the date of receipt of any such notice from our end\r\n"
+                      },
+                      {
+                          "term_content": "Order Cancellation: Our company reserves the right to cancel the order due to non-satisfactory performance of the vendor without any prior notice"
+                      }
+                  ],
+                  "products": [
+                      {
+                          "product_id": 6810,
+                          "product_name": "Temperature (T) Instruments",
+                          "comment": "com com",
+                          "datasheet": "",
+                          "spec_file": "",
+                          "qap_file": "",
+                          "datasheet_file": "",
+                          "variant": 0,
+                          "product_files": null,
+                          "specs": [
+                              {
+                                  "title": "Size",
+                                  "value": "size temp"
+                              },
+                              {
+                                  "title": "Spec",
+                                  "value": "spec temp"
+                              },
+                              {
+                                  "title": "Quantity",
+                                  "value": "11"
+                              },
+                              {
+                                  "title": "Unit",
+                                  "value": "un1"
+                              }
+                          ],
+                          "vendors": [
+                              {
+                                  "vendor_id": 439,
+                                  "vendor_name": "testing yash1",
+                                  "vendor_email": "yash+testing1@gmail.com",
+                                  "vendor_mobile": "4563459871",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 446,
+                                  "vendor_name": "gt1",
+                                  "vendor_email": "gt@g.com",
+                                  "vendor_mobile": "343452342634",
+                                  "vendor_address": null
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "rfq_id": 700,
+                  "rfq_no": 402837,
+                  "comment": "global comment",
+                  "company_name": "Imtiaj Pvt. Ltd. Rename",
+                  "response_email": "imtiaj.dev@gmail.com",
+                  "contact_name": "Imtiaj Buyer",
+                  "contact_number": "1234567897",
+                  "bid_end_date": "2024-12-25",
+                  "location": "new 1",
+                  "is_published": 1,
+                  "status": 1,
+                  "rfq_type": "firm",
+                  "reverse_auction": 0,
+                  "rfq_files": [
+                      {
+                          "file_id": 62,
+                          "file_type": "term_and_condition",
+                          "file_url": "https://api.letsworkwise.com/user_document/1734228935905-ca9e903c-b453-4fbb-8312-7fe854e6fe17.jpg"
+                      },
+                      {
+                          "file_id": 63,
+                          "file_type": "term_and_condition",
+                          "file_url": "https://api.letsworkwise.com/user_document/1734228942051-7468a8f8-481b-4631-bef5-bc360df849cf.jpg"
+                      }
+                  ],
+                  "terms": [
+                      {
+                          "term_content": "Quantity Variation: The quantities indicated in this may vary due to engineering & Actual site requirement. We reserve our right to change the size/quantities due to such change without any increase in prices. Any decreases in your prices shall be passed to our company.\r\n"
+                      }
+                  ],
+                  "products": [
+                      {
+                          "product_id": 6810,
+                          "product_name": "Temperature (T) Instruments",
+                          "comment": "com",
+                          "datasheet": "",
+                          "spec_file": "",
+                          "qap_file": "",
+                          "datasheet_file": "",
+                          "variant": 0,
+                          "product_files": [
+                              {
+                                  "file_id": 271,
+                                  "file_type": "TDS",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228875233-c65bde90-c2db-45c4-a0a5-39051694994f.jpg"
+                              },
+                              {
+                                  "file_id": 272,
+                                  "file_type": "QAP",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228886823-b8dedcbc-816a-4723-b1ec-cf8440745df2.png"
+                              },
+                              {
+                                  "file_id": 273,
+                                  "file_type": "QAP",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228895250-bcae2966-e4f0-4242-bc48-86f5d961e694.jpg"
+                              },
+                              {
+                                  "file_id": 274,
+                                  "file_type": "SPEC",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228864743-02caff0a-2bae-4c97-abb9-227eb3ba92f1.jpg"
+                              },
+                              {
+                                  "file_id": 275,
+                                  "file_type": "SPEC",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228867527-b0bfb537-ba0e-4f9a-9de0-bf25efbb5fa9.png"
+                              }
+                          ],
+                          "specs": [
+                              {
+                                  "title": "Size",
+                                  "value": "size 1"
+                              },
+                              {
+                                  "title": "Spec",
+                                  "value": "temp 1"
+                              },
+                              {
+                                  "title": "Quantity",
+                                  "value": "1"
+                              },
+                              {
+                                  "title": "Unit",
+                                  "value": "un1"
+                              }
+                          ],
+                          "vendors": [
+                              {
+                                  "vendor_id": 445,
+                                  "vendor_name": "gtry1",
+                                  "vendor_email": "gyan+try1@g.com",
+                                  "vendor_mobile": "2352345234",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 267,
+                                  "vendor_name": "gyan Pvt ltd",
+                                  "vendor_email": "gyan@letsworkwise.com",
+                                  "vendor_mobile": "8987676752",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 134,
+                                  "vendor_name": "Imtiaj Vendor",
+                                  "vendor_email": "imtiaj@letsworkwise.com",
+                                  "vendor_mobile": "32165478901",
+                                  "vendor_address": "jbr tech park, Karnataka, Bengaluru"
+                              }
+                          ]
+                      },
+                      {
+                          "product_id": 6818,
+                          "product_name": "PIPE/LOW TEMP STEEL",
+                          "comment": "com",
+                          "datasheet": "",
+                          "spec_file": "",
+                          "qap_file": "",
+                          "datasheet_file": "",
+                          "variant": 0,
+                          "product_files": null,
+                          "specs": [
+                              {
+                                  "title": "Size",
+                                  "value": "size 2"
+                              },
+                              {
+                                  "title": "Spec",
+                                  "value": "pipe 1"
+                              },
+                              {
+                                  "title": "Quantity",
+                                  "value": "2"
+                              },
+                              {
+                                  "title": "Unit",
+                                  "value": "un2"
+                              }
+                          ],
+                          "vendors": [
+                              {
+                                  "vendor_id": 439,
+                                  "vendor_name": "testing yash1",
+                                  "vendor_email": "yash+testing1@gmail.com",
+                                  "vendor_mobile": "4563459871",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 270,
+                                  "vendor_name": "Vendor Workwise Imtiaj",
+                                  "vendor_email": "vendor@letsworkwise.com",
+                                  "vendor_mobile": "9876543333",
+                                  "vendor_address": ""
+                              }
+                          ]
+                      }
+                  ]
+              }
+          ]
+      }
+  ]
+}
+
 const DownloadReportsForBuyer = (props) => {
   const [searchObj, setSearchedObject] = useState({
     stareDate: "2023-01-01",
@@ -218,6 +1186,74 @@ const DownloadReportsForBuyer = (props) => {
   };
   // Usage: call createExcelReport with the provided data
   // createExcelReport(yourJsonDataHere);
+ 
+ 
+  const downloadExcelReport = (response) => {
+    response.quoteList.forEach((rfqArray, index) => {
+      const wb = XLSX.utils.book_new(); // Create a new workbook for each RFQ
+  
+      rfqArray.forEach((rfq, productIndex) => {
+        const ws_data = [
+          // Extend the header to include previous quotes
+          ["Product Name", "Specification", "Size", "Qty", "Vendor Name", "Unit Rate", "Freight(%)", "Packaging(%)", "GST(%)", "Total Amount", "Previous Quote 1", "Previous Quote 2", "Previous Quote 3"] // assuming up to 3 previous quotes for simplicity
+        ];
+  
+        // Adding the vendor quotes and details
+        rfq.product_details.forEach((product) => {
+          const baseData = [
+            product.product_name,
+            product.rfq_details.find(d => d.title === "Spec")?.value || "-",
+            product.rfq_details.find(d => d.title === "Size")?.value || "-",
+            product.rfq_details.find(d => d.title === "Quantity")?.value || "-"
+          ];
+  
+          // Loop through each quotation to extract and append data
+          rfq.quotations.forEach((quote) => {
+            const quoteDetails = [
+              quote.quote_details.vendor_details.name,
+              quote.unit_price,
+              quote.freight_price + "%",
+              quote.package_price + "%",
+              quote.tax + "%",
+              quote.total_price
+            ];
+  
+            // Prepare data for previous quotes, assume there can be up to 3 previous quotes
+            const previousQuotesDetails = [];
+            quote.previous_quotes.forEach((prevQuote, idx) => {
+              if (idx < 3) { // limit to 3 previous quotes for display
+                previousQuotesDetails.push(prevQuote.total_price);
+              }
+            });
+  
+            // Fill the remaining slots if fewer than 3 previous quotes
+            while (previousQuotesDetails.length < 3) {
+              previousQuotesDetails.push("-");
+            }
+  
+            ws_data.push([...baseData, ...quoteDetails, ...previousQuotesDetails]);
+          });
+        });
+  
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        const sheetName = `RFQ-${rfq.rfq_id}_Product-${productIndex + 1}`;
+        XLSX.utils.book_append_sheet(wb, ws, sheetName); // Ensure unique sheet name by appending product index
+      });
+  
+      // Save the workbook
+      XLSX.writeFile(wb, `RFQ_Report_${index + 1}.xlsx`);
+    });
+  };
+  
+  
+  
+  
+  
+  // Example usage
+   
+  // Example usage:
+  
+  
 
   return (
     <Modal
@@ -296,7 +1332,7 @@ const DownloadReportsForBuyer = (props) => {
               <button
                 type="button"
                 className=" w-100 mb-4 mt-4 btn btn-primary btn-block"
-                onClick={createZipAndDownload}
+                onClick={()=>{   downloadExcelReport(ProjectDetailsData) }}
               >
                 Download
               </button>
