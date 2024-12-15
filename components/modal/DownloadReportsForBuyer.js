@@ -2,321 +2,7 @@ import { useEffect, useState } from "react";
 import Modal from "react-modal";
 import * as XLSX from "xlsx";
 
-const projectData = [
-  {
-    project_id: 33,
-    project_name: "downlaod report",
-    project_description: "myb pro sba s",
-    project_location: "Mumbai, Maharastra",
-    project_status: 1,
-    project_created_at: "2024-12-11T12:10:05.682Z",
-    project_updated_at: "2024-12-11T12:10:05.682Z",
-    project_ended_at: "2025-01-10T00:00:00.000Z",
-    rfqs: [
-      {
-        rfq_id: 693,
-        rfq_no: 402830,
-        status: 1,
-        comment: "com global",
-        location: "Mumbai, Maharastra",
-        products: [
-          {
-            name: "WATER MONITOR",
-            specs: [
-              {
-                title: "Size",
-                value: "w size",
-                variant: 0,
-              },
-              {
-                title: "Spec",
-                value: "water spec",
-                variant: 0,
-              },
-              {
-                title: "Quantity",
-                value: "101",
-                variant: 0,
-              },
-              {
-                title: "Unit",
-                value: "un1",
-                variant: 0,
-              },
-            ],
-            vendors: [
-              {
-                quotes: [
-                  {
-                    status: "No quote",
-                    quote_id: 0,
-                    is_regret: 0,
-                    quote_items: [
-                      {
-                        tax: 0,
-                        comment: "No quote present",
-                        item_id: 0,
-                        quantity: "0",
-                        unit_price: 0,
-                        total_price: 0,
-                        product_name: "No product",
-                        freight_price: 0,
-                        package_price: 0,
-                        delivery_period: "No delivery",
-                      },
-                    ],
-                    regret_reason: "No quote",
-                    global_comment: "No quote present",
-                    global_payment_term: "None",
-                  },
-                ],
-                vendor_id: 385,
-                vendor_name: "mukul VTD Pvt Ltd",
-                vendor_email: "mukuljatav8958+vendor12@gmail.com",
-                vendor_mobile: "8987654567",
-                organization_name: "Vendor Pvt Ltd",
-              },
-              {
-                quotes: [
-                  {
-                    status: 1,
-                    quote_id: 278,
-                    is_regret: 0,
-                    quote_items: [
-                      {
-                        tax: 18,
-                        comment: "total 70775",
-                        item_id: 492,
-                        quantity: "101",
-                        unit_price: 555,
-                        total_price: 70775,
-                        product_name: "WATER MONITOR",
-                        freight_price: 3,
-                        package_price: 4,
-                        delivery_period: "5",
-                      },
-                    ],
-                    regret_reason: null,
-                    global_comment: "gc",
-                    global_payment_term: "pt ",
-                  },
-                ],
-                vendor_id: 134,
-                vendor_name: "Imtiaj Vendor",
-                vendor_email: "imtiaj@letsworkwise.com",
-                vendor_mobile: "32165478901",
-                organization_name: "Pacific Industrial Supply",
-              },
-            ],
-            product_id: 7067,
-            description: null,
-          },
-          {
-            name: "PC AND SERVER",
-            specs: [
-              {
-                title: "Size",
-                value: "p size",
-                variant: 0,
-              },
-              {
-                title: "Spec",
-                value: "pc spec",
-                variant: 0,
-              },
-              {
-                title: "Quantity",
-                value: "201",
-                variant: 0,
-              },
-              {
-                title: "Unit",
-                value: "n2",
-                variant: 0,
-              },
-            ],
-            vendors: [
-              {
-                quotes: [
-                  {
-                    status: "No quote",
-                    quote_id: 0,
-                    is_regret: 0,
-                    quote_items: [
-                      {
-                        tax: 0,
-                        comment: "No quote present",
-                        item_id: 0,
-                        quantity: "0",
-                        unit_price: 0,
-                        total_price: 0,
-                        product_name: "No product",
-                        freight_price: 0,
-                        package_price: 0,
-                        delivery_period: "No delivery",
-                      },
-                    ],
-                    regret_reason: "No quote",
-                    global_comment: "No quote present",
-                    global_payment_term: "None",
-                  },
-                ],
-                vendor_id: 267,
-                vendor_name: "gyan Pvt ltd",
-                vendor_email: "gyan@letsworkwise.com",
-                vendor_mobile: "8987676752",
-                organization_name: "hyan",
-              },
-              {
-                quotes: [
-                  {
-                    status: 1,
-                    quote_id: 278,
-                    is_regret: 0,
-                    quote_items: [
-                      {
-                        tax: 18,
-                        comment: "total 84510",
-                        item_id: 491,
-                        quantity: "201",
-                        unit_price: 333,
-                        total_price: 84510,
-                        product_name: "PC AND SERVER",
-                        freight_price: 3,
-                        package_price: 4,
-                        delivery_period: "9",
-                      },
-                    ],
-                    regret_reason: null,
-                    global_comment: "gc",
-                    global_payment_term: "pt ",
-                  },
-                ],
-                vendor_id: 134,
-                vendor_name: "Imtiaj Vendor",
-                vendor_email: "imtiaj@letsworkwise.com",
-                vendor_mobile: "32165478901",
-                organization_name: "Pacific Industrial Supply",
-              },
-            ],
-            product_id: 7043,
-            description: "null",
-          },
-        ],
-        timestamp: "2024-12-11T12:14:48.608072",
-        bid_end_date: "2025-01-10",
-        company_name: "mukul testing 2",
-        contact_name: "mukul jatav",
-        contact_number: "7877990000",
-      },
-      {
-        rfq_id: 571,
-        rfq_no: 402708,
-        status: 1,
-        comment: "",
-        location: "Mumbai, Maharastra",
-        products: [
-          {
-            name: "WATER MONITOR",
-            specs: [
-              {
-                title: "Size",
-                value: "size ",
-                variant: 0,
-              },
-              {
-                title: "Spec",
-                value: "water ",
-                variant: 0,
-              },
-              {
-                title: "Quantity",
-                value: "121",
-                variant: 0,
-              },
-              {
-                title: "Unit",
-                value: "uni1",
-                variant: 0,
-              },
-            ],
-            vendors: [
-              {
-                quotes: [
-                  {
-                    status: 1,
-                    quote_id: 277,
-                    is_regret: 0,
-                    quote_items: [
-                      {
-                        tax: 18,
-                        comment: "total 152775",
-                        item_id: 490,
-                        quantity: "121",
-                        unit_price: 1000,
-                        total_price: 152775,
-                        product_name: "WATER MONITOR",
-                        freight_price: 3,
-                        package_price: 4,
-                        delivery_period: "9",
-                      },
-                    ],
-                    regret_reason: null,
-                    global_comment: "gc",
-                    global_payment_term: "pt ",
-                  },
-                ],
-                vendor_id: 134,
-                vendor_name: "Imtiaj Vendor",
-                vendor_email: "imtiaj@letsworkwise.com",
-                vendor_mobile: "32165478901",
-                organization_name: "Pacific Industrial Supply",
-              },
-              {
-                quotes: [
-                  {
-                    status: "No quote",
-                    quote_id: 0,
-                    is_regret: 0,
-                    quote_items: [
-                      {
-                        tax: 0,
-                        comment: "No quote present",
-                        item_id: 0,
-                        quantity: "0",
-                        unit_price: 0,
-                        total_price: 0,
-                        product_name: "No product",
-                        freight_price: 0,
-                        package_price: 0,
-                        delivery_period: "No delivery",
-                      },
-                    ],
-                    regret_reason: "No quote",
-                    global_comment: "No quote present",
-                    global_payment_term: "None",
-                  },
-                ],
-                vendor_id: 119,
-                vendor_name: "EdgeCase Solutions",
-                vendor_email: "b2bportal2023+38@gmail.com",
-                vendor_mobile: "1234567890",
-                organization_name: "EdgeCase Solutions",
-              },
-            ],
-            product_id: 7067,
-            description: null,
-          },
-        ],
-        timestamp: "2024-12-11T12:10:31.884712",
-        bid_end_date: "2025-01-10",
-        company_name: "Sudhir Switchgears Pvt Ltd",
-        contact_name: "Sudhir Switchgears Pvt Ltd",
-        contact_number: "9999000670",
-      },
-    ],
-  },
-];
+
 
 const productData = [
   {
@@ -459,6 +145,268 @@ const productData = [
   },
 ];
 
+
+const response = {
+  "projectDetail": [
+      {
+          "project_id": 31,
+          "project_name": "project new 1",
+          "project_description": "Des",
+          "project_location": "new 1",
+          "project_status": 1,
+          "rfq_details": [
+              {
+                  "rfq_id": 691,
+                  "rfq_no": 402828,
+                  "comment": "sd",
+                  "company_name": "Imtiaj Pvt. Ltd. Rename",
+                  "response_email": "imtiaj.dev@gmail.com",
+                  "contact_name": "Imtiaj Buyer",
+                  "contact_number": "1234567897",
+                  "bid_end_date": "2025-02-06",
+                  "location": "new 1",
+                  "is_published": 1,
+                  "status": 1,
+                  "rfq_type": "firm",
+                  "reverse_auction": 0,
+                  "rfq_files": null,
+                  "terms": [
+                      {
+                          "term_content": "Manufacturing Clearance: All items shall be manufactured after providing you with manufacturing clearance\r\n"
+                      },
+                      {
+                          "term_content": "Inspection: Materials will be Inspected at your works by approved Third Party Inspection Agency (TPIA) as per Approved QAP only.\r\n"
+                      },
+                      {
+                          "term_content": "Testing Certificates: The Manufacturing Test certificate, Internal Inspection Report by TPIA & All materials Test Certificate shall be dispatched by the vendor to our Office along with the materials without any extra charges. All Testing shall be carried out as per approved QAP/ITP\r\n"
+                      },
+                      {
+                          "term_content": "Other Important Original Documents: All Original documents including Tax Invoice, E-Way Bill, IRN & IVR along with Material Test Certificate, Manufacturer's Test Certificate, Internal Inspection Report to be courier to our Office\r\n"
+                      },
+                      {
+                          "term_content": "Warranty: The material are to be guaranteed by you against defective design, material and workmanship for a period of 18 months from the date of receipt of material or 12 months from the date of commissioning whichever is earlier. Any defect found during the course of guarantee period, must be replaced/rectified free of cost within 5 days of receipt of such information, in case you fail to attend the same , it will be done through other sources and all expenses incurred towards such replacement/rectification will be borne by you.\r\n"
+                      },
+                      {
+                          "term_content": "Quantity Variation: The quantities indicated in this may vary due to engineering & Actual site requirement. We reserve our right to change the size/quantities due to such change without any increase in prices. Any decreases in your prices shall be passed to our company.\r\n"
+                      },
+                      {
+                          "term_content": "Shortage & Rejection: In case any shortage/rejection is observed at the time of delivery of goods at final destination, such items shall be replaced within seven (7) days from the date of receipt of any such notice from our end\r\n"
+                      },
+                      {
+                          "term_content": "Order Cancellation: Our company reserves the right to cancel the order due to non-satisfactory performance of the vendor without any prior notice"
+                      }
+                  ],
+                  "products": [
+                      {
+                          "product_id": 6810,
+                          "product_name": "Temperature (T) Instruments",
+                          "comment": "com com",
+                          "datasheet": "",
+                          "spec_file": "",
+                          "qap_file": "",
+                          "datasheet_file": "",
+                          "variant": 0,
+                          "product_files": null,
+                          "specs": [
+                              {
+                                  "title": "Size",
+                                  "value": "size temp"
+                              },
+                              {
+                                  "title": "Spec",
+                                  "value": "spec temp"
+                              },
+                              {
+                                  "title": "Quantity",
+                                  "value": "11"
+                              },
+                              {
+                                  "title": "Unit",
+                                  "value": "un1"
+                              }
+                          ],
+                          "vendors": [
+                              {
+                                  "vendor_id": 439,
+                                  "vendor_name": "testing yash1",
+                                  "vendor_email": "yash+testing1@gmail.com",
+                                  "vendor_mobile": "4563459871",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 446,
+                                  "vendor_name": "gt1",
+                                  "vendor_email": "gt@g.com",
+                                  "vendor_mobile": "343452342634",
+                                  "vendor_address": null
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "rfq_id": 700,
+                  "rfq_no": 402837,
+                  "comment": "global comment",
+                  "company_name": "Imtiaj Pvt. Ltd. Rename",
+                  "response_email": "imtiaj.dev@gmail.com",
+                  "contact_name": "Imtiaj Buyer",
+                  "contact_number": "1234567897",
+                  "bid_end_date": "2024-12-25",
+                  "location": "new 1",
+                  "is_published": 1,
+                  "status": 1,
+                  "rfq_type": "firm",
+                  "reverse_auction": 0,
+                  "rfq_files": [
+                      {
+                          "file_id": 62,
+                          "file_type": "term_and_condition",
+                          "file_url": "https://api.letsworkwise.com/user_document/1734228935905-ca9e903c-b453-4fbb-8312-7fe854e6fe17.jpg"
+                      },
+                      {
+                          "file_id": 63,
+                          "file_type": "term_and_condition",
+                          "file_url": "https://api.letsworkwise.com/user_document/1734228942051-7468a8f8-481b-4631-bef5-bc360df849cf.jpg"
+                      }
+                  ],
+                  "terms": [
+                      {
+                          "term_content": "Quantity Variation: The quantities indicated in this may vary due to engineering & Actual site requirement. We reserve our right to change the size/quantities due to such change without any increase in prices. Any decreases in your prices shall be passed to our company.\r\n"
+                      }
+                  ],
+                  "products": [
+                      {
+                          "product_id": 6810,
+                          "product_name": "Temperature (T) Instruments",
+                          "comment": "com",
+                          "datasheet": "",
+                          "spec_file": "",
+                          "qap_file": "",
+                          "datasheet_file": "",
+                          "variant": 0,
+                          "product_files": [
+                              {
+                                  "file_id": 271,
+                                  "file_type": "TDS",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228875233-c65bde90-c2db-45c4-a0a5-39051694994f.jpg"
+                              },
+                              {
+                                  "file_id": 272,
+                                  "file_type": "QAP",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228886823-b8dedcbc-816a-4723-b1ec-cf8440745df2.png"
+                              },
+                              {
+                                  "file_id": 273,
+                                  "file_type": "QAP",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228895250-bcae2966-e4f0-4242-bc48-86f5d961e694.jpg"
+                              },
+                              {
+                                  "file_id": 274,
+                                  "file_type": "SPEC",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228864743-02caff0a-2bae-4c97-abb9-227eb3ba92f1.jpg"
+                              },
+                              {
+                                  "file_id": 275,
+                                  "file_type": "SPEC",
+                                  "file_url": "https://api.letsworkwise.com/user_document/1734228867527-b0bfb537-ba0e-4f9a-9de0-bf25efbb5fa9.png"
+                              }
+                          ],
+                          "specs": [
+                              {
+                                  "title": "Size",
+                                  "value": "size 1"
+                              },
+                              {
+                                  "title": "Spec",
+                                  "value": "temp 1"
+                              },
+                              {
+                                  "title": "Quantity",
+                                  "value": "1"
+                              },
+                              {
+                                  "title": "Unit",
+                                  "value": "un1"
+                              }
+                          ],
+                          "vendors": [
+                              {
+                                  "vendor_id": 445,
+                                  "vendor_name": "gtry1",
+                                  "vendor_email": "gyan+try1@g.com",
+                                  "vendor_mobile": "2352345234",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 267,
+                                  "vendor_name": "gyan Pvt ltd",
+                                  "vendor_email": "gyan@letsworkwise.com",
+                                  "vendor_mobile": "8987676752",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 134,
+                                  "vendor_name": "Imtiaj Vendor",
+                                  "vendor_email": "imtiaj@letsworkwise.com",
+                                  "vendor_mobile": "32165478901",
+                                  "vendor_address": "jbr tech park, Karnataka, Bengaluru"
+                              }
+                          ]
+                      },
+                      {
+                          "product_id": 6818,
+                          "product_name": "PIPE/LOW TEMP STEEL",
+                          "comment": "com",
+                          "datasheet": "",
+                          "spec_file": "",
+                          "qap_file": "",
+                          "datasheet_file": "",
+                          "variant": 0,
+                          "product_files": null,
+                          "specs": [
+                              {
+                                  "title": "Size",
+                                  "value": "size 2"
+                              },
+                              {
+                                  "title": "Spec",
+                                  "value": "pipe 1"
+                              },
+                              {
+                                  "title": "Quantity",
+                                  "value": "2"
+                              },
+                              {
+                                  "title": "Unit",
+                                  "value": "un2"
+                              }
+                          ],
+                          "vendors": [
+                              {
+                                  "vendor_id": 439,
+                                  "vendor_name": "testing yash1",
+                                  "vendor_email": "yash+testing1@gmail.com",
+                                  "vendor_mobile": "4563459871",
+                                  "vendor_address": null
+                              },
+                              {
+                                  "vendor_id": 270,
+                                  "vendor_name": "Vendor Workwise Imtiaj",
+                                  "vendor_email": "vendor@letsworkwise.com",
+                                  "vendor_mobile": "9876543333",
+                                  "vendor_address": ""
+                              }
+                          ]
+                      }
+                   ]
+              }
+          ]
+      }
+  ]
+}
+
+
 const DownloadReportsForBuyer = (props) => {
   const [searchObj, setSearchedObject] = useState({
     stareDate: "2023-01-01",
@@ -545,91 +493,88 @@ const DownloadReportsForBuyer = (props) => {
     XLSX.writeFile(wb, "RFQs_Report.xlsx");
   };
 
-  const downloadProjectWiseExcelReport = () => {
-    projectData.forEach((project) => {
-      // Create a new workbook for each project
-      const wb = XLSX.utils.book_new();
 
-      // Project Summary Sheet
-      const projectSummaryData = [
+  const downloadProjectDetails = (project) => {
+    const wb = XLSX.utils.book_new();
+    const projectData = [
+        ["Project ID", project.project_id],
         ["Project Name", project.project_name],
         ["Project Description", project.project_description],
         ["Project Location", project.project_location],
-        ["Start Date", project.project_created_at],
-        ["End Date", project.project_ended_at],
+        ["Project Status", project.project_status]
+    ];
+    const wsProject = XLSX.utils.aoa_to_sheet(projectData);
+    XLSX.utils.book_append_sheet(wb, wsProject, `Project Details`);
+    XLSX.writeFile(wb, `Project_${project.project_id}_Details.xlsx`);
+};
+
+
+const downloadRfqDetails = (rfq) => {
+  const wb = XLSX.utils.book_new();
+  const rfqData = [
+      ["RFQ ID", rfq.rfq_id],
+      ["RFQ Number", rfq.rfq_no],
+      ["Company Name", rfq.company_name],
+      ["Contact Name", rfq.contact_name],
+      ["Contact Number", rfq.contact_number],
+      ["Bid End Date", rfq.bid_end_date],
+      ["Location", rfq.location],
+      ["RFQ Status", rfq.status],
+      ["RFQ Type", rfq.rfq_type],
+      ["Is Published", rfq.is_published],
+      ["Reverse Auction", rfq.reverse_auction ? "Yes" : "No"]
+  ];
+
+  if (rfq.terms) {
+      rfqData.push(["Terms"]);
+      rfq.terms.forEach(term => {
+          rfqData.push(["", term.term_content]);
+      });
+  }
+
+  const wsRFQ = XLSX.utils.aoa_to_sheet(rfqData);
+  XLSX.utils.book_append_sheet(wb, wsRFQ, `RFQ Details`);
+
+  // Add Product and Vendor Details in a single sheet for each product
+  rfq.products.forEach((product, index) => {
+      const productVendorData = [
+          ["Product ID", product.product_id],
+          ["Product Name", product.product_name],
+          ["Product Comment", product.comment],
+          ...product.specs.map(spec => [spec.title, spec.value]),
+          [], // Empty row for visual separation
+          ["Vendor ID", "Vendor Name", "Vendor Email", "Vendor Mobile", "Vendor Address"]
       ];
-      const wsProject = XLSX.utils.aoa_to_sheet(projectSummaryData);
-      XLSX.utils.book_append_sheet(wb, wsProject, "Project Summary");
 
-      // Individual RFQ Sheets
-      project.rfqs.forEach((rfq) => {
-        // RFQ Details
-        const rfqDetails = [
-          ["RFQ ID", rfq.rfq_id],
-          ["RFQ Number", rfq.rfq_no],
-          ["End Date", rfq.bid_end_date],
-          ["Company Name", rfq.company_name],
-          ["Contact Name", rfq.contact_name],
-          ["Contact Number", rfq.contact_number],
-        ];
-
-        const vendorNames = [];
-
-        // product.vendors.forEach((vendor) => { console.log  })
-
-        // Prepare headers for products and vendor quotes
-        const headers = ["Product Name", "Specs", "Size", "Quantity", "Unit"];
-        const vendorHeaders = [];
-        rfq.products[0]?.vendors.forEach((vendor) => {
-          vendorHeaders.push({ name: vendor.vendor_name, colSpan: 5 });
-          headers.push(
-            "Unit Price",
-            "Tax %",
-            "Freight %",
-            "Package %",
-            "Total %"
-          );
-        });
-
-        const rfqData = [headers];
-
-        // Populate rows for each product and corresponding vendor quotes
-        rfq.products.forEach((product) => {
-          const productDetails = [
-            product.name,
-            product.specs.find((spec) => spec.title === "Spec")?.value || "",
-            product.specs.find((spec) => spec.title === "Size")?.value || "",
-            product.specs.find((spec) => spec.title === "Quantity")?.value ||
-              "",
-            product.specs.find((spec) => spec.title === "Unit")?.value || "",
-          ];
-
-          product.vendors.forEach((vendor) => {
-            vendor.quotes.forEach((quote) => {
-              quote.quote_items.forEach((item) => {
-                productDetails.push(
-                  item.unit_price || "-",
-                  item.tax || "-",
-                  item.freight_price || "-",
-                  item.package_price || "-",
-                  item.total_price || "-"
-                );
-              });
-            });
-          });
-
-          rfqData.push(productDetails);
-        });
-
-        const wsRFQ = XLSX.utils.aoa_to_sheet(rfqDetails.concat(rfqData));
-        XLSX.utils.book_append_sheet(wb, wsRFQ, `RFQ ${rfq.rfq_no}`);
+      product.vendors.forEach(vendor => {
+          productVendorData.push([
+              vendor.vendor_id,
+              vendor.vendor_name,
+              vendor.vendor_email,
+              vendor.vendor_mobile,
+              vendor.vendor_address || "N/A" // Handle null addresses
+          ]);
       });
 
-      // Write the workbook to a file and trigger download
-      XLSX.writeFile(wb, `Project_${project.project_id}.xlsx`);
-    });
-  };
+      const wsProductVendors = XLSX.utils.aoa_to_sheet(productVendorData);
+      XLSX.utils.book_append_sheet(wb, wsProductVendors, `Product and Vendor Details ${index + 1}`);
+  });
 
+  XLSX.writeFile(wb, `RFQ_${rfq.rfq_no}_Details.xlsx`);
+};
+
+
+const createExcelReport = () => {
+    response.projectDetail.forEach(project => {
+        downloadProjectDetails(project);
+        project.rfq_details.forEach(rfq => {
+            downloadRfqDetails(rfq);
+        });
+    });
+};
+  // Usage: call createExcelReport with the provided data
+  // createExcelReport(yourJsonDataHere);
+  
   return (
     <Modal
       isOpen={props.isOpen}
@@ -707,7 +652,7 @@ const DownloadReportsForBuyer = (props) => {
               <button
                 type="button"
                 className=" w-100 mb-4 mt-4 btn btn-primary btn-block"
-                onClick={downloadProjectWiseExcelReport}
+                onClick={createExcelReport}
               >
                 Download
               </button>
