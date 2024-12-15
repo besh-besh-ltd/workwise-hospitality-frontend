@@ -493,7 +493,6 @@ const DownloadReportsForBuyer = (props) => {
     XLSX.writeFile(wb, "RFQs_Report.xlsx");
   };
 
-
   const downloadProjectDetails = (project) => {
     const wb = XLSX.utils.book_new();
     const projectData = [
@@ -507,7 +506,6 @@ const DownloadReportsForBuyer = (props) => {
     XLSX.utils.book_append_sheet(wb, wsProject, `Project Details`);
     XLSX.writeFile(wb, `Project_${project.project_id}_Details.xlsx`);
 };
-
 
 const downloadRfqDetails = (rfq) => {
   const wb = XLSX.utils.book_new();
@@ -532,19 +530,35 @@ const downloadRfqDetails = (rfq) => {
       });
   }
 
+    if (rfq.rfq_files) {
+        rfqData.push(["RFQ Files"]);
+        rfq.rfq_files.forEach(file => {
+            rfqData.push(["", file.file_type, file.file_url]);
+        });
+    }
+
   const wsRFQ = XLSX.utils.aoa_to_sheet(rfqData);
   XLSX.utils.book_append_sheet(wb, wsRFQ, `RFQ Details`);
 
-  // Add Product and Vendor Details in a single sheet for each product
+  // Add Product, Vendor, and Product File Details in a single sheet for each product
   rfq.products.forEach((product, index) => {
+        let sheetName = `product_vendor_list_${index+1}`;
+
       const productVendorData = [
           ["Product ID", product.product_id],
           ["Product Name", product.product_name],
           ["Product Comment", product.comment],
           ...product.specs.map(spec => [spec.title, spec.value]),
           [], // Empty row for visual separation
-          ["Vendor ID", "Vendor Name", "Vendor Email", "Vendor Mobile", "Vendor Address"]
-      ];
+            ["Product Files"]
+        ];
+
+        product.product_files?.forEach(file => {
+            productVendorData.push([file.file_type, file.file_url]);
+        });
+
+        productVendorData.push([]); // Adding another separation before vendor details
+        productVendorData.push(["Vendor ID", "Vendor Name", "Vendor Email", "Vendor Mobile", "Vendor Address"]);
 
       product.vendors.forEach(vendor => {
           productVendorData.push([
@@ -557,12 +571,11 @@ const downloadRfqDetails = (rfq) => {
       });
 
       const wsProductVendors = XLSX.utils.aoa_to_sheet(productVendorData);
-      XLSX.utils.book_append_sheet(wb, wsProductVendors, `Product and Vendor Details ${index + 1}`);
+      XLSX.utils.book_append_sheet(wb, wsProductVendors, sheetName);
   });
 
   XLSX.writeFile(wb, `RFQ_${rfq.rfq_no}_Details.xlsx`);
 };
-
 
 const createExcelReport = () => {
     response.projectDetail.forEach(project => {
@@ -572,6 +585,7 @@ const createExcelReport = () => {
         });
     });
 };
+
   // Usage: call createExcelReport with the provided data
   // createExcelReport(yourJsonDataHere);
   
