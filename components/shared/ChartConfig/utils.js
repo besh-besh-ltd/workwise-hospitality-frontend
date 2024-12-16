@@ -38,7 +38,7 @@ const Utils = {
     const now = new Date(today);
 
     const formatDate = (date) => {
-      return date.toLocaleDateString('en-IN'); 
+      return date.toLocaleDateString('en-IN');
     };
 
     switch (rangeType) {
@@ -92,7 +92,7 @@ const Utils = {
     }
 
     return { result, labels };
-  },  
+  },
   CHART_TITLE({ labelType, today = new Date() }) {
     const year = today.getFullYear();
     const monthNames = [
@@ -140,6 +140,14 @@ const Utils = {
     green: 'rgba(75, 192, 192, 1)',
     yellow: 'rgba(255, 206, 86, 1)',
     purple: 'rgba(153, 102, 255, 1)',
+  },
+  getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
   },
   transparentize(color, opacity) {
     const alpha = 1 - opacity;

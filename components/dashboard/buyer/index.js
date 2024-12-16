@@ -74,7 +74,7 @@ const BuyerPage = () => {
           <div className="row">
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.total_rfqs
@@ -96,7 +96,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.active_rfqs
@@ -118,7 +118,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.completed_rfqs
@@ -141,7 +141,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.closed_rfqs
@@ -164,7 +164,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.quotes_received
@@ -186,7 +186,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     {dashboardData?.pending_responses
@@ -208,7 +208,7 @@ const BuyerPage = () => {
             </div>
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
-              <div className="detail-con shadow">
+              <div className="detail-con ">
                 <div className="detail-con-text">
                   <h2>
                     &#8377;
@@ -230,9 +230,6 @@ const BuyerPage = () => {
               </div>
             </div>
           </div>
-
-
-
         </div>
 
         <RfqOverview

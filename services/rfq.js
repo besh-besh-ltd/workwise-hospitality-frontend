@@ -523,10 +523,34 @@ export const getTopVendorsandProducts = () => {
   });
 };
 
-export const getAnalyticsChartData = (filter, type) => {
+export const getFinalizedVendorsList = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/users/get-dashboard-Analytics?chart_filter=${filter}&data_type=${type}`);
+      let response = await axiosInstance.get(`/users/dashboard-finalized-vendors`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getFinalizedProductsList = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/dashboard-finalized-products`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getAnalyticsChartData = (filter, type, product_id, vendor_ids) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(
+        `/users/get-dashboard-Analytics?chart_filter=${filter}&data_type=${type}${ product_id ? `&product=${product_id}` : `` }${ vendor_ids ? `&vendor=${vendor_ids}` : `` }`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });

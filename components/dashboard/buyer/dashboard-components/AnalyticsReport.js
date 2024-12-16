@@ -1,10 +1,12 @@
 import ChartComponent from '@/components/shared/ChartConfig/ChartComponent';
 import Utils from '@/components/shared/ChartConfig/utils';
 import FullLoader from '@/components/shared/FullLoader';
-import { getAnalyticsChartData } from '@/services/rfq';
+import { getAnalyticsChartData, getFinalizedProductsList, getFinalizedVendorsList } from '@/services/rfq';
 import React, { useEffect, useState } from 'react'
+import AsyncSelect from "react-select/async";
 import Select from 'react-select';
 import { toast } from 'react-toastify';
+
 
 const AnalyticsReport = () => {
     const [chartData, setChartData] = useState(null);
@@ -12,13 +14,34 @@ const AnalyticsReport = () => {
     const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
     const [chartType, setChartType] = useState({ label: 'Bar Chart', value: 'bar' });
     const [dataType, setDataType] = useState({ label: 'Finalized Quotes', value: 'quotes' });
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [selectedVendors, setSelectedVendors] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const getChartData = async () => {
         setLoading(true);
         try {
-            const res = await getAnalyticsChartData(filter.value, dataType.value);
-            generateChartData(res.data);
+            const res = await getAnalyticsChartData(
+                filter.value,
+                dataType.value,
+                selectedProduct?.value,
+                selectedVendors.map((item) => item?.value).join(',')
+            );
+
+            const groupedData = res.data.reduce((acc, { date, company_name, organization_name, name, data_value }) => {
+                const vendor_name = company_name || organization_name || name;
+                let dateMonthEntry = acc.find(entry => entry.date === date);
+
+                if (!dateMonthEntry) {
+                    dateMonthEntry = { date, vendors: [] };
+                    acc.push(dateMonthEntry);
+                }
+
+                dateMonthEntry.vendors.push({ vendor_name, data_value });
+                return acc;
+            }, []);
+
+            generateChartData(groupedData);
         } catch (error) {
             toast.error(error.message);
         } finally {
@@ -26,67 +49,101 @@ const AnalyticsReport = () => {
         }
     }
 
+    const getVendorSelectionOption = async () => {
+        try {
+            const res = await getFinalizedVendorsList();
+            return res.data.map((venItem) => ({
+                value: venItem.user_id,
+                label: venItem.company_name || venItem.organization_name || venItem.name
+            }))
+        } catch (error) {
+            toast.error(error.message);
+        }
+    }
+
+    const getProductSelectionOption = async () => {
+        try {
+            const res = await getFinalizedProductsList();
+            return res.data;
+        } catch (error) {
+            toast.error(error.message);
+        }
+    }
+
     const handleChange = (selectedOption, actionMeta) => {
         const { name } = actionMeta;
-        if (name == 'date_range')
-            setFilter(selectedOption);
-        else if (name == 'chart_type')
-            setChartType(selectedOption);
-        else
-            setDataType(selectedOption);
+        switch (name) {
+            case 'date_range':
+                setFilter(selectedOption);
+                break;
+            case 'chart_type':
+                setChartType(selectedOption);
+                break;
+            case 'cost_type':
+                setDataType(selectedOption);
+                break;
+            case 'product_select':
+                setSelectedProduct(selectedOption);
+                break;
+            case 'vendor_select':
+                setSelectedVendors(selectedOption || []);
+                break;
+            default:
+                break;
+        }
     }
 
     const generateChartData = (api_data) => {
         const title = Utils.CHART_TITLE({ labelType: filter.value });
         const { result: actualDates, labels: fullDateRange } = Utils.DATE_RANGE({ rangeType: filter.value });
 
+        const vendorNames = [...new Set(api_data.flatMap(item => item.vendors.map(vendor => vendor.vendor_name)))];
+
         const dateDataMap = actualDates.reduce((acc, date) => {
-            acc[date] = {
-                data_point: 0
-            };
+            acc[date] = vendorNames.reduce((vendorAcc, vendor) => {
+                vendorAcc[vendor] = 0;
+                return vendorAcc;
+            }, {});
             return acc;
         }, {});
 
         if (filter.value === 'past3months' || filter.value === 'past6months' || filter.value === 'wholeYear') {
             // Monthly data
             api_data.forEach(item => {
-                const formattedMonth = new Date(`${item.month}-01`).toLocaleDateString('en-IN');
-                if (dateDataMap[formattedMonth]) {
-                    dateDataMap[formattedMonth] = {
-                        data_point: parseInt(item.quotes_count || item.total_quote_amount, 10)
-                    };
-                }
+                const formattedMonth = new Date(`${item.date}-01`).toLocaleDateString('en-IN');
+                item.vendors.forEach(vendor => {
+                    if (dateDataMap[formattedMonth]) {
+                        dateDataMap[formattedMonth][vendor.vendor_name] = parseInt(vendor.data_value, 10);
+                    }
+                });
             });
         } else {
-            // Date Wise data
+            // Date-wise data
             api_data.forEach(item => {
                 const formattedDate = new Date(item.date).toLocaleDateString('en-IN');
-                if (dateDataMap[formattedDate]) {
-                    dateDataMap[formattedDate] = {
-                        data_point: parseInt(item.quotes_count || item.total_quote_amount, 10)
-                    };
-                }
+                item.vendors.forEach(vendor => {
+                    if (dateDataMap[formattedDate]) {
+                        dateDataMap[formattedDate][vendor.vendor_name] = parseInt(vendor.data_value, 10);
+                    }
+                });
             });
         }
 
-        const labels = Object.keys(dateDataMap);
-        const preparedData = {
-            data_point: labels.map(label => dateDataMap[label].data_point),
-        };
+        const vendorMap = vendorNames.reduce((acc, vendor) => {
+            acc[vendor] = Object.keys(dateDataMap).map(date => dateDataMap[date][vendor] || 0);
+            return acc;
+        }, {});
 
-        let dataSets = [
-            {
-                label: dataType.value === 'quotes'
-                    ? 'Quotes Finalized'
-                    : dataType.value === 'quote_costing'
-                        ? 'Quotes Costing'
-                        : 'Product Costing',
-                data: preparedData.data_point,
-                backgroundColor: Utils.CHART_COLORS.blue,
-                borderColor: Utils.CHART_COLORS.blue,
+        let dataSets = vendorNames.map(vendor => {
+            const color = Utils.getRandomColor();
+            return {
+                label: vendor,
+                data: vendorMap[vendor],
+                backgroundColor: color,
+                borderColor: color,
                 fill: false,
             }
-        ]
+        });
 
         if (chartType.value === 'cubic') {
             dataSets = dataSets.map((item) => (
@@ -101,9 +158,10 @@ const AnalyticsReport = () => {
         });
     };
 
+
     useEffect(() => {
         getChartData();
-    }, [filter, dataType])
+    }, [filter, dataType, selectedProduct, selectedVendors])
 
     useEffect(() => {
         if (chartData) {
@@ -124,45 +182,16 @@ const AnalyticsReport = () => {
         }
     }, [chartType])
 
-    const DATA_COUNT = 5;
-    const NUMBER_CFG = { count: DATA_COUNT, min: 0, max: 100 };
-
-    const pieData = {
-        labels: ['Red', 'Orange', 'Yellow', 'Green', 'Blue'],
-        datasets: [
-            {
-                label: 'Dataset 1',
-                data: Utils.numbers(NUMBER_CFG),
-                backgroundColor: Object.values(Utils.CHART_COLORS),
-            }
-        ]
-    };
-
 
     return (
         <section className='hasFullloader mb-3'>
             <div className="row mb-3">
                 <div className="Analytics-container col-md-12">
                     <div className="rounded-2 shadow p-4">
-                        <div className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
                             <h2 className="fs-4 fw-medium mb-0">Analytics and Reports</h2>
 
-                            <div className="col-md-6 d-flex justify-content-between gap-2">
-                                <Select
-                                    options={[
-                                        { label: 'Finalized Quotes', value: 'quotes' },
-                                        { label: 'Quotes Costing', value: 'quote_costing' },
-                                        // { label: 'Product Costing', value: 'product_costing' }
-                                    ]}
-                                    onChange={handleChange}
-                                    value={dataType}
-                                    defaultValue={{ label: 'Finalized Quotes', value: 'quotes' }}
-                                    name="cost_type"
-                                    className="text-sm w-100"
-                                    placeholder="Choose Range"
-                                    isClearable={false}
-                                />
-
+                            <div className="col-md-4 d-flex justify-content-between gap-2">
                                 <Select
                                     options={[
                                         { label: 'Cubic Line Chart', value: 'cubic' },
@@ -200,10 +229,50 @@ const AnalyticsReport = () => {
                         </div>
 
                         <div className="row">
-                            <div className="col-md-4 my-4">
-                                <ChartComponent data={pieData} chartTitle={'RFQ Analysis'} chartType='pie' height={350} />
+                            <div className="col-md-3 my-4">
+                                <Select
+                                    options={[
+                                        { label: 'Finalized Quotes', value: 'quotes' },
+                                        { label: 'Quotes Costing', value: 'quote_costing' },
+                                    ]}
+                                    onChange={handleChange}
+                                    value={dataType}
+                                    defaultValue={{ label: 'Finalized Quotes', value: 'quotes' }}
+                                    name="cost_type"
+                                    className="text-sm w-100 mb-2"
+                                    placeholder="Choose Range"
+                                    isClearable={false}
+                                />
+
+                                <AsyncSelect
+                                    cacheOptions
+                                    loadOptions={getProductSelectionOption}
+                                    defaultOptions
+                                    name="product_select"
+                                    className="text-sm w-100 mb-2"
+                                    onChange={handleChange}
+                                    value={selectedProduct}
+                                    placeholder="Choose Product"
+                                    isClearable
+                                    noOptionsMessage={() => "No Finalized Products Yet"}
+                                />
+
+                                <AsyncSelect
+                                    cacheOptions
+                                    loadOptions={getVendorSelectionOption}
+                                    defaultOptions
+                                    name="vendor_select"
+                                    className="text-sm w-100"
+                                    onChange={handleChange}
+                                    value={selectedVendors}
+                                    placeholder="Choose Vendor"
+                                    isClearable
+                                    isMulti
+                                    noOptionsMessage={() => "No Finalized Vendors Yet"}
+                                />
+
                             </div>
-                            <div className="col-md-8 my-4 hasFullLoader">
+                            <div className="col-md-9 my-4 hasFullLoader">
                                 {loading && <FullLoader />}
                                 {chartData &&
                                     <ChartComponent
