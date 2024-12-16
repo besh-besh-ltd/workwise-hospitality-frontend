@@ -366,13 +366,13 @@ export default function Homepage() {
         <HomeBanner bannerContent={showHomeLists1} content={showBannerLists} />
       )}
 
-      <div className="w-100 d-flex justify-content-center">
+      <div className="container d-flex justify-content-center my-5">
         <Image
-          src={`https://api.letsworkwise.com/banner_image/1733996521550-eac425fc-70a1-4a8b-9635-ffa987dbf69e.png`}
-          alt={`Haven’t made a Bid yet ONGC is Inviting Tenders `}
-          width={1048}
-          height={130}
-          className="my-5"
+          src="/assets/images/ONGC Banner.jpg"
+          alt="Haven’t made a Bid yet ONGC is Inviting Tenders"
+          layout="responsive"
+          width={2275}
+          height={282}
         />
       </div>
 
