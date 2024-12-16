@@ -557,3 +557,14 @@ export const getAnalyticsChartData = (filter, type, product_id, vendor_ids) => {
     }
   });
 };
+
+export const searchVendorByName = (vendor_name) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/users/dashboard-search-vendor`, {vendor_name});
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
