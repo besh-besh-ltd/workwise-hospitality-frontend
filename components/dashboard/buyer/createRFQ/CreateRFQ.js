@@ -345,8 +345,8 @@ const CreateRFQ = () => {
                         />
                       </div> */}
 
-                      <div className="col-md-3 mb-2 ">
-                        <label>Select Project</label>
+                      <div className="col-md-3 mb-3">
+                        <h4>Select Project</h4>
                         <Select
                           options={projects}
                           value={projects.find((project) => project.value === rfqFormDataFromStore.project_id)}
@@ -359,6 +359,7 @@ const CreateRFQ = () => {
                       </div>
 
                       {/* RFQ Products Table */}
+                      <h4>Review Products</h4>
                       <div className="table-responsive">
                         <table className="table table-striped ">
                           <thead>
@@ -556,7 +557,7 @@ const CreateRFQ = () => {
                                   <div className="row mb-2">
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Project Stage"
+                                        label="RFQ Type"
                                         value={rfqFormDataFromStore.rfq_type}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
@@ -592,7 +593,7 @@ const CreateRFQ = () => {
                                     </div>
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Project procurement end date"
+                                        label="Procurement end date"
                                         value={rfqFormDataFromStore.bid_end_date}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
