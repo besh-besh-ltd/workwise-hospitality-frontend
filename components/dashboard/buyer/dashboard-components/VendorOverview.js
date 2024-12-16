@@ -179,7 +179,7 @@ const VendorOverview = () => {
                                                             {prodItem.product_categories?.map(category => category.category_name).join(" | ")}
                                                         </span>
                                                     </div>
-                                                    <span className="border border-primary text-primary text-sm px-3 py-1 rounded-3 text-center">
+                                                    <span className="border border-primary text-primary text-nowrap text-sm px-3 py-1 rounded-3 text-center">
                                                         {prodItem.vendor_count} Vendors
                                                     </span>
                                                 </td>
