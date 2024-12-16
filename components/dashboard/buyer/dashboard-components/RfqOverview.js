@@ -476,7 +476,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                             {/* <span className="badge bg-primary rounded-pill">
                                                 {formatDate(notification?.timestamp)}
                                             </span> */}
-                                            <p className='m-0' style={{ fontSize: "14px", fontWeight: "200", color: "grey" }}>{formatDate(notification?.timestamp)}</p>
+                                            <p className='m-0' style={{ fontSize: "14px", fontWeight: "200", color: "grey" }}>{formatDate(notification?.readable_date_time)}</p>
                                         </div>
                                     </div>
                                 ))
