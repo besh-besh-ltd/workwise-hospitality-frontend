@@ -462,7 +462,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                     <div className="bg-white d-flex flex-column shadow rounded-2 p-4 h-100">
                         <h2 className="fs-4 fw-medium  ">Notifications</h2>
                         <div className="notification-section list-group h-100 overflow-auto"
-                            style={{ maxHeight: "450px", overflowY: "auto" }}
+                            style={{ maxHeight: "450px" }}
                         >
                             {notificationData && notificationData.length > 0
                                 ? notificationData.map((notification) => (
