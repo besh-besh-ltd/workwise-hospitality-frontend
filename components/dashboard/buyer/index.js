@@ -8,6 +8,7 @@ import VendorOverview from "./dashboard-components/VendorOverview";
 import AnalyticsReport from "./dashboard-components/AnalyticsReport";
 import { toast } from "react-toastify";
 
+// import DownloadReportsFozrBuyer from "@/components/modal/DownloadReportsForBuyer"
 
 const BuyerPage = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -69,7 +70,7 @@ const BuyerPage = () => {
       </section>
 
       <section className="buyer-sec-1">
-        <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
+        {/* <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
           <h3 className="fs-4 fw-medium mb-3">Summary</h3>
           <div className="row">
             <div className="col-md-3 buyer-col hasFullLoader">
@@ -184,7 +185,8 @@ const BuyerPage = () => {
                 </div>
               </div>
             </div>
-            <div className="col-md-3 buyer-col hasFullLoader">
+//  <DownloadReportsForBuyer isOpen={true} /> 
+            <div className="col-lg-3 col-md-6 buyer-col hasFullLoader">
               {loading && <FullLoader />}
               <div className="detail-con ">
                 <div className="detail-con-text">
@@ -230,7 +232,7 @@ const BuyerPage = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <RfqOverview
             tableRfqData={dashboardData?.rfq_data}
@@ -238,7 +240,7 @@ const BuyerPage = () => {
             tableLoading={loading}
           />
           <VendorOverview />
-          <AnalyticsReport />
+          {/* <AnalyticsReport /> */}
       </section>
     </>
   );
