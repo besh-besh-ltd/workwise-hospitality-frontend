@@ -500,3 +500,71 @@ export const getTechClearedVendorsResult = (payload) => {
     }
   });
 };
+
+export const getRfqChartData = (filter) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/rfq-chart-data?chart_filter=${filter}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getTopVendorsandProducts = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/dashboard-top-vendors-and-products`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getFinalizedVendorsList = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/dashboard-finalized-vendors`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getFinalizedProductsList = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/dashboard-finalized-products`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getAnalyticsChartData = (filter, type, product_id, vendor_ids) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(
+        `/users/get-dashboard-Analytics?chart_filter=${filter}&data_type=${type}${ product_id ? `&product=${product_id}` : `` }${ vendor_ids ? `&vendor=${vendor_ids}` : `` }`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const searchVendorByName = (vendor_name) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/users/dashboard-search-vendor`, {vendor_name});
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
