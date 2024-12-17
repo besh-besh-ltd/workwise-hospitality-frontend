@@ -501,10 +501,10 @@ export const getTechClearedVendorsResult = (payload) => {
   });
 };
 
-export const getRfqChartData = (filter) => {
+export const getRfqChartData = (filter, project_id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/rfq-chart-data?chart_filter=${filter}`);
+      let response = await axiosInstance.get(`/rfq/rfq-chart-data?chart_filter=${filter}${project_id ? `&project=${project_id}` : ``}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
