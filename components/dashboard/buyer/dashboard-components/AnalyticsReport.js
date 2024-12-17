@@ -27,21 +27,7 @@ const AnalyticsReport = () => {
                 selectedProduct?.value,
                 selectedVendors.map((item) => item?.value).join(',')
             );
-
-            const groupedData = res.data.reduce((acc, { date, company_name, organization_name, name, data_value }) => {
-                const vendor_name = company_name || organization_name || name;
-                let dateMonthEntry = acc.find(entry => entry.date === date);
-
-                if (!dateMonthEntry) {
-                    dateMonthEntry = { date, vendors: [] };
-                    acc.push(dateMonthEntry);
-                }
-
-                dateMonthEntry.vendors.push({ vendor_name, data_value });
-                return acc;
-            }, []);
-
-            generateChartData(groupedData);
+            generateChartData(res.data);
         } catch (error) {
             toast.error(error.message);
         } finally {
@@ -97,7 +83,20 @@ const AnalyticsReport = () => {
         const title = Utils.CHART_TITLE({ labelType: filter.value });
         const { result: actualDates, labels: fullDateRange } = Utils.DATE_RANGE({ rangeType: filter.value });
 
-        const vendorNames = [...new Set(api_data.flatMap(item => item.vendors.map(vendor => vendor.vendor_name)))];
+        const dateMap = {};
+        api_data.forEach(({ date, company_name, organization_name, name, data_value }) => {
+            const vendor_name = company_name || organization_name || name;
+            const key = (filter.value === 'past3months' || filter.value === 'past6months' || filter.value === 'wholeYear')
+                ? `${date}-01`
+                : date;
+
+            if (!dateMap[key]) dateMap[key] = {};
+            dateMap[key][vendor_name] = (dateMap[key][vendor_name] || 0) + parseInt(data_value, 10);
+        });
+
+        const vendorNames = [...new Set(api_data.map(
+            ({ company_name, organization_name, name }) => company_name || organization_name || name
+        ))];
 
         const dateDataMap = actualDates.reduce((acc, date) => {
             acc[date] = vendorNames.reduce((vendorAcc, vendor) => {
@@ -107,54 +106,33 @@ const AnalyticsReport = () => {
             return acc;
         }, {});
 
-        if (filter.value === 'past3months' || filter.value === 'past6months' || filter.value === 'wholeYear') {
-            // Monthly data
-            api_data.forEach(item => {
-                const formattedMonth = new Date(`${item.date}-01`).toLocaleDateString('en-IN');
-                item.vendors.forEach(vendor => {
-                    if (dateDataMap[formattedMonth]) {
-                        dateDataMap[formattedMonth][vendor.vendor_name] = parseInt(vendor.data_value, 10);
-                    }
+        Object.entries(dateMap).forEach(([date, vendors]) => {
+            const formattedDate = new Date(date).toLocaleDateString('en-IN');
+            if (dateDataMap[formattedDate]) {
+                Object.entries(vendors).forEach(([vendor_name, data_value]) => {
+                    dateDataMap[formattedDate][vendor_name] = data_value;
                 });
-            });
-        } else {
-            // Date-wise data
-            api_data.forEach(item => {
-                const formattedDate = new Date(item.date).toLocaleDateString('en-IN');
-                item.vendors.forEach(vendor => {
-                    if (dateDataMap[formattedDate]) {
-                        dateDataMap[formattedDate][vendor.vendor_name] = parseInt(vendor.data_value, 10);
-                    }
-                });
-            });
-        }
-
-        const vendorMap = vendorNames.reduce((acc, vendor) => {
-            acc[vendor] = Object.keys(dateDataMap).map(date => dateDataMap[date][vendor] || 0);
-            return acc;
-        }, {});
-
-        let dataSets = vendorNames.map(vendor => {
-            const color = Utils.getRandomColor();
-            return {
-                label: vendor,
-                data: vendorMap[vendor],
-                backgroundColor: color,
-                borderColor: color,
-                fill: false,
             }
         });
 
-        if (chartType.value === 'cubic') {
-            dataSets = dataSets.map((item) => (
-                { ...item, tension: 0.4 }
-            ))
-        }
+        const sortedDates = actualDates.sort((a, b) => new Date(a) - new Date(b));
+
+        const dataSets = vendorNames.map(vendor => {
+            const color = Utils.getRandomColor();
+            return {
+                label: vendor,
+                data: sortedDates.map(date => dateDataMap[date][vendor] || 0),
+                backgroundColor: color,
+                borderColor: color,
+                fill: false,
+                ...(chartType.value === 'cubic' && { tension: 0.4 }),
+            };
+        });
 
         setChartTitle(title);
         setChartData({
             labels: fullDateRange,
-            datasets: dataSets
+            datasets: dataSets,
         });
     };
 
