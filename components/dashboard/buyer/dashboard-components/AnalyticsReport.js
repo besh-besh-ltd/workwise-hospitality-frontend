@@ -13,7 +13,7 @@ const AnalyticsReport = () => {
     const [chartTitle, setChartTitle] = useState('');
     const [filter, setFilter] = useState({ label: 'Last 7 days', value: 'past7days' });
     const [chartType, setChartType] = useState({ label: 'Bar Chart', value: 'bar' });
-    const [dataType, setDataType] = useState({ label: 'Finalized Quotes', value: 'quotes' });
+    const [dataType, setDataType] = useState({ label: 'Finalized Quotes Count', value: 'quotes' });
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedVendors, setSelectedVendors] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -210,12 +210,12 @@ const AnalyticsReport = () => {
                             <div className="col-md-3 my-4">
                                 <Select
                                     options={[
-                                        { label: 'Finalized Quotes', value: 'quotes' },
-                                        { label: 'Quotes Costing', value: 'quote_costing' },
+                                        { label: 'Finalized Quotes Count', value: 'quotes' },
+                                        { label: 'Finalized Quotes Costing', value: 'quote_costing' },
                                     ]}
                                     onChange={handleChange}
                                     value={dataType}
-                                    defaultValue={{ label: 'Finalized Quotes', value: 'quotes' }}
+                                    defaultValue={{ label: 'Finalized Quotes Count', value: 'quotes' }}
                                     name="cost_type"
                                     className="text-sm w-100 mb-2"
                                     placeholder="Choose Range"
