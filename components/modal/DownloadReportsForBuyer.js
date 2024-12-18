@@ -28,9 +28,9 @@ const DownloadReportsForBuyer = (props) => {
   const [projectOptions, setProjectOptions] = useState([]);
   const [latestReportFile, setLatestReportFile] = useState(null);
   const [loadingState, setLoadingState] = useState(""); // "generate", "download", "email"
-
   const productOptions = ["Temperature (T) Instruments", "WATER MONITOR"];
 
+  
   useEffect(() => {
     getAllProjects();
 
@@ -40,6 +40,8 @@ const DownloadReportsForBuyer = (props) => {
     };
   }, [props.isOpen]);
 
+
+  // input changes for states
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     switch (name) {
@@ -50,6 +52,7 @@ const DownloadReportsForBuyer = (props) => {
           [name]: value,
         }));
         setLatestReportFile(null);
+        setEmail("");
         break;
       case "email":
         setEmail(value);
@@ -58,14 +61,18 @@ const DownloadReportsForBuyer = (props) => {
         setReportType(value);
         setSelection(""); // Reset selection when changing report type
         setLatestReportFile(null);
+        setEmail("");
         break;
       case "selection":
         setSelection(value);
         setLatestReportFile(null);
+        setEmail("");
         break;
     }
   };
 
+
+  // handel send report file to user
   const handleEmailSend = () => {
     if (!latestReportFile || !(latestReportFile instanceof Blob)) {
       toast.error("Invalid file. Please regenerate the report.");
@@ -81,9 +88,9 @@ const DownloadReportsForBuyer = (props) => {
 
     // Dynamically generate the filename
     const dynamicFileName =
-      reportType === "projectWise"
-        ? `Project_Report_${selection || "All_Projects"}.zip`
-        : `Product_Report_${selection || "All_Products"}.xlsx`;
+    reportType === "projectWise"
+    ? `${getProjectNameById(selection) || "Projects"} from ${dateRange.startDate} to ${dateRange.endDate}.zip`
+    : `${selection || "Products"} from ${dateRange.startDate} to ${dateRange.endDate}.xlsx`;
 
     const formData = new FormData();
     formData.append("file", latestReportFile, dynamicFileName);
@@ -103,6 +110,8 @@ const DownloadReportsForBuyer = (props) => {
       });
   };
 
+
+  //  create select options for project and products
   const getSelectionOptions = () => {
     const defaultOption = (
       <option key="default" value="" disabled>
@@ -148,6 +157,9 @@ const DownloadReportsForBuyer = (props) => {
       });
   };
 
+
+  // once received response from API, generate repoprt file
+  // excel for product and zip for project
   const handelGenerateReport = async () => {
     if (reportType === "projectWise") {
       if (!selection) {
@@ -200,6 +212,8 @@ const DownloadReportsForBuyer = (props) => {
     setLoadingState("");
   };
 
+
+    // handel create excel for product report - part of product report
   const createProductWiseExcelReport = (productData) => {
     const wb = XLSX.utils.book_new(); // Create a new workbook
 
@@ -269,6 +283,8 @@ const DownloadReportsForBuyer = (props) => {
     // return buffer;
   };
 
+
+    // handel create excel for project details - part of project report
   const createProjectDetailExcel = (project) => {
     const wb = XLSX.utils.book_new();
     const projectData = [
@@ -287,6 +303,8 @@ const DownloadReportsForBuyer = (props) => {
     return XLSX.write(wb, { type: "buffer" });
   };
 
+
+  // handel create excel for rfq's - part of project report
   const createProjectRfqDetailsExcel = (rfq) => {
     const wb = XLSX.utils.book_new();
     const rfqData = [
@@ -364,6 +382,8 @@ const DownloadReportsForBuyer = (props) => {
     return XLSX.write(wb, { type: "buffer" });
   };
 
+
+    // handel create zip file for projectm rfqDetails and project excel file - part of project report
   const createProjectReportZip = async (projectDetailsData) => {
     const zip = new JSZip();
 
@@ -406,6 +426,8 @@ const DownloadReportsForBuyer = (props) => {
     return content; // Return the Blob to store in state
   };
 
+
+  // handel create excel for quotations - part of project report
   function createProjectQuotesDetailsExcel(rfqArray, index) {
     // Create a new workbook and add a worksheet
     const workbook = XLSX.utils.book_new();
@@ -480,15 +502,15 @@ const DownloadReportsForBuyer = (props) => {
     return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   }
 
-  // download in user system
+  // download generated report in user system
   const handleDownloadFile = () => {
     setLoadingState("download");
 
     if (latestReportFile) {
       const fileName =
-        reportType === "projectWise"
-          ? `Project_Report_${selection || "All_Projects"}.zip`
-          : `Product_Report_${selection || "All_Products"}.xlsx`;
+      reportType === "projectWise"
+      ? `${getProjectNameById(selection) || "Projects"} from ${dateRange.startDate} to ${dateRange.endDate} project report.zip`
+      : `${selection || "Products"} from ${dateRange.startDate} to ${dateRange.endDate} product report.xlsx`;
 
       saveAs(latestReportFile, fileName); // Download the file
     }
@@ -496,6 +518,13 @@ const DownloadReportsForBuyer = (props) => {
     setLoadingState("");
   };
 
+
+  // filter project name by project id
+  const getProjectNameById = (projectId) => {
+    const project = projectOptions.filter(p => p.value == projectId);
+    return project ? project[0].label : "Project";
+};
+  
   return (
     <Modal
       isOpen={props.isOpen}
