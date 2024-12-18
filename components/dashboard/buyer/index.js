@@ -70,8 +70,10 @@ const BuyerPage = () => {
       </section>
 
       <section className="buyer-sec-1">
-        {/* <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
+        <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
           <h3 className="fs-4 fw-medium mb-3">Summary</h3>
+
+          {/* RFQ summary */}
           <div className="row">
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
@@ -104,20 +106,20 @@ const BuyerPage = () => {
                       ? dashboardData?.active_rfqs
                       : 0}
                   </h2>
-                  <span>Active RFQs</span>
+                  <span>Total Active RFQs</span>
                 </div>
-                <div className="detail-con-icon p-order">
+                <div className="detail-con-icon buy">
                   <Image
-                    src="/assets/images/p-order-icon.png"
+                    src="/assets/images/buy-icon.png"
                     alt="Workwise"
-                    width={26}
+                    width={30}
                     height={30}
                     priority={true}
                   />
                 </div>
               </div>
             </div>
-            <div className="col-md-3 buyer-col hasFullLoader">
+            {/* <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
               <div className="detail-con ">
                 <div className="detail-con-text">
@@ -162,7 +164,7 @@ const BuyerPage = () => {
                   />
                 </div>
               </div>
-            </div>
+            </div> */}
             <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
               <div className="detail-con ">
@@ -174,18 +176,17 @@ const BuyerPage = () => {
                   </h2>
                   <span>Quotes for Active RFQs</span>
                 </div>
-                <div className="detail-con-icon reject">
+                <div className="detail-con-icon buy">
                   <Image
-                    src="/assets/images/reject-icon.png"
+                    src="/assets/images/order.png"
                     alt="Workwise"
-                    width={24}
+                    width={30}
                     height={30}
                     priority={true}
                   />
                 </div>
               </div>
             </div>
-//  <DownloadReportsForBuyer isOpen={true} /> 
             <div className="col-lg-3 col-md-6 buyer-col hasFullLoader">
               {loading && <FullLoader />}
               <div className="detail-con ">
@@ -208,7 +209,7 @@ const BuyerPage = () => {
                 </div>
               </div>
             </div>
-            <div className="col-md-3 buyer-col hasFullLoader">
+            {/* <div className="col-md-3 buyer-col hasFullLoader">
               {loading && <FullLoader />}
               <div className="detail-con ">
                 <div className="detail-con-text">
@@ -230,17 +231,89 @@ const BuyerPage = () => {
                   />
                 </div>
               </div>
+            </div> */}
+
+          </div>
+
+          {/* Project Summary */}
+          <div className="row">
+            <div className="col-md-3 buyer-col hasFullLoader">
+              {loading && <FullLoader />}
+              <div className="detail-con ">
+                <div className="detail-con-text">
+                  <h2>
+                    {dashboardData?.total_projects
+                      ? dashboardData?.total_projects
+                      : 0}
+                  </h2>
+                  <span>Total Projects</span>
+                </div>
+                <div className="detail-con-icon p-order">
+                  <Image
+                    src="/assets/images/p-order-icon.png"
+                    alt="Workwise"
+                    width={26}
+                    height={30}
+                    priority={true}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3 buyer-col hasFullLoader">
+              {loading && <FullLoader />}
+              <div className="detail-con ">
+                <div className="detail-con-text">
+                  <h2>
+                    {dashboardData?.active_projects
+                      ? dashboardData?.active_projects
+                      : 0}
+                  </h2>
+                  <span>Total Active Projects</span>
+                </div>
+                <div className="detail-con-icon buy">
+                  <Image
+                    src="/assets/images/buy-icon.png"
+                    alt="Workwise"
+                    width={30}
+                    height={30}
+                    priority={true}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="col-lg-3 col-md-6 buyer-col hasFullLoader">
+              {loading && <FullLoader />}
+              <div className="detail-con ">
+                <div className="detail-con-text">
+                  <h2>
+                    {dashboardData?.closed_projects
+                      ? dashboardData?.closed_projects
+                      : 0}
+                  </h2>
+                  <span>Closed Projects</span>
+                </div>
+                <div className="detail-con-icon reject">
+                  <Image
+                    src="/assets/images/reject-icon.png"
+                    alt="Workwise"
+                    width={24}
+                    height={30}
+                    priority={true}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div> */}
+        </div>
 
         <RfqOverview
-            tableRfqData={dashboardData?.rfq_data}
-            notificationData={dashboardData?.notificaiton_data}
-            tableLoading={loading}
-          />
-          <VendorOverview />
-          {/* <AnalyticsReport /> */}
+          tableRfqData={dashboardData?.rfq_data}
+          notificationData={dashboardData?.notificaiton_data}
+          tableLoading={loading}
+        />
+        <VendorOverview />
+        {/* <AnalyticsReport /> */}
+        {/* <DownloadReportsForBuyer isOpen={true} /> */}
       </section>
     </>
   );
