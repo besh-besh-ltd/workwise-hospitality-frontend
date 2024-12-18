@@ -161,6 +161,12 @@ const DownloadReportsForBuyer = (props) => {
   // once received response from API, generate repoprt file
   // excel for product and zip for project
   const handelGenerateReport = async () => {
+
+    if (new Date(dateRange.startDate) > new Date(dateRange.endDate)) {
+      toast.error("The end date cannot be before the start date.");
+      return;
+  }
+
     if (reportType === "projectWise") {
       if (!selection) {
         toast.error("Select a project name to generate report");
