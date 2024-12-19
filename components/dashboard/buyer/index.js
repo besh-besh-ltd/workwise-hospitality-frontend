@@ -7,14 +7,18 @@ import RfqOverview from "./dashboard-components/RfqOverview";
 import VendorOverview from "./dashboard-components/VendorOverview";
 import AnalyticsReport from "./dashboard-components/AnalyticsReport";
 import { toast } from "react-toastify";
+import DownloadReportsForBuyer from "@/components/modal/DownloadReportsForBuyer";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFileDownload } from "@fortawesome/free-solid-svg-icons";
 
-// import DownloadReportsFozrBuyer from "@/components/modal/DownloadReportsForBuyer"
+
 
 const BuyerPage = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
+  const [openDownloadReports, setOpenDownloadReports] = useState(false);
 
 
   const getData = async () => {
@@ -71,7 +75,18 @@ const BuyerPage = () => {
 
       <section className="buyer-sec-1">
         <div className="container-fluid rounded-2 shadow p-4 mb-4 h-100 hasFullLoader">
-          <h3 className="fs-4 fw-medium mb-3">Summary</h3>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h2 className="fs-4 fw-medium mb-0">Summary</h2>
+            <button
+              type="button"
+              className="btn btn-primary border-0 py-2"
+              style={{ width: "200px" }}
+              onClick={() => setOpenDownloadReports(true)}
+            >
+              <FontAwesomeIcon icon={faFileDownload} className="me-2" />
+              Download Report
+            </button>
+          </div>
 
           {/* RFQ summary */}
           <div className="row">
@@ -313,7 +328,13 @@ const BuyerPage = () => {
         />
         <VendorOverview />
         {/* <AnalyticsReport /> */}
-        {/* <DownloadReportsForBuyer isOpen={true} /> */}
+
+
+        {openDownloadReports &&
+          <DownloadReportsForBuyer
+            isOpen={openDownloadReports}
+            closeModal={() => setOpenDownloadReports(false)}
+          />}
       </section>
     </>
   );

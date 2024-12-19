@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Modal from "react-modal";
+import Select, { components } from 'react-select';
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -16,29 +17,44 @@ import {
   faEnvelope,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { approvedProductList } from "@/services/products";
+import { debounce } from "lodash";
+
+
+// Custom styles for Product Select Component
+const customStyles = {
+  option: (provided, state) => ({
+    ...provided,
+    marginBottom: '1px solid #000',
+    color: state.isSelected ? '#0d6efd' : '#212529',
+    backgroundColor: state.isSelected ? '#f0f0f0' : provided.backgroundColor,
+  }),
+};
+
+// Modified Select Component to show category along with Product Name
+const CustomSelectOption = (props) => (
+  <components.Option {...props}>
+    <div>
+      {props.data.label}
+      <br />
+      <small>{props.data.categories}</small>
+    </div>
+  </components.Option>
+);
 
 const DownloadReportsForBuyer = (props) => {
+  const [reportType, setReportType] = useState("projectWise");
   const [dateRange, setDateRange] = useState({
     startDate: "2023-01-01",
     endDate: new Date().toISOString().split("T")[0],
   });
-  const [reportType, setReportType] = useState("projectWise");
   const [email, setEmail] = useState("");
-  const [selection, setSelection] = useState("");
-  const [projectOptions, setProjectOptions] = useState([]);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [options, setOptions] = useState([]);
+  const [productList, setProductList] = useState([]);
   const [latestReportFile, setLatestReportFile] = useState(null);
   const [loadingState, setLoadingState] = useState(""); // "generate", "download", "email"
-  const productOptions = ["Temperature (T) Instruments", "WATER MONITOR"];
-
-  
-  useEffect(() => {
-    getAllProjects();
-
-    document.body.style.overflow = props.isOpen ? "hidden" : "auto";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, [props.isOpen]);
+  const [optionLoading, setOptionLoading] = useState(false);
 
 
   // input changes for states
@@ -59,7 +75,8 @@ const DownloadReportsForBuyer = (props) => {
         break;
       case "reportType":
         setReportType(value);
-        setSelection(""); // Reset selection when changing report type
+        setOptions([]);
+        setSelectedOption(null);
         setLatestReportFile(null);
         setEmail("");
         break;
@@ -70,7 +87,6 @@ const DownloadReportsForBuyer = (props) => {
         break;
     }
   };
-
 
   // handel send report file to user
   const handleEmailSend = () => {
@@ -88,9 +104,9 @@ const DownloadReportsForBuyer = (props) => {
 
     // Dynamically generate the filename
     const dynamicFileName =
-    reportType === "projectWise"
-    ? `${getProjectNameById(selection) || "Projects"} from ${dateRange.startDate} to ${dateRange.endDate}.zip`
-    : `${selection || "Products"} from ${dateRange.startDate} to ${dateRange.endDate}.xlsx`;
+      reportType === "projectWise"
+        ? `${selectedOption.label || "Projects"} from ${dateRange.startDate} to ${dateRange.endDate}.zip`
+        : `${selectedOption.label || "Products"} from ${dateRange.startDate} to ${dateRange.endDate}.xlsx`;
 
     const formData = new FormData();
     formData.append("file", latestReportFile, dynamicFileName);
@@ -110,52 +126,69 @@ const DownloadReportsForBuyer = (props) => {
       });
   };
 
-
-  //  create select options for project and products
-  const getSelectionOptions = () => {
-    const defaultOption = (
-      <option key="default" value="" disabled>
-        Select
-      </option>
-    );
-
-    if (reportType === "productWise") {
-      return [
-        defaultOption,
-        ...productOptions.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        )),
-      ];
-    } else if (reportType === "projectWise") {
-      return [
-        defaultOption,
-        ...projectOptions.map((option) => (
-          <option key={option.value + option.label} value={option.value}>
-            {option.label}
-          </option>
-        )),
-      ];
-    } else {
-      return null; // No selection for other types
+  // Fetch project options
+  const fetchProjectList = async () => {
+    try {
+      setOptionLoading(true);
+      const res = await getProjectList();
+      const formattedProjects = res.data.map((item) => ({
+        label: item.name,
+        value: item.id,
+      }));
+      setOptions(formattedProjects);
+    } catch (error) {
+      toast.error(error.message);
+      console.error("Error fetching project list:", error);
+    } finally {
+      setOptionLoading(false);
     }
   };
 
-  // get project list
-  const getAllProjects = () => {
-    getProjectList()
-      .then((res) => {
-        let d = [];
-        res.data.map((item) => {
-          d.push({ label: item.name, value: item.id });
-        });
-        setProjectOptions(d);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
+  // Function to format product data along with it's categories 
+  const formatGroupedData = (groupedData) => {
+    return Object.values(groupedData).flatMap(items =>
+      items.map(item => ({
+        value: item.id,
+        label: item.name,
+        categories: item.product_categories.map(cat => cat.category_name).join(" | ")
+      }))
+    );
+  }
+
+  const groupBySlug = (data) => {
+    const groupedData = data.reduce((acc, item) => {
+      const slug = item.slug;
+      if (!acc[slug]) acc[slug] = [];
+
+      const isUnique = !acc[slug].some((existingItem) =>
+        JSON.stringify(existingItem.product_categories) === JSON.stringify(item.product_categories)
+      );
+      if (isUnique) acc[slug].push(item);
+      return acc;
+    }, {});
+    return formatGroupedData(groupedData);
+  }
+
+
+  // Debounced product search
+  const fetchProducts = useCallback(
+    debounce(async (inputValue) => {
+      setOptions([])
+      if (inputValue.length > 2) {
+        setOptionLoading(true);
+        approvedProductList(20, 1, inputValue)
+          .then((res) => {
+            const product_options = groupBySlug(res.data);
+            setOptions(product_options);
+            setProductList(res.data);
+          })
+          .catch((error) => {
+            toast.error(error.message);
+            console.log(error);
+          })
+          .finally(() => setOptionLoading(false));
+      }
+    }, 500), []);
 
 
   // once received response from API, generate repoprt file
@@ -165,10 +198,10 @@ const DownloadReportsForBuyer = (props) => {
     if (new Date(dateRange.startDate) > new Date(dateRange.endDate)) {
       toast.error("The end date cannot be before the start date.");
       return;
-  }
+    }
 
     if (reportType === "projectWise") {
-      if (!selection) {
+      if (!selectedOption) {
         toast.error("Select a project name to generate report");
         return;
       }
@@ -176,7 +209,7 @@ const DownloadReportsForBuyer = (props) => {
       setLoadingState("generate");
 
       const payload = {
-        projectId: selection,
+        projectId: selectedOption.value,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       };
@@ -191,7 +224,7 @@ const DownloadReportsForBuyer = (props) => {
         console.error("Error generating ZIP report:", error);
       }
     } else if (reportType === "productWise") {
-      if (!selection) {
+      if (!selectedOption) {
         toast.error("Select a product name to generate report");
         return;
       }
@@ -199,7 +232,8 @@ const DownloadReportsForBuyer = (props) => {
       setLoadingState("generate");
 
       const payload = {
-        productName: selection,
+        productName: selectedOption.label,
+        productCategory: productList.find((prodItem)=> prodItem.id === selectedOption.value).product_categories[0]?.id,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       };
@@ -219,7 +253,7 @@ const DownloadReportsForBuyer = (props) => {
   };
 
 
-    // handel create excel for product report - part of product report
+  // handel create excel for product report - part of product report
   const createProductWiseExcelReport = (productData) => {
     const wb = XLSX.utils.book_new(); // Create a new workbook
 
@@ -290,7 +324,7 @@ const DownloadReportsForBuyer = (props) => {
   };
 
 
-    // handel create excel for project details - part of project report
+  // handel create excel for project details - part of project report
   const createProjectDetailExcel = (project) => {
     const wb = XLSX.utils.book_new();
     const projectData = [
@@ -389,7 +423,7 @@ const DownloadReportsForBuyer = (props) => {
   };
 
 
-    // handel create zip file for projectm rfqDetails and project excel file - part of project report
+  // handel create zip file for projectm rfqDetails and project excel file - part of project report
   const createProjectReportZip = async (projectDetailsData) => {
     const zip = new JSZip();
 
@@ -514,9 +548,9 @@ const DownloadReportsForBuyer = (props) => {
 
     if (latestReportFile) {
       const fileName =
-      reportType === "projectWise"
-      ? `${getProjectNameById(selection) || "Projects"} from ${dateRange.startDate} to ${dateRange.endDate} project report.zip`
-      : `${selection || "Products"} from ${dateRange.startDate} to ${dateRange.endDate} product report.xlsx`;
+        reportType === "projectWise"
+          ? `${selectedOption.label || "Projects"} from ${dateRange.startDate} to ${dateRange.endDate} project report.zip`
+          : `${selectedOption.label || "Products"} from ${dateRange.startDate} to ${dateRange.endDate} product report.xlsx`;
 
       saveAs(latestReportFile, fileName); // Download the file
     }
@@ -529,12 +563,20 @@ const DownloadReportsForBuyer = (props) => {
   const getProjectNameById = (projectId) => {
     const project = projectOptions.filter(p => p.value == projectId);
     return project ? project[0].label : "Project";
-};
-  
+  };
+
+  useEffect(() => {
+    if (reportType === "projectWise") {
+      fetchProjectList();
+    }
+  }, [reportType]);
+
+
   return (
     <Modal
       isOpen={props.isOpen}
-      ariaHideApp={false}
+      onRequestClose={props.closeModal}
+      shouldCloseOnOverlayClick={true}
       contentLabel="Download Reports"
       className="report-download-modal"
       style={{
@@ -547,7 +589,7 @@ const DownloadReportsForBuyer = (props) => {
           left: "50%",
           transform: "translate(-50%, -50%)",
           maxWidth: "90vw",
-          width: "600px",
+          width: "700px",
           border: "none",
           background: "#fff",
           borderRadius: "10px",
@@ -572,7 +614,7 @@ const DownloadReportsForBuyer = (props) => {
             className="close"
             data-dismiss="modal"
             aria-label="Close"
-            onClick={props.onRequestClose}
+            onClick={props.closeModal}
           >
             <span aria-hidden="true">&times;</span>
           </button>
@@ -596,21 +638,31 @@ const DownloadReportsForBuyer = (props) => {
               {reportType === "productWise" || reportType === "projectWise" ? (
                 <div className="w-100">
                   <label htmlFor="selection">
-                    {` ${
-                      reportType === "projectWise"
-                        ? "Select Project "
-                        : "Select Product"
-                    } `}
+                    {reportType === "projectWise" ? "Select Project" : "Select Product"}
                   </label>
-                  <select
-                    id="selection"
-                    className="form-control"
+                  <Select
                     name="selection"
-                    value={selection}
-                    onChange={handleInputChange}
-                  >
-                    {getSelectionOptions()}
-                  </select>
+                    options={options}
+                    value={selectedOption}
+                    onInputChange={(inputValue) => {
+                      const sanitizedInput = typeof inputValue === "string" ? inputValue : "";
+                      reportType === "productWise" && fetchProducts(sanitizedInput);
+                    }}
+                    onChange={(selectedOption) => setSelectedOption(selectedOption)}
+                    {...(reportType === "productWise" && {
+                      components: { Option: CustomSelectOption },
+                    })}
+                    styles={customStyles}
+                    isLoading={optionLoading}
+                    placeholder={
+                      reportType === "productWise"
+                        ? "Search product..."
+                        : "Choose project..."
+                    }
+                    noOptionsMessage={() => (reportType === "productWise" && options.length == 0) ? "Enter atleast 3 chracters" : "No options Found"}
+                    isSearchable
+                    isClearable
+                  />
                 </div>
               ) : null}
             </div>
@@ -655,10 +707,9 @@ const DownloadReportsForBuyer = (props) => {
                   </>
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faDownload} />
-                    {`Download ${
-                      reportType === "projectWise" ? "Project" : "Product"
-                    } Report`}
+                    <FontAwesomeIcon icon={faDownload} className="me-2" />
+                    {`Download ${reportType === "projectWise" ? "Project" : "Product"
+                      } Report`}
                   </>
                 )}
               </button>
