@@ -202,83 +202,24 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
 
     return (
         <section className='hasFullloader mb-3'>
-            <div className="row mb-3 align-items-stretch">
+            <div className="row mb-3 align-items-stretch ">
 
-                {/* RFQ Overview */}
-                <div className="overview-container col-md-3 pe-2">
-                    <div className="rounded-2 shadow p-4 h-100 hasFullLoader">
-                        <h2 className="fs-4 fw-medium mb-1">RFQ Overview</h2>
-                        {loading && <FullLoader />}
-
-                        {selectedProject && <p className="text-sm fw-semibold mb-0" >{selectedProject.label}</p>}
-                        <p className="text-sm fw-medium" >{chartTitle.split(/from |for the |for /)[1]}</p>
-                        <div className="d-flex flex-column justify-content-between gap-2">
-                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium mb-0">
-                                        {rfqData ? (rfqData.new_rfqs || 0) : 0}
-                                        <span className="d-block fs-6">New RFQs</span>
-                                    </h3>
-                                    <FontAwesomeIcon icon={faCartPlus} fontSize={28} />
-                                </div>
+                <div className="RFQ-section col-md-12">
+                    <div className="rounded-2 shadow p-4">
+                        <div className="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h2 className="fs-4 fw-medium mb-0">RFQ Overview</h2>
+                                {selectedProject && <p className="text-sm fw-semibold mb-0" >{selectedProject.label}</p>}
+                                <p className="text-sm fw-medium" >{chartTitle.split(/from |for the |for /)[1]}</p>
                             </div>
 
-                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium mb-0">
-                                        {rfqData ? (rfqData.quotes_received || 0) : 0}
-                                        <span className="d-block fs-6">Quotes Received</span>
-                                    </h3>
-                                    <FontAwesomeIcon icon={faStopwatch} fontSize={28} />
-                                </div>
-                            </div>
-
-                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium mb-0">
-                                        {rfqData ? (rfqData.completed_rfqs || 0) : 0}
-                                        <span className="d-block fs-6">Completed RFQs</span>
-                                    </h3>
-                                    <FontAwesomeIcon icon={faCheckToSlot} fontSize={28} />
-                                </div>
-                            </div>
-
-                            <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
-                                <div className="d-flex justify-content-between align-items-center">
-                                    <h3 className="fs-4 fw-medium mb-0">
-                                        {rfqData ? (rfqData.closed_rfqs || 0) : 0}
-                                        <span className="d-block fs-6">Closed RFQs</span>
-                                    </h3>
-                                    <FontAwesomeIcon icon={faRectangleXmark} fontSize={28} />
-                                </div>
-                            </div>
-
-                            <div className="d-flex justify-content-center mt-2">
-                                <Link
-                                    href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                    className="btn btn-primary border-0 py-2"
-                                >
-                                    Create New RFQ
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* RFQ Chart */}
-                <div className="rfq-chart-container col-md-9 ps-2">
-                    <div className="bg-white shadow rounded-2 p-4 h-100 hasFullLoader">
-                        {loading && <FullLoader />}
-                        <div className="d-flex justify-content-between align-items-center mb-4">
-                            <h3 className="fs-4 fw-medium mb-0">RFQ Stats</h3>
-
-                            <div className="col-md-8 d-flex justify-content-between gap-2">
+                            <div className="col-md-7 d-flex justify-content-between gap-2">
                                 <AsyncSelect
                                     cacheOptions
                                     loadOptions={getAllProjects}
                                     defaultOptions
                                     name="project_select"
-                                    className="text-sm w-100 mb-2"
+                                    className="text-sm w-100"
                                     onChange={handleChange}
                                     value={selectedProject}
                                     placeholder="Choose Project"
@@ -298,7 +239,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     value={chartType}
                                     defaultValue={{ label: 'Cubic Line Chart', value: 'cubic' }}
                                     name="chart_type"
-                                    className="text-sm w-100"
+                                    className="text-sm w-50"
                                     placeholder="Choose Type"
                                     isClearable={false}
                                 />
@@ -315,20 +256,86 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     value={filter}
                                     defaultValue={{ label: 'Last 7 days', value: 'past7days' }}
                                     name="date_range"
-                                    className="text-sm w-100"
+                                    className="text-sm w-50"
                                     placeholder="Choose Range"
                                     isClearable={false}
                                 />
 
                             </div>
                         </div>
-                        {chartData &&
-                            <ChartComponent
-                                key={JSON.stringify(chartData.datasets)}
-                                data={chartData}
-                                chartTitle={chartTitle}
-                                chartType={chartType.value === 'cubic' ? 'line' : chartType.value}
-                            />}
+
+                        <div className="row">
+                            {/* RFQ Overview */}
+                            <div className="overview-container col-md-3 pe-2">
+                                <div className="h-100 hasFullLoader">
+                                    {loading && <FullLoader />}
+                                    <div className="d-flex flex-column justify-content-between gap-2">
+                                        <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <h3 className="fs-4 fw-medium mb-0">
+                                                    {rfqData ? (rfqData.new_rfqs || 0) : 0}
+                                                    <span className="d-block fs-6">New RFQs</span>
+                                                </h3>
+                                                <FontAwesomeIcon icon={faCartPlus} fontSize={28} />
+                                            </div>
+                                        </div>
+
+                                        <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <h3 className="fs-4 fw-medium mb-0">
+                                                    {rfqData ? (rfqData.quotes_received || 0) : 0}
+                                                    <span className="d-block fs-6">Quotes Received</span>
+                                                </h3>
+                                                <FontAwesomeIcon icon={faStopwatch} fontSize={28} />
+                                            </div>
+                                        </div>
+
+                                        <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <h3 className="fs-4 fw-medium mb-0">
+                                                    {rfqData ? (rfqData.completed_rfqs || 0) : 0}
+                                                    <span className="d-block fs-6">Completed RFQs</span>
+                                                </h3>
+                                                <FontAwesomeIcon icon={faCheckToSlot} fontSize={28} />
+                                            </div>
+                                        </div>
+
+                                        <div className="border border-dark rounded-4 px-4 py-3 opacity-75">
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <h3 className="fs-4 fw-medium mb-0">
+                                                    {rfqData ? (rfqData.closed_rfqs || 0) : 0}
+                                                    <span className="d-block fs-6">Closed RFQs</span>
+                                                </h3>
+                                                <FontAwesomeIcon icon={faRectangleXmark} fontSize={28} />
+                                            </div>
+                                        </div>
+
+                                        <div className="d-flex justify-content-center mt-2">
+                                            <Link
+                                                href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                                                className="btn btn-primary border-0 py-2"
+                                            >
+                                                Create New RFQ
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RFQ Chart */}
+                            <div className="rfq-chart-container col-md-9 ps-2">
+                                <div className="h-100 hasFullLoader">
+                                    {loading && <FullLoader />}
+                                    {chartData &&
+                                        <ChartComponent
+                                            key={JSON.stringify(chartData.datasets)}
+                                            data={chartData}
+                                            chartTitle={chartTitle}
+                                            chartType={chartType.value === 'cubic' ? 'line' : chartType.value}
+                                        />}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -395,7 +402,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                                 {rfq.unseen_query_count > 0 &&
                                                                     <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                                                                         + {rfq.unseen_query_count}
-                                                                        <span class="visually-hidden">unread messages</span>
+                                                                        <span className="visually-hidden">unread messages</span>
                                                                     </span>}
                                                             </Link>
                                                         </td>
@@ -466,16 +473,22 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                         <div className="notification-section list-group h-100 overflow-y-auto" style={{ maxHeight: "450px" }}>
                             {notificationData && notificationData.length > 0
                                 ? notificationData.map((notification) => (
-                                    <div class="card mb-1">
-                                        <div class="card-body p-2">
-                                            <h3 class="card-title fs-6 fw-semibold my-1">{notification?.notification_type == 'rfq_created'
+                                    <Link
+                                        href={notification.notification_type === 'rfq_created'
+                                            ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${notification.id}`
+                                            : `/dashboard/buyer/quote-compare?rfq=${notification.id}`
+                                        }
+                                        className="notification-card card mb-1"
+                                    >
+                                        <div className="card-body p-2">
+                                            <h3 className="card-title fs-6 fw-semibold my-1">{notification?.notification_type == 'rfq_created'
                                                 ? "New RFQ created" : "New Quotation Received"}</h3>
-                                            <p class="card-text text-sm mb-0">{notification?.notification_type == 'rfq_created'
+                                            <p className="card-text text-sm mb-0">{notification?.notification_type == 'rfq_created'
                                                 ? `You created a new RFQ #${notification?.rfq_no} and shared it with the vendors.`
                                                 : ` ${notification?.organization_name || notification?.vendor_name} has sent you a new quotation on RFQ #${notification?.rfq_no}.`}</p>
                                             <span className='d-block m-0 fw-semibold text-end' style={{ fontSize: "12px", color: "grey" }}>{formatDate(notification?.readable_date_time)}</span>
                                         </div>
-                                    </div>
+                                    </Link>
                                 ))
                                 : <div className="h-100 d-flex flex-column justify-content-center align-items-center">
                                     <FontAwesomeIcon icon={faBell} fontSize={64} className='opacity-25 mb-4' />

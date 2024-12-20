@@ -16,6 +16,7 @@ import {
     Filler,
     Title,
     Legend,
+    Tooltip
 } from 'chart.js';
 import { Line, Bar, Pie, Radar, PolarArea } from 'react-chartjs-2';
 
@@ -35,7 +36,8 @@ ChartJS.register(
     CategoryScale,
     Filler,
     Title,
-    Legend
+    Legend,
+    Tooltip
 );
 
 const transformDataForChartType = (chartType, originalData) => {
@@ -83,6 +85,16 @@ const ChartComponent = ({ data, chartTitle, min = 0, max = 10, chartType = 'line
             title: {
                 display: true,
                 text: chartTitle,
+            },
+            tooltip: {
+                enabled: true, 
+                callbacks: {
+                    label: function (tooltipItem) {
+                        const value = tooltipItem.raw; 
+                        const label = tooltipItem.dataset.label || ''; 
+                        return `${label}: ${value}`;
+                    },
+                },
             },
         },
         interaction: {

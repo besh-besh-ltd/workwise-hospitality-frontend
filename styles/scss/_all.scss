@@ -26,13 +26,13 @@ html {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  scrollbar-color: var(--primary-color) var(--grey-color);
-  scrollbar-width: thin;
+  // scrollbar-color: var(--primary-color) var(--grey-color);
+  // scrollbar-width: thin;
 }
 
 /* width */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 7px;
 }
 
 /* Track */
@@ -42,6 +42,7 @@ html {
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
+  border-radius: 15px;
   background: var(--primary-color);
 }
 
@@ -5602,6 +5603,11 @@ textarea {
       }
     }
   }
+}
+
+.notification-card:hover {
+  background-color: #efefef;    
+  color: rgb(22, 22, 22);
 }
 
 .notification-sec-1 {
