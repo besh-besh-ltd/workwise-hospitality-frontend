@@ -4,7 +4,7 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getRFQById, sendQuotation } from "@/services/rfq";
+import { closeRFQ, getAllClauses, getRFQById, sendQuotation } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -14,6 +14,7 @@ import ReadMore from "@/components/shared/ReadMore";
 import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
+import LoginContainer from "@/components/AuthContainer/LoginContainer";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -27,20 +28,52 @@ const RfqManagementPreview = () => {
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
+  const [buyerClauses, setBuyerClauses] = useState(null);
+  const [clauseMap, setClauseMap] = useState(null);
 
+  const [openAuthModal, setOpenAuthModal] = useState(false);
+  const [activeAuthTab, setActiveAuthTab] = useState("login");
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
+
 
   useEffect(() => {
     if (id) {
       getRFQdetails();
+      getRFQClauses();
     }
-    if (type && type == "buyer-view") {
+  }, [id]);
+
+  useEffect(() => {
+    if (type === "buyer-view") {
       setEnableBuyerView(true);
     }
-    if (storageInstance.getStorage("token")) {
+
+    const token = storageInstance.getStorage("token");
+    if (token) {
       setisLoggedIn(true);
     }
+
+    if (redirectAfterLogin) {
+      router.push(redirectAfterLogin);
+      setRedirectAfterLogin(null);
+    }
   }, [router]);
+
+  useEffect(() => {
+    if (rfqDetails && buyerClauses) {
+      let c_map = new Map();
+      rfqDetails.products?.map((pItem) => {
+        c_map.set(pItem.id, false);
+      })
+
+      buyerClauses?.map((pItem) => {
+        c_map.set(pItem.rfq_product_id, true);
+      })
+      setClauseMap(c_map);
+    }
+
+  }, [rfqDetails, buyerClauses])
 
   const getRFQdetails = () => {
     setloading(true);
@@ -65,6 +98,15 @@ const RfqManagementPreview = () => {
       setCurrentLowest(hasLowestQuotation);
     } else {
       setCurrentLowest(null);
+    }
+  };
+
+  const getRFQClauses = async () => {
+    try {
+      const res = await getAllClauses(id);
+      setBuyerClauses(res.data);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -451,31 +493,33 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                        {isLoggedIn &&
-                          <Link
-                            href={{
+                        <button
+                          type="button"
+                          className="page-link-btn border-0 text-white p-2 my-0 rounded-2"
+                          style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            router.push({
                               pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
                               query: {
                                 rfq_id: rfqDetails.id,
                                 role: type === "buyer-view" ? "buyer" : "vendor",
+                                token: token
                               }
-                            }}
-                          >
-                            <button
-                              type="button"
-                              className="btn btn-secondary my-0"
-                              style={{ width: "260px" }}
-                            >
-                              View Queries {rfqDetails.unseen_query_count != 0 ? `(${rfqDetails.unseen_query_count} New)` : ""}
-                            </button>
-                          </Link>}
+                            });
+                          }}
+                        >
+                          Queries
+                          {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
+                        </button>
+
 
                         {type == "buyer-view" &&
                           ((rfqDetails.total_quotes_received > 0) ?
                             <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
                               <button
                                 type="button"
-                                className="btn btn-secondary my-0"
+                                className="btn btn-secondary my-0 p-2"
                                 style={{ width: "260px" }}
                               >
                                 Compare Received Quotes
@@ -484,7 +528,7 @@ const RfqManagementPreview = () => {
                             :
                             <button
                               type="button"
-                              className="btn btn-primary my-0"
+                              className="btn btn-primary my-0 p-2"
                               style={{ width: "260px" }}
                               disabled
                             >
@@ -497,7 +541,7 @@ const RfqManagementPreview = () => {
                           ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                             <button
                               type="button"
-                              className="btn btn-secondary m-0"
+                              className="btn btn-secondary m-0 p-2"
                               style={{ width: "240px" }}
                             >
                               <>
@@ -523,11 +567,10 @@ const RfqManagementPreview = () => {
                               {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
                               <th>TDS</th>
                               <th>QAP</th>
-                              {type != "buyer-view" &&
-                                <th>Finalization Status</th>
-                              }
+                              {type != "buyer-view" && <th>Finalization Status</th>}
                               <th >Comments</th>
                               {type == "buyer-view" ? <th>Selected vendors</th> : null}
+                              {<th>Technical Evaluation</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -618,11 +661,10 @@ const RfqManagementPreview = () => {
                                   }
                                   <td style={{ minWidth: "250px", maxWidth: "400px" }}>
                                     {item?.comment && item?.comment != ""
-                                      ? item?.comment?.length > 100
-                                        ? <ReadMore content={item.comment} maxLength={70} textSmall={true} />
-                                        : item.comment
+                                      ? <ReadMore content={item.comment} maxLines={4} additionalClasses="text-sm" />
                                       : "N/A"}
                                   </td>
+
                                   {type == "buyer-view" &&
                                     <td>
                                       <span>
@@ -635,6 +677,28 @@ const RfqManagementPreview = () => {
                                       </span>
                                     </td>
                                   }
+
+                                        <td>
+                                      {clauseMap && clauseMap.get(item.id)
+                                        ? <a
+                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}&token=${token}`}
+                                          className="text-dark-blue"
+                                          style={{
+                                            fontSize: '0.8rem',
+                                            padding: '5px 10px',
+                                            display: 'inline-block',
+                                            border: 'none',
+                                            backgroundColor: 'lightblue',
+                                            color: 'darkblue',
+                                            textDecoration: 'none',
+                                          }}
+
+                                        >
+                                          View Evaluation
+                                        </a>
+                                        : "N/A"
+                                      }
+                                    </td>
                                 </tr>
                               );
                             })}
@@ -1075,6 +1139,16 @@ const RfqManagementPreview = () => {
         closeModal={() => {
           setregretModal(false);
         }}
+      />
+
+      {/* ------------- Auth Modal ------------- */}
+      <LoginContainer
+        loading={loading}
+        setloading={setloading}
+        openAuthModal={openAuthModal}
+        setOpenAuthModal={setOpenAuthModal}
+        activeAuthTab={activeAuthTab}
+        setActiveAuthTab={setActiveAuthTab}
       />
     </>
   );

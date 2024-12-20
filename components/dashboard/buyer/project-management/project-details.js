@@ -1,7 +1,7 @@
 import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
-import { getProjectById, updateProject } from '@/services/project';
+import { getProjectById, updateProject, uploadProjectFile } from '@/services/project';
 import { faEdit } from '@fortawesome/free-regular-svg-icons';
 import { faCloudArrowUp, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -18,13 +18,27 @@ const ProjectDetails = () => {
     const [limit, setLimit] = useState(10);
     const [totalData, setTotalData] = useState(100);
 
+    const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [editLoading, setEditLoading] = useState(false);
     const [projectDetails, setProjectDetails] = useState(null);
     const [openEditProject, setOpenEditProject] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [dropdownValue, setDropdownValue] = useState("");
+    const [files, setFiles] = useState({});
 
     const projectIdRef = useRef(null);
+    const fileInputRef = useRef(null);
 
+    const fileTypeDisplayNames = {
+        vendorList: "Vendor List",
+        tenderDocument: "Tender Document",
+        boq: "BOQ",
+        po: "PO",
+        otherDocuments: "Other Documents",
+    };
+
+    const fileTypeOrder = ["vendorList", "tenderDocument", "boq", "po", "otherDocuments"];
 
     const getProjectDetails = () => {
         setLoading(true)
@@ -34,6 +48,7 @@ const ProjectDetails = () => {
             .then((res) => {
                 setProjectDetails(res.data[0])
                 setTotalData(res.data[0]?.rfqs?.length)
+                setFiles(res.data[0].files)
             })
             .catch((error) => {
                 console.log(error)
@@ -43,13 +58,79 @@ const ProjectDetails = () => {
             });
     }
 
+    const handleFileChange = (e) => {
+        const uploadedFiles = e.target.files;
+        if (!uploadedFiles || !uploadedFiles.length) return;
+    
+        const maxFileSize = 25000000;
+        const oversizedFiles = [];
+        const validFiles = [];
+    
+        Array.from(uploadedFiles).forEach((file) => {
+            if (file.size > maxFileSize) {
+                oversizedFiles.push(file.name);
+            } else {
+                validFiles.push(file);
+            }
+        });
+    
+        if (oversizedFiles.length > 0) {
+            toast.error(`The following files are too large (>25MB): ${oversizedFiles.join(", ")}`);
+        }
+    
+        setSelectedFiles(validFiles);
+    };
+    
+
+    const handleDropdownChange = (e) => {
+        setDropdownValue(e.target.value);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedFiles.length || !dropdownValue) {
+            toast.error("Please select files and a dropdown value before submitting.");
+            return;
+        }
+
+        const formData = new FormData();
+        selectedFiles.forEach((file) => formData.append("files", file));
+        formData.append("project_id", projectIdRef.current);
+        formData.append("file_type", dropdownValue);
+
+        setUploading(true);
+        try {
+
+            const response = await uploadProjectFile(formData); 
+
+            setSelectedFiles([]);
+
+            setFiles((prevFiles) => ({
+                ...prevFiles, 
+                [response.file_type]: [
+                    ...(prevFiles[response.file_type] || []), 
+                    ...response.files, 
+                ],
+            }));
+
+            fileInputRef.current.value = "";
+            
+            toast.success("Files uploaded successfully!");
+        } catch (err) {
+            console.error("Error uploading files:", err);
+            toast.error("Failed to upload files.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleEditProject = (values, resetForm) => {
         setEditLoading(true);
         let payload = {
             status: 1,
             description: values.projectDescription,
             location: values.location,
-            ended_at: values.ended_at,
+            ended_at: values.ended_at ? values.ended_at: null,
             rfq_type: values.rfq_type,
             reverse_auction: values.reverse_auction == "1" ? 1 : 0
         };
@@ -195,6 +276,103 @@ const ProjectDetails = () => {
                                     </div>
                                 </div>
 
+                                <div className="project-files filter mb-5">
+                                    <h3 className='title'>Project Files</h3>
+
+                                    <hr />
+
+                                    {fileTypeOrder.map((fileType) => (
+                                        files[fileType] && files[fileType].length > 0 && 
+                                        <div key={fileType} className="uploaded-files mt-4">
+                                            <h6 className='fw-bold'>{fileTypeDisplayNames[fileType]}</h6>
+                                            <div className="row mt-2">
+                                                {(
+                                                    files[fileType].map((file, idx) => (
+                                                        <div key={idx} className="col-md-2 px-2">
+                                                            <span
+                                                                className="badge bg-secondary d-inline-flex align-items-center justify-content-between w-100 my-1 py-2"
+                                                                style={{
+                                                                    overflow: "hidden",
+                                                                    textOverflow: "ellipsis",
+                                                                    whiteSpace: "nowrap",
+                                                                }}
+                                                            >
+                                                                <a
+                                                                    href={file.url}
+                                                                    className="text-white"
+                                                                    style={{
+                                                                        textDecoration: "none",
+                                                                        overflow: "hidden",
+                                                                        textOverflow: "ellipsis",
+                                                                        maxWidth: "90%",
+                                                                    }}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                >
+                                                                    {file.name}
+                                                                </a>
+                                                            </span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {Object.keys(files).length === 0 && <div>No file uploaded for this project yet!</div>}
+
+                                    <hr />
+
+                                    <div className="container mt-4 p-0 m-0">
+                                        <form onSubmit={handleSubmit}>
+                                            <div className="row g-3 align-items-center justify-content-between">
+                                                {/* File Input */}
+                                                <div className="col-md-6">
+                                                <input
+                                                    type="file"
+                                                    className="form-control"
+                                                    multiple
+                                                    onChange={handleFileChange}
+                                                    disabled={uploading}
+                                                    ref={fileInputRef}
+                                                />
+                                                </div>
+
+                                                {/* Dropdown */}
+                                                <div className="col-md-4">
+                                                <select
+                                                    value={dropdownValue}
+                                                    onChange={handleDropdownChange}
+                                                    className="form-select col-md-2"
+                                                    style={{ minWidth: "150px" }}
+                                                    disabled={uploading}
+                                                >
+                                                    <option value="" disabled>
+                                                    Select Document Type
+                                                    </option>
+                                                    <option value="vendorList">Vendor List</option>
+                                                    <option value="tenderDocument">Tender Document</option>
+                                                    <option value="boq">BOQ</option>
+                                                    <option value="po">PO</option>
+                                                    <option value="otherDocuments">Other Documents</option>
+                                                </select>
+                                                </div>
+
+                                                <div className="col-md-2">
+                                                {/* Submit Button */}
+                                                <button
+                                                    type="submit"
+                                                    className="btn btn-secondary py-2"
+                                                    disabled={uploading || !selectedFiles.length || !dropdownValue}
+                                                >
+                                                    {uploading ? "Uploading..." : "Save Files"}
+                                                </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+
                                 {/* RFQ Details Table */}
                                 <span className="title">RFQs for this Project</span>
                                 <div className="details-table p-4 ">
@@ -203,14 +381,14 @@ const ProjectDetails = () => {
                                         <div className="col-sm-4 col-md-6"></div>
                                         <div className="col-sm-8 col-md-6">
                                             <div className="d-flex justify-content-end">
-                                                <button
-                                                    type="button"
+                                            <Link
+                                                    href="/dashboard/buyer/vendor-management"
                                                     className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
                                                     style={{ flex: "0 0 250px" }}
                                                 >
-                                                    <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
-                                                    Upload your Vendors
-                                                </button>
+                                                    {" "}
+                                                    <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" /> Upload your Vendors
+                                                </Link>
                                                 <Link
                                                     href="/dashboard/buyer/magic-search"
                                                     className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
@@ -252,7 +430,7 @@ const ProjectDetails = () => {
                                                 }
                                                 {!loading && projectDetails && projectDetails?.rfqs?.length > 0
                                                     && projectDetails?.rfqs?.map((rfqItem, index) => {
-                                                        console.log(rfqItem)
+                                                        {/* console.log(rfqItem) */}
                                                         return (
                                                             <tr key={`rfq_item_${rfqItem.id}`} >
                                                                 <td>{index + 1}</td>

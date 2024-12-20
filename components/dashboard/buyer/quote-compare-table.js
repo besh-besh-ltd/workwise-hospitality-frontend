@@ -10,6 +10,7 @@ import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { extractfileName } from "@/utils/sharedFunctions";
 import { useRouter } from "next/router";
+import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
@@ -25,7 +26,11 @@ const QuoteCompareTable = ({
   const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
   const [lowestQuote, setLowestQuote] = useState(null);
-
+  const [quotehistorymodal, setQuotehistorymodal] = useState(false);
+  const [quotehistorydata, setQuotehistorydata] = useState({
+    product_details:[],
+    previous_quotes:[]
+  });
   useEffect(() => {
     calculateLowestQuote();
   }, []);
@@ -133,6 +138,21 @@ const QuoteCompareTable = ({
                                 Finalize
                               </Dropdown.Item>
                             )}
+
+                            {item.previous_quotes?.length > 0 && 
+                            (
+                              <Dropdown.Item
+                                href="#"
+                                onClick={() => {
+                                  setQuotehistorymodal(true);
+                                  setQuotehistorydata({product_details:proditem.product_details,previous_quotes:item.previous_quotes});
+                                }}
+                                className="history-link"
+                              >
+                                Quote History
+                              </Dropdown.Item>
+                            )}
+
                         </Dropdown.Menu>
                       </Dropdown>
                     </div>
@@ -182,9 +202,9 @@ const QuoteCompareTable = ({
                       }
                     </div>
                     <div className="table-si-row">
-                      {item?.comment?.length > 60
-                        ? <ReadMore content={item?.comment} maxLength={55} textSmall={false} />
-                        : item.comment || "--"
+                      {item?.comment
+                        ? <ReadMore content={item?.comment} maxLines={2} />
+                        : "--"
                       }
                     </div>
                     <div className="table-si-row">
@@ -304,6 +324,14 @@ const QuoteCompareTable = ({
           closeModal={() => setOpenCommonModal(false)}
         />
       }
+      {quotehistorymodal && 
+      <QuoteHistoryModal
+        showModal = {quotehistorymodal}
+        closeModal ={() => {
+          setQuotehistorymodal(false);
+        }}
+        quotehistorydata = {quotehistorydata}
+      />}
     </>
   );
 };

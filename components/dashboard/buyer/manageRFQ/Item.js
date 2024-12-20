@@ -76,7 +76,7 @@ const RFQItem = ({ data }) => {
           </span>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">End Date: </b>
-            {moment(data.bid_end_date).format("DD/MM/YYYY")}
+            {data.bid_end_date ? moment(data.bid_end_date).format("DD/MM/YYYY") : "---"}
           </span>
           <span>
             <b className="fw-semibold ">Status: </b>
@@ -108,7 +108,8 @@ const RFQItem = ({ data }) => {
               className="page-link-btn border-0 text-white p-2 my-3 rounded-2"
               style={{ width: "120px", backgroundColor: "var(--primary-color)" }}
             >
-              Queries <span className="badge text-bg-danger">{data.unseen_query_count} + </span>
+              Queries 
+              {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
             </button>
           </Link>
         </td>
@@ -122,7 +123,7 @@ const RFQItem = ({ data }) => {
               role="button"
               disabled={isRecievedFromAll}
               aria-disabled={isRecievedFromAll}
-              style={{ width: "260px", backgroundColor: isRecievedFromAll ? "var(--primary-color)" : isHovered ? "var(--primary-color)" : "var(--secondary-color)" }}
+              style={{ width: "200px", backgroundColor: isRecievedFromAll ? "var(--primary-color)" : isHovered ? "var(--primary-color)" : "var(--secondary-color)" }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
@@ -136,8 +137,8 @@ const RFQItem = ({ data }) => {
                 </>
               ) : (
                 isRecievedFromAll
-                  ? "Quote Received From All Vendors"
-                  : `Send Reminder For Quote (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
+                  ? "All Quotes Received"
+                  : `Send Reminder (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
               )
               }
             </button>

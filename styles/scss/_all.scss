@@ -26,13 +26,13 @@ html {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  scrollbar-color: var(--primary-color) var(--grey-color);
-  scrollbar-width: thin;
+  // scrollbar-color: var(--primary-color) var(--grey-color);
+  // scrollbar-width: thin;
 }
 
 /* width */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 7px;
 }
 
 /* Track */
@@ -42,6 +42,7 @@ html {
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
+  border-radius: 15px;
   background: var(--primary-color);
 }
 
@@ -369,17 +370,17 @@ select::-ms-expand {
   .modal-header {
     border: 0;
     padding: 0;
-  }
 
-  .btn-close {
-    position: absolute;
-    right: -12px;
-    top: -14px;
-    width: 20px;
-    height: 20px;
-    background-color: var(--secondary-color);
-    border-radius: 100px;
-    opacity: 1;
+    .btn-close {
+      position: absolute;
+      right: -10px;
+      top: -10px;
+      width: 20px;
+      height: 20px;
+      background-color: var(--secondary-color);
+      border-radius: 100px;
+      opacity: 1;
+    }
   }
 }
 
@@ -402,8 +403,7 @@ textarea {
     justify-content: space-between;
     align-items: center;
     position: relative;
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding: 8px 0;
     transition: var(--primary-transition);
 
     .logo {
@@ -3007,7 +3007,7 @@ textarea {
         .detail-con-text {
           h2 {
             font-weight: 600;
-            font-size: 42px;
+            font-size: 28px;
             color: var(--black-color);
             margin: 0;
           }
@@ -3110,10 +3110,10 @@ textarea {
             }
           }
 
-          &:last-child {
-            display: flex;
-            justify-content: space-between;
-          }
+          // &:last-child {
+          //   display: flex;
+          //   justify-content: space-between;
+          // }
         }
       }
     }
@@ -4041,7 +4041,8 @@ textarea {
       padding-right: 0;
     }
 
-    .col-md-10 {
+    .col-md-10,
+    .col-md-12 {
       .quote-sec-table {
         background-color: var(--white-color);
         padding: 30px;
@@ -5604,6 +5605,11 @@ textarea {
   }
 }
 
+.notification-card:hover {
+  background-color: #efefef;    
+  color: rgb(22, 22, 22);
+}
+
 .notification-sec-1 {
   padding: 30px 12px 30px 30px;
   background-color: #f2f4f7;
@@ -6013,7 +6019,7 @@ textarea {
       }
 
       table {
-        text-align: left;        
+        text-align: left;
 
         tbody {
           tr {
@@ -6712,7 +6718,7 @@ h2.pdf-icon {
       .table-col {
         .table-si-row {
           min-width: 200px;
-          padding: 15px;
+          padding: 10px 15px;
           height: 54px;
           border-left: 1px solid #e7e7e7;
 
@@ -6735,7 +6741,8 @@ h2.pdf-icon {
           }
         }
 
-        .table-si-row:last-child {
+        .table-si-row:last-child,
+        .table-si-row:nth-last-child(2) {
           height: 100px;
           overflow-y: auto;
         }
@@ -6845,6 +6852,10 @@ h2.pdf-icon {
 
   .finalize-link {
     background: transparent url(../../public/assets/images/finalize-icon.svg) no-repeat left 12px center;
+  }
+
+  .history-link {
+    background: transparent url(../../public/assets/images/326655_history_icon.svg) no-repeat left 11px center;
   }
 
   .dropdown-menu.show {
@@ -7063,7 +7074,7 @@ a.btn.disabled {
       color: #fff;
       text-align: center;
     }
-    
+
     div {
       background: red;
       border-radius: 0;
@@ -7108,7 +7119,8 @@ a.btn.disabled {
         overflow: hidden;
         border-radius: 50%;
 
-        img, svg {
+        img,
+        svg {
           width: 100%;
           height: 100%;
           object-fit: contain;

@@ -36,12 +36,12 @@ export const vendorProductList = (limit, page, productName, vendorApprove) => {
     });
 };
 
-export const privateVendorList = () => {
+export const privateVendorList = (limit = 10, page = 1) => {
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.get(
-        //   `users/buyer-private-vendor?limit=${limit}&page=${page}`
-            `users/buyer-private-vendor`
+          `users/buyer-private-vendor?limit=${limit}&page=${page}`
+            // `users/buyer-private-vendor`
         );
         resolve(response);
       } catch (error) {

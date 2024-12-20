@@ -23,9 +23,9 @@ const SendQuotePageComp = () => {
   const [quoteProducts, setquoteProducts] = useState([]);
   const [submitLoading, setsubmitLoading] = useState(false);
 
-  const [globalFreight, setglobalFreight] = useState(3);
-  const [globalPackaging, setglobalPackaging] = useState(4);
-  const [globalTax, setglobalTax] = useState(18);
+  const [globalFreight, setglobalFreight] = useState(null);
+  const [globalPackaging, setglobalPackaging] = useState(null);
+  const [globalTax, setglobalTax] = useState(null);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [previousGlobalFiles, setPreviousGlobalFiles] = useState(null);
@@ -92,9 +92,9 @@ const SendQuotePageComp = () => {
                 ? productItem.product_details[0].name
                 : "",
               unit_price: quoteItem.unit_price || "",
-              package_price: quoteItem.package_price || globalPackaging,
-              tax: quoteItem.tax || globalTax,
-              freight_price: quoteItem.freight_price || globalFreight,
+              package_price: quoteItem.package_price || globalPackaging || 4,
+              tax: quoteItem.tax || globalTax || 18,
+              freight_price: quoteItem.freight_price || globalFreight || 3,
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
@@ -121,7 +121,7 @@ const SendQuotePageComp = () => {
     variant,
     type,
     valueType = "integer",
-    total_qty,
+    total_qty = parseFloat(total_qty),
     file,
     fileOperation
   ) => {
@@ -162,24 +162,27 @@ const SendQuotePageComp = () => {
     setquoteProducts(d);
   };
 
-  const calculateTotal = () => {
+  const calculateTotal = (products) => {
 
-    let d = quoteProducts.map((item) => {
-      let p = rfqDetails.products.filter(
-        (pi) => pi.product_id == item.product_id
-      );
+    const d = products.map((item) => {
+      
+      let prod = rfqDetails.products.find((pi) => pi.id == item.id);
 
-      let total_qty = getProductSpecValueByTitle(p[0].product_specs, "Quantity");
+      let unit_price = parseFloat(item.unit_price) || 0;
+      let freight_price = parseFloat(item.freight_price) || 0;
+      let package_price = parseFloat(item.package_price) || 0;
+      let item_tax = parseFloat(item.tax) || 0;
+      let total_qty = parseFloat(getProductSpecValueByTitle(prod.product_specs, "Quantity")) || 0;
 
-      const totalWithoutFPT = item.unit_price * total_qty;
-      const freightPrice = (totalWithoutFPT * parseFloat(item.freight_price || 0)) / 100;
-      const packagePrice = (totalWithoutFPT * parseFloat(item.package_price || 0)) / 100;
+      const totalWithoutFPT = unit_price * total_qty;
+      const freightPrice = (totalWithoutFPT * freight_price) / 100;
+      const packagePrice = (totalWithoutFPT * package_price) / 100;
 
       // Subtotal before Tax
       const subtotalBeforeTax = totalWithoutFPT + freightPrice + packagePrice;
 
       // Calculate Tax (percentage of subtotalBeforeTax)
-      const tax = (subtotalBeforeTax * parseFloat(item.tax || 0)) / 100;
+      const tax = (subtotalBeforeTax * item_tax) / 100;
 
       // Final total price
       const totalPrice = subtotalBeforeTax + tax;
@@ -216,6 +219,7 @@ const SendQuotePageComp = () => {
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
+          toast.error("Unable to Send Quote");
           setsubmitLoading(false)
         })
     }
@@ -300,7 +304,7 @@ const SendQuotePageComp = () => {
 
   const uploadQuoteItemFiles = async (e, item) => {
     try {
-      const filePath = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e, token);
       handleUpdateData(
         item.id,
         e,
@@ -321,7 +325,7 @@ const SendQuotePageComp = () => {
 
   const uploadGlobalDocumentFiles = async (e) => {
     try {
-      const filePath = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e, token);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
         ...prevGlobalDocumentFiles,
@@ -341,13 +345,12 @@ const SendQuotePageComp = () => {
 
   useEffect(() => {
     let p = quoteProducts.map((item) => {
-      item["freight_price"] = globalFreight;
-      item["package_price"] = globalPackaging;
-      item["tax"] = globalTax;
+      item["freight_price"] = globalFreight ? globalFreight : item.freight_price;
+      item["package_price"] = globalPackaging ? globalPackaging : item.package_price;
+      item["tax"] = globalTax ? globalTax : item.tax;
       return item;
     });
-    setquoteProducts(p);
-    calculateTotal();
+    calculateTotal(p);
   }, [globalTax, globalPackaging, globalFreight]);
 
   return (
@@ -604,6 +607,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               min={0}
                               value={globalFreight}
+                              placeholder="3%"
                               onChange={(e) => setglobalFreight(e.target.value)}
                               onWheel={(e) => e.target.blur()}
                             />
@@ -615,6 +619,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               min={0}
                               value={globalPackaging}
+                              placeholder="4%"
                               onChange={(e) => setglobalPackaging(e.target.value)}
                               onWheel={(e) => e.target.blur()}
                             />
@@ -626,6 +631,7 @@ const SendQuotePageComp = () => {
                               className="form-control"
                               min={0}
                               value={globalTax}
+                              placeholder="18%"
                               onChange={(e) => setglobalTax(e.target.value)}
                               onWheel={(e) => e.target.blur()}
                             />
@@ -761,9 +767,8 @@ const SendQuotePageComp = () => {
                                     <td>
                                       <p className="fw-semibold text-nowrap mb-1">{item?.product_details[0]?.name}</p>
                                       <p className="text-sm mb-1">{getProductSpecValueByTitle(item?.product_specs, "Size")}</p>
-                                      {item?.product_specs[1]?.value?.length > 70
-                                        ? <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLength={70} textSmall={true} />
-                                        : <p className="mb-1 text-sm">{`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`}</p>
+                                      {item?.product_specs[1]?.value &&
+                                        <ReadMore content={`- ${getProductSpecValueByTitle(item?.product_specs, "Spec")}`} maxLines={2} additionalClasses="text-sm" />
                                       }
                                     </td>
                                     <td>

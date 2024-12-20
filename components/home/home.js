@@ -23,7 +23,7 @@ import axios from "axios";
 const initialSections = [
   "homepage-section-1",
   "homepage-section-2",
-  "homepage-section-3",
+  // "homepage-section-3",
 ];
 
 const predefinedPageSections = [
@@ -360,11 +360,21 @@ export default function Homepage() {
   }, []);
 
   return (
-    <>      
+    <>
       {/* ----- Banner -------- */}
       {showBannerLists && (
         <HomeBanner bannerContent={showHomeLists1} content={showBannerLists} />
       )}
+
+      <div className="container d-flex justify-content-center my-5">
+        <Image
+          src="/assets/images/ONGC Banner.jpg"
+          alt="Haven’t made a Bid yet ONGC is Inviting Tenders"
+          layout="responsive"
+          width={2275}
+          height={282}
+        />
+      </div>
 
       {/* --------- Why Choose Us / Process Overview --------- */}
       {showHomeLists1.map((item) => {

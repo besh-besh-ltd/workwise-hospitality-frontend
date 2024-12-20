@@ -116,6 +116,17 @@ const CreateRFQ = () => {
     let name = e?.target?.name || actionMeta?.name;
     let value = e?.target?.value || selectedOption?.value || "";
 
+    if (name === "bid_end_date"){
+      const today = new Date();
+      if(value){
+        const selectedDate = new Date(value);
+        if (selectedDate <= today) {
+            toast.error(`Project procurement end date must be greater than ${today.toISOString().slice(0, 10)}`);;
+            return;
+        }
+      }
+    }
+
     if (name === "reverse_auction") {
       value = parseInt(value);
     }
@@ -187,9 +198,10 @@ const CreateRFQ = () => {
           </h6>,
           { position: "top-right" }
         );
+        setHasUnsavedChanges(false);
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
-        
+
         router.push("/dashboard/buyer/rfq-management");
         dispatch(clearState());
         resetForm();
@@ -200,31 +212,33 @@ const CreateRFQ = () => {
       });
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     setMainLoading(true);
 
     const payload = {
       ...rfqFormDataRef.current,
+      rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       is_published: 0,
     };
 
-    saveDraft(payload)
-      .then((res) => {
-        setMainLoading(false);
-        toast.success(
-          <h6>
-            <b>RFQ Draft #{res.message?.rfq_id}:</b> Changes saved successfully!
-          </h6>,
-          { position: "top-right" }
-        );
-        setHasUnsavedChanges(false);
-      })
-      .catch((err) => {
-        console.log(err)
-        setMainLoading(false);
-        toast.error("Failed to save draft. Please try again.");
-      });
+    try {
+      const res = await saveDraft(payload);
+      setMainLoading(false);
+      toast.success(
+        <h6>
+          <b>RFQ Draft #{res.message?.rfq_id}:</b> Changes saved successfully!
+        </h6>,
+        { position: "top-right" }
+      );
+      setHasUnsavedChanges(false);
+      getDraftInitialData();
+
+    } catch (error) {
+      console.log(error)
+      setMainLoading(false);
+      toast.error("Failed to save draft. Please try again.");
+    }
   };
 
   const getDraftInitialData = async () => {
@@ -331,13 +345,13 @@ const CreateRFQ = () => {
                         />
                       </div> */}
 
-                      <div className="col-md-3 mb-2 ">
-                        <label>Select Project</label>
+                      <div className="col-md-3 mb-3">
+                        <h4>Select Project</h4>
                         <Select
                           options={projects}
                           value={projects.find((project) => project.value === rfqFormDataFromStore.project_id)}
                           defaultValue={-1}
-                          onChange={(selectedOption, actionMeta)=> handleFormFieldChange(null, selectedOption, actionMeta)}
+                          onChange={(selectedOption, actionMeta) => handleFormFieldChange(null, selectedOption, actionMeta)}
                           name="project_id"
                           placeholder="Select"
                           isClearable
@@ -345,6 +359,7 @@ const CreateRFQ = () => {
                       </div>
 
                       {/* RFQ Products Table */}
+                      <h4>Review Products</h4>
                       <div className="table-responsive">
                         <table className="table table-striped ">
                           <thead>
@@ -357,6 +372,7 @@ const CreateRFQ = () => {
                               <th>Product Comments</th>
                               <th>Selected vendors</th>
                               <th>Action</th>
+                              <th>Technical Evaluation</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -366,7 +382,10 @@ const CreateRFQ = () => {
                                   <Item
                                     vendorApprovedList={vendorApprovedList}
                                     data={product}
+                                    rfq_id={rfqDetails}
                                     setHasUnsavedChanges={setHasUnsavedChanges}
+                                    getDraftInitialData={getDraftInitialData}
+                                    saveDraft={handleSaveDraft}
                                   />
                                 );
                               })}
@@ -538,7 +557,7 @@ const CreateRFQ = () => {
                                   <div className="row mb-2">
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Project Stage"
+                                        label="RFQ Type"
                                         value={rfqFormDataFromStore.rfq_type}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}
@@ -574,7 +593,7 @@ const CreateRFQ = () => {
                                     </div>
                                     <div className="col-md-4">
                                       <FormikField
-                                        label="Project procurement end date"
+                                        label="Procurement end date"
                                         value={rfqFormDataFromStore.bid_end_date}
                                         enableHandleChange={true}
                                         handleChange={handleFormFieldChange}

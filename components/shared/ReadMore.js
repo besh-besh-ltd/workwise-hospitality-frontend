@@ -1,25 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const ReadMore = ({ content, maxLength, textSmall }) => {
+const ReadMore = ({
+  content,
+  maxLines = 2,
+  fontSize,
+  additionalClasses = '',
+  additionalStyles = {}
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const contentRef = useRef(null);
 
   const handleToggle = () => {
     setIsExpanded(!isExpanded);
   };
 
+  useEffect(() => {
+    if (contentRef.current) {
+      const element = contentRef.current;
+      setIsOverflowing(element.scrollHeight > element.clientHeight);
+    }
+  }, [content, maxLines]);
+
+  const containerStyles = {
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+    WebkitLineClamp: isExpanded ? 'unset' : maxLines,
+    fontSize,
+    ...additionalStyles,
+  };
+
   return (
-    <div style={{cursor: "pointer"}}>
-      <p className={`${textSmall ? 'text-sm' : ''} position-relative`}>
-        {isExpanded ? content : `${content.slice(0, parseInt(maxLength) || 50)} ${content.length > maxLength ? "..." : ""}`}
-        {content.length > maxLength && (
+    <div style={{ cursor: "pointer" }} className="d-flex flex-column align-items-start">
+      <p
+        ref={contentRef}
+        className={`position-relative mb-0 ${additionalClasses}`}
+        style={containerStyles}
+      >
+        {content}
+      </p>
+      {isOverflowing && (
         <span
           onClick={handleToggle}
-          className="btn-link p-0 text-primary cursor-pointer ms-2"
+          className="btn-link p-0 text-primary text-sm cursor-pointer align-self-end"
         >
           {isExpanded ? 'Read Less' : 'Read More'}
         </span>
       )}
-      </p>      
     </div>
   );
 };

@@ -5,6 +5,22 @@ import { getProjectList } from '@/services/project';
 
 const FilterSection = ({ title, setFilterData }) => {
     const [projects, setProjects] = useState(null);
+    const [rfqNo, setRfqNo] =useState(null);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+                setFilterData((prevState) => ({
+                    ...prevState,
+                    ["rfq_no"]: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
+                }));
+        }, 1000);
+    
+        return () => {
+          clearTimeout(handler);
+        };
+      }, [rfqNo]);
+
+      
 
     const handleFilterChange = (selectedOption, actionMeta) => {
         const { name } = actionMeta;
@@ -40,6 +56,22 @@ const FilterSection = ({ title, setFilterData }) => {
 
             <div className="row mb-4 text-sm" >
 
+                <div className="col-md-2 col-lg-2">
+                    <label>Search RFQ No.</label>
+                    <input
+                        className="form-control react-select" 
+                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
+                        value={rfqNo}
+                        onChange={(e)=> setRfqNo(e.target.value)}
+                        name="rfq_type"
+                        placeholder="Ex. 123456"
+                        isClearable
+                    />
+                </div>
+
+                <div className="col-lg-2"></div>
+
+
                 <div className="col-md-3 col-lg-2">
                     <label>RFQ Type</label>
                     <Select
@@ -68,7 +100,7 @@ const FilterSection = ({ title, setFilterData }) => {
                     />
                 </div>
 
-                <div className="col-md-3 col-lg-3">
+                <div className="col-md-3 col-lg-2">
                     <label>Select Project</label>
                     <Select
                         options={projects}
@@ -78,8 +110,6 @@ const FilterSection = ({ title, setFilterData }) => {
                         isClearable
                     />
                 </div>
-
-                <div className="col-lg-3"></div>
 
                 <div className="col-md-3 col-lg-2">
                     <label>Sort By</label>
