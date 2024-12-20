@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Tooltip from 'react-bootstrap/Tooltip';
 
 const VendorOverview = () => {
     const [topLists, setTopLists] = useState(null);
@@ -60,8 +62,23 @@ const VendorOverview = () => {
                 {/* Search Vendor */}
                 <div className="overview-container col-md-4 pe-2">
                     <div className="rounded-2 shadow p-4 h-100 d-flex flex-column">
+
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                            <h2 className="fs-4 fw-medium mb-0">Vendor Details</h2>
+                            <OverlayTrigger
+                                placement={'bottom-end'}
+                                overlay={
+                                    <Tooltip id={`tooltip-vendor-search`}>
+                                        Vendor Details for Your Created RFQs
+                                    </Tooltip>
+                                }
+                            >
+                                <FontAwesomeIcon icon={faInfoCircle} fontSize={20} className="text-secondary" />
+                            </OverlayTrigger>
+                        </div>
+
                         {/* Search Input */}
-                        <div className="input-group mb-3">
+                        <div className="input-group mt-1 mb-3">
                             <input
                                 type="text"
                                 className="form-control"
@@ -76,27 +93,24 @@ const VendorOverview = () => {
                         <div className="flex-grow-1 overflow-y-auto" style={{ maxHeight: "450px" }}>
                             {vendorSearchLoading ? <FullLoader />
                                 : vendorSearchList && vendorSearchList.length > 0 ? (
-                                    <table className="table table-sm table-borderless">
+                                    <table className="table table-sm table-borderless table-hover">
                                         <tbody>
                                             {vendorSearchList.map((vendorItem) => (
                                                 <tr key={`vendor_${vendorItem.vendor_id}`} className="border-bottom">
-                                                    <td className="d-flex justify-content-between align-items-center py-3">
-                                                        <div>
+                                                    <td>
+                                                        <Link
+                                                            href={`/vendor/vendor-profile?id=${vendorItem.vendor_id}`}
+                                                            className="text-dark py-1"
+                                                            aria-label="View Vendor Profile"
+                                                            target='_blank'
+                                                            rel="noopener noreferrer"
+                                                        >
                                                             <span className="d-block fw-medium">
                                                                 {vendorItem.company_name || vendorItem.vendor_name}
                                                             </span>
                                                             <span className="d-block text-muted small">
                                                                 {vendorItem.address || '---'}
                                                             </span>
-                                                        </div>
-                                                        <Link
-                                                            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendorItem.vendor_id}`}
-                                                            className="text-primary"
-                                                            aria-label="View Vendor Profile"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                        >
-                                                            <FontAwesomeIcon icon={faInfoCircle} size="lg" />
                                                         </Link>
                                                     </td>
                                                 </tr>
@@ -110,7 +124,7 @@ const VendorOverview = () => {
                                 ) : (
                                     <div className="d-flex flex-column justify-content-center align-items-center text-center h-100">
                                         <FontAwesomeIcon icon={faMagnifyingGlass} fontSize={64} className="opacity-25 mb-3" />
-                                        <h3 className="fs-6">Search Vendors to see their available Products.</h3>
+                                        <h3 className="fs-6">Search Vendors to see their Details.</h3>
                                     </div>
                                 )}
                         </div>
@@ -122,24 +136,44 @@ const VendorOverview = () => {
                 <div className="overview-container col-md-4 pe-2">
                     <div className="rounded-2 shadow p-4 h-100 hasFullLoader d-flex flex-column">
                         {listLoading && <FullLoader />}
-                        <h2 className="fs-4 fw-medium">Top Vendors</h2>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                            <h2 className="fs-4 fw-medium mb-0">Top Vendors</h2>
+                            <OverlayTrigger
+                                placement={'bottom-end'}
+                                overlay={
+                                    <Tooltip id={`tooltip-top-vendors`}>
+                                        Top 10 Vendors Based on Your Created RFQs
+                                    </Tooltip>
+                                }
+                            >
+                                <FontAwesomeIcon icon={faInfoCircle} fontSize={20} className="text-secondary" />
+                            </OverlayTrigger>
+                        </div>
                         <hr className="my-1" />
 
                         <div className="flex-grow-1 overflow-y-auto" style={{ maxHeight: "450px" }}>
                             {topLists?.vendorData ? (
                                 topLists.vendorData.length > 0 ? (
-                                    <table className="table table-sm table-borderless flex-grow-1 overflow-y-auto" style={{ maxHeight: "450px" }}>
+                                    <table className="table table-sm table-borderless table-hover flex-grow-1 overflow-y-auto" style={{ maxHeight: "450px" }}>
                                         <tbody>
                                             {topLists.vendorData.map((vendorItem) => (
                                                 <tr key={`vendor_${vendorItem.user_id}`} className="border-bottom">
-                                                    <td className="d-flex justify-content-between align-items-center py-2">
-                                                        <div>
-                                                            <span className="d-block">{vendorItem.name}</span>
-                                                            <span className="d-block text-sm">{vendorItem.address || '---'}</span>
-                                                        </div>
-                                                        <span className="border border-primary text-primary text-sm text-nowrap px-3 py-1 rounded-3 text-center">
-                                                            {vendorItem.product_count} {vendorItem.product_count > 1 ? 'Products' : 'Product'}
-                                                        </span>
+                                                    <td>
+                                                        <Link
+                                                            href={`/vendor/vendor-profile?id=${vendorItem.user_id}`}
+                                                            className="d-flex justify-content-between align-items-center text-dark py-2"
+                                                            aria-label="View Vendor Profile"
+                                                            target='_blank'
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <div>
+                                                                <span className="d-block">{vendorItem.company_name || vendorItem.organization_name || vendorItem.name}</span>
+                                                                <span className="d-block text-sm">{vendorItem.address || '---'}</span>
+                                                            </div>
+                                                            <span className="border border-primary text-primary text-sm text-nowrap px-3 py-1 rounded-3 text-center">
+                                                                {vendorItem.rfq_count} {vendorItem.rfq_count > 1 ? 'RFQs' : 'RFQ'}
+                                                            </span>
+                                                        </Link>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -165,7 +199,19 @@ const VendorOverview = () => {
                 <div className="overview-container col-md-4 pe-2">
                     <div className="rounded-2 shadow p-4 h-100 hasFullLoader d-flex flex-column">
                         {listLoading && <FullLoader />}
-                        <h2 className="fs-4 fw-medium">Top Products</h2>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                            <h2 className="fs-4 fw-medium mb-0">Top Products</h2>
+                            <OverlayTrigger
+                                placement={'bottom-end'}
+                                overlay={
+                                    <Tooltip id={`tooltip-top-products`}>
+                                        Top 10 Products Based on Your Created RFQs
+                                    </Tooltip>
+                                }
+                            >
+                                <FontAwesomeIcon icon={faInfoCircle} fontSize={20} className="text-secondary" />
+                            </OverlayTrigger>
+                        </div>
                         <hr className="my-1" />
 
                         <div className="flex-grow-1 overflow-y-auto" style={{ maxHeight: "450px" }}>
@@ -183,7 +229,7 @@ const VendorOverview = () => {
                                                             </span>
                                                         </div>
                                                         <span className="border border-primary text-primary text-nowrap text-sm px-3 py-1 rounded-3 text-center">
-                                                            {prodItem.vendor_count} {prodItem.vendor_count > 1 ? 'Vendors' : 'Vendor'}
+                                                            {prodItem.rfq_count} {prodItem.rfq_count > 1 ? 'RFQs' : 'RFQ'}
                                                         </span>
                                                     </td>
                                                 </tr>

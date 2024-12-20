@@ -71,7 +71,6 @@ export const uploadProjectFile = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosFormData.post(`/project/upload-file`,payload);
-      // console.log("response: ", response)
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -83,7 +82,6 @@ export const getProjectReportData = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosFormData.get(`/rfq/report/rfq-project-wise?projectId=${payload.projectId}&startDate=${payload.startDate}&endDate=${payload.endDate}`);
-      // console.log("response: ", response)
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -95,8 +93,7 @@ export const getProjectReportData = (payload) => {
 export const getProductReportData = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.get(`/rfq/report/rfq-product-wise?productName=${payload.productName}&startDate=${payload.startDate}&endDate=${payload.endDate}`);
-      // console.log("response: ", response)
+      let response = await axiosFormData.get(`/rfq/report/rfq-product-wise?productName=${payload.productName}&parentCategory=${payload.productCategory}&startDate=${payload.startDate}&endDate=${payload.endDate}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
