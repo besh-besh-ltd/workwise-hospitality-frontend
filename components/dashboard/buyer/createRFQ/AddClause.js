@@ -2,10 +2,10 @@ import { toast } from "react-toastify";
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Form, Tab, Nav} from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faDownload, faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
-import { faEdit,faCloudArrowUp, faDownload,faFileExcel  } from "@fortawesome/free-regular-svg-icons";
+import { faEdit, faFileExcel  } from "@fortawesome/free-regular-svg-icons";
 import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, updateClause } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 
