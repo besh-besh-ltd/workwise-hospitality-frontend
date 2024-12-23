@@ -191,7 +191,7 @@ const DownloadReportsForBuyer = (props) => {
     }, 500), []);
 
 
-  // once received response from API, generate repoprt file
+  // once received response from API, generate report file
   // excel for product and zip for project
   const handelGenerateReport = async () => {
 
@@ -262,7 +262,6 @@ const DownloadReportsForBuyer = (props) => {
 
       // RFQ Information Section
       ws_data.push(["RFQ Information"]);
-      ws_data.push(["RFQ ID", rfq.rfq_id]);
       ws_data.push(["RFQ No", rfq.rfq_no]);
       ws_data.push(["Product Name", rfq.product_name]);
       ws_data.push(["Product Description", rfq.product_description || "N/A"]);
@@ -277,7 +276,7 @@ const DownloadReportsForBuyer = (props) => {
       // Vendor Quotes Section
       ws_data.push(["Vendor Quotes"]);
       ws_data.push([
-        "Vendor ID",
+        "Vendor Name",
         "Unit Price",
         "Package Price",
         "Tax",
@@ -293,7 +292,7 @@ const DownloadReportsForBuyer = (props) => {
         vendor?.quote_details?.forEach((quote) => {
           quote?.quote_items?.forEach((item) => {
             ws_data.push([
-              vendor.vendor_id,
+              vendor.vendor_name,
               item.unit_price,
               item.package_price,
               item.tax,
@@ -328,11 +327,9 @@ const DownloadReportsForBuyer = (props) => {
   const createProjectDetailExcel = (project) => {
     const wb = XLSX.utils.book_new();
     const projectData = [
-      ["Project ID", project.project_id],
       ["Project Name", project.project_name],
       ["Project Description", project.project_description],
       ["Project Location", project.project_location],
-      ["Project Status", project.project_status],
     ];
     const wsProject = XLSX.utils.aoa_to_sheet(projectData);
     XLSX.utils.book_append_sheet(wb, wsProject, `Project Details`);
@@ -348,7 +345,6 @@ const DownloadReportsForBuyer = (props) => {
   const createProjectRfqDetailsExcel = (rfq) => {
     const wb = XLSX.utils.book_new();
     const rfqData = [
-      ["RFQ ID", rfq.rfq_id],
       ["RFQ Number", rfq.rfq_no],
       ["Company Name", rfq.company_name],
       ["Contact Name", rfq.contact_name],
@@ -357,7 +353,6 @@ const DownloadReportsForBuyer = (props) => {
       ["Location", rfq.location],
       ["RFQ Status", rfq.status],
       ["RFQ Type", rfq.rfq_type],
-      ["Is Published", rfq.is_published],
       ["Reverse Auction", rfq.reverse_auction ? "Yes" : "No"],
     ];
 
@@ -383,7 +378,6 @@ const DownloadReportsForBuyer = (props) => {
       let sheetName = `product_vendor_list_${index + 1}`;
 
       const productVendorData = [
-        ["Product ID", product.product_id],
         ["Product Name", product.product_name],
         ["Product Comment", product.comment],
         ...product.specs.map((spec) => [spec.title, spec.value]),
@@ -427,9 +421,6 @@ const DownloadReportsForBuyer = (props) => {
   const createProjectReportZip = async (projectDetailsData) => {
     const zip = new JSZip();
 
-    //  project name
-    const projectName = "Projects";
-
     // Create folders within the ZIP
     const projectFolder = zip.folder("Project Details");
     const rfqFolder = zip.folder("RFQ Details");
@@ -439,7 +430,7 @@ const DownloadReportsForBuyer = (props) => {
     projectDetailsData.rfqDetails.forEach((project) => {
       const projectBuffer = createProjectDetailExcel(project);
       projectFolder.file(
-        `Project_${project.project_id}_Details.xlsx`,
+        `${project.project_name}_Details.xlsx`,
         projectBuffer
       );
 
@@ -453,7 +444,7 @@ const DownloadReportsForBuyer = (props) => {
     // Add quotation details to the Quotations Details folder
     projectDetailsData.quoteList.forEach((rfqArray, index) => {
       const quoteBuffer = createProjectQuotesDetailsExcel(rfqArray, index);
-      quotationFolder.file(`Quotation_${index + 1}_Details.xlsx`, quoteBuffer);
+      quotationFolder.file(`Quotations_for_RFQ_${rfqArray[0]?.rfq[0]?.rfq_no}.xlsx`, quoteBuffer);
     });
 
     // // Generate the ZIP file and trigger download
@@ -475,7 +466,7 @@ const DownloadReportsForBuyer = (props) => {
 
     // Headers for current quotations
     worksheetData.push([
-      "RFQ ID",
+      "RFQ NO",
       "Product ID",
       "Unit Price",
       "Package Price",
@@ -494,7 +485,7 @@ const DownloadReportsForBuyer = (props) => {
       rfq.quotations.forEach((quote) => {
         // Adding current quotation details
         worksheetData.push([
-          rfq.rfq_id,
+          rfq.rfq[0]?.rfq_no,
           rfq.product_id,
           quote.unit_price,
           quote.package_price,
@@ -512,7 +503,7 @@ const DownloadReportsForBuyer = (props) => {
         if (quote.previous_quotes && quote.previous_quotes.length > 0) {
           quote.previous_quotes.forEach((prevQuote) => {
             worksheetData.push([
-              rfq.rfq_id,
+              rfq.rfq_no,
               rfq.product_id,
               prevQuote.unit_price,
               prevQuote.package_price,
