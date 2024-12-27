@@ -182,7 +182,7 @@ const Aboutus = (props) => {
       })}
 
       {/* ---------- Meet the Team ---------- */}
-      {teamList &&
+      {/* {teamList &&
         <section className="about-sec-5 sc-pt-80" aria-label="Meet our team" >
           <div className="container">
             <div className="about-sec-5-top">
@@ -231,12 +231,12 @@ const Aboutus = (props) => {
 
           </div>
         </section>
-      }
+      } */}
 
       {/* {bod && <PersonalProfiles profiles={bod}/>}
       		{kp &&<PersonalProfiles pb={80} title="Other key Personnel" subtitle="International Subsidiaries" profiles={kp}/>} */}
 
-      <div className="title-text container text-center sc-pt-80 sc-pb-80 ">
+      <div className="title-text container text-center sc-pb-80 ">
         <p>Join us in shaping the future of the heavy industry. Together, let's build a more efficient, connected, and prosperous ecosystem</p>
       </div>
     </>
