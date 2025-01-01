@@ -244,3 +244,29 @@ export const rfqReport = (month, year) => {
     }
   });
 };
+
+export const parentCategoryList = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/parent-category-list`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const productListByCategory = (cat_id, page = 1, limit = 15) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/product-list-by-category?cat_id=${cat_id}&page=${page}&limit=${limit}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
