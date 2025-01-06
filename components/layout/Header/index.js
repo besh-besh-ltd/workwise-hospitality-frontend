@@ -6,7 +6,6 @@ import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
@@ -18,6 +17,8 @@ const initialMainNavs = [
   "/contactus",
   "/for-vendors",
   // "/for-buyers",
+  "/solutions",
+  "/blogs",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
@@ -29,7 +30,7 @@ const initialMainNavs = [
 
 const Header = () => {
   const router = useRouter();
-  const pathname = usePathname();
+  const { pathname } = router;
   const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -118,13 +119,13 @@ const Header = () => {
       if (pathname === '/products') {
         revisedNavs.push('/products');
       }
-      else if (pathname.includes("/dashboard/vendor/inquiries-details")) {
+      else if (pathname?.includes("/dashboard/vendor/inquiries-details")) {
         revisedNavs.push("/dashboard/vendor/inquiries-details");
       }
       setMainNavs(revisedNavs)
     }
 
-  }, [router]);
+  }, [router, pathname]);
 
 
   const handleLogout = (e) => {
@@ -157,7 +158,8 @@ const Header = () => {
             </div>
             {/* for Login Users only */}
 
-            {(mainNavs.includes(pathname) || (!loggedinUser && pathname?.startsWith("/vendor"))) && (
+            {(mainNavs.includes(pathname) || 
+            (!loggedinUser && (pathname?.startsWith("/vendor") || pathname?.startsWith("/solutions")))) && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   <nav className="main-menu">
