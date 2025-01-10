@@ -1,4 +1,4 @@
-import { faCloudArrowUp, faDownload,faClose } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faDownload, faClose } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
@@ -7,10 +7,12 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
-import { createRfq, getMagicRFQPreview, getTerms } from "@/services/rfq";
+import { createRfq, getMagicRFQPreview } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import Select from 'react-select';
+import { getCities, getStates } from "@/services/cms";
 
 
 const initialFormData = {
@@ -29,6 +31,7 @@ const initialFormData = {
 
 
 const MagicSearchPage = () => {
+    const tableRef = useRef(null);
     const [file, setFile] = useState(null);
     const [fileName, setFileName] = useState('');
     const [reviewData, setReviewData] = useState(null);
@@ -53,6 +56,16 @@ const MagicSearchPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);
 
+    const [cities, setCities] = useState(null);
+    const [states, setStates] = useState(null);
+    const [globalFilters, setGlobalFilters] = useState({
+        city: null,
+        state: null,
+        is_private: { label: "All Vendors", value: 0 }
+    });
+    const [vendorMap, setVendorMap] = useState(new Map());
+
+
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1); // Tomorrow's date
@@ -60,11 +73,6 @@ const MagicSearchPage = () => {
     const defaultEndDate = new Date(today);
     defaultEndDate.setDate(today.getDate() + 30); // Default to 30 days ahead
 
-    const tableRef = useRef(null);
-    const apiDataRef = useRef(null);
-
-    // Message rotation state for loading UI
-    const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
     // Array of messages to display during loading
     const fileUploadMessage = [
@@ -111,7 +119,6 @@ const MagicSearchPage = () => {
             setLoading(true);
             const response = await getMagicRFQPreview(file);
             setApiData(response)
-            // apiDataRef.current = response;
 
             // Delay the state update until all messages are shown
             setTimeout(() => {
@@ -129,35 +136,9 @@ const MagicSearchPage = () => {
         }
     };
 
-    // const handleFormChange = (e, type) => {
-    //     const { name, value, checked, id } = e.target;
-
-    //     if (type === "terms-checkbox") {
-    //         const termId = parseInt(id.replace("term-item-", ""));
-    //         const updatedTerms = termList.map((termItem) => {
-    //             if (termItem.id === termId)
-    //                 termItem.selected = checked
-    //             return termItem
-    //         })
-    //         setTermList(updatedTerms);
-    //     } else {
-    //         if (name == "reverse_auction") {
-    //             setFormData((prevState) => ({
-    //                 ...prevState,
-    //                 [name]: parseInt(value)
-    //             }));
-    //         } else {
-    //             setFormData((prevState) => ({
-    //                 ...prevState,
-    //                 [name]: value
-    //             }));
-    //         }
-    //     }
-    // }
-
     const handleFormChange = async (e, type) => {
         const { name, value, checked, id } = e.target;
-    
+
         if (type === "terms-checkbox") {
             const termId = parseInt(id.replace("term-item-", ""));
             const updatedTerms = termList.map((termItem) => {
@@ -170,7 +151,7 @@ const MagicSearchPage = () => {
         } else if (name === "project_id" && value != -1) {
             try {
                 const projectData = await getProjectData(value);
-    
+
                 if (projectData) {
                     // Update form fields based on project data
                     setFormData((prevState) => ({
@@ -196,24 +177,31 @@ const MagicSearchPage = () => {
         }
     };
 
+    const handleFilterChange = (selectedOption, actionMeta) => {
+        setGlobalFilters((prevState) => ({
+            ...prevState,
+            [actionMeta.name]: selectedOption
+        }))
+    }
+
     const handleTermFiles = async (type, dynamicParam) => {
         try {
-          if (type === "add") {
-            const filePath = await handleFileUpload(dynamicParam);
-            // Append the new file to the existing array
-            setTermFiles(prevTermFiles => [...prevTermFiles, { type, value: filePath }]);
-            dynamicParam.target.value = null;
-          } else {
-            // For other types, just add the dynamicParam as a new entry
-            setTermFiles(prevTermFiles => [
-                ...prevTermFiles.filter(file => file.value !== dynamicParam)
-              ]);
-          }
+            if (type === "add") {
+                const filePath = await handleFileUpload(dynamicParam);
+                // Append the new file to the existing array
+                setTermFiles(prevTermFiles => [...prevTermFiles, { type, value: filePath }]);
+                dynamicParam.target.value = null;
+            } else {
+                // For other types, just add the dynamicParam as a new entry
+                setTermFiles(prevTermFiles => [
+                    ...prevTermFiles.filter(file => file.value !== dynamicParam)
+                ]);
+            }
         } catch (error) {
-          let message = error.message;
-          toast.error(message);
+            let message = error.message;
+            toast.error(message);
         }
-      }
+    }
 
 
     const getAllProjects = () => {
@@ -232,31 +220,43 @@ const MagicSearchPage = () => {
 
     const getProjectData = async (projectId) => {
         try {
-          const res = await getProjectTableDataById(projectId);
-          const projectData = res.data[0];
-          return projectData;
+            const res = await getProjectTableDataById(projectId);
+            const projectData = res.data[0];
+            return projectData;
         } catch (error) {
-          console.error("Error fetching project data:", error.message);
-          throw error;
+            console.error("Error fetching project data:", error.message);
+            throw error;
         }
-      };
+    };
 
-    const getTermsData = () => {
-        setTermsLoading(true);
-        getTerms()
-            .then((res) => {
-                const terms = res.data?.map((item) => {
-                    return {
-                        ...item,
-                        selected: true
-                    };
-                })
-                setTermList(terms);
-            })
-            .catch((err) => {
-                console.error(err);
-            })
-            .finally(() => setTermsLoading(false));
+    const getAllStates = async () => {
+        try {
+            const res = await getStates();
+            setStates(
+                res.data.map((state) => ({
+                    label: state.state_name,
+                    value: state.id
+                }))
+            )
+        } catch (error) {
+            toast.error(error.message)
+            return [];
+        }
+    };
+
+    const getAllCities = async () => {
+        try {
+            const res = await getCities();
+            setCities(
+                res.data.map((city) => ({
+                    label: city.city_name,
+                    value: city.id
+                }))
+            )
+        } catch (error) {
+            toast.error(error.message)
+            return [];
+        }
     };
 
     const removeItem = (type, prodItem, vendor_id) => {
@@ -311,7 +311,7 @@ const MagicSearchPage = () => {
         }
         setIsModalOpen(false);
         setPendingRemoval(null);
-        if(reviewData.length===0){
+        if (reviewData.length === 0) {
             setValidationErrors(null)
             setTermList(null);
         }
@@ -388,8 +388,24 @@ const MagicSearchPage = () => {
     const handleCreateRFQ = () => {
         const { file, ...formDataWithoutFile } = formData;
         const selectedTerms = termList.filter((term) => term.selected);
-        let valuesArray = termFiles.map(file => file.value);
-        reviewData.term_and_condition_files=valuesArray;
+        const filesArray = termFiles.map(file => file.value);
+        reviewData.term_and_condition_files = filesArray;
+        const updatedProducts = [];
+
+        for (const prodItem of reviewData.products) {
+            const updatedVendors = vendorMap.get(`prod_${prodItem.product_id}_${prodItem.variant}`);
+            if (updatedVendors.length === 0) {
+                toast.error(`No Vendor is selected for ${prodItem.name}`);
+                return;
+            }
+            const updatedProduct = {
+                ...prodItem,
+                vendors: updatedVendors.map(({ user_id, name }) => ({ user_id, name })),
+            };
+            updatedProducts.push(updatedProduct);
+        }
+        reviewData.products = updatedProducts;
+
         setSubmitLoading(true);
         createRfq({
             ...reviewData,
@@ -419,6 +435,8 @@ const MagicSearchPage = () => {
     useEffect(() => {
         getAllProjects();
         // getTermsData();
+        getAllCities();
+        getAllStates();
     }, []);
 
     // Display FileUploadMessages in a rotating fashion
@@ -470,17 +488,13 @@ const MagicSearchPage = () => {
 
     // Handle API response and state update after all messages are shown
     useEffect(() => {
-        // if (messagesDisplayed && !loading && apiDataRef.current) {
-        // console.log(" apidata ", apiData)
         if (apiData) {
-            // console.log(" if is executed ")
-            // const { status, validation_errors, data } = apiDataRef.current;
             const { status, validation_errors, data } = apiData;
 
             setTermFiles(data?.term_and_condition_files);
             setReviewData(data);
             setTermList(data?.terms.map(term => ({ ...term, selected: true })));
-            setFormData((prevData)=> ({
+            setFormData((prevData) => ({
                 ...prevData,
                 response_email: data?.response_email,
                 contact_name: data?.contact_name,
@@ -510,7 +524,6 @@ const MagicSearchPage = () => {
                 }
             }, 300);
 
-            // apiDataRef.current = null;
             setApiData(null)
             setFileUploadMessagesDisplayed(false)
         }
@@ -632,8 +645,8 @@ const MagicSearchPage = () => {
                                     </a>
                                 </div> */}
                             </>
-                            : <>
-                                <div className="col-md-4 mb-3">
+                            : <div className="row">
+                                <div className="col-md-3 mb-3">
                                     <h3 className="h5 mb-3">Select Project</h3>
                                     <select
                                         name="project_id"
@@ -652,6 +665,48 @@ const MagicSearchPage = () => {
                                         }
                                     </select>
                                 </div>
+                                <div className="col-md-1 mb-3"></div>
+                                <div className="col-md-8 mb-3">
+                                    <h3 className="h5 mb-3">Vendor Filters</h3>
+                                    <div className="row">
+                                        <div className="col-md-4">
+                                            <Select
+                                                name="city"
+                                                options={cities}
+                                                value={globalFilters.city}
+                                                placeholder="Select City"
+                                                isClearable
+                                                isSearchable
+                                                onChange={handleFilterChange}
+                                            />
+                                        </div>
+                                        <div className="col-md-4">
+                                            <Select
+                                                name="state"
+                                                options={states}
+                                                value={globalFilters.state}
+                                                placeholder="Select State"
+                                                isClearable
+                                                isSearchable
+                                                onChange={handleFilterChange}
+                                            />
+                                        </div>
+                                        <div className="col-md-4">
+                                            <Select
+                                                options={[
+                                                    { label: "All Vendors", value: 0 },
+                                                    { label: "Private Vendors", value: 1 }
+                                                ]}
+                                                value={globalFilters.is_private}
+                                                onChange={handleFilterChange}
+                                                name="is_private"
+                                                placeholder="Select"
+                                                isClearable={false}
+                                                isSearchable
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                                 {reviewData.products && reviewData.products.length > 0 &&
                                     <>
                                         <h3 className="h5 mb-3">Review Products</h3>
@@ -660,10 +715,15 @@ const MagicSearchPage = () => {
                                             changeProductData={changeProductData}
                                             handleFiles={handleFiles}
                                             removeItem={removeItem}
+                                            globalFilters={globalFilters}
+                                            vendorMap={vendorMap}
+                                            setVendorMap={setVendorMap}
+                                            cities={cities}
+                                            states={states}
                                         />
                                     </>
                                 }
-                            </>
+                            </div>
                         }
 
                         {/* Terms and Conditions check-box */}
@@ -736,8 +796,8 @@ const MagicSearchPage = () => {
                                                             icon={faClose}
                                                             style={{ fontSize: "20" }}
                                                             onClick={(e) => {
-                                                            e.preventDefault();
-                                                            handleTermFiles("remove", term_file.value);
+                                                                e.preventDefault();
+                                                                handleTermFiles("remove", term_file.value);
                                                             }}
                                                         />
                                                     </a>
@@ -746,7 +806,7 @@ const MagicSearchPage = () => {
                                         </div>
                                     )}
                                 </div>
-                                </div>
+                            </div>
 
 
                             <h3 className="h5 mt-5">Contact information</h3>

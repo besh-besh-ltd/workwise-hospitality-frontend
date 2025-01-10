@@ -3,9 +3,111 @@ import FileLink from "@/components/shared/FileLink";
 import { faClose, faCloudArrowUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import Select from 'react-select';
 
+const customeStyles = {
+    control: (provided) => ({
+        ...provided,
+        height: '20px',
+        fontSize: '14px'
+    }),
+    input: (provided) => ({
+        ...provided,
+        margin: 0,
+        fontSize: '14px',
+    }),
+    placeholder: (provided) => ({
+        ...provided,
+        fontSize: '14px',
+    }),
+    singleValue: (provided) => ({
+        ...provided,
+        fontSize: '14px',
+    }),
+    option: (provided) => ({
+        ...provided,
+        fontSize: '14px',
+    })
+}
 
-const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) => {
+const ReviewProducts = ({
+    data, changeProductData, handleFiles, removeItem,
+    globalFilters, vendorMap, setVendorMap, cities, states }) => {
+
+    const [localFilterMap, setLocalFilterMap] = useState(new Map());
+
+    const updateVendorList = () => {
+        const vMap = new Map();
+
+        for (const prodItem of data) {
+            const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
+            let updatedVendors = prodItem.vendors || [];
+
+            const filter = localFilterMap.get(prodKey);
+            if (filter?.is_private?.value == 1) {
+                updatedVendors = updatedVendors.filter(
+                    (vendorItem) => vendorItem.is_private == 1
+                );
+            }
+            if (filter?.city) {
+                updatedVendors = updatedVendors.filter(
+                    (vendorItem) => vendorItem.city_name === filter.city.label
+                );
+            }
+            if (filter?.state) {
+                updatedVendors = updatedVendors.filter(
+                    (vendorItem) => vendorItem.state_name === filter.state.label
+                );
+            }
+            vMap.set(prodKey, updatedVendors)
+        }
+        setVendorMap(vMap);
+    }
+
+    const handleLocalFilterChange = (prodKey, selectedOption, actionMeta) => {
+        const fMap = new Map(localFilterMap);
+        let filters = fMap.get(prodKey);
+        fMap.set(prodKey, {
+            ...filters,
+            [actionMeta.name]: selectedOption
+        })
+        setLocalFilterMap(fMap);
+    }
+
+    useEffect(()=> {
+        updateVendorList();
+    }, [localFilterMap]);
+
+    useEffect(() => {
+        setLocalFilterMap((prevState) => {
+            const lFMap = new Map(prevState);
+            for (const [key, value] of lFMap.entries()) {
+                lFMap.set(key, globalFilters);
+            }
+            return lFMap;
+        })
+    }, [globalFilters]);
+
+    useEffect(() => {
+        const lMap = new Map();
+        const vMap = new Map();
+
+        data.forEach((prodItem) => {
+            const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
+            vMap.set(prodKey, prodItem.vendors);
+
+            lMap.set(prodKey, {
+                city: null,
+                state: null,
+                is_private: { label: "All Vendors", value: 0 },
+            });
+        });
+
+        setLocalFilterMap(lMap);
+        setVendorMap(vMap);
+    }, [data]);
+
 
     return (
         <Accordion flush>
@@ -15,17 +117,73 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
                     prodItem.spec?.map((specItem) => {
                         tempSpec[specItem.title] = specItem.value
                     })
+                    const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
 
                     return (
-                        <Accordion.Item key={`prod_item_${prodItem.product_id}_${prodItem.variant}`} eventKey={index} className="border-0">
+                        <Accordion.Item key={prodKey} eventKey={index} className="border-0">
                             <div className="border border-2 rounded-3 mb-2 p-2">
                                 <Accordion.Header>
-                                    <h2 className="h6 mb-0">Product Name: {prodItem.name}</h2>                                    
+                                    <h2 className="h6 mb-0">Product Name: {prodItem.name}</h2>
                                 </Accordion.Header>
 
                                 <Accordion.Body className="row py-0">
                                     <hr style={{ margin: "8px 0" }} />
 
+                                    <div className="row px-0 my-2">
+                                        <div className="col-md-5"></div>
+                                        <div className="col-12 col-md-7 px-0">
+                                            <div className="row">
+                                                <div className="col-md-4">
+                                                    <Select
+                                                        name="city"
+                                                        options={cities}
+                                                        styles={customeStyles}
+                                                        value={localFilterMap.get(prodKey)?.city}
+                                                        placeholder="Select City"
+                                                        isClearable
+                                                        isSearchable
+                                                        onChange={
+                                                            (selectedOption, actionMeta) =>
+                                                                handleLocalFilterChange(prodKey, selectedOption, actionMeta)
+                                                        }
+                                                    />
+                                                </div>
+                                                <div className="col-md-4">
+                                                    <Select
+                                                        name="state"
+                                                        options={states}
+                                                        styles={customeStyles}
+                                                        value={localFilterMap.get(prodKey)?.state}
+                                                        placeholder="Select State"
+                                                        isClearable
+                                                        isSearchable
+                                                        onChange={
+                                                            (selectedOption, actionMeta) =>
+                                                                handleLocalFilterChange(prodKey, selectedOption, actionMeta)
+                                                        }
+                                                    />
+                                                </div>
+                                                <div className="col-md-4">
+                                                    <Select
+                                                        options={[
+                                                            { label: "All Vendors", value: 0 },
+                                                            { label: "Private Vendors", value: 1 }
+                                                        ]}
+                                                        styles={customeStyles}
+                                                        value={localFilterMap.get(prodKey)?.is_private}
+                                                        onChange={
+                                                            (selectedOption, actionMeta) =>
+                                                                handleLocalFilterChange(prodKey, selectedOption, actionMeta)
+                                                        }
+                                                        name="is_private"
+                                                        placeholder="Select"
+                                                        isClearable={false}
+                                                        isSearchable
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     {/* Spec, Size, Quantity, Unit Section */}
                                     <div className="col-sm-12 col-md-6 col-lg-4 pe-0">
                                         <div className="row">
@@ -80,51 +238,11 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
 
                                     </div>
 
-                                    {/* File Section */}
+                                    {/* Files and Comment Section */}
                                     <div className="col-sm-12 col-md-6 col-lg-4 pe-0">
                                         <div className="mb-2">
                                             <label htmlFor={`files_${prodItem.product_id}_${prodItem.variant}`} className="form-label small mb-1 ">Files Section</label>
-                                            <div className="form-control " id={`vendor_list_${prodItem.product_id}_${prodItem.variant}`} style={{ height: "15rem" }}>
-
-                                                { prodItem.predefined_tds_file && <div className="d-flex align-items-center text-sm opacity-75">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="user_selected_predefined_tds"
-                                                        id="user_selected_predefined_tds"
-                                                        className="me-2"
-                                                        disabled={!prodItem.predefined_tds_file}
-                                                        onChange={(e) => changeProductData('predefined_file', e, prodItem)}
-                                                    />
-                                                    <span className="me-2">Predefined TDS File: </span>
-                                                    {prodItem.predefined_tds_file ?
-                                                        <FileLink
-                                                            Files={prodItem.predefined_tds_file}
-                                                            FileType='predefined_tds_file'
-                                                            Style={{ maxWidth: "200px" }}
-                                                        />
-                                                        : "No TDS file found"
-                                                    }
-                                                </div>}
-
-                                                {prodItem.predefined_qap_file && <div className="d-flex align-items-center text-sm opacity-75">
-                                                    <input
-                                                        type="checkbox"
-                                                        name="user_selected_predefined_qap"
-                                                        id="user_selected_predefined_qap"
-                                                        className="me-2"
-                                                        disabled={!prodItem.predefined_qap_file}
-                                                        onChange={(e) => changeProductData('predefined_file', e, prodItem)}
-                                                    />
-                                                    <span className="me-2">Predefined QAP File: </span>
-                                                    {prodItem.predefined_qap_file ?
-                                                        <FileLink
-                                                            Files={prodItem.predefined_qap_file}
-                                                            FileType='predefined_qap_file'
-                                                            Style={{ maxWidth: "200px" }}
-                                                        />
-                                                        : "No QAP file found"
-                                                    }
-                                                </div>}
+                                            <div className="form-control " id={`vendor_list_${prodItem.product_id}_${prodItem.variant}`} style={{ height: "8rem" }}>
 
                                                 <div className="row my-2">
                                                     <div className="col-4">
@@ -185,15 +303,11 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
 
                                             </div>
                                         </div>
-                                    </div>
-
-                                    {/* Comment, Vendor List Section */}
-                                    <div className="col-sm-12 col-md-6 col-lg-4 ">
                                         <div className="mb-2">
-                                            <label htmlFor={`cmnt_${prodItem.product_id}_${prodItem.variant}`} className="form-label small mb-1 ">Product Comments</label>
+                                            <label htmlFor={`cmnt_${prodItem.product_id}_${prodItem.variant}`} className="form-label small mb-1 ">Product Comment</label>
                                             <textarea
                                                 style={{ width: "100%" }}
-                                                rows={4}
+                                                rows={3}
                                                 name="comment"
                                                 id={`cmnt_${prodItem.product_id}_${prodItem.variant}`}
                                                 value={prodItem.comment}
@@ -201,18 +315,26 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
                                                 className="form-control text-sm opacity-75"
                                             />
                                         </div>
-                                        <div className="mb-2">
+                                    </div>
+
+                                    {/* Vendor List Section */}
+                                    <div className="col-sm-12 col-md-6 col-lg-4 flex-grow-1 ">
+                                        <div className="mb-2 h-100">
                                             <label htmlFor={`vendor_list_${prodItem.product_id}_${prodItem.variant}`} className="form-label small mb-1 ">Vendor List</label>
-                                            <div className="form-control overflow-y-auto" id={`vendor_list_${prodItem.product_id}_${prodItem.variant}`} style={{ height: "6.5rem" }}>
-                                                {prodItem.vendors?.map((vendor) => {
+                                            <div
+                                                className="form-control overflow-y-auto"
+                                                id={`vendor_list_${prodItem.product_id}_${prodItem.variant}`}
+                                                style={{ height: "15.3rem", maxHeight: "15.3rem" }}
+                                            >
+                                                {vendorMap && vendorMap.get(prodKey)?.map((vendor) => {
                                                     return (
                                                         <span key={vendor.user_id} className="badge fw-normal me-2 mb-2" style={{ backgroundColor: "var(--secondary-color)", color: "#fff" }}>
-                                                            <Link 
+                                                            <Link
                                                                 href={`/vendor/vendor-profile?id=${vendor.user_id}`}
                                                                 target='_blank'
                                                                 className="text-white"
                                                             >
-                                                            {vendor.name}
+                                                                {vendor.name}
                                                             </Link>
                                                             <FontAwesomeIcon icon={faClose} className="ms-2" onClick={() => removeItem("vendor", prodItem, vendor.user_id)} />
                                                         </span>
@@ -222,7 +344,7 @@ const ReviewProducts = ({ data, changeProductData, handleFiles, removeItem }) =>
                                         </div>
                                     </div>
 
-                                    <div className="d-flex justify-content-end my-2" >                                        
+                                    <div className="d-flex justify-content-end my-2" >
                                         <button
                                             type="button"
                                             className="btn btn-danger btn-sm"
