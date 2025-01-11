@@ -537,7 +537,7 @@ const SolutionsCategory = ({ pageTitle }) => {
                         <p className="fw-medium mb-4">Find the right vendors. Get the best rates. Streamline your process. </p>
                         <h2 className="h3 mb-4">All in one place</h2>
                         <Link
-                            href="/vandor/all"
+                            href="/vendor/all"
                             target="_blank"
                             className="btn btn-primary border-0 fw-semibold"
                             style={{ width: "250px" }}
