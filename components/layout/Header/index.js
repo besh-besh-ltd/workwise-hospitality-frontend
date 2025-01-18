@@ -19,6 +19,7 @@ const initialMainNavs = [
   // "/for-buyers",
   "/solutions",
   "/blogs",
+  "/temp",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
@@ -264,7 +265,7 @@ const Header = () => {
                     {/* FOR NON LOGGED IN  */}
                     {!loggedinUser && !loggedinUser?.name && (
                       <ul>
-                        <li
+                        {/* <li
                           className="login"
                           onClick={() => {
                             handleChange(setActiveAuthTab("login"));
@@ -286,6 +287,17 @@ const Header = () => {
                           <Link href="javascript:void(0)">
                             <FontAwesomeIcon icon={faGear} />{" "}
                             <span>Register</span>
+                          </Link>
+                        </li> */}
+                        <li
+                          className="login"
+                          onClick={() => {                            
+                            handleChange(setOpenAuthModal(true));
+                          }}
+                        >
+                          <Link href="javascript:void(0)">
+                            {" "}
+                            <FontAwesomeIcon icon={faUser} /> <span>Book a Demo</span>
                           </Link>
                         </li>
                       </ul>
