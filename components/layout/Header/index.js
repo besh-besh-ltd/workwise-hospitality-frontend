@@ -26,7 +26,8 @@ const initialMainNavs = [
   "/terms-of-use",
   "/products",
   "/dashboard/vendor/inquiries-details",
-  "/dashboard/buyer/rfq-management-vendor/vendor-profile"
+  "/dashboard/buyer/rfq-management-vendor/vendor-profile",
+  "/newHomePageDesign"
 ];
 
 const Header = () => {
