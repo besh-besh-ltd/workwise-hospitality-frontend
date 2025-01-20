@@ -19,7 +19,6 @@ const initialMainNavs = [
   // "/for-buyers",
   "/solutions",
   "/blogs",
-  "/temp",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
@@ -173,40 +172,41 @@ const Header = () => {
                       </li>
                       <li
                         className={
-                          router.pathname == "/for-vendors" ? "active" : ""
-                        }
-                      >
-                        <Link href="/for-vendors">For Vendors</Link>
-                      </li>
-                      <li
-                        className={
                           router.pathname == "/aboutus" ? "active" : ""
                         }
                       >
                         <Link href="/aboutus">About Us</Link>
                       </li>
-                      {/* <li
+                      <li
+                        className={
+                          router.pathname == "/vendor/all" ? "active" : ""
+                        }
+                      >
+                        <Link href="/vendor/all">Find a Vendor</Link>
+                      </li>
+                      
+                      <li
 												className={
-													router.pathname == "/products" ? "active" : ""
+													router.pathname == "/solutions" ? "active" : ""
 												}
 											>
-												<Link href="/products">Products</Link>
-											</li> */}
-                      {/* <li
+												<Link href="/solutions">Our Solutions</Link>
+											</li>
+                      <li
                         className={
-                          router.pathname == "/for-buyers" ? "active" : ""
+                          router.pathname == "/blogs" ? "active" : ""
                         }
                       >
-                        <Link href="/for-buyers">For Buyers</Link>
+                        <Link href="/blogs">Blogs</Link>
                       </li>
- */}
-                      {/* <li
+
+                      <li
                         className={
-                          router.pathname == "/for-buyers" ? "active" : ""
+                          router.pathname == "/products" ? "active" : ""
                         }
                       >
-                        <Link href="/for-buyers">For Buyers</Link>
-                      </li> */}
+                        <Link href="/products">Products We Cater</Link>
+                      </li>
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""

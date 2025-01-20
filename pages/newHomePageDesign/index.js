@@ -21,7 +21,10 @@ export default function home() {
       <HeroSection />
 
       {/* demo video */}
-      <DemoVideo />
+      <DemoVideo
+        title={'For the first time in the world, experience AI-powered software and service together'}
+        videoLink={"https://www.youtube.com/embed/-JPa1MX2HVE"}
+      />
 
       {/* Work done so far */}
       <WorkDoneSoFar />
@@ -36,7 +39,10 @@ export default function home() {
       <WithAndWithoutWorkwise />
 
       {/* demo video */}
-      <DemoVideo />
+      <DemoVideo
+        title={'Portal Demo Video'}
+        videoLink={"https://www.youtube.com/embed/-JPa1MX2HVE"}
+      />
 
       {/* recent blog */}
       <RecentBlogs />

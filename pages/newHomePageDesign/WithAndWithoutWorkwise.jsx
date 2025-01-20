@@ -9,6 +9,7 @@ import {
   faClock,
   faBullseye,
 } from "@fortawesome/free-solid-svg-icons";
+import Link from "next/link";
 
 export default function CleanComparison() {
   return (
@@ -19,7 +20,7 @@ export default function CleanComparison() {
         fontSize: "1rem",
         lineHeight: "1.8",
         color: "#333",
-        backgroundColor: "#f5f7fa",
+        backgroundColor: "#eef3f5",
       }}
     >
       {/* Section Heading */}
@@ -96,12 +97,12 @@ export default function CleanComparison() {
           </h4>
           <div className="d-flex align-items-center mb-3">
             <FontAwesomeIcon icon={faTimesCircle} size="lg" className="me-3" style={{ color: "#f44336" }} />
-            <strong>Struggle and Guess</strong>
+              <strong>Struggle and Guess</strong>
           </div>
           <div className="d-flex align-items-center mb-3">
             <FontAwesomeIcon icon={faMoneyBillWave} size="lg" className="me-3" style={{ color: "#f44336" }} />
-            <strong>Price Guesstimate</strong>
-          </div>
+              <strong>Price Guesstimate</strong>
+            </div>
           <div className="d-flex align-items-center mb-3">
             <FontAwesomeIcon icon={faClock} size="lg" className="me-3" style={{ color: "#f44336" }} />
             <strong>Profit by 10% or Less</strong>
@@ -112,17 +113,18 @@ export default function CleanComparison() {
       {/* Call-to-Action Section */}
       <div className="mt-5">
         <p
-           style={{
+          style={{
             marginTop: "15px",
             fontSize: "1.5rem",
             color: "#666",
             cursor: "pointer",
           }}
-         
+
         >
           Now that you know Workwise, let's work together
         </p>
-        <p
+        <Link
+          href="/aboutus"
           style={{
             marginTop: "15px",
             fontSize: "1rem",
@@ -132,7 +134,7 @@ export default function CleanComparison() {
           }}
         >
           Still not convinced? Know more about us
-        </p>
+        </Link>
       </div>
     </div>
   );

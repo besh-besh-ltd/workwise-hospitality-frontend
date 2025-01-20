@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import React, { useEffect } from "react";
 import { TypeAnimation } from "react-type-animation";
 
@@ -27,7 +28,7 @@ export default function HeroSection() {
         </div>
 
         <div className="cta">
-          <a href="#" className="cta-btn">
+          <a href="#portal_teaser" className="cta-btn">
             If Yes, Watch Video to know more
           </a>
         </div>

@@ -48,7 +48,7 @@ export default function CallNowModal() {
             color: "#fff",
             border: "none",
             borderRadius: "5px",
-            width: expanded ? "140px" : "50px",
+            width: expanded ? "180px" : "50px",
             height: "50px",
             fontSize: "1.2rem",
             display: "flex",
@@ -65,12 +65,16 @@ export default function CallNowModal() {
           <span style={{ fontSize: "1.5rem" }}>
             <FontAwesomeIcon icon={faPhoneVolume} />
           </span>
-          {expanded && <span style={{ marginLeft: "10px" }}>Call Now</span>}
+          {expanded &&
+            <div className="ms-md-2 ms-lg-3">
+              <span className="d-block" style={{ marginLeft: "10px" }}>Call Now</span>
+              <span className="text-sm d-none d-lg-block">+91 99307 87798</span>
+            </div>}
         </button>
       </div>
 
-      <Modal 
-        show={showModal} 
+      <Modal
+        show={showModal}
         onHide={() => setShowModal(false)}
         centered
         backdrop="static"
