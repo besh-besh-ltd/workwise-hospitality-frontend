@@ -37,7 +37,7 @@ export default function CallNowModal() {
       <div
         style={{
           position: "fixed",
-          bottom: "20px",
+          bottom: "100px",
           right: "20px",
           zIndex: 1000,
         }}
@@ -84,31 +84,27 @@ export default function CallNowModal() {
           <Modal.Title className="p-4">Contact Us</Modal.Title>
         </Modal.Header>
         <Modal.Body className="p-4" >
-          {!showInput ? (
-            <>
-              <Button variant="primary" className="w-100 mb-2" onClick={handleCallNow}>
-                Call Now
-              </Button>
-              <Button variant="secondary" className="w-100" onClick={handleRequestCallBack}>
-                Request Call Back
-              </Button>
-            </>
-          ) : (
-            <Form>
-              <Form.Group>
-                <Form.Label>Enter your phone number</Form.Label>
-                <Form.Control
-                  type="tel"
-                  placeholder="Enter phone number"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-              </Form.Group>
-              <Button className="mt-3 w-100" variant="success" onClick={handleSubmit}>
-                Submit
-              </Button>
-            </Form>
-          )}
+          <div className="d-flex justify-content-center">
+            <Button variant="primary" size="sm" className="w-50 mb-2" onClick={handleCallNow}>
+              Call Now
+            </Button>
+          </div>
+
+          <p className="text-center my-4">------------------ OR ----------------</p>
+          <Form>
+            <Form.Group>
+              <Form.Label>Enter your phone number</Form.Label>
+              <Form.Control
+                type="tel"
+                placeholder="Enter Phone Number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            </Form.Group>
+            <Button className="mt-3 w-100" variant="success" onClick={handleSubmit}>
+              Request Call Back
+            </Button>
+          </Form>
         </Modal.Body>
       </Modal>
     </>

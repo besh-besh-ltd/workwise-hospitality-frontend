@@ -9,11 +9,12 @@ export default function TopHighlights() {
             <div className="col-md-12 col-lg-5">
               <div className="h-100 d-flex flex-column justify-content-center">
                 <p>
-                  <span className="fs-6 badge badge-pill text-bg-warning">
+                  <span className="fs-lg-6 badge badge-pill text-bg-warning">
                     Top Highlights
                   </span>
                 </p>
-                <h2>Auto generated Price comparison chart</h2>
+                <h2>AI Powered Price comparison chart</h2>
+                <h5 className="fw-medium opacity-75 text-dark">Smarter Insights, Better Decisions!</h5>
               </div>
             </div>
             <div className="col-md-12 col-lg-7">
@@ -40,11 +41,12 @@ export default function TopHighlights() {
             <div className="col-md-12 col-lg-5">
               <div className="h-100 d-flex flex-column justify-content-center">
                 <p className="d-flex justify-content-end">
-                  <span className="fs-6 badge badge-pill text-bg-warning">
+                  <span className="fs-lg-6 badge badge-pill text-bg-warning">
                     Top Highlights
                   </span>
                 </p>
                 <h2 className="text-end">Reverse Auction</h2>
+                <h5 className="text-end fw-medium opacity-75 text-dark">Drive Competitive Pricing with Ease!</h5>
               </div>
             </div>
           </div>
@@ -57,16 +59,17 @@ export default function TopHighlights() {
             <div className="col-md-12 col-lg-5">
               <div className="h-100 d-flex flex-column justify-content-center">
                 <p>
-                  <span className="fs-6 badge badge-pill text-bg-warning">
+                  <span className="fs-lg-6 badge badge-pill text-bg-warning">
                     Top Highlights
                   </span>
                 </p>
-                <h2>Hightlight 3</h2>
+                <h2>Magic Search</h2>
+                <h5 className="fw-medium opacity-75 text-dark">Upload Your BOQ, Let AI Find Vendors & Create RFQs Instantly!</h5>
               </div>
             </div>
             <div className="col-md-12 col-lg-7">
               <img
-                src="http://res.cloudinary.com/dfrhy6m3m/image/upload/v1737270267/elsixrwkrhxow9zygnow.png"
+                src="/assets/images/magic-search.png"
                 alt="Highlight 3"
                 className="img-fluid"
               />

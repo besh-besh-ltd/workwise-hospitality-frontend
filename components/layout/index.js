@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import Header from "./Header";
-import Footer from "./Footer";
+// import Footer from "./Footer";
 import { getCmsData } from "@/services/cms";
 import { useDispatch } from "react-redux";
 import { setSwSubscription } from "@/redux/slice";
 import { SWSubscribe } from "@/services/Auth";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import Footer from "./Footer/newFooter";
 
 const Layout = (props) => {
   const [cmsdata, setCmsdata] = useState([]);
@@ -99,12 +100,13 @@ const Layout = (props) => {
       <div className="min-vh-100 d-flex flex-column" onClick={handleContainerClick}>
         <Header />
         <main className="flex-grow-1 ">{props.children}</main>
-        <Footer
+        {/* <Footer
           cmsdata={cmsdata}
           showModal={showModal}
           setshowModal={setshowModal}
           fromType={fromType}
-        />
+        /> */}
+        <Footer />
       </div>
     </>
   );

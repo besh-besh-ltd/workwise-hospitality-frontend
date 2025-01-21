@@ -1,111 +1,52 @@
-"use client"; // Enable client-side rendering in Next.js
-import React from "react";
+import React from 'react';
+import Image from 'next/image';
 
-export default function Testimonials() {
+
+const testimonials = [
+  {
+    name: "AR Shekhar",
+    position: "CEO Vendor",
+    text: "Workwise has completely transformed our procurement process. Their platform made it effortless to connect with reliable vendors and compare rates, all while keeping everything organized in one place. The automated rate comparisons and Excel downloads have saved us countless hours, and the comprehensive dashboard gives us real-time insights into every stage of the process.",
+    image: "/assets/images/trusted-customer.jpg", 
+  },
+];
+
+const Testimonial = () => {
   return (
-    <div
-      id="carouselExampleControls"
-      className="carousel slide text-center carousel-light"
-      data-bs-ride="carousel"
-    >
-      {/* Carousel Items */}
-      <div className="carousel-inner">
-        {/* Testimonial 1 */}
-        <div className="carousel-item active">
-          <img
-            className="rounded-circle shadow-1-strong mb-4"
-            src="https://mdbcdn.b-cdn.net/img/Photos/Avatars/img%20(10).webp"
-            alt="avatar"
-            style={{ width: "150px" }}
-          />
-          <div className="row d-flex justify-content-center">
-            <div className="col-lg-8">
-              <h5 className="mb-3">Maria Kate</h5>
-              <p>Photographer</p>
-              <p className="text-muted">
-                <i className="fas fa-quote-left pe-2"></i>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Minus
-                et deleniti nesciunt sint eligendi reprehenderit reiciendis,
-                quibusdam illo, beatae quia fugit consequatur laudantium velit
-                magnam error. Consectetur distinctio fugit doloremque.
-              </p>
+    <section className="solution-section-4 py-5" aria-label="hear-from-our-customers" style={{ backgroundColor: '#eef3f5' }}>
+      <div className="container">
+        <h2 className="h3 text-center mb-5">Hear from Our Customers</h2>
+        <div className="row">
+          {testimonials.map((testimonial, index) => (
+            <div className="col-sm-6 p-2 p-lg-0 mb-3" key={index}>
+              <div className="text-center">
+                <Image
+                  src={testimonial.image}
+                  alt={testimonial.name}
+                  layout="intrinsic"
+                  width={300}
+                  height={400}
+                />
+              </div>
+              <div className="d-flex h-100 justify-content-start align-items-center">
+                <div className="w-100">
+                  <FontAwesomeIcon icon={faQuoteLeft} fontSize={24} />
+                  <div className="d-flex gap-2 my-2">
+                    {[...Array(5)].map((_, i) => (
+                      <FontAwesomeIcon key={i} icon={faStar} fontSize={16} className="text-warning" />
+                    ))}
+                  </div>
+                  <p className="mb-4">{testimonial.text}</p>
+                  <p className="fw-semibold mb-1">{testimonial.name}</p>
+                  <p className="text-sm fw-medium">{testimonial.position}</p>
+                </div>
+              </div>
             </div>
-          </div>
-         
-        </div>
-
-        {/* Testimonial 2 */}
-        <div className="carousel-item">
-          <img
-            className="rounded-circle shadow-1-strong mb-4"
-            src="https://mdbcdn.b-cdn.net/img/Photos/Avatars/img%20(32).webp"
-            alt="avatar"
-            style={{ width: "150px" }}
-          />
-          <div className="row d-flex justify-content-center">
-            <div className="col-lg-8">
-              <h5 className="mb-3">John Doe</h5>
-              <p>Web Developer</p>
-              <p className="text-muted">
-                <i className="fas fa-quote-left pe-2"></i>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Minus
-                et deleniti nesciunt sint eligendi reprehenderit reiciendis.
-              </p>
-            </div>
-          </div>
-         
-        </div>
-
-        {/* Testimonial 3 */}
-        <div className="carousel-item">
-          <img
-            className="rounded-circle shadow-1-strong mb-4"
-            src="https://mdbcdn.b-cdn.net/img/Photos/Avatars/img%20(1).webp"
-            alt="avatar"
-            style={{ width: "150px" }}
-          />
-          <div className="row d-flex justify-content-center">
-            <div className="col-lg-8">
-              <h5 className="mb-3">Anna Deynah</h5>
-              <p>UX Designer</p>
-              <p className="text-muted">
-                <i className="fas fa-quote-left pe-2"></i>
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Minus
-                et deleniti nesciunt sint eligendi reprehenderit reiciendis,
-                quibusdam illo, beatae quia fugit consequatur laudantium velit
-                magnam error. Consectetur distinctio fugit doloremque.
-              </p>
-            </div>
-          </div>
-           
+          ))}
         </div>
       </div>
-
-      {/* Navigation Buttons */}
-      <button
-        className="carousel-control-prev"
-        type="button"
-        data-bs-target="#carouselExampleControls"
-        data-bs-slide="prev"
-      >
-        <span
-          className="carousel-control-prev-icon text-body"
-          aria-hidden="true"
-        ></span>
-        <span className="visually-hidden">Previous</span>
-      </button>
-      <button
-        className="carousel-control-next"
-        type="button"
-        data-bs-target="#carouselExampleControls"
-        data-bs-slide="next"
-      >
-        <span
-          className="carousel-control-next-icon text-body"
-          aria-hidden="true"
-        ></span>
-        <span className="visually-hidden">Next</span>
-      </button>
-    </div>
+    </section>
   );
-}
+};
+
+export default Testimonial;

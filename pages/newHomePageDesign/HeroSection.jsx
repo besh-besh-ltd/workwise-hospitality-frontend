@@ -3,8 +3,16 @@ import Link from "next/link";
 import React, { useEffect } from "react";
 import { TypeAnimation } from "react-type-animation";
 
-export default function HeroSection() {
- 
+export default function HeroSection({ handleToggleVideo }) {
+
+  const handleVideoClick = (e) => {
+    e.preventDefault();
+    document.getElementById('portal_video_section')?.scrollIntoView({ behavior: 'smooth' });
+
+    setTimeout(() => {
+      handleToggleVideo();
+    }, 800);
+  };
 
   return (
     <div className="hero-section">
@@ -28,7 +36,7 @@ export default function HeroSection() {
         </div>
 
         <div className="cta">
-          <a href="#portal_teaser" className="cta-btn">
+          <a href="#portal_video_section" className="cta-btn" onClick={handleVideoClick}>
             If Yes, Watch Video to know more
           </a>
         </div>
