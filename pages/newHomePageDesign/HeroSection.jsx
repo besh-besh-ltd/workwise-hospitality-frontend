@@ -47,7 +47,7 @@ export default function HeroSection({ handleToggleVideo }) {
           position: relative;
           height: 100vh;
           width: 100%;
-          background: linear-gradient(180deg, rgb(255, 255, 255) 0%, #e9ecef 100%);
+          background: linear-gradient(180deg, rgb(255, 255, 255) 0%, #f0f0f0 100%);
           overflow: hidden;
           display: flex;
           align-items: center;

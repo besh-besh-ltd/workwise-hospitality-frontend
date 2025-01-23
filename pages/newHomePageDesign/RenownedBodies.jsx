@@ -47,11 +47,20 @@ export default function RenownedBodies() {
     };
 
   return (
-    <section className="container-fluid py-5  "     style={{ backgroundColor: "#eef3f5" }}
+    <section
+      className="container-fluid py-5  "
+      style={{ backgroundColor: "#eef3f5" }}
+    >
+      <p className="text-center" >
+        <span className="fs-lg-6 badge badge-pill  text-bg-warning">
+          Top Highlights
+        </span>
+      </p>
 
->
-    <div className="container text-center">
-        <h2 className="mb-5">Explore 10,000+ Approved Vendors on Our Platform</h2>
+      <div className="container text-center">
+        <h2 className="mb-5">
+          Explore 10,000+ Approved Vendors on Our Platform
+        </h2>
         <h2 className="h3 mb-5 ">From This Renowed Bodies</h2>
         <Slider {...logoSettings}>
             {vendorLogos.map((logo, index) => (

@@ -119,21 +119,34 @@ export default function CleanComparison() {
             color: "#666",
             cursor: "pointer",
           }}
-
         >
-          Now that you know Workwise, let's work together
+          Now that you know Workwise
         </p>
+
         <Link
           href="/aboutus"
           style={{
             marginTop: "15px",
-            fontSize: "1rem",
+            fontSize: "2rem",
             color: "#666",
             cursor: "pointer",
             textDecoration: "underline",
           }}
         >
-          Still not convinced? Know more about us
+          <p>let's work together</p>
+        </Link>
+
+        <Link
+          href="/aboutus"
+          style={{
+            marginTop: "15px",
+            fontSize: "2.5rem",
+            color: "#666",
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          <p>Still not convinced? Know more about us</p>
         </Link>
       </div>
     </div>

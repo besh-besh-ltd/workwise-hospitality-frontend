@@ -71,7 +71,10 @@ export default function WorkDoneSoFar() {
             <div className="row">
               <div className="col-md-12">
                 <div className="common-header">
-                  <h2 className="my-auto text-center" style={{ marginBottom: "20px" }}>
+                  <h2
+                    className="my-auto text-center"
+                    style={{ marginBottom: "20px" }}
+                  >
                     Work done so far
                   </h2>
                 </div>
@@ -85,94 +88,86 @@ export default function WorkDoneSoFar() {
           >
             <div className="row">
               {/* Step 01 */}
-              <div className="col-md-4 px-3 mb-2">
-                <div className="banner-bottom-area border border-2 rounded-4 p-3">
-                  <div className="h-100 h5 banner-bottom-con ">
-                    {/* <h3 className="text-white fs-5">01</h3> */}
-                    {/* <div className="mb-3"> */}
-                    <h4 className="h3 my-4">Explore</h4>
-                    <p className="h6">Database of 10,000+ Vendors</p>
-                    {/* </div> */}
-                  </div>
+              <div className="col-lg-3 col-md-3 col-sm-2 col-6 p-1  ">
+                <div className="banner-bottom-area border border-2 rounded-4 p-3 text-center h-100">
+                  <h4 className="h3 my-4">2000+</h4>
+                  <p className="h6">Vendors</p>
                 </div>
               </div>
 
               {/* Step 02 */}
-              <div className="col-md-4 px-3 mb-2">
-                <div className="banner-bottom-area border border-2 rounded-4 p-3">
-                  <div className="h-100 h5 banner-bottom-con ">
-                    {/* <h3 className="text-white fs-5">02</h3> */}
-                    {/* <div className="mb-3"> */}
-                    <h4 className="h3 my-4">Shortlist</h4>
-                    <p className="h6">Approved vendors of industry leaders</p>
-                    {/* </div> */}
-                  </div>
+              <div className="col-lg-3 col-md-3 col-sm-2 col-6  p-1  ">
+                <div className="banner-bottom-area border border-2 rounded-4 p-3 text-center h-100">
+                  <h4 className="h3 my-4">250+ CR.</h4>
+                  <p className="h6">Procurement</p>
                 </div>
               </div>
 
               {/* Step 03 */}
-              <div className="col-md-4 px-3 mb-2">
-                <div className="banner-bottom-area border border-2 rounded-4 p-3">
-                  <div className="h-100 h5 banner-bottom-con  ">
-                    {/* <h3 className="text-white fs-5">03</h3> */}
-                    {/* <div className="mb-3"> */}
-                    <h4 className="h3 my-4">Send</h4>
-                    <p className="h6">With just 1 click</p>
-                    {/* </div> */}
-                  </div>
+              <div className="col-lg-3 col-md-3 col-sm-2 col-6  p-1  ">
+                <div className="banner-bottom-area border border-2 rounded-4 p-3 text-center h-100">
+                  <h4 className="h3 my-4">25+</h4>
+                  <p className="h6">Clients</p>
                 </div>
               </div>
-              
+
+              {/* Step 04 */}
+              <div className="col-lg-3 col-md-3 col-sm-1 col-6  p-1  ">
+                <div className="banner-bottom-area border border-2 rounded-4 p-3 text-center h-100">
+                  <h4 className="h3 my-4">800+</h4>
+                  <p className="h6">Quotations</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      {testimonials?.length > 0 &&
-        <section className="solution-section-4 py-5" aria-label="hear-from-our-customers" >
+      {testimonials?.length > 0 && (
+        <section
+          className="solution-section-4 py-5"
+          aria-label="hear-from-our-customers"
+        >
           <div className="container">
-            <h2 className="h5 mb-5" style={{ color: 'var(--primary-color)' }}>Hear from Our Customers</h2>
+            {/* <h2 className="h5 text-center mb-5" style={{ color: "var(--primary-color)" }}>
+              Hear from Our Customers
+            </h2> */}
 
-            <div className="container" >
+            <div className="container">
               <Slider {...settings}>
                 {testimonials.map((item, index) => (
-                  <div className="container px-5" key={index}>
-                    <div className="row">
-                      <div className="col-sm-6 p-2 p-lg-0">
-                        <div className="d-flex justify-content-center">
-                          <Image
-                            src={item.image_url || item.created_image}
-                            alt="trusted-customer"
-                            layout="intrinsic"
-                            width={300}
-                            height={400}
-                          />
-                        </div>
-                      </div>
-                      <div className="col-sm-6 p-2 p-lg-0">
+                  <div className="container px-3" key={index}>
+                  <div className=" text-center mx-auto p-2 p-lg-0">
                         <div className="d-flex h-100 justify-content-start align-items-center">
                           <div className="w-100">
-                            <FontAwesomeIcon icon={faQuoteLeft} fontSize={24} />
-                            <div className="d-flex gap-2 my-2">
-                              {[...Array(5)].map((_, i) => (
-                                <FontAwesomeIcon key={i} icon={faStar} fontSize={16} className="text-warning" />
-                              ))}
-                            </div>
+                            {/* <FontAwesomeIcon icon={faQuoteLeft} fontSize={24} /> */}
+                      
                             <p className="mb-4">{item.description}</p>
                             <p className="fw-semibold mb-1">{item.title}</p>
-                            <p className="text-sm fw-medium">{item.created_name}</p>
+                            <p className="text-sm fw-medium">
+                              {item.created_name}
+                            </p>
+                            <div className="d-flex justify-content-center gap-2 my-2">
+                              {[...Array(5)].map((_, i) => (
+                                <FontAwesomeIcon
+                                  key={i}
+                                  icon={faStar}
+                                  fontSize={16}
+                                  className="text-warning"
+                                />
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
                   </div>
                 ))}
               </Slider>
             </div>
           </div>
         </section>
-      }
+      )}
     </div>
   );
 }
