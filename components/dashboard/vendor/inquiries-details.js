@@ -1046,7 +1046,7 @@ const RfqManagementPreview = () => {
                               {rfqDetails?.status == 2 && (
                                 <button
                                   type="button"
-                                  className="btn btn-secondary"
+                                  className="btn btn-danger"
                                   onClick={(e) => e.preventDefault()}
                                   disabled={true}
                                 >
