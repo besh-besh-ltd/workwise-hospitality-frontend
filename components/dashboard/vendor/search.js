@@ -979,15 +979,32 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
-                  <h2 className="fs-5">Filter</h2>
+                  <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4>
+                  
                   <div className="search-con-right-1">
-                    <p>Vendors</p>
-                    <Select
-                      options={optionVendors}
-                      onChange={handleChange}
-                      placeholder="Choose a filter option"
-                      value={selectedOption} // Bind selected option to value prop
-                    />
+                  <p className="fw-semibold">Vendors</p>
+
+                  <div>
+                      <select
+                        name="vendors"
+                        id="vendors"
+                        value={selectedOption ? selectedOption.value : ""}
+                        onChange={(e) => {
+                          const selected = optionVendors.find(
+                            (option) => option.value === e.target.value
+                          );
+                          handleChange(selected);
+                        }}
+                      >
+                        <option value="">Choose a filter option</option>
+                        {optionVendors &&
+                          optionVendors.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                      </select>
+                    
 
                     {/* Display clear link if any filter is active */}
                     {(is_private || preferred_vendor) && (
@@ -1003,8 +1020,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       </Link>
                     )}
                   </div>
+                </div>
                   <div className="search-con-right-1">
-                    <p>Location</p>
+                    <p className="fw-semibold ">Location</p>
                     {selectedState != 0 && (
                       <Link
                         href="#"
@@ -1031,7 +1049,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                   </div>
                   <div className="search-con-right-1">
-                    <p>Vendor Approved By</p>
+                    <p className="fw-semibold ">Vendor Approved By</p>
                     <div>
                       {vabloading && (
                         <select>
@@ -1082,164 +1100,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
-
-                  {/* <div className="search-con-right-1 search-con-right-2">
-                    <p>Category</p>
-                    {catloading && (
-                      <div className="filter-options mt-4">
-                        {" "}
-                        <span>Loading filter options</span>{" "}
-                      </div>
-                    )}
-                    {!catloading && (
-                      <div className="filter-options mt-4">
-                        {cat_id && (
-                          <Link
-                            href="#"
-                            className="clearFilter"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              clearCategoriesLevels();
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faTimesCircle} /> clear
-                          </Link>
-                        )}
-
-                        <Select
-                          className="mt-2"
-                          id={id}
-                          options={parentCategories}
-                          placeholder="Select Category"
-                          isClearable={false}
-                          value={levelZeroCat}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
-                              setOpenAuthModal(true)
-                            else {
-                              setLevelZeroValue(e.value);
-                              setlevelOneCat([]);
-                              setlevelTwoCat([]);
-                              setlevelThreeCat([]);
-                              setlevelFourCat([]);
-                              setlevelFiveCat([]);
-                              setlevelSixCat([]);
-                              getChildCategories(e.value, "1");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }
-                          }}
-                        />
-
-                        {levelOneCat && levelOneCat.length > 0 && (
-                          <Select
-                            className="mt-2"
-                            options={levelOneCat}
-                            placeholder="Select Sub Category"
-                            isClearable={false}
-                            styles={customSelectStyles}
-                            onChange={(e) => {
-                              getChildCategories(e.value, "2");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }}
-                          />
-                        )}
-                        {levelTwoCat && levelTwoCat.length > 0 && (
-                          <Select
-                            className="mt-2"
-                            options={levelTwoCat}
-                            placeholder="Select Sub Category"
-                            isClearable={false}
-                            styles={customSelectStyles}
-                            onChange={(e) => {
-                              getChildCategories(e.value, "3");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }}
-                          />
-                        )}
-                        {levelThreeCat && levelThreeCat.length > 0 && (
-                          <Select
-                            className="mt-2"
-                            options={levelThreeCat}
-                            placeholder="Select Sub Category"
-                            isClearable={false}
-                            styles={customSelectStyles}
-                            onChange={(e) => {
-                              getChildCategories(e.value, "4");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }}
-                          />
-                        )}
-                        {levelFourCat && levelFourCat.length > 0 && (
-                          <Select
-                            className="mt-2"
-                            options={levelFourCat}
-                            placeholder="Select Sub Category"
-                            isClearable={false}
-                            styles={customSelectStyles}
-                            onChange={(e) => {
-                              getChildCategories(e.value, "5");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }}
-                          />
-                        )}
-                        {levelFiveCat && levelFiveCat.length > 0 && (
-                          <Select
-                            className="mt-2"
-                            options={levelFiveCat}
-                            placeholder="Select Sub Category"
-                            isClearable={false}
-                            styles={customSelectStyles}
-                            onChange={(e) => {
-                              getChildCategories(e.value, "6");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }}
-                          />
-                        )}
-                        {levelSixCat && levelSixCat.length > 0 && (
-                          <Select
-                            className="mt-2"
-                            options={levelSixCat}
-                            placeholder="Select Sub Category"
-                            isClearable={false}
-                            styles={customSelectStyles}
-                            onChange={(e) => {
-                              getChildCategories(e.value, "7");
-                              if (e && e.value) {
-                                setCat_id(e.value);
-                              } else {
-                                setCat_id("");
-                              }
-                            }}
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div> */}
                 </aside>
               </div>
             )}
@@ -1252,7 +1112,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       <div className="d-flex align-items-center justify-content-between mb-4 b-2 " >
                         <h2 className="fs-5">Available Vendors for <span  style={{ fontWeight: '500' }}>{currentSelectedProduct.product_name}</span></h2>
                         {/* <div className="d-flex justify-content-end"> */}
-                        <div className="col-md-2" >
+                        <div className="col-md-3" >
                           <input
                             type="text"
                             name="vendorName"
