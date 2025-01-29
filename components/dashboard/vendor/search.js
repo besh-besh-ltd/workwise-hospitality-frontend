@@ -6,11 +6,10 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import { searchProducts, searchProductsV2 } from "@/services/products";
+import {  searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
-import Select from "react-select";
 import { useDispatch, useSelector } from "react-redux";
 import {
   addRfqProduct,
@@ -29,14 +28,6 @@ import storageInstance from "@/utils/storageInstance";
 import ProductOverview from "@/components/shared/ProductOverview";
 import Head from "next/head";
 
-
-const customSelectStyles = {
-  control: (base) => ({
-    ...base,
-    height: 50,
-    minHeight: 50,
-  }),
-};
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
@@ -505,8 +496,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   // Options for the dropdown
   const optionVendors = [
-    { value: 'is_private', label: 'Private Vendor' },
-    { value: 'preferred_vendor', label: 'Preferred Vendor' }
+    { value: 'is_private', label: 'My Private Vendor' },
+    { value: 'preferred_vendor', label: 'My Preferred Vendor' }
   ];
 
   // Handle selection changes to ensure only one filter is active at a time
@@ -744,136 +735,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     </div>
                   </div>
                 </form>
-                {/* <div className="searchCategories">             
-                  {catloading && (
-                    <div className="filter-options mt-4">
-                      {" "}
-                      <span>Loading filter options</span>{" "}
-                    </div>
-                  )}
-                  {!catloading && (
-                    <div className="filter-options mt-4">
-                      
-                      <Select
-                        id={id}
-                        options={parentCategories}
-                        placeholder="Select Category"
-                        isClearable={true}
-                        styles={customSelectStyles}
-                        onChange={(e) => {
-                          setlevelOneCat([]);
-                          setlevelTwoCat([]);
-                          setlevelThreeCat([]);
-                          setlevelFourCat([]);
-                          setlevelFiveCat([]);
-                          setlevelSixCat([]);
-                          getChildCategories(e.value, "1");
-                          if (e && e.value) {
-                            setCat_id(e.value);
-                          } else {
-                            setCat_id("");
-                          }
-                        }}
-                      />
-                      {levelOneCat && levelOneCat.length > 0 && (
-                        <Select
-                          options={levelOneCat}
-                          placeholder="Select Sub Category"
-                          isClearable={true}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            getChildCategories(e.value, "2");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
-                            }
-                          }}
-                        />
-                      )}
-                      {levelTwoCat && levelTwoCat.length > 0 && (
-                        <Select
-                          options={levelTwoCat}
-                          placeholder="Select Sub Category"
-                          isClearable={true}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            getChildCategories(e.value, "3");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
-                            }
-                          }}
-                        />
-                      )}
-                      {levelThreeCat && levelThreeCat.length > 0 && (
-                        <Select
-                          options={levelThreeCat}
-                          placeholder="Select Sub Category"
-                          isClearable={true}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            getChildCategories(e.value, "4");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
-                            }
-                          }}
-                        />
-                      )}
-                      {levelFourCat && levelFourCat.length > 0 && (
-                        <Select
-                          options={levelFourCat}
-                          placeholder="Select Sub Category"
-                          isClearable={true}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            getChildCategories(e.value, "5");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
-                            }
-                          }}
-                        />
-                      )}
-                      {levelFiveCat && levelFiveCat.length > 0 && (
-                        <Select
-                          options={levelFiveCat}
-                          placeholder="Select Sub Category"
-                          isClearable={true}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            getChildCategories(e.value, "6");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
-                            }
-                          }}
-                        />
-                      )}
-                      {levelSixCat && levelSixCat.length > 0 && (
-                        <Select
-                          options={levelSixCat}
-                          placeholder="Select Sub Category"
-                          isClearable={true}
-                          styles={customSelectStyles}
-                          onChange={(e) => {
-                            getChildCategories(e.value, "7");
-                            if (e && e.value) {
-                              setCat_id(e.value);
-                            } else {
-                              setCat_id("");
-                            }
-                          }}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div> */}
+
               </div>
             </div>
           </div>
@@ -979,10 +841,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
+
+                <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Search Vendor</h4>
+                {currentSelectedProduct  &&
+                
+                        <div className="search-con-right-1">
+                          <input
+                            type="text"
+                            name="vendorName"
+                            value={vendorName}
+                            className="form-control"
+                            placeholder="Search vendors"
+                            onChange={(e) => setVendorName(e.target.value)}
+                          />
+                      </div>
+                    }
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4>
                   
                   <div className="search-con-right-1">
-                  <p className="fw-semibold">Vendors</p>
+                  <p className="fw-semibold mb-2">My Vendors</p>
 
                   <div>
                       <select
@@ -996,7 +873,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           handleChange(selected);
                         }}
                       >
-                        <option value="">Choose a filter option</option>
+                        <option value="">Filter Vendors</option>
                         {optionVendors &&
                           optionVendors.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1022,7 +899,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   </div>
                 </div>
                   <div className="search-con-right-1">
-                    <p className="fw-semibold ">Location</p>
+                    <p className="fw-semibold  mb-2">Location</p>
                     {selectedState != 0 && (
                       <Link
                         href="#"
@@ -1049,7 +926,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                   </div>
                   <div className="search-con-right-1">
-                    <p className="fw-semibold ">Vendor Approved By</p>
+                    <p className="fw-semibold  mb-2">Vendor Approved By</p>
                     <div>
                       {vabloading && (
                         <select>
@@ -1073,7 +950,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             }
                           }}
                         >
-                          <option value="">Select Vendor</option>
+                          <option value="">Select Vendor Approved by</option>
                           {approved_by &&
                             approved_by.map((item) => {
                               if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
@@ -1109,26 +986,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   <div className="col-md-12">
 
                     {currentSelectedProduct &&
-                      <div className="d-flex align-items-center justify-content-between mb-4 b-2 " >
                         <h2 className="fs-5">Available Vendors for <span  style={{ fontWeight: '500' }}>{currentSelectedProduct.product_name}</span></h2>
-                        {/* <div className="d-flex justify-content-end"> */}
-                        <div className="col-md-3" >
-                          <input
-                            type="text"
-                            name="vendorName"
-                            value={vendorName}
-                            className="form-control"
-                            placeholder="Search vendors"
-                            onChange={(e) => setVendorName(e.target.value)}
-                          />
-                          {/* </div> */}
-                        </div>
-                      </div>
                     }
 
                     {vendors && vendors.length > 0 && (
                       <div className="row search-sec-3-top">
-                        <div className="col-md-2">
+                        <div className="col-md-3">
                           <label>
                             <input
                               type="checkbox"
@@ -1137,7 +1000,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <span>Select all vendors</span>
                           </label>
                         </div>
-                        <div className="col-md-10">
+                        <div className="col-md-9">
                           {vendorMetaData.subscription && (
                             <div className="actions">
                               {bulkRFQVendors.length > 0 && (
