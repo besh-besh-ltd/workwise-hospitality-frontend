@@ -38,7 +38,6 @@ const Item = ({
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
 
-
   const handleSpecValue = (type, value) => {
     if (rfqProduct.spec) {
       setRfqProduct((prev) => ({
@@ -206,20 +205,10 @@ const Item = ({
       key={`rfqp_${rfqProduct.product_id}_${rfqProduct.variant}`}
       eventKey={`acc_event_key_${rfqProduct.product_id}_${rfqProduct.variant}`}
     >
-      {/* <tr > */}
       <Accordion.Header>
-        {/* start: vendor list */}
+        {/* start: Accrodian header */}
         <div className="d-flex justify-content-between w-100 align-items-center">
           <h2 className="h6 mb-0"> {rfqProduct?.name}</h2>
-          {/* 
-          <p className="mr-4 pt-3 fs-6 font-semibold">
-            <Link
-              href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
-              className=""
-            >
-              View selected vendors ({data.vendors.length})
-            </Link>
-          </p> */}
 
           {/* start: remove and add variant button container */}
           <div className="d-flex gap-3 mr-4 ">
@@ -250,8 +239,9 @@ const Item = ({
             </button>
             {/* end: remove button container */}
           </div>
+          {/* end: remove and add variant button container */}
         </div>
-        {/* end: remove and add variant button container */}
+        {/* end: Accrodian header */}
       </Accordion.Header>
 
       <Accordion.Body>
@@ -260,195 +250,203 @@ const Item = ({
           style={{ height: "fit-content" }}
         >
           {/*start: spec, files conteiner  */}
-          <div className="">
-            <div className="d-flex flex-column justify-content-center align-items-center  gap-2">
-              <div style={{ width: "100%" }}>
-                <label> Product Size </label>
-                <textarea
-                  type="text"
-                  value={
-                    rfqProduct?.spec?.find((item) => item.title === "Size")
-                      ?.value || ""
-                  }
-                  onChange={(e) => handleSpecValue("size", e.target.value)}
-                  placeholder="Size"
-                  className=" form-control"
-                  style={{ height: "40px" }}
-                />
-              </div>
+          <div className="d-flex flex-column justify-content-center align-items-center  gap-2">
+            {/*start: prodiuct spec */}
+            <div style={{ width: "100%" }}>
+              <label> Product Size </label>
+              <textarea
+                type="text"
+                value={
+                  rfqProduct?.spec?.find((item) => item.title === "Size")
+                    ?.value || ""
+                }
+                onChange={(e) => handleSpecValue("size", e.target.value)}
+                placeholder="Size"
+                className=" form-control"
+                style={{ height: "40px" }}
+              />
+            </div>
+            {/*end: prodiuct spec */}
 
-              {/* start: qap, tds, spec container */}
-              <div style={{ width: "100%" }}>
-                <span> Files </span>
+            {/* start: qap, tds, spec container */}
+            <div style={{ width: "100%" }}>
+              <span> Files </span>
+              <div
+                className=" d-flex gap-2 justify-content-between px-2 pt-2"
+                style={{
+                  border: "1px solid #dcdbeb",
+                  borderRadius: "5px",
+                  height: "100px",
+                  overflow: "auto",
+                }}
+              >
+                {/*start: tds  */}
                 <div
-                  className=" d-flex gap-2 flex-wrap justify-content-between px-2 pt-2"
+                  // className=" col-4"
                   style={{
-                    border: "1px solid #dcdbeb",
-                    borderRadius: "5px",
-                    height: "100px",
+                    height: "auto",
+                    width: "130px",
                   }}
                 >
-                  {/*start: tds  */}
-                  <div
-                    // className=" col-4"
-                    style={{
-                      height: "auto",
-                      maxWidth: "130px",
-                    }}
-                  >
-                    {
-                      <label className="upload uploadInlineFile d-flex align-items-center ">
-                        {/* <FontAwesomeIcon icon={faFile} className="me-2" />  */}
-                        Upload TDS
-                        <input
-                          type="file"
-                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                          onChange={(e) => uploadToServer(e, "datasheet_file")}
-                          multiple={true}
-                        />
-                      </label>
-                    }
-                    {uploadedDatasheetFile &&
-                      uploadedDatasheetFile.length > 0 &&
-                      uploadedDatasheetFile.map((datasheet_file) => {
-                        return (
-                          <div
-                            key={datasheet_file}
-                            className="d-flex justify-content-between"
-                          >
-                            <a
-                              href={datasheet_file}
-                              className="page-link text-truncate"
-                              target="_blank"
-                              style={{ width: "100%" }}
-                            >
-                              {extractfileName(datasheet_file)}
-                            </a>
-                            <span
-                              className="btn-close btn-close-sm"
-                              aria-label="Close"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleRemoveFile(
-                                  datasheet_file,
-                                  "datasheet_file"
-                                );
-                              }}
-                            ></span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  {/*end: tds  */}
-
-                  {/*start: qap  */}
-                  <div
-                    // className=" col-4"
-                    style={{
-                      height: "auto",
-                      maxWidth: "130px",
-                    }}
-                  >
-                    {
-                      <label
-                        className="upload uploadInlineFile "
-                        // style={{ borderBottom: "1px solid rgba(45, 92, 167, 0.59)" }}
-                      >
-                        {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
-                        Upload QAP
-                        <input
-                          type="file"
-                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                          onChange={(e) => uploadToServer(e, "qap_file")}
-                          multiple={true}
-                        />
-                      </label>
-                    }
-                    {uploadedQapFile &&
-                      uploadedQapFile.length > 0 &&
-                      uploadedQapFile.map((qap_file) => {
-                        return (
-                          <div
-                            key={qap_file}
-                            className="d-flex justify-content-between m-2"
-                          >
-                            <a
-                              href={qap_file}
-                              className="page-link text-truncate"
-                              target="_blank"
-                              style={{ width: "100%" }}
-                            >
-                              {extractfileName(qap_file)}
-                            </a>
-                            <span
-                              className="btn-close btn-close-sm"
-                              aria-label="Close"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleRemoveFile(qap_file, "qap_file");
-                              }}
-                            ></span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  {/*end: qap  */}
-
-                  {/* start: spec file */}
-                  <div
-                    // className=" col-4"
-                    style={{
-                      height: "auto",
-                      maxWidth: "130px",
-                    }}
-                  >
-                    <label className="upload uploadInlineFile">
-                      {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
-                      Upload Spec
+                  {
+                    <label
+                      className="upload uploadInlineFile d-flex align-items-center "
+                      style={{ maxWidth: "100%" }}
+                    >
+                      {/* <FontAwesomeIcon icon={faFile} className="me-2" />  */}
+                      Upload TDS
                       <input
                         type="file"
                         accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                        onChange={(e) => uploadToServer(e, "spec_file")}
+                        onChange={(e) => uploadToServer(e, "datasheet_file")}
                         multiple={true}
                       />
                     </label>
-
-                    {uploadedSpecFile &&
-                      uploadedSpecFile.length > 0 &&
-                      uploadedSpecFile.map((spec_file) => {
-                        return (
-                          <div
-                            key={spec_file}
-                            className="d-flex justify-content-between"
+                  }
+                  {uploadedDatasheetFile &&
+                    uploadedDatasheetFile.length > 0 &&
+                    uploadedDatasheetFile.map((datasheet_file) => {
+                      return (
+                        <div
+                          key={datasheet_file}
+                          className="d-flex justify-content-between"
+                        >
+                          <a
+                            href={datasheet_file}
+                            className="page-link text-truncate"
+                            target="_blank"
+                            style={{ width: "100%" }}
                           >
-                            <a
-                              href={spec_file}
-                              className="page-link text-truncate"
-                              target="_blank"
-                              style={{ width: "100%" }}
-                            >
-                              {extractfileName(spec_file)}
-                            </a>
-                            <span
-                              className="btn-close btn-close-sm"
-                              aria-label="Close"
-                              onClick={() =>
-                                handleRemoveFile(spec_file, "spec_file")
-                              }
-                            ></span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  {/* end: spec file */}
+                            {extractfileName(datasheet_file)}
+                          </a>
+                          <span
+                            className="btn-close btn-close-sm"
+                            aria-label="Close"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleRemoveFile(
+                                datasheet_file,
+                                "datasheet_file"
+                              );
+                            }}
+                          ></span>
+                        </div>
+                      );
+                    })}
                 </div>
-              </div>
-              {/*end: spec, files conteiner  */}
-            </div>
-          </div>
-          {/*end: size spec  */}
+                {/*end: tds  */}
 
-          {/*start: qty and unit  */}
+                {/*start: qap  */}
+                <div
+                  // className=" col-4"
+                  style={{
+                    height: "auto",
+                    width: "130px",
+                  }}
+                >
+                  {
+                    <label
+                      className="upload uploadInlineFile "
+                      style={{ maxWidth: "100%" }}
+                      // style={{ borderBottom: "1px solid rgba(45, 92, 167, 0.59)" }}
+                    >
+                      {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
+                      Upload QAP
+                      <input
+                        type="file"
+                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                        onChange={(e) => uploadToServer(e, "qap_file")}
+                        multiple={true}
+                      />
+                    </label>
+                  }
+                  {uploadedQapFile &&
+                    uploadedQapFile.length > 0 &&
+                    uploadedQapFile.map((qap_file) => {
+                      return (
+                        <div
+                          key={qap_file}
+                          className="d-flex justify-content-between m-2"
+                        >
+                          <a
+                            href={qap_file}
+                            className="page-link text-truncate"
+                            target="_blank"
+                            style={{ width: "100%" }}
+                          >
+                            {extractfileName(qap_file)}
+                          </a>
+                          <span
+                            className="btn-close btn-close-sm"
+                            aria-label="Close"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleRemoveFile(qap_file, "qap_file");
+                            }}
+                          ></span>
+                        </div>
+                      );
+                    })}
+                </div>
+                {/*end: qap  */}
+
+                {/* start: spec file */}
+                <div
+                  // className=" col-4"
+                  style={{
+                    height: "auto",
+                    width: "130px",
+                  }}
+                >
+                  <label
+                    className="upload uploadInlineFile"
+                    style={{ maxWidth: "100%" }}
+                  >
+                    {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
+                    Upload Spec
+                    <input
+                      type="file"
+                      accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                      onChange={(e) => uploadToServer(e, "spec_file")}
+                      multiple={true}
+                    />
+                  </label>
+
+                  {uploadedSpecFile &&
+                    uploadedSpecFile.length > 0 &&
+                    uploadedSpecFile.map((spec_file) => {
+                      return (
+                        <div
+                          key={spec_file}
+                          className="d-flex justify-content-between"
+                        >
+                          <a
+                            href={spec_file}
+                            className="page-link text-truncate"
+                            target="_blank"
+                            style={{ width: "100%" }}
+                          >
+                            {extractfileName(spec_file)}
+                          </a>
+                          <span
+                            className="btn-close btn-close-sm"
+                            aria-label="Close"
+                            onClick={() =>
+                              handleRemoveFile(spec_file, "spec_file")
+                            }
+                          ></span>
+                        </div>
+                      );
+                    })}
+                </div>
+                {/* end: spec file */}
+              </div>
+            </div>
+            {/*end: spec, files conteiner  */}
+          </div>
+          {/*end: spec, files conteiner  */}
+
+          {/*start: product spec qty and unit  */}
           <div className=" px-2">
             {/*start: product spec */}
             <div style={{ width: "100%" }} className="mb-2">
@@ -467,6 +465,7 @@ const Item = ({
             </div>
             {/*end: product spec */}
 
+            {/* start: qty and unit ocntainer */}
             <div className="d-flex  justify-content-start align-items-start gap-2">
               <div className="" style={{ width: "200px" }}>
                 <label> Quality * </label>
@@ -500,8 +499,9 @@ const Item = ({
                 />
               </div>
             </div>
+            {/* end: qty and unit ocntainer */}
           </div>
-          {/*end: qty and unit  */}
+          {/*end: product spec qty and unit  */}
 
           {/*  */}
           <div className="  ">
@@ -563,6 +563,7 @@ const Item = ({
                   className="btn btn-primary "
                   // style={{ height: "40px" }}
                 >
+                  {/* <FontAwesomeIcon icon={faEye} />{" "} */}
                   View vendors
                 </Link>
               </div>
