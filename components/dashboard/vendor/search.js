@@ -842,7 +842,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="col-md-3">
                 <aside>
 
-                <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Search Vendor</h4>
+                <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filters</h4>
                 {currentSelectedProduct  &&
                 
                         <div className="search-con-right-1">
@@ -856,7 +856,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           />
                       </div>
                     }
-                  <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4>
+                  {/* <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4> */}
                   
                   <div className="search-con-right-1">
                   <p className="fw-semibold mb-2">My Vendors</p>
