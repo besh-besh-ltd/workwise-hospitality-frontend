@@ -65,16 +65,16 @@ const QuoteCompareTable = ({
         <div className="table-elements">
           <div className="table-row">
             <div className="table-col">
-              <div className="table-si-row"></div>
-              <div className="table-si-row">Quantity</div>
+              <div className="table-si-row "></div>
+              <div className="table-si-row table-grey-row">Quantity</div>
               <div className="table-si-row">Base Price</div>
-              <div className="table-si-row table-grey-row">Total Rate</div>
+              <div className="table-si-row fw-semibold table-grey-row">Sub Total Rate</div>
               <div className="table-si-row">Packaging (%)</div>
-              <div className="table-si-row">Freight (%)</div>
+              <div className="table-si-row table-grey-row">Freight (%)</div>
               <div className="table-si-row">GST (%)</div>
-              <div className="table-si-row  table-yellow-row">Sub Total</div>
+              <div className="table-si-row fw-semibold table-grey-row">Total Rate</div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
-              <div className="table-si-row">Comments</div>
+              <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
             </div>
             {quotations &&
@@ -156,12 +156,12 @@ const QuoteCompareTable = ({
                         </Dropdown.Menu>
                       </Dropdown>
                     </div>
-                    <div className="table-si-row">{item.quantity}</div>
+                    <div className="table-si-row table-grey-row">{item.quantity}</div>
                     <div className="table-si-row">
                       {item.unit_price}
                       {itemUpdated && (itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.unit_price}</span>}
                     </div>
-                    <div className="table-si-row table-grey-row" >
+                    <div className="table-si-row table-grey-row fw-semibold" >
                       {item.quantity * item.unit_price}
                       {itemUpdated && (itemUpdated.quantity != item.quantity || itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.quantity * itemUpdated?.unit_price}</span>}
                     </div>
@@ -169,7 +169,7 @@ const QuoteCompareTable = ({
                       {item.package_price} %
                       {itemUpdated && (itemUpdated.package_price != item.package_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.package_price} %</span>}
                     </div>
-                    <div className="table-si-row">
+                    <div className="table-si-row table-grey-row">
                       {item.freight_price} %
                       {itemUpdated && (itemUpdated.freight_price != item.freight_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.freight_price} %</span>}
                     </div>
@@ -177,7 +177,7 @@ const QuoteCompareTable = ({
                       {item.tax} %
                       {itemUpdated && (itemUpdated.tax != item.tax) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.tax} %</span>}
                     </div>
-                    <div className={`table-si-row  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-yellow-row"}`} >
+                    <div className={`table-si-row fw-semibold  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-grey-row"}`} >
                       {item.total_price}
                       {itemUpdated && (itemUpdated.total_price != item.total_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.total_price}</span>}
                       {item.is_lowest &&
@@ -201,7 +201,7 @@ const QuoteCompareTable = ({
                         </span>
                       }
                     </div>
-                    <div className="table-si-row">
+                    <div className="table-si-row table-grey-row">
                       {item?.comment
                         ? <ReadMore content={item?.comment} maxLines={2} />
                         : "--"
