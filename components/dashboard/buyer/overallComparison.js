@@ -255,20 +255,20 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
                     </th>
                   </tr>
-                  <tr>
-                    <th scope="col" className="sl_no" rowSpan={2}>
+                  <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
+                    <th scope="col" className="sl_no" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
                       Sl. No
                     </th>
-                    <th scope="col" className="description" rowSpan={2}>
+                    <th scope="col" className="description" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
                       Product Name
                     </th>
-                    <th scope="col" className="description" rowSpan={2}>
+                    <th scope="col" className="description" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
                       Product Variant Details
                     </th>
-                    <th scope="col" className="sl_no" rowSpan={2}>
+                    <th scope="col" className="sl_no" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
                       Quantity
                     </th>
-                    <th scope="col" className="all_vendors" rowSpan={2} style={{ backgroundColor: "#fff8db" }} >
+                    <th scope="col" className="all_vendors" rowSpan={2}>
                       Last Purchase Details
                     </th>
                     {allvendors &&

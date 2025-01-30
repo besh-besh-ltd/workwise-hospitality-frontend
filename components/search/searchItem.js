@@ -106,7 +106,7 @@ const SearchItem = ({
                 >
                   View Details
                 </Link>
-                <Link
+                {/* <Link
                   href="#"
                   className="btn btn-primary custom_primary_btn has_primary-bg"
                   onClick={(e) => {
@@ -115,7 +115,7 @@ const SearchItem = ({
                   }}
                 >
                   Add To RFQ
-                </Link>
+                </Link> */}
                 <Link
                   href="#"
                   className="btn btn-primary custom_primary_btn"
