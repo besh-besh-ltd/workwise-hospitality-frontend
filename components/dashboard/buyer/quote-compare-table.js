@@ -257,7 +257,7 @@ const QuoteCompareTable = ({
               {isRfqClosed ?
                 <button
                   type="submit"
-                  className="btn btn-warning btn-outlined"
+                  className="btn btn-danger btn-outlined"
                   disabled
                 >
                   RFQ has been Closed
