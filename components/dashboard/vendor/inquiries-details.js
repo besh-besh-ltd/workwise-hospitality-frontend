@@ -495,8 +495,8 @@ const RfqManagementPreview = () => {
                       <div>
                         <button
                           type="button"
-                          className="page-link-btn border-0 text-white p-2 my-0 rounded-2"
-                          style={{ width: "150px", backgroundColor: "var(--primary-color)" }}
+                          className=" btn btn-primary"
+                          style={{ width: "150px" }}
                           onClick={(e) => {
                             e.preventDefault();
                             router.push({
@@ -519,8 +519,8 @@ const RfqManagementPreview = () => {
                             <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
                               <button
                                 type="button"
-                                className="btn btn-secondary my-0 p-2"
-                                style={{ width: "260px" }}
+                                className="btn btn-secondary "
+                                // style={{ width: "260px" }}
                               >
                                 Compare Received Quotes
                               </button>
@@ -528,8 +528,8 @@ const RfqManagementPreview = () => {
                             :
                             <button
                               type="button"
-                              className="btn btn-primary my-0 p-2"
-                              style={{ width: "260px" }}
+                              className="btn btn-primary"
+                              style={{ width: "230px" }}
                               disabled
                             >
                               No Quotes Received
@@ -607,8 +607,8 @@ const RfqManagementPreview = () => {
                                         <strong>Spec: </strong>
                                         {spec || "----"}
                                       </p>
-                                      <div className="col-12 d-block border rounded-2 p-2 mb-1">
-                                        <p className="fw-bold text-center mb-1">File Attachments</p>
+                                      <div className="col-12 d-block  rounded-2 p-2 mb-1">
+                                      { item.SPEC_files? <p className="fw-bold mb-1">File Attachments</p> : '' }
                                         <div className="row mx-1">
                                           {item.SPEC_files?.map((file, index) => (
                                             <a key={index} href={file} target="_blank" className="col-md-6 page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
@@ -1046,7 +1046,7 @@ const RfqManagementPreview = () => {
                               {rfqDetails?.status == 2 && (
                                 <button
                                   type="button"
-                                  className="btn btn-secondary"
+                                  className="btn btn-danger"
                                   onClick={(e) => e.preventDefault()}
                                   disabled={true}
                                 >
