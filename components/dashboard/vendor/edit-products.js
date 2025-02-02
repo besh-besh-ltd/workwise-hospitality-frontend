@@ -1028,7 +1028,7 @@ const EditProducts = () => {
 
                       <button
                         type="submit"
-                        className="page-link btn btn-secondary"
+                        className=" mt-4 btn btn-secondary"
                       >
                         Save
                       </button>

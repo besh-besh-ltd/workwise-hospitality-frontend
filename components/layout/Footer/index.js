@@ -169,11 +169,7 @@ const Footer = ({ cmsdata, showModal = false, setshowModal, fromType }) => {
         <div className="footer-copyright">
           <div className="container d-md-flex justify-content-md-between">
             <p>
-              © Copyrights 2024, workwise | All rights reserved | Digital
-              Partner{" "}
-              <Link href="https://www.indusnet.co.in/" target="_blank">
-                Indus Net Technologies
-              </Link>
+              © Copyrights 2024, Workwise | All rights reserved 
             </p>
             <ul>
               <li>

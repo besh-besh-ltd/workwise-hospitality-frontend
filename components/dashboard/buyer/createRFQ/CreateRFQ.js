@@ -24,6 +24,7 @@ import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { Accordion } from "react-bootstrap";
 
 
 const CreateRFQ = () => {
@@ -327,23 +328,6 @@ const CreateRFQ = () => {
                 )
                   : (
                     <>
-                      {/* <div className="col-md-4">
-                        <FormikField
-                          label="Project Name"
-                          value={rfqFormDataFromStore.project_id}
-                          enableHandleChange={true}
-                          handleChange={handleFormFieldChange}
-                          type="select"
-                          selectOptions={[
-                            { label: "Select Project", value: -1 },
-                            ...projects
-                          ]}
-                          isRequired={false}
-                          name="project_id"
-                          touched={touched}
-                          errors={errors}
-                        />
-                      </div> */}
 
                       <div className="col-md-3 mb-3">
                         <h4>Select Project</h4>
@@ -360,22 +344,9 @@ const CreateRFQ = () => {
 
                       {/* RFQ Products Table */}
                       <h4>Review Products</h4>
-                      <div className="table-responsive">
-                        <table className="table table-striped ">
-                          <thead>
-                            <tr>
-                              <th>Name of product</th>
-                              <th>Size & specifications</th>
-                              <th>Quantity</th>
-                              <th className="w200">Technical Datasheet (TDS)</th>
-                              <th className="w200">Quality Assurance Plan(QAP)</th>
-                              <th>Product Comments</th>
-                              <th>Selected vendors</th>
-                              <th>Action</th>
-                              <th>Technical Evaluation</th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                      <div className=""  style={{height:"fit-content", background: "#ffffa",  border: "2px solid #CCCCCC", borderRadius: "10px", padding:"10px" }}>
+                      <Accordion flush defaultActiveKey="" >
+
                             {rfqProducts && rfqProducts.length > 0 &&
                               rfqProducts.map((product) => {
                                 return (
@@ -389,11 +360,11 @@ const CreateRFQ = () => {
                                   />
                                 );
                               })}
-                          </tbody>
-                        </table>
+
+                      </Accordion>
                       </div>
 
-                      <div className="float-end addmore">
+                      <div className="float-end addmore mt-4 ">
                         <Link href="/vendor/all" className="me-2" >
                           Add More Products
                         </Link>
