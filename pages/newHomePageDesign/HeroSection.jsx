@@ -1,136 +1,115 @@
-"use client";
-import Link from "next/link";
-import React, { useEffect } from "react";
-import { TypeAnimation } from "react-type-animation";
+import React from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
 
-export default function HeroSection({ handleToggleVideo }) {
-
-  const handleVideoClick = (e) => {
-    e.preventDefault();
-    document.getElementById('portal_video_section')?.scrollIntoView({ behavior: 'smooth' });
-
-    setTimeout(() => {
-      handleToggleVideo();
-    }, 800);
-  };
-
+export default function HeroSection() {
   return (
-    <div className="hero-section">
-
-      <div className="content">
-        <h1 className="hero-heading">Is Procurement...</h1>
-
-        <div className="mb-4 fs-5 type-animation">
-          <TypeAnimation
-            sequence={[
-              "Causing Cost Overruns?",
-              2500,
-              "Delaying your projects?",
-              2500,
-              "Eating into your profits?",
-              2500,
-            ]}
-            speed={200}
-            repeat={Infinity}
-          />
+    <div
+      style={{
+        background: "linear-gradient(135deg, #005F96, #50A055)",
+        color: "white",
+        padding: "40px 20px",
+        textAlign: "center",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {/* Navbar */}
+      <div
+        className="d-flex justify-content-between align-items-center w-100"
+        style={{ maxWidth: "400px", marginBottom: "20px" }}
+      >
+        <div>
+          <h3 style={{ fontWeight: "bold", fontSize: "22px" }}>
+            work
+            <span style={{ color: "#3FAD46", fontWeight: "bold" }}>wise</span>
+          </h3>
         </div>
-
-        <div className="cta">
-          <a href="#portal_video_section" className="cta-btn" onClick={handleVideoClick}>
-            If Yes, Watch Video to know more
-          </a>
+        <button className="btn btn-primary" style={{ borderRadius: "50px" }}>
+          Book a Call
+        </button>
+        <div>
+          <span className="navbar-toggler-icon"></span>
         </div>
       </div>
 
-      <style jsx>{`
-        .hero-section {
-          position: relative;
-          height: 100vh;
-          width: 100%;
-          background: linear-gradient(180deg, rgb(255, 255, 255) 0%, #f0f0f0 100%);
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          color: #333;
-          padding: 20px;
-        }
+      {/* Main Heading */}
+      <h1 style={{ fontWeight: "bold", fontSize: "28px", marginBottom: "10px" }}>
+        Procurement <br /> se profit banao
+      </h1>
 
+      {/* Subheading */}
+      <p style={{ color: "#FFD700", fontWeight: "600", fontSize: "16px" }}>
+        Is your procurement causing cost overruns?
+      </p>
 
-        @keyframes floatBubble {
-          0% {
-            transform: translateY(0);
-            opacity: 0.5;
-          }
-          50% {
-            transform: translateY(-80vh);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(-100vh);
-            opacity: 0;
-          }
-        }
+      {/* Video Section */}
+      <div
+        style={{
+          background: "white",
+          borderRadius: "15px",
+          padding: "15px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          maxWidth: "320px",
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            height: "180px",
+            background: `url('https://source.unsplash.com/320x180/?office,teamwork') center/cover`,
+            position: "relative",
+            borderRadius: "10px",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "rgba(0,0,0,0.5)",
+              borderRadius: "50%",
+              padding: "10px",
+            }}
+          >
+            <span
+              className="fa fa-play"
+              style={{ color: "white", fontSize: "24px" }}
+            ></span>
+          </div>
+        </div>
 
-        .content {
-          position: relative;
-          z-index: 1;
-          max-width: 90%;
-        }
+        {/* Caption */}
+        <p
+          style={{
+            fontWeight: "bold",
+            fontSize: "16px",
+            marginTop: "10px",
+            color: "#2C3E50",
+          }}
+        >
+          Presenting combination of <span style={{ color: "#005F96" }}>software + service</span>
+        </p>
+      </div>
 
-        .hero-heading {
-          font-size: 3rem;
-          font-weight: 700;
-          letter-spacing: 1px;
-          color: #1e3c72;
-          text-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-          animation: fadeInUp 1s ease-in-out;
-        }
-
-
-        .cta-btn {
-          display: inline-block;
-          padding: 15px 40px;
-          border-radius: 30px;
-          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-          color: #fff;
-          font-size: 1.2rem;
-          font-weight: 600;
-          text-decoration: none;
-          box-shadow: 0px 10px 30px rgba(0, 123, 255, 0.5);
-          transition: all 0.3s ease-in-out;
-        }
-
-        .cta-btn:hover {
-          background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);
-          transform: scale(1.05);
-          box-shadow: 0px 15px 35px rgba(0, 123, 255, 0.7);
-        }
-
-        @media (max-width: 768px) {
-          .hero-heading {
-            font-size: 1.9rem;
-          }
-          .type-animation {
-            font-size: 1.2rem;
-          }
-          .cta-btn {
-            font-size: 1rem;
-          }
-        }
-
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+      {/* CTA Button */}
+      <button
+        className="btn btn-primary mt-3"
+        style={{
+          borderRadius: "50px",
+          padding: "10px 20px",
+          fontWeight: "bold",
+          fontSize: "16px",
+        }}
+      >
+        Book a Call
+      </button>
     </div>
   );
 }
