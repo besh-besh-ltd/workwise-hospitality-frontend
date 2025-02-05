@@ -54,11 +54,11 @@ export default function HeroSection() {
           <TypeAnimation
             sequence={[
               "Cost Overrun ?",
-              2500,
+              1500,
               "Project Delay ?",
-              2500,
+              1500,
               "Losses ?",
-              2500,
+              1500,
             ]}
             speed={200}
             repeat={Infinity}

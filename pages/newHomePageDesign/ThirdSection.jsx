@@ -38,10 +38,9 @@ export default function ThirdSection() {
 
   return (
     <div className="px-4" style={{ padding: "50px 0", textAlign: "center" }}>
-      <h2
-        style={{ fontWeight: "bold", fontSize: "28px", marginBottom: "20px" }}
-      >
+             <h2 className="mb-4" style={{fontSize:"20px", fontWeight:"700", marginTop:"30px" }} >
         What customers say about us
+
       </h2>
 
       <div style={{ maxWidth: "730px", margin: "auto" }}>
