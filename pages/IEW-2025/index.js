@@ -136,11 +136,11 @@ const InterestForm = () => {
         <meta property="og:site_name" content="Workwise" />
       </Head>
 
-      <div
+      <section 
         className="min-vh-100 bg-light d-flex flex-column justify-content-center align-items-center p-4 "
         style={{
-          marginTop: "40px",
-          background: "linear-gradient(50deg, #005F96, #50A055)",
+          marginTop: "60px",
+          background: "linear-gradient(50deg, var(--primary-color), var(--secondary-color))",
         }}
       >
         <div
@@ -243,9 +243,9 @@ const InterestForm = () => {
             </button>
           </form>
         </div>
-      </div>
+      </section>
 
-      <div className="px-4 py-4" style={{ margin: "40px 0px 40px 0px" }}>
+      <section  className="px-4 py-4" style={{ margin: "40px 0px 40px 0px" }}>
         <h2
           style={{
             fontSize: "32px",
@@ -292,12 +292,12 @@ const InterestForm = () => {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div
+      <section
         className="text-center py-5"
         style={{
-          background: "linear-gradient(55deg, #50A055, #005F96)",
+          background: "linear-gradient(55deg, var(--secondary-color), var(--primary-color))",
           color: "white",
         }}
       >
@@ -355,7 +355,7 @@ const InterestForm = () => {
             ))}
           </div>
         </div>
-      </div>
+      </section>
     </>
   );
 };
