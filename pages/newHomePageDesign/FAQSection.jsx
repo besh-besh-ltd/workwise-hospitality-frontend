@@ -35,76 +35,87 @@ export default function FAQSection() {
   };
 
   return (
-    <div
-      className="container py-5"
-      style={{
-        // backgroundColor: "#f9f9f9",
-      }}
-    >
+    <div className="container py-5">
       {/* Section Title */}
       <h2
         className="text-center mb-4"
         style={{
-          fontSize: "2.5rem",
-          fontWeight: "bold",
-          color: "#333",
+          fontSize: "32px",
+          fontWeight: "700",
+          color: "#305BA6",
+          fontFamily: "Poppins, sans-serif",
         }}
       >
         Frequently Asked Questions
       </h2>
-      <p
-        className="text-center mb-4"
-        style={{
-          maxWidth: "600px",
-          margin: "0 auto",
-          color: "#777",
-          fontSize: "1.1rem",
-        }}
-      >
-        Find answers to some of the most common questions below.
-      </p>
 
       {/* FAQ Accordion */}
       <div className="row justify-content-center">
-        <div className="col-md-10 col-lg-8">
+        <div className="col-md-8">
           {faqs.map((faq, index) => (
             <div
               key={index}
-              className="mb-3 p-3"
+              className="mb-3"
               style={{
-                border: "1px solid #ddd",
-                borderRadius: "10px",
-                backgroundColor: "#fff",
-                transition: "all 0.3s ease",
-                boxShadow: openIndex === index ? "0 4px 8px rgba(0,0,0,0.1)" : "none",
+                background: "#F2F2F2",
+                borderRadius: "8px",
+                cursor: "pointer",
+                transition: "all 0.3s ease-in-out",
               }}
+              onClick={() => handleToggle(index)}
             >
+              {/* Question */}
               <div
-                className="d-flex justify-content-between align-items-center cursor-pointer"
-                style={{ cursor: "pointer" }}
-                onClick={() => handleToggle(index)}
+                className="d-flex justify-content-between align-items-center"
+                style={{
+                  padding: "15px 20px",
+                  transition: "background 0.3s ease",
+                }}
               >
-                <h5 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "bold" }}>
+                <h5
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    fontWeight: "400",
+                    fontFamily: "Poppins, sans-serif",
+                    color: "#004896",
+                  }}
+                >
                   {faq.question}
                 </h5>
                 <FontAwesomeIcon
                   icon={openIndex === index ? faMinus : faPlus}
                   style={{
-                    fontSize: "1.5rem",
-                    color: openIndex === index ? "#d9534f" : "#333",
-                    transition: "all 0.3s ease",
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                    color: "#305BA6",
+                    marginLeft:"10px",
+                    transition: "transform 0.3s ease",
+                    transform: openIndex === index ? "rotate(180deg)" : "rotate(0deg)",
                   }}
                 />
               </div>
+
+              {/* Answer Section with Smooth Transition */}
               <div
-                className="mt-3"
+                className="faq-answer"
                 style={{
                   maxHeight: openIndex === index ? "200px" : "0",
                   overflow: "hidden",
-                  transition: "max-height 0.3s ease",
+                  transition: "max-height 0.4s ease-in-out, padding 0.4s ease-in-out",
+                  padding: openIndex === index ? "10px 20px" : "0px 20px",
                 }}
               >
-                <p style={{ fontSize: "1rem", color: "#555" }}>{faq.answer}</p>
+                <p
+                  style={{
+                    fontSize: "16px",
+                    color: "#191919",
+                    opacity: openIndex === index ? 1 : 0,
+                    transition: "opacity 0.3s ease-in-out",
+                  }}
+                >
+                  {faq.answer}
+                </p>
               </div>
             </div>
           ))}

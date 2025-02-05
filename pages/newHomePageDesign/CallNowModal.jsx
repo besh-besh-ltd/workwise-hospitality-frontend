@@ -35,14 +35,31 @@ export default function CallNowModal() {
   return (
     <>
       <div
-        style={{
-          position: "fixed",
-          bottom: "100px",
-          right: "20px",
-          zIndex: 1000,
-        }}
+        // style={{
+        //   position: "fixed",
+        //   bottom: "100px",
+        //   right: "20px",
+        //   zIndex: 1000,
+        // }}
       >
-        <button
+
+<button
+            className="btn btn-primary mt-3"
+            style={{
+              borderRadius: "5px",
+              backgroundColor: "white",
+              color: "black",
+              padding: "10px 20px",
+              fontWeight: "500",
+              fontSize: "16px",
+            }}
+            onClick={() => setShowModal(true)}
+
+          >
+            Book a Call
+          </button>
+          
+        {/* <button
           style={{
             backgroundColor: "#007bff",
             color: "#fff",
@@ -70,7 +87,7 @@ export default function CallNowModal() {
               <span className="d-block" style={{ marginLeft: "10px" }}>Call Now</span>
               <span className="text-sm d-none d-lg-block">+91 99307 87798</span>
             </div>}
-        </button>
+        </button> */}
       </div>
 
       <Modal

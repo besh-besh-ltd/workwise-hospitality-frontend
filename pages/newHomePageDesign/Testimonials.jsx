@@ -8,6 +8,11 @@ const testimonials = [
     position: "CEO Vendor",
     text: "Workwise has completely transformed our procurement process. Their platform made it effortless to connect with reliable vendors and compare rates, all while keeping everything organized in one place. The automated rate comparisons and Excel downloads have saved us countless hours, and the comprehensive dashboard gives us real-time insights into every stage of the process.",
     image: "/assets/images/trusted-customer.jpg", 
+  },  {
+    name: "AR Shekhar",
+    position: "CEO Vendor",
+    text: "Workwise has completely transformed our procurement process. Their platform made it effortless to connect with reliable vendors and compare rates, all while keeping everything organized in one place. The automated rate comparisons and Excel downloads have saved us countless hours, and the comprehensive dashboard gives us real-time insights into every stage of the process.",
+    image: "/assets/images/trusted-customer.jpg", 
   },
 ];
 

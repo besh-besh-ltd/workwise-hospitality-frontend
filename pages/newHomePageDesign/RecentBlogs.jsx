@@ -62,29 +62,24 @@ export default function RecentBlogs() {
 
   return (
     <div
-      className="container-fluid py-5"
+      className="container-fluid py-5 "
       style={{
-        backgroundColor: "#f0f0f0",
+        background: "linear-gradient(55deg, #005F96, #50A055)",
       }}
     >
       <div className="container">
         <h2
-          className="text-center mb-3"
+          className="text-center"
           style={{
+            margin:"30px",
             fontSize: "2.5rem",
             fontWeight: "bold",
-            color: "#333",
+            color: "white",
           }}
         >
           Recent Articles
         </h2>
-        <p
-          className="text-center mb-5"
-          style={{ color: "#777", maxWidth: "600px", margin: "10px auto" }}
-        >
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
-          tempor incididunt ut labore.
-        </p>
+
 
         <div className="slider-container px-3">
           <Slider {...settings}>
