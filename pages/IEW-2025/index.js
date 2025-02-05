@@ -1,5 +1,46 @@
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faMoneyBillWave,
+  faCalendarAlt,
+  faChartLine,
+} from "@fortawesome/free-solid-svg-icons";
+import Head from "next/head";
+import { contactUsFormService } from "@/services/contact";
+import { toast } from "react-toastify";
+
+const pageInfo = {
+  title: "Workwise | IEW 2025",
+  description:
+    "Workwise saves 5% on costs and 90% on time in procurement, and helps you win double the tenders. Work wisely with master vendor database, automate RFQs & rate comparisons",
+  img: "https://api.letsworkwise.com/banner_image/1722514573447-a067f17b-6eac-4633-b5f2-f199e5edf45c.png",
+};
+
+const dataObj = [
+  { msg: "procurement completed", value: "332 Cr." },
+  { msg: "saved", value: "21 Cr." },
+  { msg: "happy customers", value: "25" },
+  { msg: "PSU approved vendors", value: "10,000+" },
+];
+
+const benefits = [
+  {
+    id: 1,
+    icon: faMoneyBillWave,
+    text: "20% more profit",
+  },
+  {
+    id: 2,
+    icon: faCalendarAlt,
+    text: "100 days of work in 10 days",
+  },
+  {
+    id: 3,
+    icon: faChartLine,
+    text: "Bid right. Win big. Grow fast.",
+  },
+];
 
 const InterestForm = () => {
   const [formData, setFormData] = useState({
@@ -10,31 +51,117 @@ const InterestForm = () => {
     painPoints: "",
   });
 
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      subject: formData.companyName + " - IEW 2025",
+      phone: formData.phoneNumber,
+      name: formData.name,
+      email: formData.email,
+      comment: formData.painPoints,
+      IEW: true,
+    };
+
+    try {
+      const response = await contactUsFormService(payload);
+      toast.success("Form submitted successfully!");
+      console.log(response);
+      setFormData({
+        name: "",
+        companyName: "",
+        phoneNumber: "",
+        email: "",
+        painPoints: "",
+      });
+    } catch (error) {
+      toast.error("An error occurred. Please try again.");
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Form submitted:", formData);
-    setFormData({
-      name: "",
-      companyName: "",
-      phoneNumber: "",
-      email: "",
-      painPoints: "",
-    });
-  };
-
   return (
     <>
+      <Head>
+        <title>{pageInfo.title}</title>
+        <meta name="description" content={pageInfo.description} />
+
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "http://schema.org",
+            "@type": "IEWPage",
+            name: "IEW 2025 - Workwise",
+            description:
+              "Reach out to Workwise for any inquiries or support needed. Our team is ready to help you!",
+            url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/IEW-2025`,
+            contactPoint: {
+              "@type": "ContactPoint",
+              contactType: "Customer Support",
+              email: "support@letsworkwise.com",
+              telephone: "9930787798",
+              hoursAvailable: {
+                "@type": "OpeningHoursSpecification",
+                name: "Available 24/7",
+                dayOfWeek: [
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                  "Sunday",
+                ],
+              },
+            },
+          })}
+        </script>
+
+        <meta property="og:title" content={pageInfo.title} />
+        <meta property="og:description" content={pageInfo.description} />
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:url"
+          content={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/IEW-2025`}
+        />
+        <meta property="og:image" content={pageInfo.img} />
+        <meta property="og:site_name" content="Workwise" />
+      </Head>
+
       <div
-        className="min-vh-100 bg-light d-flex justify-centent-center align-items-center p-4 "
+        className="min-vh-100 bg-light d-flex flex-column justify-content-center align-items-center p-4 "
         style={{
           marginTop: "40px",
           background: "linear-gradient(50deg, #005F96, #50A055)",
         }}
       >
+        <div
+          style={{
+            maxWidth: "500px",
+          }}
+        >
+          <h2
+            className="text-center mb-3 text-white"
+            style={{ fontWeight: "700" }}
+          >
+            Thank you for visiting us at India Energy Week
+          </h2>
+          <p
+            className="text-center mb-3 text-white "
+            style={{ fontWeight: "600", color: "white" }}
+          >
+            We're excited to help you transform <u> procurement </u>
+          </p>
+        </div>
+
         <div
           className="card p-4 shadow-lg w-100 mx-auto "
           style={{
@@ -47,21 +174,14 @@ const InterestForm = () => {
             boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
           }}
         >
-          {" "}
-          {/* <img src="/logo.png" alt="Workwise Logo" className="mx-auto d-block mb-3" style={{ width: "100px" }} /> */}
-          <h2
-            className="text-center mb-3 text-white"
-            style={{ fontWeight: "700" }}
-          >
-            Welcome to the Interest Form for India Energy Week!
-          </h2>
           <p
             className="text-center mb-3 text-white "
             style={{ fontWeight: "600", color: "white" }}
           >
-            We’re excited for you to join us in discussing procurement
-            opportunities in the energy sector.
-          </p>
+            {" "}
+            Fill this form to show your interest
+          </p>{" "}
+          {/* <img src="/logo.png" alt="Workwise Logo" className="mx-auto d-block mb-3" style={{ width: "100px" }} /> */}
           <form onSubmit={handleSubmit}>
             <input
               type="text"
@@ -104,15 +224,138 @@ const InterestForm = () => {
               value={formData.painPoints}
               onChange={handleChange}
               placeholder="Pain Points/Any Other Comments?"
-              rows="3"
+              rows="4"
             ></textarea>
-            <button type="submit" className="btn btn-primary w-100">
-              Submit Your Interest
+            <button
+              type="submit"
+              className="btn btn-primary w-100"
+              disabled={loading}
+            >
+              {loading ? (
+                <span
+                  className="spinner-border spinner-border-sm"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+              ) : (
+                "Submit Your Interest"
+              )}
             </button>
           </form>
         </div>
       </div>
 
+      <div className="px-4 py-4" style={{ margin: "40px 0px 40px 0px" }}>
+        <h2
+          style={{
+            fontSize: "32px",
+            fontWeight: "700",
+            textAlign: "center",
+          }}
+        >
+          Trusted by industry, proven by results
+        </h2>
+
+        <div
+          className="d-flex justify-content-center flex-wrap gap-4 align-items-center  "
+          style={{ width: "fit-content", marginTop: "20px", margin: "auto" }}
+        >
+          {dataObj?.map((item) => (
+            <div
+              className=" d-flex justify-content-center  align-items-center flex-column "
+              style={{
+                background: "#DEE8F9",
+                width: "160px",
+                height: "130px",
+                padding: "0px 12.668px",
+                borderRadius: "10px",
+              }}
+            >
+              <p
+                className="mb-0 text-center"
+                style={{
+                  color: "#305BA6",
+                  fontSize: "25px",
+                  fontWeight: "700",
+                }}
+              >
+                {" "}
+                {item.value}{" "}
+              </p>
+              <p
+                className="mb-0 text-center "
+                style={{ fontSize: "18px", fontWeight: "600" }}
+              >
+                {" "}
+                {item.msg}{" "}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className="text-center py-5"
+        style={{
+          background: "linear-gradient(55deg, #50A055, #005F96)",
+          color: "white",
+        }}
+      >
+        {/* Heading */}
+        <h2
+          style={{
+            fontWeight: "700",
+            fontSize: "32px",
+            lineHeight: "38px",
+            fontFamily: "Poppins, sans-serif",
+            textAlign: "center",
+            color: "white",
+          }}
+        >
+          Key Benefits
+        </h2>
+
+        {/* Benefits Grid */}
+        <div className="container mt-4">
+          <div className="row justify-content-center gap-4 ">
+            {benefits.map((benefit) => (
+              <div
+                key={benefit.id}
+                className="d-flex flex-wrap align-items-center justify-content-center p-2"
+                style={{
+                  background: "#FFF",
+                  borderRadius: "10px",
+                  width: "150px",
+                  height: "140px",
+                  display: "flex",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                }}
+              >
+                <p className="mb-0">
+                  <FontAwesomeIcon
+                    icon={benefit.icon}
+                    size="2x"
+                    color="#305BA6"
+                  />
+                </p>
+                <p
+                  className="mb-0 "
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    color: "#191919",
+                    lineHeight: "21px",
+                  }}
+                >
+                  {benefit.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </>
   );
 };
