@@ -202,10 +202,10 @@ const Header = () => {
 
                       <li
                         className={
-                          router.pathname == "/products" ? "active" : ""
+                          router.pathname == "/for-vendors" ? "active" : ""
                         }
                       >
-                        <Link href="/products">Products We Cater</Link>
+                        <Link href="/for-vendors">For Vendor</Link>
                       </li>
                       <li
                         className={

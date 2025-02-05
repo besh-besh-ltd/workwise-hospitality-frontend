@@ -72,7 +72,7 @@ export default function SixthSection() {
                     backgroundSize: "cover",
                     backgroundRepeat: "no-repeat",
                     borderRadius: "10px",
-                    objectFit: "cover", // Ensures image covers entire div
+                    objectFit: "fill", // Ensures image covers entire div
                   }}
                 ></div>
               </div>

@@ -70,7 +70,7 @@ export default function CallNowModal() {
               <Form.Label>Enter your phone number</Form.Label>
               <Form.Control
                 type="tel"
-                placeholder="Enter Phone Number"
+                placeholder="+91"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
