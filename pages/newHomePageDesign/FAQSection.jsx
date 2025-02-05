@@ -23,11 +23,48 @@ export default function FAQSection() {
       answer:
         "Yes, Workwise is designed to cater to businesses of all sizes, providing scalable solutions to meet your procurement needs.",
     },
+    
     {
-      question: "How can I sign up for Workwise?",
-      answer:
-        "You can sign up by visiting our website and filling out the registration form. Our team will assist you with onboarding.",
+      question: "Can I compare quotes from different vendors on Workwise?.",
+      answer: "Yes, Workwise provides AI-driven automated rate comparison charts for each product, allowing contractors to easily compare quotes from different vendors and select the best option."
+
     },
+    {
+      question: "How can I send multiple RFQs quickly on Workwise?",
+      answer : "Workwise allows contractors to send hundreds of RFQs with a single click. Our platform uses AI to automate the process, ensuring that all relevant vendors receive your request and respond promptly."
+    },
+    {
+     question:"How can Workwise help my business grow?",
+     answer:"Workwise acts as your business partner, leveraging advanced AI technology to streamline procurement processes and connect you with the right vendors. This partnership allows you to focus on core business activities while we handle procurement challenges, taking your business to new heights."
+    },
+    {
+      question:"How do I get started with Workwise?",
+      answer:"Getting started with Workwise is easy. Simply sign up on our website, create your profile, and start sending RFQs. Our user-friendly interface and comprehensive support will guide you through the process."
+     },
+     {
+      question:"How does Workwise automate follow-ups with vendors?",
+      answer:"Workwise uses AI-powered automated follow-up systems to ensure timely responses from vendors. This helps contractors avoid delays and ensures that procurement processes run smoothly."
+     },
+     {
+      question:"How does Workwise benefit contractors?",
+      answer:"Workwise offers contractors a range of benefits, including AI-driven automated follow-ups, rate comparison charts, and standardized documentation for products. This helps contractors save time, reduce costs, and ensure they receive quality products on time."
+     },
+     {
+      question:"How does Workwise ensure the quality of products?",
+      answer:"Workwise ensures product quality by providing standardized documentation, including technical data sheets and quality assurance plans (QAP). These documents outline product specifications and manufacturing standards, ensuring contractors receive high-quality products."
+     },
+     {
+      question:"How secure is my data on Workwise?",
+      answer:"At Workwise, we prioritize the security of your data. Our platform uses advanced security measures to protect your information and ensure confidentiality in all your procurement activities."
+     },
+     {
+      question:"What kind of support does Workwise offer to contractors?",
+      answer:"Workwise offers comprehensive support to contractors, including a dedicated customer support team, detailed user guides, and FAQs to help you navigate the platform and maximize its benefits."
+     },
+     {
+question:"Who are the key stakeholders in Workwise?",
+answer:"Workwise connects two main stakeholders: contractors and suppliers/vendors. We facilitate seamless interactions between these groups to ensure efficient and cost-effective procurement."
+     }
   ];
 
   const handleToggle = (index) => {

@@ -6,23 +6,22 @@ export default function SixthSection() {
     {
       id: 1,
       title: "AI-generated price comparison chart",
-      image: "https://www.svgrepo.com/show/508699/landscape-placeholder.svg", // Replace with actual image
+      image: "/videos/chart.gif",
     },
     {
       id: 2,
       title: "Automate RFQs creation and follow-ups",
-      image: "https://www.svgrepo.com/show/508699/landscape-placeholder.svg",
+      image: "/videos/rfq.gif",
     },
     {
       id: 3,
       title: "Reverse Auction to negotiate pricing",
-      image: "https://www.svgrepo.com/show/508699/landscape-placeholder.svg",
+      image: "/videos/chart.gif",
     },
   ];
 
   return (
     <div className="py-5 text-center">
-      {/* Heading */}
       <h2
         style={{
           fontWeight: "700",
@@ -32,10 +31,9 @@ export default function SixthSection() {
           textAlign: "center",
         }}
       >
-        Here’s what Workwise can do for you
+        Here's what Workwise can do for you
       </h2>
 
-      {/* Features List */}
       <div className="container mt-4">
         <div className="row justify-content-center">
           {features.map((feature) => (
@@ -69,8 +67,12 @@ export default function SixthSection() {
                   style={{
                     width: "290px",
                     height: "230px",
-                    background: `url(${feature.image}) center/cover`,
+                    backgroundImage: `url(${feature.image})`,
+                    backgroundPosition: "center",
+                    backgroundSize: "cover",
+                    backgroundRepeat: "no-repeat",
                     borderRadius: "10px",
+                    objectFit: "cover", // Ensures image covers entire div
                   }}
                 ></div>
               </div>
