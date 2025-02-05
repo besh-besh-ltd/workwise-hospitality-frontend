@@ -16,7 +16,7 @@ const initialMainNavs = [
   "/aboutus",
   "/contactus",
   "/for-vendors",
-  // "/for-buyers",
+  "/IEW-2025",
   "/solutions",
   "/blogs",
   "/validate-otp",
@@ -30,6 +30,9 @@ const initialMainNavs = [
 
 const Header = () => {
   const router = useRouter();
+
+  // only for IEW
+  const [visible, setVisible] = useState(true);
   const { pathname } = router;
   const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
@@ -891,6 +894,38 @@ const Header = () => {
             ) : null}
           </div>
         </div>
+       
+
+        // only for IEW
+       {visible && (
+      <div
+        className="w-100 px-4 py-2 text-center "
+        style={{
+          background: "rgba(0, 0, 0, 0.8)",
+          color: "white",
+          fontWeight: "600",
+          fontSize: "16px",
+          borderTop: "3px solid var(--primary-color)",
+          position: "relative",
+        }}
+      >
+        <span  >Meet us at India Energy Week - Stall no. 2L 29 | Proud Sponsor of IEW 2025</span>
+        <button
+          onClick={() => setVisible(false)}
+          className=""
+          style={{
+            float:"right",
+            background: "transparent",
+            color: "white",
+            fontSize: "18px",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          ✖
+        </button>
+      </div>
+    )}
       </header>
 
       {/* ------------- Auth Modal ------------- */}
