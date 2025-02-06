@@ -1,5 +1,8 @@
 import React from 'react';
 import Image from 'next/image';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faQuoteLeft } from '@fortawesome/free-solid-svg-icons';
+import { faStar } from '@fortawesome/free-regular-svg-icons';
 
 
 const testimonials = [
