@@ -1,15 +1,15 @@
-import axiosInstance from "@/lib/axios";
 import { RegisterService } from "@/services/Auth";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
 import { useState } from "react";
-import { ToastContainer, toast } from "react-toastify";
+import {  toast } from "react-toastify";
 import * as yup from "yup";
 import FullLoader from "../shared/FullLoader";
 import { useRouter } from "next/router";
 
-const Register = (props) => {
+  {/* registerAs = vendor or buyer valid values */}
+const Register = ({registerAs}) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showCPassword, setShowCPassword] = useState(false);
@@ -24,7 +24,7 @@ const Register = (props) => {
     email: "",
     mobile: "",
     organization_name: "",
-    register_as: "2",
+    register_as : registerAs == "vendor" ? "3" : registerAs == "buyer" ? "2" : "",
     password: "",
     confirm_password: "",
   };
@@ -69,7 +69,7 @@ const Register = (props) => {
   });
 
   const registerSubmitHandler = (values, resetForm) => {
-    setloading(true);
+   setloading(true);
     RegisterService(values)
       .then((response) => {
         setloading(false);
@@ -78,7 +78,6 @@ const Register = (props) => {
           position: "top-center",
         });
         setTimeout(() => {
-          props.closeModal();
           router.push({
             pathname: "/",
             query: { user_registered: 1 },
@@ -129,7 +128,7 @@ const Register = (props) => {
       <div className="login-form hasFullLoader">
         {loading && <FullLoader />}
         {/* Content for Register tab */}
-        <h3 className="tab-title">Register</h3>
+        {/* <h3 className="tab-title">Register</h3> */}
         {/* Add your registration form or content here */}
         <Formik
           initialValues={initialValues}
@@ -196,6 +195,7 @@ const Register = (props) => {
                   <div className="form-error">{errors.mobile}</div>
                 )}
               </div>
+             {/* 
               <div className="form-group">
                 <label htmlFor="register_as">
                   Register As <sup>*</sup>
@@ -203,12 +203,12 @@ const Register = (props) => {
                 <Field as="select" id="register_as" name="register_as">
                   <option value="2">Buyer</option>
                   <option value="3">Vendor</option>
-                  {/* <option value="4">Other user</option> */}
                 </Field>
                 {touched.register_as && errors.register_as && (
                   <div className="form-error">{errors.register_as}</div>
                 )}
               </div>
+               */}
               <div className="form-group">
                 <label htmlFor="password">
                   Password <sup>*</sup>

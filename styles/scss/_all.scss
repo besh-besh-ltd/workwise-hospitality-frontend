@@ -7591,3 +7591,11 @@ td:hover .tooltip_custom {
 .chat-box .message {
   max-width: 70%;
 }
+
+.typewriter-effect {
+  min-height: 60px; 
+  overflow: hidden;
+  white-space: nowrap;
+  overflow: hidden;
+  animation: blink 0.7s step-end infinite;
+}
