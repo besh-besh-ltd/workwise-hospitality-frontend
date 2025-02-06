@@ -2,6 +2,18 @@ import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
 import storageInstance from "@/utils/storageInstance";
 
+export const BookaCall = (values) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(`/users/book-demo`, values);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+
 export const LoginService = (values, confirm) => {
 	return new Promise(async (resolve, reject) => {
 		try {

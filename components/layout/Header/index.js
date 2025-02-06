@@ -18,14 +18,15 @@ const initialMainNavs = [
   "/for-vendors",
   "/IEW-2025",
   "/solutions",
-  "/blogs",
+  // "/blogs",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
   "/terms-of-use",
   "/products",
   "/dashboard/vendor/inquiries-details",
-  "/dashboard/buyer/rfq-management-vendor/vendor-profile"
+  "/dashboard/buyer/rfq-management-vendor/vendor-profile",
+  "/newHomePageDesign"
 ];
 
 const Header = () => {
@@ -36,7 +37,7 @@ const Header = () => {
   const { pathname } = router;
   const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
-  const [activeAuthTab, setActiveAuthTab] = useState("login");
+  const [activeAuthTab, setActiveAuthTab] = useState("register");
   const [sticky, setSticky] = useState("");
   const [menuClass, setMenuClass] = useState(false);
   const [popoverVisible, setPopoverVisible] = useState(false);
@@ -174,40 +175,34 @@ const Header = () => {
                       </li>
                       <li
                         className={
-                          router.pathname == "/for-vendors" ? "active" : ""
-                        }
-                      >
-                        <Link href="/for-vendors">For Vendors</Link>
-                      </li>
-                      <li
-                        className={
                           router.pathname == "/aboutus" ? "active" : ""
                         }
                       >
                         <Link href="/aboutus">About Us</Link>
                       </li>
-                      {/* <li
+                      <li
+                        className={
+                          router.pathname == "/vendor/all" ? "active" : ""
+                        }
+                      >
+                        <Link href="/vendor/all">Find a Vendor</Link>
+                      </li>
+                      
+                      <li
 												className={
-													router.pathname == "/products" ? "active" : ""
+													router.pathname == "/solutions" ? "active" : ""
 												}
 											>
-												<Link href="/products">Products</Link>
-											</li> */}
-                      {/* <li
+												<Link href="/solutions">Our Solutions</Link>
+											</li>
+
+                      <li
                         className={
-                          router.pathname == "/for-buyers" ? "active" : ""
+                          router.pathname == "/for-vendors" ? "active" : ""
                         }
                       >
-                        <Link href="/for-buyers">For Buyers</Link>
+                        <Link href="/for-vendors">For Vendor</Link>
                       </li>
- */}
-                      {/* <li
-                        className={
-                          router.pathname == "/for-buyers" ? "active" : ""
-                        }
-                      >
-                        <Link href="/for-buyers">For Buyers</Link>
-                      </li> */}
                       <li
                         className={
                           router.pathname == "/contactus" ? "active" : ""
@@ -267,7 +262,7 @@ const Header = () => {
                     {/* FOR NON LOGGED IN  */}
                     {!loggedinUser && !loggedinUser?.name && (
                       <ul>
-                        <li
+                        {/* <li
                           className="login"
                           onClick={() => {
                             handleChange(setActiveAuthTab("login"));
@@ -289,6 +284,17 @@ const Header = () => {
                           <Link href="javascript:void(0)">
                             <FontAwesomeIcon icon={faGear} />{" "}
                             <span>Register</span>
+                          </Link>
+                        </li> */}
+                        <li
+                          className="login"
+                          onClick={() => {                            
+                            handleChange(setOpenAuthModal(true));
+                          }}
+                        >
+                          <Link href="javascript:void(0)">
+                            {" "}
+                            <FontAwesomeIcon icon={faUser} /> <span>Book a Call</span>
                           </Link>
                         </li>
                       </ul>
