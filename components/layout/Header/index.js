@@ -899,13 +899,13 @@ const Header = () => {
         {/* // only for IEW */}
        {visible && (
       <div
-        className="w-100 px-4 py-2 text-center "
+        className="w-100 px-4 py-2 text-center fw-semibod "
         style={{
-          background: "rgba(0, 0, 0, 0.8)",
-          color: "white",
+          background: "var(--yellow-color)",
           fontWeight: "600",
           fontSize: "16px",
-          borderTop: "3px solid var(--primary-color)",
+          borderTop: "1px solid black",
+          borderBottom: "1px solid black",
           position: "relative",
         }}
       >
@@ -916,7 +916,6 @@ const Header = () => {
           style={{
             float:"right",
             background: "transparent",
-            color: "white",
             fontSize: "18px",
             border: "none",
             cursor: "pointer",
