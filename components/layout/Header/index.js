@@ -37,7 +37,7 @@ const Header = () => {
   const { pathname } = router;
   const { user_registered, loggedin } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
-  const [activeAuthTab, setActiveAuthTab] = useState("login");
+  const [activeAuthTab, setActiveAuthTab] = useState("register");
   const [sticky, setSticky] = useState("");
   const [menuClass, setMenuClass] = useState(false);
   const [popoverVisible, setPopoverVisible] = useState(false);
@@ -301,7 +301,7 @@ const Header = () => {
                         >
                           <Link href="javascript:void(0)">
                             {" "}
-                            <FontAwesomeIcon icon={faUser} /> <span>Book a Demo</span>
+                            <FontAwesomeIcon icon={faUser} /> <span>Book a Call</span>
                           </Link>
                         </li>
                       </ul>

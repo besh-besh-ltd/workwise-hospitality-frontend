@@ -38,7 +38,7 @@
     "react-linkedin-login-oauth2": "^2.0.1",
     "react-modal": "^3.16.1",
     "react-placeholder-loading": "^0.5.30",
-    "react-quill": "^2.0.0",
+    "react-quill": "^0.0.2",
     "react-redux": "^9.1.0",
     "react-select": "^5.8.0",
     "react-slick": "^0.30.1",
