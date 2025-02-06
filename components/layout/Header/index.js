@@ -18,7 +18,7 @@ const initialMainNavs = [
   "/for-vendors",
   "/IEW-2025",
   "/solutions",
-  "/blogs",
+  // "/blogs",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
@@ -195,13 +195,6 @@ const Header = () => {
 											>
 												<Link href="/solutions">Our Solutions</Link>
 											</li>
-                      <li
-                        className={
-                          router.pathname == "/blogs" ? "active" : ""
-                        }
-                      >
-                        <Link href="/blogs">Blogs</Link>
-                      </li>
 
                       <li
                         className={
