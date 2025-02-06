@@ -95,7 +95,9 @@ export default function home() {
       /> */}
 
       {/* recent blog */}
-      <RecentBlogs />
+
+      {/* <RecentBlogs /> */}
+      
 
       {/* faq */}
       <FAQSection />

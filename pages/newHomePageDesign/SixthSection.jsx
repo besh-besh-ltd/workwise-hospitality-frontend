@@ -11,7 +11,7 @@ export default function SixthSection() {
     {
       id: 2,
       title: "Automate RFQs creation and follow-ups",
-      image: "/videos/rfq.gif",
+      image: "/videos/rfq2.gif",
     },
     {
       id: 3,
