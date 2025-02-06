@@ -17,7 +17,7 @@ export default function HeroSection() {
       }}
     >
       {/* Text Section */}
-      <div className="text-center text-lg-start "  >
+      <div className="text-center text-lg-start ">
         <h1 className="fw-bold fs-2  mb-2 text-white">
           Procurement se profit banao
         </h1>
@@ -29,7 +29,14 @@ export default function HeroSection() {
 
         <p className="fw-semibold fs-4 text-warning">
           <TypeAnimation
-            sequence={["Cost Overrun ?", 1500, "Project Delay ?", 1500, "Losses ?", 1500]}
+            sequence={[
+              "Cost Overrun ?",
+              1500,
+              "Project Delay ?",
+              1500,
+              "Losses ?",
+              1500,
+            ]}
             speed={200}
             repeat={Infinity}
           />
@@ -53,12 +60,13 @@ export default function HeroSection() {
               muted
               playsInline
               className="w-100 h-100"
-              style={{ objectFit: "fill"}}
+              style={{ objectFit: "fill" }}
             ></video>
           </div>
 
           <p className="fw-medium fs-5 mt-3 text-primary mb-0">
-            Presenting combination of <span className="fw-semibold">software + service</span>
+            <span className="fw-semibold"> Meet Workwise: </span> Your
+            Competitive Edge in Procurement
           </p>
         </div>
 
@@ -71,31 +79,33 @@ export default function HeroSection() {
       {/* Responsive Height Adjustment */}
       <style>
         {`
-          .video-container {
-            width: 100%;
-            max-width: 100%;
-            height: 400px;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-          }
+    .video-container {
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 5 / 4; /* Ensures 5:4 ratio */
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
 
-          .video-container video {
-            object-fit: fill;
-          }
+    .video-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* Ensures the video fills the container */
+    }
 
-          @media (max-width: 992px) {
-            .video-container {
-              height: 400px !important; /* Medium Screens */
-            }
-          }
+    @media (max-width: 992px) {
+      .video-container {
+        aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on medium screens */
+      }
+    }
 
-          @media (max-width: 576px) {
-            .video-container {
-              height: 200px !important; /* Small Screens */
-            }
-          }
-        `}
+    @media (max-width: 576px) {
+      .video-container {
+        aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on small screens */
+      }
+    }
+  `}
       </style>
     </div>
   );

@@ -292,9 +292,8 @@ const Header = () => {
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
-                          <Link href="javascript:void(0)">
-                            {" "}
-                            <FontAwesomeIcon icon={faUser} /> <span>Book a Call</span>
+                          <Link href="javascript:void(0)" style={{width:"fit-content", fontSize:"14px"}} >
+                          Book a Call
                           </Link>
                         </li>
                       </ul>
