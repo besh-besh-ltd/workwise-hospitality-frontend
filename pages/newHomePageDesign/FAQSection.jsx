@@ -72,92 +72,101 @@ answer:"Workwise connects two main stakeholders: contractors and suppliers/vendo
   };
 
   return (
-    <div className="container py-5">
-      {/* Section Title */}
-      <h2
-        className="text-center mb-4"
-        style={{
-          fontSize: "32px",
-          fontWeight: "700",
-          color: "#305BA6",
-          fontFamily: "Poppins, sans-serif",
-        }}
-      >
-        Frequently Asked Questions
-      </h2>
-
-      {/* FAQ Accordion */}
-      <div className="row justify-content-center">
-        <div className="col-md-8">
+    <div className="container-fluid py-5">
+    {/* Section Title */}
+    <h2
+      className="text-center mb-4"
+      style={{
+        fontSize: "32px",
+        fontWeight: "700",
+        color: "#305BA6",
+        fontFamily: "Poppins, sans-serif",
+      }}
+    >
+      Frequently Asked Questions
+    </h2>
+  
+    {/* FAQ Accordion */}
+    <div className="row justify-content-center px-2 px-md-4">
+      <div className="col-12 col-md-10">
+        <div className="row">
           {faqs.map((faq, index) => (
             <div
               key={index}
-              className="mb-3"
-              style={{
-                background: "#F2F2F2",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "all 0.3s ease-in-out",
-              }}
-              onClick={() => handleToggle(index)}
+              className="col-12 col-lg-6 mb-3 px-2 px-md-3" // Single column on small/medium, two columns on large
             >
-              {/* Question */}
               <div
-                className="d-flex justify-content-between align-items-center"
+                className="faq-card"
                 style={{
-                  padding: "15px 20px",
-                  transition: "background 0.3s ease",
+                  background: "#F2F2F2",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease-in-out",
+                  padding: "15px",
+                  boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
+                onClick={() => handleToggle(index)}
               >
-                <h5
+                {/* Question */}
+                <div className="d-flex justify-content-between align-items-center">
+                  <h5
+                    style={{
+                      margin: 0,
+                      fontSize: "16px",
+                      fontWeight: "400",
+                      fontFamily: "Poppins, sans-serif",
+                      color: "#004896",
+                      wordWrap: "break-word",
+                    }}
+                  >
+                    {faq.question}
+                  </h5>
+                  <FontAwesomeIcon
+                    icon={openIndex === index ? faMinus : faPlus}
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                      color: "#305BA6",
+                      marginLeft: "10px",
+                      transition: "transform 0.3s ease",
+                      transform: openIndex === index ? "rotate(180deg)" : "rotate(0deg)",
+                    }}
+                  />
+                </div>
+  
+                {/* Answer Section */}
+                <div
+                  className="faq-answer"
                   style={{
-                    margin: 0,
-                    fontSize: "16px",
-                    fontWeight: "400",
-                    fontFamily: "Poppins, sans-serif",
-                    color: "#004896",
+                    maxHeight: openIndex === index ? "200px" : "0",
+                    overflow: "hidden",
+                    transition: "max-height 0.4s ease-in-out, padding 0.4s ease-in-out",
+                    padding: openIndex === index ? "10px 0px" : "0px",
                   }}
                 >
-                  {faq.question}
-                </h5>
-                <FontAwesomeIcon
-                  icon={openIndex === index ? faMinus : faPlus}
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                    color: "#305BA6",
-                    marginLeft:"10px",
-                    transition: "transform 0.3s ease",
-                    transform: openIndex === index ? "rotate(180deg)" : "rotate(0deg)",
-                  }}
-                />
-              </div>
-
-              {/* Answer Section with Smooth Transition */}
-              <div
-                className="faq-answer"
-                style={{
-                  maxHeight: openIndex === index ? "200px" : "0",
-                  overflow: "hidden",
-                  transition: "max-height 0.4s ease-in-out, padding 0.4s ease-in-out",
-                  padding: openIndex === index ? "10px 20px" : "0px 20px",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: "16px",
-                    color: "#191919",
-                    opacity: openIndex === index ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                  }}
-                >
-                  {faq.answer}
-                </p>
+                  <p
+                    style={{
+                      fontSize: "16px",
+                      color: "#191919",
+                      opacity: openIndex === index ? 1 : 0,
+                      transition: "opacity 0.3s ease-in-out",
+                      wordWrap: "break-word",
+                    }}
+                  >
+                    {faq.answer}
+                  </p>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
     </div>
+  </div>
+  
+  
+  
+  
+  
   );
 }

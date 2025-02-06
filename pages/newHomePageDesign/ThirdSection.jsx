@@ -7,20 +7,20 @@ export default function ThirdSection() {
   const testimonials = [
     {
       id: 1,
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-      name: "John Doe",
+      text: "As a seasoned contractor in the Oil and Gas industry, I've seen it all. Since embracing this portal, my chances of securing tenders have soared by 50%. The seamless process of requesting RFQs, comparing offers, and negotiating the best rates has been a game-changer for my business. This platform is a must for every contractor aiming for success.",
+     name:"CMD of 1000 Crore+ turnover EPC company",
       image: "/user-placeholder.png", // Replace with actual image
     },
     {
       id: 2,
-      text: "Great experience! The service was exceptional and exceeded my expectations.",
-      name: "Jane Smith",
+      text: "Working in Oil and Gas means things can get pretty hectic. But, wow, this portal has made my life a breeze! Imagine verified vendors at your fingertips, RFQs on autopilot, and easy access to all the info you need. It's like having a superhero sidekick for procurement. This portal is a gem, and it’s not just a tool; it's a buddy for us contractors who love winning tenders and saving time.",
+      name: "CEO of 300 Crore turnover Contracting firm",
       image: "/user-placeholder.png",
     },
     {
       id: 3,
-      text: "Absolutely loved working with this team. Highly recommended!",
-      name: "Michael Brown",
+      text: "Workwise has truly transformed the way we do business. As a leading manufacturer of industrial plumbing solutions, we were struggling to find a reliable platform that could help us reach the right clients. With Workwise, we’ve gained access to exclusive contracts and high-quality leads that perfectly match our expertise. The platform’s ease of use, combined with the personalized support from our Vendor Success Manager, has made a significant impact on our growth. We highly recommend Workwise to any vendor looking to expand their market presence",
+      name: "Procurement head of 5000 Crore turnover Project company",
       image: "/user-placeholder.png",
     },
   ];

@@ -5,9 +5,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCirclePlay } from "@fortawesome/free-regular-svg-icons";
 
-
 export default function SeventhSection() {
-
   const [showModal, setShowModal] = useState(false);
 
   const handleOpenModal = () => {
@@ -28,48 +26,53 @@ export default function SeventhSection() {
     >
       {/* Video Section */}
       <div
-        className="d-flex flex-column align-items-center p-4"
-        style={{
-          background: "white",
-          borderRadius: "18px",
-          width: "90%",
-          maxWidth: "900px",
-          padding: "15px",
-          textAlign: "center",
-          color: "white",
-          marginBottom: "20px",
-          margin: "auto",
-        }}
-      >
-        <p
-          style={{
-            fontSize: "28px",
-            fontWeight: "700",
-            color: "#FFD700",
-            marginBottom: "10px",
-            color: "#305BA6",
-          }}
-        >
-          Here’s how workwise works
-        </p>
-        <div
-          className="d-flex  justify-content-center align-items-center "
-          style={{
-            width: "100%",
-            height: "350px",
-            background: `url(https://t4.ftcdn.net/jpg/05/17/53/57/360_F_517535712_q7f9QC9X6TQxWi6xYZZbMmw5cnLMr279.jpg) center/cover`,
-            borderRadius: "10px",
-          }}
-        >
-          <button
-            className="border-0 bg-transparent text-secondary opacity-75 p-0"
-            style={{ fontSize: "50px" }}
-            onClick={handleOpenModal}
-          >
-            <FontAwesomeIcon icon={faCirclePlay} />
-          </button>
-        </div>
-      </div>
+  className="d-flex flex-column align-items-center p-4"
+  style={{
+    background: "white",
+    borderRadius: "18px",
+    width: "90%",
+    maxWidth: "900px",
+    textAlign: "center",
+    marginBottom: "20px",
+    margin: "auto",
+  }}
+>
+  <p
+    style={{
+      fontSize: "28px",
+      fontWeight: "700",
+      color: "#305BA6",
+      marginBottom: "10px",
+    }}
+  >
+    Here’s how workwise works
+  </p>
+
+  {/* Clickable Image Wrapper */}
+  <button
+    onClick={handleOpenModal}
+    style={{
+      width: "100%",
+      height: "350px",
+      background: `url(/assets/images/hero.png) center/cover`,
+      borderRadius: "10px",
+
+      border: "none",
+      padding: "0",
+      cursor: "pointer",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundSize: "cover",
+    }}
+  >
+    <FontAwesomeIcon
+      icon={faCirclePlay}
+      style={{ fontSize: "50px", color: "#000000", opacity: "0.9" }}
+    />
+  </button>
+</div>
+
 
       {/* Subheading */}
       <h3
@@ -177,14 +180,28 @@ export default function SeventhSection() {
         </div>
       </div>
 
-       {/* Bootstrap Modal for Video */}
-       {showModal && (
-        <div className="modal fade show d-block p-4 h-sm-50 " tabIndex="-1" role="dialog" style={{ background: "rgba(0, 0, 0, 0.6)" }}>
-          <div className="modal-dialog modal-xl modal-dialog-centered " role="document">
+      {/* Bootstrap Modal for Video */}
+      {showModal && (
+        <div
+          className="modal fade show d-block p-4 h-sm-50 "
+          tabIndex="-1"
+          role="dialog"
+          style={{ background: "rgba(0, 0, 0, 0.6)" }}
+        >
+          <div
+            className="modal-dialog modal-xl modal-dialog-centered "
+            role="document"
+          >
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title p-4 text-center fw-bold ">workwise Demo </h5>
-                <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                <h5 className="modal-title p-4 text-center fw-bold ">
+                  workwise Demo{" "}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={handleCloseModal}
+                ></button>
               </div>
               <div className="modal-body d-flex justify-content-center">
                 <iframe
