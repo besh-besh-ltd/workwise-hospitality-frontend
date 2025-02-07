@@ -81,7 +81,7 @@ export default function SecondSection() {
           }
 
           .card-box{
-           width: 155px;
+           width: 140px;
             height: 100px !important;
           }
           }
