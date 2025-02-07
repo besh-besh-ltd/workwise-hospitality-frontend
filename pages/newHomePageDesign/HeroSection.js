@@ -25,9 +25,7 @@ export default function HeroSection() {
           }}
         >
           <span>
-            Meet us at India Energy Week -{" "}
-            <span style={{ fontWeight: "800" }}> Stall no. 2L 29 </span> | Proud
-            Sponsor of IEW 2025
+          Proud sponsor at India Energy Week! Visit us at Stand no. 2L 29          
           </span>
           <button
             onClick={() => setVisible(false)}
@@ -56,7 +54,7 @@ export default function HeroSection() {
       >
         {/* Text Section */}
         <div className="text-center text-lg-start ">
-          <h1 className="fw-bold fs-2  mb-4 text-white">
+          <h1 className="fw-bold fs-1  mb-4 text-white">
             Procurement se profit banao
           </h1>
 
