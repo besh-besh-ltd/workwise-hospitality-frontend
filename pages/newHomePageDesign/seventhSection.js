@@ -25,54 +25,14 @@ export default function SeventhSection() {
       }}
     >
       {/* Video Section */}
-      <div
-  className="d-flex flex-column align-items-center p-4"
-  style={{
-    background: "white",
-    borderRadius: "18px",
-    width: "90%",
-    maxWidth: "900px",
-    textAlign: "center",
-    marginBottom: "20px",
-    margin: "auto",
-  }}
->
-  <p
-    style={{
-      fontSize: "28px",
-      fontWeight: "700",
-      color: "#305BA6",
-      marginBottom: "10px",
-    }}
-  >
-    Here’s how workwise works
-  </p>
+      <div className="d-flex flex-column align-items-center video-section">
+        <p className="video-title my-2 mb-1">Here’s how workwise works</p>
 
-  {/* Clickable Image Wrapper */}
-  <button
-    onClick={handleOpenModal}
-    style={{
-      width: "100%",
-      height: "350px",
-      background: `url(/assets/images/hero.png) center/cover`,
-      borderRadius: "10px",
-
-      border: "none",
-      padding: "0",
-      cursor: "pointer",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundSize: "cover",
-    }}
-  >
-    <FontAwesomeIcon
-      icon={faCirclePlay}
-      style={{ fontSize: "50px", color: "#000000", opacity: "0.9" }}
-    />
-  </button>
-</div>
-
+        {/* Clickable Image Wrapper */}
+        <button onClick={handleOpenModal} className="video-button">
+          <FontAwesomeIcon icon={faCirclePlay} className="video-play-icon" />
+        </button>
+      </div>
 
       {/* Subheading */}
       <h3
@@ -87,12 +47,12 @@ export default function SeventhSection() {
       >
         Workwise is smart and wise
       </h3>
-      <div className=" mt-4 p-4 d-flex justify-content-center w-100 ">
+
+      <div className=" mt-4 p-md-4 p-sm-0 d-flex justify-content-center mx-auto " style={{maxWidth:"95%"}} >
         <div
           className=" w-100"
           style={{
             borderRadius: "12px",
-            overflow: "hidden",
             // border: "0.5px solid #428A41",
           }}
         >
@@ -104,7 +64,6 @@ export default function SeventhSection() {
               borderRadius: "12px",
               borderCollapse: "separate",
               borderSpacing: "0",
-              overflow: "hidden",
               width: "100%",
             }}
           >
@@ -112,13 +71,13 @@ export default function SeventhSection() {
               <tr>
                 <th
                   style={{
+                    borderTopLeftRadius:"12px",
                     background: "white",
                     color: "black",
                     fontWeight: "bold",
                     padding: "12px",
                   }}
                 >
-                  {" "}
                 </th>
                 <th
                   style={{
@@ -132,6 +91,7 @@ export default function SeventhSection() {
                 </th>
                 <th
                   style={{
+                    borderTopRightRadius:"12px",
                     background: "#BFAC3C",
                     color: "white",
                     fontWeight: "bold",
@@ -217,6 +177,83 @@ export default function SeventhSection() {
           </div>
         </div>
       )}
+
+      {/* ******************************** */}
+      {/* Responsive CSS */}
+      <style>
+        {`
+
+th{
+vertical-align: middle;
+}
+
+      .video-section {
+        background: white;
+        border-radius: 18px;
+        width: 90%;
+        padding: 0px 10px 4px 10px; 
+        max-width: 900px;
+        text-align: center;
+        margin-bottom: 20px;
+        margin: auto;
+      }
+
+      .video-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: #305BA6;
+        margin-bottom: 10px;
+      }
+
+      .video-button {
+        width: 100%;
+        aspect-ratio: 16 / 7; 
+       background: url(/assets/images/hero.png) center / contain no-repeat;
+        border-radius: 18px;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-size: fill;
+      }
+
+      .video-play-icon {
+        font-size: 50px;
+        color: #000000;
+        opacity: 0.9;
+      }
+
+      @media (max-width: 768px) {
+        .video-title {
+          font-size: 22px;
+        }
+
+        .video-button {
+          aspect-ratio: 4 / 3; /* Adjust ratio for smaller screens */
+        }
+
+        .video-play-icon {
+          font-size: 40px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .video-title {
+          font-size: 20px;
+        }
+
+        .video-button {
+          aspect-ratio: 2 / 1; /* Square format for very small screens */
+        }
+
+        .video-play-icon {
+          font-size: 35px;
+        }
+      }
+    `}
+      </style>
     </div>
   );
 }

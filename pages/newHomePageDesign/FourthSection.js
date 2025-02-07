@@ -67,10 +67,10 @@ export default function FourthSection() {
   return (
     <>
       <div className="text-center mb-4">
-        <h2 className="mb-4" style={{ fontSize: "20px", fontWeight: "700", marginTop: "30px" }}>
+        <h2 className="mb-4" style={{ fontSize: "20px", fontWeight: "700", marginTop: "60px" }}>
           Vendors of Prominent PSUs
         </h2>
-        <div className="py-4 px-2" style={{ backgroundColor: "#F8F9FA", width: "100%" }}>
+        <div className="py-4 px-2" style={{ backgroundColor: "#E9ECEF", width: "100%" }}>
         <Slider {...logoSettings}>
   {vendorLogos.map((logo, index) => (
     <div 

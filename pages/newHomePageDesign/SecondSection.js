@@ -10,27 +10,83 @@ const dataObj = [
 export default function SecondSection() {
   return (
     <>
-      <div className="px-4" style={{marginTop:"30px"}} >
-        <h2
-          style={{
-            fontSize: "32px",
-            fontWeight: "700",
-            textAlign: "center",
-            marginTop: "50px",
-          }}
-        >
+      <div className="px-4 " style={{margin:"30px 0px 0px 0px"}} >
+        <h2 className="fw-bold text-center header-text">
           Trusted by industry, proven by results
         </h2>
 
-        <div className="d-flex justify-content-center flex-wrap gap-4 align-items-center  " style={{width:"fit-content",  marginTop:"20px", margin:'auto'  }} >
-          {dataObj?.map((item) => (
-            <div className=" d-flex justify-content-center  align-items-center flex-column " style={{background:"#DEE8F9", width:"160px", height:"130px", padding:"0px 12.668px", borderRadius:"10px" }} >
-              <p className="mb-0 text-center" style={{color:"#305BA6", fontSize:"25px", fontWeight:"700" }}  > {item.value} </p>
-              <p className="mb-0 text-center " style={{fontSize:"18px", fontWeight:"600"   }} > {item.msg} </p>
+        <div
+          className="d-flex justify-content-center flex-wrap gap-lg-4 gap-2 align-items-center"
+          style={{
+            width: "fit-content",
+            margin: "auto",
+            marginTop: "20px",
+          }}
+        >
+          {dataObj?.map((item, index) => (
+            <div
+              key={index}
+              className="d-flex justify-content-center align-items-center flex-column card-box"
+            >
+              <p
+                className="mb-0 text-center"
+                style={{
+                  color: "#305BA6",
+                  fontSize: "25px",
+                  fontWeight: "700",
+                }}
+              >
+                {item.value}
+              </p>
+              <p
+                className="mb-0 text-center"
+                style={{ fontSize: "18px", fontWeight: "600" }}
+              >
+                {item.msg}
+              </p>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Inline CSS for Media Query */}
+      <style>
+        {`
+
+          .card-box{
+           background: #DEE8F9;
+            width: 160px ;
+            height: 130px ;
+            padding: 12px;
+            border-radius: 10px;
+          }
+
+          @media (max-width: 768px) {
+            .header-text {
+              font-size: 32px; /* Smaller header on small screens */
+            }
+          
+            .card-box p:first-child {
+              font-size: 20px !important; /* Reduce number font size */
+            }
+            .card-box p:last-child {
+              font-size: 14px !important; /* Reduce text font size */
+            }
+          }
+
+          @media (max-width: 480px) {
+
+          .header-text{
+          font-size:28px !important;
+          }
+
+          .card-box{
+           width: 140px;
+            height: 100px !important;
+          }
+          }
+        `}
+      </style>
     </>
   );
 }
