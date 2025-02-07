@@ -13,6 +13,7 @@ export default function CallNowModal() {
           className="btn btn-primary mt-3"
           style={{
             borderRadius: "5px",
+            border:"none",
             backgroundColor: "white",
             color: "black",
             padding: "10px 20px",

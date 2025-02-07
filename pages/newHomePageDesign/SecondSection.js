@@ -10,7 +10,7 @@ const dataObj = [
 export default function SecondSection() {
   return (
     <>
-      <div className="px-4 " style={{margin:"40px 0px 0px 0px"}} >
+      <div className="px-4 " style={{margin:"30px 0px 0px 0px"}} >
         <h2 className="fw-bold text-center header-text">
           Trusted by industry, proven by results
         </h2>
@@ -55,8 +55,8 @@ export default function SecondSection() {
 
           .card-box{
            background: #DEE8F9;
-            width: 150px !important;
-            height: 110px !important ;
+            width: 160px ;
+            height: 130px ;
             padding: 12px;
             border-radius: 10px;
           }
