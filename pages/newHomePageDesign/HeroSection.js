@@ -6,7 +6,7 @@ import { TypeAnimation } from "react-type-animation";
 export default function HeroSection() {
   return (
     <div
-      className="d-flex flex-lg-row flex-column justify-content-lg-around justify-content-center align-items-center"
+      className="d-flex flex-lg-row flex-column justify-content-lg-around  justify-content-center mt-0  align-items-center"
       style={{
         background: "linear-gradient(50deg, #005F96, #50A055)",
         color: "white",
@@ -18,7 +18,7 @@ export default function HeroSection() {
     >
       {/* Text Section */}
       <div className="text-center text-lg-start ">
-        <h1 className="fw-bold fs-2  mb-2 text-white">
+        <h1 className="fw-bold fs-2  mb-1 text-white">
           Procurement se profit banao
         </h1>
 
@@ -64,7 +64,7 @@ export default function HeroSection() {
             ></video>
           </div>
 
-          <p className="fw-medium fs-5 mt-3 text-primary mb-0">
+          <p className="fw-medium text-primary mt-3 mb-0 video-sub-heading" >
             <span className="fw-semibold"> Meet Workwise: </span> Your
             Competitive Edge in Procurement
           </p>
@@ -94,6 +94,10 @@ export default function HeroSection() {
       object-fit: cover; /* Ensures the video fills the container */
     }
 
+      .video-sub-heading{
+      font-size:16px;
+      }
+
     @media (max-width: 992px) {
       .video-container {
         aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on medium screens */
@@ -103,6 +107,11 @@ export default function HeroSection() {
     @media (max-width: 576px) {
       .video-container {
         aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on small screens */
+      }
+
+      .video-sub-heading{
+      font-size:14px;
+      {/* margin-top:-15px; */}
       }
     }
   `}

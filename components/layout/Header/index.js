@@ -154,6 +154,7 @@ const Header = () => {
                 <Image
                   src="/assets/images/logo.png"
                   alt="Workwise"
+                  className=""
                   width={160}
                   height={41}
                   priority={true}
@@ -292,7 +293,7 @@ const Header = () => {
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
-                          <Link href="javascript:void(0)" style={{width:"fit-content", fontSize:"14px"}} >
+                          <Link href="javascript:void(0)" style={{width:"fit-content", fontSize:"11px"}} >
                           Book a Call
                           </Link>
                         </li>
