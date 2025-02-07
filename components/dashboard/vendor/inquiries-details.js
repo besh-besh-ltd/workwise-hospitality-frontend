@@ -927,15 +927,8 @@ const RfqManagementPreview = () => {
                                         <h4>
                                           You've already submitted a quotation on{" "}
                                           {moment(
-                                            new Date(
-                                              parseInt(
-                                                rfqDetails.quotations[0]
-                                                  .timestamp
-                                              )
-                                            )
-                                          ).format(
-                                            "HH:mm A - DD/MM/YYYY"
-                                          )}{" "}
+                                            new Date(rfqDetails?.quotations[0]?.timestamp
+                                          )).format("HH:mm A - DD/MM/YYYY")}{" "}
                                         </h4>
 
                                         {(rfqDetails.status == 2 || !productleftforbid) ? (

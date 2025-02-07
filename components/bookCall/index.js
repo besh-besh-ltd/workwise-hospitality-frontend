@@ -43,7 +43,7 @@ export default function BookCall() {
     <>
       <div className="d-flex justify-content-center">
         <p className="d-none d-md-block mb-0 fw-2 fw-bold">
-          +91 {mobileNumber} - (Siddharth Kothari)
+          +91 {mobileNumber} - Siddharth Kothari
         </p>
 
         <Button
@@ -60,10 +60,10 @@ export default function BookCall() {
       
       <Form>
         <Form.Group>
-          <Form.Label>Enter your phone number</Form.Label>
+          <Form.Label>Phone Number</Form.Label>
           <Form.Control
             type="tel"
-            placeholder="+91"
+            placeholder="Enter your 10 digit phone number"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
           />

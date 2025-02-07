@@ -42,7 +42,7 @@ export default function FifthSection() {
           lineHeight: "38px",
           fontFamily: "Poppins, sans-serif",
           textAlign: "center",
-          color:"white"
+          color: "white",
         }}
       >
         Key Benefits
@@ -50,41 +50,66 @@ export default function FifthSection() {
 
       {/* Benefits Grid */}
       <div className="container mt-4">
-        <div className="row justify-content-center gap-4 ">
+        <div className="benefit-container ">
           {benefits.map((benefit) => (
-     
-              <div
-               key={benefit.id}
-                className="d-flex flex-wrap align-items-center justify-content-center p-2"
+            <div
+              key={benefit.id}
+              className="d-flex flex-sm-row flex-wrap align-items-center justify-content-md-center gap-3  justify-content-sm-start p-4 benefit-card "
+            >
+              <p className="mb-0"  >
+                <FontAwesomeIcon
+                  icon={benefit.icon}
+                  size="2x"
+                  color="#305BA6"
+                />
+              </p>
+              <p
+                className="mb-0 "
                 style={{
-                  background: "#FFF",
-                  borderRadius: "10px",
-                  width: "150px",
-                  height: "140px",
-                  display: "flex",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                  fontSize: "16px",
+                  fontWeight: "700",
+                  color: "#191919",
+                  lineHeight: "21px",
                 }}
               >
-              <p className="mb-0" >
-                <FontAwesomeIcon icon={benefit.icon} size="2x" color="#305BA6" />
+                {benefit.text}
               </p>
-                <p
-                className="mb-0 "
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    color: "#191919",
-                    lineHeight: "21px",
-                  }}
-                >
-                  {benefit.text}
-                </p>
-              </div>
+            </div>
           ))}
         </div>
       </div>
+
+      <style>
+        {`
+
+        .benefit-container{
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        gap:10px
+        }
+
+        .benefit-card{
+          background: #FFF;
+          border-radius: 10px;
+          width: 150px;
+          height: 140px;
+        }
+
+          @media (max-width: 500px) {
+            .benefit-card {
+              width: 100%;
+              height: fit-content;
+              margin-top:10px;
+            }
+
+.benefit-container{
+  flex-direction: column; 
+}
+          }
+
+        `}
+      </style>
     </div>
   );
 }
