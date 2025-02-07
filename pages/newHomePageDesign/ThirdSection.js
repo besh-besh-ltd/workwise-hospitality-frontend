@@ -8,19 +8,19 @@ export default function ThirdSection() {
   const testimonials = [
     {
       id: 1,
-      text: "As a seasoned contractor in the Oil and Gas industry, I've seen it all. Since embracing this portal, my chances of securing tenders have soared by 50%.",
+      text: "With Workwise’s huge vendor database, our procurement cycle is significantly faster, ensuring we find the right suppliers quickly and manage large-scale procurement with ease",
       name: "CMD of 1000 Crore+ turnover EPC company",
       image: "/user-placeholder.png",
     },
     {
       id: 2,
-      text: "Working in Oil and Gas means things can get pretty hectic. But, wow, this portal has made my life a breeze! Imagine verified vendors at your fingertips.",
+      text: "Workwise’s price discovery tool and reverse auction have made procurement effortless. We get quick quotes, negotiate better, and always secure the best deals—saving time and money",
       name: "CEO of 300 Crore turnover Contracting firm",
       image: "/user-placeholder.png",
     },
     {
       id: 3,
-      text: "Workwise has truly transformed the way we do business. We’ve gained access to exclusive contracts and high-quality leads that perfectly match our expertise.",
+      text: "BOQ to RFQ automation, combined with seamless integration into our Microsoft ERP, has transformed our estimation process. Faster quotes, better accuracy—helping us win more tenders efficiently",
       name: "Procurement head of 5000 Crore turnover Project company",
       image: "/user-placeholder.png",
     },
