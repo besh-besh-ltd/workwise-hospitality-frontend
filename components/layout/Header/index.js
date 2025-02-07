@@ -291,7 +291,7 @@ const Header = () => {
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
-                          <Link href="javascript:void(0)" style={{width:"fit-content", fontSize:"11px"}} >
+                          <Link href="javascript:void(0)" style={{width:"fit-content", fontSize:"14px"}} >
                           Book a Call
                           </Link>
                         </li>
