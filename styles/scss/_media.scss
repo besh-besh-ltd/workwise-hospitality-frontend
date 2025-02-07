@@ -1215,5 +1215,15 @@
     }
     
 }
+/* Responsive adjustments for small screens */
 @media screen and (max-width: 576px) {
-}
+    .logo {
+      max-width: 130px; 
+    }
+
+    .logo img {
+      width: 100%; /* Ensure the image scales properly */
+    }
+
+    
+  }
