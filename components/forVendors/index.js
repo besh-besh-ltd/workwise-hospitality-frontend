@@ -130,7 +130,7 @@ const ForVendors = (props) => {
           marginTop: "50px",
         }}
       >
-        <h1 style={{color:"white", fontSize:"40px"}} > SELLERS, MEET GENUINE BUYERS </h1>
+        <h1 style={{color:"white", fontSize:"40px"}} > Sellers, Meet Genuine Buyers </h1>
         <h3 style={{color:"white", fontSize:"30px"}} > Join 10,000+ PSU approved Vendors & get verified buyer leads </h3>
         <RegisterUserModal />
       </div>
