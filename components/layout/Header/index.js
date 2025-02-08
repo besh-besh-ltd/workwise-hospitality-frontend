@@ -150,7 +150,7 @@ const Header = () => {
             <div className="logo">
               <Link href={loggedinUser ? currentUserType === "vendor" ? "/dashboard/vendor" : "/dashboard/buyer" : "/"}>
                 <Image
-                  src="/assets/images/logo.png"
+                  src="/assets/images/logo1.png"
                   alt="Workwise"
                   className=""
                   width={160}

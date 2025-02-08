@@ -8,7 +8,7 @@ export default function CallNowModal() {
 
   return (
     <>
-      <div  >
+      <div>
         <button
           className="btn btn-primary mt-3"
           style={{

@@ -4,117 +4,161 @@ import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import CallNowModal from "./CallNowModal";
 import { TypeAnimation } from "react-type-animation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlay } from "@fortawesome/free-solid-svg-icons";
 
 export default function HeroSection() {
   const [visible, setVisible] = useState(true);
+  const [videoPlayed, setVideoPlayed] = useState(false);
 
   return (
-    <div className=" mt-5  " style={{height: "95vh",   background: "linear-gradient(50deg, #005F96, #50A055)"}}>
-      {/* // only for IEW */}
-      {visible && (
-        <div
-          className="w-100 px-4 py-2 text-center fw-semibold"
-          style={{
-            background: "var(--yellow-color)",
-            fontWeight: "600",
-            fontSize: "16px",
-            borderTop: "1px solid black",
-            borderBottom: "1px solid black",
-            width: "100%",
-            margin: "0px",
-          }}
-        >
-          <span>
-          Proud sponsor at India Energy Week! Visit us at Stand no. 2L 29          
-          </span>
-          <button
-            onClick={() => setVisible(false)}
-            style={{
-              float: "right",
-              background: "transparent",
-              fontSize: "18px",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            ✖
-          </button>
-        </div>
-      )}
-
-      <div
-        className={`d-flex flex-lg-row flex-column justify-content-lg-around justify-content-center  align-items-center`}
+    <>
+      <section
+        className="mt-5"
         style={{
-          padding: "40px 20px",
-          textAlign: "center",
-          color: "white",
-          height:visible?"88%":"95%",
-          // marginTop: "50px",
+          height: "96vh",
+          background: "linear-gradient(50deg, #005F96, #50A055)",
         }}
       >
-        {/* Text Section */}
-        <div className="text-center text-lg-start ">
-          <h1 className="fw-bold fs-1  mb-4 text-white">
-            Procurement se profit banao
-          </h1>
-
-          {/* Subheading */}
-          <p className="mb-0 fw-semibold fs-6 text-warning ">
-            Is your procurement causing
-          </p>
-
-          <p className="fw-semibold fs-3 text-warning ">
-            <TypeAnimation
-              sequence={[
-                "Cost Overrun ?",
-                1500,
-                "Project Delay ?",
-                1500,
-                "Losses ?",
-                1500,
-              ]}
-              speed={200}
-              repeat={Infinity}
-            />
-          </p>
-
-          {/* CallNowModal - Visible only on large screens */}
-          <div className="d-none d-lg-block">
-            <CallNowModal />
+        {/* Announcement Banner */}
+        {visible && (
+          <div
+            className="w-100 px-4 pt-3 pb-2 text-center fw-semibold d-flex justify-content-between align-items-center"
+            style={{
+              background: "var(--yellow-color)",
+              fontWeight: "600",
+              fontSize: "16px",
+              borderTop: "2px solid black",
+              borderBottom: "1px solid black",
+              width: "100%",
+              margin: "0px",
+            }}
+          >
+            <div></div>
+            <div>
+              <p className="mb-0">Proud sponsor at India Energy Week!</p>
+              <p className="mb-0">
+                Visit us at{" "}
+                <span style={{ fontWeight: "800" }}>Stand no. 2L 29</span>
+              </p>
+            </div>
+            <button
+              onClick={() => setVisible(false)}
+              style={{
+                background: "transparent",
+                fontSize: "18px",
+                border: "none",
+                cursor: "pointer",
+                marginRight: "-5px",
+                marginLeft: "5px",
+              }}
+            >
+              ✖
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Video Section - Responsive Width & Height */}
-        <div className="col-lg-5 col-md-8 col-sm-6 ">
-          <div className="bg-white rounded-3 p-3 d-flex flex-column align-items-center">
-            <div className="video-container">
-              <video
-                src="/videos/hero_video.mp4"
-                autoPlay
-                loop
-                controls
-                muted
-                playsInline
-                className="w-100 h-100"
-                style={{ objectFit: "fill" }}
-              ></video>
+        <div
+          className={`d-flex flex-lg-row flex-column justify-content-lg-around justify-content-center align-items-center`}
+          style={{
+            padding: "40px 20px",
+            textAlign: "center",
+            color: "white",
+            height: visible ? "88%" : "95%",
+          }}
+        >
+          {/* Text Section */}
+          <div className="text-center text-lg-start">
+            <h1 className="fw-bold fs-1 mb-4 text-white">
+              Procurement se profit banao
+            </h1>
+            <p className="mb-0 fw-semibold fs-6 text-warning">
+              Is your procurement causing
+            </p>
+            <p className="fw-semibold fs-3 text-warning">
+              <TypeAnimation
+                sequence={[
+                  "Cost Overrun ?",
+                  1500,
+                  "Project Delay ?",
+                  1500,
+                  "Losses ?",
+                  1500,
+                ]}
+                speed={200}
+                repeat={Infinity}
+              />
+            </p>
+            <div className="d-none d-lg-block">
+              <CallNowModal />
+            </div>
+          </div>
+
+          {/* Video Section with Play Button */}
+          <div className="col-lg-5 col-md-8 col-sm-6">
+            <div className="bg-white rounded-3 p-3 d-flex flex-column align-items-center">
+              <div className="video-container position-relative">
+                {!videoPlayed ? (
+                  <div className="thumbnail-container position-relative">
+                    <img
+                      src="/assets/images/hero-section-thumbnail.png"
+                      alt="Video Thumbnail"
+                      className="w-100 h-100 rounded-3"
+                      style={{ objectFit: "cover" }}
+                    />
+                    <button
+                      className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
+                      onClick={() => setVideoPlayed(true)}
+                      style={{
+                        background: "rgba(46, 91, 168, 0.8)", // 50% transparent blue color
+                        width: "70px", // Adjust size for better visibility
+                        height: "70px",
+                        borderRadius: "50%",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "30px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginTop: "-20px",
+                      }}
+                    >
+                      <span style={{ marginRight: "-6px", marginBottom:"-5px" }}>
+                        <FontAwesomeIcon
+                          icon={faPlay}
+                          color="white"
+                          size="lg"
+                        />
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <video
+                    src="/videos/hero_video.mp4"
+                    autoPlay
+                    controls
+                    playsInline
+                    className="w-100 h-100 rounded-3"
+                    style={{ objectFit: "fill" }}
+                  ></video>
+                )}
+              </div>
+
+              <p className="fw-medium mt-3 text-primary mb-0 video-sub-heading ">
+                <span className="fw-semibold"> Meet Workwise: </span> Your
+                Competitive Edge in Procurement
+              </p>
             </div>
 
-            <p className="fw-medium mt-3 text-primary mb-0 video-sub-heading ">
-              <span className="fw-semibold"> Meet Workwise: </span> Your
-              Competitive Edge in Procurement
-            </p>
+            {/* CTA Button - Visible only on small & medium screens */}
+            <div className="d-lg-none mt-2">
+              <CallNowModal />
+            </div>
           </div>
 
-          {/* CTA Button - Visible only on small & medium screens */}
-          <div className="d-lg-none mt-2">
-            <CallNowModal />
-          </div>
-        </div>
-
-        {/* Responsive Height Adjustment */}
-        <style>
-          {`
+          {/* Responsive Height Adjustment */}
+          <style>
+            {`
     .video-container {
       width: 100%;
       max-width: 100%;
@@ -124,11 +168,10 @@ export default function HeroSection() {
       position: relative;
     }
 
-    .video-container video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover; /* Ensures the video fills the container */
-    }
+            .play-button {
+              font-size: 24px;
+              color: white;
+            }
 
       .video-sub-heading{
       font-size:16px;
@@ -147,8 +190,9 @@ export default function HeroSection() {
 
     }
   `}
-        </style>
-      </div>
-    </div>
+          </style>
+        </div>
+      </section>
+    </>
   );
 }
