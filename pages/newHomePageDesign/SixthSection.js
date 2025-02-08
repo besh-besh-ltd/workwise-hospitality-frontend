@@ -16,7 +16,7 @@ export default function SixthSection() {
     {
       id: 3,
       title: "Reverse Auction to negotiate pricing",
-      image: "/videos/chart.gif",
+      image: "/videos/rfq3.gif",
     },
   ];
 
