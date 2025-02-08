@@ -26,6 +26,22 @@ const Footer = () => {
                     Contact Us
                   </a>
                 </li>
+                <li className="mb-2">
+                  <a
+                    href="https://letsworkwise.com/privacypolicy"
+                    className="text-decoration-none text-white"
+                  >
+                    Privacy Policy
+                  </a>
+                </li>
+                <li className="mb-2">
+                  <a
+                    href="https://letsworkwise.com/terms-of-use"
+                    className="text-decoration-none text-white"
+                  >
+                    Terms Of Use
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -136,7 +152,7 @@ const Footer = () => {
               </ul>
             </div>
 
-            <div className="col-md">
+            {/* <div className="col-md">
               <h5 className="fw-bold text-white">Find Vendor</h5>
               <ul className="list-unstyled">
                 <li className="mb-2">
@@ -196,7 +212,7 @@ const Footer = () => {
                   </a>
                 </li>
               </ul>
-            </div>
+            </div> */}
 
             {/* <div className="col-md">
                         <h5 className="fw-bold text-white">Resources</h5>

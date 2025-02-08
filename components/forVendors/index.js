@@ -119,7 +119,7 @@ const ForVendors = (props) => {
   return (
     <>
       <div
-        className="d-flex flex-column justify-content-center align-items-center"
+        className="d-flex flex-column gap-4 gap-md-2 justify-content-center align-items-center"
         style={{
 			
           background: "linear-gradient(50deg, #005F96, #50A055)",
