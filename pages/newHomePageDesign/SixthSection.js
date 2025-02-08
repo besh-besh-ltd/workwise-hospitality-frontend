@@ -21,7 +21,8 @@ export default function SixthSection() {
   ];
 
   return (
-    <div className="py-5 text-center">
+ <section>
+     <div className="py-5 text-center">
       <h2
         style={{
           fontWeight: "700",
@@ -81,5 +82,6 @@ export default function SixthSection() {
         </div>
       </div>
     </div>
+ </section>
   );
 }

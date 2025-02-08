@@ -27,7 +27,8 @@ export default function FifthSection() {
   ];
 
   return (
-    <div
+<section>
+<div
       className="text-center py-5"
       style={{
         background: "linear-gradient(55deg, #005F96, #50A055)",
@@ -111,5 +112,6 @@ export default function FifthSection() {
         `}
       </style>
     </div>
+</section>
   );
 }

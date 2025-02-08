@@ -38,7 +38,8 @@ export default function ThirdSection() {
   };
 
   return (
-    <div className="px-4" style={{  textAlign: "center" }}>
+<>
+<section className="px-4" style={{  textAlign: "center" }}>
              <h2 className="mb-4" style={{fontSize:"20px", fontWeight:"700", marginTop:"30px" }} >
         What customers say about us
 
@@ -70,6 +71,7 @@ export default function ThirdSection() {
           ))}
         </Slider>
       </div>
-    </div>
+    </section>
+</>
   );
 }

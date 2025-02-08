@@ -1,7 +1,6 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
-import RecentBlogs from "./RecentBlogs";
+// "use client";
+// import React, { useEffect, useState } from "react";
+// import RecentBlogs from "./RecentBlogs";
 import FAQSection from "./FAQSection";
 import HeroSection from "./HeroSection";
 import SecondSection from "./SecondSection";
@@ -11,27 +10,16 @@ import FifthSection from "./FifthSection";
 import SixthSection from "./SixthSection";
 import SeventhSection from "./seventhSection";
 import EightSection from "./EightSection";
+import "bootstrap/dist/css/bootstrap.min.css";
 
-export default function home() {
-  const [openVideo, setOpenVideo] = useState({
-    portal_video: false,
-    demo_video: false,
-  });
 
-  const handleToggleVideo = (videoType) => {
-    setOpenVideo((prevState) => ({
-      ...prevState,
-      [videoType]: !prevState[videoType],
-    }));
-  };
+export default function NewHomePage() {
 
   return (
-    <div style={{ fontFamily: "Poppins", }} >
+    <div >
 
       {/* hero section  */}
-      <HeroSection
-        handleToggleVideo={() => handleToggleVideo("portal_video")}
-      />
+      <HeroSection />
 
       {/* second section */}
       <SecondSection />

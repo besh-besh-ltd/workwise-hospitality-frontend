@@ -66,7 +66,7 @@ export default function FourthSection() {
 
   return (
     <>
-      <div className="text-center mb-4">
+      <section className="text-center mb-4">
         <h2 className="mb-4" style={{ fontSize: "20px", fontWeight: "700", marginTop: "60px" }}>
           Vendors of Prominent PSUs
         </h2>
@@ -105,7 +105,7 @@ export default function FourthSection() {
 </Slider>
 
         </div>
-      </div>
+      </section>
     </>
   );
 }

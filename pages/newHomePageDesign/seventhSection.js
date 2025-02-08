@@ -17,7 +17,8 @@ export default function SeventhSection() {
   };
 
   return (
-    <div
+<>
+<section
       className="py-5 text-center "
       style={{
         background: "linear-gradient(135deg, #005F96, #50A055)",
@@ -255,6 +256,7 @@ vertical-align: middle;
       }
     `}
       </style>
-    </div>
+    </section>
+</>
   );
 }
