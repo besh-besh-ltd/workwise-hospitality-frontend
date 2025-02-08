@@ -27,7 +27,8 @@ export default function FifthSection() {
   ];
 
   return (
-    <div
+<section>
+<div
       className="text-center py-5"
       style={{
         background: "linear-gradient(55deg, #005F96, #50A055)",
@@ -92,24 +93,25 @@ export default function FifthSection() {
         .benefit-card{
           background: #FFF;
           border-radius: 10px;
-          width: 150px;
-          height: 140px;
+          width: 160px;
+          height: 150px;
         }
 
           @media (max-width: 500px) {
+            .benefit-container{
+             flex-direction: column; 
+             }
+          
             .benefit-card {
               width: 100%;
               height: fit-content;
               margin-top:10px;
             }
-
-.benefit-container{
-  flex-direction: column; 
-}
           }
 
         `}
       </style>
     </div>
+</section>
   );
 }

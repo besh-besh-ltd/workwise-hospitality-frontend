@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import { Inter } from 'next/font/google'
 import Homepage from '../components/home/home'
+import NewHomePage from './newHomePageDesign'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -93,7 +94,13 @@ export default function Home() {
                 <meta property="og:image" content={pageInfo.img} />
                 <meta property="og:site_name" content="Workwise" />
             </Head>
-            <Homepage />
+
+           {/* updated home page completely static - no CMS implemented */}
+            <NewHomePage />
+
+            {/* old home page  */}
+            {/* <Homepage /> */}
+            
         </>
     )
 }

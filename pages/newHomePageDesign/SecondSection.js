@@ -10,7 +10,7 @@ const dataObj = [
 export default function SecondSection() {
   return (
     <>
-      <div className="px-4 " style={{margin:"30px 0px 0px 0px"}} >
+      <section className="px-4 " style={{margin:"30px 0px 0px 0px"}} >
         <h2 className="fw-bold text-center header-text">
           Trusted by industry, proven by results
         </h2>
@@ -47,7 +47,7 @@ export default function SecondSection() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* Inline CSS for Media Query */}
       <style>

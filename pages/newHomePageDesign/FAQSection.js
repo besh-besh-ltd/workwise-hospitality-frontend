@@ -72,7 +72,8 @@ answer:"Workwise connects two main stakeholders: contractors and suppliers/vendo
   };
 
   return (
-    <div className="container-fluid py-5">
+ <>
+     <section className="container-fluid py-5">
     {/* Section Title */}
     <h2
       className="text-center mb-4"
@@ -162,11 +163,8 @@ answer:"Workwise connects two main stakeholders: contractors and suppliers/vendo
         </div>
       </div>
     </div>
-  </div>
-  
-  
-  
-  
+  </section>
+ </> 
   
   );
 }

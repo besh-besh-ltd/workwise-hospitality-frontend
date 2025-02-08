@@ -16,12 +16,13 @@ export default function SixthSection() {
     {
       id: 3,
       title: "Reverse Auction to negotiate pricing",
-      image: "/videos/chart.gif",
+      image: "/videos/rfq3.gif",
     },
   ];
 
   return (
-    <div className="py-5 text-center">
+ <section>
+     <div className="py-5 text-center">
       <h2
         style={{
           fontWeight: "700",
@@ -81,5 +82,6 @@ export default function SixthSection() {
         </div>
       </div>
     </div>
+ </section>
   );
 }

@@ -9,19 +9,19 @@ export default function ThirdSection() {
     {
       id: 1,
       text: "With Workwise’s huge vendor database, our procurement cycle is significantly faster, ensuring we find the right suppliers quickly and manage large-scale procurement with ease",
-      name: "CMD of 1000 Crore+ turnover EPC company",
+      name: "-CMD of 1000 Crore+ turnover EPC company",
       image: "/user-placeholder.png",
     },
     {
       id: 2,
       text: "Workwise’s price discovery tool and reverse auction have made procurement effortless. We get quick quotes, negotiate better, and always secure the best deals—saving time and money",
-      name: "CEO of 300 Crore turnover Contracting firm",
+      name: "-CEO of 300 Crore turnover Contracting firm",
       image: "/user-placeholder.png",
     },
     {
       id: 3,
       text: "BOQ to RFQ automation, combined with seamless integration into our Microsoft ERP, has transformed our estimation process. Faster quotes, better accuracy—helping us win more tenders efficiently",
-      name: "Procurement head of 5000 Crore turnover Project company",
+      name: "-Procurement head of 5000 Crore turnover Project company",
       image: "/user-placeholder.png",
     },
   ];
@@ -38,7 +38,8 @@ export default function ThirdSection() {
   };
 
   return (
-    <div className="px-4" style={{  textAlign: "center" }}>
+<>
+<section className="px-4" style={{  textAlign: "center" }}>
              <h2 className="mb-4" style={{fontSize:"20px", fontWeight:"700", marginTop:"30px" }} >
         What customers say about us
 
@@ -70,6 +71,7 @@ export default function ThirdSection() {
           ))}
         </Slider>
       </div>
-    </div>
+    </section>
+</>
   );
 }

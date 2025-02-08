@@ -3,7 +3,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 export default function EightSection() {
   return (
-    <div
+<>
+<section
       className="py-4 text-center"
       style={{
         maxWidth: "900px",
@@ -48,6 +49,7 @@ export default function EightSection() {
       >
         Your data is Secure. ISO/IEC 27001:2022 Certified
       </p>
-    </div>
+    </section>
+</>
   );
 }

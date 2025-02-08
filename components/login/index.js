@@ -314,7 +314,7 @@ const Login = (props) => {
 
             <button
               type="button"
-              className="btn-google"
+              className="btn-google mt-0 "
               onClick={() => {
                 setloading(true);
                 loginWithGoogle();
@@ -322,13 +322,13 @@ const Login = (props) => {
             >
               <FontAwesomeIcon icon={faGoogle} /> Login with Google
             </button>
-            <button
+            {/* <button
               type="button"
               onClick={handleLinkdedinLogin}
               className="btn-facebook"
             >
               <FontAwesomeIcon icon={faLinkedin} /> Login with Linkedin
-            </button>
+            </button> */}
             <p>
               <sub>*</sub> marks are mandatory
             </p>
