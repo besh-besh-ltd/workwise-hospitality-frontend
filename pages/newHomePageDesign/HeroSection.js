@@ -13,7 +13,7 @@ export default function HeroSection() {
       {/* // only for IEW */}
       {visible && (
         <div
-          className="w-100 px-4 py-2 text-center fw-semibold"
+          className="w-100 px-4 py-2 text-center fw-semibold d-flex justify-content-between align-items-center "
           style={{
             background: "var(--yellow-color)",
             fontWeight: "600",
@@ -24,17 +24,27 @@ export default function HeroSection() {
             margin: "0px",
           }}
         >
-          <span>
-          Proud sponsor at India Energy Week! Visit us at Stand no. 2L 29          
-          </span>
+
+<div> </div>
+
+        <div>
+
+          <p className="mb-0" >
+          Proud sponsor at India Energy Week! 
+          </p>
+          <p className="mb-0" > Visit us at Stand no. 2L 29</p>
+        </div>
+
           <button
             onClick={() => setVisible(false)}
             style={{
-              float: "right",
+              // float: "right",
               background: "transparent",
               fontSize: "18px",
               border: "none",
               cursor: "pointer",
+              marginRight:"-5px",
+              marginLeft:"5px"
             }}
           >
             ✖

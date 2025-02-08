@@ -26,10 +26,7 @@ export default function home() {
   };
 
   return (
-    <div style={{ fontFamily: "Poppins",
-}} >
-      {/* Fixed Call Button */}
-      {/* <CallNowModal /> */}
+    <div style={{ fontFamily: "Poppins", }} >
 
       {/* hero section  */}
       <HeroSection
@@ -56,48 +53,6 @@ export default function home() {
 
       {/* eight  */}
       <EightSection />
-
-      {/* Teaser demo video */}
-      {/* <DemoVideo
-        type={"portal_video"}
-        title={
-          "For the first time in the world, experience AI-powered software and service together"
-        }
-        videoLink={"https://www.youtube.com/embed/-JPa1MX2HVE"}
-        openVideo={openVideo}
-        handleToggleVideo={() => handleToggleVideo("portal_video")}
-      /> */}
-
-      {/* Work done so far */}
-      {/* <WorkDoneSoFar /> */}
-
-      {/* Testimonials */}
-      {/* <Testimonials /> */}
-
-      {/* RenownedBodies */}
-      {/* <RenownedBodies /> */}
-
-      {/* top highlights
-      <TopHighlights /> */}
-
-      {/* auth and without workwise */}
-      {/* <WithAndWithoutWorkwise /> */}
-
-      {/* portal demo video */}
-      {/* <DemoVideo
-        type={"demo_video"}
-        title={"Portal Demo Video"}
-        videoLink={
-          "https://www.youtube.com/embed/gAOdMT-Hqu0?si=ikJ1agQj6dAFVs2r"
-        }
-        openVideo={openVideo}
-        handleToggleVideo={() => handleToggleVideo("demo_video")}
-      /> */}
-
-      {/* recent blog */}
-
-      {/* <RecentBlogs /> */}
-      
 
       {/* faq */}
       <FAQSection />
