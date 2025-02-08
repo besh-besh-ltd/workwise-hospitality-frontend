@@ -83,18 +83,18 @@ export default function SeventhSection() {
                   style={{
                     background: "#428A41",
                     color: "#FDE500",
-                    fontWeight: "bold",
+                    fontWeight: "800",
                     padding: "12px",
                   }}
                 >
-                  Workwise
+                  With Workwise
                 </th>
                 <th
                   style={{
                     borderTopRightRadius:"12px",
                     background: "#BFAC3C",
                     color: "white",
-                    fontWeight: "bold",
+                    fontWeight: "600",
                     padding: "12px",
                   }}
                 >
@@ -104,7 +104,7 @@ export default function SeventhSection() {
             </thead>
             <tbody>
               {[
-                ["Procurement is a", "Profit centre", "Cost centre"],
+                ["Procurement", "Profit centre", "Cost centre"],
                 ["Bidding", "With Surety", "Guesswork"],
                 ["Procurement time", "10 days", "100 days"],
                 ["Vendors", "10,000+ PSU Approved", "Selected few in contact"],
@@ -122,6 +122,7 @@ export default function SeventhSection() {
                       style={{
                         padding: "12px",
                         fontSize: "16px",
+                        verticalAlign: "middle",
                         fontWeight: cellIndex === 0 ? "bold" : "normal",
                         backgroundColor:
                           cellIndex === 1 ? "#E8F5E9" : "transparent",
