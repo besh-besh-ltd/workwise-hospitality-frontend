@@ -107,6 +107,7 @@ export default function HeroSection() {
                       style={{ objectFit: "cover" }}
                     />
                     <button
+                      id="play-hero-section-video-btn"
                       className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
                       onClick={() => setVideoPlayed(true)}
                       style={{

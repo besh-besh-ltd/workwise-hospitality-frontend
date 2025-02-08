@@ -10,6 +10,7 @@ export default function RegisterUserModal() {
     <>
       <div  >
         <button
+        id="register-as-vendor-modal"
           className="btn btn-primary mt-3"
           style={{
             borderRadius: "5px",
