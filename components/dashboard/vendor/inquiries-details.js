@@ -493,10 +493,10 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                        <button
+                      <button
                           type="button"
-                          className=" btn btn-primary"
-                          style={{ width: "150px" }}
+                          className=" btn btn-primary "
+                          style={{ width: "180px" }}
                           onClick={(e) => {
                             e.preventDefault();
                             router.push({
@@ -510,7 +510,7 @@ const RfqManagementPreview = () => {
                           }}
                         >
                           Queries
-                          {rfqDetails.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{rfqDetails.unseen_query_count} + </span>}
+                          {rfqDetails.unseen_query_count > 0 && <span className=" bg-danger px-2 rounded ms-2 ">{rfqDetails.unseen_query_count } +  </span>}
                         </button>
 
 
