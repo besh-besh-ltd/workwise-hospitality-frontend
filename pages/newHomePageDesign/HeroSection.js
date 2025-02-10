@@ -39,7 +39,7 @@ export default function HeroSection() {
               <p className="mb-0">Proud sponsor at India Energy Week!</p>
               <p className="mb-0">
                 Visit us at{" "}
-                <span style={{ fontWeight: "800" }}>Stand no. 2L 29</span>
+                <span style={{ fontWeight: "800" }}>Hall 2, Stand no. 2L 29</span>
               </p>
             </div>
             <button
