@@ -258,7 +258,7 @@ export const parentCategoryList = () => {
   });
 };
 
-export const productListByCategory = (cat_id, page = 1, limit = 15) => {
+export const productListByCategory = (cat_id, page = 1, limit = 200) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.get(
