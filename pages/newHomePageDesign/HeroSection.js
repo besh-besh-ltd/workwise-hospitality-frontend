@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import CallNowModal from "./CallNowModal";
 import { TypeAnimation } from "react-type-animation";
@@ -10,6 +8,13 @@ import { faPlay } from "@fortawesome/free-solid-svg-icons";
 export default function HeroSection() {
   const [visible, setVisible] = useState(true);
   const [videoPlayed, setVideoPlayed] = useState(false);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load(); // Ensures preloaded video is loaded properly
+    }
+  }, []);
 
   return (
     <>
@@ -135,13 +140,16 @@ export default function HeroSection() {
                   </div>
                 ) : (
                   <video
-                    src="/videos/hero_video.mp4"
-                    autoPlay
-                    controls
-                    playsInline
-                    className="w-100 h-100 rounded-3"
-                    style={{ objectFit: "fill" }}
-                  ></video>
+                   ref={videoRef}
+                   src="/videos/hero_video.mp4"
+                   autoPlay
+                   controls
+                   playsInline
+                   loop
+                   preload="auto"
+                   className="w-100 h-100 rounded-3"
+                   style={{ objectFit: "fill" }}
+                   ></video>
                 )}
               </div>
 
@@ -174,20 +182,20 @@ export default function HeroSection() {
               color: white;
             }
 
-      .video-sub-heading{
-      font-size:16px;
-      }
-
-    @media (max-width: 992px) {
-      .video-container {
-        aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on medium screens */
-      }
-    }
-
-    @media (max-width: 576px) {
-      .video-container {
-        aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on small screens */
-      }
+            .video-sub-heading{
+            font-size:16px;
+            }
+      
+          @media (max-width: 992px) {
+            .video-container {
+              aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on medium screens */
+            }
+          }
+      
+          @media (max-width: 576px) {
+            .video-container {
+              aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on small screens */
+            }
 
     }
   `}
