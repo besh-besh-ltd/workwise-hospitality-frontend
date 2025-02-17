@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import CallNowModal from "./CallNowModal";
 import { TypeAnimation } from "react-type-animation";
@@ -10,6 +8,13 @@ import { faPlay } from "@fortawesome/free-solid-svg-icons";
 export default function HeroSection() {
   const [visible, setVisible] = useState(true);
   const [videoPlayed, setVideoPlayed] = useState(false);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load(); // Ensures preloaded video is loaded properly
+    }
+  }, []);
 
   return (
     <>
@@ -39,7 +44,7 @@ export default function HeroSection() {
               <p className="mb-0">Proud sponsor at India Energy Week!</p>
               <p className="mb-0">
                 Visit us at{" "}
-                <span style={{ fontWeight: "800" }}>Stand no. 2L 29</span>
+                <span style={{ fontWeight: "800" }}>Hall 2, Stand no. 2L 29</span>
               </p>
             </div>
             <button
@@ -107,6 +112,7 @@ export default function HeroSection() {
                       style={{ objectFit: "cover" }}
                     />
                     <button
+                      id="play-hero-section-video-btn"
                       className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
                       onClick={() => setVideoPlayed(true)}
                       style={{
@@ -134,13 +140,16 @@ export default function HeroSection() {
                   </div>
                 ) : (
                   <video
-                    src="/videos/hero_video.mp4"
-                    autoPlay
-                    controls
-                    playsInline
-                    className="w-100 h-100 rounded-3"
-                    style={{ objectFit: "fill" }}
-                  ></video>
+                   ref={videoRef}
+                   src="/videos/hero_video.mp4"
+                   autoPlay
+                   controls
+                   playsInline
+                   loop
+                   preload="auto"
+                   className="w-100 h-100 rounded-3"
+                   style={{ objectFit: "fill" }}
+                   ></video>
                 )}
               </div>
 
@@ -173,20 +182,20 @@ export default function HeroSection() {
               color: white;
             }
 
-      .video-sub-heading{
-      font-size:16px;
-      }
-
-    @media (max-width: 992px) {
-      .video-container {
-        aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on medium screens */
-      }
-    }
-
-    @media (max-width: 576px) {
-      .video-container {
-        aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on small screens */
-      }
+            .video-sub-heading{
+            font-size:16px;
+            }
+      
+          @media (max-width: 992px) {
+            .video-container {
+              aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on medium screens */
+            }
+          }
+      
+          @media (max-width: 576px) {
+            .video-container {
+              aspect-ratio: 5 / 4 !important; /* Maintain aspect ratio on small screens */
+            }
 
     }
   `}

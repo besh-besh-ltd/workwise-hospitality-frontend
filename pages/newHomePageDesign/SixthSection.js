@@ -6,17 +6,17 @@ export default function SixthSection() {
     {
       id: 1,
       title: "AI-generated price comparison chart",
-      image: "/videos/chart.gif",
+      image: "/assets/images/comparison-char.jpeg",
     },
     {
       id: 2,
       title: "Automate RFQs creation and follow-ups",
-      image: "/videos/rfq2.gif",
+      image: "/assets/images/Automate-RFQs-creatio.jpeg",
     },
     {
       id: 3,
       title: "Reverse Auction to negotiate pricing",
-      image: "/videos/rfq3.gif",
+      image: "/assets/images/Reverse-Auctio.jpeg",
     },
   ];
 
@@ -73,7 +73,6 @@ export default function SixthSection() {
                     backgroundSize: "cover",
                     backgroundRepeat: "no-repeat",
                     borderRadius: "10px",
-                    objectFit: "fill", // Ensures image covers entire div
                   }}
                 ></div>
               </div>

@@ -17,11 +17,17 @@ export default function BookCall() {
     window.location.href = `tel:+91${mobileNumber}`;
   };
 
+  const isValidPhoneNumber = (phoneNumber) => {
+    const trimmedNumber = phoneNumber?.trim(); // Remove leading & trailing spaces
+    const phoneRegex = /^[0-9]{10}$/; // Only allows exactly 10 digits (0-9)
+    return phoneRegex.test(trimmedNumber);
+};
+
   const handelBookCallRequest = async () => {
-    if (!phoneNumber.trim()) {
-      toast.error("Please enter a valid phone number.");
-      return;
-    }
+    if (!isValidPhoneNumber(phoneNumber)) {
+     return  toast.error("Invalid phone number format");
+  }
+
 
     setLoading(true);
     const payload = { mobile: phoneNumber };
@@ -60,10 +66,10 @@ export default function BookCall() {
       
       <Form>
         <Form.Group>
-          <Form.Label>Phone Number</Form.Label>
+          <Form.Label>Enter your 10 digit phone number</Form.Label>
           <Form.Control
             type="tel"
-            placeholder="Enter your 10 digit phone number"
+            placeholder="0123456789"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
           />

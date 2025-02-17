@@ -63,6 +63,7 @@ const AuthModal = (props) => {
             Login
           </button>
           <button
+          id="book-a-call-auth-modal-option"
             onClick={() => props.setActiveTab("register")}
             className={props.activeTab === "register" ? "active" : ""}
           >

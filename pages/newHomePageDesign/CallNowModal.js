@@ -10,6 +10,7 @@ export default function CallNowModal() {
     <>
       <div>
         <button
+        id="book-a-call-modal"
           className="btn btn-primary mt-3"
           style={{
             borderRadius: "5px",

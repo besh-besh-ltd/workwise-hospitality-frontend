@@ -30,7 +30,7 @@ export default function SeventhSection() {
         <p className="video-title my-2 mb-1">Here’s how workwise works</p>
 
         {/* Clickable Image Wrapper */}
-        <button onClick={handleOpenModal} className="video-button">
+        <button id="portal-demo-video-btn" onClick={handleOpenModal} className="video-button">
           <FontAwesomeIcon icon={faCirclePlay} className="video-play-icon" />
         </button>
       </div>

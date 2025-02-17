@@ -6,7 +6,7 @@ import NewHomePage from './newHomePageDesign'
 const inter = Inter({ subsets: ['latin'] })
 
 const pageInfo = {
-    title: "Workwise: Find Approved Vendors, Automate RFQs, Compare Rates",
+    title: "Workwise: Find PSU Approved Vendors, Automate RFQs, Compare Rates",
     description: "Workwise saves 5% on costs and 90% on time in procurement, and helps you win double the tenders. Work wisely with master vendor database, automate RFQs & rate comparisons",
     img:"https://letsworkwise.com/_next/image?url=https%3A%2F%2Fapi.letsworkwise.com%2Fbanner_image%2F1722515545528-100eb1f7-5df2-4b2b-8ab6-5916654bdd67.jpg"
 }

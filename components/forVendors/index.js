@@ -285,18 +285,7 @@ const ForVendors = (props) => {
               <h2>See Our Platform in Action</h2>
             </div>
             <div className="search-vdo">
-              <div className="watch-vdo">
-                <span>Watch Video on</span>
-                <Link href="#" target="_blank">
-                  <Image
-                    src="/assets/images/youtube-logo.svg"
-                    alt="Play"
-                    width={42}
-                    height={42}
-                    priority={true}
-                  />
-                </Link>
-              </div>
+
               <button
                 onClick={() => openModal2(video.url)}
                 className="video-play-button"
