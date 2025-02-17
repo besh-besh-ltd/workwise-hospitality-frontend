@@ -6,7 +6,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlay } from "@fortawesome/free-solid-svg-icons";
 
 export default function HeroSection() {
-  const [visible, setVisible] = useState(true);
   const [videoPlayed, setVideoPlayed] = useState(false);
   const videoRef = useRef(null);
 
@@ -25,43 +24,6 @@ export default function HeroSection() {
           background: "linear-gradient(50deg, #005F96, #50A055)",
         }}
       >
-        {/* Announcement Banner */}
-        {visible && (
-          <div
-            className="w-100 px-4 pt-3 pb-2 text-center fw-semibold d-flex justify-content-between align-items-center"
-            style={{
-              background: "var(--yellow-color)",
-              fontWeight: "600",
-              fontSize: "16px",
-              borderTop: "2px solid black",
-              borderBottom: "1px solid black",
-              width: "100%",
-              margin: "0px",
-            }}
-          >
-            <div></div>
-            <div>
-              <p className="mb-0">Proud sponsor at India Energy Week!</p>
-              <p className="mb-0">
-                Visit us at{" "}
-                <span style={{ fontWeight: "800" }}>Hall 2, Stand no. 2L 29</span>
-              </p>
-            </div>
-            <button
-              onClick={() => setVisible(false)}
-              style={{
-                background: "transparent",
-                fontSize: "18px",
-                border: "none",
-                cursor: "pointer",
-                marginRight: "-5px",
-                marginLeft: "5px",
-              }}
-            >
-              ✖
-            </button>
-          </div>
-        )}
 
         <div
           className={`d-flex flex-lg-row flex-column justify-content-lg-around justify-content-center align-items-center`}
@@ -69,7 +31,7 @@ export default function HeroSection() {
             padding: "40px 20px",
             textAlign: "center",
             color: "white",
-            height: visible ? "88%" : "95%",
+            height: "100%",
           }}
         >
           {/* Text Section */}
