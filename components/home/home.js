@@ -60,7 +60,6 @@ export default function Homepage() {
   const router = useRouter();
   const { code } = router.query;
   const pageRef = useRef(1);
-  const [visible, setVisible] = useState(true);
 
 
   useEffect(() => {
@@ -363,39 +362,6 @@ export default function Homepage() {
 
   return (
     <>
-
-{visible && (
-        <div
-          className="w-100 px-4 py-2 mt-5 text-center fw-semibold"
-          style={{
-            background: "var(--yellow-color)",
-            fontWeight: "600",
-            fontSize: "16px",
-            borderTop: "1px solid black",
-            borderBottom: "1px solid black",
-            width: "100%",
-            margin: "0px",
-          }}
-        >
-          <span>
-          Proud sponsor at India Energy Week! Visit us at Stand no. 2L 29          
-          </span>
-          <button
-            onClick={() => setVisible(false)}
-            style={{
-              float: "right",
-              background: "transparent",
-              fontSize: "18px",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            ✖
-          </button>
-        </div>
-      )}
-
-
       {/* ----- Banner -------- */}
       {showBannerLists && (
         <HomeBanner bannerContent={showHomeLists1} content={showBannerLists} />

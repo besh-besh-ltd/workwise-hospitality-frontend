@@ -110,6 +110,7 @@ export default function SeventhSection() {
                 ["Procurement time", "10 days", "100 days"],
                 ["Vendors", "10,000+ PSU Approved", "Selected few in contact"],
                 ["Negotiations", "Reverse Auction", "Manual"],
+                ["Commercial Comparison", "Automated", "Manual"],
               ].map((row, index) => (
                 <tr
                   key={index}
