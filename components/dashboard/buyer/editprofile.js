@@ -6,13 +6,13 @@ import {
   handleChangeProfilePicture,
   updateProfile,
 } from "@/services/Auth";
-import { getCities, getStates } from "@/services/cms";
+import { getCities, getCountries, getStates } from "@/services/cms";
 import {
   EditCompanyDetails,
   EditOnlyProfileSchema,
   EditSocialDetails,
 } from "@/utils/schema";
-import { Form, Formik } from "formik";
+import { Field, Form, Formik } from "formik";
 import Head from "next/head";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
@@ -22,11 +22,8 @@ const EditProfile = () => {
   const [image, setImage] = useState(null);
   const [createObjectURL, setCreateObjectURL] = useState(null);
   const [userProfile, setuserProfile] = useState(null);
-  const [countryList, setcountryList] = useState([
-    { label: "Select Country", value: "" },
-    { label: "India", value: "1" },
-  ]);
-  const [selectedCountry, setselectedCountry] = useState(0);
+  const [countryList, setcountryList] = useState([]);
+  const [selectedCountry, setselectedCountry] = useState("");
   const [mainLoading, setmainLoading] = useState(false);
   const [socialLoading, setsocialLoading] = useState(false);
 
@@ -41,9 +38,23 @@ const EditProfile = () => {
   const [selectedCity, setselectedCity] = useState(0);
 
   useEffect(() => {
-    getProfileDetails();
-    getAllStates();
+    getCountries()
+      .then((res) => {
+        setcountryList(res.data); // Set country list state
+      })
+      .catch((err) => console.error("Error fetching countries:", err));
   }, []);
+
+  useEffect(()=>{
+    getProfileDetails();
+  },[]);
+
+
+  useEffect(() => {
+    if (selectedCountry) {
+      getAllStates();
+    }
+  }, [selectedCountry]);
 
   const handleStateChange = (e) => {
     setcities([]);
@@ -53,6 +64,9 @@ const EditProfile = () => {
   const handleChange = (e) => {
     // console.log("edit profile===>>>>>", e.target.value);
     setselectedCountry(e.target.value);
+    setselectedState(""); // Reset the state when the country changes
+    setstates([]); // Clear the states to avoid old data being shown
+    setcities([]); 
   };
 
   useEffect(() => {
@@ -74,7 +88,7 @@ const EditProfile = () => {
 
   const getAllStates = () => {
     setstatesLoading(true);
-    getStates().then((res) => {
+    getStates(selectedCountry).then((res) => {
       setstatesLoading(false);
       setstates(res.data);
     });
@@ -85,15 +99,38 @@ const EditProfile = () => {
     getProfile().then((res) => {
       setmainLoading(false);
       setuserProfile(res.data);
-      setselectedCountry(res.data?.country || "");
-      setselectedState(res.data?.state || "");
-      setselectedCity(res.data?.city || "");
+
+       // Parse the location JSON string safely
+    let locationData = { country: "", state: "", city: "" };
+    if (res.data?.location) {
+      try {
+        locationData = JSON.parse(res.data.location);
+      } catch (error) {
+        console.error("Error parsing location data:", error);
+      }
+    }
+    setselectedCountry(locationData.country || "");
+    setselectedState(locationData.state || "");
+    setselectedCity(locationData.city || "");
     });
   };
 
   const handleUpdate = (values) => {
+    
     setsocialLoading(true);
-    updateProfile(values, userProfile.id)
+    
+    // Transform the values to include the location object
+    const updatedValues = {
+      ...values,
+      location: {
+        country: selectedCountry,
+        state: selectedState,
+        city: selectedCity
+      }
+    };
+    console.log("updated values",values);
+
+    updateProfile(updatedValues, userProfile.id)
       .then((res) => {
         setsocialLoading(false);
         getProfileDetails();
@@ -192,7 +229,11 @@ const EditProfile = () => {
                         ? userProfile?.organization_name
                         : "",
                       name: userProfile?.name ? userProfile?.name : "",
-                      location: countryList[1].label,
+                      location: {
+                        country: selectedCountry || "",
+                        state: selectedState || "",
+                        city: selectedCity || ""
+                      },
                       email: userProfile?.email ? userProfile?.email : "",
                       gstin: userProfile?.gstin ? userProfile?.gstin : "",
                       cin: userProfile?.cin ? userProfile?.cin : "",
@@ -200,12 +241,9 @@ const EditProfile = () => {
                     }}
                     validationSchema={EditCompanyDetails}
                     onSubmit={(values) => {
-                      values.country = selectedCountry?.toString() || "";
-                      values.state = selectedState?.toString() || "";
-                      values.city = selectedCity?.toString() || "";
-                      // console.log(values);
-                      handleUpdate(values);
+                     handleUpdate(values);
                     }}
+                    
                   >
                     {({ errors, touched }) => (
                       <Form>
@@ -230,62 +268,66 @@ const EditProfile = () => {
                           </div>
 
                           <div className="col-md-4">
-                            <FormikField
-                              label="Country"
-                              type="select"
-                              name="country"                          
-                              selectOptions={countryList}
-                              value={1}
-                              touched={touched}
-                              errors={errors}
-                              enableHandleChange={true}
-                              handleChange={handleChange}
-                            />
+                            <div className="form-group">
+                              <label htmlFor="city">Country</label>
+                              <Field
+                                as="select"
+                                className="form-control mt-2" // Matching class for consistency
+                                name="country"
+                                onChange={handleChange}
+                                value={selectedCountry}
+                              >
+                                <option value="">Select</option>
+                                {countryList?.map((country) => (
+                                  <option key={country.id} value={country.id}>
+                                    {country.country_name}
+                                  </option>
+                                ))}
+                              </Field>
+                            </div>
                           </div>
+
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>State</label>
-                              {states && states.length > 0 && (
+                              
                                 <select
+                                  className="form-control mt-2"
                                   onChange={(e) => handleStateChange(e)}
                                   value={selectedState}
                                 >
                                   <option value={0}>Select State</option>
-                                  {states &&
-                                    states.map((item) => {
-                                      return (
-                                        <option key={item.id} value={item.id}>
-                                          {item.state_name}
-                                        </option>
-                                      );
-                                    })}
+                                  {states.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.state_name}
+                                    </option>
+                                  ))}
                                 </select>
-                              )}
+                             
                             </div>
                           </div>
+
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>City</label>
                               <div className="hasFullLoader">
                                 {citiesLoading && <FullLoader />}
                                 <select
+                                  className="form-control mt-2"
                                   onChange={(e) => handleCityChange(e)}
                                   value={selectedCity}
-                                  className="mt-2"
                                 >
                                   <option value={0}>Select City</option>
-                                  {cities &&
-                                    cities.map((item) => {
-                                      return (
-                                        <option key={item.id} value={item.id}>
-                                          {item.city_name}
-                                        </option>
-                                      );
-                                    })}
+                                  {cities.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.city_name}
+                                    </option>
+                                  ))}
                                 </select>
                               </div>
                             </div>
                           </div>
+
                           <div className="col-md-6">
                             <FormikField
                               label="Email"
