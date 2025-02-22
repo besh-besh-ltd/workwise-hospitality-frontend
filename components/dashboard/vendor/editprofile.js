@@ -8,7 +8,7 @@ import {
   handleUploadFiles,
   updateProfile,
 } from "@/services/Auth";
-import { Form, Formik } from "formik";
+import { Field, Form, Formik } from "formik";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
@@ -16,37 +16,29 @@ import * as yup from "yup";
 import { components } from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
-import { getCities, getStates } from "@/services/cms";
+import { getCities, getCountries, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faEdit,
-  faFolderPlus
-} from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faFolderPlus } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
 
 const EditProfile = () => {
-
-
   // handling state for spoc
   const [vendorSpoc, setVendorSpoc] = useState([]);
   const [selectedSpocOption, setSelectedSpocOption] = useState({
-    spoc_name: '',
-    spoc_email: '',
-    spoc_mobile: '',
-    spoc_role: '',
+    spoc_name: "",
+    spoc_email: "",
+    spoc_mobile: "",
+    spoc_role: "",
   });
   const [spocId, setSpocId] = useState(null);
   const [openAddSpoc, setOpenAddSpoc] = useState({
     status: false,
-    type: "create-spoc"
+    type: "create-spoc",
   });
   const [createLoading, setCreateLoading] = useState(false);
 
-  const [countryList, setcountryList] = useState([
-    { label: "Select Country", value: "" },
-    { label: "India", value: "1" },
-  ]);
+  const [countryList, setcountryList] = useState([]);
   const [selectedCountry, setselectedCountry] = useState(0);
   const [statesLoading, setstatesLoading] = useState(false);
   const [states, setstates] = useState([]);
@@ -140,8 +132,28 @@ const EditProfile = () => {
     getVendorApproveLists();
     getProfileDetails();
     getProfileDocument();
-    getAllStates();
+   
   }, []);
+
+  useEffect(() => {
+    getCountries()
+      .then((res) => {
+        setcountryList(res.data); // Set country list state
+      })
+      .catch((err) => console.error("Error fetching countries:", err));
+  }, []);
+
+  useEffect(()=>{
+    if(selectedCountry){
+      getAllStates();
+    }
+  },[selectedCountry])
+
+  useEffect(()=>{
+    if(selectedState){
+      getAllCities();
+    }
+  },[selectedState])
 
   const handleCountryChange = (e) => {
     setselectedCountry(e.target.value);
@@ -169,14 +181,16 @@ const EditProfile = () => {
     setselectedCity(e.target.value);
   };
 
-  const getAllStates = () => {
-    setstatesLoading(true);
-    getStates().then((res) => {
-      setstatesLoading(false);
-      setstates(res.data);
-    });
-  };
+ const getAllStates = () => {
+     setstatesLoading(true);
+     getStates(selectedCountry).then((res) => {
+       setstatesLoading(false);
+       setstates(res.data);
+     });
+   };
 
+
+ 
   useEffect(() => {
     if (userDetails && vendorApproveList) {
       let intersection = vendorApproveList.filter(function (e) {
@@ -191,6 +205,20 @@ const EditProfile = () => {
       setMainLoading(true);
       const res = await getProfile();
       setMainLoading(false);
+      console.log("Vendor details", res.data);
+
+      let locationData = { country: "", state: "", city: "" };
+      if (res.data?.location) {
+        try {
+          locationData = JSON.parse(res.data.location);
+          setselectedCity(locationData.city);
+          setselectedCountry(locationData.country);
+          setselectedState(locationData.state);
+        } catch (error) {
+          console.error("Error parsing location data:", error);
+        }
+      }
+
       setUserDetails({
         name: res.data.name || "",
         address: res.data.address || "",
@@ -206,7 +234,8 @@ const EditProfile = () => {
         profile: res.data.profile || "",
         import_export_code: res.data.import_export_code || "",
         profile_image: res.data.profile_image || "",
-        vendor_approve: res.data.vendor_approve || ""
+        vendor_approve: res.data.vendor_approve || "",
+        location: locationData || "",
       });
       setVendorSpoc(res.data.spoc);
       setselectedCountry(res.data?.country || "");
@@ -291,7 +320,19 @@ const EditProfile = () => {
   const submitHandler = (values) => {
     setMainLoading(true);
     delete values.profile_image;
-    updateProfile(values, userDetails.id)
+    
+    const updatedValues = {
+      ...values,
+      location: {
+        country: selectedCountry,
+        state: selectedState,
+        city: selectedCity
+      }
+    };
+   
+   
+
+    updateProfile(updatedValues, userDetails.id)
       .then((res) => {
         setMainLoading(false);
         getProfileDetails();
@@ -337,18 +378,20 @@ const EditProfile = () => {
     setOpenAddSpoc(false);
     addSpoc(values)
       .then((res) => {
-        toast.success(res.message, { position: "top-right", });
+        toast.success(res.message, { position: "top-right" });
       })
       .catch((error) => {
-        toast.error(error.message?.response?.data?.message, { position: "top-right", });
-        console.log(error)
+        toast.error(error.message?.response?.data?.message, {
+          position: "top-right",
+        });
+        console.log(error);
       })
       .finally(() => {
         resetForm();
         setCreateLoading(false);
-        getProfileDetails()
-      })
-  }
+        getProfileDetails();
+      });
+  };
 
   const handleEditSpoc = (values, resetForm) => {
     setCreateLoading(true);
@@ -356,18 +399,20 @@ const EditProfile = () => {
     setOpenAddSpoc(false);
     editSpoc(values, spocId)
       .then((res) => {
-        toast.success(res.message, { position: "top-right", });
+        toast.success(res.message, { position: "top-right" });
       })
       .catch((error) => {
-        toast.error(error.message?.response?.data?.message, { position: "top-right", });
-        console.log(error)
+        toast.error(error.message?.response?.data?.message, {
+          position: "top-right",
+        });
+        console.log(error);
       })
       .finally(() => {
         resetForm();
         setCreateLoading(false);
-        getProfileDetails()
-      })
-  }
+        getProfileDetails();
+      });
+  };
 
   return (
     <>
@@ -492,23 +537,28 @@ const EditProfile = () => {
                           </div>
 
                           <div className="col-md-4">
-                            <FormikField
-                              label="Country"
-                              type="select"
-                              isRequired={true}
-                              name="country"
-                              value={1}
-                              selectOptions={countryList}
-                              touched={touched}
-                              errors={errors}
-                              enableHandleChange={true}
-                              handleChange={handleCountryChange}
-                            />
+                            <div className="form-group">
+                              <label htmlFor="city">Country</label>
+                              <Field
+                                as="select"
+                                className="form-control mt-2" // Matching class for consistency
+                                name="country"
+                                onChange={handleCountryChange}
+                                value={selectedCountry}
+                              >
+                                <option value="">Select</option>
+                                {countryList?.map((country) => (
+                                  <option key={country.id} value={country.id}>
+                                    {country.country_name}
+                                  </option>
+                                ))}
+                              </Field>
+                            </div>
                           </div>
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>State</label>
-                              {states && states.length > 0 && (
+                              
                                 <select
                                   onChange={(e) => handleStateChange(e)}
                                   value={selectedState}
@@ -523,7 +573,7 @@ const EditProfile = () => {
                                       );
                                     })}
                                 </select>
-                              )}
+                              
                             </div>
                           </div>
                           <div className="col-md-4">
@@ -812,27 +862,24 @@ const EditProfile = () => {
                 )}
               </Formik>
 
-
               <div className=" ">
-                <div className="details-table p-4 vendor-edit-sec-form" >
+                <div className="details-table p-4 vendor-edit-sec-form">
                   <div className="table-header row mb-4">
-                    <div className="filter-options col-7 align-items-center">
-
-                    </div>
-
+                    <div className="filter-options col-7 align-items-center"></div>
 
                     <div className="ms-auto d-flex justify-content-between align-items-center mb-2  ">
-
                       <span className="title"> Manage SPOC </span>
 
                       <button
                         className="btn btn-primary"
-                        onClick={() => setOpenAddSpoc({ status: true, type: "create-spoc" })}
+                        onClick={() =>
+                          setOpenAddSpoc({ status: true, type: "create-spoc" })
+                        }
                       >
                         Create New Spoc
                       </button>
                     </div>
-                    {(vendorSpoc && vendorSpoc.length > 0) ?
+                    {vendorSpoc && vendorSpoc.length > 0 ? (
                       <div className="table-responsive">
                         <table className="table table-striped">
                           <thead>
@@ -846,7 +893,8 @@ const EditProfile = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {vendorSpoc && vendorSpoc.length > 0 &&
+                            {vendorSpoc &&
+                              vendorSpoc.length > 0 &&
                               vendorSpoc.map((spoc, index) => {
                                 return (
                                   <>
@@ -857,47 +905,46 @@ const EditProfile = () => {
                                       <td>{spoc.email}</td>
                                       <td>{spoc.mobile}</td>
                                       <td
-                                      role="button"
-                                      className="cursor-pointer"
-                                      onClick={() => {
-                                        setOpenAddSpoc({ status: true, type: "edit-spoc" })
-                                        setSelectedSpocOption({
-                                          spoc_name: spoc.name,
-                                          spoc_email: spoc.email,
-                                          spoc_mobile: spoc.mobile,
-                                          spoc_role: spoc.role,
-                                        })
-                                        setSpocId(spoc.id);
-                                      }
-                                      }
+                                        role="button"
+                                        className="cursor-pointer"
+                                        onClick={() => {
+                                          setOpenAddSpoc({
+                                            status: true,
+                                            type: "edit-spoc",
+                                          });
+                                          setSelectedSpocOption({
+                                            spoc_name: spoc.name,
+                                            spoc_email: spoc.email,
+                                            spoc_mobile: spoc.mobile,
+                                            spoc_role: spoc.role,
+                                          });
+                                          setSpocId(spoc.id);
+                                        }}
                                       >
                                         <span className="me-2">
                                           <FontAwesomeIcon icon={faEdit} />
                                         </span>
-                                        <span>
-                                          Edit
-                                        </span>
+                                        <span>Edit</span>
                                       </td>
                                     </tr>
                                   </>
-                                )
+                                );
                               })}
                           </tbody>
                         </table>
-
                       </div>
-                      : "No Spoc Found"}
+                    ) : (
+                      "No Spoc Found"
+                    )}
                   </div>
                 </div>
               </div>
-
             </div>
             {/*   */}
-
           </div>
         </div>
       </section>
-      {openAddSpoc.status &&
+      {openAddSpoc.status && (
         <DynamicFormSpoc
           type={openAddSpoc.type}
           spocData={selectedSpocOption}
@@ -906,7 +953,7 @@ const EditProfile = () => {
           handleSpoc={handleSpoc}
           handleEditSpoc={handleEditSpoc}
         />
-      }
+      )}
     </>
   );
 };

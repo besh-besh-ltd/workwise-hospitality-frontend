@@ -14,15 +14,23 @@ export const EditCompanyDetails = yup.object().shape({
     .string()
     .matches(
       /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-      "please enter valid mobile number"
+      "Please enter valid mobile number"
     )
     .min(10, "Min 10 digit is required")
     .max(11, "Mobile number not more than 11 digit long")
     .required("Mobile number is required"),
-  location: yup.string().required("Location as is required"),
+  
+  // Convert location to an object with required fields
+  location: yup.object().shape({
+    country: yup.string().optional(),
+    state: yup.string().optional(),
+    city: yup.string().optional()
+  }),
+
   gstin: yup.string().optional(),
   cin: yup.string().optional(),
 });
+
 
 export const CreateRFQSchema = yup.object().shape({
   comment: yup.string().optional(),
