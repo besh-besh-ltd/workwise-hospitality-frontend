@@ -110,7 +110,7 @@ const ReviewProducts = ({
 
 
     return (
-        <Accordion flush>
+        <Accordion alwaysOpen >
             {data &&
                 data.map((prodItem, index) => {
                     let tempSpec = {};
