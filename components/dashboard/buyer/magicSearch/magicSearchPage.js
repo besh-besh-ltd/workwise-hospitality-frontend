@@ -13,6 +13,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import Select from 'react-select';
 import { getCities, getStates } from "@/services/cms";
+import ProductSearchModal from "../../../modal/ProductSearchModal";
 
 
 const initialFormData = {
@@ -266,6 +267,7 @@ const MagicSearchPage = () => {
                 !(item.product_id === prodItem.product_id &&
                     item.variant === prodItem.variant)
             );
+            toast.error(prodItem.name + " - Removed Successfully!");
         } else {
             editedData = reviewData.products.map((item) => {
                 if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
@@ -709,7 +711,11 @@ const MagicSearchPage = () => {
                                 </div>
                                 {reviewData.products && reviewData.products.length > 0 &&
                                     <>
-                                        <h3 className="h5 mb-3">Review Products</h3>
+                                    <div className=" mb-4 mt-4 d-flex justify-content-between align-items-end w-100 px-3">
+                                      <h3 className="h5">Review Products</h3>
+                                      <ProductSearchModal reviewData={reviewData} setReviewData={setReviewData} />
+                                    </div>
+
                                         <ReviewProducts
                                             data={reviewData.products}
                                             changeProductData={changeProductData}
@@ -958,7 +964,6 @@ const MagicSearchPage = () => {
                                         <thead>
                                             <tr>
                                                 <th style={{ backgroundColor: "var(--primary-color)", color: "#fff" }}>Sl. No.</th>
-                                                <th style={{ backgroundColor: "var(--primary-color)", color: "#fff" }}>Excel Row No.</th>
                                                 <th style={{ backgroundColor: "var(--primary-color)", color: "#fff" }}>Product Error</th>
                                             </tr>
                                         </thead>
@@ -968,15 +973,13 @@ const MagicSearchPage = () => {
                                                     return (
                                                         <tr key={item?.row}>
                                                             <td>{index + 1}</td>
-                                                            <td>{item?.row}</td>
                                                             <td>
-
-                                                                {item.errors?.product && <p className="mb-0">No Matching Product Found</p>}
+                                                                {item.errors?.product && <p className="mb-0">{item.errors?.product}</p>}
                                                                 {item.errors?.size && <p className="mb-0">{item.errors?.size}</p>}
                                                                 {item.errors?.specifications && <p className="mb-0">{item.errors?.specifications}</p>}
                                                                 {item.errors?.quantity && <p className="mb-0">{item.errors?.quantity}</p>}
                                                                 {item.errors?.unit && <p className="mb-0">{item.errors?.unit}</p>}
-                                                                {item.errors?.vendor && <p className="mb-0">No vendor Found for this Product</p>}
+                                                                {item.errors?.vendor && <p className="mb-0">{item.errors?.vendor}</p>}
 
                                                             </td>
                                                         </tr>
