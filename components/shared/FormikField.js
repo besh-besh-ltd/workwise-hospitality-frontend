@@ -123,8 +123,9 @@ const FormikField = ({
 
         {/* Display validation errors */}
         {touched[name] && errors[name] && (
-          <div className="form-error">{errors[name]}</div>
-        )}
+         <div className="form-error">{errors[name]}</div>
+          )}
+
       </div>
     </>
   );

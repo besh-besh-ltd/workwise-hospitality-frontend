@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getCmsData, getPageBanner } from "@/services/cms";
+import { getCmsData, getCountryCodes, getPageBanner } from "@/services/cms";
 import DynamicSection from "../dynamicSection/dynamicSection";
 import { Form, Formik } from "formik";
 import { contactFormSchema } from "@/utils/schema";
@@ -15,11 +15,31 @@ const ContactUsPage = () => {
   const [bannerdata, setBanner] = useState(null);
   const [formSubmitted, setformSubmitted] = useState(false);
   const [loading, setloading] = useState(false);
+  const [countryCode, setCountryCode] = useState([]);
+  const [defaultCountryCode, setDefaultCountryCode] = useState("");
 
   useEffect(() => {
     getCmsSections();
     getBanner();
+    fetchCountryCodes();
   }, []);
+
+  const fetchCountryCodes = () => {
+    getCountryCodes()
+      .then((response) => {
+        if (response?.data && response.data.length > 0) {
+          setCountryCode(response.data);
+          // Set a default country code (first one in the list)
+          setDefaultCountryCode(response.data[0]?.phone_code || "");
+        } else {
+          setCountryCode([]);
+        }
+      })
+      .catch((error) => {
+        console.log("Error fetching countries:", error);
+        setCountryCode([]);
+      });
+  };
 
   const getCmsSections = () => {
     getCmsData(4)
@@ -68,13 +88,17 @@ const ContactUsPage = () => {
   };
 
   const handleSubmit = (values, resetForm) => {
-    const payload = {
-      ...values,
+   
+     const fullMobile = `${values.countryCode}${values.phone}`;
+    const { countryCode, ...updatedValues } = { 
+      ...values, 
+      phone: fullMobile ,
       submitted_from: "1",
     };
+    
     setloading(true);
     setformSubmitted(false);
-    contactUsFormService(payload)
+    contactUsFormService(updatedValues)
       .then((response) => {
         resetForm();
         setloading(false);
@@ -83,6 +107,9 @@ const ContactUsPage = () => {
       .catch((error) => {
         setloading(false);
         setformSubmitted(false);
+        toast.error("Failed to submit form. Please try again.", {
+          position: "top-center",
+        });
       });
   };
 
@@ -108,14 +135,18 @@ const ContactUsPage = () => {
         </section>
       )}
 
-      <section className="breadcrumbs" aria-label="page-path" >
+      <section className="breadcrumbs" aria-label="page-path">
         <div className="container">
           <div className="row">
             <div className="col-md-12">
               <div className="breadcrumbs-con">
-                <a href="/" className="p-bread" rel="noreferer">Home</a>
+                <a href="/" className="p-bread" rel="noreferer">
+                  Home
+                </a>
                 {" / "}
-                <a href="/contactus" className="c-bread" >Contact Us</a>
+                <a href="/contactus" className="c-bread">
+                  Contact Us
+                </a>
               </div>
             </div>
           </div>
@@ -132,10 +163,6 @@ const ContactUsPage = () => {
           <div className="row">
             <div className="col-md-4">
               <div className="contact-sec-3-con">
-                {/* <div className="common-header">
-                  <h6>Have questions ?</h6>
-                  <h2>Feel free to write us</h2>
-                </div> */}
                 {havedata &&
                   havedata.map((item) => {
                     return (
@@ -148,7 +175,7 @@ const ContactUsPage = () => {
               <div className="contact-sec-3-form hasFullLoader">
                 {loading && <FullLoader />}
                 {formSubmitted && (
-                  <h3 className="text-center mt-4 pt-4">
+                  <h3 className="text-center mt-4 pt-4 w-100 d-flex justify-content-center align-items-center">
                     Your request has been submitted successfully!
                   </h3>
                 )}
@@ -162,13 +189,14 @@ const ContactUsPage = () => {
                         phone: "",
                         subject: "",
                         comment: "",
+                        countryCode: defaultCountryCode,
                       }}
                       validationSchema={contactFormSchema}
                       onSubmit={(values, { resetForm }) =>
                         handleSubmit(values, resetForm)
                       }
                     >
-                      {({ errors, touched }) => (
+                      {({ errors, touched, values, setFieldValue }) => (
                         <Form>
                           <div className="row">
                             <div className="col-md-6">
@@ -205,7 +233,46 @@ const ContactUsPage = () => {
                               <span className="contacts-title">
                                 Phone Number
                               </span>
-                              <div className="form-group">
+                              <div className="form-group d-flex align-items-center">
+                                {countryCode.length > 0 ? (
+                                  <select
+                                    name="countryCode"
+                                    className="form-control me-2"
+                                    style={{ width: "40%", height: "54px", marginBottom:"12px" }} // Ensuring equal height
+                                    value={values.countryCode}
+                                    onChange={(e) =>
+                                      setFieldValue(
+                                        "countryCode",
+                                        e.target.value
+                                      )
+                                    }
+                                  >
+                                    {countryCode.map((country) => (
+                                      <option
+                                        key={country.id}
+                                        value={country.phone_code}
+                                      >
+                                        {country.country_code} (
+                                        {country.phone_code})
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    className="form-control me-2"
+                                    style={{ width: "30%", height: "38px" }}
+                                    placeholder="+91"
+                                    value={values.countryCode}
+                                    onChange={(e) =>
+                                      setFieldValue(
+                                        "countryCode",
+                                        e.target.value
+                                      )
+                                    }
+                                  />
+                                )}
+
                                 <FormikField
                                   label="Phone Number"
                                   placeholder="Ex. 9123456789"
@@ -214,8 +281,16 @@ const ContactUsPage = () => {
                                   touched={touched}
                                   errors={errors}
                                   nolabel={true}
+                                  className="form-control"
+                                  style={{ width: "70%", height: "38px" }} // Ensuring same height
                                 />
                               </div>
+
+                              {touched.countryCode && errors.countryCode && (
+                                <div className="text-danger mt-1">
+                                  {errors.countryCode}
+                                </div>
+                              )}
                             </div>
 
                             <div className="col-md-6">

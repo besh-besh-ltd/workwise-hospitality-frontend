@@ -154,3 +154,13 @@ export const getCountries = () => {
 		}
 		});
 }
+export const getCountryCodes = () => {
+	return new Promise(async (resolve, reject) => {
+      try {
+		let response = await axiosInstance.get(`general/country-codes`);
+		resolve(response);
+	  } catch (error) {
+		reject({message : error})
+	  }	
+	})
+}

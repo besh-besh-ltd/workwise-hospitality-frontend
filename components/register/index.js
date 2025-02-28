@@ -2,11 +2,12 @@ import { RegisterService } from "@/services/Auth";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {  toast } from "react-toastify";
 import * as yup from "yup";
 import FullLoader from "../shared/FullLoader";
 import { useRouter } from "next/router";
+import { getCountryCodes } from "@/services/cms";
 
   {/* registerAs = vendor or buyer valid values */}
 const Register = ({registerAs}) => {
@@ -14,6 +15,25 @@ const Register = ({registerAs}) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showCPassword, setShowCPassword] = useState(false);
   const [loading, setloading] = useState(false);
+  const [countryCode , setCountryCode] = useState([]);
+
+
+
+  useEffect(() => {
+    const fetchCountryCodes = async () => {
+      try {
+        const res = await getCountryCodes();
+        setCountryCode(res.data);
+      } catch (error) {
+        console.error("Error fetching country codes:", error);
+      }
+    };
+  
+    fetchCountryCodes();
+  }, []);
+  
+
+
   // Set State Change
   const handleChange = (setState) => (event) => {
     setState(event);
@@ -27,6 +47,7 @@ const Register = ({registerAs}) => {
     register_as : registerAs == "vendor" ? "3" : registerAs == "buyer" ? "2" : "",
     password: "",
     confirm_password: "",
+    countryCode :""
   };
   // Register Initial Validations
   const validateSchema = yup.object().shape({
@@ -70,7 +91,16 @@ const Register = ({registerAs}) => {
 
   const registerSubmitHandler = (values, resetForm) => {
    setloading(true);
-    RegisterService(values)
+
+   console.log("checking again ",values);
+   
+   const fullMobile = `${values.countryCode}${values.mobile}`;
+   const { countryCode, ...updatedValues } = { 
+    ...values, 
+    mobile: fullMobile 
+  };
+    console.log("check again",updatedValues);
+    RegisterService(updatedValues)
       .then((response) => {
         setloading(false);
         resetForm();
@@ -182,20 +212,36 @@ const Register = ({registerAs}) => {
                 )}
               </div>
               <div className="form-group">
-                <label htmlFor="mobile">
-                  Phone No. <sup>*</sup>
-                </label>
-                <Field
-                  type="text"
-                  id="mobile"
-                  name="mobile"
-                  placeholder="Ex. 9123456789"
-                />
-                {touched.mobile && errors.mobile && (
-                  <div className="form-error">{errors.mobile}</div>
+                <div className="d-flex">
+                  {/* Country Code Dropdown */}
+                  <Field
+                    as="select"
+                    name="countryCode"
+                    className="form-select me-2 w-auto"
+                  >
+                    {countryCode.map((item) => (
+                      <option key={item.id} value={item.phone_code}>
+                        {item.country_code} ({item.phone_code})
+                      </option>
+                    ))}
+                  </Field>
+
+                  {/* Phone Number Input */}
+                  <Field
+                    type="text"
+                    id="mobile"
+                    name="mobile"
+                    placeholder="Ex. 9123456789"
+                    className="form-control"
+                  />
+                </div>
+
+                {/* Display validation errors */}
+                {touched[name] && errors[name] && (
+                  <div className="form-error">{errors[name]}</div>
                 )}
               </div>
-             {/* 
+              {/* 
               <div className="form-group">
                 <label htmlFor="register_as">
                   Register As <sup>*</sup>

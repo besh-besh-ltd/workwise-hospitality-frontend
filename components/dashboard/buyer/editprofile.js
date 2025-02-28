@@ -6,7 +6,7 @@ import {
   handleChangeProfilePicture,
   updateProfile,
 } from "@/services/Auth";
-import { getCities, getCountries, getStates } from "@/services/cms";
+import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import {
   EditCompanyDetails,
   EditOnlyProfileSchema,
@@ -36,19 +36,34 @@ const EditProfile = () => {
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
+  const [countryCode , setCountryCode] = useState([]);
+  const [onecountrycode, setoneountrycode] =useState("");
 
   useEffect(() => {
+    fetchCountryCodes();
+    getProfileDetails();
     getCountries()
       .then((res) => {
         setcountryList(res.data); // Set country list state
       })
       .catch((err) => console.error("Error fetching countries:", err));
   }, []);
+  
 
-  useEffect(()=>{
-    getProfileDetails();
-  },[]);
-
+  const fetchCountryCodes = () => {
+    getCountryCodes()
+      .then((response) => {
+        if (response?.data) {
+          setCountryCode(response.data);
+        } else {
+          setCountryCode([]);
+        }
+      })
+      .catch((error) => {
+        console.log("Error fetching countries:", error);
+        setCountryCode([]);
+      });
+  };
 
   useEffect(() => {
     if (selectedCountry) {
@@ -120,13 +135,15 @@ const EditProfile = () => {
     setsocialLoading(true);
     
     // Transform the values to include the location object
+    const fullMobile = `${onecountrycode}${values.mobile}`;
     const updatedValues = {
       ...values,
       location: {
         country: selectedCountry,
         state: selectedState,
         city: selectedCity
-      }
+      },
+      mobile: fullMobile
     };
     console.log("updated values",values);
 
@@ -232,7 +249,7 @@ const EditProfile = () => {
                       location: {
                         country: selectedCountry || "",
                         state: selectedState || "",
-                        city: selectedCity || ""
+                        city: selectedCity || "",
                       },
                       email: userProfile?.email ? userProfile?.email : "",
                       gstin: userProfile?.gstin ? userProfile?.gstin : "",
@@ -241,9 +258,8 @@ const EditProfile = () => {
                     }}
                     validationSchema={EditCompanyDetails}
                     onSubmit={(values) => {
-                     handleUpdate(values);
+                      handleUpdate(values);
                     }}
-                    
                   >
                     {({ errors, touched }) => (
                       <Form>
@@ -290,20 +306,19 @@ const EditProfile = () => {
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>State</label>
-                              
-                                <select
-                                  className="form-control mt-2"
-                                  onChange={(e) => handleStateChange(e)}
-                                  value={selectedState}
-                                >
-                                  <option value={0}>Select State</option>
-                                  {states.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.state_name}
-                                    </option>
-                                  ))}
-                                </select>
-                             
+
+                              <select
+                                className="form-control mt-2"
+                                onChange={(e) => handleStateChange(e)}
+                                value={selectedState}
+                              >
+                                <option value={0}>Select State</option>
+                                {states.map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.state_name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           </div>
 
@@ -328,24 +343,48 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Email"
-                              isRequired={true}
-                              type="email"
-                              name="email"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Mobile"
-                              isRequired={true}
-                              name="mobile"
-                              touched={touched}
-                              errors={errors}
-                            />
+                          <div className="row">
+                            {/* Email Field */}
+                            <div className="col-md-6">
+                              <FormikField
+                                label="Email"
+                                isRequired={true}
+                                type="email"
+                                name="email"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+
+                            {/* Mobile Field with Country Code */}
+                            <div className="col-md-6 d-flex align-items-center">
+                              <select
+                                className="form-control me-2"
+                                style={{ width: "30%", height: "54px" ,marginTop:"12px" }}
+                                onChange={(e) =>
+                                  setoneountrycode(e.target.value)
+                                }
+                              >
+                                <option value="">IN (+91)</option>
+                                {countryCode.map((country) => (
+                                  <option
+                                    key={country.id}
+                                    value={country.phone_code}
+                                  >
+                                    {country.country_code} ({country.phone_code}
+                                    )
+                                  </option>
+                                ))}
+                              </select>
+
+                              <FormikField
+                                label="Mobile"
+                                isRequired={true}
+                                name="mobile"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
                           </div>
 
                           <div className="col-md-6">

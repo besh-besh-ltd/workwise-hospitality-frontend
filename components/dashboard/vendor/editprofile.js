@@ -16,7 +16,7 @@ import * as yup from "yup";
 import { components } from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
-import { getCities, getCountries, getStates } from "@/services/cms";
+import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faFolderPlus } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
@@ -42,11 +42,11 @@ const EditProfile = () => {
   const [selectedCountry, setselectedCountry] = useState(0);
   const [statesLoading, setstatesLoading] = useState(false);
   const [states, setstates] = useState([]);
-  const [selectedState, setselectedState] = useState(0);
+  const [selectedState, setselectedState] = useState("");
 
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
-  const [selectedCity, setselectedCity] = useState(0);
+  const [selectedCity, setselectedCity] = useState("");
 
   const [userDetails, setUserDetails] = useState(null);
   const [userDocuments, setUserDocuments] = useState(null);
@@ -67,6 +67,8 @@ const EditProfile = () => {
   const [selectedDocumentsFilesReset, setSelectedDocumentsFilesReset] =
     useState(false);
   const [selectedPTRFilesReset, setSelectedPTRFilesReset] = useState(false);
+  const [countryCode , setCountryCode] = useState([]);
+  const [onecountrycode , setonecountrycode] = useState("");
 
   const validationSchema = yup.object().shape({
     name: yup.string().required("Vendor name is required"),
@@ -132,9 +134,24 @@ const EditProfile = () => {
     getVendorApproveLists();
     getProfileDetails();
     getProfileDocument();
+    fetchCountryCodes();
    
   }, []);
-
+  
+  const fetchCountryCodes = () => {
+    getCountryCodes()
+      .then((response) => {
+        if (response?.data) {
+          setCountryCode(response.data);
+        } else {
+          setCountryCode([]);
+        }
+      })
+      .catch((error) => {
+        console.log("Error fetching countries:", error);
+        setCountryCode([]);
+      });
+  };
   useEffect(() => {
     getCountries()
       .then((res) => {
@@ -321,13 +338,16 @@ const EditProfile = () => {
     setMainLoading(true);
     delete values.profile_image;
     
+    const fullmobile = `${onecountrycode}${values.mobile}`;
     const updatedValues = {
       ...values,
       location: {
-        country: selectedCountry,
-        state: selectedState,
-        city: selectedCity
+        country: String(selectedCountry || ""), 
+        state: String(selectedState || ""), 
+        city: String(selectedCity || "")
       }
+      , mobile:fullmobile
+      
     };
    
    
@@ -511,14 +531,39 @@ const EditProfile = () => {
 
                           <div className="col-md-6">
                             <div className="form-group">
-                              <FormikField
-                                label="Mobile"
-                                placeholder="Ex. 9123456789"
-                                isRequired={true}
-                                name="mobile"
-                                touched={touched}
-                                errors={errors}
-                              />
+                              <label>Mobile</label>
+                              <div className="d-flex align-items-center">
+                                <select
+                                  className="form-control me-2 p-2"
+                                  style={{ width: "20%", minHeight:"54px"}} // Minimal width for country code
+                                  onChange={(e) =>
+                                    setonecountrycode(e.target.value)
+                                  }
+                                >
+                                  <option value={onecountrycode}>
+                                    IN (+91)
+                                  </option>
+                                  {countryCode.map((country) => (
+                                    <option
+                                      key={country.id}
+                                      value={country.phone_code}
+                                    >
+                                      {country.country_code} (
+                                      {country.phone_code})
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <FormikField
+                                  label="Mobile"
+                                  placeholder="Ex. 9123456789"
+                                  isRequired={true}
+                                  name="mobile"
+                                  touched={touched}
+                                  errors={errors}
+                                  className="form-control w-80 h-100"
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -558,23 +603,23 @@ const EditProfile = () => {
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>State</label>
+
+                              <select
+                                onChange={(e) => handleStateChange(e)}
+                                value={selectedState}
+                              >
+                                <option value={0}>Select State</option>
+                                {states &&
+                                  states.map((item) => {
+                                    return (
+                                      <option key={item.id} value={item.id}>
+                                        {item.state_name}
+                                      </option>
+                                    );
+                                  })}
+                              </select>
                               
-                                <select
-                                  onChange={(e) => handleStateChange(e)}
-                                  value={selectedState}
-                                >
-                                  <option value={0}>Select State</option>
-                                  {states &&
-                                    states.map((item) => {
-                                      return (
-                                        <option key={item.id} value={item.id}>
-                                          {item.state_name}
-                                        </option>
-                                      );
-                                    })}
-                                </select>
-                              
-                            </div>
+                               </div>
                           </div>
                           <div className="col-md-4">
                             <div className="form-group">

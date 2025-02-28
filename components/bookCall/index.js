@@ -1,40 +1,65 @@
 "use client";
 
 import { BookaCall } from "@/services/Auth";
-import React, { useState } from "react";
-import { Button, Form } from "react-bootstrap";
+import React, { useEffect, useState } from "react";
+import { Button, Form, InputGroup } from "react-bootstrap";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Register from "../register";
+import { getCountryCodes } from "@/services/cms";
 
 export default function BookCall() {
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [countryCode, setCountryCode] = useState([]); // Holds country code list
+  const [selectedCode, setSelectedCode] = useState("+91"); // Default country code
   const [loading, setLoading] = useState(false);
 
   const mobileNumber = "9930787798";
-
+  
   const handleCallNow = () => {
     window.location.href = `tel:+91${mobileNumber}`;
   };
 
-  const isValidPhoneNumber = (phoneNumber) => {
-    const trimmedNumber = phoneNumber?.trim(); // Remove leading & trailing spaces
-    const phoneRegex = /^[0-9]{10}$/; // Only allows exactly 10 digits (0-9)
+  useEffect(() => {
+    fetchCountryCodes();
+  }, []);
+
+  const fetchCountryCodes = async () => {
+    try {
+      const response = await getCountryCodes();
+      if (response?.data) {
+        console.log("Checking country codes:", response.data);
+        setCountryCode(response.data); // Set country list
+      } else {
+        setCountryCode([]);
+      }
+    } catch (error) {
+      console.error("Error fetching countries:", error);
+      setCountryCode([]);
+    }
+  };
+
+  // Validate phone number (10-12 digits, without country code)
+  const isValidPhoneNumber = (number) => {
+    const trimmedNumber = number.trim();
+    const phoneRegex = /^[0-9]{8,15}$/; // Ensures 8-15 digits (without country code)
     return phoneRegex.test(trimmedNumber);
-};
+  };
 
   const handelBookCallRequest = async () => {
     if (!isValidPhoneNumber(phoneNumber)) {
-     return  toast.error("Invalid phone number format");
-  }
-
+      return toast.error("Invalid phone number format (must be 10-12 digits)");
+    }
 
     setLoading(true);
-    const payload = { mobile: phoneNumber };
+    const fullPhoneNumber = `${selectedCode}${phoneNumber}`; // Concatenating country code
+    const payload = { mobile: fullPhoneNumber };
+
+    console.log("Checking the payload:", payload);
 
     BookaCall(payload)
       .then(() => {
         toast.success("Call request successfully booked!");
+        setLoading(false)
         setPhoneNumber(""); // Clear input field
       })
       .catch(() => {
@@ -63,16 +88,28 @@ export default function BookCall() {
       </div>
 
       <p className="text-center my-4">--------------- OR ---------------</p>
-      
+
       <Form>
         <Form.Group>
-          <Form.Label>Enter your 10 digit phone number</Form.Label>
-          <Form.Control
-            type="tel"
-            placeholder="0123456789"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-          />
+          <Form.Label>Enter your phone number</Form.Label>
+          <InputGroup>
+            <Form.Select
+              value={selectedCode}
+              onChange={(e) => setSelectedCode(e.target.value)}
+            >
+              {countryCode.map((option) => (
+                <option key={option.phone_code} value={option.phone_code}>
+                  {option.country_code} ({option.phone_code})
+                </option>
+              ))}
+            </Form.Select>
+            <Form.Control
+              type="tel"
+              placeholder="1234567890"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+            />
+          </InputGroup>
         </Form.Group>
 
         <Button
