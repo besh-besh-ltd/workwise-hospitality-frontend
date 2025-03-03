@@ -6,7 +6,12 @@ import {
   handleChangeProfilePicture,
   updateProfile,
 } from "@/services/Auth";
-import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
+import {
+  getCities,
+  getCountries,
+  getCountryCodes,
+  getStates,
+} from "@/services/cms";
 import {
   EditCompanyDetails,
   EditOnlyProfileSchema,
@@ -36,8 +41,8 @@ const EditProfile = () => {
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
-  const [countryCode , setCountryCode] = useState([]);
-  const [onecountrycode, setoneountrycode] =useState("");
+  const [countryCode, setCountryCode] = useState([]);
+  const [onecountrycode, setoneountrycode] = useState("");
 
   useEffect(() => {
     fetchCountryCodes();
@@ -48,7 +53,6 @@ const EditProfile = () => {
       })
       .catch((err) => console.error("Error fetching countries:", err));
   }, []);
-  
 
   const fetchCountryCodes = () => {
     getCountryCodes()
@@ -81,7 +85,7 @@ const EditProfile = () => {
     setselectedCountry(e.target.value);
     setselectedState(""); // Reset the state when the country changes
     setstates([]); // Clear the states to avoid old data being shown
-    setcities([]); 
+    setcities([]);
   };
 
   useEffect(() => {
@@ -115,37 +119,49 @@ const EditProfile = () => {
       setmainLoading(false);
       setuserProfile(res.data);
 
-       // Parse the location JSON string safely
-    let locationData = { country: "", state: "", city: "" };
-    if (res.data?.location) {
-      try {
-        locationData = JSON.parse(res.data.location);
-      } catch (error) {
-        console.error("Error parsing location data:", error);
+      // Parse the location JSON string safely
+      let locationData = { country: "", state: "", city: "" };
+      if (res.data?.location) {
+        try {
+          locationData = JSON.parse(res.data.location);
+        } catch (error) {
+          console.error("Error parsing location data:", error);
+        }
       }
-    }
-    setselectedCountry(locationData.country || "");
-    setselectedState(locationData.state || "");
-    setselectedCity(locationData.city || "");
+      setselectedCountry(locationData.country || "");
+      setselectedState(locationData.state || "");
+      setselectedCity(locationData.city || "");
     });
   };
 
   const handleUpdate = (values) => {
-    
     setsocialLoading(true);
-    
+
     // Transform the values to include the location object
-    const fullMobile = `${onecountrycode}${values.mobile}`;
+
+
+    let fullMobile;
+    if (values.countryCode == "") {
+      fullMobile = `${selectedCountryCode.phone_code}-${values.mobile
+        .trim()
+        .replace(/^0+/, "")}`;
+        console.log("fullMobile with dropdown", fullMobile);
+    } else {
+      fullMobile = `${values.countryCode}-${values.mobile
+        .trim()
+        .replace(/^0+/, "")}`;
+        console.log("fullMobile without dropdown", fullMobile);
+    }
+    const { countryCode, ...restValues } = values;
     const updatedValues = {
-      ...values,
+      ...restValues,
       location: {
         country: selectedCountry,
         state: selectedState,
-        city: selectedCity
+        city: selectedCity,
       },
-      mobile: fullMobile
+      mobile: fullMobile,
     };
-    console.log("updated values",values);
 
     updateProfile(updatedValues, userProfile.id)
       .then((res) => {
@@ -178,6 +194,13 @@ const EditProfile = () => {
       .catch((err) => setprofileImageLoading(false));
   };
 
+  const extractedCountryCode =
+    userProfile?.mobile.match(/^\+?\d+/)?.[0] || "+91";
+
+  const selectedCountryCode = countryCode.find(
+    (item) => item.phone_code === extractedCountryCode
+  );
+  
   return (
     <>
       <Head>
@@ -254,7 +277,10 @@ const EditProfile = () => {
                       email: userProfile?.email ? userProfile?.email : "",
                       gstin: userProfile?.gstin ? userProfile?.gstin : "",
                       cin: userProfile?.cin ? userProfile?.cin : "",
-                      mobile: userProfile?.mobile ? userProfile?.mobile : "",
+                      mobile: userProfile?.mobile
+                        ? userProfile.mobile.trim().replace(/^[^-]*-/, "")
+                        : "",
+                      countryCode: "",
                     }}
                     validationSchema={EditCompanyDetails}
                     onSubmit={(values) => {
@@ -345,7 +371,7 @@ const EditProfile = () => {
 
                           <div className="row">
                             {/* Email Field */}
-                            <div className="col-md-6">
+                            <div className="col-12 col-md-6">
                               <FormikField
                                 label="Email"
                                 isRequired={true}
@@ -356,34 +382,65 @@ const EditProfile = () => {
                               />
                             </div>
 
-                            {/* Mobile Field with Country Code */}
-                            <div className="col-md-6 d-flex align-items-center">
-                              <select
-                                className="form-control me-2"
-                                style={{ width: "30%", height: "54px" ,marginTop:"12px" }}
-                                onChange={(e) =>
-                                  setoneountrycode(e.target.value)
-                                }
-                              >
-                                <option value="">IN (+91)</option>
-                                {countryCode.map((country) => (
-                                  <option
-                                    key={country.id}
-                                    value={country.phone_code}
-                                  >
-                                    {country.country_code} ({country.phone_code}
-                                    )
-                                  </option>
-                                ))}
-                              </select>
+                            {/* Mobile Field */}
+                            <div className="col-md-6">
+                              <label className="form-label">
+                                Mobile <span className="text-danger">*</span>
+                              </label>
 
-                              <FormikField
-                                label="Mobile"
-                                isRequired={true}
-                                name="mobile"
-                                touched={touched}
-                                errors={errors}
-                              />
+                              {/* Flexbox for proper alignment */}
+                              <div className="d-flex align-items-center gap-2">
+                                {/* Country Code Dropdown */}
+                                <Field name="countryCode">
+                                  {({ field, form }) => (
+                                    <select
+                                      {...field}
+                                      className="form-select"
+                                      style={{
+                                        maxWidth: "120px",
+                                        height: "54px",
+                                      }}
+                                      onChange={(e) => {
+                                        form.setFieldValue(
+                                          "countryCode",
+                                          e.target.value
+                                        );
+                                        setoneountrycode(e.target.value); // Update external state
+                                      }}
+                                    >
+                                      <option value="countryCode">{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                      {countryCode.map((country) => (
+                                        <option
+                                          key={country.id}
+                                          value={country.phone_code}
+                                        >
+                                          {country.country_code} (
+                                          {country.phone_code})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </Field>
+
+                                {/* Mobile Number Input */}
+                                <Field
+                                  type="text"
+                                  name="mobile"
+                                  className={`form-control ${
+                                    touched.mobile && errors.mobile
+                                      ? "is-invalid"
+                                      : ""
+                                  }`}
+                                  placeholder="Enter mobile number"
+                                  style={{ height: "54px" }} // Setting height directly
+                                />
+
+                                {touched.mobile && errors.mobile && (
+                                  <div className="invalid-feedback">
+                                    {errors.mobile}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
 

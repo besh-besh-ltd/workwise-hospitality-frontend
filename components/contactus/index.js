@@ -89,7 +89,7 @@ const ContactUsPage = () => {
 
   const handleSubmit = (values, resetForm) => {
    
-     const fullMobile = `${values.countryCode}${values.phone}`;
+     const fullMobile = `${values.countryCode}-${values.phone.trim().replace(/^0+/, "")}`;
     const { countryCode, ...updatedValues } = { 
       ...values, 
       phone: fullMobile ,
@@ -189,7 +189,7 @@ const ContactUsPage = () => {
                         phone: "",
                         subject: "",
                         comment: "",
-                        countryCode: defaultCountryCode,
+                        countryCode: "+91",
                       }}
                       validationSchema={contactFormSchema}
                       onSubmit={(values, { resetForm }) =>

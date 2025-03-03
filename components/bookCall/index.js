@@ -40,7 +40,7 @@ export default function BookCall() {
 
   // Validate phone number (10-12 digits, without country code)
   const isValidPhoneNumber = (number) => {
-    const trimmedNumber = number.trim();
+    const trimmedNumber = number.trim().replace(/^0+/, ''); 
     const phoneRegex = /^[0-9]{8,15}$/; // Ensures 8-15 digits (without country code)
     return phoneRegex.test(trimmedNumber);
   };
@@ -51,7 +51,7 @@ export default function BookCall() {
     }
 
     setLoading(true);
-    const fullPhoneNumber = `${selectedCode}${phoneNumber}`; // Concatenating country code
+    const fullPhoneNumber = `${selectedCode}-${phoneNumber.trim().replace(/^0+/, "")}`; // Concatenating country code
     const payload = { mobile: fullPhoneNumber };
 
     console.log("Checking the payload:", payload);
@@ -90,37 +90,59 @@ export default function BookCall() {
       <p className="text-center my-4">--------------- OR ---------------</p>
 
       <Form>
-        <Form.Group>
-          <Form.Label>Enter your phone number</Form.Label>
-          <InputGroup>
-            <Form.Select
-              value={selectedCode}
-              onChange={(e) => setSelectedCode(e.target.value)}
-            >
-              {countryCode.map((option) => (
-                <option key={option.phone_code} value={option.phone_code}>
-                  {option.country_code} ({option.phone_code})
-                </option>
-              ))}
-            </Form.Select>
-            <Form.Control
-              type="tel"
-              placeholder="1234567890"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
-          </InputGroup>
-        </Form.Group>
-
-        <Button
-          className="mt-3 w-100"
-          variant="success"
-          onClick={handelBookCallRequest}
-          disabled={loading}
+      <Form.Group>
+        <Form.Label>Enter your phone number</Form.Label>
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px'
+          }}
         >
-          {loading ? "Booking..." : "Request Call Back"}
-        </Button>
-      </Form>
+          <Form.Select
+            value={selectedCode}
+            onChange={(e) => setSelectedCode(e.target.value)}
+            style={{ 
+              width: '120px',
+              flexShrink: 0
+            }}
+          >
+            {countryCode.map((option) => (
+              <option key={option.phone_code} value={option.phone_code}>
+                {option.country_code} ({option.phone_code})
+              </option>
+            ))}
+          </Form.Select>
+          
+          <Form.Control
+            type="tel"
+            placeholder="1234567890"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            style={{ 
+              flex: '1 1 auto'
+            }}
+          />
+        </div>
+      </Form.Group>
+      
+      <Button
+        style={{
+          marginTop: '12px',
+          width: '100%',
+          backgroundColor: '#28a745',
+          borderColor: '#28a745',
+          color: 'white',
+          padding: '8px 16px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? '0.7' : '1'
+        }}
+        onClick={handelBookCallRequest}
+        disabled={loading}
+      >
+        {loading ? "Booking..." : "Request Call Back"}
+      </Button>
+    </Form>
     </>
   );
 }

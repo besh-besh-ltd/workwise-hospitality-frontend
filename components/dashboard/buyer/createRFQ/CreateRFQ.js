@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
 import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData } from "@/services/rfq";
-import { Form, Formik } from "formik";
+import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
 import { getProfile } from "@/services/Auth";
@@ -199,7 +199,8 @@ const CreateRFQ = () => {
   const handleCreateRFQ = (resetForm) => {
     setMainLoading(true);
     setHasUnsavedChanges(false);
-    const fullMobile = `${onecountrycode}${resetForm.contact_number}`
+
+    const fullMobile = `${onecountrycode}-${resetForm.contact_number.trim().replace(/^0+/, "")}`
     let payload = {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
@@ -322,7 +323,19 @@ const CreateRFQ = () => {
       router.events.off("routeChangeStart", handleRouteChange);
     };
   }, [hasUnsavedChanges, router]);
+ 
+  const countryCodeMatch = rfqFormDataFromStore.contact_number.match(/^\+(\d{1,4})-/);
+  const countryCode1 = countryCodeMatch ? countryCodeMatch[0].slice(0, -1) : null; // Extracting country code from contact number
 
+
+  
+  
+  const selectedCountry = countryCode.find(
+    (item) => item.phone_code === countryCode1
+  );           // Getting selected country from country code list
+
+ 
+  
 
   return (
     <>
@@ -335,8 +348,7 @@ const CreateRFQ = () => {
               You need to purchase subscription to perform this action
             </span>
           </div>
-        ) 
-        : (
+        ) : (
           <>
             {/* Add Products Button */}
             <div className="details-table mt-0">
@@ -346,10 +358,8 @@ const CreateRFQ = () => {
                     Add Products
                   </Link>
                 </div>
-              ) 
-               : (
+              ) : (
                 <>
-                
                   <div className="col-md-3 mb-3">
                     <h4>Select Project</h4>
                     <Select
@@ -443,13 +453,14 @@ const CreateRFQ = () => {
                             comment: rfqFormDataFromStore.comment,
                             response_email: rfqFormDataFromStore.response_email,
                             contact_name: rfqFormDataFromStore.contact_name,
-                            contact_number: rfqFormDataFromStore.contact_number,
+                            contact_number: rfqFormDataFromStore.contact_number.replace(/^\+\d{1,4}-/, ''),
                             company_name: rfqFormDataFromStore.company_name,
                             bid_end_date: rfqFormDataFromStore.bid_end_date,
                             rfq_type: rfqFormDataFromStore.rfq_type,
                             reverse_auction:
                               rfqFormDataFromStore.reverse_auction,
                             location: rfqFormDataFromStore.location,
+                            countryCode:"+91"
                           }}
                           validationSchema={CreateRFQSchema}
                           onSubmit={(values, { resetForm }) =>
@@ -552,36 +563,66 @@ const CreateRFQ = () => {
                                   />
                                 </div>
                                 <div className="col-md-6">
-                                  <select
-                                    className="form-control"
-                                    style={{ width: "25%", height: "38px" }} // Adjusted height for consistency
-                                    onChange={(e) =>
-                                      setonecountrycode(e.target.value)
-                                    }
-                                  >
-                                    <option value="">Code</option>
-                                    {countryCode.map((country) => (
-                                      <option
-                                        key={country.id}
-                                        value={country.phone_code}
-                                      >
-                                        {country.country_code} (
-                                        {country.phone_code})
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <FormikField
-                                    label="Contact Number"
-                                    value={rfqFormDataFromStore.contact_number}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="text"
-                                    isRequired={true}
-                                    name="contact_number"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
+                                  <label className="form-label">
+                                    Contact Number{" "}
+                                    <span className="text-danger">*</span>
+                                  </label>
+
+                                  <div className="d-flex">
+                                    {/* Country Code Dropdown */}
+                                    <Field
+                                      as="select"
+                                      name="countryCode"
+                                      className="form-select"
+                                      style={{
+                                        maxWidth: "100px",
+                                        marginRight: "6px",
+                                        maxHeight: "44px",
+                                      }}
+                                      value={onecountrycode}
+                                      onChange={(e) =>
+                                        setonecountrycode(e.target.value)
+                                      }
+                                    >
+                                      <option value="countryCode">{selectedCountry?.country_code} ({selectedCountry?.phone_code})</option>
+                                      {countryCode.map((country) => (
+                                        <option
+                                          key={country.id}
+                                          value={country.phone_code}
+                                        >
+                                          {country.country_code} (
+                                          {country.phone_code})
+                                        </option>
+                                      ))}
+                                    </Field>
+
+                                    {/* Mobile Number Input */}
+                                    <Field
+                                      type="text"
+                                      name="contact_number"
+                                      className={`form-control ${
+                                        touched.contact_number &&
+                                        errors.contact_number
+                                          ? "is-invalid"
+                                          : ""
+                                      }`}
+                                      placeholder="Enter mobile number"
+                                      value={
+                                        rfqFormDataFromStore.contact_number?.replace(/^\+\d{1,4}-/, '') || ''
+                                      }
+                                      onChange={handleFormFieldChange}
+                                      style={{ marginTop: "0px" }}
+                                    />
+
+                                    {touched.contact_number &&
+                                      errors.contact_number && (
+                                        <div className="invalid-feedback">
+                                          {errors.contact_number}
+                                        </div>
+                                      )}
+                                  </div>
                                 </div>
+
                                 <div className="col-md-6">
                                   <FormikField
                                     label="Company Name"

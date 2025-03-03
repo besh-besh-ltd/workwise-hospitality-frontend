@@ -69,6 +69,7 @@ const EditProfile = () => {
   const [selectedPTRFilesReset, setSelectedPTRFilesReset] = useState(false);
   const [countryCode , setCountryCode] = useState([]);
   const [onecountrycode , setonecountrycode] = useState("");
+  const [extractedCountryCode , setextractedCountryCode] = useState("");
 
   const validationSchema = yup.object().shape({
     name: yup.string().required("Vendor name is required"),
@@ -222,8 +223,8 @@ const EditProfile = () => {
       setMainLoading(true);
       const res = await getProfile();
       setMainLoading(false);
-      console.log("Vendor details", res.data);
-
+      
+      setextractedCountryCode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "" : "");
       let locationData = { country: "", state: "", city: "" };
       if (res.data?.location) {
         try {
@@ -239,7 +240,7 @@ const EditProfile = () => {
       setUserDetails({
         name: res.data.name || "",
         address: res.data.address || "",
-        mobile: res.data.mobile || "",
+        mobile: res.data.mobile ? res.data.mobile.replace(/^\+\d{1,4}-/, '') : "",
         email: res.data.email || "",
         nature_of_business: res.data.nature_of_business || "",
         type_of_business: res.data.type_of_business || "",
@@ -338,7 +339,11 @@ const EditProfile = () => {
     setMainLoading(true);
     delete values.profile_image;
     
-    const fullmobile = `${onecountrycode}${values.mobile}`;
+
+    // Transform the values to include the location object
+    const fullmobile = `${onecountrycode}-${values.mobile
+      .trim()
+      .replace(/^0+/, "")}`;
     const updatedValues = {
       ...values,
       location: {
@@ -433,6 +438,11 @@ const EditProfile = () => {
         getProfileDetails();
       });
   };
+
+  const selectedCountryCode = countryCode.find(
+    (item) => item.phone_code === extractedCountryCode
+  );
+  console.log("selectedCountryCode", selectedCountryCode);
 
   return (
     <>
@@ -529,55 +539,81 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <label>Mobile</label>
-                              <div className="d-flex align-items-center">
-                                <select
-                                  className="form-control me-2 p-2"
-                                  style={{ width: "20%", minHeight:"54px"}} // Minimal width for country code
-                                  onChange={(e) =>
-                                    setonecountrycode(e.target.value)
-                                  }
-                                >
-                                  <option value={onecountrycode}>
-                                    IN (+91)
-                                  </option>
-                                  {countryCode.map((country) => (
-                                    <option
-                                      key={country.id}
-                                      value={country.phone_code}
-                                    >
-                                      {country.country_code} (
-                                      {country.phone_code})
-                                    </option>
-                                  ))}
-                                </select>
+                          <div className="row">
+                            {/* Mobile Number Field (Country Code + Input) */}
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label>Mobile</label>
+                                <div className="d-flex align-items-center">
+                                  {/* Country Code Dropdown */}
+                                  <Field
+                                    as="select"
+                                    name="countryCode"
+                                    className="form-control me-2 p-2"
+                                    style={{
+                                      width: "30%",
+                                      minHeight: "54px",
+                                      borderTopRightRadius: "0",
+                                      borderBottomRightRadius: "0",
+                                    }}
+                                    value={onecountrycode}
+                                    onChange={(e) =>
+                                      setonecountrycode(e.target.value)
+                                    }
+                                  >
+                                    <option value="countryCode">{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                    {countryCode.map((country) => (
+                                      <option
+                                        key={country.id}
+                                        value={country.phone_code}
+                                      >
+                                        {country.country_code} (
+                                        {country.phone_code})
+                                      </option>
+                                    ))}
+                                  </Field>
 
-                                <FormikField
-                                  label="Mobile"
-                                  placeholder="Ex. 9123456789"
-                                  isRequired={true}
-                                  name="mobile"
-                                  touched={touched}
-                                  errors={errors}
-                                  className="form-control w-80 h-100"
-                                />
+                                  {/* Mobile Number Input */}
+                                  <div style={{ flexGrow: 1 }}>
+                                    <Field
+                                      type="text"
+                                      name="mobile"
+                                      className={`form-control ${
+                                        touched.mobile && errors.mobile
+                                          ? "is-invalid"
+                                          : ""
+                                      }`}
+                                      placeholder="Ex. 9123456789"
+                                      style={{
+                                        width: "100%",
+                                        minHeight: "54px",
+                                        borderTopLeftRadius: "0",
+                                        borderBottomLeftRadius: "0",
+                                      }}
+                                    />
+                                    {touched.mobile && errors.mobile && (
+                                      <div className="invalid-feedback">
+                                        {errors.mobile}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="Email"
-                                placeholder="@example.com"
-                                isRequired={true}
-                                name="email"
-                                type="email"
-                                touched={touched}
-                                errors={errors}
-                              />
+                            {/* Email Field */}
+                            <div className="col-md-6">
+                              <div className="form-group ">
+                                <FormikField
+                                  label="Email"
+                                  placeholder="@example.com"
+                                  isRequired={true}
+                                  name="email"
+                                  type="email"
+                                  touched={touched}
+                                  errors={errors}
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -618,8 +654,7 @@ const EditProfile = () => {
                                     );
                                   })}
                               </select>
-                              
-                               </div>
+                            </div>
                           </div>
                           <div className="col-md-4">
                             <div className="form-group">
@@ -960,7 +995,7 @@ const EditProfile = () => {
                                           setSelectedSpocOption({
                                             spoc_name: spoc.name,
                                             spoc_email: spoc.email,
-                                            spoc_mobile: spoc.mobile,
+                                            spoc_mobile: spoc.mobile.trim().replace(/^[^-]*-/, ""),
                                             spoc_role: spoc.role,
                                           });
                                           setSpocId(spoc.id);
@@ -997,6 +1032,7 @@ const EditProfile = () => {
           closeModal={() => setOpenAddSpoc({ status: false })}
           handleSpoc={handleSpoc}
           handleEditSpoc={handleEditSpoc}
+          countryCode={countryCode}
         />
       )}
     </>
