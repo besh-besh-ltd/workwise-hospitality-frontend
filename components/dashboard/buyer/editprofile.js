@@ -397,7 +397,7 @@ const EditProfile = () => {
                                       {...field}
                                       className="form-select"
                                       style={{
-                                        maxWidth: "120px",
+                                        width: "50%",
                                         height: "54px",
                                       }}
                                       onChange={(e) => {

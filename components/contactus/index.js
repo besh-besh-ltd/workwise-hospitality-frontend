@@ -238,7 +238,7 @@ const ContactUsPage = () => {
                                   <select
                                     name="countryCode"
                                     className="form-control me-2"
-                                    style={{ width: "40%", height: "54px", marginBottom:"12px" }} // Ensuring equal height
+                                    style={{ width: "50%", height: "54px", marginBottom:"12px" }} // Ensuring equal height
                                     value={values.countryCode}
                                     onChange={(e) =>
                                       setFieldValue(
@@ -261,7 +261,7 @@ const ContactUsPage = () => {
                                   <input
                                     type="text"
                                     className="form-control me-2"
-                                    style={{ width: "30%", height: "38px" }}
+                                    style={{ width: "45%", height: "38px" }}
                                     placeholder="+91"
                                     value={values.countryCode}
                                     onChange={(e) =>
@@ -282,7 +282,7 @@ const ContactUsPage = () => {
                                   errors={errors}
                                   nolabel={true}
                                   className="form-control"
-                                  style={{ width: "70%", height: "38px" }} // Ensuring same height
+                                  style={{ width: "55%", height: "38px" }} // Ensuring same height
                                 />
                               </div>
 

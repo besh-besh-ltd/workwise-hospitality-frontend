@@ -136,7 +136,7 @@ const DynamicFormSpoc = ({
                                                         <div className="d-flex">
                                                             <select
                                                                 className="form-control"
-                                                                style={{ width: "50%", height: "54px" }}
+                                                                style={{ width: "70%", height: "54px", marginRight: "6px" }}
                                                                 value={selectedPhoneCode}
                                                                 onChange={(e) => setSelectedPhoneCode(e.target.value)}
                                                             >

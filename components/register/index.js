@@ -47,7 +47,7 @@ const Register = ({registerAs}) => {
     register_as : registerAs == "vendor" ? "3" : registerAs == "buyer" ? "2" : "",
     password: "",
     confirm_password: "",
-    countryCode :""
+    countryCode :"+91"
   };
   // Register Initial Validations
   const validateSchema = yup.object().shape({
@@ -67,11 +67,11 @@ const Register = ({registerAs}) => {
     mobile: yup
       .string()
       .matches(
-        /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-        "please enter valid mobile number"
+        /^[+]?[0-9\s-]{7,15}$/,
+        "Please enter a valid mobile number (7-15 digits, optional +)"
       )
-      .min(10, "Min 10 digit is required")
-      .max(11, "Mobile number not more than 11 digit long")
+      .min(7, "Mobile number must be at least 7 digits long")
+      .max(15, "Mobile number must not be more than 15 digits long")
       .required("Mobile number is required"),
     organization_name: yup.string().required("Organization name is required"),
     register_as: yup.string().required("Register as is required"),
@@ -94,7 +94,7 @@ const Register = ({registerAs}) => {
 
    console.log("checking again ",values);
    
-   const fullMobile = `${values.countryCode}${values.mobile}`;
+   const fullMobile = `${values.countryCode}-${values.mobile.trim().replace(/^0+/, '')}`;
    const { countryCode, ...updatedValues } = { 
     ...values, 
     mobile: fullMobile 
@@ -215,12 +215,21 @@ const Register = ({registerAs}) => {
                 <div className="d-flex">
                   {/* Country Code Dropdown */}
                   <Field
+                    type="text"
                     as="select"
                     name="countryCode"
                     className="form-select me-2 w-auto"
+                    style={{ color: "#444" }} // Dark color for the selected option
                   >
+                    <option value="+91" style={{ color: "#444" }}>
+                      IN (+91)
+                    </option>
                     {countryCode.map((item) => (
-                      <option key={item.id} value={item.phone_code}>
+                      <option
+                        key={item.id}
+                        value={item.phone_code}
+                        style={{ color: "#444" }}
+                      >
                         {item.country_code} ({item.phone_code})
                       </option>
                     ))}
@@ -233,6 +242,9 @@ const Register = ({registerAs}) => {
                     name="mobile"
                     placeholder="Ex. 9123456789"
                     className="form-control"
+                    style={{
+                      "::placeholder": { color: "#6c757d", opacity: 1 },
+                    }}
                   />
                 </div>
 
