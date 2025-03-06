@@ -44,12 +44,9 @@ export const CreateRFQSchema = yup.object().shape({
     .required("Email is required"),
   contact_number: yup
     .string()
-    .matches(
-      /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-      "please enter valid mobile number"
-    )
-    .min(10, "Min 10 digit is required")
-    .max(11, "Mobile number not more than 11 digit long")
+    .matches(/^\+?[0-9]{1,3}[0-9]{7,14}$/, "Please enter a valid mobile number")
+    .min(7, "Min 10 digit is required")
+    .max(15, "Mobile number not more than 11 digit long")
     .required("Mobile number is required"),
   location: yup.string().optional(),
   contact_name: yup.string().required("Contact name is required"),

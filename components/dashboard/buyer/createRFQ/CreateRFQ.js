@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
 import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData } from "@/services/rfq";
-import { Form, Formik } from "formik";
+import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
 import { getProfile } from "@/services/Auth";
@@ -25,6 +25,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
+import { getCountryCodes } from "@/services/cms";
 
 
 const CreateRFQ = () => {
@@ -46,10 +47,26 @@ const CreateRFQ = () => {
   const selectedTerms = useSelector((data) => data.rfqFormData.terms);
   const termFiles = useSelector((data) => data.rfqFormData.term_and_condition_files);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [countryCode , setCountryCode] = useState ([]);
+  const [ onecountrycode ,setonecountrycode] = useState("");
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
 
+  const fetchCountryCodes = () => {
+      getCountryCodes()
+        .then((response) => {
+          if (response?.data) {
+            setCountryCode(response.data);
+          } else {
+            setCountryCode([]);
+          }
+        })
+        .catch((error) => {
+          console.log("Error fetching countries:", error);
+          setCountryCode([]);
+        });
+    };
 
   const getAllProjects = () => {
     getProjectList()
@@ -183,12 +200,17 @@ const CreateRFQ = () => {
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
+    const fullMobile = `${onecountrycode}-${resetForm.contact_number.trim().replace(/^0+/, "")}`
     let payload = {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       ...rfqFormDataRef.current,
-      project_id: rfqFormDataRef.current.project_id || -1
+      project_id: rfqFormDataRef.current.project_id || -1,
+      contact_number:fullMobile
+      
     };
+
+    console.log("checking if payload is working or not",payload);
 
     createRfq(payload)
       .then((res) => {
@@ -262,6 +284,7 @@ const CreateRFQ = () => {
     getVendorApproveList();
     getAllProjects();
     getDraftInitialData();
+    fetchCountryCodes();
 
   }, []);
 
@@ -300,329 +323,421 @@ const CreateRFQ = () => {
       router.events.off("routeChangeStart", handleRouteChange);
     };
   }, [hasUnsavedChanges, router]);
+ 
+  const countryCodeMatch = rfqFormDataFromStore.contact_number.match(/^\+(\d{1,4})-/);
+  const countryCode1 = countryCodeMatch ? countryCodeMatch[0].slice(0, -1) : null; // Extracting country code from contact number
 
+
+  
+  
+  const selectedCountry = countryCode.find(
+    (item) => item.phone_code === countryCode1
+  );           // Getting selected country from country code list
+
+ 
+  
 
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
       <div className="create-rfq-con">
-
         {/* If no active subscription is found */}
-        {(userProfile && !userProfile?.subscription_plan_id) ? (
+        {userProfile && !userProfile?.subscription_plan_id ? (
           <div class="subscription_required">
             <span>
               You need to purchase subscription to perform this action
             </span>
           </div>
-        )
-          : (
-            <>
-              {/* Add Products Button */}
-              <div className="details-table mt-0">
-                {!loading && rfqProducts.length == 0 ? (
-                  <div className="text-center">
-                    <Link href="/vendor/all" className="btn btn-primary">
-                      Add Products
+        ) : (
+          <>
+            {/* Add Products Button */}
+            <div className="details-table mt-0">
+              {!loading && rfqProducts.length == 0 ? (
+                <div className="text-center">
+                  <Link href="/vendor/all" className="btn btn-primary">
+                    Add Products
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <div className="col-md-3 mb-3">
+                    <h4>Select Project</h4>
+                    <Select
+                      options={projects}
+                      value={projects.find(
+                        (project) =>
+                          project.value === rfqFormDataFromStore.project_id
+                      )}
+                      defaultValue={-1}
+                      onChange={(selectedOption, actionMeta) =>
+                        handleFormFieldChange(null, selectedOption, actionMeta)
+                      }
+                      name="project_id"
+                      placeholder="Select"
+                      isClearable
+                    />
+                  </div>
+
+                  {/* RFQ Products Table */}
+                  <h4>Review Products</h4>
+                  <div
+                    className=""
+                    style={{
+                      height: "fit-content",
+                      background: "#ffffa",
+                      border: "2px solid #CCCCCC",
+                      borderRadius: "10px",
+                      padding: "10px",
+                    }}
+                  >
+                    <Accordion flush defaultActiveKey="">
+                      {rfqProducts &&
+                        rfqProducts.length > 0 &&
+                        rfqProducts.map((product) => {
+                          return (
+                            <Item
+                              vendorApprovedList={vendorApprovedList}
+                              data={product}
+                              rfq_id={rfqDetails}
+                              setHasUnsavedChanges={setHasUnsavedChanges}
+                              getDraftInitialData={getDraftInitialData}
+                              saveDraft={handleSaveDraft}
+                            />
+                          );
+                        })}
+                    </Accordion>
+                  </div>
+
+                  <div className="float-end addmore mt-4 ">
+                    <Link href="/vendor/all" className="me-2">
+                      Add More Products
                     </Link>
                   </div>
-                )
-                  : (
-                    <>
 
-                      <div className="col-md-3 mb-3">
-                        <h4>Select Project</h4>
-                        <Select
-                          options={projects}
-                          value={projects.find((project) => project.value === rfqFormDataFromStore.project_id)}
-                          defaultValue={-1}
-                          onChange={(selectedOption, actionMeta) => handleFormFieldChange(null, selectedOption, actionMeta)}
-                          name="project_id"
-                          placeholder="Select"
-                          isClearable
-                        />
-                      </div>
+                  {loading && <Loader />}
 
-                      {/* RFQ Products Table */}
-                      <h4>Review Products</h4>
-                      <div className=""  style={{height:"fit-content", background: "#ffffa",  border: "2px solid #CCCCCC", borderRadius: "10px", padding:"10px" }}>
-                      <Accordion flush defaultActiveKey="" >
+                  {/* Terms Checkbox Section */}
+                  <div className="create-rfq-con-2 sc-pt-50">
+                    <div className="row">
+                      {!loading && allTerms.length > 0 && (
+                        <div className="col-md-8 createR-ffq-1">
+                          <h4>Suggested Terms</h4>
 
-                            {rfqProducts && rfqProducts.length > 0 &&
-                              rfqProducts.map((product) => {
-                                return (
-                                  <Item
-                                    vendorApprovedList={vendorApprovedList}
-                                    data={product}
-                                    rfq_id={rfqDetails}
-                                    setHasUnsavedChanges={setHasUnsavedChanges}
-                                    getDraftInitialData={getDraftInitialData}
-                                    saveDraft={handleSaveDraft}
+                          <ol className="custom-ol">
+                            {allTerms.map((item) => {
+                              return (
+                                <li key={`term-item-${item.id}`}>
+                                  <input
+                                    type="checkbox"
+                                    id={`term-item-${item.id}`}
+                                    checked={item.selected}
+                                    onChange={(e) => handleTermChange(e, item)}
                                   />
-                                );
-                              })}
+                                  <label htmlFor={`term-item-${item.id}`}>
+                                    {item?.term_content}
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        </div>
+                      )}
 
-                      </Accordion>
-                      </div>
+                      {/* Other Form Field Section */}
+                      <div className="col-md-8 createR-ffq-2">
+                        <Formik
+                          enableReinitialize={true}
+                          validateOnMount={true}
+                          initialValues={{
+                            is_published: rfqFormDataFromStore.is_published,
+                            comment: rfqFormDataFromStore.comment,
+                            response_email: rfqFormDataFromStore.response_email,
+                            contact_name: rfqFormDataFromStore.contact_name,
+                            contact_number: rfqFormDataFromStore.contact_number.replace(/^\+\d{1,4}-/, ''),
+                            company_name: rfqFormDataFromStore.company_name,
+                            bid_end_date: rfqFormDataFromStore.bid_end_date,
+                            rfq_type: rfqFormDataFromStore.rfq_type,
+                            reverse_auction:
+                              rfqFormDataFromStore.reverse_auction,
+                            location: rfqFormDataFromStore.location,
+                            countryCode:"+91"
+                          }}
+                          validationSchema={CreateRFQSchema}
+                          onSubmit={(values, { resetForm }) =>
+                            handleCreateRFQ(values, resetForm)
+                          }
+                        >
+                          {({ errors, touched, isValid }) => (
+                            <Form className="add-your-term-form">
+                              <FormikField
+                                label="Add your own terms"
+                                placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
+                                type="textarea"
+                                rows="5"
+                                name="comment"
+                                touched={touched}
+                                errors={errors}
+                                enableHandleChange={true}
+                                handleChange={handleFormFieldChange}
+                              />
 
-                      <div className="float-end addmore mt-4 ">
-                        <Link href="/vendor/all" className="me-2" >
-                          Add More Products
-                        </Link>
-                      </div>
+                              <div className="row mt-2">
+                                <div className="custom-file">
+                                  <label
+                                    htmlFor="customFile"
+                                    className="custom-file-label"
+                                  >
+                                    Upload Your Terms (Optional)
+                                  </label>
+                                  <input
+                                    type="file"
+                                    accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                    className="custom-file-input"
+                                    id="customFile"
+                                    multiple
+                                    onChange={(e) => handleTermFiles("add", e)}
+                                  />
+                                  {termFiles.length > 0 && (
+                                    <div className="row mt-2">
+                                      {termFiles.map((term_file) => (
+                                        <div
+                                          key={term_file}
+                                          className="col-md-6 col-lg-4"
+                                        >
+                                          <a
+                                            href={term_file}
+                                            target="_blank"
+                                            className="file-badge mb-2"
+                                            type="button"
+                                          >
+                                            <span
+                                              className="text-truncate me-3"
+                                              style={{ maxWidth: "90%" }}
+                                            >
+                                              {extractfileName(term_file)}
+                                            </span>
+                                            <FontAwesomeIcon
+                                              icon={faClose}
+                                              fontSize={15}
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                handleTermFiles(
+                                                  "remove",
+                                                  term_file
+                                                );
+                                              }}
+                                            />
+                                          </a>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
 
-                      {loading && <Loader />}
-
-                      {/* Terms Checkbox Section */}
-                      <div className="create-rfq-con-2 sc-pt-50">
-                        <div className="row">
-                          {!loading && allTerms.length > 0 && (
-                            <div className="col-md-8 createR-ffq-1">
-                              <h4>Suggested Terms</h4>
-
-                              <ol className="custom-ol">
-                                {allTerms.map((item) => {
-                                  return (
-                                    <li key={`term-item-${item.id}`}>
-                                      <input
-                                        type="checkbox"
-                                        id={`term-item-${item.id}`}
-                                        checked={item.selected}
-                                        onChange={(e) => handleTermChange(e, item)}
-                                      />
-                                      <label htmlFor={`term-item-${item.id}`}>
-                                        {item?.term_content}
-                                      </label>
-                                    </li>
-                                  );
-                                })}
-                              </ol>
-                            </div>
-                          )}
-
-                          {/* Other Form Field Section */}
-                          <div className="col-md-8 createR-ffq-2">
-                            <Formik
-                              enableReinitialize={true}
-                              validateOnMount={true}
-                              initialValues={{
-                                is_published: rfqFormDataFromStore.is_published,
-                                comment: rfqFormDataFromStore.comment,
-                                response_email: rfqFormDataFromStore.response_email,
-                                contact_name: rfqFormDataFromStore.contact_name,
-                                contact_number: rfqFormDataFromStore.contact_number,
-                                company_name: rfqFormDataFromStore.company_name,
-                                bid_end_date: rfqFormDataFromStore.bid_end_date,
-                                rfq_type: rfqFormDataFromStore.rfq_type,
-                                reverse_auction: rfqFormDataFromStore.reverse_auction,
-                                location: rfqFormDataFromStore.location
-                              }}
-                              validationSchema={CreateRFQSchema}
-                              onSubmit={(values, { resetForm }) =>
-                                handleCreateRFQ(values, resetForm)
-                              }
-                            >
-                              {({ errors, touched, isValid }) => (
-                                <Form className="add-your-term-form">
+                              <div className="row mt-2">
+                                <div className="col-md-6">
                                   <FormikField
-                                    label="Add your own terms"
-                                    placeholder="You can mention your terms regarding Freight Charges, Payment Terms, Performance Bank Guarantee, Packing & Forwarding Charges, Delivery Period, Liquidated Damages, Transit Insurance and more"
-                                    type="textarea"
-                                    rows="5"
-                                    name="comment"
-                                    touched={touched}
-                                    errors={errors}
+                                    label="Email"
+                                    value={rfqFormDataFromStore.response_email}
                                     enableHandleChange={true}
                                     handleChange={handleFormFieldChange}
+                                    type="email"
+                                    isRequired={true}
+                                    name="response_email"
+                                    touched={touched}
+                                    errors={errors}
                                   />
+                                </div>
+                                <div className="col-md-6">
+                                  <FormikField
+                                    label="Contact person"
+                                    value={rfqFormDataFromStore.contact_name}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="text"
+                                    isRequired={true}
+                                    name="contact_name"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                                <div className="col-md-6">
+                                  <label className="form-label">
+                                    Contact Number{" "}
+                                    <span className="text-danger">*</span>
+                                  </label>
 
-                                  <div className="row mt-2">
-                                    <div className="custom-file">
-                                      <label htmlFor="customFile" className="custom-file-label">
-                                        Upload Your Terms (Optional)
-                                      </label>
-                                      <input
-                                        type="file"
-                                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                                        className="custom-file-input"
-                                        id="customFile"
-                                        multiple
-                                        onChange={(e) => handleTermFiles("add", e)}
-                                      />
-                                      {termFiles.length > 0 && (
-                                        <div className="row mt-2">
-                                          {termFiles.map((term_file) => (
-                                            <div key={term_file} className="col-md-6 col-lg-4">
-                                              <a href={term_file} target="_blank" className="file-badge mb-2" type="button" >
-                                                <span className="text-truncate me-3" style={{ maxWidth: "90%" }}>{extractfileName(term_file)}</span>
-                                                <FontAwesomeIcon
-                                                  icon={faClose}
-                                                  fontSize={15}
-                                                  onClick={(e) => {
-                                                    e.preventDefault();
-                                                    handleTermFiles("remove", term_file)
-                                                  }} />
-                                              </a>
-                                            </div>
-                                          ))}
+                                  <div className="d-flex">
+                                    {/* Country Code Dropdown */}
+                                    <Field
+                                      as="select"
+                                      name="countryCode"
+                                      className="form-select"
+                                      style={{
+                                        maxWidth: "100px",
+                                        marginRight: "6px",
+                                        maxHeight: "44px",
+                                      }}
+                                      value={onecountrycode}
+                                      onChange={(e) =>
+                                        setonecountrycode(e.target.value)
+                                      }
+                                    >
+                                      <option value="countryCode">{selectedCountry?.country_code} ({selectedCountry?.phone_code})</option>
+                                      {countryCode.map((country) => (
+                                        <option
+                                          key={country.id}
+                                          value={country.phone_code}
+                                        >
+                                          {country.country_code} (
+                                          {country.phone_code})
+                                        </option>
+                                      ))}
+                                    </Field>
+
+                                    {/* Mobile Number Input */}
+                                    <Field
+                                      type="text"
+                                      name="contact_number"
+                                      className={`form-control ${
+                                        touched.contact_number &&
+                                        errors.contact_number
+                                          ? "is-invalid"
+                                          : ""
+                                      }`}
+                                      placeholder="Enter mobile number"
+                                      value={
+                                        rfqFormDataFromStore.contact_number?.replace(/^\+\d{1,4}-/, '') || ''
+                                      }
+                                      onChange={handleFormFieldChange}
+                                      style={{ marginTop: "0px" }}
+                                    />
+
+                                    {touched.contact_number &&
+                                      errors.contact_number && (
+                                        <div className="invalid-feedback">
+                                          {errors.contact_number}
                                         </div>
                                       )}
-                                    </div>
-
                                   </div>
+                                </div>
 
-                                  <div className="row mt-2">
-                                    <div className="col-md-6">
-                                      <FormikField
-                                        label="Email"
-                                        value={rfqFormDataFromStore.response_email}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="email"
-                                        isRequired={true}
-                                        name="response_email"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-6">
-                                      <FormikField
-                                        label="Contact person"
-                                        value={rfqFormDataFromStore.contact_name}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="text"
-                                        isRequired={true}
-                                        name="contact_name"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-6">
-                                      <FormikField
-                                        label="Contact Number"
-                                        value={rfqFormDataFromStore.contact_number}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="text"
-                                        isRequired={true}
-                                        name="contact_number"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-6">
-                                      <FormikField
-                                        label="Company Name"
-                                        value={rfqFormDataFromStore.company_name}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="text"
-                                        isRequired={true}
-                                        name="company_name"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                  </div>
+                                <div className="col-md-6">
+                                  <FormikField
+                                    label="Company Name"
+                                    value={rfqFormDataFromStore.company_name}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="text"
+                                    isRequired={true}
+                                    name="company_name"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                              </div>
 
-                                  <div className="row mb-2">
-                                    <div className="col-md-4">
-                                      <FormikField
-                                        label="RFQ Type"
-                                        value={rfqFormDataFromStore.rfq_type}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="select"
-                                        selectOptions={[
-                                          { label: "Select RFQ Type", value: '' },
-                                          { label: "Budgetary", value: 'budgetary' },
-                                          { label: "Firm", value: 'firm' }
-                                        ]}
-                                        isRequired={false}
-                                        name="rfq_type"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-4">
-                                      <FormikField
-                                        label="Reverse Auction"
-                                        value={rfqFormDataFromStore.reverse_auction}
-                                        defaultValue={0}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="select"
-                                        selectOptions={[
-                                          { label: "Enable", value: 1 },
-                                          { label: "Disable", value: 0 }
-                                        ]}
-                                        isRequired={true}
-                                        name="reverse_auction"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-4">
-                                      <FormikField
-                                        label="Procurement end date"
-                                        value={rfqFormDataFromStore.bid_end_date}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="date"
-                                        isRequired={true}
-                                        name="bid_end_date"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                    <div className="col-md-12">
-                                      <FormikField
-                                        label="Delivery location"
-                                        value={rfqFormDataFromStore.location}
-                                        enableHandleChange={true}
-                                        handleChange={handleFormFieldChange}
-                                        type="text"
-                                        isRequired={false}
-                                        name="location"
-                                        touched={touched}
-                                        errors={errors}
-                                      />
-                                    </div>
-                                  </div>
+                              <div className="row mb-2">
+                                <div className="col-md-4">
+                                  <FormikField
+                                    label="RFQ Type"
+                                    value={rfqFormDataFromStore.rfq_type}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="select"
+                                    selectOptions={[
+                                      { label: "Select RFQ Type", value: "" },
+                                      {
+                                        label: "Budgetary",
+                                        value: "budgetary",
+                                      },
+                                      { label: "Firm", value: "firm" },
+                                    ]}
+                                    isRequired={false}
+                                    name="rfq_type"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                                <div className="col-md-4">
+                                  <FormikField
+                                    label="Reverse Auction"
+                                    value={rfqFormDataFromStore.reverse_auction}
+                                    defaultValue={0}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="select"
+                                    selectOptions={[
+                                      { label: "Enable", value: 1 },
+                                      { label: "Disable", value: 0 },
+                                    ]}
+                                    isRequired={true}
+                                    name="reverse_auction"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                                <div className="col-md-4">
+                                  <FormikField
+                                    label="Procurement end date"
+                                    value={rfqFormDataFromStore.bid_end_date}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="date"
+                                    isRequired={true}
+                                    name="bid_end_date"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                                <div className="col-md-12">
+                                  <FormikField
+                                    label="Delivery location"
+                                    value={rfqFormDataFromStore.location}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="text"
+                                    isRequired={false}
+                                    name="location"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                              </div>
 
-                                  <button
-                                    type="submit"
-                                    className="btn btn-secondary mt-2 me-3"
-                                    disabled={!isValid}
-                                  >
-                                    Create RFQ
-                                  </button>
+                              <button
+                                type="submit"
+                                className="btn btn-secondary mt-2 me-3"
+                                disabled={!isValid}
+                              >
+                                Create RFQ
+                              </button>
 
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary mt-2"
-                                    onClick={handleSaveDraft}
-                                  // fix here
-                                  // disabled={!isValid}
-                                  >
-                                    Save Changes
-                                  </button>
-
-                                </Form>
-                              )}
-                            </Formik>
-                            <p className="mt-2">
-                              This action will send RFQs to all selected vendors for the
-                              relevant product.
-                            </p>
-                          </div>
-                        </div>
+                              <button
+                                type="button"
+                                className="btn btn-secondary mt-2"
+                                onClick={handleSaveDraft}
+                                // fix here
+                                // disabled={!isValid}
+                              >
+                                Save Changes
+                              </button>
+                            </Form>
+                          )}
+                        </Formik>
+                        <p className="mt-2">
+                          This action will send RFQs to all selected vendors for
+                          the relevant product.
+                        </p>
                       </div>
-                    </>
-                  )}
-              </div>
-            </>
-          )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </>
   );

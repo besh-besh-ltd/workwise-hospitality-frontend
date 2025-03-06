@@ -2,11 +2,12 @@ import { RegisterService } from "@/services/Auth";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {  toast } from "react-toastify";
 import * as yup from "yup";
 import FullLoader from "../shared/FullLoader";
 import { useRouter } from "next/router";
+import { getCountryCodes } from "@/services/cms";
 
   {/* registerAs = vendor or buyer valid values */}
 const Register = ({registerAs}) => {
@@ -14,6 +15,25 @@ const Register = ({registerAs}) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showCPassword, setShowCPassword] = useState(false);
   const [loading, setloading] = useState(false);
+  const [countryCode , setCountryCode] = useState([]);
+
+
+
+  useEffect(() => {
+    const fetchCountryCodes = async () => {
+      try {
+        const res = await getCountryCodes();
+        setCountryCode(res.data);
+      } catch (error) {
+        console.error("Error fetching country codes:", error);
+      }
+    };
+  
+    fetchCountryCodes();
+  }, []);
+  
+
+
   // Set State Change
   const handleChange = (setState) => (event) => {
     setState(event);
@@ -27,6 +47,7 @@ const Register = ({registerAs}) => {
     register_as : registerAs == "vendor" ? "3" : registerAs == "buyer" ? "2" : "",
     password: "",
     confirm_password: "",
+    countryCode :"+91"
   };
   // Register Initial Validations
   const validateSchema = yup.object().shape({
@@ -46,11 +67,11 @@ const Register = ({registerAs}) => {
     mobile: yup
       .string()
       .matches(
-        /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-        "please enter valid mobile number"
+        /^[+]?[0-9\s-]{7,15}$/,
+        "Please enter a valid mobile number (7-15 digits, optional +)"
       )
-      .min(10, "Min 10 digit is required")
-      .max(11, "Mobile number not more than 11 digit long")
+      .min(7, "Mobile number must be at least 7 digits long")
+      .max(15, "Mobile number must not be more than 15 digits long")
       .required("Mobile number is required"),
     organization_name: yup.string().required("Organization name is required"),
     register_as: yup.string().required("Register as is required"),
@@ -70,7 +91,16 @@ const Register = ({registerAs}) => {
 
   const registerSubmitHandler = (values, resetForm) => {
    setloading(true);
-    RegisterService(values)
+
+   console.log("checking again ",values);
+   
+   const fullMobile = `${values.countryCode}-${values.mobile.trim().replace(/^0+/, '')}`;
+   const { countryCode, ...updatedValues } = { 
+    ...values, 
+    mobile: fullMobile 
+  };
+    console.log("check again",updatedValues);
+    RegisterService(updatedValues)
       .then((response) => {
         setloading(false);
         resetForm();
@@ -182,20 +212,48 @@ const Register = ({registerAs}) => {
                 )}
               </div>
               <div className="form-group">
-                <label htmlFor="mobile">
-                  Phone No. <sup>*</sup>
-                </label>
-                <Field
-                  type="text"
-                  id="mobile"
-                  name="mobile"
-                  placeholder="Ex. 9123456789"
-                />
-                {touched.mobile && errors.mobile && (
-                  <div className="form-error">{errors.mobile}</div>
+                <div className="d-flex">
+                  {/* Country Code Dropdown */}
+                  <Field
+                    type="text"
+                    as="select"
+                    name="countryCode"
+                    className="form-select me-2 w-auto"
+                    style={{ color: "#444" }} // Dark color for the selected option
+                  >
+                    <option value="+91" style={{ color: "#444" }}>
+                      IN (+91)
+                    </option>
+                    {countryCode.map((item) => (
+                      <option
+                        key={item.id}
+                        value={item.phone_code}
+                        style={{ color: "#444" }}
+                      >
+                        {item.country_code} ({item.phone_code})
+                      </option>
+                    ))}
+                  </Field>
+
+                  {/* Phone Number Input */}
+                  <Field
+                    type="text"
+                    id="mobile"
+                    name="mobile"
+                    placeholder="Ex. 9123456789"
+                    className="form-control"
+                    style={{
+                      "::placeholder": { color: "#6c757d", opacity: 1 },
+                    }}
+                  />
+                </div>
+
+                {/* Display validation errors */}
+                {touched[name] && errors[name] && (
+                  <div className="form-error">{errors[name]}</div>
                 )}
               </div>
-             {/* 
+              {/* 
               <div className="form-group">
                 <label htmlFor="register_as">
                   Register As <sup>*</sup>
