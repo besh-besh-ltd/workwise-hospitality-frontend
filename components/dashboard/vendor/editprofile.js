@@ -442,7 +442,7 @@ const EditProfile = () => {
   const selectedCountryCode = countryCode.find(
     (item) => item.phone_code === extractedCountryCode
   );
-  console.log("selectedCountryCode", selectedCountryCode);
+  
 
   return (
     <>
@@ -561,7 +561,7 @@ const EditProfile = () => {
                                       setonecountrycode(e.target.value)
                                     }
                                   >
-                                    <option value="countryCode">{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                    <option value={selectedCountryCode?.phone_code}>{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
                                     {countryCode.map((country) => (
                                       <option
                                         key={country.id}
@@ -995,7 +995,7 @@ const EditProfile = () => {
                                           setSelectedSpocOption({
                                             spoc_name: spoc.name,
                                             spoc_email: spoc.email,
-                                            spoc_mobile: spoc.mobile.trim().replace(/^[^-]*-/, ""),
+                                            spoc_mobile: spoc.mobile,
                                             spoc_role: spoc.role,
                                           });
                                           setSpocId(spoc.id);

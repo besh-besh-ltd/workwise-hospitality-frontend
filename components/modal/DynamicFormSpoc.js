@@ -13,12 +13,12 @@ const DynamicFormSpoc = ({
     countryCode
 }) => {
 
-    const [selectedPhoneCode, setSelectedPhoneCode] = useState("+91"); // Default country code
+   
 
     const initialSpocValue = {
         spoc_name: type === "create-spoc" ? "" : spocData?.spoc_name,
         spoc_email: type === "create-spoc" ? "" : spocData?.spoc_email,
-        spoc_mobile: type === "create-spoc" ? "" : spocData?.spoc_mobile,
+        spoc_mobile: type === "create-spoc" ? "" : spocData?.spoc_mobile.trim().replace(/^[^-]*-/, ""),
         spoc_role: type === "create-spoc" ? "" : spocData?.spoc_role
     };
 
@@ -33,167 +33,211 @@ const DynamicFormSpoc = ({
             ),
         spoc_mobile: yup.string()
             .matches(
-                /^[0-9]{10,15}$/,
+                /^[0-9]{7,15}$/,
                 "Please enter a valid mobile number (10-15 digits)"
             )
     });
+  
+    const defaultCountryCode = spocData?.spoc_mobile?.trim().match(/^\+\d+(?=-)/)?.[0] || "";
+
+    // Find the matched country object
+    const matchedCountry = countryCode.find(country => country.phone_code === defaultCountryCode) || null;
+
+    const [selectedPhoneCode, setSelectedPhoneCode] = useState(matchedCountry?.phone_code || "+91");
+
+
+    
 
     return (
-        <Modal
-            isOpen={openModal}
-            onRequestClose={closeModal}
-            ariaHideApp={false}
-            contentLabel={type === "create-spoc" ? "Add Spoc Modal" : "Update Spoc Modal"}
-            className="login-register"
-            style={{
-                overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)" },
-                content: {
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    maxWidth: "70vw",
-                    width: "70vw",
-                    border: "none",
-                    background: "transparent",
-                    overflow: "hidden",
-                    padding: "40px",
-                    maxHeight: "90vh",
-                    height: "80vh",
-                },
-            }}
-        >
-            <div className="modal-body contact-sec-modal w-75 mx-auto">
-                <div className="contact-sec-3 flex">
-                    <div className="contact-sec-3-form">
-                        <div className="contact-form w-100">
-                            <div className="d-flex justify-content-between align-items-center mb-4">
-                                <h2 className="tab-titlex m-0">
-                                    {type === "create-spoc" ? "New SPOC" : "Edit SPOC"}
-                                </h2>
-                                <button type="button" onClick={closeModal} className="btn-close" aria-label="Close"></button>
-                            </div>
-
-                            <Formik
-                                initialValues={initialSpocValue}
-                                validationSchema={validateSpocSchema}
-                                onSubmit={(values, { resetForm }) => {
-                                    const formattedValues = {
-                                        ...values,
-                                        spoc_mobile: selectedPhoneCode + '-' + values.spoc_mobile.replace(/^0+/, '')
-                                    };
-
-                                    type === "create-spoc"
-                                        ? handleSpoc(formattedValues, resetForm)
-                                        : handleEditSpoc(formattedValues, resetForm);
-                                }}
-                            >
-                                {({ errors, isValid, touched }) => (
-                                    <Form className="row add-vendor-modal-form w-100">
-                                        <div className="col-md-12">
-                                            <div className="row">
-                                                <div className="col-md-6">
-                                                    <div className="form-group">
-                                                        <label htmlFor="spoc_name">
-                                                            Name <sup>*</sup>
-                                                        </label>
-                                                        <Field
-                                                            type="text"
-                                                            id="spoc_name"
-                                                            name="spoc_name"
-                                                            placeholder="Spoc Name"
-                                                        />
-                                                        {touched.spoc_name && errors.spoc_name && (
-                                                            <div className="form-error">{errors.spoc_name}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="col-md-6">
-                                                    <div className="form-group">
-                                                        <label htmlFor="spoc_email">
-                                                            Email <sup>*</sup>
-                                                        </label>
-                                                        <Field
-                                                            type="text"
-                                                            id="spoc_email"
-                                                            name="spoc_email"
-                                                            placeholder="Spoc Email"
-                                                        />
-                                                        {touched.spoc_email && errors.spoc_email && (
-                                                            <div className="form-error">{errors.spoc_email}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Mobile Number with Country Code */}
-                                            <div className="row">
-                                                <div className="col-md-6">
-                                                    <div className="form-group">
-                                                        <label htmlFor="spoc_mobile">
-                                                            Mobile <sup>*</sup>
-                                                        </label>
-                                                        <div className="d-flex">
-                                                            <select
-                                                                className="form-control"
-                                                                style={{ width: "70%", height: "54px", marginRight: "6px" }}
-                                                                value={selectedPhoneCode}
-                                                                onChange={(e) => setSelectedPhoneCode(e.target.value)}
-                                                            >
-                                                                {countryCode.map((country) => (
-                                                                    <option key={country.id} value={country.phone_code}>
-                                                                        {country.country_code} ({country.phone_code})
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            <Field
-                                                                type="text"
-                                                                id="spoc_mobile"
-                                                                name="spoc_mobile"
-                                                                placeholder="Spoc Mobile"
-                                                                className="form-control ml-2"
-                                                            />
-                                                        </div>
-                                                        {touched.spoc_mobile && errors.spoc_mobile && (
-                                                            <div className="form-error">{errors.spoc_mobile}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="col-md-6">
-                                                    <div className="form-group">
-                                                        <label htmlFor="spoc_role">Role</label>
-                                                        <Field
-                                                            type="text"
-                                                            id="spoc_role"
-                                                            name="spoc_role"
-                                                            placeholder="Spoc Role"
-                                                        />
-                                                        {touched.spoc_role && errors.spoc_role && (
-                                                            <div className="form-error">{errors.spoc_role}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="d-flex justify-content-end">
-                                                <button
-                                                    type="submit"
-                                                    disabled={!isValid}
-                                                    className="btn btn-success btn-sm"
-                                                >
-                                                    Submit
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </Form>
-                                )}
-                            </Formik>
-                        </div>
-                    </div>
+      <Modal
+        isOpen={openModal}
+        onRequestClose={closeModal}
+        ariaHideApp={false}
+        contentLabel={
+          type === "create-spoc" ? "Add Spoc Modal" : "Update Spoc Modal"
+        }
+        className="login-register"
+        style={{
+          overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)" },
+          content: {
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            maxWidth: "70vw",
+            width: "70vw",
+            border: "none",
+            background: "transparent",
+            overflow: "hidden",
+            padding: "40px",
+            maxHeight: "90vh",
+            height: "80vh",
+          },
+        }}
+      >
+        <div className="modal-body contact-sec-modal w-75 mx-auto">
+          <div className="contact-sec-3 flex">
+            <div className="contact-sec-3-form">
+              <div className="contact-form w-100">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h2 className="tab-titlex m-0">
+                    {type === "create-spoc" ? "New SPOC" : "Edit SPOC"}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="btn-close"
+                    aria-label="Close"
+                  ></button>
                 </div>
+
+                <Formik
+                  initialValues={initialSpocValue}
+                  validationSchema={validateSpocSchema}
+                  onSubmit={(values, { resetForm }) => {
+                    const formattedValues = {
+                      ...values,
+                      spoc_mobile:
+                        selectedPhoneCode +
+                        "-" +
+                        values.spoc_mobile.replace(/^0+/, ""),
+                    };
+
+                    type === "create-spoc"
+                      ? handleSpoc(formattedValues, resetForm)
+                      : handleEditSpoc(formattedValues, resetForm);
+                  }}
+                >
+                  {({ errors, isValid, touched }) => (
+                    <Form className="row add-vendor-modal-form w-100">
+                      <div className="col-md-12">
+                        <div className="row">
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label htmlFor="spoc_name">
+                                Name <sup>*</sup>
+                              </label>
+                              <Field
+                                type="text"
+                                id="spoc_name"
+                                name="spoc_name"
+                                placeholder="Spoc Name"
+                              />
+                              {touched.spoc_name && errors.spoc_name && (
+                                <div className="form-error">
+                                  {errors.spoc_name}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label htmlFor="spoc_email">
+                                Email <sup>*</sup>
+                              </label>
+                              <Field
+                                type="text"
+                                id="spoc_email"
+                                name="spoc_email"
+                                placeholder="Spoc Email"
+                              />
+                              {touched.spoc_email && errors.spoc_email && (
+                                <div className="form-error">
+                                  {errors.spoc_email}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mobile Number with Country Code */}
+                        <div className="row">
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label htmlFor="spoc_mobile">
+                                Mobile <sup>*</sup>
+                              </label>
+                              <div className="d-flex">
+                                <select
+                                  className="form-control"
+                                  style={{
+                                    width: "70%",
+                                    height: "54px",
+                                    marginRight: "6px",
+                                  }}
+                                  value={selectedPhoneCode || ""}
+                                  onChange={(e) =>
+                                    setSelectedPhoneCode(e.target.value)
+                                  }
+                                >
+                                  {matchedCountry && (
+                                    <option value={matchedCountry.phone_code}>
+                                      {matchedCountry.country_code} (
+                                      {matchedCountry.phone_code})
+                                    </option>
+                                  )}
+                                  {countryCode.map((country) => (
+                                    <option
+                                      key={country.id}
+                                      value={country.phone_code}
+                                    >
+                                      {country.country_code} (
+                                      {country.phone_code})
+                                    </option>
+                                  ))}
+                                </select>
+                                <Field
+                                  type="text"
+                                  id="spoc_mobile"
+                                  name="spoc_mobile"
+                                  placeholder="Spoc Mobile"
+                                  className="form-control ml-2"
+                                />
+                              </div>
+                              {touched.spoc_mobile && errors.spoc_mobile && (
+                                <div className="form-error">
+                                  {errors.spoc_mobile}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label htmlFor="spoc_role">Role</label>
+                              <Field
+                                type="text"
+                                id="spoc_role"
+                                name="spoc_role"
+                                placeholder="Spoc Role"
+                              />
+                              {touched.spoc_role && errors.spoc_role && (
+                                <div className="form-error">
+                                  {errors.spoc_role}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="d-flex justify-content-end">
+                          <button
+                            type="submit"
+                            disabled={!isValid}
+                            className="btn btn-success btn-sm"
+                          >
+                            Submit
+                          </button>
+                        </div>
+                      </div>
+                    </Form>
+                  )}
+                </Formik>
+              </div>
             </div>
-        </Modal>
+          </div>
+        </div>
+      </Modal>
     );
 };
 
