@@ -285,6 +285,17 @@ export const editSpoc = (payload,spocId) => {
         }
     })
   }
+
+  export const deleteSpoc = (spocId) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.delete(`users/delete-spoc/${spocId}`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+  }
   
 
 

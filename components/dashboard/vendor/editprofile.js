@@ -1,6 +1,7 @@
 import FormikField from "@/components/shared/FormikField";
 import Loader from "@/components/shared/Loader";
 import {
+  deleteSpoc,
   getProfile,
   getProfileDocuments,
   getVendorApproveList,
@@ -18,9 +19,10 @@ import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faFolderPlus } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faFolderPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
+import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
 
 const EditProfile = () => {
   // handling state for spoc
@@ -417,6 +419,25 @@ const EditProfile = () => {
         getProfileDetails();
       });
   };
+  
+  const handleDeleteSpoc = (id) => {
+    setCreateLoading(true);
+    setOpenAddSpoc(false);
+    deleteSpoc(id)
+      .then((res) => {
+        toast.success(res.message, { position: "top-right" });
+      })
+      .catch((error) => {
+        toast.error(error.message?.response?.data?.message, {
+          position: "top-right",
+        });
+        console.log(error);
+      })
+      .finally(() => {
+        setCreateLoading(false);
+        getProfileDetails();
+      });
+  }
 
   const handleEditSpoc = (values, resetForm) => {
     setCreateLoading(true);
@@ -984,27 +1005,38 @@ const EditProfile = () => {
                                       <td>{spoc.role}</td>
                                       <td>{spoc.email}</td>
                                       <td>{spoc.mobile}</td>
-                                      <td
-                                        role="button"
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                          setOpenAddSpoc({
-                                            status: true,
-                                            type: "edit-spoc",
-                                          });
-                                          setSelectedSpocOption({
-                                            spoc_name: spoc.name,
-                                            spoc_email: spoc.email,
-                                            spoc_mobile: spoc.mobile,
-                                            spoc_role: spoc.role,
-                                          });
-                                          setSpocId(spoc.id);
-                                        }}
-                                      >
-                                        <span className="me-2">
+                                      <td>
+                                        {/* Edit Button */}
+                                        <span
+                                          role="button"
+                                          className="cursor-pointer me-3" // Adds some gap between icons
+                                          onClick={() => {
+                                            setOpenAddSpoc({
+                                              status: true,
+                                              type: "edit-spoc",
+                                            });
+                                            setSelectedSpocOption({
+                                              spoc_name: spoc.name,
+                                              spoc_email: spoc.email,
+                                              spoc_mobile: spoc.mobile,
+                                              spoc_role: spoc.role,
+                                            });
+                                            setSpocId(spoc.id);
+                                          }}
+                                        >
                                           <FontAwesomeIcon icon={faEdit} />
                                         </span>
-                                        <span>Edit</span>
+
+                                        {/* Delete Button */}
+                                        <span
+                                          role="button"
+                                          className="cursor-pointer text-danger"
+                                          onClick={() =>
+                                            handleDeleteSpoc(spoc.id)
+                                          }
+                                        >
+                                          <FontAwesomeIcon icon={faTrashAlt} />
+                                        </span>
                                       </td>
                                     </tr>
                                   </>

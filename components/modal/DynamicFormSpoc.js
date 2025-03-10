@@ -34,7 +34,7 @@ const DynamicFormSpoc = ({
         spoc_mobile: yup.string()
             .matches(
                 /^[0-9]{7,15}$/,
-                "Please enter a valid mobile number (10-15 digits)"
+                "Please enter a valid mobile number (7-15 digits)"
             )
     });
   
