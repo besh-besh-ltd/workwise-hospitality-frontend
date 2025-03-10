@@ -1,3 +1,4 @@
+import axiosInstance from "@/lib/axios";
 import { handleUploadFile } from "@/services/rfq";
 
 export const textCapitalize = (str) => {
@@ -91,3 +92,5 @@ export const formatDate = (last_message_timestamp) => {
         day: "numeric",
     });
 };
+
+

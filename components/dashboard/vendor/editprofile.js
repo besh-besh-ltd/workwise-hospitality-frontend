@@ -1,6 +1,7 @@
 import FormikField from "@/components/shared/FormikField";
 import Loader from "@/components/shared/Loader";
 import {
+  deleteSpoc,
   getProfile,
   getProfileDocuments,
   getVendorApproveList,
@@ -16,11 +17,12 @@ import * as yup from "yup";
 import { components } from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
-import { getCities, getCountries, getStates } from "@/services/cms";
+import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faFolderPlus } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faFolderPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/free-solid-svg-icons";
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
+import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
 
 const EditProfile = () => {
   // handling state for spoc
@@ -42,11 +44,11 @@ const EditProfile = () => {
   const [selectedCountry, setselectedCountry] = useState(0);
   const [statesLoading, setstatesLoading] = useState(false);
   const [states, setstates] = useState([]);
-  const [selectedState, setselectedState] = useState(0);
+  const [selectedState, setselectedState] = useState("");
 
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
-  const [selectedCity, setselectedCity] = useState(0);
+  const [selectedCity, setselectedCity] = useState("");
 
   const [userDetails, setUserDetails] = useState(null);
   const [userDocuments, setUserDocuments] = useState(null);
@@ -67,6 +69,9 @@ const EditProfile = () => {
   const [selectedDocumentsFilesReset, setSelectedDocumentsFilesReset] =
     useState(false);
   const [selectedPTRFilesReset, setSelectedPTRFilesReset] = useState(false);
+  const [countryCode , setCountryCode] = useState([]);
+  const [onecountrycode , setonecountrycode] = useState("");
+  const [extractedCountryCode , setextractedCountryCode] = useState("");
 
   const validationSchema = yup.object().shape({
     name: yup.string().required("Vendor name is required"),
@@ -132,9 +137,24 @@ const EditProfile = () => {
     getVendorApproveLists();
     getProfileDetails();
     getProfileDocument();
+    fetchCountryCodes();
    
   }, []);
-
+  
+  const fetchCountryCodes = () => {
+    getCountryCodes()
+      .then((response) => {
+        if (response?.data) {
+          setCountryCode(response.data);
+        } else {
+          setCountryCode([]);
+        }
+      })
+      .catch((error) => {
+        console.log("Error fetching countries:", error);
+        setCountryCode([]);
+      });
+  };
   useEffect(() => {
     getCountries()
       .then((res) => {
@@ -205,8 +225,8 @@ const EditProfile = () => {
       setMainLoading(true);
       const res = await getProfile();
       setMainLoading(false);
-      console.log("Vendor details", res.data);
-
+      
+      setextractedCountryCode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "" : "");
       let locationData = { country: "", state: "", city: "" };
       if (res.data?.location) {
         try {
@@ -222,7 +242,7 @@ const EditProfile = () => {
       setUserDetails({
         name: res.data.name || "",
         address: res.data.address || "",
-        mobile: res.data.mobile || "",
+        mobile: res.data.mobile ? res.data.mobile.replace(/^\+\d{1,4}-/, '') : "",
         email: res.data.email || "",
         nature_of_business: res.data.nature_of_business || "",
         type_of_business: res.data.type_of_business || "",
@@ -321,13 +341,20 @@ const EditProfile = () => {
     setMainLoading(true);
     delete values.profile_image;
     
+
+    // Transform the values to include the location object
+    const fullmobile = `${onecountrycode}-${values.mobile
+      .trim()
+      .replace(/^0+/, "")}`;
     const updatedValues = {
       ...values,
       location: {
-        country: selectedCountry,
-        state: selectedState,
-        city: selectedCity
+        country: String(selectedCountry || ""), 
+        state: String(selectedState || ""), 
+        city: String(selectedCity || "")
       }
+      , mobile:fullmobile
+      
     };
    
    
@@ -392,6 +419,25 @@ const EditProfile = () => {
         getProfileDetails();
       });
   };
+  
+  const handleDeleteSpoc = (id) => {
+    setCreateLoading(true);
+    setOpenAddSpoc(false);
+    deleteSpoc(id)
+      .then((res) => {
+        toast.success(res.message, { position: "top-right" });
+      })
+      .catch((error) => {
+        toast.error(error.message?.response?.data?.message, {
+          position: "top-right",
+        });
+        console.log(error);
+      })
+      .finally(() => {
+        setCreateLoading(false);
+        getProfileDetails();
+      });
+  }
 
   const handleEditSpoc = (values, resetForm) => {
     setCreateLoading(true);
@@ -413,6 +459,11 @@ const EditProfile = () => {
         getProfileDetails();
       });
   };
+
+  const selectedCountryCode = countryCode.find(
+    (item) => item.phone_code === extractedCountryCode
+  );
+  
 
   return (
     <>
@@ -509,30 +560,81 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="Mobile"
-                                placeholder="Ex. 9123456789"
-                                isRequired={true}
-                                name="mobile"
-                                touched={touched}
-                                errors={errors}
-                              />
-                            </div>
-                          </div>
+                          <div className="row">
+                            {/* Mobile Number Field (Country Code + Input) */}
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label>Mobile</label>
+                                <div className="d-flex align-items-center">
+                                  {/* Country Code Dropdown */}
+                                  <Field
+                                    as="select"
+                                    name="countryCode"
+                                    className="form-control me-2 p-2"
+                                    style={{
+                                      width: "30%",
+                                      minHeight: "54px",
+                                      borderTopRightRadius: "0",
+                                      borderBottomRightRadius: "0",
+                                    }}
+                                    value={onecountrycode}
+                                    onChange={(e) =>
+                                      setonecountrycode(e.target.value)
+                                    }
+                                  >
+                                    <option value={selectedCountryCode?.phone_code}>{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                    {countryCode.map((country) => (
+                                      <option
+                                        key={country.id}
+                                        value={country.phone_code}
+                                      >
+                                        {country.country_code} (
+                                        {country.phone_code})
+                                      </option>
+                                    ))}
+                                  </Field>
 
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="Email"
-                                placeholder="@example.com"
-                                isRequired={true}
-                                name="email"
-                                type="email"
-                                touched={touched}
-                                errors={errors}
-                              />
+                                  {/* Mobile Number Input */}
+                                  <div style={{ flexGrow: 1 }}>
+                                    <Field
+                                      type="text"
+                                      name="mobile"
+                                      className={`form-control ${
+                                        touched.mobile && errors.mobile
+                                          ? "is-invalid"
+                                          : ""
+                                      }`}
+                                      placeholder="Ex. 9123456789"
+                                      style={{
+                                        width: "100%",
+                                        minHeight: "54px",
+                                        borderTopLeftRadius: "0",
+                                        borderBottomLeftRadius: "0",
+                                      }}
+                                    />
+                                    {touched.mobile && errors.mobile && (
+                                      <div className="invalid-feedback">
+                                        {errors.mobile}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Email Field */}
+                            <div className="col-md-6">
+                              <div className="form-group ">
+                                <FormikField
+                                  label="Email"
+                                  placeholder="@example.com"
+                                  isRequired={true}
+                                  name="email"
+                                  type="email"
+                                  touched={touched}
+                                  errors={errors}
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -558,22 +660,21 @@ const EditProfile = () => {
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>State</label>
-                              
-                                <select
-                                  onChange={(e) => handleStateChange(e)}
-                                  value={selectedState}
-                                >
-                                  <option value={0}>Select State</option>
-                                  {states &&
-                                    states.map((item) => {
-                                      return (
-                                        <option key={item.id} value={item.id}>
-                                          {item.state_name}
-                                        </option>
-                                      );
-                                    })}
-                                </select>
-                              
+
+                              <select
+                                onChange={(e) => handleStateChange(e)}
+                                value={selectedState}
+                              >
+                                <option value={0}>Select State</option>
+                                {states &&
+                                  states.map((item) => {
+                                    return (
+                                      <option key={item.id} value={item.id}>
+                                        {item.state_name}
+                                      </option>
+                                    );
+                                  })}
+                              </select>
                             </div>
                           </div>
                           <div className="col-md-4">
@@ -904,27 +1005,38 @@ const EditProfile = () => {
                                       <td>{spoc.role}</td>
                                       <td>{spoc.email}</td>
                                       <td>{spoc.mobile}</td>
-                                      <td
-                                        role="button"
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                          setOpenAddSpoc({
-                                            status: true,
-                                            type: "edit-spoc",
-                                          });
-                                          setSelectedSpocOption({
-                                            spoc_name: spoc.name,
-                                            spoc_email: spoc.email,
-                                            spoc_mobile: spoc.mobile,
-                                            spoc_role: spoc.role,
-                                          });
-                                          setSpocId(spoc.id);
-                                        }}
-                                      >
-                                        <span className="me-2">
+                                      <td>
+                                        {/* Edit Button */}
+                                        <span
+                                          role="button"
+                                          className="cursor-pointer me-3" // Adds some gap between icons
+                                          onClick={() => {
+                                            setOpenAddSpoc({
+                                              status: true,
+                                              type: "edit-spoc",
+                                            });
+                                            setSelectedSpocOption({
+                                              spoc_name: spoc.name,
+                                              spoc_email: spoc.email,
+                                              spoc_mobile: spoc.mobile,
+                                              spoc_role: spoc.role,
+                                            });
+                                            setSpocId(spoc.id);
+                                          }}
+                                        >
                                           <FontAwesomeIcon icon={faEdit} />
                                         </span>
-                                        <span>Edit</span>
+
+                                        {/* Delete Button */}
+                                        <span
+                                          role="button"
+                                          className="cursor-pointer text-danger"
+                                          onClick={() =>
+                                            handleDeleteSpoc(spoc.id)
+                                          }
+                                        >
+                                          <FontAwesomeIcon icon={faTrashAlt} />
+                                        </span>
                                       </td>
                                     </tr>
                                   </>
@@ -952,6 +1064,7 @@ const EditProfile = () => {
           closeModal={() => setOpenAddSpoc({ status: false })}
           handleSpoc={handleSpoc}
           handleEditSpoc={handleEditSpoc}
+          countryCode={countryCode}
         />
       )}
     </>

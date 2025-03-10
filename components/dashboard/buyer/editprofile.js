@@ -6,7 +6,12 @@ import {
   handleChangeProfilePicture,
   updateProfile,
 } from "@/services/Auth";
-import { getCities, getCountries, getStates } from "@/services/cms";
+import {
+  getCities,
+  getCountries,
+  getCountryCodes,
+  getStates,
+} from "@/services/cms";
 import {
   EditCompanyDetails,
   EditOnlyProfileSchema,
@@ -36,8 +41,12 @@ const EditProfile = () => {
   const [citiesLoading, setcitiesLoading] = useState(false);
   const [cities, setcities] = useState([]);
   const [selectedCity, setselectedCity] = useState(0);
+  const [countryCode, setCountryCode] = useState([]);
+  const [onecountrycode, setoneountrycode] = useState("");
 
   useEffect(() => {
+    fetchCountryCodes();
+    getProfileDetails();
     getCountries()
       .then((res) => {
         setcountryList(res.data); // Set country list state
@@ -45,10 +54,20 @@ const EditProfile = () => {
       .catch((err) => console.error("Error fetching countries:", err));
   }, []);
 
-  useEffect(()=>{
-    getProfileDetails();
-  },[]);
-
+  const fetchCountryCodes = () => {
+    getCountryCodes()
+      .then((response) => {
+        if (response?.data) {
+          setCountryCode(response.data);
+        } else {
+          setCountryCode([]);
+        }
+      })
+      .catch((error) => {
+        console.log("Error fetching countries:", error);
+        setCountryCode([]);
+      });
+  };
 
   useEffect(() => {
     if (selectedCountry) {
@@ -66,7 +85,7 @@ const EditProfile = () => {
     setselectedCountry(e.target.value);
     setselectedState(""); // Reset the state when the country changes
     setstates([]); // Clear the states to avoid old data being shown
-    setcities([]); 
+    setcities([]);
   };
 
   useEffect(() => {
@@ -100,35 +119,49 @@ const EditProfile = () => {
       setmainLoading(false);
       setuserProfile(res.data);
 
-       // Parse the location JSON string safely
-    let locationData = { country: "", state: "", city: "" };
-    if (res.data?.location) {
-      try {
-        locationData = JSON.parse(res.data.location);
-      } catch (error) {
-        console.error("Error parsing location data:", error);
+      // Parse the location JSON string safely
+      let locationData = { country: "", state: "", city: "" };
+      if (res.data?.location) {
+        try {
+          locationData = JSON.parse(res.data.location);
+        } catch (error) {
+          console.error("Error parsing location data:", error);
+        }
       }
-    }
-    setselectedCountry(locationData.country || "");
-    setselectedState(locationData.state || "");
-    setselectedCity(locationData.city || "");
+      setselectedCountry(locationData.country || "");
+      setselectedState(locationData.state || "");
+      setselectedCity(locationData.city || "");
     });
   };
 
   const handleUpdate = (values) => {
-    
     setsocialLoading(true);
-    
+
     // Transform the values to include the location object
+
+
+    let fullMobile;
+    if (values.countryCode == "") {
+      fullMobile = `${selectedCountryCode.phone_code}-${values.mobile
+        .trim()
+        .replace(/^0+/, "")}`;
+        console.log("fullMobile with dropdown", fullMobile);
+    } else {
+      fullMobile = `${values.countryCode}-${values.mobile
+        .trim()
+        .replace(/^0+/, "")}`;
+        console.log("fullMobile without dropdown", fullMobile);
+    }
+    const { countryCode, ...restValues } = values;
     const updatedValues = {
-      ...values,
+      ...restValues,
       location: {
         country: selectedCountry,
         state: selectedState,
-        city: selectedCity
-      }
+        city: selectedCity,
+      },
+      mobile: fullMobile,
     };
-    console.log("updated values",values);
 
     updateProfile(updatedValues, userProfile.id)
       .then((res) => {
@@ -161,6 +194,13 @@ const EditProfile = () => {
       .catch((err) => setprofileImageLoading(false));
   };
 
+  const extractedCountryCode =
+    userProfile?.mobile.match(/^\+?\d+/)?.[0] || "+91";
+
+  const selectedCountryCode = countryCode.find(
+    (item) => item.phone_code === extractedCountryCode
+  );
+  
   return (
     <>
       <Head>
@@ -232,18 +272,20 @@ const EditProfile = () => {
                       location: {
                         country: selectedCountry || "",
                         state: selectedState || "",
-                        city: selectedCity || ""
+                        city: selectedCity || "",
                       },
                       email: userProfile?.email ? userProfile?.email : "",
                       gstin: userProfile?.gstin ? userProfile?.gstin : "",
                       cin: userProfile?.cin ? userProfile?.cin : "",
-                      mobile: userProfile?.mobile ? userProfile?.mobile : "",
+                      mobile: userProfile?.mobile
+                        ? userProfile.mobile.trim().replace(/^[^-]*-/, "")
+                        : "",
+                      countryCode: "",
                     }}
                     validationSchema={EditCompanyDetails}
                     onSubmit={(values) => {
-                     handleUpdate(values);
+                      handleUpdate(values);
                     }}
-                    
                   >
                     {({ errors, touched }) => (
                       <Form>
@@ -290,20 +332,19 @@ const EditProfile = () => {
                           <div className="col-md-4">
                             <div className="form-group">
                               <label>State</label>
-                              
-                                <select
-                                  className="form-control mt-2"
-                                  onChange={(e) => handleStateChange(e)}
-                                  value={selectedState}
-                                >
-                                  <option value={0}>Select State</option>
-                                  {states.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.state_name}
-                                    </option>
-                                  ))}
-                                </select>
-                             
+
+                              <select
+                                className="form-control mt-2"
+                                onChange={(e) => handleStateChange(e)}
+                                value={selectedState}
+                              >
+                                <option value={0}>Select State</option>
+                                {states.map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.state_name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           </div>
 
@@ -328,24 +369,79 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Email"
-                              isRequired={true}
-                              type="email"
-                              name="email"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <FormikField
-                              label="Mobile"
-                              isRequired={true}
-                              name="mobile"
-                              touched={touched}
-                              errors={errors}
-                            />
+                          <div className="row">
+                            {/* Email Field */}
+                            <div className="col-12 col-md-6">
+                              <FormikField
+                                label="Email"
+                                isRequired={true}
+                                type="email"
+                                name="email"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+
+                            {/* Mobile Field */}
+                            <div className="col-md-6">
+                              <label className="form-label">
+                                Mobile <span className="text-danger">*</span>
+                              </label>
+
+                              {/* Flexbox for proper alignment */}
+                              <div className="d-flex align-items-center gap-2">
+                                {/* Country Code Dropdown */}
+                                <Field name="countryCode">
+                                  {({ field, form }) => (
+                                    <select
+                                      {...field}
+                                      className="form-select"
+                                      style={{
+                                        width: "50%",
+                                        height: "54px",
+                                      }}
+                                      onChange={(e) => {
+                                        form.setFieldValue(
+                                          "countryCode",
+                                          e.target.value
+                                        );
+                                        setoneountrycode(e.target.value); // Update external state
+                                      }}
+                                    >
+                                      <option value="countryCode">{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                      {countryCode.map((country) => (
+                                        <option
+                                          key={country.id}
+                                          value={country.phone_code}
+                                        >
+                                          {country.country_code} (
+                                          {country.phone_code})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </Field>
+
+                                {/* Mobile Number Input */}
+                                <Field
+                                  type="text"
+                                  name="mobile"
+                                  className={`form-control ${
+                                    touched.mobile && errors.mobile
+                                      ? "is-invalid"
+                                      : ""
+                                  }`}
+                                  placeholder="Enter mobile number"
+                                  style={{ height: "54px" }} // Setting height directly
+                                />
+
+                                {touched.mobile && errors.mobile && (
+                                  <div className="invalid-feedback">
+                                    {errors.mobile}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
 
                           <div className="col-md-6">
