@@ -41,7 +41,8 @@ const DynamicFormModal = ({
     closeModal,
     handleAddVendor,
     handleCreateProject,
-    handleEditProject
+    handleEditProject,
+    countryCodes
 }) => {
 
     const initialVendorValues = {
@@ -86,14 +87,16 @@ const DynamicFormModal = ({
                 "Please enter valid email address"
             )
             .required("Email is required"),
-        phone: yup.string()
+        phone: yup
+            .string()
             .matches(
-                /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-                "please enter valid mobile number"
+              /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
+              "Please enter a valid mobile number"
             )
-            .min(10, "Min 10 digit is required")
-            .max(12, "Mobile number not more than 11 digit long")
+            .min(7, "Minimum 7 digits are required")
+            .max(15, "Mobile number cannot be more than 15 digits long")
             .required("Mobile number is required")
+          
     });
 
     const validateProjectSchema = yup.object().shape({
@@ -260,12 +263,20 @@ const DynamicFormModal = ({
 
         const handleSubmit = (values,resetForm) => {
 
+            const fullMobile = `${values.countryCode}-${values.phone.trim().replace(/^0+/, '')}`;
+
+
+           const {countryCode, ...updatedData} = {
+            ...values,
+            phone: fullMobile
+           }
+
             if(currentProduct){
                 toast.error("Please Add/Remove The Selected Product First!", { position: "top-right" });
                 return;
             }
 
-            handleAddVendor(values,vendorProductDetails,resetForm);
+            handleAddVendor(updatedData,vendorProductDetails,resetForm);
             closeModal();
         }
 
@@ -285,296 +296,455 @@ Example:
 'Construction of a 500-meter pipeline at XYZ site, including material procurement, welding, and testing. The project duration is 6 months, with a deadline of [specific date]. Requires adherence to ISO standards and includes three key phases: excavation, installation, and testing.'`;
 
     return (
-        <>
-            <Modal
-                isOpen={openModal}
-                onRequestClose={closeModal}
-                ariaHideApp={false}
-                contentLabel={type === "add-vendor" ? 'Add Vendor Modal' : 'Create Project Modal'}
-                className="login-register"
-                style={{
-                    overlay: {
-                        backgroundColor: "rgba(0, 0, 0, 0.75)",
-                    },
-                    content: {
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        maxWidth: "90vw", // Adjust this value as needed
-                        width: "80vw", // Set to 'auto' or a specific value based on your design
-                        border: "none",
-                        background: "transparent",
-                        overflow: "hidden",
-                        padding: "50px",
-                        maxHeight: "100vh", // Adjust this value as needed\
-                        height: "90vh", // Adjust this value as needed
-                    },
-                }}
-            >
+      <>
+        <Modal
+          isOpen={openModal}
+          onRequestClose={closeModal}
+          ariaHideApp={false}
+          contentLabel={
+            type === "add-vendor" ? "Add Vendor Modal" : "Create Project Modal"
+          }
+          className="login-register"
+          style={{
+            overlay: {
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+            },
+            content: {
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              maxWidth: "90vw", // Adjust this value as needed
+              width: "80vw", // Set to 'auto' or a specific value based on your design
+              border: "none",
+              background: "transparent",
+              overflow: "hidden",
+              padding: "50px",
+              maxHeight: "100vh", // Adjust this value as needed\
+              height: "90vh", // Adjust this value as needed
+            },
+          }}
+        >
+          <div className="modal-header">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="btn-close"
+              aria-label="Close"
+            ></button>
+          </div>
 
-                <div className="modal-header">
-                    <button
-                        type="button"
-                        onClick={closeModal}
-                        className="btn-close"
-                        aria-label="Close"
-                    ></button>
-                </div>
+          <div className="modal-body contact-sec-modal" style={{}}>
+            <div className="contact-sec-3">
+              <div className="contact-sec-3-form">
+                <div className="contact-form">
+                  <h2 className="tab-titlex mb-4">
+                    {type === "add-vendor"
+                      ? "Add Single Vendor"
+                      : type === "create-project"
+                      ? "Create Project"
+                      : "Edit Project"}
+                  </h2>
+                  <Formik
+                    initialValues={
+                      type === "add-vendor"
+                        ? initialVendorValues
+                        : initialProjectValues
+                    }
+                    validationSchema={
+                      type === "add-vendor"
+                        ? validateVendorSchema
+                        : validateProjectSchema
+                    }
+                    onSubmit={(values, { resetForm }) => {
+                      type === "add-vendor"
+                        ? handleSubmit(values, resetForm)
+                        : type === "create-project"
+                        ? handleCreateProject(values, resetForm)
+                        : handleEditProject(values, resetForm);
+                    }}
+                  >
+                    {({ errors, isValid, touched, setFieldValue }) => (
+                      <Form className="row add-vendor-modal-form">
+                        <div className="col-md-6">
+                          {type === "add-vendor" ? (
+                            <>
+                              {/* add vendor section */}
+                              <div className="form-group">
+                                <label htmlFor="vendorName">
+                                  Vendor's Name <sup>*</sup>
+                                </label>
+                                <Field
+                                  type="text"
+                                  id="vendorName"
+                                  name="vendorName"
+                                  placeholder="Demo Manufactuters Pvt. Ltd."
+                                />
+                                {touched.vendorName && errors.vendorName && (
+                                  <div className="form-error">
+                                    {errors.vendorName}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="form-group">
+                                <label htmlFor="email">
+                                  Vendor's Email <sup>*</sup>
+                                </label>
+                                <Field
+                                  type="email"
+                                  id="email"
+                                  name="email"
+                                  placeholder="example@letsworkwise.com"
+                                />
+                                {touched.email && errors.email && (
+                                  <div className="form-error">
+                                    {errors.email}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="form-group">
+                                <label htmlFor="phone">
+                                  Phone No <sup>*</sup>
+                                </label>
 
-                <div className="modal-body contact-sec-modal" style={{}}>
-                    <div className="contact-sec-3">
-                        <div className="contact-sec-3-form">
-                            <div className="contact-form">
-                                <h2 className="tab-titlex mb-4">{type === "add-vendor" ? 'Add Single Vendor' : type === "create-project" ? 'Create Project' : 'Edit Project'}</h2>
-                                <Formik
-                                    initialValues={type === "add-vendor" ? initialVendorValues : initialProjectValues}
-                                    validationSchema={type === "add-vendor" ? validateVendorSchema : validateProjectSchema}
-                                    onSubmit={(values, { resetForm }) => {
-                                        type === "add-vendor"
-                                            ? handleSubmit(values, resetForm)
-                                            : type === "create-project"
-                                                ? handleCreateProject(values, resetForm)
-                                                : handleEditProject(values, resetForm)
-                                    }}
-                                >
-                                    {({ errors, isValid, touched,setFieldValue }) => (
-                                        <Form className="row add-vendor-modal-form">
-                                            <div className="col-md-6">
-                                                {type === "add-vendor"
-                                                    ?
-                                                    <>
-                                                        {/* add vendor section */}
-                                                        <div className="form-group">
-                                                            <label htmlFor="vendorName">Vendor's Name <sup>*</sup></label>
-                                                            <Field
-                                                                type="text"
-                                                                id="vendorName"
-                                                                name="vendorName"
-                                                                placeholder="Demo Manufactuters Pvt. Ltd."
-                                                            />
-                                                            {touched.vendorName && errors.vendorName && (
-                                                                <div className="form-error">{errors.vendorName}</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="form-group">
-                                                            <label htmlFor="email">Vendor's Email <sup>*</sup></label>
-                                                            <Field
-                                                                type="email"
-                                                                id="email"
-                                                                name="email"
-                                                                placeholder="example@letsworkwise.com"
-                                                            />
-                                                            {touched.email && errors.email && (
-                                                                <div className="form-error">{errors.email}</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="form-group">
-                                                            <label htmlFor="phone">Phone No <sup>*</sup></label>
-                                                            <Field
-                                                                type="text"
-                                                                id="phone"
-                                                                name="phone"
-                                                                placeholder="Ex. 9123456789"
-                                                            />
-                                                            {touched.phone && errors.phone && (
-                                                                <div className="form-error">{errors.phone}</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="form-group">
-                                                            <label htmlFor="is_private">Vendor Type: <sup>*</sup></label>
-                                                            <Field
-                                                                as="select"
-                                                                name="is_private"
-                                                                className={`form-control ${touched.is_private && errors.is_private ? 'is-invalid' : ''}`}  
-                                                                onChange={(e) => {
-                                                                    // Cast the value to a number and manually set the field value
-                                                                    setFieldValue("is_private", Number(e.target.value));
-                                                                }}
-                                                            >
-                                                                <option value={0}>Public</option>
-                                                                <option value={1}>Private</option>
-                                                            </Field>
-                                                            {touched.is_private && errors.is_private && (
-                                                                <div className="form-error">{errors.is_private}</div>
-                                                            )}
-                                                        </div>
-                                                    </>
-                                                    : <>
-                                                        {/* project fields section */}
-                                                        <div className="form-group">
-                                                            <label htmlFor="projectName">Project Name <sup>*</sup></label>
-                                                            <Field
-                                                                type="text"
-                                                                id="projectName"
-                                                                name="projectName"
-                                                                placeholder="Demo Project Name"
-                                                                disabled={type === "edit-project"}
-                                                            />
-                                                            {touched.projectName && errors.projectName && (
-                                                                <div className="form-error">{errors.projectName}</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="form-group">
-                                                            <label htmlFor="location">Location</label>
-                                                            <Field
-                                                                type="text"
-                                                                id="location"
-                                                                name="location"
-                                                                placeholder="JBR Tech Park, Bengaluru, karnataka"
-                                                            />
-                                                            {touched.location && errors.location && (
-                                                                <div className="form-error">{errors.location}</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="form-group">
-                                                            <label htmlFor="ended_at">Project End Date</label>
-                                                            <Field
-                                                                type="date"
-                                                                id="ended_at"
-                                                                name="ended_at"
-                                                                min={tomorrow.toISOString().slice(0, 10)}
-                                                            />
-                                                            {touched.ended_at && errors.ended_at && (
-                                                                <div className="form-error">{errors.ended_at}</div>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="form-group">
-                                                            <label htmlFor="rfq_type">Project Stage</label>
-                                                            <Field as="select" id="rfq_type" name="rfq_type" className={`form-control ${touched.rfq_type && errors.rfq_type ? 'is-invalid' : ''}`}>
-                                                                <option value="">Select Project Stage</option>
-                                                                <option value="budgetary">Budgetary</option>
-                                                                <option value="firm">Firm</option>
-                                                            </Field>
-                                                            {touched.rfq_type && errors.rfq_type && (
-                                                                <div className="form-error">{errors.rfq_type}</div>
-                                                            )}
-                                                        </div>
-                                                    </>
-                                                }
-                                            </div>
-
-                                            <div className="col-md-6">
-                                                {type === "add-vendor"
-                                                    ?
-                                                    // Here we have to add product dropdown
-
-                                                    // <div className="form-group">
-                                                    //     <label htmlFor="productList">Product List <sup>*</sup></label>
-                                                    //     <Field
-                                                    //         component="textarea"
-                                                    //         id="productList"
-                                                    //         name="productList"
-                                                    //         placeholder="Brass Binding Wire, Ceramic Marble..."
-                                                    //     />
-                                                    //     {touched.productList && errors.productList && (
-                                                    //         <div className="form-error">{errors.productList}</div>
-                                                    //     )}
-                                                    // </div>
-                                                    <div className="form-group">
-                                                            <div className="col-md-10 mb-2">
-                                                                <div className="mb-2">
-                                                                    <label>Search Product</label>
-                                                                    <Select
-                                                                        name="product"
-                                                                        options={vendorProductsList}
-                                                                        value={selectedProduct}
-                                                                        components={{ Option: CustomSelectOption }}
-                                                                        styles={customStyles}
-                                                                        isLoading={productLoading}
-                                                                        onInputChange={debounceGetVendorProductList}
-                                                                        onChange={(selectedOption) => {
-                                                                            handleSelectChange(selectedOption, { name: "product" });
-                                                                            // Handle clearing of selection
-                                                                            if (!selectedOption) {
-                                                                                setSelectedProduct(null); // Clear selectedProduct state
-                                                                            }
-                                                                        }}
-                                                                        placeholder={vendorProductsList.length===0 ? "Please write at least 3 characters..." : "Search or select an option..."}
-                                                                        isSearchable
-                                                                        isClearable
-                                                                    />
-                                                                </div>
-                                                                <div className="mb-2">
-                                                                    <label>Approved By</label>
-                                                                    <Select
-                                                                        name="approvedBy"
-                                                                        options={vendorApprovedList}
-                                                                        value={selectedApprovedBy}
-                                                                        placeholder="Select Approved By"
-                                                                        onChange={handleSelectChange}
-                                                                        isMulti
-                                                                    />
-                                                                </div>
-                                                                    {currentProduct && 
-                                                                    <div className="d-flex flex-wrap"> <span className="badge bg-danger p-2 me-2 d-flex align-items-center gap-2">{currentProduct.name}<FontAwesomeIcon icon={faClose} onClick={()=> setCurrentProduct(null)} fontSize={14} /></span>
-                                                                    <button type="button" className="btn btn-primary btn-sm ms-auto" onClick={handleSingleProductAdd}>Add Product</button>
-                                                                    </div>}
-                                                            </div>
-                        
-                                                            {vendorProductDetails.length > 0 && (
-                                                                <div className="col-12">
-                                                                    <label>Added Products</label>
-                                                                    <div className="d-flex flex-wrap">
-                                                                        {vendorProductDetails.map((prodItem) => (
-                                                                            <div key={prodItem.master_id} className="badge bg-success p-2 me-2 d-flex align-items-center gap-2">
-                                                                                {prodItem.name}
-                                                                                <FontAwesomeIcon icon={faClose} onClick={()=> removeSelectedVendor(prodItem)} fontSize={14} />
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {touched.vendorProductDetails && errors.vendorProductDetails && (
-                                                            <div className="form-error">{errors.vendorProductDetails}</div>
-                                                            )}
-                                                        </div>
-
-                                                    : 
-                                                    <>                                                       
-                                                        <div className="form-group">
-                                                            <label htmlFor="reverse_auction">Reverse Auction <sup>*</sup></label>
-                                                            <Field as="select" id="reverse_auction" name="reverse_auction" className={`form-control ${touched.reverse_auction && errors.reverse_auction ? 'is-invalid' : ''}`}>
-                                                                <option value="1">Enable</option>
-                                                                <option value="0">Disable</option>
-                                                            </Field>
-                                                            {touched.reverse_auction && errors.reverse_auction && (
-                                                                <div className="form-error">{errors.reverse_auction}</div>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="form-group">
-                                                            <label htmlFor="projectDescription">Project Description</label>
-                                                            <Field
-                                                                component="textarea"
-                                                                id="projectDescription"
-                                                                name="projectDescription"
-                                                                placeholder={placeholderText}
-                                                            />
-                                                            {touched.projectDescription && errors.projectDescription && (
-                                                                <div className="form-error">{errors.projectDescription}</div>
-                                                            )}
-                                                        </div>                                                                                                    
-                                                    </>
-                                                }
-                                            </div>
-
-                                            <div className="d-flex justify-content-end">
-                                                <button disabled={!isValid} class="btn btn-success btn-sm">
-                                                    {type === "add-vendor" ? "Add vendor" : type === "create-project" ? "Create" : "Update"}
-                                                </button>
-                                            </div>
-                                        </Form>
+                                {/* Flexbox container for country code dropdown and phone input */}
+                                <div className="d-flex align-items-center gap-2 position-relative">
+                                  {/* Country Code Dropdown */}
+                                  <Field name="countryCode">
+                                    {({ field, form }) => (
+                                      <select
+                                        {...field}
+                                        className="form-select border border-success"
+                                        style={{ width: "30%", height: "54px" }}
+                                        onChange={(e) =>
+                                          form.setFieldValue(
+                                            "countryCode",
+                                            e.target.value
+                                          )
+                                        }
+                                      >
+                                        {countryCodes.map((country) => (
+                                          <option
+                                            key={country.phone_code}
+                                            value={country.phone_code}
+                                          >
+                                            {country.country_code} (
+                                            {country.phone_code})
+                                          </option>
+                                        ))}
+                                      </select>
                                     )}
-                                </Formik>
-                            </div>
+                                  </Field>
+
+                                  {/* Phone Number Input */}
+                                  <Field
+                                    type="text"
+                                    id="phone"
+                                    name="phone"
+                                    className={`form-control border border-success ${
+                                      touched.phone && errors.phone
+                                        ? "is-invalid"
+                                        : ""
+                                    }`}
+                                    placeholder="Ex. 9123456789"
+                                    style={{ flex: "1", height: "54px" }}
+                                  />
+                                </div>
+
+                                {/* Validation Error Message BELOW both fields */}
+                                {touched.phone && errors.phone && (
+                                  <div className="invalid-feedback d-block mt-1">
+                                    {errors.phone}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="form-group">
+                                <label htmlFor="is_private">
+                                  Vendor Type: <sup>*</sup>
+                                </label>
+                                <Field
+                                  as="select"
+                                  name="is_private"
+                                  className={`form-control ${
+                                    touched.is_private && errors.is_private
+                                      ? "is-invalid"
+                                      : ""
+                                  }`}
+                                  onChange={(e) => {
+                                    // Cast the value to a number and manually set the field value
+                                    setFieldValue(
+                                      "is_private",
+                                      Number(e.target.value)
+                                    );
+                                  }}
+                                >
+                                  <option value={0}>Public</option>
+                                  <option value={1}>Private</option>
+                                </Field>
+                                {touched.is_private && errors.is_private && (
+                                  <div className="form-error">
+                                    {errors.is_private}
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {/* project fields section */}
+                              <div className="form-group">
+                                <label htmlFor="projectName">
+                                  Project Name <sup>*</sup>
+                                </label>
+                                <Field
+                                  type="text"
+                                  id="projectName"
+                                  name="projectName"
+                                  placeholder="Demo Project Name"
+                                  disabled={type === "edit-project"}
+                                />
+                                {touched.projectName && errors.projectName && (
+                                  <div className="form-error">
+                                    {errors.projectName}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="form-group">
+                                <label htmlFor="location">Location</label>
+                                <Field
+                                  type="text"
+                                  id="location"
+                                  name="location"
+                                  placeholder="JBR Tech Park, Bengaluru, karnataka"
+                                />
+                                {touched.location && errors.location && (
+                                  <div className="form-error">
+                                    {errors.location}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="form-group">
+                                <label htmlFor="ended_at">
+                                  Project End Date
+                                </label>
+                                <Field
+                                  type="date"
+                                  id="ended_at"
+                                  name="ended_at"
+                                  min={tomorrow.toISOString().slice(0, 10)}
+                                />
+                                {touched.ended_at && errors.ended_at && (
+                                  <div className="form-error">
+                                    {errors.ended_at}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="form-group">
+                                <label htmlFor="rfq_type">Project Stage</label>
+                                <Field
+                                  as="select"
+                                  id="rfq_type"
+                                  name="rfq_type"
+                                  className={`form-control ${
+                                    touched.rfq_type && errors.rfq_type
+                                      ? "is-invalid"
+                                      : ""
+                                  }`}
+                                >
+                                  <option value="">Select Project Stage</option>
+                                  <option value="budgetary">Budgetary</option>
+                                  <option value="firm">Firm</option>
+                                </Field>
+                                {touched.rfq_type && errors.rfq_type && (
+                                  <div className="form-error">
+                                    {errors.rfq_type}
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
-                    </div>
+
+                        <div className="col-md-6">
+                          {type === "add-vendor" ? (
+                            // Here we have to add product dropdown
+
+                            // <div className="form-group">
+                            //     <label htmlFor="productList">Product List <sup>*</sup></label>
+                            //     <Field
+                            //         component="textarea"
+                            //         id="productList"
+                            //         name="productList"
+                            //         placeholder="Brass Binding Wire, Ceramic Marble..."
+                            //     />
+                            //     {touched.productList && errors.productList && (
+                            //         <div className="form-error">{errors.productList}</div>
+                            //     )}
+                            // </div>
+                            <div className="form-group">
+                              <div className="col-md-10 mb-2">
+                                <div className="mb-2">
+                                  <label>Search Product</label>
+                                  <Select
+                                    name="product"
+                                    options={vendorProductsList}
+                                    value={selectedProduct}
+                                    components={{ Option: CustomSelectOption }}
+                                    styles={customStyles}
+                                    isLoading={productLoading}
+                                    onInputChange={debounceGetVendorProductList}
+                                    onChange={(selectedOption) => {
+                                      handleSelectChange(selectedOption, {
+                                        name: "product",
+                                      });
+                                      // Handle clearing of selection
+                                      if (!selectedOption) {
+                                        setSelectedProduct(null); // Clear selectedProduct state
+                                      }
+                                    }}
+                                    placeholder={
+                                      vendorProductsList.length === 0
+                                        ? "Please write at least 3 characters..."
+                                        : "Search or select an option..."
+                                    }
+                                    isSearchable
+                                    isClearable
+                                  />
+                                </div>
+                                <div className="mb-2">
+                                  <label>Approved By</label>
+                                  <Select
+                                    name="approvedBy"
+                                    options={vendorApprovedList}
+                                    value={selectedApprovedBy}
+                                    placeholder="Select Approved By"
+                                    onChange={handleSelectChange}
+                                    isMulti
+                                  />
+                                </div>
+                                {currentProduct && (
+                                  <div className="d-flex flex-wrap">
+                                    {" "}
+                                    <span className="badge bg-danger p-2 me-2 d-flex align-items-center gap-2">
+                                      {currentProduct.name}
+                                      <FontAwesomeIcon
+                                        icon={faClose}
+                                        onClick={() => setCurrentProduct(null)}
+                                        fontSize={14}
+                                      />
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="btn btn-primary btn-sm ms-auto"
+                                      onClick={handleSingleProductAdd}
+                                    >
+                                      Add Product
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {vendorProductDetails.length > 0 && (
+                                <div className="col-12">
+                                  <label>Added Products</label>
+                                  <div className="d-flex flex-wrap">
+                                    {vendorProductDetails.map((prodItem) => (
+                                      <div
+                                        key={prodItem.master_id}
+                                        className="badge bg-success p-2 me-2 d-flex align-items-center gap-2"
+                                      >
+                                        {prodItem.name}
+                                        <FontAwesomeIcon
+                                          icon={faClose}
+                                          onClick={() =>
+                                            removeSelectedVendor(prodItem)
+                                          }
+                                          fontSize={14}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {touched.vendorProductDetails &&
+                                errors.vendorProductDetails && (
+                                  <div className="form-error">
+                                    {errors.vendorProductDetails}
+                                  </div>
+                                )}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="form-group">
+                                <label htmlFor="reverse_auction">
+                                  Reverse Auction <sup>*</sup>
+                                </label>
+                                <Field
+                                  as="select"
+                                  id="reverse_auction"
+                                  name="reverse_auction"
+                                  className={`form-control ${
+                                    touched.reverse_auction &&
+                                    errors.reverse_auction
+                                      ? "is-invalid"
+                                      : ""
+                                  }`}
+                                >
+                                  <option value="1">Enable</option>
+                                  <option value="0">Disable</option>
+                                </Field>
+                                {touched.reverse_auction &&
+                                  errors.reverse_auction && (
+                                    <div className="form-error">
+                                      {errors.reverse_auction}
+                                    </div>
+                                  )}
+                              </div>
+
+                              <div className="form-group">
+                                <label htmlFor="projectDescription">
+                                  Project Description
+                                </label>
+                                <Field
+                                  component="textarea"
+                                  id="projectDescription"
+                                  name="projectDescription"
+                                  placeholder={placeholderText}
+                                />
+                                {touched.projectDescription &&
+                                  errors.projectDescription && (
+                                    <div className="form-error">
+                                      {errors.projectDescription}
+                                    </div>
+                                  )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="d-flex justify-content-end">
+                          <button
+                            disabled={!isValid}
+                            class="btn btn-success btn-sm"
+                          >
+                            {type === "add-vendor"
+                              ? "Add vendor"
+                              : type === "create-project"
+                              ? "Create"
+                              : "Update"}
+                          </button>
+                        </div>
+                      </Form>
+                    )}
+                  </Formik>
                 </div>
-            </Modal>
-        </>
-    )
+              </div>
+            </div>
+          </div>
+        </Modal>
+      </>
+    );
 }
 
 export default DynamicFormModal

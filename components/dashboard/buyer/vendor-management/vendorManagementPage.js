@@ -1,7 +1,9 @@
 import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
+import { getCountryCodes } from '@/services/cms';
 import { addPrivateVendor, privateVendorList } from '@/services/privateVendors';
+import { get } from 'lodash';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react'
@@ -17,6 +19,7 @@ const VendorManagement = () => {
     const [enableBulkUpload, setEnableBulkUpload] = useState(false);
     const [file, setFile] = useState(null);
     const [uploadProgress, setuploadProgress] = useState(0);
+    const [countryCodes , setCountryCodes] = useState([]);
 
     const [openAddVendorModal, setOpenAddVendorModal] = useState(false);
 
@@ -97,6 +100,15 @@ const VendorManagement = () => {
         getPrivateVendorList();
     }, [page]);
 
+    useEffect(() => {
+     getCountryCodes()
+     .then((res) => {
+         setCountryCodes(res.data);
+     })
+        .catch((error) => {
+            console.log(error);
+        })
+    },[])
     return (
         <>
             <section className="vendor-common-header sc-pt-80">
@@ -280,6 +292,7 @@ const VendorManagement = () => {
                         openModal={openAddVendorModal}
                         closeModal={() => setOpenAddVendorModal(false)}
                         handleAddVendor={handleAddVendor}
+                        countryCodes = {countryCodes}
                     />
                 }
             </section>
