@@ -106,6 +106,7 @@ const VendorTechnicalEvaluation = () => {
                                                                     rfq_id={rfq_id}
                                                                     currentUserProfile={currentUserProfile}
                                                                     otherUser={currentRfq.created_by}
+                                                                    token={token}
                                                                 />
                                                             </div>
                                                         </div>

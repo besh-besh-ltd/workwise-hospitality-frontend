@@ -8,7 +8,7 @@ import FileLink from '@/components/shared/FileLink';
 import FullLoader from '@/components/shared/FullLoader';
 
 
-const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => {
+const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token="" }) => {
   const [messages, setMessages] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState(null);
@@ -26,7 +26,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser }) => 
   const uploadToServer = async (e) => {
     setFileLoading(true)
     try {
-      const filePath = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e, token);
       const newList = [...(files || []), filePath];
       setFiles(newList);
     } catch (error) {
