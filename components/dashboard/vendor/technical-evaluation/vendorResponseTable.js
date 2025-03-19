@@ -12,7 +12,7 @@ import Loader from "@/components/shared/Loader";
 import ReadMore from "@/components/shared/ReadMore";
 
 
-const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser }) => {
+const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token }) => {
 
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [vendorResponse, setVendorResponse] = useState(null);
@@ -37,7 +37,8 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
   // Upload file to server
   const uploadToServer = async (e, clauseId) => {
     try {
-      const filePath = await handleFileUpload(e);
+      const filePath = await handleFileUpload(e, token);
+      console.log("File Path: ", filePath);
       setFilesMap((prevFiles) => {
         const newFiles = new Map(prevFiles);
         const existingFiles = newFiles.get(clauseId) || [];
@@ -373,6 +374,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser })
                         data={clauseItem}
                         userData={currentUserProfile}
                         otherUser={otherUser}
+                        token ={token}
                       />
                     }
                   </>)
