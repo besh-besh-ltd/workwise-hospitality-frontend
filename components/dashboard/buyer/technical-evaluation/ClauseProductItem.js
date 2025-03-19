@@ -276,6 +276,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                                                 data={clauseItem}
                                                 userData={currentUserProfile}
                                                 otherUser={selectedVendor.value}
+                                                token='' // only for vendor so that they fetch data when they are not login
                                             />
                                         }
                                     </>)
