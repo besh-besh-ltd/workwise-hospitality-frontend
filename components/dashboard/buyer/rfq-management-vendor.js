@@ -39,7 +39,7 @@ const RfqManagementVendorPage = () => {
   }
 
   const getVendors = () => {
-    const vendorIds = productItem ? productItem.vendors?.map((venItem) => venItem.user_id) : vendors.split(",");
+    const vendorIds = productItem ? productItem.vendors?.map((venItem) => venItem.user_id) : vendors?.split(",");
 
     if (vendorIds) {
       setloading(true);

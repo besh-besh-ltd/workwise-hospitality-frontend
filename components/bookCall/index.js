@@ -103,7 +103,7 @@ export default function BookCall() {
             value={selectedCode}
             onChange={(e) => setSelectedCode(e.target.value)}
             style={{ 
-              width: '120px',
+              width: '150px',
               flexShrink: 0
             }}
           >

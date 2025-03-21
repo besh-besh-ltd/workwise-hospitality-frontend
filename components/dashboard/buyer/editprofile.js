@@ -369,9 +369,9 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="row">
+                          <div className="row g-3">
                             {/* Email Field */}
-                            <div className="col-12 col-md-6">
+                            <div className="col-md-6 ">
                               <FormikField
                                 label="Email"
                                 isRequired={true}
@@ -379,36 +379,44 @@ const EditProfile = () => {
                                 name="email"
                                 touched={touched}
                                 errors={errors}
+                                className="form-control border border-success"
                               />
                             </div>
 
                             {/* Mobile Field */}
-                            <div className="col-md-6">
+                            <div className="col-md-6 ">
                               <label className="form-label">
                                 Mobile <span className="text-danger">*</span>
                               </label>
 
-                              {/* Flexbox for proper alignment */}
-                              <div className="d-flex align-items-center gap-2">
+                              {/* Container for country code and mobile number */}
+                              <div className="d-flex">
                                 {/* Country Code Dropdown */}
                                 <Field name="countryCode">
                                   {({ field, form }) => (
                                     <select
                                       {...field}
-                                      className="form-select"
+                                      className="form-select border border-success"
                                       style={{
-                                        width: "50%",
+                                        width: "30%", // Fixed width for country code dropdown
                                         height: "54px",
+                                        marginLeft :"10px",
+                                        marginRight :"10px",
+                                        borderTopRightRadius: "0",
+                                        borderBottomRightRadius: "0",
                                       }}
                                       onChange={(e) => {
                                         form.setFieldValue(
                                           "countryCode",
                                           e.target.value
                                         );
-                                        setoneountrycode(e.target.value); // Update external state
+                                        setoneountrycode(e.target.value);
                                       }}
                                     >
-                                      <option value="countryCode">{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                      <option value="countryCode">
+                                        {selectedCountryCode?.country_code} (
+                                        {selectedCountryCode?.phone_code})
+                                      </option>
                                       {countryCode.map((country) => (
                                         <option
                                           key={country.id}
@@ -426,13 +434,19 @@ const EditProfile = () => {
                                 <Field
                                   type="text"
                                   name="mobile"
-                                  className={`form-control ${
+                                  className={`form-control border border-success rounded-end ${
                                     touched.mobile && errors.mobile
                                       ? "is-invalid"
                                       : ""
                                   }`}
                                   placeholder="Enter mobile number"
-                                  style={{ height: "54px" }} // Setting height directly
+                                  style={{
+                                    flex: "1", // Takes the remaining space
+                                    height: "54px",
+                                    minWidth: "160px",
+                                    borderTopLeftRadius: "0",
+                                    borderBottomLeftRadius: "0",
+                                  }}
                                 />
 
                                 {touched.mobile && errors.mobile && (
@@ -444,7 +458,7 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
+                          <div className="col-md-6 ">
                             <FormikField
                               label="GSTin"
                               isRequired={false}
