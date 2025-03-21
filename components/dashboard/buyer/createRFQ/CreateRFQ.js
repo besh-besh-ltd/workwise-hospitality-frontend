@@ -210,7 +210,10 @@ const CreateRFQ = () => {
       
     };
 
-    console.log("checking if payload is working or not",payload);
+    // **Remove country_code if it exists**
+    if (payload.hasOwnProperty("country_code")) {
+      delete payload.country_code;
+    }
 
     createRfq(payload)
       .then((res) => {
@@ -238,11 +241,17 @@ const CreateRFQ = () => {
   const handleSaveDraft = async () => {
     setMainLoading(true);
 
+    const contactNumber = rfqFormDataRef?.current?.contact_number?.trim();
+    const parts = contactNumber?.includes('-') ? contactNumber?.split('-') : [contactNumber];
+    const cleanedNumber = parts[parts.length - 1];    
+    const fullMobile = `${onecountrycode}-${cleanedNumber}`;
+
     const payload = {
       ...rfqFormDataRef.current,
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       is_published: 0,
+      contact_number:fullMobile
     };
 
     try {
@@ -269,7 +278,30 @@ const CreateRFQ = () => {
     dispatch(setStoreLoading(true));
     try {
       const draftRes = await getDraftData();
-      dispatch(intializeRfq(draftRes.data));
+
+      
+      if (draftRes?.data?.rfq_form_data?.contact_number) {
+        let fullContactNumber = draftRes?.data?.rfq_form_data?.contact_number?.trim();
+        let extractedCountryCode = "";
+        let extractedContactNumber = fullContactNumber;
+  
+        if (fullContactNumber?.includes('-')) {
+          const parts = fullContactNumber?.split('-');  
+          extractedCountryCode = parts[0]?.replace("-", "")?.trim(); // Remove "+" and trim spaces
+          extractedContactNumber = parts?.slice(1)?.join("")?.trim(); // Remove "-" and trim spaces
+        }
+  
+        // **Modify `draftRes` before passing it to another function**
+        draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
+        draftRes.data.rfq_form_data.country_code = extractedCountryCode; // Add extracted country code
+    
+        // **Pass modified draftRes to the function that sets RFQ data**
+        dispatch(intializeRfq(draftRes.data));
+        setonecountrycode(extractedCountryCode);
+      }
+      else{
+        dispatch(intializeRfq(draftRes.data));
+      }
       getTermsData();
 
     } catch (error) {
@@ -575,7 +607,7 @@ const CreateRFQ = () => {
                                       name="countryCode"
                                       className="form-select"
                                       style={{
-                                        maxWidth: "100px",
+                                        maxWidth: "130px",
                                         marginRight: "6px",
                                         maxHeight: "44px",
                                       }}
