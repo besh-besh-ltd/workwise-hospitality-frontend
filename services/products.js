@@ -245,11 +245,11 @@ export const rfqReport = (month, year) => {
   });
 };
 
-export const parentCategoryList = () => {
+export const parentCategoryList = (slug) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/products/parent-category-list`
+        `${process.env.NEXT_PUBLIC_API_URL}/products/parent-category-list?slug=${slug}`
       );
       resolve(response);
     } catch (error) {

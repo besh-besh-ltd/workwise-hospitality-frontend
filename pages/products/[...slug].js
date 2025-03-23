@@ -4,7 +4,6 @@ import { ProductMetaTags } from '@/components/products/utils/MetaTags';
 import { ProductBreadcrumb } from '@/components/products/utils/Breadcrumb';
 import { ProductSearchBar } from '@/components/products/utils/SearchBar';
 import { CategorySection } from '@/components/products/utils/CategorySection';
-import { ProductSection } from '@/components/products/utils/ProductSection';
 import { BlogSection } from '@/components/products/utils/BlogSection';
 import FAQSection from '../newHomePageDesign/FAQSection';
 import { CATEGORIES, SUBCATEGORIES, products } from '@/utils/constants';
@@ -12,40 +11,18 @@ import { textCapitalize } from '@/utils/sharedFunctions';
 import { AllCategoriesSection } from '@/components/products/utils/AllCategoriesSection';
 import { parentCategoryList , getAllCategories } from '@/services/products';
 
-const ProductPages = ({ pageTitle }) => {
-    const [categories , setCategories] = useState([]);
+const ProductPages = () => {
     const [allCategories , setAllCategories] = useState([]);
+    const [subcategories, setSubCategories] = useState([]);
     const router = useRouter();
     const { slug } = router.query;
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [loading, setLoading] = useState(true);
-    
-    // const buildTree = async (data) => {
-    //   const map = {};
-    //   const roots = [];
-  
-    //   // Initialize the map
-    //   data.forEach((item) => {
-    //     map[item.id] = { ...item, children: [] };
-    //   });
-  
-    //   // Build the tree
-    //   data.forEach((item) => {
-    //     if (item.parent_id !== 0) {
-    //       if (map[item.parent_id]) {
-    //         map[item.parent_id].children.push(map[item.id]);
-    //       }
-    //     } else {
-    //       roots.push(map[item.id]);
-    //     }
-    //   });
-  
-    //   return roots;
-    // };
-
     const [matchedCategory, setMatchedCategory] = useState(null);
 
-    // console.log("slugged ",slug)
+    const isAllProductsPage = slug?.[0] === 'all';
+    const isCategoryPage = slug?.length === 1 && slug?.[0] !== 'all'; 
+   
 
     useEffect(() => {
         if (allCategories.length > 0 && selectedCategory) {
@@ -53,54 +30,36 @@ const ProductPages = ({ pageTitle }) => {
             setMatchedCategory(category || null);
         }
     }, [selectedCategory, allCategories]); // Re-run when selectedCategory or allCategories change
-    
-
 
     useEffect(() => {
-      if (allCategories.length === 0) {  // Prevent unnecessary re-fetch
-        parentCategoryList()
+
+      console.log(matchedCategory)
+
+        parentCategoryList(slug)
           .then((res) => {
-            if (res?.data && Array.isArray(res.data)) {
-              setAllCategories(res.data);
+
+            if(allCategories.length === 0){
+              setAllCategories(res?.data?.parentCategories);
+            }
               if (slug?.[0]) {
                 setSelectedCategory(slug[0].toLowerCase());
               }
-            }
-            setLoading(false);
+
+              if(res?.data?.subcategories){
+                setSubCategories(res?.data?.subcategories);
+              }
+              else{
+                router.push(`/products/product-detailPage?category_id=${123}`);
+              }
           })
           .catch((err) => {
             console.error("Error fetching categories:", err);
-            setLoading(false);
           });
-      }
+
+          setLoading(false);
     }, [slug]);  // Removed router.asPath to avoid excessive re-fetching
-    
-
-
+  
  
-
-  
-  
-  
-  if (router.isFallback || !slug) {
-      return <div className="d-flex justify-content-center align-items-center vh-100">Loading...</div>;
-  }
-  
-  const isAllProductsPage = slug?.[0] === 'all';
-  const isCategoryPage = slug?.length === 1 && slug?.[0] !== 'all'; 
-  const isSubCategoryPage = slug?.length === 2;
-  
-
-    // Find the actual category object using slug[0]
-
-    
-
-
-   
-    const parent_id = matchedCategory ? matchedCategory.id : null;
-
-    
-  
     const handleCategorySelect = (subcategory) => {
       setSelectedCategory(subcategory.title.toLowerCase());
       setMatchedCategory(subcategory);
@@ -109,6 +68,9 @@ const ProductPages = ({ pageTitle }) => {
    };
   
     
+   if (router.isFallback || !slug) {
+    return <div className="d-flex justify-content-center align-items-center vh-100">Loading...</div>;
+}
   
     return (
       <>
@@ -166,20 +128,12 @@ const ProductPages = ({ pageTitle }) => {
           )}
 
           {/* Category Section */}
-          {isCategoryPage  && (
             <CategorySection
+             subcategories={subcategories}
               parent_id={matchedCategory?.id}
               slug={matchedCategory?.slug }
             />
-          )}
-
-          {/* sub-category section */}
-
-          {/* {issubCategoryPage && (
-            <CategorySection parent_id={parent_id} slug={slug[0]} />
-          )} */}
-
-          
+        
 
           <BlogSection />
           <FAQSection />

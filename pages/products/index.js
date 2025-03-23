@@ -1,15 +1,8 @@
 import { use, useEffect, useState } from "react";
 import DynamicCard from "@/components/products/utils/DynamicCard";
 import DynamicBlog from "@/components/products/utils/DynamicBlog";
-import DynamicSection from "@/components/dynamicSection/dynamicSection";
-import { Accordion } from "react-bootstrap";
-import { getFaqs } from "@/services/cms";
-import { HomeLists1Service } from "@/services/Home";
 import FAQSection from "../newHomePageDesign/FAQSection";
 import { blogData ,products} from "@/utils/constants";
-
-
-
 
 const Products = () => {
   const [showAll, setShowAll] = useState(false);

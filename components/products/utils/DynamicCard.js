@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-const DynamicCard = ({ image, title, styleType, link }) => {
+const DynamicCard = ({ image, title, styleType, link, slug }) => {
   const CardContent = () => (
     <div 
       className="card shadow-lg border-0 rounded-3 text-center mx-auto hover-shadow" 
