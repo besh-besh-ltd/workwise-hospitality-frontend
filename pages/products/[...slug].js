@@ -73,10 +73,7 @@ const ProductPages = () => {
           // Case 2: No subcategories, but valid category matched — fetch products
           setSubCategories([]);
           fetchProductsByCategiry(subcategoriesList.category_id);
-        } else {
-          // Case 3: Invalid response — redirect to default product page
-          router.push(`/products/product-detailPage?category_id=123`);
-        }
+        } 
       })
       .catch((err) => {
         console.error("Error fetching categories:", err);
@@ -169,8 +166,8 @@ const ProductPages = () => {
             <div
               key={sub.product_id}
               className="col-12 col-sm-6 col-md-4 d-flex justify-content-center"
-              // onClick={() => handleCategoryClick(sub)}
-            >
+              onClick={() =>  router.push(`product-details/${slug.join("/")}/${sub.slug}`)}
+               >
               <DynamicCard
                 image={sub?.image || ""}
                 title={sub?.product_name}

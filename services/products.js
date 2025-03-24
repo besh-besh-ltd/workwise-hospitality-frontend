@@ -313,3 +313,18 @@ export const getProductByProductIdOrCategoryId = ({product_id , category_id}) =>
     }
   })
 }
+
+
+export const getProductByProductAndCategorySlug = ({ productSlug}) =>{
+  return new Promise (async (resolve , reject)=>{
+    try {
+     
+      let response  = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/products-by-name-category-slug?productSlug=${productSlug}`
+      );
+       resolve(response.data)
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
