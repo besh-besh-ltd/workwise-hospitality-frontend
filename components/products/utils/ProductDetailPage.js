@@ -5,8 +5,7 @@ import { useRouter } from "next/router";
 import { Container, Row, Col, Table, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComments } from "@fortawesome/free-solid-svg-icons";
-import { getProductByProductIdOrCategoryId } from "@/services/products";
-
+import {getProductByProductAndCategorySlug,} from "@/services/products";
 
 const images = [
   "https://picsum.photos/id/101/300/200",
@@ -15,30 +14,25 @@ const images = [
   "https://picsum.photos/id/104/300/200",
 ];
 
-const ValveComponent = () => {
+const ValveComponent = (productSlug) => {
   const [selectedImage, setSelectedImage] = useState(images[0]);
-  const [productDetails , setProductDetails] = useState(null);
-  const router = useRouter();
-  const { category_id ,product_id} = router.query;
+  const [productDetails, setProductDetails] = useState(null);
 
-  console.log("cat id prod id",category_id , product_id);
+  console.log(productSlug);
 
-  useEffect(()=>{
-    
-      getProductByProductIdOrCategoryId(
-        { 
-          product_id, 
-          category_id }
-      )
-      .then((res)=>setProductDetails(res))
-      .catch((err)=>console.log(err))
-   
-    
-  },[product_id,category_id])
+  const fetchProductDetails = async () => {
+    await getProductByProductAndCategorySlug(productSlug)
+      .then((res) => {
+        console.log(res);
+        setProductDetails(res);
+      })
+      .catch((err) => console.log(err));
+  };
 
+  useEffect(() => {
+    fetchProductDetails();
+  }, []);
 
-
-  console.log("checking the log profile o product",productDetails);
   return (
     <>
       <Container fluid className="py-4 bg-white">
@@ -50,7 +44,11 @@ const ValveComponent = () => {
                 src={selectedImage}
                 alt="Product"
                 className="img-fluid border"
-                style={{ maxHeight: "100%", objectFit: "contain", width:"100%" }}
+                style={{
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  width: "100%",
+                }}
               />
             </div>
 
@@ -71,7 +69,7 @@ const ValveComponent = () => {
 
             <div
               className="card p-2 shadow-sm border rounded"
-              style={{ maxWidth: "280px", marginTop:"60px" }}
+              style={{ maxWidth: "280px", marginTop: "60px" }}
             >
               <div className="d-flex align-items-center">
                 <FontAwesomeIcon
@@ -96,9 +94,7 @@ const ValveComponent = () => {
 
           {/* Product Details */}
           <Col lg={5} md={6} className="px-lg-4">
-            <h1 className="h4 fw-normal mb-3">
-            {productDetails?.[0]?.name}
-            </h1>
+            <h1 className="h4 fw-normal mb-3">{productDetails?.[0]?.name}</h1>
 
             <div className="bg-light p-3 mb-4 small">
               Offer: Get Off from our setup on RTR, customers partner
