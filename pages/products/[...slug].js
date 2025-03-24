@@ -33,7 +33,7 @@ const ProductPages = () => {
 
     useEffect(() => {
 
-      console.log(matchedCategory)
+      setLoading(true)
 
         parentCategoryList(slug)
           .then((res) => {
@@ -54,6 +54,7 @@ const ProductPages = () => {
           })
           .catch((err) => {
             console.error("Error fetching categories:", err);
+            setSubCategories([]);
           });
 
           setLoading(false);
@@ -128,14 +129,13 @@ const ProductPages = () => {
           )}
 
           {/* Category Section */}
-            <CategorySection
-             subcategories={subcategories}
-              parent_id={matchedCategory?.id}
-              slug={matchedCategory?.slug }
-            />
+          {subcategories && subcategories.length > 0 ? (
+            <CategorySection subcategories={subcategories} />
+          ) : (
+            <p>No subcategories available</p>
+          )}
         
-
-          <BlogSection />
+          {/* <BlogSection /> */}
           <FAQSection />
         </div>
       </>
