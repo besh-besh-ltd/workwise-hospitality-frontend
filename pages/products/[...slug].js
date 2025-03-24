@@ -10,6 +10,7 @@ import { CATEGORIES, SUBCATEGORIES, products } from '@/utils/constants';
 import { textCapitalize } from '@/utils/sharedFunctions';
 import { AllCategoriesSection } from '@/components/products/utils/AllCategoriesSection';
 import { parentCategoryList , getAllCategories } from '@/services/products';
+import { categoryListById } from '@/services/rfq';
 
 const ProductPages = () => {
     const [allCategories , setAllCategories] = useState([]);
@@ -23,7 +24,18 @@ const ProductPages = () => {
     const isAllProductsPage = slug?.[0] === 'all';
     const isCategoryPage = slug?.length === 1 && slug?.[0] !== 'all'; 
    
+    const fetchProductsByCategiry = async (category_id) => {
+    const data = await  categoryListById({ category_id })
+      .then((res) => {
+        console.log("res",res)
+      })
+      .catch((err) => {
+        console.error("Error fetching categories:", err);
+        setSubCategories([]);
+      });
 
+    };
+    
     useEffect(() => {
         if (allCategories.length > 0 && selectedCategory) {
             const category = allCategories.find(cat => cat.slug === selectedCategory);
@@ -38,19 +50,27 @@ const ProductPages = () => {
         parentCategoryList(slug)
           .then((res) => {
 
+            const subcategoriesList = res?.data?.subcategories
+
             if(allCategories.length === 0){
               setAllCategories(res?.data?.parentCategories);
             }
               if (slug?.[0]) {
                 setSelectedCategory(slug[0].toLowerCase());
               }
+              console.log("subcategoriesList", subcategoriesList);
 
-              if(res?.data?.subcategories){
-                setSubCategories(res?.data?.subcategories);
+              if (Array.isArray(subcategoriesList)) {
+                // Case 1: Valid subcategories array returned
+                setSubCategories(subcategoriesList);
+              } else if (subcategoriesList?.status === 404 && subcategoriesList?.category_id) {
+                // Case 2: No subcategories, but valid category matched — fetch products
+                fetchProductsByCategiry(subcategoriesList.category_id);
+              } else {
+                // Case 3: Invalid response — redirect to default product page
+                router.push(`/products/product-detailPage?category_id=123`);
               }
-              else{
-                router.push(`/products/product-detailPage?category_id=${123}`);
-              }
+              
           })
           .catch((err) => {
             console.error("Error fetching categories:", err);
@@ -129,7 +149,7 @@ const ProductPages = () => {
           )}
 
           {/* Category Section */}
-          {subcategories && subcategories.length > 0 ? (
+          { subcategories && subcategories.length > 0 ? (
             <CategorySection subcategories={subcategories} />
           ) : (
             <p>No subcategories available</p>

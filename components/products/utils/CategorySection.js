@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import DynamicCard from "@/components/products/utils/DynamicCard";
-import { getSubCategory } from "@/services/products";
 
 export const CategorySection = ({ subcategories }) => {
   const router = useRouter();
