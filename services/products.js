@@ -315,7 +315,7 @@ export const getProductByProductIdOrCategoryId = ({product_id , category_id}) =>
 }
 
 
-export const getProductByProductAndCategorySlug = ({ productSlug}) =>{
+export const getProductByProductAndCategorySlug = (productSlug) =>{
   return new Promise (async (resolve , reject)=>{
     try {
      
