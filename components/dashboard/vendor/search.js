@@ -256,8 +256,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           
           setVendors(d);
           
-          console.log("268 ******************")
-          console.table(bulkRFQVendors)
+          // console.log("268 ******************")
+          // console.table(bulkRFQVendors)
 
           setVendorMetaData(rsp)
           currentSelectedProduct
