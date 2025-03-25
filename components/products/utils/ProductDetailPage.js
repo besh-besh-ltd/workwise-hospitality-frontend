@@ -113,13 +113,13 @@ const productComponent = () => {
               <table className="table table-borderless small">
                 <tbody>
 
-                {/* {productTechSpec?.map((spec, index) => ( 
+                {productTechSpec?.map((spec, index) => ( 
                   
                   <tr key={index}>
                     <td className="text-muted ps-0">{spec.title}</td>
                     <td className="fw-medium">{spec.value}</td>
                   </tr>
-                ))} */}
+                ))}
                 </tbody>
               </table>
             </div>
