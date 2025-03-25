@@ -9,7 +9,6 @@ const ProductDetail = () => {
 
   return (
     <div className="p-10"   style={{ paddingTop: "100px"}}>
-
       <ProductDetailPage pageSlug={productSlug} />
     </div>
   )

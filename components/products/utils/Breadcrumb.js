@@ -29,7 +29,7 @@ export const ProductBreadcrumb = ({ slug }) => {
         return (
           <span key={index}>
             {/* Separator */}
-            <span className="mx-2">/</span>
+            <span className="mx-1">/</span>
 
             {/* If this is the last slug part, render it as plain text; otherwise, render as a link */}
             {index === slug.length - 1 ? (

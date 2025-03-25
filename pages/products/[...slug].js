@@ -27,7 +27,9 @@ const ProductPages = () => {
   const isCategoryPage = slug?.length === 1 && slug?.[0] !== "all";
 
   const fetchProductsByCategiry = async (category_id) => {
-      await categoryListById({ category_id })
+    setLoading(true);
+
+    await categoryListById({ category_id })
       .then((res) => {
         const products = res?.productList;
         setProductListForCategory(products);
@@ -36,6 +38,9 @@ const ProductPages = () => {
         console.error("Error fetching categories:", err);
         setProductListForCategory([]);
       });
+
+      setLoading(false);
+
   };
 
   useEffect(() => {
@@ -155,11 +160,9 @@ const ProductPages = () => {
         )}
 
         {/* Category Section */}
-        {subcategories && subcategories.length > 0 ? (
-          <CategorySection subcategories={subcategories} />
-        ) : (
-          <p>No subcategories available</p>
-        )}
+          {subcategories && subcategories.length > 0 && (
+           <CategorySection subcategories={subcategories} />
+            )}
 
         <div className="row justify-content-center g-4">
           {productListForCategory?.map((sub) => (
@@ -178,6 +181,15 @@ const ProductPages = () => {
             </div>
           ))}
         </div>
+
+        {!loading &&
+           subcategories?.length === 0 &&
+           productListForCategory?.length === 0 && (
+             <p className="text-center py-5">No Data Found</p>
+         )}
+
+
+
 
         {/* <BlogSection /> */}
         <FAQSection />

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Container, Row, Col, Table, Button } from "react-bootstrap";
 import { getProductByProductAndCategorySlug } from "@/services/products";
 import { useRouter } from "next/router";
+import { ProductBreadcrumb } from "./Breadcrumb";
 
 
 const productComponent = () => {
@@ -34,8 +35,11 @@ const productComponent = () => {
 
   return (
     <>
-      <Container fluid className="py-4 bg-white">
-        <Row className="gx-4 gy-5">
+      <Container fluid className="py-2 bg-white">
+       
+       <ProductBreadcrumb slug={productSlug} />
+      
+        <Row className="gx-4 gy-5 mt-1 ">
           {/* Image Column */}
           <Col lg={4} md={6}>
             <div className="mb-4">
