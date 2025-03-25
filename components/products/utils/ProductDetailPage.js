@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Container, Row, Col, Table, Button } from "react-bootstrap";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faComments } from "@fortawesome/free-solid-svg-icons";
-import {getProductByProductAndCategorySlug} from "@/services/products";
+import { getProductByProductAndCategorySlug } from "@/services/products";
 import { useRouter } from "next/router";
 
 const images = [
@@ -19,8 +17,8 @@ const productComponent = () => {
   const [productDetails, setProductDetails] = useState(null);
   const [productTechSpec, setProductTechSpec] = useState(null);
 
-    const router = useRouter()
-    const { productSlug } = router.query;
+  const router = useRouter();
+  const { productSlug } = router.query;
 
   const fetchProductDetails = async () => {
     await getProductByProductAndCategorySlug(productSlug)
@@ -32,11 +30,9 @@ const productComponent = () => {
   };
 
   useEffect(() => {
-
-    if(productSlug){
+    if (productSlug) {
       fetchProductDetails();
     }
-
   }, [productSlug]);
 
   return (
@@ -100,7 +96,9 @@ const productComponent = () => {
 
           {/* Product Details */}
           <Col lg={5} md={6} className="px-lg-4">
-            <h1 className="h4 fw-normal mb-3">{productDetails?.cms_title || productDetails?.product_name }</h1>
+            <h1 className="h4 fw-normal mb-3">
+              {productDetails?.cms_title || productDetails?.product_name}
+            </h1>
 
             <div className="bg-light p-3 mb-4 small">
               Offer: Get Off from our setup on RTR, customers partner
@@ -112,39 +110,37 @@ const productComponent = () => {
               </h2>
               <table className="table table-borderless small">
                 <tbody>
-
-                {productTechSpec?.map((spec, index) => ( 
-                  
-                  <tr key={index}>
-                    <td className="text-muted ps-0">{spec.title}</td>
-                    <td className="fw-medium">{spec.value}</td>
-                  </tr>
-                ))}
+                  {productTechSpec?.map((spec, index) => (
+                    <tr key={index}>
+                      <td className="text-muted ps-0">{spec.title}</td>
+                      <td className="fw-medium">{spec.value}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-
-            {/* <button className="btn btn-link text-dark p-0 small text-decoration-none">
-              [Read More]
-            </button> */}
           </Col>
 
           {/* Vendor Process */}
-          <Col lg={3} className="ps-lg-4">
+          <Col lg={3} className="ps-lg-4 ">
+            <button
+              class="upload btn btn-primary pt-2 btn-sm "
+              style={{ height: "40px", width: "100%", marginBottom: "20px",  }}
+              onClick={() => router.push(`/vendor/${productSlug[productSlug?.length-1]}`)}
+              >
+              Find Vendors for this product..
+            </button>
+
             <div className="border-start ps-4" style={{ minHeight: "100%" }}>
               <h2 className="h6 fw-normal text-uppercase mb-4">
                 How To Get Final Vendors & Rates?
               </h2>
 
               <div className="mb-4 ratio ratio-16x9">
-                <iframe
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                  title="Vendor Process"
-                  className="bg-light"
-                ></iframe>
+              <iframe width="560" height="315" src="https://www.youtube.com/embed/-JPa1MX2HVE?si=jZhvunz578-xuhOa" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
               </div>
 
-              <ol className="list-unstyled">
+              {/* <ol className="list-unstyled">
                 <li className="mb-3 d-flex align-items-center">
                   <span className="me-2">1.</span>
                   <div className="border-bottom pb-2 w-100">______</div>
@@ -161,15 +157,14 @@ const productComponent = () => {
                   <span className="me-2">4.</span>
                   <div className="border-bottom pb-2 w-100">______</div>
                 </li>
-              </ol>
+              </ol> */}
 
-              <div className="mt-4 small text-muted">
+              {/* <div className="mt-4 small text-muted">
                 Find Vendors for this product...
-              </div>
+              </div> */}
             </div>
           </Col>
         </Row>
-
       </Container>
       {/*  layput testing  */}
       <div dangerouslySetInnerHTML={{ __html: productDetails?.cms_content }} />
