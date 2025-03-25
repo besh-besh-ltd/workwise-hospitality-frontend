@@ -245,11 +245,11 @@ export const rfqReport = (month, year) => {
   });
 };
 
-export const parentCategoryList = () => {
+export const parentCategoryList = (slug) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/products/parent-category-list`
+        `${process.env.NEXT_PUBLIC_API_URL}/products/parent-category-list?slug=${slug}`
       );
       resolve(response);
     } catch (error) {
@@ -270,3 +270,61 @@ export const productListByCategory = (cat_id, page = 1, limit = 200) => {
     }
   });
 };
+
+export const getAllCategories = (page = 1, limit = 10) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/product/category-list?page=${page}&limit=${limit}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getSubCategory = ({parent_id}) => { 
+  return new Promise (async (resolve , reject)=>{
+    try {
+      let response = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/product/category-list/?parent_id=${parent_id}`
+      )
+      resolve(response.data)
+    } catch (err) {
+      reject({message : err})
+    }
+  })
+}
+
+export const getProductByProductIdOrCategoryId = ({product_id , category_id}) =>{
+  return new Promise (async (resolve , reject)=>{
+    try {
+     
+      const queryParam = category_id 
+      ? `category_id=${category_id}` 
+      : `product_id=${product_id}`;
+      let response  = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/products-search-by-name-or-category?${queryParam}`
+      );
+       resolve(response.data)
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+
+export const getProductByProductAndCategorySlug = (productSlug) =>{
+  return new Promise (async (resolve , reject)=>{
+    try {
+     
+      let response  = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/products-by-name-category-slug?productSlug=${productSlug}`
+      );
+       resolve(response.data)
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
