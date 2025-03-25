@@ -5,15 +5,10 @@ import { Container, Row, Col, Table, Button } from "react-bootstrap";
 import { getProductByProductAndCategorySlug } from "@/services/products";
 import { useRouter } from "next/router";
 
-const images = [
-  "https://picsum.photos/id/101/300/200",
-  "https://picsum.photos/id/102/300/200",
-  "https://picsum.photos/id/103/300/200",
-  "https://picsum.photos/id/104/300/200",
-];
 
 const productComponent = () => {
-  const [selectedImage, setSelectedImage] = useState(images[0]);
+  const [selectedImage, setSelectedImage] = useState([]);
+  const [productImages, setProductImages] = useState([]);
   const [productDetails, setProductDetails] = useState(null);
   const [productTechSpec, setProductTechSpec] = useState(null);
 
@@ -25,6 +20,8 @@ const productComponent = () => {
       .then((res) => {
         setProductTechSpec(res?.productSpec);
         setProductDetails(res?.productData);
+        setProductImages(res?.productImages)
+        setSelectedImage(res?.productImages[0]?.new_image_name)
       })
       .catch((err) => console.log(err));
   };
@@ -55,11 +52,11 @@ const productComponent = () => {
             </div>
 
             <div className="d-flex flex-wrap gap-2 mb-4">
-              {images.map((img, index) => (
+              {productImages.map((img, index) => (
                 <img
                   key={index}
-                  src={img}
-                  alt={`Thumb ${index}`}
+                  src={img?.new_image_name}
+                  alt={img?.original_image_name}
                   className={`cursor-pointer border p-1 ${
                     selectedImage === img ? "border-dark" : "border-light"
                   }`}
