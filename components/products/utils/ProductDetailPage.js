@@ -17,14 +17,16 @@ const images = [
 const productComponent = () => {
   const [selectedImage, setSelectedImage] = useState(images[0]);
   const [productDetails, setProductDetails] = useState(null);
+  const [productTechSpec, setProductTechSpec] = useState(null);
+
     const router = useRouter()
     const { productSlug } = router.query;
 
   const fetchProductDetails = async () => {
     await getProductByProductAndCategorySlug(productSlug)
       .then((res) => {
-        console.log(res);
-        setProductDetails(res);
+        setProductTechSpec(res?.productSpec);
+        setProductDetails(res?.productData);
       })
       .catch((err) => console.log(err));
   };
@@ -110,34 +112,14 @@ const productComponent = () => {
               </h2>
               <table className="table table-borderless small">
                 <tbody>
-                  <tr>
-                    <td className="text-muted ps-0">End Connection</td>
-                    <td className="fw-medium">Flargoid</td>
+
+                {/* {productTechSpec?.map((spec, index) => ( 
+                  
+                  <tr key={index}>
+                    <td className="text-muted ps-0">{spec.title}</td>
+                    <td className="fw-medium">{spec.value}</td>
                   </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Pressure</td>
-                    <td className="fw-medium">PN 10 and DN 600</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Size</td>
-                    <td className="fw-medium">DN 30 - DN 600</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Brand</td>
-                    <td className="fw-medium">DBF VALVES</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Type</td>
-                    <td className="fw-medium">Actuator</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Colour</td>
-                    <td className="fw-medium">Blue</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Application</td>
-                    <td className="fw-medium">Industrial</td>
-                  </tr>
+                ))} */}
                 </tbody>
               </table>
             </div>
