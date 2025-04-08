@@ -1,48 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import { Container, Row, Col, Table, Button } from "react-bootstrap";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faComments } from "@fortawesome/free-solid-svg-icons";
-import { getProductByProductIdOrCategoryId } from "@/services/products";
+import { getProductByProductAndCategorySlug } from "@/services/products";
+import { useRouter } from "next/router";
+import { ProductBreadcrumb } from "./Breadcrumb";
 
 
-const images = [
-  "https://picsum.photos/id/101/300/200",
-  "https://picsum.photos/id/102/300/200",
-  "https://picsum.photos/id/103/300/200",
-  "https://picsum.photos/id/104/300/200",
-];
+const productComponent = () => {
+  const [selectedImage, setSelectedImage] = useState([]);
+  const [productImages, setProductImages] = useState([]);
+  const [productDetails, setProductDetails] = useState(null);
+  const [productTechSpec, setProductTechSpec] = useState(null);
 
-const ValveComponent = () => {
-  const [selectedImage, setSelectedImage] = useState(images[0]);
-  const [productDetails , setProductDetails] = useState(null);
   const router = useRouter();
-  const { category_id ,product_id} = router.query;
+  const { productSlug } = router.query;
 
-  console.log("cat id prod id",category_id , product_id);
+  const fetchProductDetails = async () => {
+    await getProductByProductAndCategorySlug(productSlug)
+      .then((res) => {
+        setProductTechSpec(res?.productSpec);
+        setProductDetails(res?.productData);
+        setProductImages(res?.productImages)
+        setSelectedImage(res?.productImages[0]?.new_image_name)
+      })
+      .catch((err) => console.log(err));
+  };
 
-  useEffect(()=>{
-    
-      getProductByProductIdOrCategoryId(
-        { 
-          product_id, 
-          category_id }
-      )
-      .then((res)=>setProductDetails(res))
-      .catch((err)=>console.log(err))
-   
-    
-  },[product_id,category_id])
+  useEffect(() => {
+    if (productSlug) {
+      fetchProductDetails();
+    }
+  }, [productSlug]);
 
-
-
-  console.log("checking the log profile o product",productDetails);
   return (
     <>
-      <Container fluid className="py-4 bg-white">
-        <Row className="gx-4 gy-5">
+      <Container fluid className="py-2 bg-white">
+       
+       <ProductBreadcrumb slug={productSlug} />
+      
+        <Row className="gx-4 gy-5 mt-1 ">
           {/* Image Column */}
           <Col lg={4} md={6}>
             <div className="mb-4">
@@ -50,16 +47,20 @@ const ValveComponent = () => {
                 src={selectedImage}
                 alt="Product"
                 className="img-fluid border"
-                style={{ maxHeight: "100%", objectFit: "contain", width:"100%" }}
+                style={{
+                  maxHeight: "100%",
+                  objectFit: "contain",
+                  width: "100%",
+                }}
               />
             </div>
 
             <div className="d-flex flex-wrap gap-2 mb-4">
-              {images.map((img, index) => (
+              {productImages.map((img, index) => (
                 <img
                   key={index}
-                  src={img}
-                  alt={`Thumb ${index}`}
+                  src={img?.new_image_name}
+                  alt={img?.original_image_name}
                   className={`cursor-pointer border p-1 ${
                     selectedImage === img ? "border-dark" : "border-light"
                   }`}
@@ -69,9 +70,9 @@ const ValveComponent = () => {
               ))}
             </div>
 
-            <div
+            {/* <div
               className="card p-2 shadow-sm border rounded"
-              style={{ maxWidth: "280px", marginTop:"60px" }}
+              style={{ maxWidth: "280px", marginTop: "60px" }}
             >
               <div className="d-flex align-items-center">
                 <FontAwesomeIcon
@@ -91,13 +92,13 @@ const ValveComponent = () => {
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
           </Col>
 
           {/* Product Details */}
           <Col lg={5} md={6} className="px-lg-4">
             <h1 className="h4 fw-normal mb-3">
-            {productDetails?.[0]?.name}
+              {productDetails?.cms_title || productDetails?.product_name}
             </h1>
 
             <div className="bg-light p-3 mb-4 small">
@@ -110,59 +111,37 @@ const ValveComponent = () => {
               </h2>
               <table className="table table-borderless small">
                 <tbody>
-                  <tr>
-                    <td className="text-muted ps-0">End Connection</td>
-                    <td className="fw-medium">Flargoid</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Pressure</td>
-                    <td className="fw-medium">PN 10 and DN 600</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Size</td>
-                    <td className="fw-medium">DN 30 - DN 600</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Brand</td>
-                    <td className="fw-medium">DBF VALVES</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Type</td>
-                    <td className="fw-medium">Actuator</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Colour</td>
-                    <td className="fw-medium">Blue</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted ps-0">Application</td>
-                    <td className="fw-medium">Industrial</td>
-                  </tr>
+                  {productTechSpec?.map((spec, index) => (
+                    <tr key={index}>
+                      <td className="text-muted ps-0">{spec.title}</td>
+                      <td className="fw-medium">{spec.value}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-
-            <button className="btn btn-link text-dark p-0 small text-decoration-none">
-              [Read More]
-            </button>
           </Col>
 
           {/* Vendor Process */}
-          <Col lg={3} className="ps-lg-4">
+          <Col lg={3} className="ps-lg-4 ">
+            <button
+              class="upload btn btn-primary pt-2 btn-sm "
+              style={{ height: "40px", width: "100%", marginBottom: "20px",  }}
+              onClick={() => router.push(`/vendor/${productSlug[productSlug?.length-1]}`)}
+              >
+              Find Vendors for this product..
+            </button>
+
             <div className="border-start ps-4" style={{ minHeight: "100%" }}>
               <h2 className="h6 fw-normal text-uppercase mb-4">
                 How To Get Final Vendors & Rates?
               </h2>
 
               <div className="mb-4 ratio ratio-16x9">
-                <iframe
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                  title="Vendor Process"
-                  className="bg-light"
-                ></iframe>
+              <iframe width="560" height="315" src="https://www.youtube.com/embed/-JPa1MX2HVE?si=jZhvunz578-xuhOa" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
               </div>
 
-              <ol className="list-unstyled">
+              {/* <ol className="list-unstyled">
                 <li className="mb-3 d-flex align-items-center">
                   <span className="me-2">1.</span>
                   <div className="border-bottom pb-2 w-100">______</div>
@@ -179,146 +158,19 @@ const ValveComponent = () => {
                   <span className="me-2">4.</span>
                   <div className="border-bottom pb-2 w-100">______</div>
                 </li>
-              </ol>
+              </ol> */}
 
-              <div className="mt-4 small text-muted">
+              {/* <div className="mt-4 small text-muted">
                 Find Vendors for this product...
-              </div>
+              </div> */}
             </div>
           </Col>
         </Row>
       </Container>
       {/*  layput testing  */}
-      <div className="container p-4 border">
-        {/* Drawing Section */}
-        <h3>Drawing</h3>
-        <div className="d-flex justify-content-center mb-4">
-          <img
-            src="https://picsum.photos/600/300"
-            alt="Valve Drawing"
-            width={600}
-            height={300}
-          />
-        </div>
-
-        {/* Description Section */}
-        <h3>Description</h3>
-        <ul>
-          <li>
-            <strong>PN rating and #ratings:</strong> Engineered for
-            industrial-grade applications, this ball valve is rated for
-            pressures up to <strong>5000 PSI</strong>, ensuring durability and
-            performance in high-pressure systems like oil refineries, chemical
-            plants, and gas pipelines. It guarantees consistent control in
-            demanding environments.
-          </li>
-          <li>
-            <strong>Standard/Full Bore Design:</strong> Featuring a{" "}
-            <strong>1.5-inch full bore design</strong>, this valve allows for
-            unrestricted flow with minimal pressure loss, reducing turbulence
-            and wear in the system. It’s ideal for applications requiring
-            maximum flow capacity, such as water treatment facilities and
-            industrial fluid systems.
-          </li>
-          <li>
-            <strong>Crafted from High-Quality Material:</strong> It is
-            corrosion-resistant, making it perfect for aggressive environments
-            like chemical processing, marine applications, and outdoor
-            industrial settings. The <strong>PTFE lining</strong> enhances
-            durability and reliability, ensuring long-lasting performance.
-          </li>
-          <li>
-            <strong>Threaded NPT Connection:</strong> It is easy to install and
-            ensures a secure, leak-free fit. The standardized threading offers
-            compatibility with various industrial systems, making it versatile
-            across many industries. Available sizes range from{" "}
-            <strong>half-inch to 16 inches</strong>.
-          </li>
-          <li>
-            <strong>Port Options:</strong> These valves come in multiple
-            configurations, including{" "}
-            <strong>
-              2 ports, 3 ports (90° and 180°), and 4 ports (90°, 180°, 270°, and
-              360°)
-            </strong>
-            , providing flexibility for various application needs.
-          </li>
-          <li>
-            <strong>Media Compatibility:</strong> These valves are suitable for
-            various media, including <strong>gas, water, and acids</strong> (for
-            which a plastic variant is required). It provides reliable
-            performance across a range of industrial applications.
-          </li>
-        </ul>
-
-        {/* Specification Download */}
-        <h3>Detailed Specification Sheet</h3>
-        <Button variant="light" className="border d-flex align-items-center">
-          <img
-            src="https://img.icons8.com/ios-filled/50/000000/pdf.png"
-            alt="PDF Icon"
-            width={24}
-            height={24}
-          />
-          <span className="ms-2">Download</span>
-        </Button>
-
-        {/* Industry Applications */}
-        <h3 className="mt-4">Ideal For These Industries</h3>
-        <div className="d-flex gap-4">
-          {[
-            {
-              name: "Oil and Gas",
-              icon: "https://img.icons8.com/ios/50/000000/oil-industry.png",
-            },
-            {
-              name: "Chemical",
-              icon: "https://img.icons8.com/ios/50/000000/test-tube.png",
-            },
-            {
-              name: "Mining",
-              icon: "https://img.icons8.com/ios/50/000000/mining.png",
-            },
-            {
-              name: "Water Treatment",
-              icon: "https://img.icons8.com/ios/50/000000/water.png",
-            },
-          ].map((industry, index) => (
-            <div key={index} className="text-center">
-              <img
-                src={industry.icon}
-                alt={industry.name}
-                width={40}
-                height={40}
-              />
-              <p>{industry.name}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Expert Tips */}
-        <h3 className="mt-4">Expert Tips</h3>
-        <div className="border p-3 rounded d-flex align-items-center">
-          <img
-            src="https://picsum.photos/80/80"
-            alt="Expert"
-            width={80}
-            height={80}
-            className="rounded-circle me-3"
-          />
-          <div>
-            <p>
-              <strong>Dr. Mark D.</strong>
-            </p>
-            <p className="text-muted">Senior Mechanical Engineer</p>
-            <a href="#" className="text-decoration-none">
-              www.expertadvice.com
-            </a>
-          </div>
-        </div>
-      </div>
+      <div dangerouslySetInnerHTML={{ __html: productDetails?.cms_content }} />
     </>
   );
 };
 
-export default ValveComponent;
+export default productComponent;

@@ -41,7 +41,7 @@ export const ProductSearchBar = () => {
 
   const handleRedirect = () => {
     if (selectedProduct) {
-      router.push(`product-detailPage?product_id=${selectedProduct.product_id}`);
+      router.push(`/vendor/${selectedProduct.slug}`);
     }
   };
   
