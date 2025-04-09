@@ -92,9 +92,9 @@ const SendQuotePageComp = () => {
                 ? productItem.product_details[0].name
                 : "",
               unit_price: quoteItem.unit_price || "",
-              package_price: quoteItem.package_price || globalPackaging || 4,
-              tax: quoteItem.tax || globalTax || 18,
-              freight_price: quoteItem.freight_price || globalFreight || 3,
+              package_price: quoteItem.package_price || globalPackaging || "",
+              tax: quoteItem.tax || globalTax || "",
+              freight_price: quoteItem.freight_price || globalFreight || "",
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
@@ -209,7 +209,17 @@ const SendQuotePageComp = () => {
 
     if (alreadyQuoted) {
       let quote_id = rfqDetails.quotations[0].id;
-      payload = { ...payload, products: quoteProducts };
+      const updatedProducts = quoteProducts.map(product => {
+        if(product.unit_price == 0) {
+          product.tax = 0;
+          product.freight_price = 0;
+          product.package_price = 0;
+          product.total_price = 0;
+        }
+
+        return product;
+      })
+      payload = { ...payload, products: updatedProducts };
 
       setsubmitLoading(true);
       updateQuotation(quote_id, payload)
@@ -235,6 +245,17 @@ const SendQuotePageComp = () => {
         }
       });
 
+      const updatedProducts = filteredquoteProducts.map(product => {
+        if(product.unit_price == 0) {
+          product.tax = 0;
+          product.freight_price = 0;
+          product.package_price = 0;
+          product.total_price = 0;
+        }
+
+        return product;
+      })
+
       // filteredquoteProducts.map((item) => {
       //   if (item.total_price <= 0) {
       //     isEmpty = true;
@@ -246,7 +267,7 @@ const SendQuotePageComp = () => {
       //   return;
       // }
 
-      payload = { ...payload, products: filteredquoteProducts };
+      payload = { ...payload, products: updatedProducts };
 
       setsubmitLoading(true);
       sendQuotation(payload, token)
@@ -345,9 +366,9 @@ const SendQuotePageComp = () => {
 
   useEffect(() => {
     let p = quoteProducts.map((item) => {
-      item["freight_price"] = globalFreight ? globalFreight : item.freight_price;
-      item["package_price"] = globalPackaging ? globalPackaging : item.package_price;
-      item["tax"] = globalTax ? globalTax : item.tax;
+      item["freight_price"] = globalFreight || 0;
+      item["package_price"] = globalPackaging || 0;
+      item["tax"] = globalTax || 0;
       return item;
     });
     calculateTotal(p);
@@ -608,7 +629,7 @@ const SendQuotePageComp = () => {
                               min={0}
                               value={globalFreight}
                               placeholder="3%"
-                              onChange={(e) => setglobalFreight(e.target.value)}
+                              onChange={(e) => {setglobalFreight(e.target.value || "")}}
                               onWheel={(e) => e.target.blur()}
                             />
                           </div>
@@ -620,7 +641,7 @@ const SendQuotePageComp = () => {
                               min={0}
                               value={globalPackaging}
                               placeholder="4%"
-                              onChange={(e) => setglobalPackaging(e.target.value)}
+                              onChange={(e) => setglobalPackaging(e.target.value || "")}
                               onWheel={(e) => e.target.blur()}
                             />
                           </div>
@@ -632,7 +653,7 @@ const SendQuotePageComp = () => {
                               min={0}
                               value={globalTax}
                               placeholder="18%"
-                              onChange={(e) => setglobalTax(e.target.value)}
+                              onChange={(e) => setglobalTax(e.target.value || "")}
                               onWheel={(e) => e.target.blur()}
                             />
                           </div>
@@ -804,7 +825,7 @@ const SendQuotePageComp = () => {
                                         name=""
                                         id=""
                                         placeholder="%"
-                                        value={quoteProducts[index].freight_price}
+                                        value={quoteProducts[index].freight_price || ""}
                                         onChange={(e) =>
                                           handleUpdateData(
                                             item.id,
@@ -827,7 +848,7 @@ const SendQuotePageComp = () => {
                                         name=""
                                         id=""
                                         placeholder="%"
-                                        value={quoteProducts[index].package_price}
+                                        value={quoteProducts[index].package_price || ""}
                                         onChange={(e) =>
                                           handleUpdateData(
                                             item.id,
@@ -850,7 +871,7 @@ const SendQuotePageComp = () => {
                                         name=""
                                         id=""
                                         placeholder="%"
-                                        value={quoteProducts[index].tax}
+                                        value={quoteProducts[index].tax || ""}
                                         onChange={(e) =>
                                           handleUpdateData(
                                             item.id,
