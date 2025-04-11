@@ -722,7 +722,7 @@ const RfqManagementPreview = () => {
                                     id="wacomnamepp"
                                     className="form-control"
                                     name="comname"
-                                    placeholder="lorem ipsum"
+                                    placeholder="lorem ipsum" 
                                     disabled
                                     value={rfqDetails?.company_name}
                                   />
@@ -883,7 +883,7 @@ const RfqManagementPreview = () => {
                                       {rfqDetails?.terms?.map((item, index) => {
                                         return (
                                           <li key={`rfq_d_t_${index}`}>
-                                            {item.content[0].title}
+                                            {item.content && item.content[0] ? item.content[0].title : 'Term ' + (index + 1)}
                                           </li>
                                         );
                                       })}

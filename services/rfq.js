@@ -568,3 +568,50 @@ export const searchVendorByName = (vendor_name) => {
     }
   });
 };
+
+export const updateRfq = async (data) => {
+  try {
+    // Make a copy of the data for sending to the API
+    const sanitizedData = { ...data };
+    
+    // Get the original RFQ data to ensure we have the correct values
+    const originalRfq = await getRFQById(sanitizedData.rfq_id);
+    
+    // Add the original rfq_type and reverse_auction values to ensure they're preserved
+    if (originalRfq && originalRfq.data) {
+      sanitizedData.rfq_type = originalRfq.data.rfq_type || sanitizedData.rfq_type;
+      sanitizedData.reverse_auction = originalRfq.data.reverse_auction || 0;
+    }
+    
+    const response = await axiosInstance.put(
+      `/rfq/update`,
+      {
+        ...sanitizedData,
+        project_id: sanitizedData.project_id ? parseInt(sanitizedData.project_id) : null,
+        is_published: sanitizedData.is_published ? 1 : 0
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    // Create a standardized success response
+    return {
+      success: true,
+      status: response.status,
+      data: response.data,
+      message: "RFQ updated successfully"
+    };
+  } catch (error) {
+    console.error("RFQ Update Error:", error);
+    // Return a standardized error response
+    throw {
+      success: false,
+      status: error.response?.status || 500,
+      message: error.response?.data?.message || "Failed to update RFQ",
+      error: error
+    };
+  }
+};

@@ -239,8 +239,17 @@ export const rfqProductsSlice = createSlice({
     },
 
     setOtherFormFields: (state, action) => {
-      const { field_name, value } = action.payload;
-      state.rfqFormData[field_name] = value;
+      // If action.payload is an object with field_name and value, use those
+      if (action.payload.field_name && 'value' in action.payload) {
+        state.rfqFormData[action.payload.field_name] = action.payload.value;
+      } 
+      // If action.payload is a simple key-value object, merge it with rfqFormData
+      else {
+        state.rfqFormData = {
+          ...state.rfqFormData,
+          ...action.payload
+        };
+      }
     },
 
     setSwSubscription: (state, action) => {

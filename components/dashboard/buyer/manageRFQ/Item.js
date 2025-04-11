@@ -90,14 +90,22 @@ const RFQItem = ({ data }) => {
         <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>
-          <span>
+          <div className="d-flex flex-column gap-2">
             <Link
               href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
               className="page-link"
             >
               View
             </Link>
-          </span>
+            {data.status == 1 && (
+              <Link
+                href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
+                className="page-link"
+              >
+                Edit
+              </Link>
+            )}
+          </div>
         </td>
         <td>
           <Link
