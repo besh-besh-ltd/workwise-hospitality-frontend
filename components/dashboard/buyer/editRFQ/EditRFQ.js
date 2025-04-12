@@ -249,15 +249,19 @@ const EditRFQ = () => {
       
       let updatedTerms;
       if (e.target.checked) {
-        // Add term using term_id for consistency
+        // Add term with consistent structure
         updatedTerms = [...selectedTerms, { 
-          id: item.term_id, 
-          term_id: item.term_id,
-          term_content: item.term_content || item.term_text 
+          id: item.term_id || item.id,
+          term_id: item.term_id || item.id,
+          term_content: item.term_content || item.term_text || item.name,
+          name: item.term_content || item.term_text || item.name
         }];
       } else {
-        // Remove term by filtering on term_id
-        updatedTerms = selectedTerms.filter(termItem => termItem.term_id !== item.term_id);
+        // Remove term by filtering on both id and term_id
+        updatedTerms = selectedTerms.filter(termItem => 
+          termItem.term_id !== (item.term_id || item.id) && 
+          termItem.id !== (item.term_id || item.id)
+        );
       }
       
       console.log("Updated terms:", updatedTerms);
@@ -393,7 +397,7 @@ const EditRFQ = () => {
           .filter(term => term.term_id || term.id)
           .map(term => ({
             id: term.term_id || term.id,
-            name: term.term_content || term.term_text || "Default Term"
+            name: term.term_content || term.term_text || term.name || "Default Term"
         }));
       } else {
         dataToSend.terms = [];
@@ -474,8 +478,10 @@ const EditRFQ = () => {
   useEffect(() => {
     if (rfqData?.terms?.length > 0 && !selectedTerms?.length) {
       const mappedTerms = rfqData.terms.map(term => ({
-        term_id: term.term_id,
-        term_text: term.term_content || term.term_text || ""
+        id: term.term_id || term.id,
+        term_id: term.term_id || term.id,
+        term_content: term.term_content || term.term_text || term.name,
+        name: term.term_content || term.term_text || term.name
       }));
       
       if (mappedTerms.length > 0) {
@@ -954,10 +960,11 @@ const EditRFQ = () => {
                         {allTerms && allTerms.length > 0 ? (
                           allTerms.map((item, index) => {
                             const isChecked = selectedTerms.some(term => 
-                              term.id === item.term_id || 
-                              term.term_id === item.term_id
+                              term.id === (item.term_id || item.id) || 
+                              term.term_id === (item.term_id || item.id)
                             );
-                            const termKey = `term-${item.term_id || `index-${index}`}`;
+                            const termKey = `term-${item.term_id || item.id || `index-${index}`}`;
+                            const termContent = item.term_content || item.term_text || item.name;
                             
                             return (
                               <div className="form-check mb-2" key={termKey}>
@@ -969,7 +976,7 @@ const EditRFQ = () => {
                                   onChange={(e) => handleTermChange(e, item)}
                                 />
                                 <label className="form-check-label" htmlFor={termKey}>
-                                  {index + 1}. {item.term_content || item.term_text}
+                                  {index + 1}. {termContent}
                                 </label>
                               </div>
                             );
