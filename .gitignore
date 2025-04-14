@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+package-lock.json
 
 yarn.lock
 
@@ -28,7 +29,9 @@ yarn-error.log*
 
 # local env files
 .env.*
-
+.env.development
+.env.production
+.env.test
 
 # vercel
 .vercel

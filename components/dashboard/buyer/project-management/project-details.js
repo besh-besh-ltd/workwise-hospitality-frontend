@@ -106,13 +106,16 @@ const ProjectDetails = () => {
             setSelectedFiles([]);
 
             setFiles((prevFiles) => ({
-                ...prevFiles, 
+                ...prevFiles,
                 [response.file_type]: [
-                    ...(prevFiles[response.file_type] || []), 
-                    ...response.files, 
+                  ...(prevFiles[response.file_type] || []),
+                  ...response.files.map((file) => ({
+                    url: file.location,
+                    name: file.originalname,
+                  })),
                 ],
-            }));
-
+              }));
+              
             fileInputRef.current.value = "";
             
             toast.success("Files uploaded successfully!");
