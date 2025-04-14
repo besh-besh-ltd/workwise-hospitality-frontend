@@ -35,33 +35,34 @@ export const checkBidExpired = (bid_end_date) => {
 };
 
 export const extractfileName = (file_url) => {
-    return file_url.split('/').pop();
+    return file_url?.split('/').pop();
 }
 
-export const handleFileUpload = async (e,token) => {
+export const handleFileUpload = async (e, token) => {
     const allowedExtensions = ["pdf", "docx", "doc", "xlsx", "xls", "csv", "png", "jpg", "jpeg"];
-
+  
     const files = e.target.files;
     const file = files[0];
     const fileExtension = file.name.split(".").pop().toLowerCase();
-
+  
     if (allowedExtensions.includes(fileExtension)) {
-        try {
-            const res = await handleUploadFile(file,token);
-            const filePath = res.data[0]?.file_path;
-
-            if (filePath) {
-                return filePath;
-            } else {
-                throw new Error("File upload failed. No file path returned.");
-            }
-        } catch (error) {
-            throw new Error("File upload failed: " + error.message);
+      try {
+        const res = await handleUploadFile(file, token);
+        const filePath = res.data[0]?.file_path;
+  
+        if (filePath) {
+          return filePath; // Return the uploaded file object
+        } else {
+          throw new Error("File upload failed. No file path returned.");
         }
+      } catch (error) {
+        throw new Error("File upload failed: " + error.message);
+      }
     } else {
-        throw new Error("Unsupported file type. Please upload a PDF, Word, Image, or Excel document.");
+      throw new Error("Unsupported file type. Please upload a PDF, Word, Image, or Excel document.");
     }
-};
+  };
+  
 
 export const formatDate = (last_message_timestamp) => {
     const now = new Date();
