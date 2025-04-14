@@ -16,6 +16,10 @@ import {
   setTermFiles,
   setAllTerms,
   setStoreLoading,
+  setRfqId,
+  setRfqProducts,
+  setRfqFormData,
+  setProjects,
 } from "@/redux/slice";
 import Link from "next/link";
 import { toast } from "react-toastify";
@@ -249,13 +253,22 @@ const EditRFQ = () => {
       
       let updatedTerms;
       if (e.target.checked) {
-        // Add term with consistent structure
-        updatedTerms = [...selectedTerms, { 
-          id: item.term_id || item.id,
-          term_id: item.term_id || item.id,
-          term_content: item.term_content || item.term_text || item.name,
-          name: item.term_content || item.term_text || item.name
-        }];
+        // Check if term already exists to prevent duplicates
+        const termExists = selectedTerms.some(term => 
+          term.id === (item.term_id || item.id) || 
+          term.term_id === (item.term_id || item.id)
+        );
+        
+        if (!termExists) {
+          updatedTerms = [...selectedTerms, { 
+            id: item.term_id || item.id,
+            term_id: item.term_id || item.id,
+            term_content: item.term_content || item.term_text || item.name,
+            name: item.term_content || item.term_text || item.name
+          }];
+        } else {
+          updatedTerms = selectedTerms;
+        }
       } else {
         // Remove term by filtering on both id and term_id
         updatedTerms = selectedTerms.filter(termItem => 
