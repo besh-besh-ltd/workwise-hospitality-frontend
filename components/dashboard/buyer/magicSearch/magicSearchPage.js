@@ -12,8 +12,9 @@ import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import Select from 'react-select';
-import { getCities, getCountryCodes, getStates } from "@/services/cms";
+import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import ProductSearchModal from "../../../modal/ProductSearchModal";
+import { vendorConditions, vendorTypes } from "../../vendor/search";
 
 
 const initialFormData = {
@@ -59,14 +60,22 @@ const MagicSearchPage = () => {
 
     const [cities, setCities] = useState(null);
     const [states, setStates] = useState(null);
+    const [countries, setCountries] = useState(null);
     const [globalFilters, setGlobalFilters] = useState({
         city: null,
         state: null,
-        is_private: { label: "All Vendors", value: 0 }
+        country: null,
+        vendor_info: null,
+        vendor_type: null,
+        from: "",
+        to: "",
+        prev_worked_with: null,
     });
     const [vendorMap, setVendorMap] = useState(new Map());
     const [countryCodes , setCountryCodes] = useState([]);
 
+    const fromRef = useRef(null);
+    const toRef = useRef(null);
 
     const today = new Date();
     const tomorrow = new Date(today);
@@ -198,11 +207,37 @@ const MagicSearchPage = () => {
     };
     
 
-    const handleFilterChange = (selectedOption, actionMeta) => {
-        setGlobalFilters((prevState) => ({
+    const handleFilterChange = (selectedOption, actionMeta, clearLocation = false) => {
+      if(clearLocation) {
+        if(actionMeta.name == 'country') {
+          setGlobalFilters((prevState) => ({
             ...prevState,
+            state: null,
+            city: null,
             [actionMeta.name]: selectedOption
-        }))
+          }))
+          return;
+        } else if(actionMeta.name == 'state') {
+          setGlobalFilters((prevState) => ({
+            ...prevState,
+            city: null,
+            [actionMeta.name]: selectedOption
+          }))
+          return;
+        }
+      }
+      setGlobalFilters((prevState) => ({
+        ...prevState,
+        [actionMeta.name]: selectedOption
+      }))
+    }
+
+    const handleGenericFilterChange = (event) => {
+      console.log(event.target.name, event.target.value)
+      setGlobalFilters((prevState) => ({
+        ...prevState,
+        [event.target.name]: event.target.value
+      }))
     }
 
     const handleTermFiles = async (type, dynamicParam) => {
@@ -250,13 +285,30 @@ const MagicSearchPage = () => {
         }
     };
 
+    const getAllCountries = async () => {
+      try {
+          const res = await getCountries();
+          setCountries(
+              res.data.map((country) => ({
+                  label: country.country_name,
+                  value: country.id
+              }))
+          )
+      } catch (error) {
+          toast.error(error.message)
+          return [];
+      }
+  };
+
     const getAllStates = async () => {
+      console.dir(globalFilters.country, {depth: null})
         try {
-            const res = await getStates();
+            const res = await getStates(globalFilters.country?.value);
             setStates(
                 res.data.map((state) => ({
                     label: state.state_name,
-                    value: state.id
+                    value: state.id,
+                    country_id: state.country_id,
                 }))
             )
         } catch (error) {
@@ -267,11 +319,12 @@ const MagicSearchPage = () => {
 
     const getAllCities = async () => {
         try {
-            const res = await getCities();
+            const res = await getCities(globalFilters.state?.value);
             setCities(
                 res.data.map((city) => ({
                     label: city.city_name,
-                    value: city.id
+                    value: city.id,
+                    state_id: city.state_id,
                 }))
             )
         } catch (error) {
@@ -459,6 +512,7 @@ const MagicSearchPage = () => {
         // getTermsData();
         getAllCities();
         getAllStates();
+        getAllCountries();
     
         getCountryCodes()
             .then((res) => {
@@ -469,6 +523,11 @@ const MagicSearchPage = () => {
             });
     
     }, []);
+
+    useEffect(() => {
+      getAllCities();
+      getAllStates();
+    }, [globalFilters])
     
 
     // Display FileUploadMessages in a rotating fashion
@@ -691,68 +750,122 @@ const MagicSearchPage = () => {
                 </>
               ) : (
                 <div className="row">
-                  <div className="col-md-3 mb-3">
-                    <h3 className="h5 mb-3">Select Project</h3>
-                    <select
-                      name="project_id"
-                      id="project_id"
-                      className="form-control border border-dark-subtle"
-                      value={formData.project_id}
-                      onChange={handleFormChange}
-                    >
-                      <option value={-1}>Select Project</option>
-                      {projects &&projects.length > 0 &&
-                        projects.map((projectItem) => {
-                          return (
-                            <option
-                              value={projectItem.value}
-                              key={projectItem.value}
-                            >
-                              {projectItem.label}
-                            </option>
-                          );
-                        })}
-                    </select>
-                  </div>
-                  <div className="col-md-1 mb-3"></div>
-                  <div className="col-md-8 mb-3">
+                  <div className="mb-3">
                     <h3 className="h5 mb-3">Vendor Filters</h3>
                     <div className="row">
-                      <div className="col-md-4">
+                    <div className="col-md-3">
                         <Select
-                          name="city"
-                          options={cities}
-                          value={globalFilters.city}
-                          placeholder="Select City"
+                          name="country"
+                          options={countries}
+                          value={globalFilters.country}
+                          placeholder="Country"
                           isClearable
                           isSearchable
-                          onChange={handleFilterChange}
+                          onChange={(newValue, action) => {
+                            handleFilterChange(newValue, action, true)
+                          }}
                         />
                       </div>
-                      <div className="col-md-4">
+                      <div className="col-md-3">
                         <Select
+                          isDisabled={!globalFilters.country}
                           name="state"
                           options={states}
                           value={globalFilters.state}
-                          placeholder="Select State"
+                          placeholder="State"
                           isClearable
                           isSearchable
-                          onChange={handleFilterChange}
+                          onChange={(newValue, action) => {
+                            handleFilterChange(newValue, action, true)
+                          }}
                         />
                       </div>
-                      <div className="col-md-4">
+                      <div className="col-md-3">
+                        <Select
+                          isDisabled={!globalFilters.state}
+                          name="city"
+                          options={cities}
+                          value={globalFilters.city}
+                          placeholder="City"
+                          isClearable
+                          isSearchable
+                          onChange={(newValue, action) => {
+                            handleFilterChange(newValue, action, true)
+                          }}
+                        />
+                      </div>
+                      <div className="col-md-3">
                         <Select
                           options={[
-                            { label: "All Vendors", value: 0 },
-                            { label: "Private Vendors", value: 1 },
+                            { label: "All Vendors", value: null },
+                            { label: "Private Vendors", value: { is_private: 1, is_linked_with_buyer: 1 } },
+                            { label: "Public Vendors", value: { is_private: 0, is_linked_with_buyer: 1 } },
                           ]}
-                          value={globalFilters.is_private}
+                          value={globalFilters.vendor_info}
                           onChange={handleFilterChange}
-                          name="is_private"
+                          name="vendor_info"
                           placeholder="Select"
-                          isClearable={false}
+                          isClearable
                           isSearchable
                         />
+                      </div>
+                    </div>
+                    <div className="row mt-3">
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium  mb-2">FROM</p>
+                          <input
+                            ref={fromRef}
+                            type="text"
+                            name="from"
+                            className="form-control"
+                            placeholder="FROM ( IN CR )"
+                            value={globalFilters.from}
+                            onChange={handleGenericFilterChange}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium  mb-2">TO</p>
+                          <input
+                            ref={toRef}
+                            type="text"
+                            name="to"
+                            className="form-control"
+                            placeholder="TO ( IN CR )"
+                            value={globalFilters.to}
+                            onChange={handleGenericFilterChange}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium  mb-2">Vendor Type</p>
+                          <Select
+                            options={vendorTypes}
+                            value={globalFilters.vendor_type}
+                            onChange={handleFilterChange}
+                            name="vendor_type"
+                            placeholder="Select"
+                            isClearable
+                            isSearchable
+                          />
+                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium  mb-2">Prev. Worked With</p>
+                          <Select
+                            options={vendorConditions}
+                            value={globalFilters.prev_worked_with}
+                            onChange={handleFilterChange}
+                            name="prev_worked_with"
+                            placeholder="Select"
+                            isClearable
+                            isSearchable
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -763,6 +876,9 @@ const MagicSearchPage = () => {
                         <ProductSearchModal
                           reviewData={reviewData}
                           setReviewData={setReviewData}
+                          formData={formData}
+                          handleFormChange={handleFormChange}
+                          projects={projects}
                         />
                       </div>
 
@@ -776,6 +892,7 @@ const MagicSearchPage = () => {
                         setVendorMap={setVendorMap}
                         cities={cities}
                         states={states}
+                        countries={countries}
                       />
                     </>
                   )}

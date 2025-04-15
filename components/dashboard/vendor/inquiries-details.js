@@ -883,7 +883,7 @@ const RfqManagementPreview = () => {
                                       {rfqDetails?.terms?.map((item, index) => {
                                         return (
                                           <li key={`rfq_d_t_${index}`}>
-                                            {item.content[0].title}
+                                            {item.content?.[0].title ?? "-"}
                                           </li>
                                         );
                                       })}

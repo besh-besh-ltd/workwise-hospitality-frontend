@@ -65,9 +65,12 @@ export const searchProductsV2 = (values, type = "products") => {
       approved_by_id: values.approved_by,
       state: values.state == 0 ? "" : values.state,
       city: values.city == 0 ? "" : values.city,
+      country: values.country == 0 ? "" : values.country,
+      turnOver: values.turnOver,
+      vendorType: values.vendorType,
+      prevWorkedWith: values.prevWorkedWith,
       vendor_name: values.vendor_name,
-      is_private: values.is_private,
-      preferred_vendor: values.preferred_vendor,
+      myVendorType: values?.myVendorType?.value ?? "",
     };
 
     return new Promise(async (resolve, reject) => {

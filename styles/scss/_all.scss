@@ -6422,7 +6422,7 @@ textarea {
 }
 
 .all-products-wrap {
-  max-height: 600px;
+  max-height: 805px;
   overflow: auto;
 }
 
@@ -6972,7 +6972,8 @@ aside {
 }
 
 #vendors_area {
-  padding-top: 80px;
+  padding-top: 40px;
+  padding-bottom: 50px;
 }
 
 .search-con-right-1 {
@@ -7601,4 +7602,10 @@ td:hover .tooltip_custom {
   white-space: nowrap;
   overflow: hidden;
   animation: blink 0.7s step-end infinite;
+}
+
+.selection-dropdown {
+  input:disabled, select:disabled {
+    opacity: 40%;
+  }
 }
