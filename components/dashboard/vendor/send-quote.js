@@ -92,9 +92,9 @@ const SendQuotePageComp = () => {
                 ? productItem.product_details[0].name
                 : "",
               unit_price: quoteItem.unit_price || "",
-              package_price: quoteItem.package_price || globalPackaging || "",
-              tax: quoteItem.tax || globalTax || "",
-              freight_price: quoteItem.freight_price || globalFreight || "",
+              package_price: quoteItem.package_price || globalPackaging || null,
+              tax: quoteItem.tax || globalTax || null,
+              freight_price: quoteItem.freight_price || globalFreight || null,
               total_price: quoteItem.total_price || 0,
               comment: quoteItem.comment || "",
               delivery_period: quoteItem.delivery_period || "",
