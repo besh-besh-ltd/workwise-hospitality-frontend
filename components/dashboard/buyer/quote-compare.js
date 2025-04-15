@@ -108,8 +108,6 @@ const QuoteCompare = () => {
           setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
         }
 
-        console.log("checking the fuck...",page,res.total_items,newData.length);
-
         if (page >= Math.ceil(res.total_items / limit)) {
           sethasMoreQuotes(false);
         }
@@ -324,20 +322,22 @@ const QuoteCompare = () => {
           temp_arr.push("0");
         } else {
           temp_arr.push(
-            q.quote_details.length > 0 ? q.quote_details[0].unit_price : "0"
+            q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
+            ? q.quote_details[0].unit_price : "0"
           );
           temp_arr.push(
-            q.quote_details.length > 0
+            q.quote_details.length > 0 && q?.quote_details[0]?.freight_price 
               ? q.quote_details[0].freight_price + "%"
               : "0"
           );
           temp_arr.push(
-            q.quote_details.length > 0
+            q.quote_details.length > 0 && q?.quote_details[0]?.package_price
               ? q.quote_details[0].package_price + "%"
               : "0"
           );
           temp_arr.push(
-            q.quote_details.length > 0 ? q.quote_details[0].tax + "%" : "0"
+            q.quote_details.length > 0 && q?.quote_details[0]?.tax
+             ? q.quote_details[0].tax + "%" : "0"
           );
           temp_arr.push(
             q.quote_details.length > 0

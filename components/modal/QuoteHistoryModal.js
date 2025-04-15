@@ -135,11 +135,11 @@ const QuoteHistoryModal = (props) => {
                                     {props.quotehistorydata?.previous_quotes?.map((item, index) => (
                                         <tr key={item.id}>
                                             <td>{index+1}</td>
-                                            <td>{item.unit_price}</td>
-                                            <td>{item.package_price}</td>
-                                            <td>{item.freight_price}</td>
-                                            <td>{item.tax}</td>
-                                            <td>{item.total_price}</td>
+                                            <td>{item?.unit_price || "-"}</td>
+                                            <td>{item?.package_price || "-"}</td>
+                                            <td>{item?.freight_price || "-"}</td>
+                                            <td>{item?.tax || "-"}</td>
+                                            <td>{item?.total_price || "-"}</td>
                                             {/* <td>{item.delivery_period}</td> */}
                                             <td>{item.delivery_period ? item.delivery_period + " weeks" : '-'}</td>
                                             <td>{item.comment ? item.comment : '-'}</td>
