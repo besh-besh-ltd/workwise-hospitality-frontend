@@ -78,6 +78,9 @@ const EditRFQ = () => {
   const [initialized, setInitialized] = useState(false);
   const [dataFetchError, setDataFetchError] = useState(null);
 
+  // Add a ref to track if we've already refreshed terms to avoid infinite loop
+  const termRefreshCompletedRef = useRef(false);
+
   const storeLoading = useSelector((state) => state.storeLoading);
   const rfqDetails = useSelector((state) => state.rfq_id);
   const rfqProductsFromStore = useSelector((state) => state.rfqProducts || []);
@@ -116,6 +119,10 @@ const EditRFQ = () => {
   useEffect(() => {
     // Clear Redux store first
     dispatch(clearState());
+    
+    // Reset refs for a fresh start
+    termRefreshCompletedRef.current = false;
+    termsInitializedRef.current = false;
     
     // Only start fetching when we have an ID
     if (router.query.id) {
@@ -217,6 +224,22 @@ const EditRFQ = () => {
     }
   }, [allTerms, selectedTerms]);
 
+  // Add useEffect to force term reselection after component mounts
+  useEffect(() => {
+    // Only run this once when the component has loaded and allTerms are available
+    // Use the ref to ensure we only do this operation ONCE
+    if (allTerms?.length > 0 && selectedTerms?.length > 0 && initialDataLoaded && !termRefreshCompletedRef.current) {
+      console.log("Force refreshing terms selection status (one-time operation)...");
+      
+      // Mark that we've completed this refresh to prevent infinite loops
+      termRefreshCompletedRef.current = true;
+      
+      // We'll deliberately dispatch the same terms to trigger UI updates
+      const refreshedTerms = [...selectedTerms];
+      dispatch(setTermsData(refreshedTerms));
+    }
+  }, [allTerms, initialDataLoaded, selectedTerms]);
+
   const fetchInitialData = async () => {
     try {
       // If we're re-fetching after an update, don't show loading indicators
@@ -260,51 +283,94 @@ const EditRFQ = () => {
       if (rfqData.terms && rfqData.terms.length > 0 && termsResponse?.data) {
         console.log("Original API terms:", rfqData.terms);
         
-        // Extract API term content - these are the terms we need to select
-        const apiTermContents = rfqData.terms.map(term => {
-          // Get clean content from API term
+        // First, get both ID and content from API terms
+        const apiTerms = rfqData.terms.map(term => {
+          // Get all possible content from API term
           let content = '';
+          let termId = term.id;
+          let name = '';
+          
           if (term.content && term.content[0] && term.content[0].title) {
             content = term.content[0].title.trim();
+            name = content;
           } else {
             content = (term.name || term.term_content || term.term_text || '').trim();
+            name = content;
           }
-          return content;
+          
+          // Handle "Term 8018" format from view page
+          // This helps match terms by ID format when displayed differently
+          if (content.startsWith("Term ") && /^\d+$/.test(content.substring(5))) {
+            termId = parseInt(content.substring(5));
+          }
+          
+          return { 
+            id: termId,
+            content: content,
+            name: name
+          };
         });
         
-        console.log("API term contents to match:", apiTermContents);
+        console.log("Parsed API terms:", apiTerms);
         
-        // Create an array to store matched UI terms
+        // Check if we have any "Term XXXX" style terms
+        const hasTermNumberFormat = apiTerms.some(t => 
+          t.content.startsWith("Term ") && /^\d+$/.test(t.content.substring(5))
+        );
+        
+        // Create selected terms array
         const selectedUITerms = [];
         
-        // Match by comparing content beginnings
+        // We'll try multiple matching strategies
         termsResponse.data.forEach(uiTerm => {
+          const uiTermId = Number(uiTerm.id);
           const uiContent = (uiTerm.term_content || uiTerm.name || '').trim();
           
-          // For each UI term, check if it matches any API term content
-          for (const apiContent of apiTermContents) {
-            // Match if the first part of the content is the same
-            // We only compare the first 70 characters to allow for small differences
-            if (uiContent && apiContent && 
-                (uiContent.substring(0, 70) === apiContent.substring(0, 70) ||
-                 apiContent.includes(uiContent.substring(0, 70)) ||
-                 uiContent.includes(apiContent.substring(0, 70)))) {
+          // For each UI term, test against all API terms
+          let matched = false;
+          
+          // First, try direct ID match (if we have Term XXXX format)
+          if (hasTermNumberFormat) {
+            matched = apiTerms.some(apiTerm => {
+              // Check if either the term ID matches directly
+              return Number(apiTerm.id) === uiTermId;
+            });
+          }
+          
+          // If no ID match, try content matching
+          if (!matched) {
+            matched = apiTerms.some(apiTerm => {
+              const apiContent = apiTerm.content;
               
-              // Found a match, add this UI term to selected terms
-              selectedUITerms.push({
-                id: uiTerm.id,
-                name: uiTerm.term_content || uiTerm.name || ''
-              });
+              // Start with exact match
+              if (apiContent === uiContent) {
+                return true;
+              }
               
-              console.log(`Found match: API term "${apiContent.substring(0, 50)}..." matches UI term "${uiContent.substring(0, 50)}..."`);
-              break; // Found a match, no need to check other API terms
-            }
+              // Try prefix matching (first 70 chars)
+              if (apiContent && uiContent && 
+                  (uiContent.substring(0, 70) === apiContent.substring(0, 70) ||
+                   apiContent.includes(uiContent.substring(0, 70)) ||
+                   uiContent.includes(apiContent.substring(0, 70)))) {
+                return true;
+              }
+              
+              return false;
+            });
+          }
+          
+          // If this term should be selected, add it
+          if (matched) {
+            selectedUITerms.push({
+              id: uiTerm.id,
+              name: uiTerm.term_content || uiTerm.name || ''
+            });
           }
         });
         
-        console.log("Matched UI terms:", selectedUITerms);
+        console.log("Selected UI terms after matching:", selectedUITerms);
         
-        // Set these terms as selected in Redux
+        // Set terms in Redux state
         dispatch(setTermsData(selectedUITerms));
       } else {
         dispatch(setTermsData([]));
@@ -508,7 +574,24 @@ const EditRFQ = () => {
     }
   };
 
-  const handleUpdateRFQ = (formValues) => {
+  // Create a new function to fetch and process terms with fresh content
+  const fetchTermsForUpdate = async () => {
+    try {
+      // Get fresh terms from API
+      const termsResponse = await getTerms();
+      if (!termsResponse?.data) {
+        console.error("Failed to fetch terms for update");
+        return null;
+      }
+      
+      return termsResponse.data;
+    } catch (error) {
+      console.error("Error fetching terms for update:", error);
+      return null;
+    }
+  };
+
+  const handleUpdateRFQ = async (formValues) => {
     try {
       if (!rfqData || !rfqData.id) {
         toast.error("Original RFQ data not available");
@@ -516,6 +599,9 @@ const EditRFQ = () => {
       }
       
       setLoading(true);
+      
+      // CRITICAL FIX: Fetch fresh terms to ensure we have full content
+      const freshTerms = await fetchTermsForUpdate();
       
       // Clean the number - get ONLY digits for backend validation
       let cleanNumber = formValues.contact_number
@@ -615,34 +701,83 @@ const EditRFQ = () => {
       if (selectedTerms && selectedTerms.length > 0) {
         console.log("Terms before processing for update:", selectedTerms);
         
-        // Use a Map to deduplicate by ID and normalize structure
-        const termsMap = new Map();
+        // CRITICAL FIX: Ensure we use fresh terms with full content
+        const fullTerms = [];
         
-        // Process each term to ensure correct and consistent format
-        selectedTerms.forEach(term => {
-          // Extract term ID, preferring id, then term_id, always as a number for the backend
-          const termId = Number(term.id || term.term_id);
+        if (freshTerms && freshTerms.length > 0) {
+          // Get IDs of selected terms
+          const selectedTermIds = selectedTerms.map(term => 
+            String(term.id || term.term_id)
+          );
           
-          // Extract term name, with multiple fallbacks to ensure we always have content
-          const termName = term.name || 
-                            term.term_text ||
-                            term.term_content ||
-                            (term.content && term.content[0] ? term.content[0].title : null) ||
-                            `Term ${termId}`;
+          console.log("Selected term IDs:", selectedTermIds);
           
-          // IMPORTANT: Only include the exact properties expected by backend validation
-          // This prevents "X is not allowed" validation errors
-          termsMap.set(termId, {
-            // ONLY include id and name - no other properties
-            id: termId,
-            name: termName
+          // For each API term, check if it's in our selected terms
+          freshTerms.forEach(apiTerm => {
+            const apiTermId = String(apiTerm.id || apiTerm.term_id);
+            
+            if (selectedTermIds.includes(apiTermId)) {
+              // Get the full content
+              const termContent = apiTerm.term_content || 
+                                 apiTerm.name || 
+                                 (apiTerm.content && apiTerm.content[0] ? apiTerm.content[0].title : null);
+              
+              // Only add terms with actual content (not "Term XXXX")
+              if (termContent && !termContent.startsWith("Term ")) {
+                fullTerms.push({
+                  id: Number(apiTermId),
+                  name: termContent
+                });
+                
+                console.log(`Added term with full content: ID=${apiTermId}, Content="${termContent.substring(0, 50)}..."`);
+              } else {
+                // If we can't find content, try to get it from allTerms
+                const matchingTerm = allTerms.find(t => String(t.id) === apiTermId);
+                if (matchingTerm && matchingTerm.term_content) {
+                  fullTerms.push({
+                    id: Number(apiTermId),
+                    name: matchingTerm.term_content
+                  });
+                  
+                  console.log(`Added term from allTerms: ID=${apiTermId}, Content="${matchingTerm.term_content.substring(0, 50)}..."`);
+                } else {
+                  // Last resort - use a descriptive name
+                  fullTerms.push({
+                    id: Number(apiTermId),
+                    name: `Full content for term ${apiTermId}`
+                  });
+                  
+                  console.log(`Added term with placeholder content: ID=${apiTermId}`);
+                }
+              }
+            }
           });
-        });
+        } else {
+          // Fallback if fresh terms couldn't be fetched
+          console.warn("Couldn't fetch fresh terms, using allTerms as fallback");
+          
+          selectedTerms.forEach(term => {
+            const termId = String(term.id || term.term_id);
+            const matchingTerm = allTerms.find(t => String(t.id) === termId);
+            
+            if (matchingTerm) {
+              fullTerms.push({
+                id: Number(termId),
+                name: matchingTerm.term_content || matchingTerm.name || term.name
+              });
+            } else {
+              fullTerms.push({
+                id: Number(termId),
+                name: term.name || `Full content for term ${termId}`
+              });
+            }
+          });
+        }
         
-        // Convert Map back to array - with only the properties the backend expects
-        dataToSend.terms = Array.from(termsMap.values());
+        // Use these full terms for the update
+        dataToSend.terms = fullTerms;
         
-        console.log("Terms after strict filtering for backend:", dataToSend.terms);
+        console.log("Terms with full content for backend:", dataToSend.terms);
       } else {
         // If no terms selected, send empty array
         dataToSend.terms = [];
@@ -1300,6 +1435,13 @@ const EditRFQ = () => {
                             // Log the selection state for debugging
                             console.log(`Term #${index} (ID: ${item.id}): ${itemContent.substring(0, 50)}... - Selected: ${isSelected}`);
                             
+                            // Format the term content to match the view page
+                            // Check if it's already in "Term XXXX" format
+                            let displayContent = itemContent;
+                            if (!displayContent.startsWith("Term ")) {
+                              displayContent = `${index + 1}. ${itemContent}`;
+                            }
+                            
                             return (
                               <div className="form-check mb-2" key={`term-${item.id}`}>
                                 <input
@@ -1310,7 +1452,7 @@ const EditRFQ = () => {
                                   onChange={(e) => handleTermChange(e, item)}
                                 />
                                 <label className="form-check-label" htmlFor={`term-${item.id}`}>
-                                  {index + 1}. {itemContent}
+                                  {displayContent}
                                 </label>
                               </div>
                             );
