@@ -97,7 +97,7 @@ const RFQItem = ({ data }) => {
             >
               View
             </Link>
-            {data.status == 1 && (
+            {data.status === 1 && (
               <Link
                 href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
                 className="page-link"

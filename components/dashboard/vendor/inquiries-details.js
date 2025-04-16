@@ -529,7 +529,7 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                        {type === "buyer-view" && (
+                        {type === "buyer-view" && rfqDetails.status === 1 && (
                           <Link href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}>
                             <button
                               type="button"
