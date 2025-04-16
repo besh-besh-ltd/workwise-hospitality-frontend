@@ -101,22 +101,94 @@ const CreateRFQ = () => {
   const getTermsData = () => {
     getTerms()
       .then((res) => {
-        dispatch(setAllTerms(res.data));
+        // Normalize terms to ensure consistent structure before adding to Redux
+        if (res.data && Array.isArray(res.data)) {
+          const normalizedTerms = res.data.map(term => {
+            // Extract term ID with fallback
+            const termId = String(term.id || term.term_id);
+            
+            // Extract term content with fallbacks
+            const termContent = term.term_content || term.name || term.term_text || 
+                             (term.content && term.content[0] ? term.content[0].title : null) ||
+                             `Term ${termId}`;
+            
+            // Return normalized term with consistent properties
+            return {
+              ...term, // Keep all original properties
+              id: termId, // Always have id as string
+              term_id: termId, // Add term_id for compatibility
+              term_content: termContent, // Ensure term_content exists
+              name: termContent // Ensure name exists
+            };
+          });
+          
+          console.log("Terms fetched and normalized:", normalizedTerms.length);
+          dispatch(setAllTerms(normalizedTerms));
+        } else {
+          console.log("No terms found or invalid format");
+          dispatch(setAllTerms([]));
+        }
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Error fetching terms:", err);
       });
   };
 
   const handleTermChange = (e, item) => {
-    let updatedTerms = [];
-    if (e.target.checked) {
-      updatedTerms = [...selectedTerms, { id: item.id }];
-    } else {
-      updatedTerms = selectedTerms.filter((termItem) => termItem.id != item.id)
+    try {
+      const isChecked = e.target.checked;
+      // Always convert ID to string for consistent comparison
+      const termId = String(item.id || item.term_id);
+      
+      // Extract term content with fallbacks
+      const termName = item.term_content || item.name || item.term_text || 
+                     (item.content && item.content[0] ? item.content[0].title : null) ||
+                     `Term ${termId}`;
+      
+      console.log(`Term change: ${termName} (ID: ${termId}) -> ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
+      
+      // Clone the current terms array to avoid direct state mutation
+      let updatedTerms = [...(selectedTerms || [])];
+      
+      if (isChecked) {
+        // Make sure term isn't already selected (checking both id and term_id)
+        const existingTerm = updatedTerms.find(term => 
+          String(term.id) === termId || String(term.term_id) === termId
+        );
+        
+        if (!existingTerm) {
+          // IMPORTANT: Only store minimal properties to prevent validation errors
+          // The backend only expects id and name
+          updatedTerms.push({
+            id: termId,
+            name: termName
+          });
+          
+          console.log(`Added term: ${termName} (ID: ${termId})`);
+        } else {
+          console.log(`Term already selected: ${termName} (ID: ${termId})`);
+        }
+      } else {
+        // Filter out the term with matching ID - check both id and term_id
+        const previousLength = updatedTerms.length;
+        updatedTerms = updatedTerms.filter(term => 
+          String(term.id) !== termId && String(term.term_id || '') !== termId
+        );
+        
+        if (previousLength !== updatedTerms.length) {
+          console.log(`Removed term: ${termName} (ID: ${termId})`);
+        } else {
+          console.log(`Term not found for removal: ${termName} (ID: ${termId})`);
+        }
+      }
+      
+      // Update Redux with the new terms array
+      dispatch(setTermsData(updatedTerms));
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error("Error handling term change:", error);
+      toast.error("An error occurred while updating terms. Please try again.");
     }
-    dispatch(setTermsData(updatedTerms));
-    setHasUnsavedChanges(true);
   };
 
   const getProjectData = async (projectId) => {
@@ -196,21 +268,36 @@ const CreateRFQ = () => {
     setHasUnsavedChanges(true);
   };
 
-  const handleCreateRFQ = (resetForm) => {
+  const handleCreateRFQ = (values, resetForm) => {
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
-    const fullMobile = `${onecountrycode}-${resetForm.contact_number.trim().replace(/^0+/, "")}`
+    // Use values from the form submission
+    const mobileNumber = values.contact_number.trim().replace(/^0+/, "");
+    const fullMobile = `${onecountrycode}-${mobileNumber}`;
+    
+    // Deep clone the form data to avoid direct mutation
+    const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
+    
+    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
+    if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
+      formDataCopy.terms = formDataCopy.terms.map(term => ({
+        id: Number(term.id || term.term_id), // Convert to number for backend
+        name: term.name || term.term_content || `Term ${term.id}`
+      }));
+      
+      console.log("Terms filtered for backend validation:", formDataCopy.terms);
+    }
+    
     let payload = {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
-      ...rfqFormDataRef.current,
-      project_id: rfqFormDataRef.current.project_id || -1,
-      contact_number:fullMobile
-      
+      ...formDataCopy, // Use the filtered copy
+      project_id: formDataCopy.project_id || -1,
+      contact_number: fullMobile
     };
 
-    // **Remove country_code if it exists**
+    // Remove country_code if it exists
     if (payload.hasOwnProperty("country_code")) {
       delete payload.country_code;
     }
@@ -230,11 +317,15 @@ const CreateRFQ = () => {
 
         router.push("/dashboard/buyer/rfq-management");
         dispatch(clearState());
-        resetForm();
+        if (typeof resetForm === 'function') {
+          resetForm();
+        }
       })
       .catch((err) => {
+        console.error("Error creating RFQ:", err);
         setMainLoading(false);
         setHasUnsavedChanges(true);
+        toast.error("Failed to create RFQ. Please check your form and try again.");
       });
   };
 
@@ -246,12 +337,25 @@ const CreateRFQ = () => {
     const cleanedNumber = parts[parts.length - 1];    
     const fullMobile = `${onecountrycode}-${cleanedNumber}`;
 
+    // Deep clone the form data to avoid direct mutation
+    const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
+    
+    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
+    if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
+      formDataCopy.terms = formDataCopy.terms.map(term => ({
+        id: Number(term.id || term.term_id), // Convert to number for backend
+        name: term.name || term.term_content || `Term ${term.id}`
+      }));
+      
+      console.log("Terms filtered for draft save:", formDataCopy.terms);
+    }
+
     const payload = {
-      ...rfqFormDataRef.current,
+      ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       is_published: 0,
-      contact_number:fullMobile
+      contact_number: fullMobile
     };
 
     try {
@@ -265,9 +369,8 @@ const CreateRFQ = () => {
       );
       setHasUnsavedChanges(false);
       getDraftInitialData();
-
     } catch (error) {
-      console.log(error)
+      console.error("Error saving draft:", error);
       setMainLoading(false);
       toast.error("Failed to save draft. Please try again.");
     }
@@ -331,6 +434,20 @@ const CreateRFQ = () => {
     rfqFormDataRef.current = rfqFormDataFromStore;
   }, [rfqFormDataFromStore]);
 
+  useEffect(() => {
+    // Debug terms selection state
+    if (allTerms?.length > 0 && selectedTerms?.length > 0) {
+      console.log("Terms Selection Debug:", {
+        allTermsCount: allTerms.length,
+        selectedTermsCount: selectedTerms.length,
+        selectedTermIds: selectedTerms.map(t => t.id),
+        firstFewAllTerms: allTerms.slice(0, 3).map(t => ({ 
+          id: t.id, 
+          name: t.term_content || t.name 
+        }))
+      });
+    }
+  }, [allTerms, selectedTerms]);
 
   useEffect(() => {
     const handleRouteChange = async (url) => {
@@ -457,16 +574,29 @@ const CreateRFQ = () => {
 
                           <ol className="custom-ol">
                             {allTerms.map((item) => {
+                              // Use the same robust selection logic as in EditRFQ
+                              const isSelected = selectedTerms && selectedTerms.some(term => {
+                                // Convert both IDs to strings and try both id and term_id properties
+                                const itemId = String(item.id || item.term_id);
+                                const termId = String(term.id || term.term_id);
+                                return itemId === termId;
+                              });
+                              
+                              // Extract term content with consistent fallbacks
+                              const termContent = item.term_content || item.name || item.term_text || 
+                                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                                `Term ${item.id}`;
+                              
                               return (
                                 <li key={`term-item-${item.id}`}>
                                   <input
                                     type="checkbox"
                                     id={`term-item-${item.id}`}
-                                    checked={item.selected}
+                                    checked={isSelected}
                                     onChange={(e) => handleTermChange(e, item)}
                                   />
                                   <label htmlFor={`term-item-${item.id}`}>
-                                    {item?.term_content}
+                                    {termContent}
                                   </label>
                                 </li>
                               );

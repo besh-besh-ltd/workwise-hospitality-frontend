@@ -36,14 +36,6 @@ const EditRFQSchema = Yup.object().shape({
     .matches(/^\d+$/, "Please enter only numbers without country code or special characters")
     .min(10, "Contact number must be at least 10 digits")
     .max(15, "Contact number must not exceed 15 digits")
-    .test(
-      'no-country-code',
-      'Phone number should not include country code (that is handled by the dropdown)',
-      function(value) {
-        // Check if the number starts with common country codes
-        return !value || !/^(91|1|44|61|86|7|49|33|81|82|62|55|234|27|966|65|60|52|972)/i.test(value);
-      }
-    )
     .required("Contact number is required"),
   response_email: Yup.string()
     .email("Invalid email format")
@@ -53,10 +45,21 @@ const EditRFQSchema = Yup.object().shape({
     .min(2, "Contact name must be at least 2 characters")
     .max(50, "Contact name must not exceed 50 characters"),
   location: Yup.string()
-    .required("Delivery location is required"),
+    .optional(),
+  // Modified to accept date that could be today or in the future
   bid_end_date: Yup.date()
     .required("Procurement end date is required")
-    .min(new Date(), "End date must be in the future"),
+    .test('valid-date', 'End date must be today or in the future', function(value) {
+      if (!value) return true;
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const inputDate = new Date(value);
+      inputDate.setHours(0, 0, 0, 0);
+      
+      return inputDate >= today;
+    }),
 });
 
 const EditRFQ = () => {
@@ -109,7 +112,7 @@ const EditRFQ = () => {
         setCountryCode([]);
       });
   };
-
+  
   useEffect(() => {
     // Clear Redux store first
     dispatch(clearState());
@@ -202,6 +205,18 @@ const EditRFQ = () => {
     }
   }, [selectedTerms, allTerms]);
 
+  // Add a useEffect to debug term selection to help track issues
+  useEffect(() => {
+    if (allTerms?.length > 0 && selectedTerms?.length > 0) {
+      console.log("Term Selection Debug:", {
+        allTermsCount: allTerms.length,
+        selectedTermsCount: selectedTerms.length,
+        selectedTermIds: selectedTerms.map(t => t.id),
+        firstFewAllTerms: allTerms.slice(0, 3).map(t => ({ id: t.id, name: t.term_content || t.name }))
+      });
+    }
+  }, [allTerms, selectedTerms]);
+
   const fetchInitialData = async () => {
     try {
       // If we're re-fetching after an update, don't show loading indicators
@@ -224,7 +239,10 @@ const EditRFQ = () => {
       
       // Set all available terms first so they're available for matching
       if (termsResponse?.data) {
-        console.log("Available terms loaded:", termsResponse.data.length);
+        console.log("All available terms loaded:", termsResponse.data.length);
+        
+        // IMPORTANT: Keep the original IDs from the database intact
+        // Do not modify or normalize them - this was causing the selection issue
         dispatch(setAllTerms(termsResponse.data));
       }
 
@@ -237,6 +255,79 @@ const EditRFQ = () => {
       setRfqData(rfqData);
 
       console.log("RFQ data loaded with terms:", rfqData.terms);
+
+      // CRITICAL FINAL FIX: Map API terms to UI terms by content
+      if (rfqData.terms && rfqData.terms.length > 0 && termsResponse?.data) {
+        console.log("Original API terms:", rfqData.terms);
+        
+        // Extract API term content - these are the terms we need to select
+        const apiTermContents = rfqData.terms.map(term => {
+          // Get clean content from API term
+          let content = '';
+          if (term.content && term.content[0] && term.content[0].title) {
+            content = term.content[0].title.trim();
+          } else {
+            content = (term.name || term.term_content || term.term_text || '').trim();
+          }
+          return content;
+        });
+        
+        console.log("API term contents to match:", apiTermContents);
+        
+        // Create an array to store matched UI terms
+        const selectedUITerms = [];
+        
+        // Match by comparing content beginnings
+        termsResponse.data.forEach(uiTerm => {
+          const uiContent = (uiTerm.term_content || uiTerm.name || '').trim();
+          
+          // For each UI term, check if it matches any API term content
+          for (const apiContent of apiTermContents) {
+            // Match if the first part of the content is the same
+            // We only compare the first 70 characters to allow for small differences
+            if (uiContent && apiContent && 
+                (uiContent.substring(0, 70) === apiContent.substring(0, 70) ||
+                 apiContent.includes(uiContent.substring(0, 70)) ||
+                 uiContent.includes(apiContent.substring(0, 70)))) {
+              
+              // Found a match, add this UI term to selected terms
+              selectedUITerms.push({
+                id: uiTerm.id,
+                name: uiTerm.term_content || uiTerm.name || ''
+              });
+              
+              console.log(`Found match: API term "${apiContent.substring(0, 50)}..." matches UI term "${uiContent.substring(0, 50)}..."`);
+              break; // Found a match, no need to check other API terms
+            }
+          }
+        });
+        
+        console.log("Matched UI terms:", selectedUITerms);
+        
+        // Set these terms as selected in Redux
+        dispatch(setTermsData(selectedUITerms));
+      } else {
+        dispatch(setTermsData([]));
+      }
+
+      // Add this right after retrieving RFQ data
+      console.log("Original RFQ Terms from API (before normalization):", 
+        rfqData.terms ? rfqData.terms.map(t => ({
+          id: t.id || t.term_id || 'undefined',
+          term_id: t.terms_id || 'undefined',  // Check for terms_id which might be used in the map table
+          name: t.name || t.term_text || t.term_content || 'undefined',
+          allKeys: Object.keys(t)
+        })) : 'No terms found'
+      );
+
+      // Also log the allTerms when they're fetched
+      console.log("All available terms:", 
+        termsResponse?.data ? termsResponse.data.map(t => ({
+          id: t.id || 'undefined',
+          term_content: (t.term_content || '').substring(0, 50) + '...',
+          allKeys: Object.keys(t)
+        })) : 'No terms available'
+      );
 
       // Extract country code and number from contact_number
       if (rfqData.contact_number) {
@@ -276,36 +367,10 @@ const EditRFQ = () => {
         setProjects(formattedProjects);
       }
 
-      // Properly format and set the selected terms - enhanced to ensure proper selection
-      const formattedTerms = rfqData.terms?.map(term => {
-        const termId = term.term_id || term.id;
-        const termContent = term.term_content || term.term_text || term.name;
-        
-        console.log(`Initial term ${termId}:`, { termId, termContent });
-        
-        return {
-          id: termId,
-          term_id: termId,
-          term_content: termContent,
-          name: termContent,
-          selected: true // Mark as selected since these came from the RFQ
-        };
-      }) || [];
-
-      console.log("Formatted terms for Redux:", formattedTerms);
-
-      // Always set the terms data explicitly to ensure correct state
-      if (formattedTerms.length > 0) {
-        console.log("Setting terms data:", formattedTerms.length, "terms");
-        // Ensure terms are set in Redux
-        dispatch(setTermsData(formattedTerms));
-      }
-
       const storeData = {
         rfq_id: rfqData.id,
         rfq_form_data: {
           ...rfqData,
-          terms: formattedTerms,
           term_and_condition_files: rfqData.term_and_condition_files || []
         },
         rfq_products: rfqData.products || []
@@ -314,7 +379,7 @@ const EditRFQ = () => {
       // Initialize the RFQ in Redux
       dispatch(intializeRfq(storeData));
       
-      // Set the terms initialized flag
+      // Set terms initialized flag
       termsInitializedRef.current = true;
       console.log("Terms initialization complete. InitializedRef =", termsInitializedRef.current);
 
@@ -325,6 +390,7 @@ const EditRFQ = () => {
     } catch (error) {
       setDataFetchError(error.message || "Failed to load RFQ data");
       toast.error("Failed to load RFQ data. Please try again.");
+      console.error("Error loading RFQ data:", error);
     } finally {
       setRfqLoading(false);
       setMainLoading(false);
@@ -362,45 +428,55 @@ const EditRFQ = () => {
     }
   };
 
-  // Improved term change handling to preserve old terms
+  // Improved term change handler to handle selection properly
   const handleTermChange = (e, item) => {
     try {
-      console.log("Term change:", item, e.target.checked);
+      const isChecked = e.target.checked;
+      const termId = item.id;
+      const termContent = (item.term_content || item.name || '').trim();
       
-      // Get current terms from Redux store
-      const currentTerms = [...(selectedTerms || [])];
+      console.log(`Term change: ${termContent.substring(0, 50)}... (ID: ${termId}) -> ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
       
-      if (e.target.checked) {
-        // Only add if it doesn't already exist
-        const termExists = currentTerms.some(term => 
-          (term.term_id === (item.term_id || item.id)) || 
-          (term.id === (item.term_id || item.id))
+      // Clone the current terms array to avoid direct state mutation
+      let updatedTerms = [...(selectedTerms || [])];
+      
+      if (isChecked) {
+        // Only add if not already in the selection list (check by both ID and content)
+        const alreadySelected = updatedTerms.some(term => 
+          String(term.id) === String(termId) || 
+          ((term.name || term.term_content || '').trim() === termContent)
         );
         
-        if (!termExists) {
-          // Add new term to the existing ones
-          currentTerms.push({
-            id: item.term_id || item.id,
-            term_id: item.term_id || item.id,
-            term_content: item.term_content || item.term_text || item.name,
-            name: item.term_content || item.term_text || item.name
+        if (!alreadySelected) {
+          // Add the term with exact UI details to ensure proper rendering
+          updatedTerms.push({
+            id: termId,
+            name: termContent
           });
+          console.log(`Added term: ${termContent.substring(0, 50)}... (ID: ${termId})`);
+        } else {
+          console.log(`Term already in selection: ${termContent.substring(0, 50)}... (ID: ${termId})`);
         }
       } else {
-        // Remove term if unchecked
-        const updatedTerms = currentTerms.filter(term => 
-          term.term_id !== (item.term_id || item.id) && 
-          term.id !== (item.term_id || item.id)
-        );
+        // Remove by both ID and content matching to ensure it's fully removed
+        const initialLength = updatedTerms.length;
         
-        // Use the filtered array
-        dispatch(setTermsData(updatedTerms));
-        setHasUnsavedChanges(true);
-        return;
+        // First try to remove by ID
+        updatedTerms = updatedTerms.filter(term => String(term.id) !== String(termId));
+        
+        // If that didn't remove anything, try content matching
+        if (updatedTerms.length === initialLength) {
+          updatedTerms = updatedTerms.filter(term => {
+            const existingContent = (term.name || term.term_content || '').trim();
+            return existingContent !== termContent;
+          });
+        }
+        
+        console.log(`Removed term: ${termContent.substring(0, 50)}... (ID: ${termId})`);
       }
       
-      console.log("Updated terms:", currentTerms);
-      dispatch(setTermsData(currentTerms));
+      // Update Redux with the new terms array
+      dispatch(setTermsData(updatedTerms));
       setHasUnsavedChanges(true);
     } catch (error) {
       console.error("Error handling term change:", error);
@@ -443,8 +519,10 @@ const EditRFQ = () => {
       
       // Clean the number - get ONLY digits for backend validation
       let cleanNumber = formValues.contact_number
-        .replace(/[^0-9]/g, "") // Remove all non-numeric characters
-        .replace(/^0+/, ""); // Remove leading zeros
+        ? formValues.contact_number
+            .replace(/[^0-9]/g, "") // Remove all non-numeric characters
+            .replace(/^0+/, "") // Remove leading zeros
+        : "";
       
       // Additional check to prevent country code duplication
       // Common country codes that might be at the start of the number
@@ -533,32 +611,64 @@ const EditRFQ = () => {
         });
       }
 
-      // Improved terms handling to preserve existing terms
+      // Update the terms handling in handleUpdateRFQ
       if (selectedTerms && selectedTerms.length > 0) {
-        console.log("Terms before update:", selectedTerms);
+        console.log("Terms before processing for update:", selectedTerms);
         
-        // Format terms properly for backend while preserving all selected terms
-        dataToSend.terms = selectedTerms
-          .filter(term => term.term_id || term.id)
-          .map(term => ({
-            id: term.term_id || term.id,
-            name: term.term_content || term.term_text || term.name || "Default Term"
-          }));
+        // Use a Map to deduplicate by ID and normalize structure
+        const termsMap = new Map();
+        
+        // Process each term to ensure correct and consistent format
+        selectedTerms.forEach(term => {
+          // Extract term ID, preferring id, then term_id, always as a number for the backend
+          const termId = Number(term.id || term.term_id);
           
-        console.log("Terms after format for backend:", dataToSend.terms);
+          // Extract term name, with multiple fallbacks to ensure we always have content
+          const termName = term.name || 
+                            term.term_text ||
+                            term.term_content ||
+                            (term.content && term.content[0] ? term.content[0].title : null) ||
+                            `Term ${termId}`;
+          
+          // IMPORTANT: Only include the exact properties expected by backend validation
+          // This prevents "X is not allowed" validation errors
+          termsMap.set(termId, {
+            // ONLY include id and name - no other properties
+            id: termId,
+            name: termName
+          });
+        });
+        
+        // Convert Map back to array - with only the properties the backend expects
+        dataToSend.terms = Array.from(termsMap.values());
+        
+        console.log("Terms after strict filtering for backend:", dataToSend.terms);
       } else {
-        // If no terms selected, preserve the original terms
-        dataToSend.terms = rfqData.terms?.map(term => ({
-          id: term.term_id || term.id,
-          name: term.term_content || term.term_text || term.name || "Default Term"
-        })) || [];
+        // If no terms selected, send empty array
+        dataToSend.terms = [];
+        console.log("No terms selected, sending empty array");
       }
+
+      // Also add explicit logging before sending terms to backend in handleUpdateRFQ
+      console.log("Terms before processing for backend (raw from Redux):", selectedTerms);
+
+      // And add this after creating the terms array for the API
+      console.log("Final terms structure being sent to API:", dataToSend.terms);
 
       // Submit the RFQ update
       updateRfq(dataToSend)
         .then((response) => {
+          console.log("Update response:", response);
           setLoading(false);
-          if (response && (response.success || response.status === 'success' || response.status === 200 || !response.error)) {
+          
+          // More flexible success detection
+          const isSuccess = response && 
+            (response.success === true || 
+             response.status === 'success' || 
+             response.status === 200 || 
+             !response.error);
+             
+          if (isSuccess) {
             toast.success("RFQ updated successfully!");
             
             // Reset initialization flag so we'll re-initialize terms on fetch
@@ -578,16 +688,14 @@ const EditRFQ = () => {
               // Keep original values
               rfq_type: prevData.rfq_type,
               reverse_auction: prevData.reverse_auction,
-              // Preserve terms
-              terms: selectedTerms || prevData.terms
+              // Preserve terms, but use the deduplicated version
+              terms: dataToSend.terms || prevData.terms
             }));
             
-            // IMPORTANT: Make sure we update the terms in Redux as well
-            if (selectedTerms && selectedTerms.length > 0) {
-              dispatch(setTermsData(selectedTerms));
-            }
+            // Clear and update the terms in Redux to prevent duplication
+            dispatch(clearState());
             
-            // Update Redux store - use display format for UI
+            // IMPORTANT: Update Redux store - use display format for UI
             dispatch(
               setOtherFormFields({
                 contact_name: formValues.contact_name,
@@ -601,23 +709,23 @@ const EditRFQ = () => {
               })
             );
             
-            // Fetch fresh data after successful update
+            // Set the deduplicated terms
+            if (dataToSend.terms && dataToSend.terms.length > 0) {
+              dispatch(setTermsData(dataToSend.terms));
+            }
+            
+            // Navigate after success (without refetch to avoid race conditions)
             setTimeout(() => {
-              fetchInitialData(); // Re-fetch data to ensure everything is in sync
-              
-              // Only redirect after we've refreshed the data
-              setTimeout(() => {
-                router.push("/dashboard/buyer/rfq-management");
-              }, 300);
-            }, 200);
+              router.push("/dashboard/buyer/rfq-management");
+            }, 500);
           } else {
-            console.error("Update response:", response);
-            toast.error(response.message || "Failed to update RFQ");
+            console.error("Update failed:", response);
+            toast.error(response?.message || "Failed to update RFQ. Please check the form and try again.");
           }
         })
         .catch((error) => {
-          setLoading(false);
           console.error("Error updating RFQ:", error);
+          setLoading(false);
           
           if (error.response && error.response.data && error.response.data.message) {
             toast.error(error.response.data.message);
@@ -628,7 +736,7 @@ const EditRFQ = () => {
     } catch (error) {
       setLoading(false);
       console.error("Error in handleUpdateRFQ:", error);
-      toast.error("An error occurred while updating the RFQ");
+      toast.error("An error occurred while updating the RFQ: " + (error.message || "Unknown error"));
     }
   };
 
@@ -761,12 +869,12 @@ const EditRFQ = () => {
                     <td>
                       {product.vendor_details?.length > 0 ? (
                         <div className="view-selected-vendors">
-                          <a 
+                              <a 
                             href={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/dashboard/buyer/rfq-management-vendor?type=buyer-view&vendors=${product.vendor_details.map(vendor => vendor.user_id).join(',')}&productid=${product.product_id}&variant=${product.variant}`}
                             className="page-link"
-                          >
+                              >
                             View
-                          </a>
+                              </a>
                         </div>
                       ) : (
                           <span className="text-muted">None</span>
@@ -967,16 +1075,16 @@ const EditRFQ = () => {
                           </label>
                           <div className="d-flex">
                             {/* Country Code Dropdown */}
-                            <select
+                        <select
                               name="countryCode"
-                              className="form-select"
+                          className="form-select"
                               style={{
                                 maxWidth: "130px",
                                 marginRight: "6px",
                                 maxHeight: "44px",
                               }}
                               value={onecountrycode}
-                              onChange={(e) => {
+                          onChange={(e) => {
                                 setonecountrycode(e.target.value);
                                 setHasUnsavedChanges(true);
                               }}
@@ -989,7 +1097,7 @@ const EditRFQ = () => {
                                   {country.country_code} ({country.phone_code})
                                 </option>
                               ))}
-                            </select>
+                        </select>
 
                             {/* Mobile Number Input */}
                             <input
@@ -1018,11 +1126,11 @@ const EditRFQ = () => {
                               }}
                               onBlur={handleBlur}
                             />
-                          </div>
+                      </div>
                           {touched.contact_number && errors.contact_number && (
                             <div className="invalid-feedback d-block">
                               {errors.contact_number}
-                            </div>
+                    </div>
                           )}
                           
                           {/* Preview of formatted number */}
@@ -1135,7 +1243,7 @@ const EditRFQ = () => {
                       {/* Delivery Location - Full Width */}
                       <div className="col-12">
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Delivery Location</label>
+                          <label className="form-label fw-medium">Delivery Location (Optional)</label>
                           <textarea
                             name="location"
                             className="form-control"
@@ -1146,7 +1254,7 @@ const EditRFQ = () => {
                               handleFormFieldChange(e);
                             }}
                             onBlur={handleBlur}
-                            placeholder="Enter delivery location details..."
+                            placeholder="Enter delivery location details (optional)..."
                           />
                         </div>
                       </div>
@@ -1165,47 +1273,44 @@ const EditRFQ = () => {
                       <div className="terms-list border rounded p-3">
                         {allTerms && allTerms.length > 0 ? (
                           allTerms.map((item, index) => {
-                            // Enhanced term selection check with more robust matching
-                            const isChecked = selectedTerms?.some(term => {
-                              // Match by term_id or id or even content if IDs don't match
-                              const termItemId = item.term_id || item.id;
-                              const selectedTermId = term.term_id || term.id;
-                              const termItemContent = item.term_content || item.term_text || item.name;
-                              const selectedTermContent = term.term_content || term.term_text || term.name;
-                              
-                              // Try multiple matching strategies
-                              const idMatch = String(termItemId) === String(selectedTermId);
-                              const contentMatch = termItemContent && selectedTermContent && 
-                                termItemContent.trim() === selectedTermContent.trim();
-                              
-                              console.log(`Term check #${index+1}:`, {
-                                itemId: termItemId,
-                                selectedId: selectedTermId,
-                                idMatch,
-                                contentMatch,
-                                result: idMatch || contentMatch
+                            // Get clean term content for UI display and comparison
+                            const itemContent = (item.term_content || item.name || '').trim();
+                            
+                            // Try multiple approaches to determine if this term is selected:
+                            
+                            // 1. First check by ID
+                            let isSelected = selectedTerms && selectedTerms.some(term => 
+                              String(term.id) === String(item.id)
+                            );
+                            
+                            // 2. If not found by ID, check by content matching
+                            if (!isSelected && selectedTerms && selectedTerms.length > 0) {
+                              isSelected = selectedTerms.some(term => {
+                                const selectedTermContent = (term.name || term.term_content || '').trim();
+                                
+                                // Match if content beginnings are similar
+                                return itemContent && selectedTermContent && (
+                                  itemContent.substring(0, 70) === selectedTermContent.substring(0, 70) ||
+                                  itemContent.includes(selectedTermContent.substring(0, 70)) ||
+                                  selectedTermContent.includes(itemContent.substring(0, 70))
+                                );
                               });
-                              
-                              // Match if either ID or content matches
-                              return idMatch || contentMatch;
-                            });
+                            }
                             
-                            console.log(`Term #${index+1} (${item.term_id || item.id}) checked:`, isChecked);
-                            
-                            const termKey = `term-${item.term_id || item.id || index}`;
-                            const termContent = item.term_content || item.term_text || item.name;
+                            // Log the selection state for debugging
+                            console.log(`Term #${index} (ID: ${item.id}): ${itemContent.substring(0, 50)}... - Selected: ${isSelected}`);
                             
                             return (
-                              <div className="form-check mb-2" key={termKey}>
+                              <div className="form-check mb-2" key={`term-${item.id}`}>
                                 <input
                                   className="form-check-input"
                                   type="checkbox"
-                                  id={termKey}
-                                  checked={isChecked}
+                                  id={`term-${item.id}`}
+                                  checked={isSelected}
                                   onChange={(e) => handleTermChange(e, item)}
                                 />
-                                <label className="form-check-label" htmlFor={termKey}>
-                                  {index + 1}. {termContent}
+                                <label className="form-check-label" htmlFor={`term-${item.id}`}>
+                                  {index + 1}. {itemContent}
                                 </label>
                               </div>
                             );
@@ -1274,6 +1379,17 @@ const EditRFQ = () => {
                     type="submit" 
                     className="btn btn-success px-4" 
                     disabled={storeLoading || loading}
+                    onClick={(e) => {
+                      // Ensure form validation is triggered
+                      if (Object.keys(errors).length > 0) {
+                        console.log("Form has validation errors:", errors);
+                        // Display validation errors to user
+                        Object.keys(errors).forEach(key => {
+                          toast.error(`${key}: ${errors[key]}`);
+                        });
+                        e.preventDefault();
+                      }
+                    }}
                   >
                     {storeLoading || loading ? "Updating..." : "Update RFQ"}
                   </button>

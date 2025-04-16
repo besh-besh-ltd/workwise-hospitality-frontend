@@ -75,20 +75,56 @@ const RfqManagementPreview = () => {
 
   }, [rfqDetails, buyerClauses])
 
+  useEffect(() => {
+    if (rfqDetails && rfqDetails.terms) {
+      console.log("RFQ Terms Debug:", {
+        count: rfqDetails.terms.length,
+        terms: rfqDetails.terms.map(t => ({
+          id: t.id,
+          name: t.name,
+          // Include a sample of other properties that might exist
+          properties: {
+            term_id: t.term_id,
+            term_text: t.term_text,
+            term_content: t.term_content,
+            content: t.content
+          }
+        }))
+      });
+    }
+  }, [rfqDetails?.terms]);
+
   const getRFQdetails = () => {
     setloading(true);
     getRFQById(id, token)
-
       .then((res) => {
         setloading(false);
         let val = checkBidExpired(res.data?.bid_end_date);
         setIsSubmitable(!val);
+        
+        // Normalize terms data to ensure consistent structure
+        if (res.data && res.data.terms && Array.isArray(res.data.terms)) {
+          res.data.terms = res.data.terms.map(term => {
+            // Create a normalized term object with consistent properties
+            return {
+              id: term.id || term.term_id,
+              name: term.name || term.term_text || 
+                    (term.content && term.content[0] ? term.content[0].title : null) || 
+                    term.term_content || 
+                    `Term ${term.id || "Unknown"}`,
+              // Preserve original data for reference if needed
+              original: { ...term }
+            };
+          });
+        }
+        
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
         updatecurrentLowest(res.data?.products);
       })
       .catch((error) => {
         setloading(false);
+        console.error("Error fetching RFQ details:", error);
       });
   };
 
@@ -493,7 +529,20 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                      <button
+                        {type === "buyer-view" && (
+                          <Link href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}>
+                            <button
+                              type="button"
+                              className="btn btn-primary me-2"
+                              style={{ width: "auto" }}
+                            >
+                              <FontAwesomeIcon icon={faEdit} className="me-2" />
+                              Edit RFQ
+                            </button>
+                          </Link>
+                        )}
+                        
+                        <button
                           type="button"
                           className=" btn btn-primary "
                           style={{ width: "180px" }}
@@ -881,9 +930,30 @@ const RfqManagementPreview = () => {
                                   {rfqDetails?.terms?.length > 0 && (
                                     <ol>
                                       {rfqDetails?.terms?.map((item, index) => {
+                                        // Enhanced term content extraction with comprehensive fallbacks
+                                        const termContent = 
+                                          // Try all possible property names where content might be stored
+                                          item.name || 
+                                          item.term_text || 
+                                          item.term_content ||
+                                          (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                          (item.original?.name) ||
+                                          (item.original?.term_text) ||
+                                          (item.original?.term_content) ||
+                                          (item.original?.content && Array.isArray(item.original.content) && item.original.content[0]?.title) ||
+                                          // Final fallback if nothing else works
+                                          `Term ${index + 1} (ID: ${item.id || item.term_id || "Unknown"})`;
+                                        
+                                        // Add debug logging to help troubleshoot term display issues
+                                        console.log(`Rendering term #${index}:`, {
+                                          id: item.id || item.term_id,
+                                          content: termContent,
+                                          originalItem: item
+                                        });
+                                        
                                         return (
                                           <li key={`rfq_d_t_${index}`}>
-                                            {item.content && item.content[0] ? item.content[0].title : 'Term ' + (index + 1)}
+                                            {termContent}
                                           </li>
                                         );
                                       })}

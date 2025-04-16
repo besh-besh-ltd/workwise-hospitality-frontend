@@ -210,21 +210,39 @@ export const rfqProductsSlice = createSlice({
     },
 
     setAllTerms: (state, action) => {
-      let updatedTerms = action.payload.map((termData) => {
-        let checked = state.rfqFormData.terms.some((item) => item.id == termData.id);
-        return { ...termData, selected: checked }
-      })
+      // Add selected property based on string comparison
+      const updatedTerms = action.payload.map(term => {
+        // Check if this term's ID is in the selected terms using string comparison
+        const isSelected = state.rfqFormData.terms.some(selectedTerm => 
+          String(selectedTerm.id) === String(term.id)
+        );
+        
+        // Preserve the original term with all its fields
+        return { ...term, selected: isSelected };
+      });
+
       state.allTerms = updatedTerms;
     },
 
     setTermsData: (state, action) => {
-      let d = state.allTerms.map((termData) => {
-        let checked = action.payload.some((selectedTerm) => selectedTerm.id == termData.id);
-        termData.selected = checked;
-        return termData;
-      })
-      state.allTerms = d;
-      state.rfqFormData.terms = action.payload;
+      // PRESERVE the original ID format instead of converting to Number
+      const cleanTerms = action.payload.map(term => ({
+        id: term.id, // Keep the original ID format exactly as is
+        name: term.name || term.term_content || 
+              (term.content && term.content[0] ? term.content[0].title : null) ||
+              `Term ${term.id}`
+      }));
+
+      // Update selection state in allTerms using string comparison
+      state.allTerms = state.allTerms.map(term => {
+        const isSelected = cleanTerms.some(selectedTerm => 
+          String(selectedTerm.id) === String(term.id)
+        );
+        return { ...term, selected: isSelected };
+      });
+
+      // Store the cleaned terms with ORIGINAL ID format
+      state.rfqFormData.terms = cleanTerms;
     },
 
     setTermFiles: (state, action) => {
