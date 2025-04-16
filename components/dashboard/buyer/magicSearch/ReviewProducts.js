@@ -5,6 +5,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Select from 'react-select';
+import { getCities, getCountries, getStates } from '@/services/cms';
+import { toast } from 'react-toastify';
+import _ from 'lodash';
+import { vendorConditions, vendorTypes } from '../../vendor/search';
 
 const customeStyles = {
     control: (provided) => ({
@@ -33,7 +37,13 @@ const customeStyles = {
 
 const ReviewProducts = ({
     data, changeProductData, handleFiles, removeItem,
-    globalFilters, vendorMap, setVendorMap, cities, states }) => {
+    globalFilters, vendorMap, setVendorMap, states: _states, cities: _cities, countries }) => {
+
+    const [globalStates, setGlobalStates] = useState(null);
+    const [globalCities, setGlobalCities] = useState(null);
+
+    const [cities, setCities] = useState(new Map());
+    const [states, setStates] = useState(new Map());
 
     const [localFilterMap, setLocalFilterMap] = useState(new Map());
 
@@ -44,10 +54,51 @@ const ReviewProducts = ({
             const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
             let updatedVendors = prodItem.vendors || [];
 
+            getAllStates(prodKey, localFilterMap.get(prodKey)?.country)
+            getAllCities(prodKey, localFilterMap.get(prodKey)?.state)
+
             const filter = localFilterMap.get(prodKey);
-            if (filter?.is_private?.value == 1) {
+            if (filter?.vendor_info?.value) {
                 updatedVendors = updatedVendors.filter(
-                    (vendorItem) => vendorItem.is_private == 1
+                    (vendorItem) => _.isEqual(vendorItem.vendor_info, filter.vendor_info.value)
+                );
+            }
+            if ((filter?.from != "" && parseInt(filter?.from) > 0) || (filter?.to != "" && parseInt(filter?.to) > 0)) {
+                if((filter?.from != "" && parseInt(filter?.from) > 0) && (filter?.to != "" && parseInt(filter?.to) > 0)) {
+                    updatedVendors = updatedVendors.filter(
+                        (vendorItem) => vendorItem.turnover >= parseInt(filter.from) * 10000000 && vendorItem.turnover <= parseInt(filter.to) * 10000000
+                    );
+                } else if ((filter?.from != "" && parseInt(filter?.from) > 0)) {
+                    updatedVendors = updatedVendors.filter(
+                        (vendorItem) => vendorItem.turnover >= parseInt(filter.from) * 10000000
+                    );
+                } else if ((filter?.to != "" && parseInt(filter?.to) > 0)) {
+                    updatedVendors = updatedVendors.filter(
+                        (vendorItem) => vendorItem.turnover <= parseInt(filter.to) * 10000000
+                    );
+                }
+            }
+            if(filter?.vendor_type?.value) {
+                updatedVendors = updatedVendors.filter(
+                    (vendorItem) => (vendorItem.nature_of_business ?? "").toLowerCase() === filter.vendor_type.value.toLowerCase()
+                );
+            }
+            if(filter?.prev_worked_with?.value) {
+                const prev_worked_with_value = filter?.prev_worked_with?.value
+                if(prev_worked_with_value == 'prev_finalized')
+                    updatedVendors = updatedVendors.filter(
+                        (vendorItem) =>
+                            vendorItem.vendor_info.prev_finalized
+                    );
+                else
+                    updatedVendors = updatedVendors.filter(
+                        (vendorItem) =>
+                            vendorItem.vendor_info.rfq_added
+                    );
+            }
+            if (filter?.country) {
+                updatedVendors = updatedVendors.filter(
+                    (vendorItem) => vendorItem.country_name === filter.country.label
                 );
             }
             if (filter?.city) {
@@ -65,6 +116,18 @@ const ReviewProducts = ({
         setVendorMap(vMap);
     }
 
+    const handleGenericInputChange = (prodKey, event) => {
+        const fMap = new Map(localFilterMap);
+        let filters = fMap.get(prodKey);
+        fMap.set(prodKey, {
+            ...filters,
+            [event.target.name]: event.target.value
+        })
+        setLocalFilterMap(fMap);
+        getAllStates(prodKey, event.target.name == 'country' ? event.target.value : null);
+        getAllCities(prodKey, event.target.name == 'state' ? event.target.value : null);
+    }
+
     const handleLocalFilterChange = (prodKey, selectedOption, actionMeta) => {
         const fMap = new Map(localFilterMap);
         let filters = fMap.get(prodKey);
@@ -73,11 +136,87 @@ const ReviewProducts = ({
             [actionMeta.name]: selectedOption
         })
         setLocalFilterMap(fMap);
+        getAllStates(prodKey, actionMeta.name == 'country' ? selectedOption : null);
+        getAllCities(prodKey, actionMeta.name == 'state' ? selectedOption : null);
     }
+    
+    const getAllStates = (prod_key, country) => {
+        if(!prod_key || !country) return;
+        try {
+            setStates((prev) => {
+                const prevStates = globalStates
+                const updatedStates = prev.set(
+                    prod_key,
+                    prevStates.filter(state => state.country_id == country.value)
+                  )
+                return updatedStates
+            }
+            );
+        } catch (error) {
+            toast.error(error.message)
+            return [];
+        }
+    };
+
+    const getAllCities = async (prod_key, state) => {
+        if(!prod_key || !state) return;
+        try {
+            setCities((prev) => {
+                const prevCities = globalCities
+                const updatedCities = prev.set(
+                    prod_key,
+                    prevCities.filter(city => city.state_id == state.value)
+                )
+                return updatedCities
+            }
+            );
+        } catch (error) {
+            toast.error(error.message)
+            return [];
+        }
+    };
+
+    const fetchStates = async () => {
+        console.dir(globalFilters.country, {depth: null})
+        try {
+            const res = await getStates();
+            setGlobalStates(
+                res.data.map((state) => ({
+                    label: state.state_name,
+                    value: state.id,
+                    country_id: state.country_id,
+                }))
+            )
+        } catch (error) {
+            toast.error(error.message)
+            return [];
+        }
+    };
+    
+    const fetchCities = async () => {
+        try {
+            const res = await getCities();
+            setGlobalCities(
+                res.data.map((city) => ({
+                    label: city.city_name,
+                    value: city.id,
+                    state_id: city.state_id,
+                }))
+            )
+        } catch (error) {
+            toast.error(error.message)
+            return [];
+        }
+    };
 
     useEffect(()=> {
         updateVendorList();
     }, [localFilterMap]);
+
+    useEffect(() => {
+        fetchStates();
+        fetchCities();
+    }, [])
 
     useEffect(() => {
         setLocalFilterMap((prevState) => {
@@ -92,6 +231,8 @@ const ReviewProducts = ({
     useEffect(() => {
         const lMap = new Map();
         const vMap = new Map();
+        const sMap = new Map();
+        const cMap = new Map();
 
         data.forEach((prodItem) => {
             const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
@@ -100,12 +241,32 @@ const ReviewProducts = ({
             lMap.set(prodKey, {
                 city: null,
                 state: null,
-                is_private: { label: "All Vendors", value: 0 },
+                country: null,
+                is_private: null,
+                from: "",
+                to: "",
             });
+
+            const statesResult = _states.map((state) => ({
+                label: state.state_name,
+                value: state.id,
+                country_id: state.country_id,
+            }))
+
+            const citiesResult = _cities.map((city) => ({
+                label: city.city_name,
+                value: city.id,
+                state_id: city.state_id,
+            }))
+
+            sMap.set(prodKey, statesResult)
+            cMap.set(prodKey, citiesResult)
         });
 
         setLocalFilterMap(lMap);
         setVendorMap(vMap);
+        setStates(sMap);
+        setCities(cMap);
     }, [data]);
 
 
@@ -118,6 +279,7 @@ const ReviewProducts = ({
                         tempSpec[specItem.title] = specItem.value
                     })
                     const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
+                    console.log("PROD KEY: ", prodKey)
 
                     return (
                         <Accordion.Item key={prodKey} eventKey={index} className="border-0">
@@ -131,15 +293,15 @@ const ReviewProducts = ({
 
                                     <div className="row px-0 my-2">
                                         <div className="col-md-5"></div>
-                                        <div className="col-12 col-md-7 px-0">
+                                        <div className="px-4 mb-3">
                                             <div className="row">
-                                                <div className="col-md-4">
+                                            <div className="col-md-3">
                                                     <Select
-                                                        name="city"
-                                                        options={cities}
+                                                        name="country"
+                                                        options={countries}
                                                         styles={customeStyles}
-                                                        value={localFilterMap.get(prodKey)?.city}
-                                                        placeholder="Select City"
+                                                        value={localFilterMap.get(prodKey)?.country}
+                                                        placeholder="Country"
                                                         isClearable
                                                         isSearchable
                                                         onChange={
@@ -148,13 +310,14 @@ const ReviewProducts = ({
                                                         }
                                                     />
                                                 </div>
-                                                <div className="col-md-4">
+                                                <div className="col-md-3">
                                                     <Select
+                                                        isDisabled={!(localFilterMap.get(prodKey)?.country)}
                                                         name="state"
-                                                        options={states}
+                                                        options={states.get(prodKey)}
                                                         styles={customeStyles}
                                                         value={localFilterMap.get(prodKey)?.state}
-                                                        placeholder="Select State"
+                                                        placeholder="State"
                                                         isClearable
                                                         isSearchable
                                                         onChange={
@@ -163,8 +326,24 @@ const ReviewProducts = ({
                                                         }
                                                     />
                                                 </div>
-                                                <div className="col-md-4">
+                                                <div className="col-md-3">
                                                     <Select
+                                                    isDisabled={!(localFilterMap.get(prodKey)?.state)}
+                                                        name="city"
+                                                        options={cities.get(prodKey)}
+                                                        styles={customeStyles}
+                                                        value={localFilterMap.get(prodKey)?.city}
+                                                        placeholder="City"
+                                                        isClearable
+                                                        isSearchable
+                                                        onChange={
+                                                            (selectedOption, actionMeta) =>
+                                                                handleLocalFilterChange(prodKey, selectedOption, actionMeta)
+                                                        }
+                                                    />
+                                                </div>
+                                                <div className="col-md-3">
+                                                    {/* <Select
                                                         options={[
                                                             { label: "All Vendors", value: 0 },
                                                             { label: "Private Vendors", value: 1 }
@@ -179,7 +358,89 @@ const ReviewProducts = ({
                                                         placeholder="Select"
                                                         isClearable={false}
                                                         isSearchable
+                                                    /> */}
+                                                    <Select
+                                                        options={[
+                                                            { label: "All Vendors", value: { is_private: 0, is_linked_with_buyer: 0 } },
+                                                            { label: "Private Vendors", value: { is_private: 1, is_linked_with_buyer: 1 } },
+                                                            { label: "Public Vendors", value: { is_private: 0, is_linked_with_buyer: 1 } },
+                                                        ]}
+                                                        styles={customeStyles}
+                                                        value={localFilterMap.get(prodKey)?.vendor_info}
+                                                        onChange={(selectedOption, actionMeta) =>
+                                                            handleLocalFilterChange(prodKey, selectedOption, actionMeta)}
+                                                        name="vendor_info"
+                                                        placeholder="Select"
+                                                        isClearable
+                                                        isSearchable
+                                                        />
+                                                </div>
+                                            </div>
+                                            <div className="row mt-3">
+                                                <div className="col-md-3">
+                                                <div>
+                                                    <p className="fw-medium  mb-2">FROM</p>
+                                                    <input
+                                                    type="text"
+                                                    name="from"
+                                                    style={customeStyles.input({})}
+                                                    className="form-control"
+                                                    placeholder="FROM ( IN CR )"
+                                                    value={localFilterMap.get(prodKey)?.from}
+                                                    onChange={(event) =>
+                                                        handleGenericInputChange(prodKey, event)
+                                                    }
                                                     />
+                                                </div>
+                                                </div>
+                                                <div className="col-md-3">
+                                                <div>
+                                                    <p className="fw-medium  mb-2">TO</p>
+                                                    <input
+                                                    type="text"
+                                                    name="to"
+                                                    style={customeStyles.input({})}
+                                                    className="form-control"
+                                                    placeholder="TO ( IN CR )"
+                                                    value={localFilterMap.get(prodKey)?.to}
+                                                    onChange={(event) =>
+                                                        handleGenericInputChange(prodKey, event)
+                                                    }
+                                                    />
+                                                </div>
+                                                </div>
+                                                <div className="col-md-3">
+                                                    <div>
+                                                        <p className="fw-medium  mb-2">Vendor Type</p>
+                                                        <Select
+                                                        options={vendorTypes}
+                                                        style={customeStyles.input({})}
+                                                        value={localFilterMap.get(prodKey)?.vendor_type}
+                                                        onChange={
+                                                            (selectedOption, actionMeta) =>
+                                                                handleLocalFilterChange(prodKey, selectedOption, actionMeta)
+                                                        }
+                                                        name="vendor_type"
+                                                        placeholder="Select"
+                                                        isClearable
+                                                        isSearchable
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="col-md-3">
+                                                    <div>
+                                                        <p className="fw-medium  mb-2">Prev. Worked With</p>
+                                                        <Select
+                                                            options={vendorConditions}
+                                                            value={localFilterMap.get(prodKey)?.prev_worked_with}
+                                                            onChange={(selectedOption, actionMeta) =>
+                                                                handleLocalFilterChange(prodKey, selectedOption, actionMeta)}
+                                                            name="prev_worked_with"
+                                                            placeholder="Select"
+                                                            isClearable
+                                                            isSearchable
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

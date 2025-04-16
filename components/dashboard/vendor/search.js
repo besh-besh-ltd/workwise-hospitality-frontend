@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -24,7 +24,41 @@ import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
 import ProductOverview from "@/components/shared/ProductOverview";
 import Head from "next/head";
+import { debounce } from "lodash";
 
+export const vendorTypes = [
+  {
+    label: "Manufacturer",
+    value: "manufacturer",
+  },
+  {
+    label: "Supplier",
+    value: "supplier",
+  },
+  {
+    label: "Distributor",
+    value: "distributor",
+  },
+  {
+    label: "Dealer",
+    value: "dealer",
+  },
+  {
+    label: "Exporter",
+    value: "exporter",
+  },
+]
+
+export const vendorConditions = [
+  {
+    label: "Previously Finalized Vendors",
+    value: "prev_finalized",
+  },
+  {
+    label: "Added to RFQ atleast once",
+    value: "rfq_added",
+  },
+]
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
@@ -49,7 +83,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
 
+  const [selectedCountry, setselectedCountry] = useState(0);
   const [selectedState, setselectedState] = useState(0);
+  const [turnOver, setTurnOver] = useState({
+    from: -1,
+    to: -1
+  })
+  const [vendorType, setVendorType] = useState(null);
+  const [prevWorkedWith, setPrevWorkedWith] = useState(null);
 
   const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
@@ -67,14 +108,33 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
   const [is_private, setIs_private] = useState(false);
+  const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
+  const fromRef = useRef(null);
+  const toRef = useRef(null);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
       setOpenAuthModal(true);
     else if (!vendorMetaData?.subscription)
-      router.push('dashboard/buyer/subscription');
+      router.push('/dashboard/buyer/subscription');
   }
+
+  const debouncedSetFrom = useMemo(
+    () =>
+      debounce((value) => {
+        setTurnOver((prev) => ({ ...prev, from: value }));
+      }, 1000),
+    []
+  );
+
+  const debouncedSetTo = useMemo(
+    () =>
+      debounce((value) => {
+        setTurnOver((prev) => ({ ...prev, to: value }));
+      }, 1000),
+    []
+  );
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -141,10 +201,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     cat_id,
     selectedState,
     selectedCity,
+    selectedCountry,
+    vendorType,
+    prevWorkedWith,
+    turnOver,
     isLoggedIn,
     debouncedVendorName, // Use debouncedVendorName instead of vendorName,
-    is_private, // for private vendors list,
-    preferred_vendor // for preferred vendors list
+    myVendorType,
   ]);
 
   useEffect(() => {
@@ -169,7 +232,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       setOpenAuthModal(true);
       return false;
     } else if (!vendorMetaData.subscription) {
-      router.push('dashboard/buyer/subscription');
+      router.push('/dashboard/buyer/subscription');
       return false;
     }
     return true;
@@ -238,9 +301,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           approved_by: selectedVbaa,
           state: selectedState,
           city: selectedCity,
+          country: selectedCountry,
+          turnOver,
+          vendorType,
+          prevWorkedWith,
           vendor_name: vendorName,
-          is_private: is_private,
-          preferred_vendor: preferred_vendor,
+          myVendorType,
         },
         "vendors"
       )
@@ -452,6 +518,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const clearLocationFilter = () => {
     setselectedState(0);
     setselectedCity(0);
+    setselectedCountry(0);
   };
 
   const mapEntries = Array.from(categoryLvlRef.current.entries());
@@ -468,32 +535,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   // Options for the dropdown
   const optionVendors = [
     { value: 'is_private', label: 'My Private Vendor' },
-    { value: 'preferred_vendor', label: 'My Preferred Vendor' }
+    { value: 'is_public', label: 'My Public Vendor' },
+    { value: 'both', label: 'Both' },
   ];
 
   // Handle selection changes to ensure only one filter is active at a time
-  const handleChange = (selectedOption) => {
-    if (selectedOption.value === 'is_private') {
-      setIs_private(true);
-      setPreferred_vendor(false);
-    } else if (selectedOption.value === 'preferred_vendor') {
-      setIs_private(false);
-      setPreferred_vendor(true);
-    }
-  };
 
   // Generalized clear filter function to reset both filters
   const clearVendorFilters = () => {
-    setIs_private(false);
-    setPreferred_vendor(false);
+    setMyVendorType(null);
   };
-
-  // Determine the selected option based on the state
-  const selectedOption = is_private
-    ? optionVendors[0]
-    : preferred_vendor
-      ? optionVendors[1]
-      : null;
 
   return (
     <>
@@ -513,14 +564,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             },
           })}
         </script>
-        <meta property="og:image" content={currentSelectedProduct?.image_url || ""} />
+        <meta
+          property="og:image"
+          content={currentSelectedProduct?.image_url || ""}
+        />
       </Head>
 
-      <section className="vendor-common-header sc-pt-80" aria-label="header" >
+      <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
           <h1 className="heading">{title}</h1>
           <div className="d-flex justify-content-end">
-
             <Link
               href="/dashboard/buyer/magic-search"
               className="page-link backBtn btn btn-secondary text-white px-2 "
@@ -528,14 +581,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               onClick={(e) => {
                 e.preventDefault();
                 if (!isLoggedIn) {
-                  setOpenAuthModal(true)
-                  setRedirectAfterLogin("/dashboard/buyer/magic-search")
-                }
-                else router.push("/dashboard/buyer/magic-search")
+                  setOpenAuthModal(true);
+                  setRedirectAfterLogin("/dashboard/buyer/magic-search");
+                } else router.push("/dashboard/buyer/magic-search");
               }}
             >
               {" "}
-              <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
+              <FontAwesomeIcon
+                icon={faWandMagicSparkles}
+                className="me-2"
+              />{" "}
+              Generate RFQ from BOQ
             </Link>
           </div>
         </div>
@@ -549,7 +605,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 <form onSubmit={handleSearch}>
                   <div className="row filter">
                     <div className="col-md-1"></div>
-                    <div className="col-md-8 searchbox " ref={searchRef}>
+                    <div className="col-md-10 searchbox " ref={searchRef}>
                       <i>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
                       </i>
@@ -566,7 +622,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         onFocus={handleSearchChange}
                         autoComplete="off"
                         value={search_key}
-                      // onClick={handleSearchClick}
+                        // onClick={handleSearchClick}
                       />
                       {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
                       </div> */}
@@ -586,77 +642,106 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {!loading && search_key === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading && search_key.length < 3 && search_key.length > 0 && (
-                            <p className="mb-0">Please enter at least 3 characters...</p>
-                          )}
-                          {!loading && search_key !== "" && search_key.length > 2 && products.length == 0 && searchCategories.length == 0 && (
-                            <p className="mb-0">No Products found!</p>
-                          )}
-                          {!loading && search_key !== "" && (products.length > 0 || searchCategories.length > 0) && (
-                            <>
-                              <p className="text-center fw-bold " style={{ color: "var(--secondary-color)" }}>Select an option from dropdown</p>
-                              <div className="row">
-                                <div className="col-7">
-                                  <div className="container">
-                                    <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Product List</h2>
-                                    <ul>
-                                      {products.map((item, index) => {
-                                        return (
-                                          <li
-                                            key={`mp_${index}`}
-                                            className="ps-2"
-                                            onClick={() =>
-                                              handleAutocompleteClick(item)
-                                            }
-                                            title={`${item.product_name} - ${item.description}`}
-                                          >
-                                            <div>
-                                              <h3>{item.product_name}</h3>
-                                              <p>
-                                                <small>
-                                                  <b>{item.category_name} </b>
-                                                </small>
-                                              </p>
-                                            </div>
-                                          </li>
-                                        );
-                                      })}
-                                    </ul>
+                          {!loading &&
+                            search_key.length < 3 &&
+                            search_key.length > 0 && (
+                              <p className="mb-0">
+                                Please enter at least 3 characters...
+                              </p>
+                            )}
+                          {!loading &&
+                            search_key !== "" &&
+                            search_key.length > 2 &&
+                            products.length == 0 &&
+                            searchCategories.length == 0 && (
+                              <p className="mb-0">No Products found!</p>
+                            )}
+                          {!loading &&
+                            search_key !== "" &&
+                            (products.length > 0 ||
+                              searchCategories.length > 0) && (
+                              <>
+                                <p
+                                  className="text-center fw-bold "
+                                  style={{ color: "var(--secondary-color)" }}
+                                >
+                                  Select an option from dropdown
+                                </p>
+                                <div className="row">
+                                  <div className="col-7">
+                                    <div className="container">
+                                      <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
+                                        Product List
+                                      </h2>
+                                      <ul>
+                                        {products.map((item, index) => {
+                                          return (
+                                            <li
+                                              key={`mp_${index}`}
+                                              className="ps-2"
+                                              onClick={() =>
+                                                handleAutocompleteClick(item)
+                                              }
+                                              title={`${item.product_name} - ${item.description}`}
+                                            >
+                                              <div>
+                                                <h3>{item.product_name}</h3>
+                                                <p>
+                                                  <small>
+                                                    <b>{item.category_name} </b>
+                                                  </small>
+                                                </p>
+                                              </div>
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                  <div className="col-5">
+                                    <div className="container">
+                                      <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
+                                        Category List
+                                      </h2>
+                                      <ul>
+                                        {searchCategories.map((item, index) => {
+                                          return (
+                                            <li
+                                              key={`search_cat_${index}`}
+                                              onClick={() =>
+                                                getCategoriesById(
+                                                  item.category_id,
+                                                  item.category_name
+                                                )
+                                              }
+                                              title={`${item.category_name}`}
+                                            >
+                                              <i>
+                                                <FontAwesomeIcon
+                                                  icon={faPlus}
+                                                />
+                                              </i>
+                                              <div>
+                                                <h3>{item.category_name}</h3>
+                                                <p>
+                                                  <small>
+                                                    <b>
+                                                      {
+                                                        item.parent_category_name
+                                                      }{" "}
+                                                    </b>
+                                                  </small>
+                                                </p>
+                                              </div>
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="col-5">
-                                  <div className="container">
-                                    <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">Category List</h2>
-                                    <ul>
-                                      {searchCategories.map((item, index) => {
-                                        return (
-                                          <li
-                                            key={`search_cat_${index}`}
-                                            onClick={() =>
-                                              getCategoriesById(item.category_id, item.category_name)
-                                            }
-                                            title={`${item.category_name}`}
-                                          >
-                                            <i>
-                                              <FontAwesomeIcon icon={faPlus} />
-                                            </i>
-                                            <div>
-                                              <h3>{item.category_name}</h3>
-                                              <p>
-                                                <small>
-                                                  <b>{item.parent_category_name} </b>
-                                                </small>
-                                              </p>
-                                            </div>
-                                          </li>
-                                        );
-                                      })}
-                                    </ul>
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          )}
+                              </>
+                            )}
                         </div>
                       )}
                       {isOpen && (
@@ -669,7 +754,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
 
-                    <div className="col-md-3 hasNoBlur">
+                    {/* <div className="col-md-3 hasNoBlur">
                       <div className="action-top mb-0">
                         {vabloading && (
                           <select>
@@ -692,9 +777,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             <option value="">Vendor Approved By</option>
                             {approved_by &&
                               approved_by.map((item) => {
-                                if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
+                                if (
+                                  item.show_in_website == 1 &&
+                                  item.vendor_approve &&
+                                  item.vendor_approve != "null"
+                                ) {
                                   return (
-                                    <option value={item.id} key={`va_${item.id}`}>
+                                    <option
+                                      value={item.id}
+                                      key={`va_${item.id}`}
+                                    >
                                       {item.vendor_approve}
                                     </option>
                                   );
@@ -703,10 +795,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           </select>
                         )}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                 </form>
-
               </div>
             </div>
           </div>
@@ -715,7 +806,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
       <section className="search-sec-2" aria-label="product-categories-section">
         <div className="container-fluid">
-
           {/* Search Categories Section */}
           {searchSubCategories.length > 0 && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
@@ -724,8 +814,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   <div className="container">
                     <h2 className="fs-3">Sub Categories List</h2>
                     <div className="parent-categories">
-                      {
-                        mapEntries?.map(([category_id, category_name], index) => {
+                      {mapEntries?.map(
+                        ([category_id, category_name], index) => {
                           const isLastItem = index === mapEntries?.size - 1;
                           return (
                             <p
@@ -733,34 +823,47 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               key={category_id}
                               className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
                               onClick={() => {
-                                categoryLvlRef.current = new Map(mapEntries.slice(0, index + 1));
-                                getCategoriesById(category_id, category_name)
+                                categoryLvlRef.current = new Map(
+                                  mapEntries.slice(0, index + 1)
+                                );
+                                getCategoriesById(category_id, category_name);
                               }}
                             >
                               {category_name}
-                              <span className="ms-1">{!isLastItem ? " > " : ""}</span>
+                              <span className="ms-1">
+                                {!isLastItem ? " > " : ""}
+                              </span>
                             </p>
                           );
-                        })
-                      }
+                        }
+                      )}
                     </div>
                     {loading && !currentSelectedProduct && <FullLoader />}
-                    {!loading && searchSubCategories.length <= 1 && productsList.length == 0
-                      ? <p className="text-center my-4">No Products Found.....! Please search for different product/category.</p>
-                      : searchSubCategories.map((item) => {
+                    {!loading &&
+                    searchSubCategories.length <= 1 &&
+                    productsList.length == 0 ? (
+                      <p className="text-center my-4">
+                        No Products Found.....! Please search for different
+                        product/category.
+                      </p>
+                    ) : (
+                      searchSubCategories.map((item) => {
                         if (!categoryLvlRef.current.has(item.id)) {
                           return (
                             <p
                               role="button"
                               key={item.id}
                               className="badge text-bg-primary mx-1 px-3 py-2 "
-                              onClick={() => getCategoriesById(item.id, item.title)}
+                              onClick={() =>
+                                getCategoriesById(item.id, item.title)
+                              }
                             >
                               {item.title}
                             </p>
-                          )
+                          );
                         }
-                      })}
+                      })
+                    )}
 
                     {productsList.length > 0 && (
                       <>
@@ -772,14 +875,19 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                 <p
                                   role="button"
                                   key={`srch_prod_${index}`}
-                                  className={`border border-2 rounded-3 px-3 py-2 ${item.product_name == (tempProdRef.current?.product_name || currentSelectedProduct?.product_name) ? "bg-success border-success text-white" : ""}`}
-
+                                  className={`border border-2 rounded-3 px-3 py-2 ${
+                                    item.product_name ==
+                                    (tempProdRef.current?.product_name ||
+                                      currentSelectedProduct?.product_name)
+                                      ? "bg-success border-success text-white"
+                                      : ""
+                                  }`}
                                   onClick={() => handleAutocompleteClick(item)}
                                 >
                                   {item.product_name}
                                 </p>
                               </div>
-                            )
+                            );
                           })}
                         </div>
                       </>
@@ -791,7 +899,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           )}
 
           {/* Product Price Stats Section */}
-          {isLoggedIn && currentSelectedProduct && showInsights && (
+          {/* {isLoggedIn && currentSelectedProduct && showInsights && (
             <div className=" col-md-12 bg-white rounded-5 p-4">
               <div className="search-sec-3-mdl mt-2 mb-0">
                 <div className="search-sec-3-mdl-con ">
@@ -805,43 +913,50 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
-
-                <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filters</h4>
-                {currentSelectedProduct  &&
-                
-                        <div className="search-con-right-1">
-                          <input
-                            type="text"
-                            name="vendorName"
-                            value={vendorName}
-                            className="form-control"
-                            placeholder="Search vendors"
-                            onChange={(e) => setVendorName(e.target.value)}
-                          />
-                      </div>
-                    }
+                  <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
+                    Filters
+                  </h4>
+                  {currentSelectedProduct && (
+                    <div className="search-con-right-1">
+                      <input
+                        type="text"
+                        name="vendorName"
+                        value={vendorName}
+                        className="form-control"
+                        placeholder="Search vendors"
+                        onChange={(e) => setVendorName(e.target.value)}
+                      />
+                    </div>
+                  )}
                   {/* <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4> */}
-                  
-                  <div className="search-con-right-1">
-                  <p className="fw-semibold mb-2">My Vendors</p>
 
-                  <div>
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2">My Vendors</p>
+
+                    <div>
                       <select
                         name="vendors"
                         id="vendors"
-                        value={selectedOption ? selectedOption.value : ""}
+                        value={myVendorType ? myVendorType.value : ""}
                         onChange={(e) => {
-                          const selected = optionVendors.find(
-                            (option) => option.value === e.target.value
-                          );
-                          handleChange(selected);
+                          if (
+                            !vendorMetaData.logged_In ||
+                            !vendorMetaData.subscription
+                          )
+                            setOpenAuthModal(true);
+                          else {
+                            const selected = optionVendors.find(
+                              (option) => option.value === e.target.value
+                            );
+                            setMyVendorType(selected);
+                          }
                         }}
                       >
                         <option value="">Filter Vendors</option>
@@ -852,26 +967,25 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             </option>
                           ))}
                       </select>
-                    
 
-                    {/* Display clear link if any filter is active */}
-                    {(is_private || preferred_vendor) && (
-                      <Link
-                        href="#"
-                        className="clearFilter"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          clearVendorFilters();
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faTimesCircle} /> clear
-                      </Link>
-                    )}
+                      {/* Display clear link if any filter is active */}
+                      {(myVendorType) && (
+                        <Link
+                          href="#"
+                          className="clearFilter"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            clearVendorFilters();
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
                   </div>
-                </div>
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Location</p>
-                    {selectedState != 0 && (
+                    {selectedCountry != 0 && (
                       <Link
                         href="#"
                         className="clearFilter"
@@ -886,6 +1000,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                     <div className="hasFullLoader">
                       <LocationFilter
+                        selectedCountry={selectedCountry}
+                        setselectedCountry={setselectedCountry}
                         selectedState={selectedState}
                         setselectedState={setselectedState}
                         selectedCity={selectedCity}
@@ -894,7 +1010,129 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         setOpenAuthModal={setOpenAuthModal}
                       />
                     </div>
-
+                  </div>
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold  mb-2">Turn Over</p>
+                    {(turnOver.from > 0 || turnOver.to > 0) && (
+                      <Link
+                        href="#"
+                        className="clearFilter"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTurnOver({
+                            from: -1,
+                            to: -1,
+                          });
+                          if(fromRef.current && toRef.current) {
+                            fromRef.current.value = "";
+                            toRef.current.value = "";
+                          }
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimesCircle} /> clear
+                      </Link>
+                    )}
+                    <div className="row">
+                      <div className="col-md-6">
+                        <div>
+                          <p className="fw-medium  mb-2">FROM</p>
+                          <input
+                            ref={fromRef}
+                            type="text"
+                            name="turnOverFrom"
+                            className="form-control"
+                            placeholder="FROM ( IN CR )"
+                            onChange={(e) => debouncedSetFrom(parseInt(e.target.value || 0))}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-md-6">
+                        <div>
+                          <p className="fw-medium  mb-2">TO</p>
+                          <input
+                            ref={toRef}
+                            type="text"
+                            name="turnOverTo"
+                            className="form-control"
+                            placeholder="TO ( IN CR )"
+                            onChange={(e) => debouncedSetTo(parseInt(e.target.value || 0))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold  mb-2">Vendor Type</p>
+                    <div>
+                        <select
+                          name="vendorType"
+                          id="vendorType"
+                          value={vendorType}
+                          onChange={(e) => {
+                            setVendorType(e.target.value);
+                          }}
+                        >
+                          <option value="">Select Vendor Type</option>
+                          {vendorTypes &&
+                            vendorTypes.map((item) => (
+                              <option value={item.value} key={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                        </select>
+                      {vendorType && (
+                        <Link
+                          className="clearFilter"
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setVendorType("");
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold  mb-2">Previously Worked With</p>
+                    <div>
+                        <select
+                          name="prevWorkedWith"
+                          id="prevWorkedWith"
+                          value={prevWorkedWith}
+                          onChange={(e) => {
+                            if (
+                              !vendorMetaData.logged_In ||
+                              !vendorMetaData.subscription
+                            )
+                              setOpenAuthModal(true);
+                            else {
+                              setPrevWorkedWith(e.target.value);
+                            }
+                          }}
+                        >
+                          <option value="">Select Vendor Condition</option>
+                          {vendorConditions &&
+                            vendorConditions.map((item) => (
+                              <option value={item.value} key={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                        </select>
+                      {prevWorkedWith && (
+                        <Link
+                          className="clearFilter"
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPrevWorkedWith("");
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimesCircle} /> clear
+                        </Link>
+                      )}
+                    </div>
                   </div>
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Vendor Approved By</p>
@@ -910,8 +1148,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           id="vab"
                           value={selectedVbaa}
                           onChange={(e) => {
-                            if (!vendorMetaData.logged_In || !vendorMetaData.subscription)
-                              setOpenAuthModal(true)
+                            if (
+                              !vendorMetaData.logged_In ||
+                              !vendorMetaData.subscription
+                            )
+                              setOpenAuthModal(true);
                             else {
                               localStorage.setItem(
                                 "selected_vab",
@@ -924,7 +1165,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           <option value="">Select Vendor Approved by</option>
                           {approved_by &&
                             approved_by.map((item) => {
-                              if (item.show_in_website == 1 && item.vendor_approve && item.vendor_approve != 'null') {
+                              if (
+                                item.show_in_website == 1 &&
+                                item.vendor_approve &&
+                                item.vendor_approve != "null"
+                              ) {
                                 return (
                                   <option value={item.id} key={`va_${item.id}`}>
                                     {item.vendor_approve}
@@ -955,14 +1200,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
               <div className="row">
                 {currentSelectedProduct && (
                   <div className="col-md-12">
+                    {currentSelectedProduct && (
+                      <h2 className="fs-5">
+                        Available Vendors for{" "}
+                        <span style={{ fontWeight: "500" }}>
+                          {currentSelectedProduct.product_name}
+                        </span>
+                      </h2>
+                    )}
 
-                    {currentSelectedProduct &&
-                        <h2 className="fs-5">Available Vendors for <span  style={{ fontWeight: '500' }}>{currentSelectedProduct.product_name}</span></h2>
-                    }
-
-                      <div className="row search-sec-3-top">
-                        <div className="col-md-3">
-                            {vendors && vendors.length > 0 && (
+                    <div className="row search-sec-3-top">
+                      <div className="col-md-3">
+                        {vendors && vendors.length > 0 && (
                           <label>
                             <input
                               type="checkbox"
@@ -970,37 +1219,41 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             />
                             <span>Select all vendors</span>
                           </label>
-                              )}
-                        </div>
+                        )}
+                      </div>
 
+                      <div className="col-md-9">
+                        <div className="actions">
+                          {/* Add Vendors to RFQ Button */}
+                          {bulkRFQVendors.length > 0 && (
+                            <Link
+                              style={{ minWidth: "230px" }}
+                              href="#"
+                              className={`btn btn-primary ${
+                                isLoading ? "disabled" : ""
+                              }`}
+                              onClick={handleBulkAddToRFQ}
+                            >
+                              {isLoading
+                                ? "Adding..."
+                                : `Add ${bulkRFQVendors.length} Vendors To RFQ`}
+                            </Link>
+                          )}
 
-                        <div className="col-md-9">
-                              <div className="actions">
-                                  {/* Add Vendors to RFQ Button */}
-                                  {bulkRFQVendors.length > 0 && (
-                                      <Link
-                                       style={{minWidth:"230px"}}
-                                          href="#"
-                                          className={`btn btn-primary ${isLoading ? 'disabled' : ''}`}
-                                          onClick={handleBulkAddToRFQ}
-                                      >
-                                          {isLoading ? 'Adding...' : `Add ${bulkRFQVendors.length} Vendors To RFQ`}
-                                      </Link>
-                                  )}
-                          
-                                  {/* View Current RFQ Button (Always Renders) */}
-                                  <Link
-                                      href="/dashboard/buyer/rfq-management?tab=create-rfq"
-                                      className={`btn btn-primary ${isLoading ? 'disabled' : ''}`}
-                                      role="button"
-                                      aria-disabled={isLoading}
-                                  >
-                                      View Current RFQ
-                                  </Link>
-                              </div>
-
+                          {/* View Current RFQ Button (Always Renders) */}
+                          <Link
+                            href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                            className={`btn btn-primary ${
+                              isLoading ? "disabled" : ""
+                            }`}
+                            role="button"
+                            aria-disabled={isLoading}
+                          >
+                            View Current RFQ
+                          </Link>
                         </div>
                       </div>
+                    </div>
 
                     <hr />
 
@@ -1009,24 +1262,22 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     <div className="search-sec-3-mdl hasFullLoader">
                       <div className="search-sec-3-mdl-con all-products-wrap hasFullLoader">
                         {loading && <FullLoader />}
-                        {!loading && vendors.length == 0 &&
-                          (
-                            debouncedVendorName ?
-                              <a
-                                className="text-center pt-4"
-                                href="/dashboard/buyer/vendor-management/?newVendor=true"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {`Add "${debouncedVendorName}" to your vendor list Immediately`}
-                              </a>
-                              :
-                              <h2 className="fs-5">
-                                <b>No Vendors Found</b>
-                              </h2>
-
-                          )
-                        }
+                        {!loading &&
+                          vendors.length == 0 &&
+                          (debouncedVendorName ? (
+                            <a
+                              className="text-center pt-4"
+                              href="/dashboard/buyer/vendor-management/?newVendor=true"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {`Add "${debouncedVendorName}" to your vendor list Immediately`}
+                            </a>
+                          ) : (
+                            <h2 className="fs-5">
+                              <b>No Vendors Found</b>
+                            </h2>
+                          ))}
                         {vendors &&
                           vendors.map((item) => {
                             return (
@@ -1041,17 +1292,29 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           })}
                       </div>
 
-                      {!loading && (!vendorMetaData?.logged_In || !vendorMetaData?.subscription) &&
-                        <div className="container text-center my-4 ">
-                          <button
-                            type="button"
-                            className="btn btn-primary w-50"
-                            onClick={handleRedirect}
-                          >
-                            {!vendorMetaData?.logged_In ? `Register to view ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more vendors` : `Please Buy Subscription to View ${vendorMetaData?.total > 0 ? vendorMetaData?.total : ""} more Vendors`}
-                          </button>
-                        </div>
-                      }
+                      {!loading &&
+                        (!vendorMetaData?.logged_In ||
+                          !vendorMetaData?.subscription) && (
+                          <div className="container text-center my-4 ">
+                            <button
+                              type="button"
+                              className="btn btn-primary w-50"
+                              onClick={handleRedirect}
+                            >
+                              {!vendorMetaData?.logged_In
+                                ? `Register to view ${
+                                    vendorMetaData?.total > 0
+                                      ? vendorMetaData?.total
+                                      : ""
+                                  } more vendors`
+                                : `Please Buy Subscription to View ${
+                                    vendorMetaData?.total > 0
+                                      ? vendorMetaData?.total
+                                      : ""
+                                  } more Vendors`}
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </div>
                 )}
@@ -1077,7 +1340,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           activeAuthTab={activeAuthTab}
           setActiveAuthTab={setActiveAuthTab}
         />
-
       </section>
     </>
   );

@@ -416,6 +416,10 @@ Example:
                                         {...field}
                                         className="form-select border border-success"
                                         style={{ width: "30%", height: "54px" }}
+                                        defaultValue={{
+                                          key: "+91",
+                                          value: "+91"
+                                        }}
                                         onChange={(e) =>
                                           form.setFieldValue(
                                             "countryCode",

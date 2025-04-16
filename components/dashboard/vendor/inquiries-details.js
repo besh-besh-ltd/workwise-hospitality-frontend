@@ -953,7 +953,9 @@ const RfqManagementPreview = () => {
                                         
                                         return (
                                           <li key={`rfq_d_t_${index}`}>
-                                            {termContent}
+
+                                            {item.content?.[0].title ?? "-"}
+
                                           </li>
                                         );
                                       })}
