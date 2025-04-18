@@ -46,7 +46,8 @@ const EditRFQSchema = Yup.object().shape({
     .min(2, "Contact name must be at least 2 characters")
     .max(50, "Contact name must not exceed 50 characters"),
   location: Yup.string()
-    .optional(),
+    .nullable()
+    .transform(value => value === null || value === '' ? '' : value),
   // Modified to accept date that could be today or in the future
   bid_end_date: Yup.date()
     .required("Procurement end date is required")
@@ -280,96 +281,63 @@ const EditRFQ = () => {
 
       console.log("RFQ data loaded with terms:", rfqData.terms);
 
-      // CRITICAL FINAL FIX: Map API terms to UI terms by content
+      // IMPROVED TERM HANDLING - Ensure we have term content for all terms
       if (rfqData.terms && rfqData.terms.length > 0 && termsResponse?.data) {
-        console.log("Original API terms:", rfqData.terms);
+        // Map of all available terms by ID for quick lookup
+        const termContentMap = {};
+        termsResponse.data.forEach(term => {
+          termContentMap[term.id] = term.term_content || term.name || `Term ${term.id}`;
+        });
         
-        // First, get both ID and content from API terms
-        const apiTerms = rfqData.terms.map(term => {
-          // Get all possible content from API term
-          let content = '';
-          let termId = term.id;
-          let name = '';
+        // Normalize all terms to ensure they have content
+        const normalizedTerms = rfqData.terms.map(term => {
+          // Get term ID
+          const termId = term.id || term.term_id;
           
-          if (term.content && term.content[0] && term.content[0].title) {
-            content = term.content[0].title.trim();
-            name = content;
-          } else {
-            content = (term.name || term.term_content || term.term_text || '').trim();
-            name = content;
+          // Try to get content from various sources in order of reliability
+          let termContent = '';
+          
+          // 1. Try term.content array
+          if (term.content && Array.isArray(term.content) && term.content[0] && term.content[0].title) {
+            termContent = term.content[0].title;
+          } 
+          // 2. Try direct properties
+          else if (term.term_content) {
+            termContent = term.term_content;
+          }
+          else if (term.term_text) {
+            termContent = term.term_text;
+          }
+          else if (term.name) {
+            termContent = term.name;
+          }
+          // 3. Try to find content in our termContentMap from all available terms
+          else if (termId && termContentMap[termId]) {
+            termContent = termContentMap[termId];
+          }
+          // 4. Fallback to ID
+          else {
+            termContent = `Term ${termId || 'Unknown'}`;
           }
           
-          // Handle "Term 8018" format from view page
-          // This helps match terms by ID format when displayed differently
-          if (content.startsWith("Term ") && /^\d+$/.test(content.substring(5))) {
-            termId = parseInt(content.substring(5));
-          }
-          
-          return { 
+          // Return a properly formatted term object
+          return {
             id: termId,
-            content: content,
-            name: name
+            name: termContent,
+            term_content: termContent
           };
         });
         
-        console.log("Parsed API terms:", apiTerms);
+        // Update terms in rfqData
+        rfqData.terms = normalizedTerms;
         
-        // Check if we have any "Term XXXX" style terms
-        const hasTermNumberFormat = apiTerms.some(t => 
-          t.content.startsWith("Term ") && /^\d+$/.test(t.content.substring(5))
-        );
+        // Also prepare UI terms selection
+        const selectedUITerms = normalizedTerms.map(term => ({
+          id: term.id,
+          name: term.name
+        }));
         
-        // Create selected terms array
-        const selectedUITerms = [];
-        
-        // We'll try multiple matching strategies
-        termsResponse.data.forEach(uiTerm => {
-          const uiTermId = Number(uiTerm.id);
-          const uiContent = (uiTerm.term_content || uiTerm.name || '').trim();
-          
-          // For each UI term, test against all API terms
-          let matched = false;
-          
-          // First, try direct ID match (if we have Term XXXX format)
-          if (hasTermNumberFormat) {
-            matched = apiTerms.some(apiTerm => {
-              // Check if either the term ID matches directly
-              return Number(apiTerm.id) === uiTermId;
-            });
-          }
-          
-          // If no ID match, try content matching
-          if (!matched) {
-            matched = apiTerms.some(apiTerm => {
-              const apiContent = apiTerm.content;
-              
-              // Start with exact match
-              if (apiContent === uiContent) {
-                return true;
-              }
-              
-              // Try prefix matching (first 70 chars)
-              if (apiContent && uiContent && 
-                  (uiContent.substring(0, 70) === apiContent.substring(0, 70) ||
-                   apiContent.includes(uiContent.substring(0, 70)) ||
-                   uiContent.includes(apiContent.substring(0, 70)))) {
-                return true;
-              }
-              
-              return false;
-            });
-          }
-          
-          // If this term should be selected, add it
-          if (matched) {
-            selectedUITerms.push({
-              id: uiTerm.id,
-              name: uiTerm.term_content || uiTerm.name || ''
-            });
-          }
-        });
-        
-        console.log("Selected UI terms after matching:", selectedUITerms);
+        console.log("Normalized terms for display:", selectedUITerms);
         
         // Set terms in Redux state
         dispatch(setTermsData(selectedUITerms));
@@ -636,14 +604,14 @@ const EditRFQ = () => {
       // Create basic payload with only fields that can be edited
       const dataToSend = {
         rfq_id: rfqData.id,
-        company_name: formValues.company_name || rfqData.company_name,
+        company_name: rfqData.company_name, // Use original value
         contact_name: formValues.contact_name || rfqData.contact_name,
         // IMPORTANT: Send ONLY digits to backend - exactly how CreateRFQ works
         contact_number: cleanNumber,
         response_email: formValues.response_email || rfqData.response_email,
-        location: formValues.location || rfqData.location || "Not Specified",
+        location: rfqData.location || " ", // Always use original location, with non-empty fallback
         bid_end_date: formValues.bid_end_date || rfqData.bid_end_date || "",
-        comment: formValues.comment || rfqData.comment || "",
+        comment: rfqData.comment, // Use original value
         is_published: 1,
         // Ensure we preserve the original values
         rfq_type: rfqData.rfq_type,  
@@ -698,98 +666,25 @@ const EditRFQ = () => {
         });
       }
 
-      // Update the terms handling in handleUpdateRFQ
-      if (selectedTerms && selectedTerms.length > 0) {
-        console.log("Terms before processing for update:", selectedTerms);
+      // Preserve the original terms from rfqData regardless of UI selection
+      // since we've made the terms section read-only
+      if (rfqData.terms && rfqData.terms.length > 0) {
+        console.log("Preserving original normalized terms from rfqData:", rfqData.terms);
         
-        // CRITICAL FIX: Ensure we use fresh terms with full content
-        const fullTerms = [];
+        // Use the normalized terms that we created during data loading
+        dataToSend.terms = rfqData.terms.map(term => ({
+          id: term.id,
+          name: term.name || term.term_content
+        }));
         
-        if (freshTerms && freshTerms.length > 0) {
-          // Get IDs of selected terms
-          const selectedTermIds = selectedTerms.map(term => 
-            String(term.id || term.term_id)
-          );
-          
-          console.log("Selected term IDs:", selectedTermIds);
-          
-          // For each API term, check if it's in our selected terms
-          freshTerms.forEach(apiTerm => {
-            const apiTermId = String(apiTerm.id || apiTerm.term_id);
-            
-            if (selectedTermIds.includes(apiTermId)) {
-              // Get the full content
-              const termContent = apiTerm.term_content || 
-                                 apiTerm.name || 
-                                 (apiTerm.content && apiTerm.content[0] ? apiTerm.content[0].title : null);
-              
-              // Only add terms with actual content (not "Term XXXX")
-              if (termContent && !termContent.startsWith("Term ")) {
-                fullTerms.push({
-                  id: Number(apiTermId),
-                  name: termContent
-                });
-                
-                console.log(`Added term with full content: ID=${apiTermId}, Content="${termContent.substring(0, 50)}..."`);
-              } else {
-                // If we can't find content, try to get it from allTerms
-                const matchingTerm = allTerms.find(t => String(t.id) === apiTermId);
-                if (matchingTerm && matchingTerm.term_content) {
-                  fullTerms.push({
-                    id: Number(apiTermId),
-                    name: matchingTerm.term_content
-                  });
-                  
-                  console.log(`Added term from allTerms: ID=${apiTermId}, Content="${matchingTerm.term_content.substring(0, 50)}..."`);
-                } else {
-                  // Last resort - use a descriptive name
-                  fullTerms.push({
-                    id: Number(apiTermId),
-                    name: `Full content for term ${apiTermId}`
-                  });
-                  
-                  console.log(`Added term with placeholder content: ID=${apiTermId}`);
-                }
-              }
-            }
-          });
-        } else {
-          // Fallback if fresh terms couldn't be fetched
-          console.warn("Couldn't fetch fresh terms, using allTerms as fallback");
-          
-          selectedTerms.forEach(term => {
-            const termId = String(term.id || term.term_id);
-            const matchingTerm = allTerms.find(t => String(t.id) === termId);
-            
-            if (matchingTerm) {
-              fullTerms.push({
-                id: Number(termId),
-                name: matchingTerm.term_content || matchingTerm.name || term.name
-              });
-            } else {
-              fullTerms.push({
-                id: Number(termId),
-                name: term.name || `Full content for term ${termId}`
-              });
-            }
-          });
-        }
-        
-        // Use these full terms for the update
-        dataToSend.terms = fullTerms;
-        
-        console.log("Terms with full content for backend:", dataToSend.terms);
+        console.log("Terms being preserved for update:", dataToSend.terms);
+      } else if (selectedTerms && selectedTerms.length > 0) {
+        // Fallback to selectedTerms if rfqData.terms is empty
+        dataToSend.terms = selectedTerms;
       } else {
-        // If no terms selected, send empty array
+        // Ensure we send an empty array if no terms
         dataToSend.terms = [];
-        console.log("No terms selected, sending empty array");
       }
-
-      // Also add explicit logging before sending terms to backend in handleUpdateRFQ
-      console.log("Terms before processing for backend (raw from Redux):", selectedTerms);
-
-      // And add this after creating the terms array for the API
-      console.log("Final terms structure being sent to API:", dataToSend.terms);
 
       // Submit the RFQ update
       updateRfq(dataToSend)
@@ -817,15 +712,15 @@ const EditRFQ = () => {
               // Store the FORMATTED version for display
               contact_number: displayContactNumber,
               response_email: formValues.response_email,
-              location: formValues.location,
+              location: prevData.location || '',
               bid_end_date: formValues.bid_end_date,
-              comment: formValues.comment,
+              comment: prevData.comment, // Keep original comment
               project_id: formValues.project_id,
               // Keep original values
               rfq_type: prevData.rfq_type,
               reverse_auction: prevData.reverse_auction,
-              // Preserve terms, but use the deduplicated version
-              terms: dataToSend.terms || prevData.terms
+              // Preserve original terms
+              terms: prevData.terms 
             }));
             
             // Clear and update the terms in Redux to prevent duplication
@@ -838,14 +733,14 @@ const EditRFQ = () => {
                 // Store the FORMATTED version for display
                 contact_number: displayContactNumber,
                 response_email: formValues.response_email,
-                location: formValues.location,
+                location: rfqData.location || '',
                 bid_end_date: formValues.bid_end_date,
-                comment: formValues.comment,
+                comment: rfqData.comment, // Keep original comment
                 project_id: formValues.project_id
               })
             );
             
-            // Set the deduplicated terms
+            // Set the preserved terms from dataToSend
             if (dataToSend.terms && dataToSend.terms.length > 0) {
               dispatch(setTermsData(dataToSend.terms));
             }
@@ -897,7 +792,7 @@ const EditRFQ = () => {
         response_email: rfqFormDataFromStore.response_email,
         contact_name: rfqFormDataFromStore.contact_name,
         contact_number: cleanNumber, // ONLY digits for backend
-        location: rfqFormDataFromStore.location,
+        location: rfqData.location || " ", // Always use original location with non-empty fallback
         bid_end_date: rfqFormDataFromStore.bid_end_date,
         rfq_type: rfqFormDataFromStore.rfq_type,
         reverse_auction: rfqFormDataFromStore.reverse_auction,
@@ -1117,7 +1012,7 @@ const EditRFQ = () => {
               // Only use the number part, without country code (country code is in a separate dropdown)
               contact_number: rfqFormDataFromStore.contact_number || "",
               response_email: rfqFormDataFromStore.response_email || "",
-              location: rfqFormDataFromStore.location || "",
+              location: rfqData.location || " ", // Use original location with non-empty fallback
               bid_end_date: rfqFormDataFromStore.bid_end_date || "",
               comment: rfqFormDataFromStore.comment || ""
             }}
@@ -1158,7 +1053,7 @@ const EditRFQ = () => {
                 // IMPORTANT: Send ONLY digits to backend - exactly how View RFQ works
                 contact_number: cleanNumber,
                 response_email: values.response_email,
-                location: values.location,
+                location: rfqData.location || " ", // Always use original location with non-empty fallback
                 bid_end_date: values.bid_end_date,
                 comment: values.comment
               };
@@ -1173,54 +1068,35 @@ const EditRFQ = () => {
                   </div>
                   <div className="card-body">
                     <div className="row g-3">
-                  <div className="col-md-6">
-                        {/* Company Name - Read Only */}
-                    <div className="mb-3">
-                          <label className="form-label fw-medium">Company Name (Read Only)</label>
-                      <div className="input-group">
-                            <input
-                              type="text"
-                              className="form-control bg-light"
-                              value={rfqData.company_name || "Not specified"}
-                              disabled
-                            />
-                          </div>
-                          <small className="text-muted">Company name cannot be changed after creation</small>
-                        </div>
-                        
-                        {/* Contact Name */}
+                      <div className="col-md-6">
+                        {/* Company Name - Now Read Only */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Contact Name</label>
+                          <label className="form-label fw-medium">Company Name</label>
                           <input
                             type="text"
-                            name="contact_name"
-                            className="form-control"
-                            value={values.contact_name}
-                          onChange={(e) => {
-                              handleChange(e);
-                            handleFormFieldChange(e);
-                          }}
-                            onBlur={handleBlur}
+                            className="form-control bg-light"
+                            value={rfqFormDataFromStore.company_name || rfqData.company_name || ""}
+                            disabled
                           />
-                    </div>
-                    
-                        {/* Contact Number with Country Code */}
-                    <div className="mb-3">
+                        </div>
+                      
+                        {/* Contact Number */}
+                        <div className="mb-3">
                           <label className="form-label fw-medium">
                             Contact Number <span className="text-danger">*</span>
                           </label>
                           <div className="d-flex">
                             {/* Country Code Dropdown */}
-                        <select
+                            <select
                               name="countryCode"
-                          className="form-select"
+                              className="form-select"
                               style={{
                                 maxWidth: "130px",
                                 marginRight: "6px",
                                 maxHeight: "44px",
                               }}
                               value={onecountrycode}
-                          onChange={(e) => {
+                              onChange={(e) => {
                                 setonecountrycode(e.target.value);
                                 setHasUnsavedChanges(true);
                               }}
@@ -1233,7 +1109,7 @@ const EditRFQ = () => {
                                   {country.country_code} ({country.phone_code})
                                 </option>
                               ))}
-                        </select>
+                            </select>
 
                             {/* Mobile Number Input */}
                             <input
@@ -1262,11 +1138,11 @@ const EditRFQ = () => {
                               }}
                               onBlur={handleBlur}
                             />
-                      </div>
+                          </div>
                           {touched.contact_number && errors.contact_number && (
                             <div className="invalid-feedback d-block">
                               {errors.contact_number}
-                    </div>
+                            </div>
                           )}
                           
                           {/* Preview of formatted number */}
@@ -1275,69 +1151,83 @@ const EditRFQ = () => {
                               Formatted: <strong>{onecountrycode.startsWith('+') ? '' : '+'}{onecountrycode}-{values.contact_number.replace(/^0+/, '')}</strong>
                             </div>
                           )}
-                    </div>
-                    
+                        </div>
+                        
                         {/* Response Email */}
-                    <div className="mb-3">
-                          <label className="form-label fw-medium">Response Email</label>
-                      <input
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">Response Email <span className="text-danger">*</span></label>
+                          <input
                             type="email"
                             name="response_email"
-                        className="form-control"
+                            className="form-control"
                             value={values.response_email}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleFormFieldChange(e);
-                        }}
-                        onBlur={handleBlur}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="col-md-6">
-                        {/* RFQ Type */}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleFormFieldChange(e);
+                            }}
+                            onBlur={handleBlur}
+                          />
+                          {touched.response_email && errors.response_email && (
+                            <div className="invalid-feedback d-block">
+                              {errors.response_email}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="col-md-6">
+                        {/* Contact Name */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">RFQ Type (Read Only)</label>
-                          <div className="input-group">
-                            <input
-                              type="text"
-                              className="form-control bg-light"
-                              value={
-                                (() => {
-                                  const type = rfqData?.rfq_type;
-                                  if (type === "firm") return "Firm";
-                                  if (type === "budgetary") return "Budgetary";
-                                  return type || "Not specified";
-                                })()
-                              }
-                              disabled
-                            />
-                          </div>
-                          <small className="text-muted">RFQ Type cannot be changed after creation</small>
+                          <label className="form-label fw-medium">Contact Name <span className="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            name="contact_name"
+                            className={`form-control ${
+                              touched.contact_name && errors.contact_name
+                                ? "is-invalid"
+                                : ""
+                            }`}
+                            value={values.contact_name}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleFormFieldChange(e);
+                            }}
+                            onBlur={handleBlur}
+                          />
+                          {touched.contact_name && errors.contact_name && (
+                            <div className="invalid-feedback d-block">
+                              {errors.contact_name}
+                            </div>
+                          )}
                         </div>
 
-                    {/* Procurement End Date */}
-                    <div className="mb-3">
-                          <label className="form-label fw-medium">Procurement End Date</label>
-                      <input
-                        type="date"
-                        name="bid_end_date"
-                        className="form-control"
-                        value={values.bid_end_date}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleFormFieldChange(e);
-                        }}
-                        onBlur={handleBlur}
-                      />
-                    </div>
-                    
-                    {/* Select Project */}
-                    <div className="mb-3">
+                        {/* Procurement End Date */}
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">Procurement End Date <span className="text-danger">*</span></label>
+                          <input
+                            type="date"
+                            name="bid_end_date"
+                            className="form-control"
+                            value={values.bid_end_date}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleFormFieldChange(e);
+                            }}
+                            onBlur={handleBlur}
+                          />
+                          {touched.bid_end_date && errors.bid_end_date && (
+                            <div className="invalid-feedback d-block">
+                              {errors.bid_end_date}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Select Project */}
+                        <div className="mb-3">
                           <label className="form-label fw-medium">Select Project</label>
-                      <Select
+                          <Select
                             key={`project-select-${rfqFormDataFromStore.project_id || 'none'}`}
-                        options={projects}
+                            options={projects}
                             value={(() => {
                               if (!rfqFormDataFromStore.project_id) return null;
                               const projectId = parseInt(rfqFormDataFromStore.project_id);
@@ -1350,47 +1240,64 @@ const EditRFQ = () => {
                               setHasUnsavedChanges(true);
                             }}
                             placeholder="Select Project"
-                        className="basic-select"
-                        classNamePrefix="select"
-                        isClearable={true}
-                      />
-                    </div>
+                            className="basic-select"
+                            classNamePrefix="select"
+                            isClearable={true}
+                          />
+                        </div>
+                      </div>
 
+                      <div className="col-md-6">
+                        {/* RFQ Type */}
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">RFQ Type (Read Only)</label>
+                          <input
+                            type="text"
+                            className="form-control bg-light"
+                            value={
+                              (() => {
+                                const type = rfqData?.rfq_type;
+                                if (type === "firm") return "Firm";
+                                if (type === "budgetary") return "Budgetary";
+                                return type || "Not specified";
+                              })()
+                            }
+                            disabled
+                          />
+                          <small className="text-muted">RFQ Type cannot be changed after creation</small>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
                         {/* Reverse Auction */}
                         <div className="mb-3">
                           <label className="form-label fw-medium">Reverse Auction (Read Only)</label>
-                          <div className="input-group">
-                            <input
-                              type="text"
-                              className="form-control bg-light"
-                              value={
-                                (() => {
-                                  const ra = rfqData?.reverse_auction;
-                                  return (ra === 1 || ra === true || ra === "1") ? "Enabled" : "Disabled";
-                                })()
-                              }
-                              disabled
-                            />
-                          </div>
+                          <input
+                            type="text"
+                            className="form-control bg-light"
+                            value={
+                              (() => {
+                                const ra = rfqData?.reverse_auction;
+                                return (ra === 1 || ra === true || ra === "1") ? "Enabled" : "Disabled";
+                              })()
+                            }
+                            disabled
+                          />
                           <small className="text-muted">Reverse Auction setting cannot be changed after creation</small>
                         </div>
                       </div>
 
-                      {/* Delivery Location - Full Width */}
+                      {/* Delivery Location - Full Width - Now Read Only */}
                       <div className="col-12">
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Delivery Location (Optional)</label>
+                          <label className="form-label fw-medium">Delivery Location (Read Only)</label>
                           <textarea
+                            className="form-control bg-light"
                             name="location"
-                            className="form-control"
                             rows="3"
-                            value={values.location}
-                            onChange={(e) => {
-                              handleChange(e);
-                              handleFormFieldChange(e);
-                            }}
-                            onBlur={handleBlur}
-                            placeholder="Enter delivery location details (optional)..."
+                            value={rfqData.location || " "} // Always use original location with non-empty fallback
+                            onChange={handleChange}
+                            disabled
                           />
                         </div>
                       </div>
@@ -1398,122 +1305,79 @@ const EditRFQ = () => {
                   </div>
                 </div>
                 
-                {/* Terms & Conditions */}
+                {/* Terms & Conditions - Now Read Only */}
                 <div className="card mb-4">
                   <div className="card-header bg-light">
                     <h5 className="mb-0">Terms & Conditions</h5>
                   </div>
                   <div className="card-body">
+                    {/* IMPROVED TERMS DISPLAY */}
                     <div className="mb-4">
-                      <h6 className="mb-3 fw-medium">Suggested Terms</h6>
-                      <div className="terms-list border rounded p-3">
-                        {allTerms && allTerms.length > 0 ? (
-                          allTerms.map((item, index) => {
-                            // Get clean term content for UI display and comparison
-                            const itemContent = (item.term_content || item.name || '').trim();
-                            
-                            // Try multiple approaches to determine if this term is selected:
-                            
-                            // 1. First check by ID
-                            let isSelected = selectedTerms && selectedTerms.some(term => 
-                              String(term.id) === String(item.id)
-                            );
-                            
-                            // 2. If not found by ID, check by content matching
-                            if (!isSelected && selectedTerms && selectedTerms.length > 0) {
-                              isSelected = selectedTerms.some(term => {
-                                const selectedTermContent = (term.name || term.term_content || '').trim();
-                                
-                                // Match if content beginnings are similar
-                                return itemContent && selectedTermContent && (
-                                  itemContent.substring(0, 70) === selectedTermContent.substring(0, 70) ||
-                                  itemContent.includes(selectedTermContent.substring(0, 70)) ||
-                                  selectedTermContent.includes(itemContent.substring(0, 70))
-                                );
-                              });
-                            }
-                            
-                            // Log the selection state for debugging
-                            console.log(`Term #${index} (ID: ${item.id}): ${itemContent.substring(0, 50)}... - Selected: ${isSelected}`);
-                            
-                            // Format the term content to match the view page
-                            // Check if it's already in "Term XXXX" format
-                            let displayContent = itemContent;
-                            if (!displayContent.startsWith("Term ")) {
-                              displayContent = `${index + 1}. ${itemContent}`;
-                            }
-                            
-                            return (
-                              <div className="form-check mb-2" key={`term-${item.id}`}>
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  id={`term-${item.id}`}
-                                  checked={isSelected}
-                                  onChange={(e) => handleTermChange(e, item)}
-                                />
-                                <label className="form-check-label" htmlFor={`term-${item.id}`}>
-                                  {displayContent}
-                                </label>
-                              </div>
-                            );
-                          })
+                      <h6 className="mb-3 fw-medium">Terms (Read Only)</h6>
+                      <div className="terms-list border rounded p-3 bg-light">
+                        {selectedTerms && selectedTerms.length > 0 ? (
+                          <ol className="mb-0 ps-3">
+                            {selectedTerms.map((term, index) => {
+                              // Get term content with comprehensive fallbacks
+                              const termContent = 
+                                term.term_content || 
+                                term.name ||
+                                term.term_text ||
+                                (term.content && Array.isArray(term.content) && term.content[0]?.title) ||
+                                // Try to find matching term in allTerms if we only have ID
+                                (term.id && allTerms?.find(t => String(t.id) === String(term.id))?.term_content) ||
+                                (term.id && allTerms?.find(t => String(t.id) === String(term.id))?.name) ||
+                                `Term ${term.id || index + 1}`;
+
+                              return (
+                                <li key={`term-${term.id || index}`} className="mb-2">
+                                  {termContent}
+                                </li>
+                              );
+                            })}
+                          </ol>
                         ) : (
-                          <div className="alert alert-info mb-0">No terms available</div>
+                          <p className="text-muted mb-0">No terms have been selected for this RFQ.</p>
                         )}
                       </div>
                     </div>
 
-                    <div className="mb-4">
-                      <h6 className="mb-3 fw-medium">Add your own terms (Optional)</h6>
-                      <textarea
-                        name="comment"
-                        className="form-control"
-                        rows="5"
-                        placeholder="Enter your own terms here..."
-                        value={values.comment}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleFormFieldChange(e);
-                        }}
-                      ></textarea>
-                    </div>
-
+                    {/* Additional Terms - Now Read Only */}
                     <div>
-                      <h6 className="mb-3 fw-medium">Upload Your Terms (Optional)</h6>
-                      <div className="custom-file mb-3">
-                        <input
-                          type="file"
-                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                          className="form-control"
-                          id="customFile"
-                          multiple
-                          onChange={(e) => handleTermFiles("add", e)}
-                        />
-                      </div>
-
-                      {termFiles && termFiles.length > 0 && (
-                        <div className="uploaded-files mt-3">
-                          <h6 className="mb-3">Uploaded Files:</h6>
-                          <div className="row g-2">
-                            {termFiles.map((file) => (
-                              <div key={file} className="col-md-4">
-                                <div className="d-flex align-items-center border rounded p-2">
-                                  <span className="text-truncate flex-grow-1 me-2">{extractfileName(file)}</span>
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline-danger"
-                                    onClick={() => handleTermFiles("remove", file)}
-                                  >
-                                    <FontAwesomeIcon icon={faClose} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                      <h6 className="mb-3 fw-medium">Additional Terms (Read Only)</h6>
+                      <div className="border rounded p-3 bg-light">
+                        {rfqData.comment && rfqData.comment.trim() ? (
+                          <div className="mb-0">
+                            {rfqData.comment}
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <p className="text-muted mb-0">No additional terms specified.</p>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* Term & Condition Files - If present */}
+                    {rfqData?.term_and_condition_files && rfqData.term_and_condition_files.length > 0 && (
+                      <div className="mt-4">
+                        <h6 className="mb-3 fw-medium">Terms & Conditions Files (Read Only)</h6>
+                        <div className="row g-2">
+                          {rfqData.term_and_condition_files.map((file, idx) => (
+                            <div key={`file-${idx}`} className="col-md-6 col-lg-4">
+                              <a 
+                                href={file} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="d-flex align-items-center border rounded p-2 text-decoration-none bg-light"
+                              >
+                                <span className="text-truncate flex-grow-1">
+                                  {file.split('/').pop()}
+                                </span>
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

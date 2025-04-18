@@ -279,6 +279,9 @@ const CreateRFQ = () => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
     
+    // Ensure company_name is included from either form values, Redux store, or user profile
+    formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
+    
     // IMPORTANT: Filter terms to only include id and name to prevent validation errors
     if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
       formDataCopy.terms = formDataCopy.terms.map(term => ({
@@ -422,6 +425,19 @@ const CreateRFQ = () => {
     fetchCountryCodes();
 
   }, []);
+
+  // Add a useEffect to set the company name in the store when userProfile is loaded
+  useEffect(() => {
+    if (userProfile && userProfile.company_name) {
+      // If we have a company name in the user profile and none in the form data, set it
+      if (!rfqFormDataFromStore.company_name || rfqFormDataFromStore.company_name === '') {
+        dispatch(setOtherFormFields({ 
+          field_name: 'company_name', 
+          value: userProfile.company_name 
+        }));
+      }
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     const validProducts = rfqProductsFromStore.filter(
@@ -574,30 +590,33 @@ const CreateRFQ = () => {
 
                           <ol className="custom-ol">
                             {allTerms.map((item) => {
-                              // Use the same robust selection logic as in EditRFQ
-                              const isSelected = selectedTerms && selectedTerms.some(term => {
-                                // Convert both IDs to strings and try both id and term_id properties
-                                const itemId = String(item.id || item.term_id);
-                                const termId = String(term.id || term.term_id);
-                                return itemId === termId;
-                              });
-                              
-                              // Extract term content with consistent fallbacks
-                              const termContent = item.term_content || item.name || item.term_text || 
-                                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
-                                                `Term ${item.id}`;
-                              
+                              // Use consistent term content extraction
+                              const termContent = 
+                                item.term_content || 
+                                item.name ||
+                                item.term_text ||
+                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                `Term ${item.id}`;
+
+                              // Check if term is selected using consistent ID comparison
+                              const isSelected = selectedTerms?.some(term => 
+                                String(term.id || term.term_id) === String(item.id || item.term_id)
+                              );
+
                               return (
-                                <li key={`term-item-${item.id}`}>
-                                  <input
-                                    type="checkbox"
-                                    id={`term-item-${item.id}`}
-                                    checked={isSelected}
-                                    onChange={(e) => handleTermChange(e, item)}
-                                  />
-                                  <label htmlFor={`term-item-${item.id}`}>
-                                    {termContent}
-                                  </label>
+                                <li key={`term-${item.id}`}>
+                                  <div className="form-check">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id={`term-${item.id}`}
+                                      checked={isSelected}
+                                      onChange={(e) => handleTermChange(e, item)}
+                                    />
+                                    <label className="form-check-label" htmlFor={`term-${item.id}`}>
+                                      {termContent}
+                                    </label>
+                                  </div>
                                 </li>
                               );
                             })}
@@ -616,7 +635,7 @@ const CreateRFQ = () => {
                             response_email: rfqFormDataFromStore.response_email,
                             contact_name: rfqFormDataFromStore.contact_name,
                             contact_number: rfqFormDataFromStore.contact_number.replace(/^\+\d{1,4}-/, ''),
-                            company_name: rfqFormDataFromStore.company_name,
+                            company_name: rfqFormDataFromStore.company_name || userProfile?.company_name || "",
                             bid_end_date: rfqFormDataFromStore.bid_end_date,
                             rfq_type: rfqFormDataFromStore.rfq_type,
                             reverse_auction:
@@ -786,17 +805,21 @@ const CreateRFQ = () => {
                                 </div>
 
                                 <div className="col-md-6">
-                                  <FormikField
-                                    label="Company Name"
-                                    value={rfqFormDataFromStore.company_name}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="text"
-                                    isRequired={true}
-                                    name="company_name"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
+                                  {/* Company Name - Read Only */}
+                                  <div className="mb-3">
+                                    <label className="form-label fw-medium">Company Name</label>
+                                    <input
+                                      type="text"
+                                      className="form-control bg-light"
+                                      value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                                      disabled
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="company_name"
+                                      value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                                    />
+                                  </div>
                                 </div>
                               </div>
 

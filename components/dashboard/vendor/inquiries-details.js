@@ -105,13 +105,35 @@ const RfqManagementPreview = () => {
         // Normalize terms data to ensure consistent structure
         if (res.data && res.data.terms && Array.isArray(res.data.terms)) {
           res.data.terms = res.data.terms.map(term => {
+            // Get term content with better fallbacks
+            let termContent = '';
+            
+            // First try to get content from term.content array
+            if (term.content && Array.isArray(term.content) && term.content[0] && term.content[0].title) {
+              termContent = term.content[0].title;
+            } 
+            // Then try other common fields
+            else if (term.term_content) {
+              termContent = term.term_content;
+            }
+            else if (term.term_text) {
+              termContent = term.term_text;
+            }
+            else if (term.name) {
+              termContent = term.name;
+            }
+            // If still no content, use term ID as fallback
+            else {
+              const termId = term.id || term.term_id || "Unknown";
+              // Make a server request to get the actual term content
+              termContent = `Term ${termId}`;
+            }
+            
             // Create a normalized term object with consistent properties
             return {
               id: term.id || term.term_id,
-              name: term.name || term.term_text || 
-                    (term.content && term.content[0] ? term.content[0].title : null) || 
-                    term.term_content || 
-                    `Term ${term.id || "Unknown"}`,
+              name: termContent, // Always use the extracted content as name
+              term_content: termContent, // Duplicate in term_content for consistent access
               // Preserve original data for reference if needed
               original: { ...term }
             };
@@ -930,32 +952,21 @@ const RfqManagementPreview = () => {
                                   {rfqDetails?.terms?.length > 0 && (
                                     <ol>
                                       {rfqDetails?.terms?.map((item, index) => {
-                                        // Enhanced term content extraction with comprehensive fallbacks
+                                        // Consistent term content extraction across all views
                                         const termContent = 
-                                          // Try all possible property names where content might be stored
-                                          item.name || 
-                                          item.term_text || 
-                                          item.term_content ||
+                                          item.term_content || 
+                                          item.name ||
+                                          item.term_text ||
                                           (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                          (item.original?.term_content) ||
                                           (item.original?.name) ||
                                           (item.original?.term_text) ||
-                                          (item.original?.term_content) ||
                                           (item.original?.content && Array.isArray(item.original.content) && item.original.content[0]?.title) ||
-                                          // Final fallback if nothing else works
-                                          `Term ${index + 1} (ID: ${item.id || item.term_id || "Unknown"})`;
-                                        
-                                        // Add debug logging to help troubleshoot term display issues
-                                        console.log(`Rendering term #${index}:`, {
-                                          id: item.id || item.term_id,
-                                          content: termContent,
-                                          originalItem: item
-                                        });
-                                        
+                                          `Term ${item.id || index + 1}`;
+
                                         return (
-                                          <li key={`rfq_d_t_${index}`}>
-
-                                            {item.content?.[0].title ?? "-"}
-
+                                          <li key={`term-${item.id || index}`}>
+                                            {termContent}
                                           </li>
                                         );
                                       })}
