@@ -468,7 +468,7 @@ const Item = ({
             {/* start: qty and unit ocntainer */}
             <div className="d-flex  justify-content-start align-items-start gap-2">
               <div className="" style={{ width: "200px" }}>
-                <label> Quality * </label>
+                <label> Quantity * </label>
                 <input
                   type="number"
                   value={

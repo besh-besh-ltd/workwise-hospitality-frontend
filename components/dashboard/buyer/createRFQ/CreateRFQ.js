@@ -787,12 +787,13 @@ const CreateRFQ = () => {
 
                                 <div className="col-md-6">
                                   <FormikField
+                                    className="selection-dropdown"
+                                    isDisabled
                                     label="Company Name"
                                     value={rfqFormDataFromStore.company_name}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
+                                    // enableHandleChange={true}
+                                    // handleChange={handleFormFieldChange}
                                     type="text"
-                                    isRequired={true}
                                     name="company_name"
                                     touched={touched}
                                     errors={errors}

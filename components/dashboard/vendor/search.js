@@ -25,6 +25,7 @@ import storageInstance from "@/utils/storageInstance";
 import ProductOverview from "@/components/shared/ProductOverview";
 import Head from "next/head";
 import { debounce } from "lodash";
+import Select from 'react-select';
 
 export const vendorTypes = [
   {
@@ -55,8 +56,8 @@ export const vendorConditions = [
     value: "prev_finalized",
   },
   {
-    label: "Added to RFQ atleast once",
-    value: "rfq_added",
+    label: "Sent RFQ atleast once",
+    value: "rfq_sent",
   },
 ]
 
@@ -66,6 +67,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
+  const [vendorTypeOpen, setVendorTypeOpen] = useState(false);
+  const [approvedByOpen, setApprovedByOpen] = useState(false);
+  const [internalVendorTypes, setInternalVendorTypes] = useState(vendorTypes)
+  const [internalApprovedBy, setInternalApprovedBy] = useState([])
   const searchRef = useRef(null);
   const searchLabelRef = useRef(null);
   const dispatch = useDispatch();
@@ -83,16 +88,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
 
-  const [selectedCountry, setselectedCountry] = useState(0);
-  const [selectedState, setselectedState] = useState(0);
+  const [selectedCountry, setselectedCountry] = useState([]);
+  const [selectedState, setselectedState] = useState([]);
+  const [selectedCity, setselectedCity] = useState([]);
+  const [selectedVendorTypes, setSelectedVendorTypes] = useState([]);
+  const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
   const [turnOver, setTurnOver] = useState({
     from: -1,
     to: -1
   })
-  const [vendorType, setVendorType] = useState(null);
   const [prevWorkedWith, setPrevWorkedWith] = useState(null);
 
-  const [selectedCity, setselectedCity] = useState(0);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -112,6 +118,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [preferred_vendor, setPreferred_vendor] = useState(false);
   const fromRef = useRef(null);
   const toRef = useRef(null);
+  const vendorTypeRef = useRef(null);
+  const vendorApprovedByRef = useRef(null);
 
   const handleRedirect = (e) => {
     if (!vendorMetaData?.logged_In)
@@ -173,6 +181,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setIsOpen(false);
       }
+      if(vendorTypeRef.current && !vendorTypeRef.current.contains(event.target)) {
+        setVendorTypeOpen(false);
+      }
+      if(vendorApprovedByRef.current && !vendorApprovedByRef.current.contains(event.target)) {
+        setApprovedByOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -180,6 +194,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
+  }, [selectedVendorTypes])
+
+  useEffect(() => {
+    setInternalApprovedBy(approved_by)
+  }, [approved_by])
+
+  useEffect(() => {
+    setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
+  }, [selectedApprovedBy])
 
   // const handleSearchClick = () => {
   //   setIsOpen(!isOpen);
@@ -197,12 +223,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getVendors();
   }, [
     currentSelectedProduct,
-    selectedVbaa,
+    selectedApprovedBy,
     cat_id,
     selectedState,
     selectedCity,
     selectedCountry,
-    vendorType,
+    selectedVendorTypes,
     prevWorkedWith,
     turnOver,
     isLoggedIn,
@@ -298,12 +324,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         {
           cat_id,
           search_key,
-          approved_by: selectedVbaa,
+          approved_by: selectedApprovedBy,
           state: selectedState,
           city: selectedCity,
           country: selectedCountry,
           turnOver,
-          vendorType,
+          vendorType: selectedVendorTypes,
           prevWorkedWith,
           vendor_name: vendorName,
           myVendorType,
@@ -425,6 +451,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setvabloading(false);
       });
   };
+  
   const handleSearchChange = (e) => {
     const searchValue = e.target.value;
 
@@ -516,9 +543,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
 
   const clearLocationFilter = () => {
-    setselectedState(0);
-    setselectedCity(0);
-    setselectedCountry(0);
+    setselectedState([]);
+    setselectedCity([]);
+    setselectedCountry([]);
   };
 
   const mapEntries = Array.from(categoryLvlRef.current.entries());
@@ -959,7 +986,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           }
                         }}
                       >
-                        <option value="">Filter Vendors</option>
+                        <option value="">All Vendors</option>
                         {optionVendors &&
                           optionVendors.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -969,7 +996,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       </select>
 
                       {/* Display clear link if any filter is active */}
-                      {(myVendorType) && (
+                      {myVendorType && (
                         <Link
                           href="#"
                           className="clearFilter"
@@ -1023,7 +1050,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             from: -1,
                             to: -1,
                           });
-                          if(fromRef.current && toRef.current) {
+                          if (fromRef.current && toRef.current) {
                             fromRef.current.value = "";
                             toRef.current.value = "";
                           }
@@ -1042,7 +1069,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             name="turnOverFrom"
                             className="form-control"
                             placeholder="FROM ( IN CR )"
-                            onChange={(e) => debouncedSetFrom(parseInt(e.target.value || 0))}
+                            onChange={(e) =>
+                              debouncedSetFrom(parseInt(e.target.value || 0))
+                            }
                           />
                         </div>
                       </div>
@@ -1055,71 +1084,107 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             name="turnOverTo"
                             className="form-control"
                             placeholder="TO ( IN CR )"
-                            onChange={(e) => debouncedSetTo(parseInt(e.target.value || 0))}
+                            onChange={(e) =>
+                              debouncedSetTo(parseInt(e.target.value || 0))
+                            }
                           />
                         </div>
                       </div>
                     </div>
                   </div>
                   <div className="search-con-right-1">
-                    <p className="fw-semibold  mb-2">Vendor Type</p>
-                    <div>
-                        <select
-                          name="vendorType"
-                          id="vendorType"
-                          value={vendorType}
-                          onChange={(e) => {
-                            setVendorType(e.target.value);
+                    <p className="fw-semibold mb-2">Vendor Type</p>
+                    <div
+                      ref={vendorTypeRef}
+                      className="selection-dropdown"
+                    >
+                      <input
+                        // ref={citySelectionRef}
+                        type="text"
+                        onChange={(e) => {
+                          setInternalVendorTypes(
+                            vendorTypes.filter((type) =>
+                              type.value.toLowerCase().includes(e.target.value)
+                            )
+                          );
+                        }}
+                        placeholder="Select vendor types"
+                        onFocus={() => setVendorTypeOpen(true)}
+                      />
+                      <div className="d-flex gap-2 flex-wrap mt-2">
+                        {selectedVendorTypes.map((type) => (
+                          <div className="selected-country">
+                            {type.label}
+                            <button
+                              onClick={() =>
+                                setSelectedVendorTypes((prev) =>
+                                  prev.filter(
+                                    (_type) => !(_type.value == type.value)
+                                  )
+                                )
+                              }
+                            >
+                              X
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {vendorTypeOpen && (
+                        <ul
+                          className="dropdown"
+                          style={{
+                            maxWidth: 315,
                           }}
                         >
-                          <option value="">Select Vendor Type</option>
-                          {vendorTypes &&
-                            vendorTypes.map((item) => (
-                              <option value={item.value} key={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                        </select>
-                      {vendorType && (
-                        <Link
-                          className="clearFilter"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setVendorType("");
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faTimesCircle} /> clear
-                        </Link>
+                          {internalVendorTypes.length > 0 ? (
+                            internalVendorTypes.map((type) => (
+                              <li
+                                key={type.value}
+                                onClick={() => {
+                                  setSelectedVendorTypes((prev) => [
+                                    ...prev,
+                                    type,
+                                  ]);
+                                  setVendorTypeOpen(false);
+                                }}
+                                className="dropdown-item"
+                              >
+                                {type.label}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="dropdown-item">No results found</li>
+                          )}
+                        </ul>
                       )}
                     </div>
                   </div>
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Previously Worked With</p>
                     <div>
-                        <select
-                          name="prevWorkedWith"
-                          id="prevWorkedWith"
-                          value={prevWorkedWith}
-                          onChange={(e) => {
-                            if (
-                              !vendorMetaData.logged_In ||
-                              !vendorMetaData.subscription
-                            )
-                              setOpenAuthModal(true);
-                            else {
-                              setPrevWorkedWith(e.target.value);
-                            }
-                          }}
-                        >
-                          <option value="">Select Vendor Condition</option>
-                          {vendorConditions &&
-                            vendorConditions.map((item) => (
-                              <option value={item.value} key={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                        </select>
+                      <select
+                        name="prevWorkedWith"
+                        id="prevWorkedWith"
+                        value={prevWorkedWith}
+                        onChange={(e) => {
+                          if (
+                            !vendorMetaData.logged_In ||
+                            !vendorMetaData.subscription
+                          )
+                            setOpenAuthModal(true);
+                          else {
+                            setPrevWorkedWith(e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="">Select Vendor Condition</option>
+                        {vendorConditions &&
+                          vendorConditions.map((item) => (
+                            <option value={item.value} key={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                      </select>
                       {prevWorkedWith && (
                         <Link
                           className="clearFilter"
@@ -1135,6 +1200,73 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     </div>
                   </div>
                   <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2">Vendor Approved By</p>
+                    <div
+                      ref={vendorApprovedByRef}
+                      className="selection-dropdown"
+                    >
+                      <input
+                        // ref={citySelectionRef}
+                        type="text"
+                        onChange={(e) => {
+                          setInternalApprovedBy(
+                            approved_by.filter((_) =>
+                              _.vendor_approve.toLowerCase().includes(e.target.value)
+                            )
+                          );
+                        }}
+                        placeholder="Select vendor types"
+                        onFocus={() => setApprovedByOpen(true)}
+                      />
+                      <div className="d-flex gap-2 flex-wrap mt-2">
+                        {selectedApprovedBy.map((approvedBy) => (
+                          <div className="selected-country">
+                            {approvedBy.vendor_approve}
+                            <button
+                              onClick={() =>
+                                setSelectedApprovedBy((prev) =>
+                                  prev.filter(
+                                    (_approvedBy) => !(_approvedBy.id == approvedBy.id)
+                                  )
+                                )
+                              }
+                            >
+                              X
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {approvedByOpen && (
+                        <ul
+                          className="dropdown"
+                          style={{
+                            maxWidth: 315,
+                          }}
+                        >
+                          {internalApprovedBy.length > 0 ? (
+                            internalApprovedBy.map((approveBy) => (
+                              <li
+                                key={approveBy.id}
+                                onClick={() => {
+                                  setSelectedApprovedBy((prev) => [
+                                    ...prev,
+                                    approveBy,
+                                  ]);
+                                  setApprovedByOpen(false);
+                                }}
+                                className="dropdown-item"
+                              >
+                                {approveBy.vendor_approve}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="dropdown-item">No results found</li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                  {/* <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Vendor Approved By</p>
                     <div>
                       {vabloading && (
@@ -1192,7 +1324,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         </Link>
                       )}
                     </div>
-                  </div>
+                  </div> */}
                 </aside>
               </div>
             )}
