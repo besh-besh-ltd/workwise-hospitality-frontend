@@ -6422,7 +6422,7 @@ textarea {
 }
 
 .all-products-wrap {
-  max-height: 600px;
+  max-height: 805px;
   overflow: auto;
 }
 
@@ -6972,7 +6972,8 @@ aside {
 }
 
 #vendors_area {
-  padding-top: 80px;
+  padding-top: 40px;
+  padding-bottom: 50px;
 }
 
 .search-con-right-1 {
@@ -7601,4 +7602,49 @@ td:hover .tooltip_custom {
   white-space: nowrap;
   overflow: hidden;
   animation: blink 0.7s step-end infinite;
+}
+
+.selection-dropdown {
+  input:disabled, select:disabled {
+    opacity: 40%;
+  }
+}
+
+.selected-country {
+  width: fit-content;
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  padding: 0.3rem 0.8rem;
+  border-radius: 10px;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 13px;
+
+  button {
+    background-color: transparent;
+    outline: none;
+    border: none;
+    color: white;
+  }
+}
+
+.local-filter-container {
+  opacity: 0;
+  transition: all 0.6s ease-in-out;
+  max-height: 0;
+  overflow: hidden;
+
+  &.show {
+    opacity: 1;
+    max-height: 1000px;
+    overflow: visible;
+  }
+}
+
+.css-b62m3t-container {
+  .css-1dyz3mf {
+    max-height: 65px;
+    overflow-y: auto;
+  }
 }

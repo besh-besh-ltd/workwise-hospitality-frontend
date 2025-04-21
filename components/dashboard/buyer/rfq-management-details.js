@@ -10,12 +10,15 @@ import ViewRFQ from "./manageRFQ/ViewRFQ";
 const RfqManagementDetails = () => {
   const router = useRouter();
   const [rfqDetails, setrfqDetails] = useState('')
-  const {rfqId} = router.query
+  const {id} = router.query
+  
   useEffect(() => {
-    if(rfqId && rfqId!= ''){
-      getRFQById(rfqId).then(res=>{
+    if(id && id !== '') {
+      getRFQById(id).then(res => {
         setrfqDetails(res.data)
-      }).catch(()=>{})
+      }).catch((err) => {
+        console.error("Error fetching RFQ:", err);
+      })
     }
   }, [router])
   
