@@ -803,21 +803,21 @@ const CreateRFQ = () => {
 
                                 <div className="col-md-6">
                                   {/* Company Name - Read Only */}
-                                  <div className="mb-3">
-                                    <label className="form-label fw-medium">Company Name</label>
-                                    <input
-                                      type="text"
-                                      className="form-control bg-light"
-                                      value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
-                                      disabled
-                                    />
-                                    <input
-                                      type="hidden"
-                                      name="company_name"
-                                      value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
-                                    />
-                                  </div>
+                                <div className="mb-3">
+                                  <label className="form-label fw-medium">Company Name</label>
+                                  <input
+                                    type="text"
+                                    className="form-control bg-light"
+                                    value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                                    disabled
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="company_name"
+                                    value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                                  />
                                 </div>
+                              </div>
                               </div>
 
                               <div className="row mb-2">
