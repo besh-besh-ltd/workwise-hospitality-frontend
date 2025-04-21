@@ -157,10 +157,9 @@ const CreateRFQ = () => {
         );
         
         if (!existingTerm) {
-          // IMPORTANT: Only store minimal properties to prevent validation errors
-          // The backend only expects id and name
+          // IMPORTANT: Only store id and name as required by backend
           updatedTerms.push({
-            id: termId,
+            id: Number(termId), // Convert to number as required by backend
             name: termName
           });
           
@@ -282,20 +281,18 @@ const CreateRFQ = () => {
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
     
-    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
+    // IMPORTANT: Normalize terms to ensure proper format for backend
     if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
       formDataCopy.terms = formDataCopy.terms.map(term => ({
-        id: Number(term.id || term.term_id), // Convert to number for backend
-        name: term.name || term.term_content || `Term ${term.id}`
+        id: Number(term.id), // Convert to number for backend
+        name: term.name // Only include id and name
       }));
-      
-      console.log("Terms filtered for backend validation:", formDataCopy.terms);
     }
     
     let payload = {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
-      ...formDataCopy, // Use the filtered copy
+      ...formDataCopy,
       project_id: formDataCopy.project_id || -1,
       contact_number: fullMobile
     };

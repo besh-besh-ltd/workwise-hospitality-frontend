@@ -259,110 +259,70 @@ const EditRFQ = () => {
         throw new Error("No RFQ ID provided");
       }
 
-      // First get all the terms
+      // First get all available terms for reference
       const termsResponse = await getTerms();
+      let availableTerms = [];
       
-      // Set all available terms first so they're available for matching
       if (termsResponse?.data) {
-        console.log("All available terms loaded:", termsResponse.data.length);
+        // Create a map of all available terms for quick lookup
+        availableTerms = termsResponse.data.map(term => ({
+          id: term.id,
+          term_content: term.term_content || term.name || term.term_text ||
+                       (term.content && Array.isArray(term.content) && term.content[0]?.title) ||
+                       `Term ${term.id}`,
+          name: term.name || term.term_content || term.term_text ||
+                (term.content && Array.isArray(term.content) && term.content[0]?.title) ||
+                `Term ${term.id}`
+        }));
         
-        // IMPORTANT: Keep the original IDs from the database intact
-        // Do not modify or normalize them - this was causing the selection issue
-        dispatch(setAllTerms(termsResponse.data));
+        // Store all available terms in Redux
+        dispatch(setAllTerms(availableTerms));
       }
 
+      // Get RFQ data which includes selected term IDs
       const rfqResponse = await getRFQById(id);
       if (!rfqResponse.data) {
         throw new Error("No data received from RFQ endpoint");
       }
 
       const rfqData = rfqResponse.data;
-      setRfqData(rfqData);
+      console.log("RFQ data loaded:", rfqData);
 
-      console.log("RFQ data loaded with terms:", rfqData.terms);
+      // Process selected terms by cross-referencing with available terms
+      if (rfqData.terms && rfqData.terms.length > 0 && availableTerms.length > 0) {
+        // Create a map of available terms for quick lookup
+        const termMap = new Map(availableTerms.map(term => [String(term.id), term]));
 
-      // IMPROVED TERM HANDLING - Ensure we have term content for all terms
-      if (rfqData.terms && rfqData.terms.length > 0 && termsResponse?.data) {
-        // Map of all available terms by ID for quick lookup
-        const termContentMap = {};
-        termsResponse.data.forEach(term => {
-          termContentMap[term.id] = term.term_content || term.name || `Term ${term.id}`;
-        });
-        
-        // Normalize all terms to ensure they have content
-        const normalizedTerms = rfqData.terms.map(term => {
-          // Get term ID
-          const termId = term.id || term.term_id;
-          
-          // Try to get content from various sources in order of reliability
-          let termContent = '';
-          
-          // 1. Try term.content array
-          if (term.content && Array.isArray(term.content) && term.content[0] && term.content[0].title) {
-            termContent = term.content[0].title;
-          } 
-          // 2. Try direct properties
-          else if (term.term_content) {
-            termContent = term.term_content;
-          }
-          else if (term.term_text) {
-            termContent = term.term_text;
-          }
-          else if (term.name) {
-            termContent = term.name;
-          }
-          // 3. Try to find content in our termContentMap from all available terms
-          else if (termId && termContentMap[termId]) {
-            termContent = termContentMap[termId];
-          }
-          // 4. Fallback to ID
-          else {
-            termContent = `Term ${termId || 'Unknown'}`;
-          }
-          
-          // Return a properly formatted term object
-          return {
-            id: termId,
-            name: termContent,
-            term_content: termContent
-          };
-        });
-        
+        // Filter and map selected terms to include only those that exist in available terms
+        const selectedTerms = rfqData.terms
+          .map(term => {
+            const termId = String(term.id || term.term_id);
+            const fullTerm = termMap.get(termId);
+            
+            if (fullTerm) {
+              return {
+                id: parseInt(termId),
+                term_content: fullTerm.term_content,
+                name: fullTerm.name
+              };
+            }
+            return null;
+          })
+          .filter(term => term !== null); // Remove any terms that weren't found
+
         // Update terms in rfqData
-        rfqData.terms = normalizedTerms;
+        rfqData.terms = selectedTerms;
         
-        // Also prepare UI terms selection
-        const selectedUITerms = normalizedTerms.map(term => ({
-          id: term.id,
-          name: term.name
-        }));
-        
-        console.log("Normalized terms for display:", selectedUITerms);
-        
-        // Set terms in Redux state
-        dispatch(setTermsData(selectedUITerms));
+        // Update Redux store with selected terms
+        dispatch(setTermsData(selectedTerms));
+        console.log("Selected terms processed:", selectedTerms);
       } else {
+        // If no terms or available terms, ensure we have an empty array
+        rfqData.terms = [];
         dispatch(setTermsData([]));
       }
 
-      // Add this right after retrieving RFQ data
-      console.log("Original RFQ Terms from API (before normalization):", 
-        rfqData.terms ? rfqData.terms.map(t => ({
-          id: t.id || t.term_id || 'undefined',
-          term_id: t.terms_id || 'undefined',  // Check for terms_id which might be used in the map table
-          name: t.name || t.term_text || t.term_content || 'undefined',
-          allKeys: Object.keys(t)
-        })) : 'No terms found'
-      );
-
-      // Also log the allTerms when they're fetched
-      console.log("All available terms:", 
-        termsResponse?.data ? termsResponse.data.map(t => ({
-          id: t.id || 'undefined',
-          term_content: (t.term_content || '').substring(0, 50) + '...',
-          allKeys: Object.keys(t)
-        })) : 'No terms available'
-      );
+      setRfqData(rfqData);
 
       // Extract country code and number from contact_number
       if (rfqData.contact_number) {
@@ -385,6 +345,7 @@ const EditRFQ = () => {
         }
       }
 
+      // Continue with other data fetching
       const [countriesResponse, projectsResponse, vendorsResponse, profileResponse] = 
         await Promise.all([
           getCountryCodes(),
@@ -416,7 +377,6 @@ const EditRFQ = () => {
       
       // Set terms initialized flag
       termsInitializedRef.current = true;
-      console.log("Terms initialization complete. InitializedRef =", termsInitializedRef.current);
 
       if (!isRefetch) {
         setInitialized(true);
@@ -569,9 +529,6 @@ const EditRFQ = () => {
       
       setLoading(true);
       
-      // CRITICAL FIX: Fetch fresh terms to ensure we have full content
-      const freshTerms = await fetchTermsForUpdate();
-      
       // Clean the number - get ONLY digits for backend validation
       let cleanNumber = formValues.contact_number
         ? formValues.contact_number
@@ -609,7 +566,7 @@ const EditRFQ = () => {
         // IMPORTANT: Send ONLY digits to backend - exactly how CreateRFQ works
         contact_number: cleanNumber,
         response_email: formValues.response_email || rfqData.response_email,
-        location: rfqData.location || " ", // Always use original location, with non-empty fallback
+        location: rfqData.location || " ", // Always use original location with non-empty fallback
         bid_end_date: formValues.bid_end_date || rfqData.bid_end_date || "",
         comment: rfqData.comment, // Use original value
         is_published: 1,
@@ -626,39 +583,30 @@ const EditRFQ = () => {
         dataToSend.project_id = parseInt(rfqData.project_id);
       }
       
-      console.log("Sending update data:", dataToSend);
-      
       // Format products to match EXACTLY what the backend expects for updates
       if (rfqData.products && rfqData.products.length > 0) {
         dataToSend.products = rfqData.products.map(product => {
-          // Extract only the fields expected by backend validation
+          // Ensure spec array is properly formatted with all required fields
+          const spec = [
+            { title: "Size", value: product.size || "Standard" },
+            { title: "Spec", value: product.specifications || "Standard" },
+            { title: "Quantity", value: product.quantity || "1" },
+            { title: "Unit", value: product.unit || "Pcs" }
+          ];
+
+          // Extract vendor information
+          const vendors = Array.isArray(product.vendor_details) 
+            ? product.vendor_details.map(v => ({ user_id: v.user_id }))
+            : [];
+
           return {
             product_id: product.product_id,
             variant: product.variant || 0,
-            
-            // Ensure these match the exact format expected
-            vendors: Array.isArray(product.vendors) ? product.vendors : 
-                    (Array.isArray(product.vendor_details) ? 
-                      product.vendor_details.map(v => ({ user_id: v.user_id })) : 
-                      []),
-            
-            // Ensure spec is properly formatted
-            spec: Array.isArray(product.spec) ? product.spec : 
-                 (Array.isArray(product.product_specs) ? 
-                  product.product_specs.map(s => ({ title: s.title, value: s.value })) : 
-                  [
-                    { title: 'Size', value: 'Standard' },
-                    { title: 'Spec', value: 'Standard' },
-                    { title: 'Quantity', value: '1' },
-                    { title: 'Unit', value: 'Pcs' }
-                  ]),
-            
-            // Include these fields as expected by backend
+            vendors: vendors,
+            spec: spec, // Use the properly formatted spec array
             comment: product.comment || "",
             datasheet: product.datasheet || "",
             qap: product.qap || "",
-            
-            // Ensure file fields are arrays
             datasheet_file: Array.isArray(product.datasheet_file) ? product.datasheet_file : [],
             spec_file: Array.isArray(product.spec_file) ? product.spec_file : [],
             qap_file: Array.isArray(product.qap_file) ? product.qap_file : []
@@ -666,24 +614,14 @@ const EditRFQ = () => {
         });
       }
 
-      // Preserve the original terms from rfqData regardless of UI selection
-      // since we've made the terms section read-only
+      // Format terms to match backend validation schema
       if (rfqData.terms && rfqData.terms.length > 0) {
-        console.log("Preserving original normalized terms from rfqData:", rfqData.terms);
-        
-        // Use the normalized terms that we created during data loading
         dataToSend.terms = rfqData.terms.map(term => ({
-          id: term.id,
-          name: term.name || term.term_content
+          id: Number(term.id || term.term_id), // Convert to number for backend
+          name: term.name || term.term_content || `Term ${term.id}` // Only include id and name
         }));
-        
-        console.log("Terms being preserved for update:", dataToSend.terms);
-      } else if (selectedTerms && selectedTerms.length > 0) {
-        // Fallback to selectedTerms if rfqData.terms is empty
-        dataToSend.terms = selectedTerms;
       } else {
-        // Ensure we send an empty array if no terms
-        dataToSend.terms = [];
+        dataToSend.terms = []; // Ensure we send an empty array if no terms
       }
 
       // Submit the RFQ update
@@ -1311,30 +1249,17 @@ const EditRFQ = () => {
                     <h5 className="mb-0">Terms & Conditions</h5>
                   </div>
                   <div className="card-body">
-                    {/* IMPROVED TERMS DISPLAY */}
+                    {/* Selected Terms Display */}
                     <div className="mb-4">
-                      <h6 className="mb-3 fw-medium">Terms (Read Only)</h6>
+                      <h6 className="mb-3 fw-medium">Selected Terms (Read Only)</h6>
                       <div className="terms-list border rounded p-3 bg-light">
                         {selectedTerms && selectedTerms.length > 0 ? (
                           <ol className="mb-0 ps-3">
-                            {selectedTerms.map((term, index) => {
-                              // Get term content with comprehensive fallbacks
-                              const termContent = 
-                                term.term_content || 
-                                term.name ||
-                                term.term_text ||
-                                (term.content && Array.isArray(term.content) && term.content[0]?.title) ||
-                                // Try to find matching term in allTerms if we only have ID
-                                (term.id && allTerms?.find(t => String(t.id) === String(term.id))?.term_content) ||
-                                (term.id && allTerms?.find(t => String(t.id) === String(term.id))?.name) ||
-                                `Term ${term.id || index + 1}`;
-
-                              return (
-                                <li key={`term-${term.id || index}`} className="mb-2">
-                                  {termContent}
-                                </li>
-                              );
-                            })}
+                            {selectedTerms.map((term, index) => (
+                              <li key={`term-${term.id || index}`} className="mb-2">
+                                {term.term_content || term.name}
+                              </li>
+                            ))}
                           </ol>
                         ) : (
                           <p className="text-muted mb-0">No terms have been selected for this RFQ.</p>

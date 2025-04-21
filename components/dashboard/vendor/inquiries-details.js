@@ -102,40 +102,27 @@ const RfqManagementPreview = () => {
         let val = checkBidExpired(res.data?.bid_end_date);
         setIsSubmitable(!val);
         
-        // Normalize terms data to ensure consistent structure
+        // Normalize terms data to ensure consistent structure and content
         if (res.data && res.data.terms && Array.isArray(res.data.terms)) {
           res.data.terms = res.data.terms.map(term => {
-            // Get term content with better fallbacks
-            let termContent = '';
+            // Get term content with comprehensive fallbacks
+            const termContent = 
+              term.term_content || // First try term_content
+              term.name || // Then try name
+              (term.content && Array.isArray(term.content) && term.content[0]?.title) || // Then try content array
+              term.term_text || // Then try term_text
+              (term.original?.term_content) || // Then try original term content
+              (term.original?.name) || // Then try original name
+              (term.original?.content && Array.isArray(term.original.content) && term.original.content[0]?.title) || // Then try original content
+              `Term ${term.id || 'Unknown'}`; // Fallback to ID
             
-            // First try to get content from term.content array
-            if (term.content && Array.isArray(term.content) && term.content[0] && term.content[0].title) {
-              termContent = term.content[0].title;
-            } 
-            // Then try other common fields
-            else if (term.term_content) {
-              termContent = term.term_content;
-            }
-            else if (term.term_text) {
-              termContent = term.term_text;
-            }
-            else if (term.name) {
-              termContent = term.name;
-            }
-            // If still no content, use term ID as fallback
-            else {
-              const termId = term.id || term.term_id || "Unknown";
-              // Make a server request to get the actual term content
-              termContent = `Term ${termId}`;
-            }
-            
-            // Create a normalized term object with consistent properties
+            // Return normalized term object
             return {
               id: term.id || term.term_id,
-              name: termContent, // Always use the extracted content as name
-              term_content: termContent, // Duplicate in term_content for consistent access
-              // Preserve original data for reference if needed
-              original: { ...term }
+              name: termContent,
+              term_content: termContent,
+              // Keep original data for reference
+              original: term.original || term
             };
           });
         }
@@ -945,27 +932,18 @@ const RfqManagementPreview = () => {
                               <div className="row terms-conditions">
                                 <div className="col-md-6 ">
                                   <h4>Terms & Conditions</h4>
-                                  {rfqDetails?.terms.length == 0 && (
+                                  {(!rfqDetails?.terms || rfqDetails?.terms.length === 0) && (
                                     <p>No predefined terms selected!</p>
                                   )}
 
                                   {rfqDetails?.terms?.length > 0 && (
                                     <ol>
                                       {rfqDetails?.terms?.map((item, index) => {
-                                        // Consistent term content extraction across all views
-                                        const termContent = 
-                                          item.term_content || 
-                                          item.name ||
-                                          item.term_text ||
-                                          (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
-                                          (item.original?.term_content) ||
-                                          (item.original?.name) ||
-                                          (item.original?.term_text) ||
-                                          (item.original?.content && Array.isArray(item.original.content) && item.original.content[0]?.title) ||
-                                          `Term ${item.id || index + 1}`;
-
+                                        const termContent = item.term_content || item.name || (item.content && item.content[0]?.title);
+                                        if (!termContent) return null;
+                                        
                                         return (
-                                          <li key={`term-${item.id || index}`}>
+                                          <li key={`term-${item.id || index}`} className="mb-2">
                                             {termContent}
                                           </li>
                                         );
