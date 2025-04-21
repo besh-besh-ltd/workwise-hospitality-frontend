@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
-import { updateRfq, saveDraft, getTerms, vendorApproveList, getRFQById } from "@/services/rfq";
+import { updateRfq,  getTerms, vendorApproveList, getRFQById } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
@@ -11,7 +11,6 @@ import {
   clearState,
   setOtherFormFields,
   setTermsData,
-  setTermFiles,
   setAllTerms,
 
 } from "@/redux/slice";
@@ -125,23 +124,6 @@ const EditRFQ = () => {
     };
   }, [router.query.id, dispatch]);
 
-  // Add additional effect to ensure rfq_type and reverse_auction are preserved
-  useEffect(() => {
-    if (rfqData) {
-      // Store the original values in a ref to ensure they remain unchanged
-      const originalRfqType = rfqData.rfq_type;
-      const originalReverseAuction = rfqData.reverse_auction;
-      
-      // This ensures that even if rfqData changes, we always reference the original values
-      Object.defineProperty(rfqData, 'rfq_type', {
-        get: function() { return originalRfqType; }
-      });
-      
-      Object.defineProperty(rfqData, 'reverse_auction', {
-        get: function() { return originalReverseAuction; }
-      });
-    }
-  }, [rfqData?.id]);
 
 
   // Add useEffect to force term reselection after component mounts
@@ -347,51 +329,16 @@ const EditRFQ = () => {
       
       setLoading(true);
       
-      // Clean the number - get ONLY digits for backend validation
-      let cleanNumber = formValues.contact_number
-        ? formValues.contact_number
-            .replace(/[^0-9]/g, "") // Remove all non-numeric characters
-            .replace(/^0+/, "") // Remove leading zeros
-        : "";
-      
-      // Additional check to prevent country code duplication
-      // Common country codes that might be at the start of the number
-      const countryCodes = ['91', '1', '44', '61', '86', '7', '49', '33', '81', '82', '62', '55', '234', '27', '966', '65', '60', '52', '972'];
-      
-      // If the number starts with the selected country code, remove it
-      if (onecountrycode && cleanNumber.startsWith(onecountrycode)) {
-        cleanNumber = cleanNumber.substring(onecountrycode.length);
-      }
-      
-      // Check for any country code at the beginning
-      for (const code of countryCodes) {
-        if (cleanNumber.startsWith(code) && code.length <= 4) {
-          cleanNumber = cleanNumber.substring(code.length);
-          break;
-        }
-      }
-      
-      // For display/store purposes, use the formatted version like View RFQ
-      const displayContactNumber = onecountrycode 
-        ? `+${onecountrycode}-${cleanNumber}`
-        : cleanNumber;
-      
       // Create basic payload with only fields that can be edited
       const dataToSend = {
         rfq_id: rfqData.id,
-        company_name: rfqData.company_name, // Use original value
         contact_name: formValues.contact_name || rfqData.contact_name,
         // IMPORTANT: Send ONLY digits to backend - exactly how CreateRFQ works
-        contact_number: cleanNumber,
+        contact_number: formValues.contact_number,
         response_email: formValues.response_email || rfqData.response_email,
-        location: rfqData.location || " ", // Always use original location with non-empty fallback
         bid_end_date: formValues.bid_end_date || rfqData.bid_end_date || "",
-        comment: rfqData.comment, // Use original value
-        is_published: 1,
         // Ensure we preserve the original values
-        rfq_type: rfqData.rfq_type,  
-        reverse_auction: rfqData.reverse_auction
-      };
+       };
 
       // Only include project_id if it exists and is a valid number
       if (formValues.project_id && !isNaN(formValues.project_id)) {
@@ -400,47 +347,8 @@ const EditRFQ = () => {
         // Preserve the original project_id if no new one is selected
         dataToSend.project_id = parseInt(rfqData.project_id);
       }
-      
-      // Format products to match EXACTLY what the backend expects for updates
-      if (rfqData.products && rfqData.products.length > 0) {
-        dataToSend.products = rfqData.products.map(product => {
-          // Ensure spec array is properly formatted with all required fields
-          const spec = [
-            { title: "Size", value: product.size || "Standard" },
-            { title: "Spec", value: product.specifications || "Standard" },
-            { title: "Quantity", value: product.quantity || "1" },
-            { title: "Unit", value: product.unit || "Pcs" }
-          ];
 
-          // Extract vendor information
-          const vendors = Array.isArray(product.vendor_details) 
-            ? product.vendor_details.map(v => ({ user_id: v.user_id }))
-            : [];
-
-          return {
-            product_id: product.product_id,
-            variant: product.variant || 0,
-            vendors: vendors,
-            spec: spec, // Use the properly formatted spec array
-            comment: product.comment || "",
-            datasheet: product.datasheet || "",
-            qap: product.qap || "",
-            datasheet_file: Array.isArray(product.datasheet_file) ? product.datasheet_file : [],
-            spec_file: Array.isArray(product.spec_file) ? product.spec_file : [],
-            qap_file: Array.isArray(product.qap_file) ? product.qap_file : []
-          };
-        });
-      }
-
-      // Format terms to match backend validation schema
-      if (rfqData.terms && rfqData.terms.length > 0) {
-        dataToSend.terms = rfqData.terms.map(term => ({
-          id: Number(term.id || term.term_id), // Convert to number for backend
-          name: term.name || term.term_content || `Term ${term.id}` // Only include id and name
-        }));
-      } else {
-        dataToSend.terms = []; // Ensure we send an empty array if no terms
-      }
+      console.log(dataToSend )
 
       // Submit the RFQ update
       updateRfq(dataToSend)
@@ -465,17 +373,12 @@ const EditRFQ = () => {
               ...prevData,
               contact_name: formValues.contact_name,
               // Store the FORMATTED version for display
-              contact_number: displayContactNumber,
+              contact_number: formValues.contact_number,
               response_email: formValues.response_email,
-              location: prevData.location || '',
               bid_end_date: formValues.bid_end_date,
-              comment: prevData.comment, // Keep original comment
               project_id: formValues.project_id,
               // Keep original values
-              rfq_type: prevData.rfq_type,
-              reverse_auction: prevData.reverse_auction,
               // Preserve original terms
-              terms: prevData.terms 
             }));
             
             // Clear and update the terms in Redux to prevent duplication
@@ -486,7 +389,7 @@ const EditRFQ = () => {
               setOtherFormFields({
                 contact_name: formValues.contact_name,
                 // Store the FORMATTED version for display
-                contact_number: displayContactNumber,
+                contact_number: formValues.contact_number,
                 response_email: formValues.response_email,
                 location: rfqData.location || '',
                 bid_end_date: formValues.bid_end_date,
@@ -722,43 +625,14 @@ const EditRFQ = () => {
             validationSchema={EditRFQSchema}
             enableReinitialize={true}
             onSubmit={(values) => {
-              // Clean the number - get ONLY digits for backend validation
-              let cleanNumber = values.contact_number
-                .replace(/[^0-9]/g, "") // Remove all non-numeric characters
-                .replace(/^0+/, ""); // Remove leading zeros
-              
-              // Additional check to prevent country code duplication
-              // Common country codes that might be at the start of the number
-              const countryCodes = ['91', '1', '44', '61', '86', '7', '49', '33', '81', '82', '62', '55', '234', '27', '966', '65', '60', '52', '972'];
-              
-              // If the number starts with the selected country code, remove it
-              if (onecountrycode && cleanNumber.startsWith(onecountrycode)) {
-                cleanNumber = cleanNumber.substring(onecountrycode.length);
-              }
-              
-              // Check for any country code at the beginning
-              for (const code of countryCodes) {
-                if (cleanNumber.startsWith(code) && code.length <= 4) {
-                  cleanNumber = cleanNumber.substring(code.length);
-                  break;
-                }
-              }
-
-              // Format exactly like View RFQ with + symbol
-              const displayContactNumber = onecountrycode 
-                ? `+${onecountrycode}-${cleanNumber}`
-                : cleanNumber;
 
               const updatedFormData = {
                 ...rfqFormDataFromStore,
-                company_name: values.company_name,
                 contact_name: values.contact_name,
                 // IMPORTANT: Send ONLY digits to backend - exactly how View RFQ works
-                contact_number: cleanNumber,
+                contact_number: onecountrycode + "-" +values.contact_number,
                 response_email: values.response_email,
-                location: rfqData.location || " ", // Always use original location with non-empty fallback
                 bid_end_date: values.bid_end_date,
-                comment: values.comment
               };
               handleUpdateRFQ(updatedFormData);
             }}
@@ -947,7 +821,7 @@ const EditRFQ = () => {
                       <div className="col-md-6">
                         {/* RFQ Type */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">RFQ Type (Read Only)</label>
+                          <label className="form-label fw-medium">RFQ Type  </label>
                           <input
                             type="text"
                             className="form-control bg-light"
@@ -961,14 +835,13 @@ const EditRFQ = () => {
                             }
                             disabled
                           />
-                          <small className="text-muted">RFQ Type cannot be changed after creation</small>
                         </div>
                       </div>
 
                       <div className="col-md-6">
                         {/* Reverse Auction */}
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Reverse Auction (Read Only)</label>
+                          <label className="form-label fw-medium">Reverse Auction</label>
                           <input
                             type="text"
                             className="form-control bg-light"
@@ -980,14 +853,13 @@ const EditRFQ = () => {
                             }
                             disabled
                           />
-                          <small className="text-muted">Reverse Auction setting cannot be changed after creation</small>
                         </div>
                       </div>
 
                       {/* Delivery Location - Full Width - Now Read Only */}
                       <div className="col-12">
                         <div className="mb-3">
-                          <label className="form-label fw-medium">Delivery Location (Read Only)</label>
+                          <label className="form-label fw-medium">Delivery Location  </label>
                           <textarea
                             className="form-control bg-light"
                             name="location"
@@ -1010,7 +882,7 @@ const EditRFQ = () => {
                   <div className="card-body">
                     {/* Selected Terms Display */}
                     <div className="mb-4">
-                      <h6 className="mb-3 fw-medium">Selected Terms (Read Only)</h6>
+                      <h6 className="mb-3 fw-medium">Selected Terms  </h6>
                       <div className="terms-list border rounded p-3 bg-light">
                         {selectedTerms && selectedTerms.length > 0 ? (
                           <ol className="mb-0 ps-3">
@@ -1028,7 +900,7 @@ const EditRFQ = () => {
 
                     {/* Additional Terms - Now Read Only */}
                     <div>
-                      <h6 className="mb-3 fw-medium">Additional Terms (Read Only)</h6>
+                      <h6 className="mb-3 fw-medium">Additional Terms  </h6>
                       <div className="border rounded p-3 bg-light">
                         {rfqData.comment && rfqData.comment.trim() ? (
                           <div className="mb-0">
@@ -1043,7 +915,7 @@ const EditRFQ = () => {
                     {/* Term & Condition Files - If present */}
                     {rfqData?.term_and_condition_files && rfqData.term_and_condition_files.length > 0 && (
                       <div className="mt-4">
-                        <h6 className="mb-3 fw-medium">Terms & Conditions Files (Read Only)</h6>
+                        <h6 className="mb-3 fw-medium">Terms & Conditions Files  </h6>
                         <div className="row g-2">
                           {rfqData.term_and_condition_files.map((file, idx) => (
                             <div key={`file-${idx}`} className="col-md-6 col-lg-4">
