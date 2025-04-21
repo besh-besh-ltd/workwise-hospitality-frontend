@@ -1244,10 +1244,19 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           }}
                         >
                           {internalApprovedBy.length > 0 ? (
-                            internalApprovedBy.map((approveBy) => (
+                            internalApprovedBy.filter(item => {
+                              return item.show_in_website == 1 &&
+                              item.vendor_approve &&
+                              item.vendor_approve != "null"
+                            }).map((approveBy) => (
                               <li
                                 key={approveBy.id}
                                 onClick={() => {
+                                  if (
+                                    !vendorMetaData.logged_In ||
+                                    !vendorMetaData.subscription
+                                  )
+                                    return setOpenAuthModal(true);
                                   setSelectedApprovedBy((prev) => [
                                     ...prev,
                                     approveBy,

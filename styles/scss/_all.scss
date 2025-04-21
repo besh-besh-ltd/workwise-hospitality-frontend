@@ -7638,5 +7638,6 @@ td:hover .tooltip_custom {
   &.show {
     opacity: 1;
     max-height: 1000px;
+    overflow: visible;
   }
 }

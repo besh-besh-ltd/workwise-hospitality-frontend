@@ -117,25 +117,56 @@ const ReviewProducts = ({
     const handleGenericInputChange = (prodKey, event) => {
         const fMap = new Map(localFilterMap);
         let filters = fMap.get(prodKey);
+        console.log(filters)
         fMap.set(prodKey, {
             ...filters,
             [event.target.name]: event.target.value
         })
+        if(event.target.name == 'country' && (!event.target.value || event.target.value.length <= 0)) {
+          fMap.set(prodKey, {
+            ...filters,
+            'state': [],
+            'city': []
+          })
+        }
+        if(event.target.name == 'state' && (!event.target.value || event.target.value.length <= 0)) {
+          fMap.set(prodKey, {
+            ...filters,
+            'city': []
+          })
+        }
         setLocalFilterMap(fMap);
         getAllStates(prodKey, event.target.name == 'country' ? event.target.value : null);
-        getAllCities(prodKey, event.target.name == 'state' ? event.target.value : null);
+        getAllCities(prodKey, event.target.name == 'state' ? event.target.value : null, event.target.name == 'country' ? event.target.value : null);
     }
 
     const handleLocalFilterChange = (prodKey, selectedOption, actionMeta) => {
-        const fMap = new Map(localFilterMap);
+        let fMap = new Map(localFilterMap);
         let filters = fMap.get(prodKey);
-        fMap.set(prodKey, {
+        if(actionMeta.name == 'country' && (!selectedOption || selectedOption.length <= 0)) {
+          console.log("Coming in country")
+          fMap = fMap.set(prodKey, {
+            ...filters,
+            'state': [],
+            'city': []
+          })
+          filters = fMap.get(prodKey);
+        }
+        if(actionMeta.name == 'state' && (!selectedOption.value || selectedOption.length <= 0)) {
+          console.log("Coming in state")
+          fMap = fMap.set(prodKey, {
+            ...filters,
+            'city': []
+          })
+          filters = fMap.get(prodKey);
+        }
+        fMap = fMap.set(prodKey, {
             ...filters,
             [actionMeta.name]: selectedOption
         })
         setLocalFilterMap(fMap);
-        getAllStates(prodKey, actionMeta.name == 'country' ? selectedOption : null);
-        getAllCities(prodKey, actionMeta.name == 'state' ? selectedOption : null);
+        getAllStates(prodKey, actionMeta.name == 'country' ? selectedOption : filters?.country);
+        getAllCities(prodKey, actionMeta.name == 'state' ? selectedOption : filters?.state, actionMeta.name == 'country' ? selectedOption : filters?.country);
     }
     
     const getAllStates = (prod_key, country) => {
@@ -156,18 +187,19 @@ const ReviewProducts = ({
         }
     };
 
-    const getAllCities = async (prod_key, state) => {
-        if(!prod_key || !state) return;
+    const getAllCities = async (prod_key, state, country) => {
+        if(!prod_key) return;
         try {
             setCities((prev) => {
                 const prevCities = globalCities
                 const updatedCities = prev.set(
                     prod_key,
-                    prevCities.filter(city => state.some(s => s.value == city.state_id))
+                    state && state.length > 0 ? prevCities.filter(city => {console.log("Filtering cities from state"); return state.some(s => s.value == city.state_id)})
+                    : country && country.length > 0 ? prevCities.filter(city => {console.log("Filtering cities from country"); return country.some(c => c.value == city.country_id)})
+                    : prevCities
                 )
                 return updatedCities
-            }
-            );
+            });
         } catch (error) {
             toast.error(error.message)
             return [];
@@ -198,6 +230,7 @@ const ReviewProducts = ({
                     label: city.city_name,
                     value: city.id,
                     state_id: city.state_id,
+                    country_id: city.country_id
                 }))
             )
         } catch (error) {
@@ -224,7 +257,7 @@ const ReviewProducts = ({
             return lFMap;
         })
         cities.keys().forEach(city => {
-            getAllCities(city, globalFilters.state)
+            getAllCities(city, globalFilters.state, globalFilters.country)
         }
     )
         states.keys().forEach(state => getAllStates(state, globalFilters.country))
@@ -344,7 +377,7 @@ const ReviewProducts = ({
                             </div>
                               <div className={`local-filter-container ${isLocalFilterVisible[prodKey] ? "show" : ""}`}>
                                 <div className="col-md-5"></div>
-                                <div className="px-4 mb-3">
+                                <div className="pt-3 mb-3">
                                   <div className="row">
                                     <div className="col-md-3">
                                       <div>
@@ -467,7 +500,6 @@ const ReviewProducts = ({
                                               },
                                             },
                                           ]}
-                                          styles={customeStyles}
                                           value={
                                             localFilterMap.get(prodKey)
                                               ?.vendor_info
@@ -611,8 +643,7 @@ const ReviewProducts = ({
                                   </div>
                                 </div>
                                 <hr style={{
-                                    marginLeft: 12,
-                                    marginTop: 8
+                                    marginTop: 12
                                 }}/>
                               </div>
                             {/* Spec, Size, Quantity, Unit Section */}
