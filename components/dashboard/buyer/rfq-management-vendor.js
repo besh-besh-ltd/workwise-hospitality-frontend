@@ -159,11 +159,11 @@ const RfqManagementVendorPage = () => {
                       <table className="table table-striped ">
                         <thead>
                           <tr>
-                            <th>Vendor</th>
+                            <th>Company Name</th>
                             <th>Region</th>
                             <th>Email</th>
                             <th>Mobile No.</th>
-                            <th>Industry</th>
+                            {/* <th>Industry</th> */}
                             <th>Products</th>
                             <th>Action</th>
                           </tr>
@@ -173,15 +173,15 @@ const RfqManagementVendorPage = () => {
                             return (
                               <>
                                 <tr key={`vendor-${item.name}`}>
-                                  <td>{item.name}</td>
+                                  <td>{item.company_name}</td>
                                   <td>{item.address}</td>
                                   <td>{item.email}</td>
                                   <td>{item.mobile}</td>
-                                  <td>
+                                  {/* <td>
                                     {item.organization_name
                                       ? item.organization_name
                                       : "N/A"}
-                                  </td>
+                                  </td> */}
                                   <td>
                                     <p className="has_eclipes">
                                       {item.products?.map((product) => product.name).join(",")}
