@@ -51,7 +51,7 @@ const SearchItem = ({
           )}
           <div className="row">
             <div className="ps-5 col-md-9 ">
-              <h3 className="h3 mt-3 mb-3">{data.vendor_name}</h3>
+              <h3 className="h3 mt-3 mb-3">{data.company_name}</h3>
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">

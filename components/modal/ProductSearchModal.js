@@ -6,7 +6,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 
-export default function ProductSearchModal({ reviewData, setReviewData }) {
+export default function ProductSearchModal({ reviewData, setReviewData, formData, handleFormChange, projects }) {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState([]);
@@ -158,11 +158,39 @@ export default function ProductSearchModal({ reviewData, setReviewData }) {
   };
 
   return (
-    <div className="">
+    <div style={{
+      display: 'flex',
+      gap: "1rem",
+      alignItems: 'center'
+    }}>
       {/* Button to open modal */}
+        <h3 style={{textWrap: 'nowrap', fontSize: 17, marginBottom: 0}}>Select Project</h3>
+        <select
+          name="project_id"
+          id="project_id"
+          className="form-control border border-dark-subtle"
+          style={{
+            maxWidth: 220
+          }}
+          value={formData.project_id}
+          onChange={handleFormChange}
+        >
+          <option value={-1}>Select Project</option>
+          {projects &&projects.length > 0 &&
+            projects.map((projectItem) => {
+              return (
+                <option
+                  value={projectItem.value}
+                  key={projectItem.value}
+                >
+                  {projectItem.label}
+                </option>
+              );
+            })}
+        </select>
       <button
         className="btn btn-primary btn-sm"
-        style={{ padding: "0.5rem", width: "180px" }}
+        style={{ padding: "0.5rem", width: "270px", textWrap: 'nowrap' }}
         onClick={() => setModalIsOpen(true)}
       >
         Add More Product

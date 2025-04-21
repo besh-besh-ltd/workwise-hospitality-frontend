@@ -101,22 +101,93 @@ const CreateRFQ = () => {
   const getTermsData = () => {
     getTerms()
       .then((res) => {
-        dispatch(setAllTerms(res.data));
+        // Normalize terms to ensure consistent structure before adding to Redux
+        if (res.data && Array.isArray(res.data)) {
+          const normalizedTerms = res.data.map(term => {
+            // Extract term ID with fallback
+            const termId = String(term.id || term.term_id);
+            
+            // Extract term content with fallbacks
+            const termContent = term.term_content || term.name || term.term_text || 
+                             (term.content && term.content[0] ? term.content[0].title : null) ||
+                             `Term ${termId}`;
+            
+            // Return normalized term with consistent properties
+            return {
+              ...term, // Keep all original properties
+              id: termId, // Always have id as string
+              term_id: termId, // Add term_id for compatibility
+              term_content: termContent, // Ensure term_content exists
+              name: termContent // Ensure name exists
+            };
+          });
+          
+          console.log("Terms fetched and normalized:", normalizedTerms.length);
+          dispatch(setAllTerms(normalizedTerms));
+        } else {
+          console.log("No terms found or invalid format");
+          dispatch(setAllTerms([]));
+        }
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Error fetching terms:", err);
       });
   };
 
   const handleTermChange = (e, item) => {
-    let updatedTerms = [];
-    if (e.target.checked) {
-      updatedTerms = [...selectedTerms, { id: item.id }];
-    } else {
-      updatedTerms = selectedTerms.filter((termItem) => termItem.id != item.id)
+    try {
+      const isChecked = e.target.checked;
+      // Always convert ID to string for consistent comparison
+      const termId = String(item.id || item.term_id);
+      
+      // Extract term content with fallbacks
+      const termName = item.term_content || item.name || item.term_text || 
+                     (item.content && item.content[0] ? item.content[0].title : null) ||
+                     `Term ${termId}`;
+      
+      console.log(`Term change: ${termName} (ID: ${termId}) -> ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
+      
+      // Clone the current terms array to avoid direct state mutation
+      let updatedTerms = [...(selectedTerms || [])];
+      
+      if (isChecked) {
+        // Make sure term isn't already selected (checking both id and term_id)
+        const existingTerm = updatedTerms.find(term => 
+          String(term.id) === termId || String(term.term_id) === termId
+        );
+        
+        if (!existingTerm) {
+          // IMPORTANT: Only store id and name as required by backend
+          updatedTerms.push({
+            id: Number(termId), // Convert to number as required by backend
+            name: termName
+          });
+          
+          console.log(`Added term: ${termName} (ID: ${termId})`);
+        } else {
+          console.log(`Term already selected: ${termName} (ID: ${termId})`);
+        }
+      } else {
+        // Filter out the term with matching ID - check both id and term_id
+        const previousLength = updatedTerms.length;
+        updatedTerms = updatedTerms.filter(term => 
+          String(term.id) !== termId && String(term.term_id || '') !== termId
+        );
+        
+        if (previousLength !== updatedTerms.length) {
+          console.log(`Removed term: ${termName} (ID: ${termId})`);
+        } else {
+          console.log(`Term not found for removal: ${termName} (ID: ${termId})`);
+        }
+      }
+      
+      // Update Redux with the new terms array
+      dispatch(setTermsData(updatedTerms));
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error("Error handling term change:", error);
+      toast.error("An error occurred while updating terms. Please try again.");
     }
-    dispatch(setTermsData(updatedTerms));
-    setHasUnsavedChanges(true);
   };
 
   const getProjectData = async (projectId) => {
@@ -196,21 +267,37 @@ const CreateRFQ = () => {
     setHasUnsavedChanges(true);
   };
 
-  const handleCreateRFQ = (resetForm) => {
+  const handleCreateRFQ = (values, resetForm) => {
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
-    const fullMobile = `${onecountrycode}-${resetForm.contact_number.trim().replace(/^0+/, "")}`
+    // Use values from the form submission
+    const mobileNumber = values.contact_number.trim().replace(/^0+/, "");
+    const fullMobile = `${onecountrycode}-${mobileNumber}`;
+    
+    // Deep clone the form data to avoid direct mutation
+    const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
+    
+    // Ensure company_name is included from either form values, Redux store, or user profile
+    formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
+    
+    // IMPORTANT: Normalize terms to ensure proper format for backend
+    if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
+      formDataCopy.terms = formDataCopy.terms.map(term => ({
+        id: Number(term.id), // Convert to number for backend
+        name: term.name // Only include id and name
+      }));
+    }
+    
     let payload = {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
-      ...rfqFormDataRef.current,
-      project_id: rfqFormDataRef.current.project_id || -1,
-      contact_number:fullMobile
-      
+      ...formDataCopy,
+      project_id: formDataCopy.project_id || -1,
+      contact_number: fullMobile
     };
 
-    // **Remove country_code if it exists**
+    // Remove country_code if it exists
     if (payload.hasOwnProperty("country_code")) {
       delete payload.country_code;
     }
@@ -230,11 +317,15 @@ const CreateRFQ = () => {
 
         router.push("/dashboard/buyer/rfq-management");
         dispatch(clearState());
-        resetForm();
+        if (typeof resetForm === 'function') {
+          resetForm();
+        }
       })
       .catch((err) => {
+        console.error("Error creating RFQ:", err);
         setMainLoading(false);
         setHasUnsavedChanges(true);
+        toast.error("Failed to create RFQ. Please check your form and try again.");
       });
   };
 
@@ -246,12 +337,25 @@ const CreateRFQ = () => {
     const cleanedNumber = parts[parts.length - 1];    
     const fullMobile = `${onecountrycode}-${cleanedNumber}`;
 
+    // Deep clone the form data to avoid direct mutation
+    const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
+    
+    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
+    if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
+      formDataCopy.terms = formDataCopy.terms.map(term => ({
+        id: Number(term.id || term.term_id), // Convert to number for backend
+        name: term.name || term.term_content || `Term ${term.id}`
+      }));
+      
+      console.log("Terms filtered for draft save:", formDataCopy.terms);
+    }
+
     const payload = {
-      ...rfqFormDataRef.current,
+      ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       is_published: 0,
-      contact_number:fullMobile
+      contact_number: fullMobile
     };
 
     try {
@@ -265,9 +369,8 @@ const CreateRFQ = () => {
       );
       setHasUnsavedChanges(false);
       getDraftInitialData();
-
     } catch (error) {
-      console.log(error)
+      console.error("Error saving draft:", error);
       setMainLoading(false);
       toast.error("Failed to save draft. Please try again.");
     }
@@ -320,6 +423,19 @@ const CreateRFQ = () => {
 
   }, []);
 
+  // Add a useEffect to set the company name in the store when userProfile is loaded
+  useEffect(() => {
+    if (userProfile && userProfile.company_name) {
+      // If we have a company name in the user profile and none in the form data, set it
+      if (!rfqFormDataFromStore.company_name || rfqFormDataFromStore.company_name === '') {
+        dispatch(setOtherFormFields({ 
+          field_name: 'company_name', 
+          value: userProfile.company_name 
+        }));
+      }
+    }
+  }, [userProfile]);
+
   useEffect(() => {
     const validProducts = rfqProductsFromStore.filter(
       (prodItem) => prodItem.vendors?.length > 0);
@@ -331,6 +447,20 @@ const CreateRFQ = () => {
     rfqFormDataRef.current = rfqFormDataFromStore;
   }, [rfqFormDataFromStore]);
 
+  useEffect(() => {
+    // Debug terms selection state
+    if (allTerms?.length > 0 && selectedTerms?.length > 0) {
+      console.log("Terms Selection Debug:", {
+        allTermsCount: allTerms.length,
+        selectedTermsCount: selectedTerms.length,
+        selectedTermIds: selectedTerms.map(t => t.id),
+        firstFewAllTerms: allTerms.slice(0, 3).map(t => ({ 
+          id: t.id, 
+          name: t.term_content || t.name 
+        }))
+      });
+    }
+  }, [allTerms, selectedTerms]);
 
   useEffect(() => {
     const handleRouteChange = async (url) => {
@@ -457,17 +587,33 @@ const CreateRFQ = () => {
 
                           <ol className="custom-ol">
                             {allTerms.map((item) => {
+                              // Use consistent term content extraction
+                              const termContent = 
+                                item.term_content || 
+                                item.name ||
+                                item.term_text ||
+                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                `Term ${item.id}`;
+
+                              // Check if term is selected using consistent ID comparison
+                              const isSelected = selectedTerms?.some(term => 
+                                String(term.id || term.term_id) === String(item.id || item.term_id)
+                              );
+
                               return (
-                                <li key={`term-item-${item.id}`}>
-                                  <input
-                                    type="checkbox"
-                                    id={`term-item-${item.id}`}
-                                    checked={item.selected}
-                                    onChange={(e) => handleTermChange(e, item)}
-                                  />
-                                  <label htmlFor={`term-item-${item.id}`}>
-                                    {item?.term_content}
-                                  </label>
+                                <li key={`term-${item.id}`}>
+                                  <div className="form-check">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id={`term-${item.id}`}
+                                      checked={isSelected}
+                                      onChange={(e) => handleTermChange(e, item)}
+                                    />
+                                    <label className="form-check-label" htmlFor={`term-${item.id}`}>
+                                      {termContent}
+                                    </label>
+                                  </div>
                                 </li>
                               );
                             })}
@@ -486,7 +632,7 @@ const CreateRFQ = () => {
                             response_email: rfqFormDataFromStore.response_email,
                             contact_name: rfqFormDataFromStore.contact_name,
                             contact_number: rfqFormDataFromStore.contact_number.replace(/^\+\d{1,4}-/, ''),
-                            company_name: rfqFormDataFromStore.company_name,
+                            company_name: rfqFormDataFromStore.company_name || userProfile?.company_name || "",
                             bid_end_date: rfqFormDataFromStore.bid_end_date,
                             rfq_type: rfqFormDataFromStore.rfq_type,
                             reverse_auction:
@@ -656,18 +802,22 @@ const CreateRFQ = () => {
                                 </div>
 
                                 <div className="col-md-6">
-                                  <FormikField
-                                    label="Company Name"
-                                    value={rfqFormDataFromStore.company_name}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
+                                  {/* Company Name - Read Only */}
+                                <div className="mb-3">
+                                  <label className="form-label fw-medium">Company Name</label>
+                                  <input
                                     type="text"
-                                    isRequired={true}
+                                    className="form-control bg-light"
+                                    value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                                    disabled
+                                  />
+                                  <input
+                                    type="hidden"
                                     name="company_name"
-                                    touched={touched}
-                                    errors={errors}
+                                    value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
                                   />
                                 </div>
+                              </div>
                               </div>
 
                               <div className="row mb-2">

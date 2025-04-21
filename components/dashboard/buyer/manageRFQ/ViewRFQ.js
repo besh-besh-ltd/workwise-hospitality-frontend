@@ -5,6 +5,11 @@ import Link from "next/link";
 import React from "react";
 
 const ViewRFQ = ({ data }) => {
+  console.log("RFQ Data in ViewRFQ:", data);
+
+  // Convert status to number for consistent comparison
+  const rfqStatus = data?.status ? Number(data.status) : 0;
+
   return (
     <>
       <section className="buyer-common-header sc-pt-80">
@@ -475,9 +480,26 @@ const ViewRFQ = ({ data }) => {
                       </div>
                     </div>
 
-                    <button type="submit" className="btn btn-secondary">
-                      Mark RFQ as Closed
-                    </button>
+                    <div className="d-flex gap-3">
+                      {rfqStatus === 1 && (
+                        <Link 
+                          href={`/dashboard/buyer/edit-rfq/${data.rfq_no}`} 
+                          className="btn btn-primary"
+                        >
+                          Edit RFQ
+                        </Link>
+                      )}
+                      {rfqStatus === 1 && (
+                        <button type="submit" className="btn btn-secondary">
+                          Mark RFQ as Closed
+                        </button>
+                      )}
+                      {rfqStatus === 2 && (
+                        <button type="button" className="btn btn-danger" disabled>
+                          RFQ is Closed
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </form>
               </div>

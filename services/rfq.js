@@ -568,3 +568,30 @@ export const searchVendorByName = (vendor_name) => {
     }
   });
 };
+
+
+export const updateRfq = (data) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+
+      const response = await axiosInstance.put(
+        `/rfq/update`,{...data}
+      );
+
+      resolve({
+        success: true,
+        status: response.status,
+        data: response.data,
+        message: "RFQ updated successfully"
+      });
+    } catch (error) {
+      console.error("RFQ Update Error:", error);
+      reject({
+        success: false,
+        status: error.response?.status || 500,
+        message: error.response?.data?.message || "Failed to update RFQ",
+        error: error
+      });
+    }
+  });
+};

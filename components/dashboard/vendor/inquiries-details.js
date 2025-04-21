@@ -75,20 +75,65 @@ const RfqManagementPreview = () => {
 
   }, [rfqDetails, buyerClauses])
 
+  useEffect(() => {
+    if (rfqDetails && rfqDetails.terms) {
+      console.log("RFQ Terms Debug:", {
+        count: rfqDetails.terms.length,
+        terms: rfqDetails.terms.map(t => ({
+          id: t.id,
+          name: t.name,
+          // Include a sample of other properties that might exist
+          properties: {
+            term_id: t.term_id,
+            term_text: t.term_text,
+            term_content: t.term_content,
+            content: t.content
+          }
+        }))
+      });
+    }
+  }, [rfqDetails?.terms]);
+
   const getRFQdetails = () => {
     setloading(true);
     getRFQById(id, token)
-
       .then((res) => {
         setloading(false);
         let val = checkBidExpired(res.data?.bid_end_date);
         setIsSubmitable(!val);
+        
+        // Normalize terms data to ensure consistent structure and content
+        if (res.data && res.data.terms && Array.isArray(res.data.terms)) {
+          res.data.terms = res.data.terms.map(term => {
+            // Get term content with comprehensive fallbacks
+            const termContent = 
+              term.term_content || // First try term_content
+              term.name || // Then try name
+              (term.content && Array.isArray(term.content) && term.content[0]?.title) || // Then try content array
+              term.term_text || // Then try term_text
+              (term.original?.term_content) || // Then try original term content
+              (term.original?.name) || // Then try original name
+              (term.original?.content && Array.isArray(term.original.content) && term.original.content[0]?.title) || // Then try original content
+              `Term ${term.id || 'Unknown'}`; // Fallback to ID
+            
+            // Return normalized term object
+            return {
+              id: term.id || term.term_id,
+              name: termContent,
+              term_content: termContent,
+              // Keep original data for reference
+              original: term.original || term
+            };
+          });
+        }
+        
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
         updatecurrentLowest(res.data?.products);
       })
       .catch((error) => {
         setloading(false);
+        console.error("Error fetching RFQ details:", error);
       });
   };
 
@@ -493,7 +538,20 @@ const RfqManagementPreview = () => {
                       <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
 
                       <div>
-                      <button
+                        {type === "buyer-view" && rfqDetails.status === 1 && (
+                          <Link href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}>
+                            <button
+                              type="button"
+                              className="btn btn-primary me-2"
+                              style={{ width: "auto" }}
+                            >
+                              <FontAwesomeIcon icon={faEdit} className="me-2" />
+                              Edit RFQ
+                            </button>
+                          </Link>
+                        )}
+                        
+                        <button
                           type="button"
                           className=" btn btn-primary "
                           style={{ width: "180px" }}
@@ -722,7 +780,7 @@ const RfqManagementPreview = () => {
                                     id="wacomnamepp"
                                     className="form-control"
                                     name="comname"
-                                    placeholder="lorem ipsum"
+                                    placeholder="lorem ipsum" 
                                     disabled
                                     value={rfqDetails?.company_name}
                                   />
@@ -874,16 +932,19 @@ const RfqManagementPreview = () => {
                               <div className="row terms-conditions">
                                 <div className="col-md-6 ">
                                   <h4>Terms & Conditions</h4>
-                                  {rfqDetails?.terms.length == 0 && (
+                                  {(!rfqDetails?.terms || rfqDetails?.terms.length === 0) && (
                                     <p>No predefined terms selected!</p>
                                   )}
 
                                   {rfqDetails?.terms?.length > 0 && (
                                     <ol>
                                       {rfqDetails?.terms?.map((item, index) => {
+                                        const termContent = item.term_content || item.name || (item.content && item.content[0]?.title);
+                                        if (!termContent) return null;
+                                        
                                         return (
-                                          <li key={`rfq_d_t_${index}`}>
-                                            {item.content[0].title}
+                                          <li key={`term-${item.id || index}`} className="mb-2">
+                                            {termContent}
                                           </li>
                                         );
                                       })}
