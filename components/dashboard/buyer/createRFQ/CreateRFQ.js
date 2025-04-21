@@ -157,10 +157,9 @@ const CreateRFQ = () => {
         );
         
         if (!existingTerm) {
-          // IMPORTANT: Only store minimal properties to prevent validation errors
-          // The backend only expects id and name
+          // IMPORTANT: Only store id and name as required by backend
           updatedTerms.push({
-            id: termId,
+            id: Number(termId), // Convert to number as required by backend
             name: termName
           });
           
@@ -279,20 +278,21 @@ const CreateRFQ = () => {
     // Deep clone the form data to avoid direct mutation
     const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
     
-    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
+    // Ensure company_name is included from either form values, Redux store, or user profile
+    formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
+    
+    // IMPORTANT: Normalize terms to ensure proper format for backend
     if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
       formDataCopy.terms = formDataCopy.terms.map(term => ({
-        id: Number(term.id || term.term_id), // Convert to number for backend
-        name: term.name || term.term_content || `Term ${term.id}`
+        id: Number(term.id), // Convert to number for backend
+        name: term.name // Only include id and name
       }));
-      
-      console.log("Terms filtered for backend validation:", formDataCopy.terms);
     }
     
     let payload = {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
-      ...formDataCopy, // Use the filtered copy
+      ...formDataCopy,
       project_id: formDataCopy.project_id || -1,
       contact_number: fullMobile
     };
@@ -422,6 +422,19 @@ const CreateRFQ = () => {
     fetchCountryCodes();
 
   }, []);
+
+  // Add a useEffect to set the company name in the store when userProfile is loaded
+  useEffect(() => {
+    if (userProfile && userProfile.company_name) {
+      // If we have a company name in the user profile and none in the form data, set it
+      if (!rfqFormDataFromStore.company_name || rfqFormDataFromStore.company_name === '') {
+        dispatch(setOtherFormFields({ 
+          field_name: 'company_name', 
+          value: userProfile.company_name 
+        }));
+      }
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     const validProducts = rfqProductsFromStore.filter(
@@ -574,30 +587,33 @@ const CreateRFQ = () => {
 
                           <ol className="custom-ol">
                             {allTerms.map((item) => {
-                              // Use the same robust selection logic as in EditRFQ
-                              const isSelected = selectedTerms && selectedTerms.some(term => {
-                                // Convert both IDs to strings and try both id and term_id properties
-                                const itemId = String(item.id || item.term_id);
-                                const termId = String(term.id || term.term_id);
-                                return itemId === termId;
-                              });
-                              
-                              // Extract term content with consistent fallbacks
-                              const termContent = item.term_content || item.name || item.term_text || 
-                                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
-                                                `Term ${item.id}`;
-                              
+                              // Use consistent term content extraction
+                              const termContent = 
+                                item.term_content || 
+                                item.name ||
+                                item.term_text ||
+                                (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
+                                `Term ${item.id}`;
+
+                              // Check if term is selected using consistent ID comparison
+                              const isSelected = selectedTerms?.some(term => 
+                                String(term.id || term.term_id) === String(item.id || item.term_id)
+                              );
+
                               return (
-                                <li key={`term-item-${item.id}`}>
-                                  <input
-                                    type="checkbox"
-                                    id={`term-item-${item.id}`}
-                                    checked={isSelected}
-                                    onChange={(e) => handleTermChange(e, item)}
-                                  />
-                                  <label htmlFor={`term-item-${item.id}`}>
-                                    {termContent}
-                                  </label>
+                                <li key={`term-${item.id}`}>
+                                  <div className="form-check">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id={`term-${item.id}`}
+                                      checked={isSelected}
+                                      onChange={(e) => handleTermChange(e, item)}
+                                    />
+                                    <label className="form-check-label" htmlFor={`term-${item.id}`}>
+                                      {termContent}
+                                    </label>
+                                  </div>
                                 </li>
                               );
                             })}
@@ -616,7 +632,7 @@ const CreateRFQ = () => {
                             response_email: rfqFormDataFromStore.response_email,
                             contact_name: rfqFormDataFromStore.contact_name,
                             contact_number: rfqFormDataFromStore.contact_number.replace(/^\+\d{1,4}-/, ''),
-                            company_name: rfqFormDataFromStore.company_name,
+                            company_name: rfqFormDataFromStore.company_name || userProfile?.company_name || "",
                             bid_end_date: rfqFormDataFromStore.bid_end_date,
                             rfq_type: rfqFormDataFromStore.rfq_type,
                             reverse_auction:
@@ -786,19 +802,22 @@ const CreateRFQ = () => {
                                 </div>
 
                                 <div className="col-md-6">
-                                  <FormikField
-                                    className="selection-dropdown"
-                                    isDisabled
-                                    label="Company Name"
-                                    value={rfqFormDataFromStore.company_name}
-                                    // enableHandleChange={true}
-                                    // handleChange={handleFormFieldChange}
+                                  {/* Company Name - Read Only */}
+                                <div className="mb-3">
+                                  <label className="form-label fw-medium">Company Name</label>
+                                  <input
                                     type="text"
+                                    className="form-control bg-light"
+                                    value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
+                                    disabled
+                                  />
+                                  <input
+                                    type="hidden"
                                     name="company_name"
-                                    touched={touched}
-                                    errors={errors}
+                                    value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
                                   />
                                 </div>
+                              </div>
                               </div>
 
                               <div className="row mb-2">

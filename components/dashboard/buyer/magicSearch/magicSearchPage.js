@@ -507,9 +507,10 @@ const MagicSearchPage = () => {
         createRfq({
             ...reviewData,
             ...formDataWithoutFile,
-            terms: selectedTerms.map((item) => {
-                return { id: item.id }
-            })
+            terms: selectedTerms.map((item) => ({
+                id: Number(item.id),
+                name: item.name || item.term_content || `Term ${item.id}`
+            }))
         })
             .then((res) => {
                 toast.success(

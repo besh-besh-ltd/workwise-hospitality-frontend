@@ -15,7 +15,6 @@ const RfqManagementDetails = () => {
   useEffect(() => {
     if(id && id !== '') {
       getRFQById(id).then(res => {
-        console.log("RFQ Data from API:", res.data);
         setrfqDetails(res.data)
       }).catch((err) => {
         console.error("Error fetching RFQ:", err);
