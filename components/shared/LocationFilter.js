@@ -15,8 +15,14 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     const [countries, setcountries] = useState([]);
     const [countriesLoading, setcountriesLoading] = useState(false);
     const [inputCountryValue, setInputCountryValue] = useState("");
+    const [selectedCountries, setSelectedCountries] = useState([]);
+    const [selectedStates, setSelectedStates] = useState([]);
+    const [selectedCities, setSelectedCities] = useState([]);
     const [isCountryDropdownVisible, setCountryDropdownVisible] = useState(false);
 
+    const countrySelectionRef = useRef(null);
+    const stateSelectionRef = useRef(null);
+    const citySelectionRef = useRef(null);
     const countryRef = useRef(null);
     const stateRef = useRef(null);
     const cityRef = useRef(null);
@@ -46,21 +52,33 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     }, []);
 
     useEffect(() => {
-        if (selectedCity == 0 && selectedState == 0 && selectedCountry == 0) {
+        if (!selectedCity && !selectedState && !selectedCountry) {
             setInputStateValue("");
             setInputCityValue("");
             setInputCountryValue("");
+            setSelectedCountries([]);
+            setSelectedStates([]);
+            setSelectedCities([]);
+            if(countrySelectionRef.current) {
+                countrySelectionRef.current.value = ""
+            }
+            if(stateSelectionRef.current) {
+                stateSelectionRef.current.value = ""
+            }
+            if(citySelectionRef.current) {
+                citySelectionRef.current.value = ""
+            }
         }
-        else if (selectedState !== 0) {
+        else if (!selectedState) {
             const stateVal = states?.find((item) => item.id == selectedState)?.state_name;
             setInputStateValue(stateVal || "");
         }
-        else if (selectedCity !== 0) {
+        else if (!selectedCity) {
             const cityVal = cities?.find((item) => item.id == selectedCity)?.city_name;
             console.log(cityVal)
             setInputCityValue(cityVal || "");
         }
-        else if (selectedCountry !== 0) {
+        else if (!selectedCountry) {
             const countryVal = countries?.find((item) => item.id == selectedCountry)?.country_name;
             setInputCountryValue(countryVal || "");
         }
@@ -95,16 +113,16 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     };
 
     const getFilteredCountries = () => {
-        if (inputCountryValue === "") return countries;
+        if (!inputCountryValue && selectedCountries.length <= 0) return countries;
     
         // Filtered list based on input
-        const filtered = countries.filter((country) =>
-            country.country_name.toLowerCase().includes(inputCountryValue.toLowerCase())
+        const filtered = countries.filter(country => !selectedCountry.some(c => c.name.toLowerCase() == country.country_name.toLowerCase())).filter((country) =>
+            country.country_name.toLowerCase().includes(inputCountryValue.toLowerCase()) && !selectedCountries.some(_country => _country.name.toLowerCase() == inputCountryValue.toLowerCase())
         );
     
         // Non-matching countries follow
         const nonMatching = countries.filter(
-            (country) => !country.country_name.toLowerCase().includes(inputCountryValue.toLowerCase())
+            (country) => !country.country_name.toLowerCase().includes(inputCountryValue.toLowerCase()) && !selectedCountries.some(_country => _country.name.toLowerCase() == inputCountryValue.toLowerCase())
         );
     
         return [...filtered, ...nonMatching]; // Matching countries on top, rest follow
@@ -114,21 +132,23 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     const getFilteredStates = () => {
         let filteredStates = states;
     
-        if (selectedCountry !== 0) {
+        if (selectedCountry?.length > 0) {
             // Filter states based on selected country
-            filteredStates = states.filter((state) => state.country_id === selectedCountry);
+            filteredStates = states.filter(state => !selectedState.some(s => s.name.toLowerCase() == state.state_name.toLowerCase())).filter((state) => selectedCountry.some(country => state.country_id === country.id));
         }
     
         if (inputStateValue === "") return filteredStates;
     
         // Filtered list based on input
         const filtered = filteredStates.filter((state) =>
-            state.state_name.toLowerCase().includes(inputStateValue.toLowerCase())
+            state.state_name.toLowerCase().includes(inputStateValue.toLowerCase()) 
+                && !selectedState.some(state => state.name.toLowerCase() == inputStateValue.toLowerCase())
         );
     
         // Non-matching states follow
         const nonMatching = filteredStates.filter(
             (state) => !state.state_name.toLowerCase().includes(inputStateValue.toLowerCase())
+                && !selectedState.some(state => state.name.toLowerCase() == inputStateValue.toLowerCase())
         );
     
         return [...filtered, ...nonMatching]; // Matching states on top, rest follow
@@ -137,9 +157,13 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
     // Filter cities based on input and selected state
     const getFilteredCities = () => {
         let filteredCities = cities;
-        if (selectedState !== 0) {
+        if (selectedCountry?.length > 0) {
+            // Filter cities based on selected country
+            filteredCities = cities.filter((city) => selectedCountry.some(country => city.country_id === country.id));
+        }
+        if (selectedState?.length > 0) {
             // Filter cities based on selected state
-            filteredCities = cities.filter((city) => city.state_id === selectedState);
+            filteredCities = cities.filter(city => !selectedCity.some(s => s.name.toLowerCase() == city.city_name.toLowerCase())).filter((city) => selectedState.some(state => city.state_id === state.id));
         }
         if (inputCityValue === "") return filteredCities;
 
@@ -184,14 +208,17 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
             setOpenAuthModal(true);
         } else {
-            const countryItem = countries.find((item) => item.id === state.country_id);
-            setInputStateValue(countryItem.country_name);
-            setselectedCountry(state.country_id);
             setInputStateValue(state.state_name);
-            setselectedState(state.id);
+            setselectedState(prev => [...prev, {
+                id: state.id,
+                name: state.state_name
+            }]);
             setInputCityValue("");
-            setselectedCity(0);
+            setselectedCity([]);
             setStateDropdownVisible(false);
+            if (stateSelectionRef.current) {
+                stateSelectionRef.current.value = "";
+            }
         }
     };
 
@@ -202,10 +229,15 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         } else {
             const stateItem = states.find((item) => item.id === city.state_id);
             setInputStateValue(stateItem.state_name);
-            setselectedState(city.state_id);
             setInputCityValue(city.city_name);
-            setselectedCity(city.id);
+            setselectedCity(prev => [...prev, {
+                id: city.id,
+                name: city.city_name
+            }]);
             setCityDropdownVisible(false);
+            if (citySelectionRef.current) {
+                citySelectionRef.current.value = "";
+            }
         }
     };
 
@@ -215,27 +247,49 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
             setOpenAuthModal(true);
         } else {
             setInputCountryValue(country.country_name);
-            setselectedCountry(country.id);
+            setselectedCountry(prev => [...prev, {
+                id: country.id,
+                name: country.country_name
+            }]);
             setInputCityValue("");
             setInputStateValue("");
-            setselectedCity(0);
-            setselectedState(0);
+            setselectedCity([]);
+            setselectedState([]);
             setCountryDropdownVisible(false);
+            if (countrySelectionRef.current) {
+                countrySelectionRef.current.value = "";
+            }
         }
     };
+
+    useEffect(() => {
+        setSelectedCountries(selectedCountry)
+        setSelectedStates(selectedState)
+        setSelectedCities(selectedCity)
+    }, [selectedCountry, selectedState, selectedCity])
 
     return (
         <div className="autocomplete">
             {/* Country Autocomplete */}
             <div ref={countryRef} className="country-wrapper selection-dropdown">
                 <input
+                    ref={countrySelectionRef}
                     type="text"
-                    value={inputCountryValue}
                     onChange={handleCountryInputChange}
                     placeholder="Select or type a country"
                     onFocus={() => setCountryDropdownVisible(true)}
                     className="mt-2"
                 />
+                <div className="d-flex gap-2 flex-wrap mt-2">
+                {selectedCountries.map(country => (
+                    <div className="selected-country">
+                        {country.name}
+                        <button onClick={() => setselectedCountry(prev => prev.filter(_country => !(_country.id == country.id)))}>
+                            X
+                        </button>
+                    </div>
+                ))}
+                </div>
                 {isCountryDropdownVisible && (
                     <ul className="dropdown">
                         {getFilteredCountries().length > 0 ? (
@@ -258,14 +312,24 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
             {/* State Autocomplete */}
             <div ref={stateRef} className="state-wrapper selection-dropdown">
                 <input
-                    disabled={selectedCountry == 0}
+                    ref={stateSelectionRef}
+                    disabled={selectedCountry?.length <= 0}
                     type="text"
-                    value={inputStateValue}
                     onChange={handleStateInputChange}
                     placeholder="Select or type a state"
                     onFocus={() => setStateDropdownVisible(true)}
                     className="mt-2"
                 />
+                <div className="d-flex gap-2 flex-wrap mt-2">
+                    {selectedStates.map(state => (
+                        <div className="selected-country">
+                            {state.name}
+                            <button onClick={() => setselectedState(prev => prev.filter(_state => !(_state.id == state.id)))}>
+                                X
+                            </button>
+                        </div>
+                    ))}
+                </div>
                 {isStateDropdownVisible && (
                     <ul className="dropdown">
                         {getFilteredStates().length > 0 ? (
@@ -288,14 +352,24 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
             {/* City Autocomplete */}
             <div ref={cityRef} className="city-wrapper selection-dropdown">
                 <input
-                    disabled={selectedState == 0}
+                    ref={citySelectionRef}
+                    disabled={selectedCountry?.length <= 0}
                     type="text"
-                    value={inputCityValue}
                     onChange={handleCityInputChange}
                     placeholder="Select or type a city"
                     onFocus={() => setCityDropdownVisible(true)}
                     className="mt-2"
                 />
+                <div className="d-flex gap-2 flex-wrap mt-2">
+                    {selectedCities.map(city => (
+                        <div className="selected-country">
+                            {city.name}
+                            <button onClick={() => setselectedCity(prev => prev.filter(_city => !(_city.id == city.id)))}>
+                                X
+                            </button>
+                        </div>
+                    ))}
+                </div>
                 {isCityDropdownVisible && (
                     <ul className="dropdown">
                         {getFilteredCities().length > 0 ? (

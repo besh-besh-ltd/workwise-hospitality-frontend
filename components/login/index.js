@@ -23,7 +23,7 @@ import {
   GoogleLogin,
   useGoogleLogin,
 } from "@react-oauth/google";
-import { useLinkedIn } from "react-linkedin-login-oauth2";
+
 import axios from "axios";
 import { useSelector } from "react-redux";
 
@@ -39,12 +39,7 @@ const Login = (props) => {
   const swSubscription = useSelector((data) => data.swSubscription);
   const router = useRouter();
   const { code } = router.query;
-  const LINKEDIN_CLIENT_SECRET = "Nj013dgpw51YIi1Z";
-  const LINKEDIN_CLIENT_ID = "77xquc68cjr3s6";
-  const LINKEDIN_CALLBACK_URL = "http://localhost:8111";
-  const linkedinOAuthURL = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(
-    LINKEDIN_CALLBACK_URL
-  )}&scope=profile`;
+
   const [showPassword, setShowPassword] = useState(false);
   // const [loading, setloading] = useState(false);
   // Set State Change
@@ -207,25 +202,25 @@ const Login = (props) => {
     }
   }, [router, code]);
 
-  const handleLogin = async (code) => {
-    axios
-      .get(
-        `http://www.linkedin.com/oauth/v2/accessToken?grant_type=authorization_code&client_id=${LINKEDIN_CLIENT_ID}&client_secret=${LINKEDIN_CLIENT_SECRET}&code=${code}&redirect_uri=${LINKEDIN_CALLBACK_URL}`
-      )
-      .then(async (res) => {
-        console.log(res.data.access_token);
-        let accessToken = res.data.access_token;
-        const userProfile = await fetch(
-          "http://api.linkedin.com/v2/me?projection=(id,firstName,lastName)",
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-        console.log("userProfile", userProfile);
-      });
-  };
+  // const handleLogin = async (code) => {
+  //   axios
+  //     .get(
+  //       `http://www.linkedin.com/oauth/v2/accessToken?grant_type=authorization_code&client_id=${LINKEDIN_CLIENT_ID}&client_secret=${LINKEDIN_CLIENT_SECRET}&code=${code}&redirect_uri=${LINKEDIN_CALLBACK_URL}`
+  //     )
+  //     .then(async (res) => {
+  //       console.log(res.data.access_token);
+  //       let accessToken = res.data.access_token;
+  //       const userProfile = await fetch(
+  //         "http://api.linkedin.com/v2/me?projection=(id,firstName,lastName)",
+  //         {
+  //           headers: {
+  //             Authorization: `Bearer ${accessToken}`,
+  //           },
+  //         }
+  //       );
+  //       console.log("userProfile", userProfile);
+  //     });
+  // };
 
   return (
     <>

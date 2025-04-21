@@ -301,9 +301,8 @@ const MagicSearchPage = () => {
   };
 
     const getAllStates = async () => {
-      console.dir(globalFilters.country, {depth: null})
         try {
-            const res = await getStates(globalFilters.country?.value);
+            const res = await getStates();
             setStates(
                 res.data.map((state) => ({
                     label: state.state_name,
@@ -319,12 +318,13 @@ const MagicSearchPage = () => {
 
     const getAllCities = async () => {
         try {
-            const res = await getCities(globalFilters.state?.value);
+            const res = await getCities();
             setCities(
                 res.data.map((city) => ({
                     label: city.city_name,
                     value: city.id,
                     state_id: city.state_id,
+                    country_id: city.country_id
                 }))
             )
         } catch (error) {
@@ -332,6 +332,28 @@ const MagicSearchPage = () => {
             return [];
         }
     };
+
+    const getFilteredStates = () => {
+      if(!globalFilters.country || globalFilters.country <= 0) return states;
+
+      let filteredStates = states;
+      filteredStates = filteredStates.filter(state => globalFilters.country.some(country => country.value == state.country_id))
+
+      return filteredStates;
+    }
+
+    const getFilteredCities = () => {
+      if((!globalFilters.country || globalFilters.country <= 0) && (!globalFilters.state || globalFilters.state <= 0)) return cities;
+
+      let filteredCities = cities;
+      if(globalFilters?.country && globalFilters.country.length > 0)
+        filteredCities = filteredCities.filter(city => globalFilters.country.some(country => country.value == city.country_id))
+
+      if(globalFilters?.state && globalFilters.state.length > 0)
+        filteredCities = filteredCities.filter(city => globalFilters.state.some(state => state.value == city.state_id))
+
+      return filteredCities;
+    }
 
     const removeItem = (type, prodItem, vendor_id) => {
         let editedData = [];
@@ -524,11 +546,6 @@ const MagicSearchPage = () => {
             });
     
     }, []);
-
-    useEffect(() => {
-      getAllCities();
-      getAllStates();
-    }, [globalFilters])
     
 
     // Display FileUploadMessages in a rotating fashion
@@ -755,23 +772,30 @@ const MagicSearchPage = () => {
                     <h3 className="h5 mb-3">Vendor Filters</h3>
                     <div className="row">
                     <div className="col-md-3">
-                        <Select
-                          name="country"
-                          options={countries}
-                          value={globalFilters.country}
-                          placeholder="Country"
-                          isClearable
-                          isSearchable
-                          onChange={(newValue, action) => {
-                            handleFilterChange(newValue, action, true)
-                          }}
-                        />
+                      <div>
+                        <p className="fw-medium  mb-2">Country</p>
+                          <Select
+                            isMulti
+                            name="country"
+                            options={countries}
+                            value={globalFilters.country}
+                            placeholder="Country"
+                            isClearable
+                            isSearchable
+                            onChange={(newValue, action) => {
+                              handleFilterChange(newValue, action, true)
+                            }}
+                          />
+                      </div>
                       </div>
                       <div className="col-md-3">
+                      <div>
+                      <p className="fw-medium  mb-2">State</p>
                         <Select
-                          isDisabled={!globalFilters.country}
+                          isDisabled={!globalFilters.country || globalFilters.country.length <= 0}
+                          isMulti
                           name="state"
-                          options={states}
+                          options={getFilteredStates()}
                           value={globalFilters.state}
                           placeholder="State"
                           isClearable
@@ -780,12 +804,16 @@ const MagicSearchPage = () => {
                             handleFilterChange(newValue, action, true)
                           }}
                         />
+                        </div>
                       </div>
                       <div className="col-md-3">
+                      <div>
+                      <p className="fw-medium  mb-2">City</p>
                         <Select
-                          isDisabled={!globalFilters.state}
+                          isDisabled={!globalFilters.country || globalFilters.country.length <= 0}
+                          isMulti
                           name="city"
-                          options={cities}
+                          options={getFilteredCities()}
                           value={globalFilters.city}
                           placeholder="City"
                           isClearable
@@ -794,13 +822,17 @@ const MagicSearchPage = () => {
                             handleFilterChange(newValue, action, true)
                           }}
                         />
+                        </div>
                       </div>
                       <div className="col-md-3">
+                      <div>
+                      <p className="fw-medium  mb-2">My Vendors</p>
                         <Select
                           options={[
                             { label: "All Vendors", value: null },
                             { label: "Private Vendors", value: { is_private: 1, is_linked_with_buyer: 1 } },
                             { label: "Public Vendors", value: { is_private: 0, is_linked_with_buyer: 1 } },
+                            { label: "Both Vendors", value: { is_private: null, is_linked_with_buyer: 1 } },
                           ]}
                           value={globalFilters.vendor_info}
                           onChange={handleFilterChange}
@@ -809,63 +841,75 @@ const MagicSearchPage = () => {
                           isClearable
                           isSearchable
                         />
+                        </div>
                       </div>
                     </div>
-                    <div className="row mt-3">
-                      <div className="col-md-3">
-                        <div>
-                          <p className="fw-medium  mb-2">FROM</p>
-                          <input
-                            ref={fromRef}
-                            type="text"
-                            name="from"
-                            className="form-control"
-                            placeholder="FROM ( IN CR )"
-                            value={globalFilters.from}
-                            onChange={handleGenericFilterChange}
-                          />
+                    <div className="row mt-3 ">
+                      <div className="col-md-6">
+                      <p className="fw-medium  mb-2">Turnover Filters</p>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <div>
+                            <p className="fw-medium  mb-2">FROM</p>
+                            <input
+                              ref={fromRef}
+                              type="text"
+                              name="from"
+                              className="form-control"
+                              placeholder="FROM ( IN CR )"
+                              value={globalFilters.from}
+                              onChange={handleGenericFilterChange}
+                            />
+                          </div>
+                        </div>
+                        <div className="col-md-6">
+                          <div>
+                            <p className="fw-medium  mb-2">TO</p>
+                            <input
+                              ref={toRef}
+                              type="text"
+                              name="to"
+                              className="form-control"
+                              placeholder="TO ( IN CR )"
+                              value={globalFilters.to}
+                              onChange={handleGenericFilterChange}
+                            />
+                          </div>
+                        </div>
                         </div>
                       </div>
-                      <div className="col-md-3">
-                        <div>
-                          <p className="fw-medium  mb-2">TO</p>
-                          <input
-                            ref={toRef}
-                            type="text"
-                            name="to"
-                            className="form-control"
-                            placeholder="TO ( IN CR )"
-                            value={globalFilters.to}
-                            onChange={handleGenericFilterChange}
-                          />
+                      <div className="col-md-6">
+                        <p className="fw-medium  mb-2">Behavioural Filters</p>
+                        <div className="row">
+                        <div className="col-md-6">
+                          <div>
+                            <p className="fw-medium  mb-2">Vendor Type</p>
+                            <Select
+                              isMulti
+                              options={vendorTypes}
+                              value={globalFilters.vendor_type}
+                              onChange={handleFilterChange}
+                              name="vendor_type"
+                              placeholder="Select"
+                              isClearable
+                              isSearchable
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="col-md-3">
-                        <div>
-                          <p className="fw-medium  mb-2">Vendor Type</p>
-                          <Select
-                            options={vendorTypes}
-                            value={globalFilters.vendor_type}
-                            onChange={handleFilterChange}
-                            name="vendor_type"
-                            placeholder="Select"
-                            isClearable
-                            isSearchable
-                          />
+                        <div className="col-md-6">
+                          <div>
+                            <p className="fw-medium  mb-2">Prev. Worked With</p>
+                            <Select
+                              options={vendorConditions}
+                              value={globalFilters.prev_worked_with}
+                              onChange={handleFilterChange}
+                              name="prev_worked_with"
+                              placeholder="Select"
+                              isClearable
+                              isSearchable
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="col-md-3">
-                        <div>
-                          <p className="fw-medium  mb-2">Prev. Worked With</p>
-                          <Select
-                            options={vendorConditions}
-                            value={globalFilters.prev_worked_with}
-                            onChange={handleFilterChange}
-                            name="prev_worked_with"
-                            placeholder="Select"
-                            isClearable
-                            isSearchable
-                          />
                         </div>
                       </div>
                     </div>
@@ -1095,6 +1139,7 @@ const MagicSearchPage = () => {
                         Company Name
                       </label>
                       <input
+                        disabled
                         type="text"
                         name="company_name"
                         id="company_name"
