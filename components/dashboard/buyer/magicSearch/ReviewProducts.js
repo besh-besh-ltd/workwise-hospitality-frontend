@@ -8,7 +8,7 @@ import Select from 'react-select';
 import { getCities, getCountries, getStates } from '@/services/cms';
 import { toast } from 'react-toastify';
 import _ from 'lodash';
-import { vendorConditions, vendorTypes } from '../../vendor/search';
+import { vendorConditions } from '../../vendor/search';
 
 const customeStyles = {
     control: (provided) => ({
@@ -37,7 +37,7 @@ const customeStyles = {
 
 const ReviewProducts = ({
     data, changeProductData, handleFiles, removeItem,
-    globalFilters, vendorMap, setVendorMap, states: _states, cities: _cities, countries }) => {
+    globalFilters, vendorMap, setVendorMap, states: _states, cities: _cities, countries, vendorTypes }) => {
 
     const [globalStates, setGlobalStates] = useState(null);
     const [globalCities, setGlobalCities] = useState(null);
@@ -64,15 +64,15 @@ const ReviewProducts = ({
             if ((filter?.from != "" && parseInt(filter?.from) > 0) || (filter?.to != "" && parseInt(filter?.to) > 0)) {
                 if((filter?.from != "" && parseInt(filter?.from) > 0) && (filter?.to != "" && parseInt(filter?.to) > 0)) {
                     updatedVendors = updatedVendors.filter(
-                        (vendorItem) => vendorItem.turnover >= parseInt(filter.from) * 10000000 && vendorItem.turnover <= parseInt(filter.to) * 10000000
+                        (vendorItem) => vendorItem.turnover >= parseInt(filter.from) && vendorItem.turnover <= parseInt(filter.to)
                     );
                 } else if ((filter?.from != "" && parseInt(filter?.from) > 0)) {
                     updatedVendors = updatedVendors.filter(
-                        (vendorItem) => vendorItem.turnover >= parseInt(filter.from) * 10000000
+                        (vendorItem) => vendorItem.turnover >= parseInt(filter.from)
                     );
                 } else if ((filter?.to != "" && parseInt(filter?.to) > 0)) {
                     updatedVendors = updatedVendors.filter(
-                        (vendorItem) => vendorItem.turnover <= parseInt(filter.to) * 10000000
+                        (vendorItem) => vendorItem.turnover <= parseInt(filter.to)
                     );
                 }
             }
@@ -385,6 +385,8 @@ const ReviewProducts = ({
                                           Country
                                         </p>
                                         <Select
+                                          styles={customeStyles}
+                                          className='overflow-dropdown'
                                           isMulti
                                           name="country"
                                           options={countries}
@@ -576,8 +578,8 @@ const ReviewProducts = ({
                                       </div>
                                     </div>
                                     <div className="col-md-6">
-                                      <p className="fw-medium  mb-2">
-                                        Behavioural Filters
+                                      <p className="fw-medium  mb-2 opacity-0">
+                                        x
                                       </p>
                                       <div className="row">
                                         <div className="col-md-6">
@@ -613,7 +615,7 @@ const ReviewProducts = ({
                                         <div className="col-md-6">
                                           <div>
                                             <p className="fw-medium  mb-2">
-                                              Prev. Worked With
+                                              Previously Worked With
                                             </p>
                                             <Select
                                               options={vendorConditions}

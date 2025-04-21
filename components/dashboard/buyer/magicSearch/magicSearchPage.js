@@ -14,7 +14,8 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import Select from 'react-select';
 import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import ProductSearchModal from "../../../modal/ProductSearchModal";
-import { vendorConditions, vendorTypes } from "../../vendor/search";
+import { vendorConditions } from "../../vendor/search";
+import axiosInstance from "@/lib/axios";
 
 
 const initialFormData = {
@@ -57,6 +58,7 @@ const MagicSearchPage = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);
+    const [vendorTypes, setVendorTypes] = useState([]);
 
     const [cities, setCities] = useState(null);
     const [states, setStates] = useState(null);
@@ -545,6 +547,12 @@ const MagicSearchPage = () => {
                 console.log(error);
             });
     
+        axiosInstance.get('/rfq/vendor-types/').then(res => {
+          const {data} = res;
+          setVendorTypes(data)
+        }).catch((e) => {
+          console.log(e)
+        })
     }, []);
     
 
@@ -879,7 +887,7 @@ const MagicSearchPage = () => {
                         </div>
                       </div>
                       <div className="col-md-6">
-                        <p className="fw-medium  mb-2">Behavioural Filters</p>
+                        <p className="fw-medium  mb-2 opacity-0">Behavioural Filters</p>
                         <div className="row">
                         <div className="col-md-6">
                           <div>
@@ -898,7 +906,7 @@ const MagicSearchPage = () => {
                         </div>
                         <div className="col-md-6">
                           <div>
-                            <p className="fw-medium  mb-2">Prev. Worked With</p>
+                            <p className="fw-medium  mb-2">Previously Worked With</p>
                             <Select
                               options={vendorConditions}
                               value={globalFilters.prev_worked_with}
@@ -938,6 +946,7 @@ const MagicSearchPage = () => {
                         cities={cities}
                         states={states}
                         countries={countries}
+                        vendorTypes={vendorTypes}
                       />
                     </>
                   )}

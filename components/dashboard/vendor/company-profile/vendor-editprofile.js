@@ -164,7 +164,7 @@ const VendorProfile = () => {
           {JSON.stringify({
             "@context": "http://schema.org",
             "@type": "Organization",
-            "name": vendorDetails?.vendor_name,
+            "name": vendorDetails?.company_name,
             "description": vendorDetails?.profile,
             "url": vendorDetails?.website,
             "logo": vendorDetails?.profile_image_url,
@@ -345,7 +345,7 @@ const VendorProfile = () => {
                 <div className="row vendor-profile-sec-con-1 hasFullLoader">
                   {loading && <FullLoader />}
                   <h2 className="title">
-                    {vendorDetails?.vendor_name}
+                    {vendorDetails?.company_name}
                   </h2>
                   <p>{!loading && (vendorDetails?.profile || "No Information to show.")}</p>
                 </div>

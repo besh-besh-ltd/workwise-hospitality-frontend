@@ -26,29 +26,30 @@ import ProductOverview from "@/components/shared/ProductOverview";
 import Head from "next/head";
 import { debounce } from "lodash";
 import Select from 'react-select';
+import axiosInstance from "@/lib/axios";
 
-export const vendorTypes = [
-  {
-    label: "Manufacturer",
-    value: "manufacturer",
-  },
-  {
-    label: "Supplier",
-    value: "supplier",
-  },
-  {
-    label: "Distributor",
-    value: "distributor",
-  },
-  {
-    label: "Dealer",
-    value: "dealer",
-  },
-  {
-    label: "Exporter",
-    value: "exporter",
-  },
-]
+// export const vendorTypes = [
+//   {
+//     label: "Manufacturer",
+//     value: "manufacturer",
+//   },
+//   {
+//     label: "Supplier",
+//     value: "supplier",
+//   },
+//   {
+//     label: "Distributor",
+//     value: "distributor",
+//   },
+//   {
+//     label: "Dealer",
+//     value: "dealer",
+//   },
+//   {
+//     label: "Exporter",
+//     value: "exporter",
+//   },
+// ]
 
 export const vendorConditions = [
   {
@@ -69,7 +70,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [vendorTypeOpen, setVendorTypeOpen] = useState(false);
   const [approvedByOpen, setApprovedByOpen] = useState(false);
-  const [internalVendorTypes, setInternalVendorTypes] = useState(vendorTypes)
+  const [internalVendorTypes, setInternalVendorTypes] = useState([])
   const [internalApprovedBy, setInternalApprovedBy] = useState([])
   const searchRef = useRef(null);
   const searchLabelRef = useRef(null);
@@ -87,6 +88,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
+  const [vendorTypes, setVendorTypes] = useState([]);
 
   const [selectedCountry, setselectedCountry] = useState([]);
   const [selectedState, setselectedState] = useState([]);
@@ -189,6 +191,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       }
     };
 
+    axiosInstance.get('/rfq/vendor-types/').then(res => {
+      const {data} = res;
+      setVendorTypes(data)
+      setInternalVendorTypes(data)
+    }).catch((e) => {
+      console.log(e)
+    })
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -196,7 +206,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   }, []);
 
   useEffect(() => {
-    setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
+    if(vendorTypes)
+      setInternalVendorTypes(vendorTypes.filter(type => !selectedVendorTypes.some(_type => _type.value == type.value)))
   }, [selectedVendorTypes])
 
   useEffect(() => {
@@ -1099,12 +1110,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       className="selection-dropdown"
                     >
                       <input
-                        // ref={citySelectionRef}
                         type="text"
                         onChange={(e) => {
                           setInternalVendorTypes(
-                            vendorTypes.filter((type) =>
-                              type.value.toLowerCase().includes(e.target.value)
+                            vendorTypes.filter((type) => type.value.toLowerCase().includes(e.target.value.toLowerCase())
                             )
                           );
                         }}
@@ -1136,10 +1145,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             maxWidth: 315,
                           }}
                         >
-                          {internalVendorTypes.length > 0 ? (
+                          {internalVendorTypes && internalVendorTypes.length > 0 ? (
                             internalVendorTypes.map((type) => (
                               <li
-                                key={type.value}
+                                key={type.value}  
                                 onClick={() => {
                                   setSelectedVendorTypes((prev) => [
                                     ...prev,
