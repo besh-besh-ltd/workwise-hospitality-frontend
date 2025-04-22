@@ -242,7 +242,7 @@ const VendorProfile = () => {
 
                 {/* Vendor Basic Details */}
                 <div className="user-details hasFullLoader mb-4">
-                  <h2 className="mb-1">{vendorDetails?.vendor_name}</h2>
+                  <h2 className="mb-1">{vendorDetails?.company_name}</h2>
                   {vendorDetails?.status == 1
                     ? <p><FontAwesomeIcon icon={faCheckCircle} /> Verified</p>
                     : <p><FontAwesomeIcon icon={faTimesCircle} /> Unverified</p>

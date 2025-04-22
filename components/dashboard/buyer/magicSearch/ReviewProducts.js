@@ -385,7 +385,6 @@ const ReviewProducts = ({
                                           Country
                                         </p>
                                         <Select
-                                          styles={customeStyles}
                                           className='overflow-dropdown'
                                           isMulti
                                           name="country"

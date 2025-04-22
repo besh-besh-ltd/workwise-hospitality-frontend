@@ -839,7 +839,7 @@ const EditRFQ = () => {
                       {product.vendor_details?.length > 0 ? (
                         <div className="view-selected-vendors">
                               <a 
-                            href={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/dashboard/buyer/rfq-management-vendor?type=buyer-view&vendors=${product.vendor_details.map(vendor => vendor.user_id).join(',')}&productid=${product.product_id}&variant=${product.variant}`}
+                            href={`/dashboard/buyer/rfq-management-vendor?type=buyer-view&vendors=${product.vendor_details.map(vendor => vendor.user_id).join(',')}&productid=${product.product_id}&variant=${product.variant}`}
                             className="page-link"
                               >
                             View
