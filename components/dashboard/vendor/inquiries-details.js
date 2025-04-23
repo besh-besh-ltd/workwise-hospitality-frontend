@@ -15,6 +15,7 @@ import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import { toast } from "react-toastify";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -30,6 +31,8 @@ const RfqManagementPreview = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [clauseMap, setClauseMap] = useState(null);
+  const [quoteDisabled, setQuoteDisabled] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -174,10 +177,43 @@ const RfqManagementPreview = () => {
     } else {
       setproductleftforbid(true);
     }
+    
+    // Check RFQ dates to determine if quote can be submitted
+    const now = new Date();
+    const bidEndDate = rfqd?.bid_end_date ? new Date(rfqd.bid_end_date) : null;
+    const raStartDate = rfqd?.ra_start_date ? new Date(rfqd.ra_start_date) : null;
+    const raEndDate = rfqd?.ra_end_date ? new Date(rfqd.ra_end_date) : null;
+    const isReverseAuction = rfqd?.reverse_auction === 1;
+    
+    let quoteSubmissionDisabled = false;
+    let statusMessage = "";
+    
+    // Check if RFQ is closed
+    if (rfqd.status == 2) {
+      quoteSubmissionDisabled = true;
+      statusMessage = "RFQ is Closed";
+    } 
+    // Check if all products are finalized
+    else if (!productleftforbid) {
+      quoteSubmissionDisabled = true;
+      statusMessage = "All Products are Finalized";
+    }
+    // Check if bidding period is over (not in reverse auction mode)
+    else if (bidEndDate && now > bidEndDate && (!isReverseAuction || !raStartDate)) {
+      quoteSubmissionDisabled = true;
+      statusMessage = "Bidding Period has Ended";
+    }
+    // If in reverse auction mode, check if we're past the reverse auction end date
+    else if (isReverseAuction && raEndDate && now > raEndDate) {
+      quoteSubmissionDisabled = true;
+      statusMessage = "Reverse Auction has Ended";
+    }
+    
+    setQuoteDisabled(quoteSubmissionDisabled);
+    setStatusMessage(statusMessage);
   };
 
-  const handleRegretQuote = ({ reqret_reason }, resetForm) => {
-
+  const handleRegretQuote = ({ regret_reason }, resetForm) => {
     let bidProducts = [];
     if (rfqDetails.products.length > 0) {
       rfqDetails.products.map((item, index) => {
@@ -204,28 +240,27 @@ const RfqManagementPreview = () => {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
       status: 1,
-      products: rfqDetails?.products,
       products: bidProducts,
       is_regret: 1,
-      regret_reason: reqret_reason,
-      globalPaymentTerms: "",
-      globalComment: "",
-      regret_reason: reqret_reason || "",
+      regret_reason: regret_reason,
       globalPaymentTerms: "",
       globalComment: "",
     };
 
+    setsubmitLoading(true);
     sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
+        toast.success("Quote regret submitted successfully!");
         router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         Router.reload();
       })
       .catch((err) => {
         setsubmitLoading(false);
+        toast.error("Failed to submit regret. Please try again.");
       })
       .finally(() => setregretModal(false));
-  }
+  };
 
   const addCommasToNumber = (number) => {
     let numberString = number.toString();
@@ -874,6 +909,7 @@ const RfqManagementPreview = () => {
                                 </div>}
 
                               {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction != "" &&
+                                <>
                                 <div className="col-md-3">
                                   <div className="form-group mt-0 mb-2">
                                     <label htmlFor="reverse_auction" className="form-label">
@@ -888,7 +924,47 @@ const RfqManagementPreview = () => {
                                       value={`${rfqDetails?.reverse_auction == 1 ? 'Enabled' : 'Disabled'}`}
                                     />
                                   </div>
-                                </div>}
+                                </div>
+                                
+                                {rfqDetails?.reverse_auction == 1 && (
+                                  <>
+                                    <div className="col-md-3">
+                                      <div className="form-group mt-0 mb-2">
+                                        <label htmlFor="ra_start_date" className="form-label">
+                                          Auction Start Date
+                                        </label>
+                                        <input
+                                          type="text"
+                                          id="ra_start_date"
+                                          className="form-control"
+                                          name="ra_start_date"
+                                          disabled
+                                          value={rfqDetails?.ra_start_date && rfqDetails.ra_start_date !== "null" && rfqDetails.ra_start_date !== "" 
+                                            ? rfqDetails.ra_start_date 
+                                            : "Not specified"}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="col-md-3">
+                                      <div className="form-group mt-0 mb-2">
+                                        <label htmlFor="ra_end_date" className="form-label">
+                                          Auction End Date
+                                        </label>
+                                        <input
+                                          type="text"
+                                          id="ra_end_date"
+                                          className="form-control"
+                                          name="ra_end_date"
+                                          disabled
+                                          value={rfqDetails?.ra_end_date && rfqDetails.ra_end_date !== "null" && rfqDetails.ra_end_date !== "" 
+                                            ? rfqDetails.ra_end_date 
+                                            : "Not specified"}
+                                        />
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                                </>}
 
                               {rfqDetails?.bid_end_date && rfqDetails?.bid_end_date != "" &&
                                 <div className="col-md-3">
@@ -992,7 +1068,7 @@ const RfqManagementPreview = () => {
                                           )).format("HH:mm A - DD/MM/YYYY")}{" "}
                                         </h4>
 
-                                        {(rfqDetails.status == 2 || !productleftforbid) ? (
+                                        {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
                                           <button
                                             type="button"
                                             className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0 mx-auto mt-2`}
@@ -1000,9 +1076,9 @@ const RfqManagementPreview = () => {
                                             disabled
                                           >
                                             <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                            {rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized"}
+                                            {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
                                           </button>
-                                        ) : (
+                                        ) :
                                           <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
                                             <button
                                               type="button"
@@ -1015,7 +1091,7 @@ const RfqManagementPreview = () => {
                                               </>
                                             </button>
                                           </Link>
-                                        )}
+                                        }
                                       </div>
                                     )}
                                   {rfqDetails.quotations.length > 0 &&
@@ -1156,14 +1232,26 @@ const RfqManagementPreview = () => {
                                       </button>
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
-                                      <Link href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}>
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary"
-                                        >
-                                          Send Quote
-                                        </button>
-                                      </Link>
+                                      {rfqDetails?.quotations?.length === 0 && (
+                                        <>
+                                          {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
+                                            <button
+                                              type="button"
+                                              className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'}`}
+                                              disabled
+                                            >
+                                              <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                              {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
+                                            </button>
+                                          ) : (
+                                            <Link href={`/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}`}>
+                                              <button type="button" className="btn btn-secondary">
+                                                Send Quote
+                                              </button>
+                                            </Link>
+                                          )}
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 )

@@ -24,6 +24,8 @@ const initialFormData = {
     reverse_auction: 1,
     rfq_type: '',
     bid_end_date: getFuturedate(),
+    ra_start_date: '',
+    ra_end_date: '',
     location: '',
     project_id: -1,
     response_email: '',
@@ -149,63 +151,67 @@ const MagicSearchPage = () => {
         }
     };
 
-    const handleFormChange = async (e, type) => {
-        const { name, value, checked, id } = e.target;
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
         
-        if (type === "terms-checkbox") {
-            const termId = parseInt(id.replace("term-item-", ""));
-            const updatedTerms = termList.map((termItem) => {
-                if (termItem.id === termId) {
-                    return { ...termItem, selected: checked }; // Immutable update
-                }
-                return termItem;
-            });
-            setTermList(updatedTerms);
-        } else if (name === "project_id" && value != -1) {
-            try {
-                const projectData = await getProjectData(value);
-                if (projectData) {
-                    setFormData((prevState) => ({
-                        ...prevState,
-                        project_id: value,
-                        rfq_type: projectData.rfq_type || "",
-                        reverse_auction: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
-                        bid_end_date: projectData.ended_at 
-                            ? new Date(projectData.ended_at).toISOString().split("T")[0] 
-                            : "",
-                        location: projectData.location || "",
-                    }));
-                } else {
-                    console.error("Project data is empty or undefined.");
-                }
-            } catch (error) {
-                console.error("Failed to handle project_id change:", error.message);
-            }
-        } else if (name === "country_code") {
-            // Extract only the mobile number (remove old country code)
-            const mobileNumber = formData?.contact_number.replace(/^\+\d{1,4}-?/, "") || "";
-    
-            setFormData((prevState) => ({
-                ...prevState,
-                contact_number: `${value}-${mobileNumber}`, // Add new country code with mobile
-            }));
-        } else if (name === "contact_number") {
-            // Extract the current country code
-            const existingCountryCode = formData?.contact_number.match(/^\+\d{1,4}/)?.[0] || "+91";
+        // Handle reverse auction toggle
+        if (name === 'reverse_auction') {
+            const newValue = parseInt(value);
             
-            // Ensure only digits are entered for the phone number
-            const cleanedNumber = value.replace(/\D/g, "");
-    
-            setFormData((prevState) => ({
-                ...prevState,
-                contact_number: `${existingCountryCode}-${cleanedNumber}`, // Keep country code + valid number
-            }));
-        } else {
-            setFormData((prevState) => ({
-                ...prevState,
-                [name]: name === "reverse_auction" ? parseInt(value) : value,
-            }));
+            if (newValue === 1 && formData.bid_end_date) {
+                // Set default auction dates when enabling reverse auction
+                const bidEndDate = new Date(formData.bid_end_date);
+                
+                // Set auction end date to bid end date
+                const auctionEndDate = new Date(bidEndDate);
+                
+                // Set auction start date to day before bid end date
+                const auctionStartDate = new Date(bidEndDate);
+                auctionStartDate.setDate(auctionStartDate.getDate() - 1);
+                
+                setFormData({
+                    ...formData,
+                    reverse_auction: newValue,
+                    ra_start_date: auctionStartDate.toISOString().split('T')[0],
+                    ra_end_date: auctionEndDate.toISOString().split('T')[0]
+                });
+                return;
+            } else if (newValue === 0) {
+                // Clear auction dates when disabling reverse auction
+                setFormData({
+                    ...formData,
+                    reverse_auction: newValue,
+                    ra_start_date: '',
+                    ra_end_date: ''
+                });
+                return;
+            }
         }
+        // Handle bid end date change
+        else if (name === 'bid_end_date' && formData.reverse_auction == 1) {
+            // Update auction end date to match bid end date when reverse auction is enabled
+            const bidEndDate = new Date(value);
+            
+            // Set auction end date to bid end date
+            const auctionEndDate = bidEndDate.toISOString().split('T')[0];
+            
+            // Set auction start date to day before bid end date
+            const auctionStartDate = new Date(bidEndDate);
+            auctionStartDate.setDate(auctionStartDate.getDate() - 1);
+            
+            setFormData({
+                ...formData,
+                [name]: value,
+                ra_end_date: auctionEndDate,
+                ra_start_date: auctionStartDate.toISOString().split('T')[0]
+            });
+            return;
+        }
+        
+        setFormData({
+            ...formData,
+            [name]: value
+        });
     };
     
 
@@ -1112,7 +1118,7 @@ const MagicSearchPage = () => {
                               /^\+\d{1,4}/
                             )?.[0] || "+91"
                           }
-                          onChange={(e) => handleFormChange(e, "country_code")}
+                          onChange={handleFormChange}
                         >
                           {/* Populate options from countryCodes state */}
                           {countryCodes.map((item) => (
@@ -1229,6 +1235,38 @@ const MagicSearchPage = () => {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Add auction date fields when reverse auction is enabled */}
+              {formData?.reverse_auction == 1 && (
+                <>
+                  <div className="col-md-4 mb-2">
+                    <label htmlFor="ra_start_date" className="form-label">
+                      Auction Start Date
+                    </label>
+                    <input
+                      type="date"
+                      name="ra_start_date"
+                      id="ra_start_date"
+                      className="form-control border border-dark-subtle"
+                      value={formData?.ra_start_date}
+                      onChange={handleFormChange}
+                    />
+                  </div>
+                  <div className="col-md-4 mb-2">
+                    <label htmlFor="ra_end_date" className="form-label">
+                      Auction End Date
+                    </label>
+                    <input
+                      type="date"
+                      name="ra_end_date"
+                      id="ra_end_date"
+                      className="form-control border border-dark-subtle"
+                      value={formData?.ra_end_date}
+                      onChange={handleFormChange}
+                    />
+                  </div>
+                </>
               )}
 
               <div className="mx-auto mt-4">

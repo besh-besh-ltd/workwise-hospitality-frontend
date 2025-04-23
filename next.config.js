@@ -11,7 +11,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "https://workwise-backend-ff68.onrender.com",
+        hostname: "workwise-backend-ff68.onrender.com",
+      },
+      {
+        protocol: "https",
+        hostname: "workwise-static-s3.s3.ap-south-1.amazonaws.com",
       },
       {
         protocol: "https",
