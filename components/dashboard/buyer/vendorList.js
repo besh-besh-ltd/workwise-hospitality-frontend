@@ -43,7 +43,7 @@ const VendorList = ({
           >
             <div>
               <h6 className="mb-2" style={{ fontSize: "1.1rem" }}>
-                {vendor.user_name}
+                {vendor?.company_name ?? "-"}
               </h6>
               <p
                 className="text-muted"
