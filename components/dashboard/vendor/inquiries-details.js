@@ -82,25 +82,6 @@ const RfqManagementPreview = () => {
 
   }, [rfqDetails, buyerClauses])
 
-  useEffect(() => {
-    if (rfqDetails && rfqDetails.terms) {
-      console.log("RFQ Terms Debug:", {
-        count: rfqDetails.terms.length,
-        terms: rfqDetails.terms.map(t => ({
-          id: t.id,
-          name: t.name,
-          // Include a sample of other properties that might exist
-          properties: {
-            term_id: t.term_id,
-            term_text: t.term_text,
-            term_content: t.term_content,
-            content: t.content
-          }
-        }))
-      });
-    }
-  }, [rfqDetails?.terms]);
-
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
     if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed) {
@@ -1088,29 +1069,6 @@ const RfqManagementPreview = () => {
                                   {rfqDetails.finalizations &&
                                     rfqDetails.finalizations.length > 0 && (
                                       <div className="finalized-details">
-                                        {/* <h4>Finalized Details</h4>
-                                        <div className="noborder-table">
-                                          <div className="table-responsive">
-                                            <table>
-                                              <thead>
-                                                <tr>
-                                                  <th>Product name</th>
-                                                  <th>Vendor</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {rfqDetails.finalizations.map((item => {
-                                                  return (
-                                                    <tr>
-                                                      <td>{item?.product_details?.name}</td>
-                                                      <td>{item?.winning_vendor?.organization_name}</td>
-                                                    </tr>
-                                                  )
-                                                }))}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div> */}
                                       </div>
                                     )}
                                   {/* winning bid area end */}
