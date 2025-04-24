@@ -211,57 +211,59 @@ const RfqManagementPreview = () => {
     const previousEndDatePassed = wasEndDatePassed;
     setWasEndDatePassed(isBidEndDatePassed);
     
-    // Determine if reverse auction is active (between start and end dates)
-    const isRaActive = isReverseAuction && raStartDate && now >= raStartDate && (!raEndDate || now <= raEndDate);
+    // Determine if reverse auction is active
+    const isRaActive = isReverseAuction && raStartDate && 
+      now >= raStartDate && 
+      (!raEndDate || now <= raEndDate);
     
-    // Check if RA status changed from inactive to active and end date was passed
-    if (isRaActive && !isReverseAuctionActive && isBidEndDatePassed && previousEndDatePassed) {
+    // Check if RA status changed from inactive to active
+    if (isRaActive && !isReverseAuctionActive && previousEndDatePassed) {
       setRaStatusChanged(true);
     }
     
-    // Update the RA active state
     setIsReverseAuctionActive(isRaActive);
     
-    // Determine if lowest price should be shown (only during active reverse auction)
-    setShowLowestPrice(isRaActive);
+    // Show lowest price only during active reverse auction
+    const shouldShowLowestPrice = isRaActive;
+    setShowLowestPrice(shouldShowLowestPrice);
     
-    // Update the currentLowest state based on updated showLowestPrice
+    // Update the currentLowest state based on products and visibility
     if (rfqd?.products) {
-      updatecurrentLowest(rfqd.products);
+      const hasLowestQuotation = rfqd.products.some(product => 
+        product.lowest_quotation !== null
+      );
+      setCurrentLowest(hasLowestQuotation && shouldShowLowestPrice);
     }
     
     let quoteSubmissionDisabled = false;
     let statusMessage = "";
     
-    // Case 1: RFQ is closed by admin
-    if (rfqd.status == 2) {
+    // Determine quote submission status and message
+    if (rfqd.status === 2) {
       quoteSubmissionDisabled = true;
       statusMessage = "RFQ is Closed";
-    } 
-    // Case 2: All products are finalized
-    else if (!productleftforbid) {
+    } else if (!productleftforbid) {
       quoteSubmissionDisabled = true;
       statusMessage = "All Products are Finalized";
-    }
-    // Case 3: End date passed, reverse auction not started/configured
-    else if (isBidEndDatePassed && (!isReverseAuction || (isReverseAuction && !raStartDate))) {
-      quoteSubmissionDisabled = true;
-      statusMessage = "Bidding Period has Ended";
-    }
-    // Case 4: In reverse auction mode, but auction has ended
-    else if (isReverseAuction && raEndDate && now > raEndDate) {
-      quoteSubmissionDisabled = true;
-      statusMessage = "Reverse Auction has Ended";
-    }
-    // Case 5: End date passed but reverse auction is active - allow quotes
-    else if (isBidEndDatePassed && isRaActive) {
-      quoteSubmissionDisabled = false;
-      statusMessage = "Reverse Auction is Active";
-    }
-    // Default: None of the above conditions met - quotes allowed
-    else {
-      quoteSubmissionDisabled = false;
-      statusMessage = "";
+    } else if (isBidEndDatePassed) {
+      if (isReverseAuction) {
+        if (isRaActive) {
+          quoteSubmissionDisabled = false;
+          statusMessage = "Reverse Auction is Active";
+        } else if (raStartDate && now < raStartDate) {
+          quoteSubmissionDisabled = true;
+          statusMessage = "Waiting for Reverse Auction to Start";
+        } else if (raEndDate && now > raEndDate) {
+          quoteSubmissionDisabled = true;
+          statusMessage = "Reverse Auction has Ended";
+        } else {
+          quoteSubmissionDisabled = true;
+          statusMessage = "Bidding Period has Ended";
+        }
+      } else {
+        quoteSubmissionDisabled = true;
+        statusMessage = "Bidding Period has Ended";
+      }
     }
     
     setQuoteDisabled(quoteSubmissionDisabled);
