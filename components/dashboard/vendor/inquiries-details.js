@@ -33,12 +33,16 @@ const RfqManagementPreview = () => {
   const [clauseMap, setClauseMap] = useState(null);
   const [quoteDisabled, setQuoteDisabled] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  // New state variables for enhanced RA logic
+  const [isReverseAuctionActive, setIsReverseAuctionActive] = useState(false);
+  const [showLowestPrice, setShowLowestPrice] = useState(false);
+  const [wasEndDatePassed, setWasEndDatePassed] = useState(false);
+  const [raStatusChanged, setRaStatusChanged] = useState(false);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
-
 
   useEffect(() => {
     if (id) {
@@ -97,6 +101,21 @@ const RfqManagementPreview = () => {
     }
   }, [rfqDetails?.terms]);
 
+  // Notify user when RA status changes and allows quote submission again
+  useEffect(() => {
+    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed) {
+      toast.info("The reverse auction has started. You can send quotes again.", {
+        position: "top-right",
+        autoClose: 7000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      setRaStatusChanged(false);
+    }
+  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed]);
+
   const getRFQdetails = () => {
     setloading(true);
     getRFQById(id, token)
@@ -143,7 +162,7 @@ const RfqManagementPreview = () => {
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
       const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
-      setCurrentLowest(hasLowestQuotation);
+      setCurrentLowest(hasLowestQuotation && showLowestPrice);
     } else {
       setCurrentLowest(null);
     }
@@ -172,41 +191,77 @@ const RfqManagementPreview = () => {
   };
 
   const checkIfQuotationSendIsPossible = (rfqd) => {
+    // Check if all products are finalized
     if (rfqd?.finalizations?.length === rfqd?.products?.length) {
       setproductleftforbid(false);
     } else {
       setproductleftforbid(true);
     }
     
-    // Check RFQ dates to determine if quote can be submitted
+    // Get current date/time and parse all the relevant dates
     const now = new Date();
     const bidEndDate = rfqd?.bid_end_date ? new Date(rfqd.bid_end_date) : null;
     const raStartDate = rfqd?.ra_start_date ? new Date(rfqd.ra_start_date) : null;
     const raEndDate = rfqd?.ra_end_date ? new Date(rfqd.ra_end_date) : null;
     const isReverseAuction = rfqd?.reverse_auction === 1;
     
+    // Determine if bid end date is passed
+    const isBidEndDatePassed = bidEndDate && now > bidEndDate;
+    // Store if end date was passed (for notifications)
+    const previousEndDatePassed = wasEndDatePassed;
+    setWasEndDatePassed(isBidEndDatePassed);
+    
+    // Determine if reverse auction is active (between start and end dates)
+    const isRaActive = isReverseAuction && raStartDate && now >= raStartDate && (!raEndDate || now <= raEndDate);
+    
+    // Check if RA status changed from inactive to active and end date was passed
+    if (isRaActive && !isReverseAuctionActive && isBidEndDatePassed && previousEndDatePassed) {
+      setRaStatusChanged(true);
+    }
+    
+    // Update the RA active state
+    setIsReverseAuctionActive(isRaActive);
+    
+    // Determine if lowest price should be shown (only during active reverse auction)
+    setShowLowestPrice(isRaActive);
+    
+    // Update the currentLowest state based on updated showLowestPrice
+    if (rfqd?.products) {
+      updatecurrentLowest(rfqd.products);
+    }
+    
     let quoteSubmissionDisabled = false;
     let statusMessage = "";
     
-    // Check if RFQ is closed
+    // Case 1: RFQ is closed by admin
     if (rfqd.status == 2) {
       quoteSubmissionDisabled = true;
       statusMessage = "RFQ is Closed";
     } 
-    // Check if all products are finalized
+    // Case 2: All products are finalized
     else if (!productleftforbid) {
       quoteSubmissionDisabled = true;
       statusMessage = "All Products are Finalized";
     }
-    // Check if bidding period is over (not in reverse auction mode)
-    else if (bidEndDate && now > bidEndDate && (!isReverseAuction || !raStartDate)) {
+    // Case 3: End date passed, reverse auction not started/configured
+    else if (isBidEndDatePassed && (!isReverseAuction || (isReverseAuction && !raStartDate))) {
       quoteSubmissionDisabled = true;
       statusMessage = "Bidding Period has Ended";
     }
-    // If in reverse auction mode, check if we're past the reverse auction end date
+    // Case 4: In reverse auction mode, but auction has ended
     else if (isReverseAuction && raEndDate && now > raEndDate) {
       quoteSubmissionDisabled = true;
       statusMessage = "Reverse Auction has Ended";
+    }
+    // Case 5: End date passed but reverse auction is active - allow quotes
+    else if (isBidEndDatePassed && isRaActive) {
+      quoteSubmissionDisabled = false;
+      statusMessage = "Reverse Auction is Active";
+    }
+    // Default: None of the above conditions met - quotes allowed
+    else {
+      quoteSubmissionDisabled = false;
+      statusMessage = "";
     }
     
     setQuoteDisabled(quoteSubmissionDisabled);
@@ -656,8 +711,7 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
-                              {currentLowest ? <th>Current Lowest</th> : null}
-                              {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
+                              {isReverseAuctionActive && <th>Current Lowest</th>}
                               <th>TDS</th>
                               <th>QAP</th>
                               {type != "buyer-view" && <th>Finalization Status</th>}
@@ -715,7 +769,7 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {currentLowest ? (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>) : null}
+                                  {isReverseAuctionActive && (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>)}
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
@@ -1071,9 +1125,9 @@ const RfqManagementPreview = () => {
                                         {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
                                           <button
                                             type="button"
-                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0 mx-auto mt-2`}
+                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')} m-0 mx-auto mt-2`}
                                             style={{ width: "240px" }}
-                                            disabled
+                                            disabled={quoteDisabled}
                                           >
                                             <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
                                             {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
@@ -1237,16 +1291,16 @@ const RfqManagementPreview = () => {
                                           {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
                                             <button
                                               type="button"
-                                              className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'}`}
-                                              disabled
+                                              className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')}`}
+                                              disabled={quoteDisabled}
                                             >
                                               <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
                                               {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
                                             </button>
                                           ) : (
                                             <Link href={`/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}`}>
-                                              <button type="button" className="btn btn-secondary">
-                                                Send Quote
+                                              <button type="button" className={`btn ${wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}>
+                                                {wasEndDatePassed && isReverseAuctionActive ? 'Send Quote (Reverse Auction)' : 'Send Quote'}
                                               </button>
                                             </Link>
                                           )}
