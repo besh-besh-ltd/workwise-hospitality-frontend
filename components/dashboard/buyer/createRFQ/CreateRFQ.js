@@ -275,87 +275,60 @@ const CreateRFQ = () => {
     return error;
   };
 
-  const handleFormFieldChange = (name, value) => {
-    let processedValue = value;
+  const handleFormFieldChange = async (e, selectedOption, actionMeta) => {
+    let name = e?.target?.name || actionMeta?.name;
+    let value = e?.target?.value || selectedOption?.value || "";
 
-    // If the input is from a standard event (like input type="date"), use e.target
-    if (value && value.target) {
-      processedValue = value.target.value;
-      name = value.target.name; // Get name from event target as well
-    }
-    
-    // Handle datetime-local inputs for auction dates
-    if ((name === 'ra_start_date' || name === 'ra_end_date') && processedValue) {
-      // Convert from datetime-local string format to ISO string
-      const dateObj = new Date(processedValue);
-      if (!isNaN(dateObj.getTime())) {
-        processedValue = dateObj.toISOString();
-      }
-    }
-    
-    // Handle toggle switch for reverse_auction
-    if (name === 'reverse_auction') {
-        processedValue = value ? 1 : 0;
-        // Reset RA dates if RA is disabled
-        if (!value) {
-            dispatch(setOtherFormFields({
-                field_name: 'ra_start_date',
-                value: null
-            }));
-            dispatch(setOtherFormFields({
-                field_name: 'ra_end_date',
-                value: null
-            }));
-            // Also update the main field
-            dispatch(setOtherFormFields({
-                field_name: name,
-                value: processedValue
-            }));
-        } else {
-            dispatch(setOtherFormFields({
-                field_name: name,
-                value: processedValue
-            }));
+    if (name === "bid_end_date"){
+      const today = new Date();
+      if(value){
+        const selectedDate = new Date(value);
+        if (selectedDate <= today) {
+            toast.error(`Project procurement end date must be greater than ${today.toISOString().slice(0, 10)}`);;
+            return;
         }
-    } else {
-       // Dispatch for other fields
-       dispatch(setOtherFormFields({
-          field_name: name,
-          value: processedValue
-      }));
-    }
-    
-    // Validate dates
-    if (name === 'bid_end_date' || name === 'ra_start_date' || name === 'ra_end_date' || name === 'reverse_auction') {
-      // Use the potentially processed value for validation
-      const currentFormData = { ...rfqFormDataFromStore, [name]: processedValue }; 
-      // Pass the original input value to validateDates
-      const originalValue = (value && value.target) ? value.target.value : value;
-      const error = validateDates(name, originalValue, currentFormData); 
-      setValidationErrors(prev => ({ ...prev, [name]: error }));
-
-      // Re-validation logic as it was
-      if (name === 'reverse_auction') {
-         if(value) { // Enabling RA
-             const startError = validateDates('ra_start_date', rfqFormDataFromStore.ra_start_date, currentFormData);
-             const endError = validateDates('ra_end_date', rfqFormDataFromStore.ra_end_date, currentFormData);
-             const bidEndError = validateDates('bid_end_date', rfqFormDataFromStore.bid_end_date, currentFormData);
-             setValidationErrors(prev => ({ ...prev, ra_start_date: startError, ra_end_date: endError, bid_end_date: bidEndError }));
-         } 
-      } else if (name === 'bid_end_date') {
-          if (currentFormData.reverse_auction) {
-             const startError = validateDates('ra_start_date', currentFormData.ra_start_date, currentFormData);
-             const endError = validateDates('ra_end_date', currentFormData.ra_end_date, currentFormData);
-             setValidationErrors(prev => ({ ...prev, ra_start_date: startError, ra_end_date: endError }));
-          }
-      } else if (name === 'ra_start_date' && currentFormData.reverse_auction) {
-          const endError = validateDates('ra_end_date', currentFormData.ra_end_date, currentFormData);
-          setValidationErrors(prev => ({ ...prev, ra_end_date: endError }));
-      } else if (name === 'ra_end_date' && currentFormData.reverse_auction) {
-          const startError = validateDates('ra_start_date', currentFormData.ra_start_date, currentFormData);
-          setValidationErrors(prev => ({ ...prev, ra_start_date: startError }));
       }
     }
+
+    if (name === "reverse_auction") {
+      value = parseInt(value);
+
+        if (value === 0) {
+          // Clear reverse auction dates when disabled
+          dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
+          dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
+      }
+
+    }
+
+    if (name === "project_id" && value !== -1) {
+      try {
+        const projectData = await getProjectData(value);
+
+        if (projectData) {
+          dispatch(setOtherFormFields({ field_name: "rfq_type", value: projectData.rfq_type || "" }));
+          dispatch(
+            setOtherFormFields({
+              field_name: "reverse_auction",
+              value: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
+            })
+          );
+          dispatch(
+            setOtherFormFields({
+              field_name: "bid_end_date",
+              value: projectData.ended_at ? new Date(projectData.ended_at).toISOString().split("T")[0] : "",
+            })
+          );
+          dispatch(setOtherFormFields({ field_name: "location", value: projectData.location || "" }));
+        } else {
+          console.error("Project data is empty or undefined.");
+        }
+      } catch (error) {
+        console.error("Failed to handle project_id change:", error.message);
+      }
+    }
+
+    dispatch(setOtherFormFields({ field_name: name, value }));
     setHasUnsavedChanges(true);
   };
 
