@@ -220,7 +220,11 @@ const RfqManagementPreview = () => {
     let statusMessage = "";
     
     // Determine quote submission status and message
-    if (rfqd.status === 2) {
+    // Check first if reverse auction is active, as this should override other conditions
+    if (isRaActive) {
+      quoteSubmissionDisabled = false;
+      statusMessage = "Reverse Auction is Active";
+    } else if (rfqd.status === 2) {
       quoteSubmissionDisabled = true;
       statusMessage = "RFQ is Closed";
     } else if (!productleftforbid) {
@@ -228,10 +232,7 @@ const RfqManagementPreview = () => {
       statusMessage = "All Products are Finalized";
     } else if (isBidEndDatePassed) {
       if (isReverseAuction) {
-        if (isRaActive) {
-          quoteSubmissionDisabled = false;
-          statusMessage = "Reverse Auction is Active";
-        } else if (raStartDate && now < raStartDate) {
+        if (raStartDate && now < raStartDate) {
           quoteSubmissionDisabled = true;
           statusMessage = "Waiting for Reverse Auction to Start";
         } else if (raEndDate && now > raEndDate) {
@@ -1201,7 +1202,7 @@ const RfqManagementPreview = () => {
                           )}
                           {!enableBuyerView && (
                             <>
-                              {(!isSubmitAble || rfqDetails.status == 2) ? (
+                              {quoteDisabled && statusMessage === "RFQ is Closed" ? (
                                 // Show a single disabled button saying "RFQ is Closed"
                                 <div className="row w-50">
                                   <div className="col-12">
@@ -1231,7 +1232,7 @@ const RfqManagementPreview = () => {
                                 </div>
                               ) : (
                                 // Show the two buttons if neither condition is met
-                                rfqDetails.quotations.length <= 0 && rfqDetails?.status == 1 && (
+                                rfqDetails.quotations.length <= 0 && (
                                   <div className="row w-50">
                                     <div className="col-md-6 ps-4">
                                       <button
@@ -1241,6 +1242,7 @@ const RfqManagementPreview = () => {
                                           e.preventDefault();
                                           setregretModal(true);
                                         }}
+                                        disabled={quoteDisabled && statusMessage !== "Reverse Auction is Active"}
                                       >
                                         Regret Quote
                                       </button>
@@ -1248,19 +1250,19 @@ const RfqManagementPreview = () => {
                                     <div className="col-md-6 d-flex justify-content-end p-0">
                                       {rfqDetails?.quotations?.length === 0 && (
                                         <>
-                                          {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
+                                          {quoteDisabled && statusMessage !== "Reverse Auction is Active" ? (
                                             <button
                                               type="button"
-                                              className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')}`}
-                                              disabled={quoteDisabled}
+                                              className={`btn ${statusMessage === "RFQ is Closed" ? 'btn-danger' : 'btn-secondary'}`}
+                                              disabled
                                             >
                                               <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                              {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
+                                              {statusMessage}
                                             </button>
                                           ) : (
                                             <Link href={`/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}`}>
-                                              <button type="button" className={`btn ${wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}>
-                                                {wasEndDatePassed && isReverseAuctionActive ? 'Send Quote (Reverse Auction)' : 'Send Quote'}
+                                              <button type="button" className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}>
+                                                {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
                                               </button>
                                             </Link>
                                           )}
