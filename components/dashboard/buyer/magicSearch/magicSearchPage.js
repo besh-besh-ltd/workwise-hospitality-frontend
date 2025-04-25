@@ -1219,22 +1219,6 @@ const MagicSearchPage = () => {
                       </select>
                     </div>
 
-                    <div className="col-md-4 mb-2">
-                      <label htmlFor="reverse_auction" className="form-label ">
-                        Reverse Auction
-                      </label>
-                      <select
-                        type="number"
-                        name="reverse_auction"
-                        id="reverse_auction"
-                        className="form-control border border-dark-subtle"
-                        value={formData?.reverse_auction}
-                        onChange={handleFormChange}
-                      >
-                        <option value={1}>Enable</option>
-                        <option value={0}>Disable</option>
-                      </select>
-                    </div>
 
                     <div className="col-md-4 mb-2">
                       <label htmlFor="bid_end_date" className="form-label ">
@@ -1251,23 +1235,23 @@ const MagicSearchPage = () => {
                       />
                     </div>
 
-                    <div className="col-md-12 mb-2">
-                      <label htmlFor="location" className="form-label ">
-                        Delivery Location (Optional)
+
+                    <div className="col-md-4 mb-2">
+                      <label htmlFor="reverse_auction" className="form-label ">
+                        Reverse Auction
                       </label>
-                      <input
-                        type="text"
-                        name="location"
-                        id="location"
+                      <select
+                        type="number"
+                        name="reverse_auction"
+                        id="reverse_auction"
                         className="form-control border border-dark-subtle"
-                        placeholder="Enter Delivery Location"
-                        value={formData?.location}
+                        value={formData?.reverse_auction}
                         onChange={handleFormChange}
-                      />
+                      >
+                        <option value={1}>Enable</option>
+                        <option value={0}>Disable</option>
+                      </select>
                     </div>
-                  </div>
-                </div>
-              )}
 
               {/* Add auction date fields when reverse auction is enabled */}
               {formData?.reverse_auction == 1 && (
@@ -1299,6 +1283,24 @@ const MagicSearchPage = () => {
                     />
                   </div>
                 </>
+              )}
+
+                    <div className="col-md-12 mb-2">
+                      <label htmlFor="location" className="form-label ">
+                        Delivery Location (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        name="location"
+                        id="location"
+                        className="form-control border border-dark-subtle"
+                        placeholder="Enter Delivery Location"
+                        value={formData?.location}
+                        onChange={handleFormChange}
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
 
               <div className="mx-auto mt-4">
