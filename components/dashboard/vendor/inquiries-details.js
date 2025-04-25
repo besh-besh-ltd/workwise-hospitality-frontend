@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -171,86 +171,105 @@ const RfqManagementPreview = () => {
       });
   };
 
-  const checkIfQuotationSendIsPossible = (rfqd) => {
-    // Check if all products are finalized
-    if (rfqd?.finalizations?.length === rfqd?.products?.length) {
-      setproductleftforbid(false);
-    } else {
-      setproductleftforbid(true);
-    }
-    
-    // Get current date/time and parse all the relevant dates
+  const checkIfQuotationSendIsPossible = useCallback(() => {
     const now = new Date();
-    const bidEndDate = rfqd?.bid_end_date ? new Date(rfqd.bid_end_date) : null;
-    const raStartDate = rfqd?.ra_start_date ? new Date(rfqd.ra_start_date) : null;
-    const raEndDate = rfqd?.ra_end_date ? new Date(rfqd.ra_end_date) : null;
-    const isReverseAuction = rfqd?.reverse_auction === 1;
-    
-    // Determine if bid end date is passed
-    const isBidEndDatePassed = bidEndDate && now > bidEndDate;
-    // Store if end date was passed (for notifications)
-    const previousEndDatePassed = wasEndDatePassed;
-    setWasEndDatePassed(isBidEndDatePassed);
-    
-    // Determine if reverse auction is active
-    const isRaActive = isReverseAuction && raStartDate && 
-      now >= raStartDate && 
-      (!raEndDate || now <= raEndDate);
-    
-    // Check if RA status changed from inactive to active
-    if (isRaActive && !isReverseAuctionActive && previousEndDatePassed) {
-      setRaStatusChanged(true);
+    // Ensure dates are parsed correctly into Date objects
+    const bidEndDate = rfqDetails.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
+    const raStartDate = rfqDetails.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
+    const raEndDate = rfqDetails.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
+    const isReverseAuction = rfqDetails.reverse_auction == 1;
+    const isRfqClosed = rfqDetails.status == 2;
+    // Assume all products are finalized check (replace with actual logic if available)
+    const areAllProductsFinalized = !productleftforbid; 
+
+    let isDisabled = false;
+    let message = "Send Quote";
+    let currentIsReverseAuctionActive = false;
+
+    console.log("Check Quote Possible - Times:", {
+      now: now.toISOString(),
+      bidEnd: bidEndDate?.toISOString(),
+      raStart: raStartDate?.toISOString(),
+      raEnd: raEndDate?.toISOString(),
+      status: rfqDetails.status,
+      reverseAuction: isReverseAuction,
+      allProductsFinalized: areAllProductsFinalized
+    });
+
+    // Priority 1: Is Reverse Auction currently active?
+    if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
+      isDisabled = false; 
+      message = "Reverse Auction is Active";
+      currentIsReverseAuctionActive = true;
+      console.log("Check Result: Allowed (Active RA)");
+    } 
+    // Priority 2: Is the RFQ explicitly closed?
+    else if (isRfqClosed) {
+      isDisabled = true;
+      message = "RFQ is Closed";
+      console.log("Check Result: Disabled (RFQ Closed)");
+    } 
+    // Priority 3: Are all products finalized?
+    else if (areAllProductsFinalized) {
+      isDisabled = true;
+      message = "All Products are Finalized";
+      console.log("Check Result: Disabled (All Products Finalized)");
+    }
+    // Priority 4: Has the normal bidding period ended?
+    else if (bidEndDate && now > bidEndDate) {
+        isDisabled = true; // Assume closed unless RA logic above allowed it
+        if (isReverseAuction) {
+              if (raEndDate && now > raEndDate) {
+                message = "Reverse Auction has Ended";
+                console.log("Check Result: Disabled (RA Ended)");
+              } else if (raStartDate && now < raStartDate) {
+                message = "Bidding Period Ended (Reverse Auction Pending)";
+                console.log("Check Result: Disabled (RA Pending)");
+              } else if (!raStartDate || !raEndDate) {
+                  message = "Bidding Period Ended (RA Dates Invalid)";
+                  console.log("Check Result: Disabled (RA Dates Invalid)");
+              } else {
+                 message = "Bidding Period Ended"; // Fallback
+                 console.log("Check Result: Disabled (Bid End Passed, RA state unclear)");
+              }
+         } else {
+             message = "Bidding Period has Ended"; // No reverse auction
+             console.log("Check Result: Disabled (Bid End Passed, No RA)");
+         }
+    } 
+    // Priority 5: Is there no bid end date? (Likely draft/invalid)
+    else if (!bidEndDate) {
+         isDisabled = true; 
+         message = "RFQ Not Open for Bidding";
+         console.log("Check Result: Disabled (No Bid End Date)");
+    }
+    // else: Bidding is allowed (within bidEndDate, RFQ not closed, RA not applicable or not active yet)
+    else {
+        isDisabled = false;
+        message = "Send Quote"; // Default allowed state
+        console.log("Check Result: Allowed (Standard Bidding Period)");
+    }
+
+    // Final check for RA status change notification
+    if (currentIsReverseAuctionActive && !isReverseAuctionActive) {
+      // RA just became active
+      toast.success("Reverse Auction is now active!");
+    } else if (!currentIsReverseAuctionActive && isReverseAuctionActive) {
+      // RA just became inactive (ended or time passed)
+      // You might want a notification here too, e.g., toast.info("Reverse Auction has ended.");
     }
     
-    setIsReverseAuctionActive(isRaActive);
+    setIsReverseAuctionActive(currentIsReverseAuctionActive); // Update state for lowest price display
+    setQuoteDisabled(isDisabled);
+    setStatusMessage(message);
     
-    // Show lowest price only during active reverse auction
-    const shouldShowLowestPrice = isRaActive;
-    setShowLowestPrice(shouldShowLowestPrice);
-    
-    // Update the currentLowest state based on products and visibility
-    if (rfqd?.products) {
-      const hasLowestQuotation = rfqd.products.some(product => 
-        product.lowest_quotation !== null
-      );
-      setCurrentLowest(hasLowestQuotation && shouldShowLowestPrice);
+  }, [rfqDetails, productleftforbid, isReverseAuctionActive]); // Added isReverseAuctionActive dependency
+
+  useEffect(() => {
+    if (rfqDetails) {
+      checkIfQuotationSendIsPossible();
     }
-    
-    let quoteSubmissionDisabled = false;
-    let statusMessage = "";
-    
-    // Determine quote submission status and message
-    // Check first if reverse auction is active, as this should override other conditions
-    if (isRaActive) {
-      quoteSubmissionDisabled = false;
-      statusMessage = "Reverse Auction is Active";
-    } else if (rfqd.status === 2) {
-      quoteSubmissionDisabled = true;
-      statusMessage = "RFQ is Closed";
-    } else if (!productleftforbid) {
-      quoteSubmissionDisabled = true;
-      statusMessage = "All Products are Finalized";
-    } else if (isBidEndDatePassed) {
-      if (isReverseAuction) {
-        if (raStartDate && now < raStartDate) {
-          quoteSubmissionDisabled = true;
-          statusMessage = "Waiting for Reverse Auction to Start";
-        } else if (raEndDate && now > raEndDate) {
-          quoteSubmissionDisabled = true;
-          statusMessage = "Reverse Auction has Ended";
-        } else {
-          quoteSubmissionDisabled = true;
-          statusMessage = "Bidding Period has Ended";
-        }
-      } else {
-        quoteSubmissionDisabled = true;
-        statusMessage = "Bidding Period has Ended";
-      }
-    }
-    
-    setQuoteDisabled(quoteSubmissionDisabled);
-    setStatusMessage(statusMessage);
-  };
+  }, [rfqDetails, checkIfQuotationSendIsPossible]);
 
   const handleRegretQuote = ({ regret_reason }, resetForm) => {
     let bidProducts = [];
@@ -966,38 +985,16 @@ const RfqManagementPreview = () => {
                                 
                                 {rfqDetails?.reverse_auction == 1 && (
                                   <>
-                                    <div className="col-md-3">
-                                      <div className="form-group mt-0 mb-2">
-                                        <label htmlFor="ra_start_date" className="form-label">
-                                          Auction Start Date
-                                        </label>
-                                        <input
-                                          type="text"
-                                          id="ra_start_date"
-                                          className="form-control"
-                                          name="ra_start_date"
-                                          disabled
-                                          value={rfqDetails?.ra_start_date && rfqDetails.ra_start_date !== "null" && rfqDetails.ra_start_date !== "" 
-                                            ? rfqDetails.ra_start_date 
-                                            : "Not specified"}
-                                        />
+                                    <div className="col-md-6">
+                                      <div className="mb-3">
+                                        <label htmlFor="auctionStartDate" className="form-label">Auction Start Date & Time</label>
+                                        <input type="text" className="form-control" id="auctionStartDate" value={rfqDetails.ra_start_date ? new Date(rfqDetails.ra_start_date).toLocaleString() : 'Not specified'} disabled />
                                       </div>
                                     </div>
-                                    <div className="col-md-3">
-                                      <div className="form-group mt-0 mb-2">
-                                        <label htmlFor="ra_end_date" className="form-label">
-                                          Auction End Date
-                                        </label>
-                                        <input
-                                          type="text"
-                                          id="ra_end_date"
-                                          className="form-control"
-                                          name="ra_end_date"
-                                          disabled
-                                          value={rfqDetails?.ra_end_date && rfqDetails.ra_end_date !== "null" && rfqDetails.ra_end_date !== "" 
-                                            ? rfqDetails.ra_end_date 
-                                            : "Not specified"}
-                                        />
+                                    <div className="col-md-6">
+                                      <div className="mb-3">
+                                        <label htmlFor="auctionEndDate" className="form-label">Auction End Date & Time</label>
+                                        <input type="text" className="form-control" id="auctionEndDate" value={rfqDetails.ra_end_date ? new Date(rfqDetails.ra_end_date).toLocaleString() : 'Not specified'} disabled />
                                       </div>
                                     </div>
                                   </>

@@ -34,6 +34,26 @@ const initialFormData = {
     company_name: '',
 }
 
+// Helper function to format ISO datetime string to datetime-local input value
+const formatISOToDateTimeLocal = (isoString) => {
+  if (!isoString) return '';
+  
+  // Create Date object from ISO string
+  const date = new Date(isoString);
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) return '';
+  
+  // Format to the required format for datetime-local input: YYYY-MM-DDThh:mm
+  // Using padStart to ensure month, day, hours, minutes have leading zeros if needed
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 const MagicSearchPage = () => {
     const tableRef = useRef(null);
@@ -172,8 +192,8 @@ const MagicSearchPage = () => {
                 setFormData({
                     ...formData,
                     reverse_auction: newValue,
-                    ra_start_date: auctionStartDate.toISOString().split('T')[0],
-                    ra_end_date: auctionEndDate.toISOString().split('T')[0]
+                    ra_start_date: auctionStartDate.toISOString(),
+                    ra_end_date: auctionEndDate.toISOString()
                 });
                 return;
             } else if (newValue === 0) {
@@ -193,7 +213,7 @@ const MagicSearchPage = () => {
             const bidEndDate = new Date(value);
             
             // Set auction end date to bid end date
-            const auctionEndDate = bidEndDate.toISOString().split('T')[0];
+            const auctionEndDate = bidEndDate;
             
             // Set auction start date to day before bid end date
             const auctionStartDate = new Date(bidEndDate);
@@ -202,10 +222,22 @@ const MagicSearchPage = () => {
             setFormData({
                 ...formData,
                 [name]: value,
-                ra_end_date: auctionEndDate,
-                ra_start_date: auctionStartDate.toISOString().split('T')[0]
+                ra_end_date: auctionEndDate.toISOString(),
+                ra_start_date: auctionStartDate.toISOString()
             });
             return;
+        }
+        // Handle datetime-local inputs for auction dates
+        else if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+            // Convert from datetime-local string format to ISO string
+            const dateObj = new Date(value);
+            if (!isNaN(dateObj.getTime())) {
+                setFormData({
+                    ...formData,
+                    [name]: dateObj.toISOString()
+                });
+                return;
+            }
         }
         
         setFormData({
@@ -1242,27 +1274,27 @@ const MagicSearchPage = () => {
                 <>
                   <div className="col-md-4 mb-2">
                     <label htmlFor="ra_start_date" className="form-label">
-                      Auction Start Date
+                      RA Start Date & Time
                     </label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       name="ra_start_date"
                       id="ra_start_date"
                       className="form-control border border-dark-subtle"
-                      value={formData?.ra_start_date}
+                      value={formatISOToDateTimeLocal(formData?.ra_start_date)}
                       onChange={handleFormChange}
                     />
                   </div>
                   <div className="col-md-4 mb-2">
                     <label htmlFor="ra_end_date" className="form-label">
-                      Auction End Date
+                      RA End Date & Time
                     </label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       name="ra_end_date"
                       id="ra_end_date"
                       className="form-control border border-dark-subtle"
-                      value={formData?.ra_end_date}
+                      value={formatISOToDateTimeLocal(formData?.ra_end_date)}
                       onChange={handleFormChange}
                     />
                   </div>
