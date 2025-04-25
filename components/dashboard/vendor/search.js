@@ -1049,7 +1049,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   </div>
-                  <div className="search-con-right-1">
+                  {/* <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Turn Over</p>
                     {(turnOver.from > 0 || turnOver.to > 0) && (
                       <Link
@@ -1102,8 +1102,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         </div>
                       </div>
                     </div>
-                  </div>
-                  {/* <div className="search-con-right-1">
+                  </div> */}
+                  <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
                     <div
                       ref={vendorTypeRef}
@@ -1167,7 +1167,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         </ul>
                       )}
                     </div>
-                  </div> */}
+                  </div>
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Previously Worked With</p>
                     <div>

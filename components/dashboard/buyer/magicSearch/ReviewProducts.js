@@ -525,7 +525,7 @@ const ReviewProducts = ({
                                     </div>
                                   </div>
                                   <div className="row mt-3">
-                                    <div className="col-md-6">
+                                    {/* <div className="col-md-6">
                                       <p className="fw-medium  mb-2">
                                         Turnover Filters
                                       </p>
@@ -576,7 +576,7 @@ const ReviewProducts = ({
                                           </div>
                                         </div>
                                       </div>
-                                    </div>
+                                    </div> */}
                                     <div className="col-md-6">
                                       <p className="fw-medium  mb-2 opacity-0">
                                         x
