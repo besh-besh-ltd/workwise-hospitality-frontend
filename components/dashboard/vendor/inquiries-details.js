@@ -11,7 +11,7 @@ import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-ico
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
@@ -174,11 +174,11 @@ const RfqManagementPreview = () => {
   const checkIfQuotationSendIsPossible = useCallback(() => {
     const now = new Date();
     // Ensure dates are parsed correctly into Date objects
-    const bidEndDate = rfqDetails.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
-    const raStartDate = rfqDetails.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
-    const raEndDate = rfqDetails.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
-    const isReverseAuction = rfqDetails.reverse_auction == 1;
-    const isRfqClosed = rfqDetails.status == 2;
+    const bidEndDate = rfqDetails?.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
+    const raStartDate = rfqDetails?.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
+    const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
+    const isReverseAuction = rfqDetails?.reverse_auction == 1;
+    const isRfqClosed = rfqDetails?.status == 2;
     // Assume all products are finalized check (replace with actual logic if available)
     const areAllProductsFinalized = !productleftforbid; 
 
@@ -191,7 +191,7 @@ const RfqManagementPreview = () => {
       bidEnd: bidEndDate?.toISOString(),
       raStart: raStartDate?.toISOString(),
       raEnd: raEndDate?.toISOString(),
-      status: rfqDetails.status,
+      status: rfqDetails?.status,
       reverseAuction: isReverseAuction,
       allProductsFinalized: areAllProductsFinalized
     });
@@ -950,7 +950,7 @@ const RfqManagementPreview = () => {
 
                               {rfqDetails?.rfq_type && rfqDetails?.rfq_type != "" &&
                                 <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
+                                  <div className="form-group ">
                                     <label htmlFor="rfq_type" className="form-label">
                                       RFQ Type
                                     </label>
@@ -965,45 +965,71 @@ const RfqManagementPreview = () => {
                                   </div>
                                 </div>}
 
-                              {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction != "" &&
-                                <>
-                                <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
-                                    <label htmlFor="reverse_auction" className="form-label">
-                                      Reverse Auction
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="reverse_auction"
-                                      className="form-control"
-                                      name="reverse_auction"
-                                      disabled
-                                      value={`${rfqDetails?.reverse_auction == 1 ? 'Enabled' : 'Disabled'}`}
-                                    />
+                                {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction !== "" ? (
+                                <div className="col-9">
+                                  <div className="form-group mt-0">                              
+                                    <div className="row">
+                                      <div className="col-md-4">
+                                        <div className="form-group">
+                                          <label className="form-label">Reverse Auction</label>
+                                          <input
+                                            type="text"
+                                            className="form-control"
+                                            disabled
+                                            value={rfqDetails.reverse_auction == 1 ? 'Enabled' : 'Disabled'}
+                                          />
+                                        </div>
+                                      </div>
+                              
+                                      {rfqDetails.reverse_auction == 1 && (
+                                        <>
+                                          <div className="col-md-4">
+                                            <div className="form-group">
+                                              <label className="form-label">Reverse Auction Start Time</label>
+                                              <input
+                                                type="text"
+                                                className="form-control"
+                                                disabled
+                                                value={ rfqDetails.ra_start_date
+                                                        ? `${new Date(rfqDetails.ra_start_date).toISOString().split('T')[0]}, ${new Date(rfqDetails.ra_end_date).toLocaleTimeString([], {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            hour12: true
+                                                          })}`
+                                                        : 'Not specified'
+                                                    }
+                                              />
+                                            </div>
+                                          </div>
+                              
+                                          <div className="col-md-4">
+                                            <div className="form-group">
+                                              <label className="form-label">Reverse Auction End Time</label>
+                                              <input
+                                                type="text"
+                                                className="form-control"
+                                                disabled
+                                                value={ rfqDetails.ra_end_date
+                                                        ? `${new Date(rfqDetails.ra_end_date).toISOString().split('T')[0]}, ${new Date(rfqDetails.ra_end_date).toLocaleTimeString([], {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                            hour12: true
+                                                          })}`
+                                                        : 'Not specified'
+                                                    }
+                                          />
+                                            </div>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                                
-                                {rfqDetails?.reverse_auction == 1 && (
-                                  <>
-                                    <div className="col-md-6">
-                                      <div className="mb-3">
-                                        <label htmlFor="auctionStartDate" className="form-label">Auction Start Date & Time</label>
-                                        <input type="text" className="form-control" id="auctionStartDate" value={rfqDetails.ra_start_date ? new Date(rfqDetails.ra_start_date).toLocaleString() : 'Not specified'} disabled />
-                                      </div>
-                                    </div>
-                                    <div className="col-md-6">
-                                      <div className="mb-3">
-                                        <label htmlFor="auctionEndDate" className="form-label">Auction End Date & Time</label>
-                                        <input type="text" className="form-control" id="auctionEndDate" value={rfqDetails.ra_end_date ? new Date(rfqDetails.ra_end_date).toLocaleString() : 'Not specified'} disabled />
-                                      </div>
-                                    </div>
-                                  </>
-                                )}
-                                </>}
-
+                              ):""}
+                              
                               {rfqDetails?.bid_end_date && rfqDetails?.bid_end_date != "" &&
                                 <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
+                                  <div className="form-group">
                                     <label htmlFor="bid_end_date" className="form-label">
                                       Procurement End Date
                                     </label>
