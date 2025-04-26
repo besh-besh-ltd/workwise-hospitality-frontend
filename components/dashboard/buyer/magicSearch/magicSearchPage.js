@@ -246,7 +246,7 @@ const MagicSearchPage = () => {
                 // Set auction end date to bid end date with default time
                 const auctionEndTime = '17:00:00';
                 const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
-                
+            
                 // Set auction start date to day before bid end date with default time
                 const auctionStartDate = new Date(bidEndDate);
                 auctionStartDate.setDate(auctionStartDate.getDate() - 1);
@@ -261,7 +261,7 @@ const MagicSearchPage = () => {
                     ra_start_date: auctionStartDateTimeStr
                 });
                 return;
-            } else {
+        } else {
                 // Just update the bid end date without changing the auction dates
                 setFormData({
                     ...formData,
@@ -643,6 +643,12 @@ const MagicSearchPage = () => {
             rfqPayload.ra_end_date = null;
         }
 
+        console.log("RFQ Creation Final Payload:", {
+            reverse_auction: rfqPayload.reverse_auction,
+            ra_start_date: rfqPayload.ra_start_date,
+            ra_end_date: rfqPayload.ra_end_date,
+            bid_end_date: rfqPayload.bid_end_date
+        });
 
         setSubmitLoading(true);
         createRfq(rfqPayload)
@@ -1351,19 +1357,19 @@ const MagicSearchPage = () => {
               {/* Add auction date fields when reverse auction is enabled */}
               {formData?.reverse_auction == 1 && (
                 <>
-                  <div className="col-md-4 mb-2">
+                    <div className="col-md-4 mb-2">
                     <label htmlFor="ra_start_date" className="form-label">
                       RA Start Date & Time
-                    </label>
-                    <input
+                      </label>
+                      <input
                       type="datetime-local"
                       name="ra_start_date"
                       id="ra_start_date"
-                      className="form-control border border-dark-subtle"
+                        className="form-control border border-dark-subtle"
                       value={formatISOToDateTimeLocal(formData?.ra_start_date)}
-                      onChange={handleFormChange}
-                    />
-                  </div>
+                        onChange={handleFormChange}
+                      />
+                    </div>
                   <div className="col-md-4 mb-2">
                     <label htmlFor="ra_end_date" className="form-label">
                       RA End Date & Time
