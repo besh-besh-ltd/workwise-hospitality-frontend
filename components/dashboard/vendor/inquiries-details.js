@@ -4,7 +4,7 @@ import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import { Router, useRouter } from "next/router";
-import { closeRFQ, getAllClauses, getRFQById, sendQuotation } from "@/services/rfq";
+import { closeRFQ, getAllClauses, getRFQById, sendQuotation, getTechClearedVendorsResult } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 import PlaceholderLoading from "react-placeholder-loading";
 import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -38,6 +38,7 @@ const RfqManagementPreview = () => {
   const [showLowestPrice, setShowLowestPrice] = useState(false);
   const [wasEndDatePassed, setWasEndDatePassed] = useState(false);
   const [raStatusChanged, setRaStatusChanged] = useState(false);
+  const [techAcceptedProducts, setTechAcceptedProducts] = useState(new Map());
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -142,8 +143,21 @@ const RfqManagementPreview = () => {
 
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
-      const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
-      setCurrentLowest(hasLowestQuotation && showLowestPrice);
+      // Check if any product has a lowest quotation AND should show lowest price
+      const hasLowestQuotation = products.some(product => {
+        // For reverse auction active:
+        // 1. If technical evaluation is enabled for this product, vendor must be technically accepted
+        // 2. If technical evaluation is not enabled, all vendors can see the lowest
+        const canSeeLowest = !isReverseAuctionActive || 
+                            !clauseMap || 
+                            !clauseMap.get(product.id) || 
+                            techAcceptedProducts.get(product.id);
+                            
+        return product.lowest_quotation !== null && canSeeLowest;
+      });
+      
+      setCurrentLowest(hasLowestQuotation && (isReverseAuctionActive || showLowestPrice));
+      console.log("Current lowest updated. Can see lowest:", hasLowestQuotation && (isReverseAuctionActive || showLowestPrice));
     } else {
       setCurrentLowest(null);
     }
@@ -198,10 +212,27 @@ const RfqManagementPreview = () => {
 
     // Priority 1: Is Reverse Auction currently active?
     if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
-      isDisabled = false; 
-      message = "Reverse Auction is Active";
-      currentIsReverseAuctionActive = true;
-      console.log("Check Result: Allowed (Active RA)");
+      // For RA, check if vendor is technically accepted for at least one product
+      const hasTechAcceptedProducts = rfqDetails?.products?.some(product => {
+        // If tech eval enabled for this product, check if vendor is accepted
+        if (clauseMap && clauseMap.get(product.id)) {
+          return techAcceptedProducts.get(product.id);
+        }
+        // If no tech eval for this product, vendor can participate
+        return true;
+      });
+      
+      if (hasTechAcceptedProducts) {
+        isDisabled = false;
+        message = "Reverse Auction is Active";
+        currentIsReverseAuctionActive = true;
+        console.log("Check Result: Allowed (Active RA, Technically Accepted)");
+      } else {
+        isDisabled = true;
+        message = "Not Technically Accepted for RA";
+        currentIsReverseAuctionActive = true; // RA is still active, just can't participate
+        console.log("Check Result: Disabled (Active RA, Not Technically Accepted)");
+      }
     } 
     // Priority 2: Is the RFQ explicitly closed?
     else if (isRfqClosed) {
@@ -263,13 +294,76 @@ const RfqManagementPreview = () => {
     setQuoteDisabled(isDisabled);
     setStatusMessage(message);
     
-  }, [rfqDetails, productleftforbid, isReverseAuctionActive]); // Added isReverseAuctionActive dependency
+  }, [rfqDetails, productleftforbid, isReverseAuctionActive, clauseMap, techAcceptedProducts]); // Added dependencies
 
   useEffect(() => {
     if (rfqDetails) {
       checkIfQuotationSendIsPossible();
+      
+      // Prevent infinite API call loops by adding debounce
+      const checkTechStatus = setTimeout(() => {
+        checkTechnicalAcceptanceStatus();
+      }, 500);
+      
+      return () => clearTimeout(checkTechStatus);
     }
   }, [rfqDetails, checkIfQuotationSendIsPossible]);
+
+  const checkTechnicalAcceptanceStatus = async () => {
+    if (!rfqDetails || !rfqDetails.products || !clauseMap) return;
+    
+    const techAccepted = new Map();
+    
+    // Get vendor ID and validate it's a number
+    const vendorId = storageInstance.getStorage("userId");
+    const parsedVendorId = parseInt(vendorId);
+    
+    if (!vendorId || isNaN(parsedVendorId)) {
+      console.warn("Invalid vendor_id, cannot check technical evaluation status");
+      // Mark all products as not technically accepted if we can't verify
+      rfqDetails.products.forEach(product => {
+        techAccepted.set(product.id, false);
+      });
+      setTechAcceptedProducts(techAccepted);
+      updatecurrentLowest(rfqDetails.products);
+      return;
+    }
+    
+    let hasApiError = false;
+    
+    // Only check for products that have technical evaluation enabled
+    for (const product of rfqDetails.products) {
+      if (clauseMap.get(product.id)) {
+        try {
+          const payload = {
+            rfq_id: parseInt(rfqDetails.id),
+            rfq_product_id: product.id,
+            vendor_id: parsedVendorId, // Use the parsed integer value
+          };
+          
+          const response = await getTechClearedVendorsResult(payload);
+          // Product is technically accepted if status is 1 and the response data status is also 1
+          const isAccepted = response.status === 1 && response.data && response.data.status === 1;
+          techAccepted.set(product.id, isAccepted);
+          console.log(`Technical status for product ${product.id}: ${isAccepted ? 'Accepted' : 'Not Accepted'}`);
+        } catch (error) {
+          console.error(`Error checking technical status for product ${product.id}:`, error);
+          techAccepted.set(product.id, false); // Default to not accepted if there's an error
+          hasApiError = true;
+        }
+      } else {
+        // If technical evaluation is not enabled for this product, consider it accepted
+        techAccepted.set(product.id, true);
+      }
+    }
+    
+    // Only update state if we haven't unmounted and there were no API errors
+    if (!hasApiError) {
+      setTechAcceptedProducts(techAccepted);
+      // After updating technical acceptance status, refresh the current lowest prices
+      updatecurrentLowest(rfqDetails.products);
+    }
+  };
 
   const handleRegretQuote = ({ regret_reason }, resetForm) => {
     let bidProducts = [];
@@ -744,6 +838,12 @@ const RfqManagementPreview = () => {
                                     break;
                                 }
                               })
+                              
+                              // Only show the lowest price if the vendor is technically accepted or technical evaluation is not enabled
+                              const showLowestForProduct = !clauseMap || 
+                                                          !clauseMap.get(item.id) || 
+                                                          techAcceptedProducts.get(item.id);
+                                                          
                               return (
                                 <tr key={`${item?.id}_${item?.product_id}_${item?.variant}`}>
                                   <td>{item?.product_details[0]?.name}</td>
@@ -772,7 +872,13 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {isReverseAuctionActive && (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>)}
+                                  {isReverseAuctionActive && 
+                                    (item?.lowest_quotation && showLowestForProduct ? 
+                                      <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : 
+                                      <td>{clauseMap && clauseMap.get(item.id) && !techAcceptedProducts.get(item.id) ? 
+                                        "Not Technically Accepted" : "--"}</td>
+                                    )
+                                  }
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
@@ -828,27 +934,26 @@ const RfqManagementPreview = () => {
                                     </td>
                                   }
 
-                                        <td>
-                                      {clauseMap && clauseMap.get(item.id)
-                                        ? <a
-                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}&token=${token}`}
-                                          className="text-dark-blue"
-                                          style={{
-                                            fontSize: '0.8rem',
-                                            padding: '5px 10px',
-                                            display: 'inline-block',
-                                            border: 'none',
-                                            backgroundColor: 'lightblue',
-                                            color: 'darkblue',
-                                            textDecoration: 'none',
-                                          }}
-
-                                        >
-                                          View Evaluation
-                                        </a>
-                                        : "N/A"
-                                      }
-                                    </td>
+                                  <td>
+                                    {clauseMap && clauseMap.get(item.id)
+                                      ? <a
+                                        href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}&token=${token}`}
+                                        className="text-dark-blue"
+                                        style={{
+                                          fontSize: '0.8rem',
+                                          padding: '5px 10px',
+                                          display: 'inline-block',
+                                          border: 'none',
+                                          backgroundColor: techAcceptedProducts.get(item.id) ? 'lightgreen' : 'lightblue',
+                                          color: techAcceptedProducts.get(item.id) ? 'darkgreen' : 'darkblue',
+                                          textDecoration: 'none',
+                                        }}
+                                      >
+                                        {techAcceptedProducts.get(item.id) ? "Technically Accepted" : "View Evaluation"}
+                                      </a>
+                                      : "N/A"
+                                    }
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -1143,9 +1248,10 @@ const RfqManagementPreview = () => {
                                       <div className="submitted-quotation">
                                         <h4>
                                           You've already submitted a quotation on{" "}
-                                          {moment(
-                                            new Date(rfqDetails?.quotations[0]?.timestamp
-                                          )).format("HH:mm A - DD/MM/YYYY")}{" "}
+                                          {moment
+                                            .utc(rfqDetails?.quotations[0]?.timestamp)
+                                            .local()
+                                            .format("hh:mm A - DD/MM/YYYY")}{" "}
                                         </h4>
 
                                         {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
