@@ -38,6 +38,8 @@ const RfqManagementPreview = () => {
   const [showLowestPrice, setShowLowestPrice] = useState(false);
   const [wasEndDatePassed, setWasEndDatePassed] = useState(false);
   const [raStatusChanged, setRaStatusChanged] = useState(false);
+  // Add technical evaluation statuses tracking
+  const [techEvalStatuses, setTechEvalStatuses] = useState({});
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -142,7 +144,27 @@ const RfqManagementPreview = () => {
 
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
-      const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
+      // Extract technical evaluation status for each product
+      const techStatuses = {};
+      products.forEach(product => {
+        if (product.tech_evaluation_status) {
+          techStatuses[product.id] = product.tech_evaluation_status;
+        }
+      });
+      setTechEvalStatuses(techStatuses);
+      
+      // Determine if lowest quotation should be visible based on technical evaluation
+      const hasLowestQuotation = products.some(product => {
+        // Show lowest quote if it exists and either:
+        // 1. Product doesn't have technical evaluation, or
+        // 2. Product has technical evaluation and vendor is accepted
+        const hasTechEval = product.tech_evaluation_status?.has_tech_eval;
+        const isAccepted = product.tech_evaluation_status?.is_accepted;
+        
+        return product.lowest_quotation !== null && 
+               (!hasTechEval || (hasTechEval && isAccepted));
+      });
+      
       setCurrentLowest(hasLowestQuotation && showLowestPrice);
     } else {
       setCurrentLowest(null);
@@ -772,7 +794,32 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {isReverseAuctionActive && (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>)}
+                                  {isReverseAuctionActive && (
+                                    item?.lowest_quotation ? 
+                                      <td>
+                                        {addCommasToNumber(item?.lowest_quotation?.total_price)}
+                                        {techEvalStatuses[item.id]?.has_tech_eval && !techEvalStatuses[item.id]?.is_accepted && (
+                                          <div className="mt-1">
+                                            <small className="text-warning">
+                                              <i className="fas fa-info-circle me-1"></i>
+                                              You are seeing this because you're technically accepted
+                                            </small>
+                                          </div>
+                                        )}
+                                      </td> 
+                                    : 
+                                      <td>
+                                        --
+                                        {techEvalStatuses[item.id]?.has_tech_eval && !techEvalStatuses[item.id]?.is_accepted && (
+                                          <div className="mt-1">
+                                            <small className="text-warning">
+                                              <i className="fas fa-info-circle me-1"></i>
+                                              Technical acceptance required to see lowest quote
+                                            </small>
+                                          </div>
+                                        )}
+                                      </td>
+                                  )}
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
