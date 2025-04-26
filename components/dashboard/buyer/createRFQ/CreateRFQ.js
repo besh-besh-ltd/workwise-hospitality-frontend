@@ -31,21 +31,26 @@ import { getCountryCodes } from "@/services/cms";
 const formatISOToDateTimeLocal = (isoString) => {
   if (!isoString) return '';
   
-  // Create Date object from ISO string
-  const date = new Date(isoString);
+  // Directly parse the date parts from the string without timezone conversion
+  // Expected format from backend: '2025-04-26 05:00:00' or ISO format
+  let parts;
   
-  // Check if the date is valid
-  if (isNaN(date.getTime())) return '';
-  
-  // Format to the required format for datetime-local input: YYYY-MM-DDThh:mm
-  // Using padStart to ensure month, day, hours, minutes have leading zeros if needed
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  if (isoString.includes('T')) {
+    // Handle ISO format (2025-04-26T05:00:00.000Z)
+    parts = isoString.split('T')[0].split('-');
+    const timeParts = isoString.split('T')[1].split('.')[0].split(':');
+    return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
+  } else if (isoString.includes(' ')) {
+    // Handle SQL format (2025-04-26 05:00:00)
+    const [datePart, timePart] = isoString.split(' ');
+    parts = datePart.split('-');
+    const timeParts = timePart.split(':');
+    return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
+  } else {
+    // If just a date string without time
+    parts = isoString.split('-');
+    return `${parts[0]}-${parts[1]}-${parts[2]}T00:00`;
+  }
 };
 
 const CreateRFQ = () => {
@@ -293,12 +298,41 @@ const CreateRFQ = () => {
     if (name === "reverse_auction") {
       value = parseInt(value);
 
-        if (value === 0) {
-          // Clear reverse auction dates when disabled
-          dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
-          dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
+      if (value === 0) {
+        // Clear reverse auction dates when disabled
+        dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
+        dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
+      } else if (value === 1) {
+        // When enabling reverse auction, set default dates only if both dates are currently empty
+        if ((!rfqFormDataFromStore.ra_start_date || rfqFormDataFromStore.ra_start_date === '') && 
+            (!rfqFormDataFromStore.ra_end_date || rfqFormDataFromStore.ra_end_date === '') && 
+            rfqFormDataFromStore.bid_end_date) {
+          
+          // Set end date to bid end date with default time
+          const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
+          const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
+          const auctionEndTime = '17:00:00';
+          const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
+          
+          // Set start date to day before end date
+          const auctionStartDate = new Date(bidEndDate);
+          auctionStartDate.setDate(auctionStartDate.getDate() - 1);
+          const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
+          const auctionStartTime = '08:00:00';
+          const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
+          
+          dispatch(setOtherFormFields({ field_name: "ra_start_date", value: auctionStartDateTimeStr }));
+          dispatch(setOtherFormFields({ field_name: "ra_end_date", value: auctionEndDateStr }));
+        }
       }
+    }
 
+    // Handle datetime-local inputs for auction dates
+    if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+      // Convert from datetime-local format to server expected format
+      // This preserves the exact time without timezone adjustments
+      const [datePart, timePart] = value.split('T');
+      value = `${datePart} ${timePart}:00`;
     }
 
     if (name === "project_id" && value !== -1) {
@@ -374,13 +408,36 @@ const CreateRFQ = () => {
     if (formDataCopy.reverse_auction === 1) {
       // Make sure we have concrete dates, not empty strings
       if (!formDataCopy.ra_start_date || formDataCopy.ra_start_date === '') {
-        formDataCopy.ra_start_date = new Date().toISOString().split('T')[0];
+        // Create a default start date in server format
+        const defaultStart = new Date();
+        defaultStart.setDate(defaultStart.getDate() + 1);
+        const startDate = defaultStart.toISOString().split('T')[0];
+        const startTime = '08:00:00';
+        formDataCopy.ra_start_date = `${startDate} ${startTime}`;
         console.log("Fixed missing ra_start_date in payload:", formDataCopy.ra_start_date);
       }
       
       if ((!formDataCopy.ra_end_date || formDataCopy.ra_end_date === '') && formDataCopy.bid_end_date) {
-        formDataCopy.ra_end_date = formDataCopy.bid_end_date;
+        // Set end date to bid end date with default time
+        const endDate = formDataCopy.bid_end_date;
+        const endTime = '17:00:00';
+        formDataCopy.ra_end_date = `${endDate} ${endTime}`;
         console.log("Fixed missing ra_end_date in payload:", formDataCopy.ra_end_date);
+      }
+      
+      // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
+      if (formDataCopy.ra_start_date && !formDataCopy.ra_start_date.includes(' ')) {
+        if (formDataCopy.ra_start_date.includes('T')) {
+          const [date, time] = formDataCopy.ra_start_date.split('T');
+          formDataCopy.ra_start_date = `${date} ${time}:00`;
+        }
+      }
+      
+      if (formDataCopy.ra_end_date && !formDataCopy.ra_end_date.includes(' ')) {
+        if (formDataCopy.ra_end_date.includes('T')) {
+          const [date, time] = formDataCopy.ra_end_date.split('T');
+          formDataCopy.ra_end_date = `${date} ${time}:00`;
+        }
       }
     } else if (formDataCopy.reverse_auction === 0) {
       // If reverse auction is disabled, explicitly set dates to null

@@ -991,11 +991,32 @@ const RfqManagementPreview = () => {
                                                 className="form-control"
                                                 disabled
                                                 value={ rfqDetails.ra_start_date
-                                                        ? `${new Date(rfqDetails.ra_start_date).toISOString().split('T')[0]}, ${new Date(rfqDetails.ra_end_date).toLocaleTimeString([], {
-                                                            hour: 'numeric',
-                                                            minute: '2-digit',
-                                                            hour12: true
-                                                          })}`
+                                                        ? (() => {
+                                                            try {
+                                                              // Parse the date string - support both formats
+                                                              let dateObj;
+                                                              if (rfqDetails.ra_start_date.includes('T')) {
+                                                                // ISO format
+                                                                dateObj = new Date(rfqDetails.ra_start_date);
+                                                              } else if (rfqDetails.ra_start_date.includes(' ')) {
+                                                                // YYYY-MM-DD HH:MM:SS format
+                                                                const [datePart, timePart] = rfqDetails.ra_start_date.split(' ');
+                                                                dateObj = new Date(`${datePart}T${timePart}`);
+                                                              } else {
+                                                                // Just date
+                                                                dateObj = new Date(rfqDetails.ra_start_date);
+                                                              }
+                                                              
+                                                              return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true
+                                                              })}`;
+                                                            } catch (e) {
+                                                              console.error("Error formatting start date:", e);
+                                                              return rfqDetails.ra_start_date; // Fallback to raw value
+                                                            }
+                                                          })()
                                                         : 'Not specified'
                                                     }
                                               />
@@ -1010,11 +1031,32 @@ const RfqManagementPreview = () => {
                                                 className="form-control"
                                                 disabled
                                                 value={ rfqDetails.ra_end_date
-                                                        ? `${new Date(rfqDetails.ra_end_date).toISOString().split('T')[0]}, ${new Date(rfqDetails.ra_end_date).toLocaleTimeString([], {
-                                                            hour: 'numeric',
-                                                            minute: '2-digit',
-                                                            hour12: true
-                                                          })}`
+                                                        ? (() => {
+                                                            try {
+                                                              // Parse the date string - support both formats
+                                                              let dateObj;
+                                                              if (rfqDetails.ra_end_date.includes('T')) {
+                                                                // ISO format
+                                                                dateObj = new Date(rfqDetails.ra_end_date);
+                                                              } else if (rfqDetails.ra_end_date.includes(' ')) {
+                                                                // YYYY-MM-DD HH:MM:SS format
+                                                                const [datePart, timePart] = rfqDetails.ra_end_date.split(' ');
+                                                                dateObj = new Date(`${datePart}T${timePart}`);
+                                                              } else {
+                                                                // Just date
+                                                                dateObj = new Date(rfqDetails.ra_end_date);
+                                                              }
+                                                              
+                                                              return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true
+                                                              })}`;
+                                                            } catch (e) {
+                                                              console.error("Error formatting end date:", e);
+                                                              return rfqDetails.ra_end_date; // Fallback to raw value
+                                                            }
+                                                          })()
                                                         : 'Not specified'
                                                     }
                                           />
