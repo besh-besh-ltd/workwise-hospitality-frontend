@@ -277,27 +277,23 @@ const CreateRFQ = () => {
         dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
         dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
       } else if (value === 1) {
-        // When enabling reverse auction, set default dates only if both dates are currently empty
-        if ((!rfqFormDataFromStore.ra_start_date || rfqFormDataFromStore.ra_start_date === '') && 
-            (!rfqFormDataFromStore.ra_end_date || rfqFormDataFromStore.ra_end_date === '') && 
-            rfqFormDataFromStore.bid_end_date) {
-          
-          // Set end date to bid end date with default time
-          const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
-          const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
-          const auctionEndTime = '17:00:00';
-          const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
-          
-          // Set start date to day before end date
-          const auctionStartDate = new Date(bidEndDate);
-          auctionStartDate.setDate(auctionStartDate.getDate() - 1);
-          const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
-          const auctionStartTime = '08:00:00';
-          const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
-          
-          dispatch(setOtherFormFields({ field_name: "ra_start_date", value: auctionStartDateTimeStr }));
-          dispatch(setOtherFormFields({ field_name: "ra_end_date", value: auctionEndDateStr }));
-        }
+        // When enabling reverse auction, set default dates
+        const bidEndDate = rfqFormDataFromStore.bid_end_date ? new Date(rfqFormDataFromStore.bid_end_date) : new Date();
+        
+        // Set end date to bid end date with default time
+        const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
+        const auctionEndTime = '17:00:00';
+        const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
+        
+        // Set start date to day before end date
+        const auctionStartDate = new Date(bidEndDate);
+        auctionStartDate.setDate(auctionStartDate.getDate() - 1);
+        const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
+        const auctionStartTime = '08:00:00';
+        const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
+        
+        dispatch(setOtherFormFields({ field_name: "ra_start_date", value: auctionStartDateTimeStr }));
+        dispatch(setOtherFormFields({ field_name: "ra_end_date", value: auctionEndDateStr }));
       }
     }
 
@@ -615,6 +611,42 @@ const CreateRFQ = () => {
       router.events.off("routeChangeStart", handleRouteChange);
     };
   }, [hasUnsavedChanges, router]);
+
+  useEffect(() => {
+    // Only set default values if reverse auction is enabled, we have a bid end date, and either RA date is missing
+    if (
+      rfqFormDataFromStore.reverse_auction === 1 &&
+      rfqFormDataFromStore.bid_end_date &&
+      (!rfqFormDataFromStore.ra_start_date || rfqFormDataFromStore.ra_start_date === '' || 
+       !rfqFormDataFromStore.ra_end_date || rfqFormDataFromStore.ra_end_date === '')
+    ) {
+      console.log("Setting default RA dates based on bid end date:", rfqFormDataFromStore.bid_end_date);
+      
+      // Parse bid end date
+      const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
+      
+      // Calculate RA end date (same day as bid end date)
+      const endDateStr = bidEndDate.toISOString().split('T')[0];
+      const endDateWithTime = `${endDateStr} 17:00:00`;
+      
+      // Calculate RA start date (day before bid end date)
+      const startDateObj = new Date(bidEndDate);
+      startDateObj.setDate(startDateObj.getDate() - 1);
+      const startDateStr = startDateObj.toISOString().split('T')[0];
+      const startDateWithTime = `${startDateStr} 08:00:00`;
+      
+      // Update Redux store
+      dispatch(setOtherFormFields({ field_name: "ra_start_date", value: startDateWithTime }));
+      dispatch(setOtherFormFields({ field_name: "ra_end_date", value: endDateWithTime }));
+      
+      // Clear any validation errors since we've now set valid default values
+      setValidationErrors(prev => ({
+        ...prev,
+        ra_start_date: '',
+        ra_end_date: ''
+      }));
+    }
+  }, [rfqFormDataFromStore.reverse_auction, rfqFormDataFromStore.bid_end_date]);
  
   const countryCodeMatch = rfqFormDataFromStore.contact_number.match(/^\+(\d{1,4})-/);
   const countryCode1 = countryCodeMatch ? countryCodeMatch[0].slice(0, -1) : null; // Extracting country code from contact number
