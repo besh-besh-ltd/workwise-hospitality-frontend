@@ -386,13 +386,6 @@ const CreateRFQ = () => {
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
-    // Log initial values
-    console.log("Initial form values:", {
-      reverse_auction: rfqFormDataFromStore.reverse_auction,
-      ra_start_date: rfqFormDataFromStore.ra_start_date,
-      ra_end_date: rfqFormDataFromStore.ra_end_date,
-      bid_end_date: rfqFormDataFromStore.bid_end_date
-    });
 
     // Use values from the form submission
     const mobileNumber = values.contact_number.trim().replace(/^0+/, "");
@@ -414,7 +407,6 @@ const CreateRFQ = () => {
         const startDate = defaultStart.toISOString().split('T')[0];
         const startTime = '08:00:00';
         formDataCopy.ra_start_date = `${startDate} ${startTime}`;
-        console.log("Fixed missing ra_start_date in payload:", formDataCopy.ra_start_date);
       }
       
       if ((!formDataCopy.ra_end_date || formDataCopy.ra_end_date === '') && formDataCopy.bid_end_date) {
@@ -422,7 +414,6 @@ const CreateRFQ = () => {
         const endDate = formDataCopy.bid_end_date;
         const endTime = '17:00:00';
         formDataCopy.ra_end_date = `${endDate} ${endTime}`;
-        console.log("Fixed missing ra_end_date in payload:", formDataCopy.ra_end_date);
       }
       
       // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
@@ -466,13 +457,6 @@ const CreateRFQ = () => {
       delete payload.country_code;
     }
 
-    // Log the payload to debug auction dates
-    console.log("RFQ Creation Final Payload:", {
-      reverse_auction: payload.reverse_auction,
-      ra_start_date: payload.ra_start_date,
-      ra_end_date: payload.ra_end_date,
-      bid_end_date: payload.bid_end_date
-    });
 
     createRfq(payload)
       .then((res) => {

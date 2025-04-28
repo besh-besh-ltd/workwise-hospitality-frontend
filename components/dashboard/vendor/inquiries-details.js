@@ -208,15 +208,6 @@ const RfqManagementPreview = () => {
     let message = "Send Quote";
     let currentIsReverseAuctionActive = false;
 
-    console.log("Check Quote Possible - Times:", {
-      now: now.toISOString(),
-      bidEnd: bidEndDate?.toISOString(),
-      raStart: raStartDate?.toISOString(),
-      raEnd: raEndDate?.toISOString(),
-      status: rfqDetails?.status,
-      reverseAuction: isReverseAuction,
-      allProductsFinalized: areAllProductsFinalized
-    });
 
     // Priority 1: Is Reverse Auction currently active?
     if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
@@ -271,21 +262,12 @@ const RfqManagementPreview = () => {
         message = "Send Quote"; // Default allowed state
         console.log("Check Result: Allowed (Standard Bidding Period)");
     }
-
-    // Final check for RA status change notification
-    if (currentIsReverseAuctionActive && !isReverseAuctionActive) {
-      // RA just became active
-      toast.success("Reverse Auction is now active!");
-    } else if (!currentIsReverseAuctionActive && isReverseAuctionActive) {
-      // RA just became inactive (ended or time passed)
-      // You might want a notification here too, e.g., toast.info("Reverse Auction has ended.");
-    }
     
     setIsReverseAuctionActive(currentIsReverseAuctionActive); // Update state for lowest price display
     setQuoteDisabled(isDisabled);
     setStatusMessage(message);
     
-  }, [rfqDetails, productleftforbid, isReverseAuctionActive]); // Added isReverseAuctionActive dependency
+  }, [rfqDetails, productleftforbid, isReverseAuctionActive]); 
 
   useEffect(() => {
     if (rfqDetails) {

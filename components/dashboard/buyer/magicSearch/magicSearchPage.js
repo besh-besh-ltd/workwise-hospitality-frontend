@@ -643,12 +643,6 @@ const MagicSearchPage = () => {
             rfqPayload.ra_end_date = null;
         }
 
-        console.log("RFQ Creation Final Payload:", {
-            reverse_auction: rfqPayload.reverse_auction,
-            ra_start_date: rfqPayload.ra_start_date,
-            ra_end_date: rfqPayload.ra_end_date,
-            bid_end_date: rfqPayload.bid_end_date
-        });
 
         setSubmitLoading(true);
         createRfq(rfqPayload)
