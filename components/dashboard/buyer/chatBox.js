@@ -70,7 +70,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent,vendorwithoutlo
   return (
     <div className="d-flex flex-column h-100">
       <div className="mb-3 border-bottom pb-2 d-flex">
-        <h5 className="me-auto mb-0">{vendor.user_name}</h5>
+        <h5 className="me-auto mb-0">{vendor?.company_name ?? "-"}</h5>
         {role === 'buyer' ?
           <Link
             href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.user_id}`}
