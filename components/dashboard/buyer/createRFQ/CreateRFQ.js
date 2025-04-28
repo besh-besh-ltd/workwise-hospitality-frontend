@@ -23,35 +23,9 @@ import { toast } from "react-toastify";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
-
-// Helper function to format ISO datetime string to datetime-local input value
-const formatISOToDateTimeLocal = (isoString) => {
-  if (!isoString) return '';
-  
-  // Directly parse the date parts from the string without timezone conversion
-  // Expected format from backend: '2025-04-26 05:00:00' or ISO format
-  let parts;
-  
-  if (isoString.includes('T')) {
-    // Handle ISO format (2025-04-26T05:00:00.000Z)
-    parts = isoString.split('T')[0].split('-');
-    const timeParts = isoString.split('T')[1].split('.')[0].split(':');
-    return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
-  } else if (isoString.includes(' ')) {
-    // Handle SQL format (2025-04-26 05:00:00)
-    const [datePart, timePart] = isoString.split(' ');
-    parts = datePart.split('-');
-    const timeParts = timePart.split(':');
-    return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
-  } else {
-    // If just a date string without time
-    parts = isoString.split('-');
-    return `${parts[0]}-${parts[1]}-${parts[2]}T00:00`;
-  }
-};
 
 const CreateRFQ = () => {
   const router = useRouter();

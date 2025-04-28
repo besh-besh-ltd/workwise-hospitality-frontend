@@ -5,7 +5,8 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
+import { isValidFileNameRFQ } from '@/services/rfq';
+import { textCapitalize, getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { createRfq, getMagicRFQPreview } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
@@ -33,32 +34,6 @@ const initialFormData = {
     contact_number: '',
     company_name: '',
 }
-
-// Helper function to format ISO datetime string to datetime-local input value
-const formatISOToDateTimeLocal = (isoString) => {
-  if (!isoString) return '';
-  
-  // Directly parse the date parts from the string without timezone conversion
-  // Expected format from backend: '2025-04-26 05:00:00' or ISO format
-  let parts;
-  
-  if (isoString.includes('T')) {
-    // Handle ISO format (2025-04-26T05:00:00.000Z)
-    parts = isoString.split('T')[0].split('-');
-    const timeParts = isoString.split('T')[1].split('.')[0].split(':');
-    return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
-  } else if (isoString.includes(' ')) {
-    // Handle SQL format (2025-04-26 05:00:00)
-    const [datePart, timePart] = isoString.split(' ');
-    parts = datePart.split('-');
-    const timeParts = timePart.split(':');
-    return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
-  } else {
-    // If just a date string without time
-    parts = isoString.split('-');
-    return `${parts[0]}-${parts[1]}-${parts[2]}T00:00`;
-  }
-};
 
 const MagicSearchPage = () => {
     const tableRef = useRef(null);
@@ -493,10 +468,6 @@ const MagicSearchPage = () => {
         }
         setIsModalOpen(false);
         setPendingRemoval(null);
-        if (reviewData.length === 0) {
-            setValidationErrors(null)
-            setTermList(null);
-        }
     };
 
     const handleClose = () => {

@@ -64,6 +64,15 @@ export const handleFileUpload = async (e, token) => {
   };
   
 
+/**
+ * Formats a timestamp into a human-readable format based on how recent it is.
+ * Used primarily for displaying message timestamps in chat interfaces.
+ * - For today's dates: shows only time (HH:MM AM/PM)
+ * - For this year's dates: shows month, day and time
+ * - For older dates: shows full date including year
+ * @param {string} last_message_timestamp - The timestamp to format
+ * @returns {string} Formatted date string
+ */
 export const formatDate = (last_message_timestamp) => {
     const now = new Date();
     const lastMessageDate = new Date(last_message_timestamp);
@@ -92,6 +101,38 @@ export const formatDate = (last_message_timestamp) => {
         month: "short",
         day: "numeric",
     });
+};
+
+/**
+ * Converts various datetime string formats to the format required by HTML datetime-local inputs.
+ * Specifically handles:
+ * - ISO format (2025-04-26T05:00:00.000Z)
+ * - SQL format (2025-04-26 05:00:00)
+ * - Date-only format (2025-04-26)
+ * This function preserves the exact time without timezone adjustments, making it ideal
+ * for form inputs that require local datetime values.
+ * @param {string} isoString - The date string to format
+ * @returns {string} Formatted string in YYYY-MM-DDThh:mm format
+ */
+export const formatISOToDateTimeLocal = (isoString) => {
+    if (!isoString) return '';
+    let parts;
+    if (isoString.includes('T')) {
+        // Handle ISO format (2025-04-26T05:00:00.000Z)
+        parts = isoString.split('T')[0].split('-');
+        const timeParts = isoString.split('T')[1].split('.')[0].split(':');
+        return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
+    } else if (isoString.includes(' ')) {
+        // Handle SQL format (2025-04-26 05:00:00)
+        const [datePart, timePart] = isoString.split(' ');
+        parts = datePart.split('-');
+        const timeParts = timePart.split(':');
+        return `${parts[0]}-${parts[1]}-${parts[2]}T${timeParts[0]}:${timeParts[1]}`;
+    } else {
+        // If just a date string without time
+        parts = isoString.split('-');
+        return `${parts[0]}-${parts[1]}-${parts[2]}T00:00`;
+    }
 };
 
 
