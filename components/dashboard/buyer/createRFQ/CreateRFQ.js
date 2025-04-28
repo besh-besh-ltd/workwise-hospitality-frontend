@@ -23,10 +23,9 @@ import { toast } from "react-toastify";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
-
 
 const CreateRFQ = () => {
   const router = useRouter();
@@ -52,6 +51,8 @@ const CreateRFQ = () => {
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
+
+  const [validationErrors, setValidationErrors] = useState({});
 
   const fetchCountryCodes = () => {
       getCountryCodes()
@@ -201,6 +202,58 @@ const CreateRFQ = () => {
     }
   };
 
+  const validateDates = (name, value, currentFormData) => {
+    let error = '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time for date-only comparisons if needed
+
+    const bidEndDate = currentFormData.bid_end_date ? new Date(currentFormData.bid_end_date) : null;
+    const raStartDate = currentFormData.ra_start_date ? new Date(currentFormData.ra_start_date) : null;
+    const raEndDate = currentFormData.ra_end_date ? new Date(currentFormData.ra_end_date) : null;
+
+    if (name === 'bid_end_date' && value) {
+      const selectedDate = new Date(value);
+      if (selectedDate < today) {
+        error = 'Bid End Date cannot be in the past.';
+      } 
+      // If RA is enabled, bid end must be before RA start
+      if (currentFormData.reverse_auction && raStartDate && selectedDate >= raStartDate) {
+         error = 'Bid End Date must be before Reverse Auction Start Date/Time.';
+      }
+    } else if (name === 'ra_start_date' && value && currentFormData.reverse_auction) {
+        const selectedStartDate = new Date(value);
+        // Must be after bid end date
+        if (bidEndDate && selectedStartDate <= bidEndDate) {
+            error = 'Reverse Auction Start Date/Time must be after Bid End Date.';
+        }
+        // Must be before RA end date if RA end date is set
+        if (raEndDate && selectedStartDate >= raEndDate) {
+            error = 'Reverse Auction Start Date/Time must be before Reverse Auction End Date/Time.';
+        }
+    } else if (name === 'ra_end_date' && value && currentFormData.reverse_auction) {
+        const selectedEndDate = new Date(value);
+        // Must be after RA start date
+        if (raStartDate && selectedEndDate <= raStartDate) {
+            error = 'Reverse Auction End Date/Time must be after Reverse Auction Start Date/Time.';
+        }
+        // Ensure RA end is after Bid End Date if RA start is not set yet
+        if (!raStartDate && bidEndDate && selectedEndDate <= bidEndDate) {
+            error = 'Reverse Auction End Date/Time must be after Bid End Date.';
+        }
+    } else if (name === 'reverse_auction' && !value) {
+      // If disabling RA, clear potential errors for RA dates
+      setValidationErrors(prev => ({ ...prev, ra_start_date: '', ra_end_date: '' }));
+    } else if (name === 'reverse_auction' && value) {
+       // If enabling RA, re-validate existing dates
+       const startError = validateDates('ra_start_date', raStartDate, currentFormData);
+       const endError = validateDates('ra_end_date', raEndDate, currentFormData);
+       const bidEndError = validateDates('bid_end_date', bidEndDate, currentFormData);
+       setValidationErrors(prev => ({ ...prev, ra_start_date: startError, ra_end_date: endError, bid_end_date: bidEndError }));
+    }
+
+    return error;
+  };
+
   const handleFormFieldChange = async (e, selectedOption, actionMeta) => {
     let name = e?.target?.name || actionMeta?.name;
     let value = e?.target?.value || selectedOption?.value || "";
@@ -218,6 +271,38 @@ const CreateRFQ = () => {
 
     if (name === "reverse_auction") {
       value = parseInt(value);
+
+      if (value === 0) {
+        // Clear reverse auction dates when disabled
+        dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
+        dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
+      } else if (value === 1) {
+        // When enabling reverse auction, set default dates
+        const bidEndDate = rfqFormDataFromStore.bid_end_date ? new Date(rfqFormDataFromStore.bid_end_date) : new Date();
+        
+        // Set end date to bid end date with default time
+        const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
+        const auctionEndTime = '17:00:00';
+        const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
+        
+        // Set start date to day before end date
+        const auctionStartDate = new Date(bidEndDate);
+        auctionStartDate.setDate(auctionStartDate.getDate() - 1);
+        const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
+        const auctionStartTime = '08:00:00';
+        const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
+        
+        dispatch(setOtherFormFields({ field_name: "ra_start_date", value: auctionStartDateTimeStr }));
+        dispatch(setOtherFormFields({ field_name: "ra_end_date", value: auctionEndDateStr }));
+      }
+    }
+
+    // Handle datetime-local inputs for auction dates
+    if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+      // Convert from datetime-local format to server expected format
+      // This preserves the exact time without timezone adjustments
+      const [datePart, timePart] = value.split('T');
+      value = `${datePart} ${timePart}:00`;
     }
 
     if (name === "project_id" && value !== -1) {
@@ -271,6 +356,7 @@ const CreateRFQ = () => {
     setMainLoading(true);
     setHasUnsavedChanges(false);
 
+
     // Use values from the form submission
     const mobileNumber = values.contact_number.trim().replace(/^0+/, "");
     const fullMobile = `${onecountrycode}-${mobileNumber}`;
@@ -280,6 +366,45 @@ const CreateRFQ = () => {
     
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
+    
+    // CRITICALLY IMPORTANT: Ensure auction dates are set if reverse auction is enabled
+    if (formDataCopy.reverse_auction === 1) {
+      // Make sure we have concrete dates, not empty strings
+      if (!formDataCopy.ra_start_date || formDataCopy.ra_start_date === '') {
+        // Create a default start date in server format
+        const defaultStart = new Date();
+        defaultStart.setDate(defaultStart.getDate() + 1);
+        const startDate = defaultStart.toISOString().split('T')[0];
+        const startTime = '08:00:00';
+        formDataCopy.ra_start_date = `${startDate} ${startTime}`;
+      }
+      
+      if ((!formDataCopy.ra_end_date || formDataCopy.ra_end_date === '') && formDataCopy.bid_end_date) {
+        // Set end date to bid end date with default time
+        const endDate = formDataCopy.bid_end_date;
+        const endTime = '17:00:00';
+        formDataCopy.ra_end_date = `${endDate} ${endTime}`;
+      }
+      
+      // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
+      if (formDataCopy.ra_start_date && !formDataCopy.ra_start_date.includes(' ')) {
+        if (formDataCopy.ra_start_date.includes('T')) {
+          const [date, time] = formDataCopy.ra_start_date.split('T');
+          formDataCopy.ra_start_date = `${date} ${time}:00`;
+        }
+      }
+      
+      if (formDataCopy.ra_end_date && !formDataCopy.ra_end_date.includes(' ')) {
+        if (formDataCopy.ra_end_date.includes('T')) {
+          const [date, time] = formDataCopy.ra_end_date.split('T');
+          formDataCopy.ra_end_date = `${date} ${time}:00`;
+        }
+      }
+    } else if (formDataCopy.reverse_auction === 0) {
+      // If reverse auction is disabled, explicitly set dates to null
+      formDataCopy.ra_start_date = null;
+      formDataCopy.ra_end_date = null;
+    }
     
     // IMPORTANT: Normalize terms to ensure proper format for backend
     if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
@@ -301,6 +426,7 @@ const CreateRFQ = () => {
     if (payload.hasOwnProperty("country_code")) {
       delete payload.country_code;
     }
+
 
     createRfq(payload)
       .then((res) => {
@@ -485,6 +611,42 @@ const CreateRFQ = () => {
       router.events.off("routeChangeStart", handleRouteChange);
     };
   }, [hasUnsavedChanges, router]);
+
+  useEffect(() => {
+    // Only set default values if reverse auction is enabled, we have a bid end date, and either RA date is missing
+    if (
+      rfqFormDataFromStore.reverse_auction === 1 &&
+      rfqFormDataFromStore.bid_end_date &&
+      (!rfqFormDataFromStore.ra_start_date || rfqFormDataFromStore.ra_start_date === '' || 
+       !rfqFormDataFromStore.ra_end_date || rfqFormDataFromStore.ra_end_date === '')
+    ) {
+      console.log("Setting default RA dates based on bid end date:", rfqFormDataFromStore.bid_end_date);
+      
+      // Parse bid end date
+      const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
+      
+      // Calculate RA end date (same day as bid end date)
+      const endDateStr = bidEndDate.toISOString().split('T')[0];
+      const endDateWithTime = `${endDateStr} 17:00:00`;
+      
+      // Calculate RA start date (day before bid end date)
+      const startDateObj = new Date(bidEndDate);
+      startDateObj.setDate(startDateObj.getDate() - 1);
+      const startDateStr = startDateObj.toISOString().split('T')[0];
+      const startDateWithTime = `${startDateStr} 08:00:00`;
+      
+      // Update Redux store
+      dispatch(setOtherFormFields({ field_name: "ra_start_date", value: startDateWithTime }));
+      dispatch(setOtherFormFields({ field_name: "ra_end_date", value: endDateWithTime }));
+      
+      // Clear any validation errors since we've now set valid default values
+      setValidationErrors(prev => ({
+        ...prev,
+        ra_start_date: '',
+        ra_end_date: ''
+      }));
+    }
+  }, [rfqFormDataFromStore.reverse_auction, rfqFormDataFromStore.bid_end_date]);
  
   const countryCodeMatch = rfqFormDataFromStore.contact_number.match(/^\+(\d{1,4})-/);
   const countryCode1 = countryCodeMatch ? countryCodeMatch[0].slice(0, -1) : null; // Extracting country code from contact number
@@ -873,6 +1035,42 @@ const CreateRFQ = () => {
                                     errors={errors}
                                   />
                                 </div>
+                                
+                                {rfqFormDataFromStore.reverse_auction === 1 && (
+                                  <>
+                                    <div className="col-md-6">
+                                      <label className="form-label">
+                                        Auction Start Date & Time <span className="text-danger">*</span>
+                                      </label>
+                                      <input
+                                        type="datetime-local"
+                                        name="ra_start_date"
+                                        className="form-control"
+                                        value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)}
+                                        onChange={handleFormFieldChange}
+                                      />
+                                      {validationErrors.ra_start_date && (
+                                          <div className="text-danger">{validationErrors.ra_start_date}</div>
+                                      )}
+                                    </div>
+                                    <div className="col-md-6">
+                                      <label className="form-label">
+                                        Auction End Date & Time <span className="text-danger">*</span>
+                                      </label>
+                                      <input
+                                        type="datetime-local"
+                                        name="ra_end_date"
+                                        className="form-control"
+                                        value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_end_date)}
+                                        onChange={handleFormFieldChange}
+                                      />
+                                      {validationErrors.ra_end_date && (
+                                          <div className="text-danger">{validationErrors.ra_end_date}</div>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+
                                 <div className="col-md-12">
                                   <FormikField
                                     label="Delivery location"
