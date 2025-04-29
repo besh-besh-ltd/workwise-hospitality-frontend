@@ -301,7 +301,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       setIsLoading(true);
 
       const payload = {
-        product_id: currentSelectedProduct.product_id,
+        variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
         }))
@@ -709,7 +709,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   <div className="col-7">
                                     <div className="container">
                                       <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
-                                        Product List
+                                        Product Variants List
                                       </h2>
                                       <ul>
                                         {products.map((item, index) => {
@@ -720,10 +720,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               onClick={() =>
                                                 handleAutocompleteClick(item)
                                               }
-                                              title={`${item.product_name} - ${item.description}`}
+                                              title={item?.description ? `${item.variant_name} - ${item.description}` : `${item.variant_name}`}
                                             >
                                               <div>
-                                                <h3>{item.product_name}</h3>
+                                                <h3>{item.variant_name}</h3>
                                                 <p>
                                                   <small>
                                                     <b>{item.category_name} </b>
