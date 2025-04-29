@@ -333,7 +333,7 @@ const ReviewProducts = ({
                         <div className="border border-2 rounded-3 mb-2 p-2">
                           <Accordion.Header>
                             <h2 className="h6 mb-0">
-                              Product Name: {prodItem.name}
+                              Variant Name: {prodItem.name}
                             </h2>
                           </Accordion.Header>
 
