@@ -1471,7 +1471,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 {!currentSelectedProduct && (
                   <div className="col-md-12 hasblankpadding">
                     <h2 className="fs-5 text-center">
-                      <b>Search & Select a product</b>
+                      <b>Search & Select a product's variant</b>
                       <br /> to see the available vendors!
                     </h2>
                   </div>

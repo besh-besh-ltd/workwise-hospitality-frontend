@@ -283,8 +283,9 @@ const QuoteCompareTable = ({
             <span>
               <b>Finalized vendor</b> :{" "}
               {
-                alreadyFinalized[0]?.finalization?.winning_vendor
-                  ?.organization_name
+                (alreadyFinalized[0]?.finalization?.winning_vendor
+                  ?.organization_name ?? alreadyFinalized[0]?.finalization?.winning_vendor
+                  ?.company_name)
               }
             </span>
             <span>
