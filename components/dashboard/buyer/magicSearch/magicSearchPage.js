@@ -17,6 +17,7 @@ import { getCities, getCountries, getCountryCodes, getStates } from "@/services/
 import ProductSearchModal from "../../../modal/ProductSearchModal";
 import { vendorConditions } from "../../vendor/search";
 import axiosInstance from "@/lib/axios";
+import MagicSearchDownloadModal from "@/components/modal/MagicSearchDownloadModal";
 
 
 const initialFormData = {
@@ -833,30 +834,9 @@ const MagicSearchPage = () => {
               {!reviewData ? (
                 <>
                   <div className="col-md-8 mx-auto mt-2">
-                    <div className="d-flex align-items-center gap-2 mb-3">
-                      <h2 className="title fs-6 mb-0 ">Step 1: </h2>
-                      <a
-                        title="Download this sample Excel and fill all the columns."
-                        href="/Sample BOQ File Format.xlsx"
-                        className="d-flex justify-content-between align-items-center "
-                        style={{ cursor: "pointer" }}
-                      >
-                        <p
-                          className="fw-semibold mb-0 me-2"
-                          style={{ color: "var(--primary-color)" }}
-                        >
-                          Download, fill and upload the BOQ file for smooth RFQ
-                          Creation
-                        </p>
-                        <FontAwesomeIcon
-                          icon={faDownload}
-                          style={{
-                            fontSize: "16px",
-                            color: "var(--primary-color",
-                          }}
-                        />
-                      </a>
-                    </div>
+        
+        <MagicSearchDownloadModal />
+
                   </div>
                   <div className="col-md-8 mx-auto">
                                     <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>

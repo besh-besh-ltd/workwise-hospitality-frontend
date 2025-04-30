@@ -1,5 +1,6 @@
 import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
+import axios from "axios";
 
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {
@@ -261,6 +262,20 @@ export const getMagicRFQPreview = (file) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosFormData.post(`/rfq/magic-search-rfq-preview`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
+export const getSImplifiedVersionOfBOQ = (file) => {
+  let payload = {};
+  payload.file = file;
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosFormData.post(`/rfq/boq/process-and-download`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
