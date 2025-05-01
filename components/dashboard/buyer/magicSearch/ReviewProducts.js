@@ -1,6 +1,6 @@
 import Accordion from 'react-bootstrap/Accordion';
 import FileLink from "@/components/shared/FileLink";
-import { faClose, faCloudArrowUp, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faClose, faCloudArrowUp, faTrash, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,8 @@ import { getCities, getCountries, getStates } from '@/services/cms';
 import { toast } from 'react-toastify';
 import _ from 'lodash';
 import { vendorConditions } from '../../vendor/search';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Tooltip from 'react-bootstrap/Tooltip';
 
 const customeStyles = {
     control: (provided) => ({
@@ -324,17 +326,52 @@ const ReviewProducts = ({
                     const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
                     console.log("PROD KEY: ", prodKey)
 
+                    // Add variant badge and info
+                    const isVariant = prodItem.is_variant;
+                    const variantId = prodItem.variant_id;
+                    const mappingId = prodItem.mapping_id;
+
                     return (
                       <Accordion.Item
                         key={prodKey}
                         eventKey={index}
                         className="border-0"
                       >
-                        <div className="border border-2 rounded-3 mb-2 p-2">
+                        <div className={`border border-2 rounded-3 mb-2 p-2 ${isVariant ? 'border-primary' : ''}`}>
                           <Accordion.Header>
-                            <h2 className="h6 mb-0">
-                              Variant Name: {prodItem.name}
-                            </h2>
+                            <div className="d-flex align-items-center">
+                              <h2 className="h6 mb-0">
+                                {prodItem.name}
+                                {isVariant && (
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={
+                                      <Tooltip id={`tooltip-variant-${index}`}>
+                                        This is a variant product (ID: {variantId})
+                                        {mappingId && `, Mapping ID: ${mappingId}`}
+                                      </Tooltip>
+                                    }
+                                  >
+                                    <span className="badge bg-primary ms-2">Variant</span>
+                                  </OverlayTrigger>
+                                )}
+                              </h2>
+                              
+                              {isVariant && prodItem.vendors && prodItem.vendors.length > 0 && prodItem.vendors.some(v => v.from_variant_mapping) && (
+                                <OverlayTrigger
+                                  placement="top"
+                                  overlay={
+                                    <Tooltip id={`tooltip-mapped-vendor-${index}`}>
+                                      This variant has pre-mapped vendors from the admin panel
+                                    </Tooltip>
+                                  }
+                                >
+                                  <span className="ms-3">
+                                    <FontAwesomeIcon icon={faInfoCircle} className="text-primary" />
+                                  </span>
+                                </OverlayTrigger>
+                              )}
+                            </div>
                           </Accordion.Header>
 
                           <Accordion.Body className="row py-0">
@@ -895,7 +932,7 @@ const ReviewProducts = ({
                               </div>
                             </div>
 
-                            {/* Vendor List Section */}
+                            {/* Vendor List Section - Update for variant-mapping vendors */}
                             <div className="col-sm-12 col-md-6 col-lg-4 flex-grow-1 ">
                               <div className="mb-2 h-100">
                                 <label
@@ -903,6 +940,9 @@ const ReviewProducts = ({
                                   className="form-label small mb-1 "
                                 >
                                   Vendor List
+                                  {isVariant && (
+                                    <span className="text-primary ms-1">(Variant)</span>
+                                  )}
                                 </label>
                                 <div
                                   className="form-control overflow-y-auto"
@@ -917,10 +957,9 @@ const ReviewProducts = ({
                                       return (
                                         <span
                                           key={vendor.user_id}
-                                          className="badge fw-normal me-2 mb-2"
+                                          className={`badge fw-normal me-2 mb-2 ${vendor.from_variant_mapping ? 'bg-primary' : ''}`}
                                           style={{
-                                            backgroundColor:
-                                              "var(--secondary-color)",
+                                            backgroundColor: vendor.from_variant_mapping ? "" : "var(--secondary-color)",
                                             color: "#fff",
                                           }}
                                         >
@@ -930,6 +969,9 @@ const ReviewProducts = ({
                                             className="text-white"
                                           >
                                             {vendor.name}
+                                            {vendor.from_variant_mapping && (
+                                              <small> (Mapped)</small>
+                                            )}
                                           </Link>
                                           <FontAwesomeIcon
                                             icon={faClose}

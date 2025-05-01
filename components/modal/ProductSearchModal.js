@@ -54,6 +54,10 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
           }
           let data = rsp.data.map((item) => {
             item.selected = false;
+            // Add indicator for variant items
+            if (item.is_variant) {
+              item.product_name = `${item.product_name} (Variant)`;
+            }
             return item;
           });
 
@@ -72,10 +76,72 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
     setVendorLoading(true);
     setError("");
 
+    // If this is a variant with a specific vendor already mapped, we'll use that info directly
+    if (product.is_variant && product.vendor_id && product.vendor_name) {
+      // Create a vendor object from the mapping data
+      const vendorFromMapping = {
+        user_id: product.vendor_id,
+        name: product.vendor_name,
+        email: product.vendor_email || "",
+        mobile: product.vendor_phone || "",
+        company_name: product.vendor_name || "",
+        address: "",
+        about: "",
+        is_private: false,
+        website: "",
+        city_name: "",
+        state_name: "",
+        image_url: "",
+        is_linked_with_buyer: true,
+        from_variant_mapping: true,
+        variant_id: product.variant_id,
+        mapping_id: product.mapping_id
+      };
+
+      // Extract existing products with the same name
+      const existingProducts = (reviewData?.products || []).filter(
+        (p) => p.name === product.product_name
+      );
+
+      // Find the highest variant number
+      const highestVariant = existingProducts.length
+        ? Math.max(...existingProducts.map((p) => p.variant))
+        : 0;
+
+      // Create product object with the specific vendor
+      const productObject = {
+        product_id: product.id,
+        name: product.product_name,
+        variant: highestVariant + 1,
+        spec: [
+          { title: "Size", value: "" },
+          { title: "Spec", value: "" },
+          { title: "Quantity", value: "" },
+          { title: "Unit", value: "" },
+        ],
+        vendors: [vendorFromMapping],
+        is_variant: product.is_variant,
+        variant_id: product.variant_id,
+        mapping_id: product.mapping_id
+      };
+
+      // Append new product to reviewData.products
+      setReviewData((prevReviewData) => ({
+        ...prevReviewData,
+        products: [...(prevReviewData.products || []), productObject],
+      }));
+
+      setQuery("");
+      setVendorLoading(false);
+      toast.success(product.product_name + " - Added Successfully!");
+      return;
+    }
+
+    // For standard products or variants without specific vendors, search for vendors
     searchProductsV2(
       {
         cat_id: null,
-        search_key: product.product_name,
+        search_key: product.product_name.replace(' (Variant)', ''), // Remove the variant marker
         approved_by: null,
         state: null,
         city: null,
@@ -100,7 +166,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
         // Create product object with fetched vendors
         const productObject = {
-          product_id: product.product_id,
+          product_id: product.id,
           name: product.product_name,
           variant: highestVariant + 1,
           spec: [
@@ -111,19 +177,25 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
           ],
           vendors: rsp.data.map((vendor) => ({
             user_id: vendor.id,
-            name: vendor.vendor_name,
+            name: vendor.name || vendor.vendor_name,
             email: vendor.email,
             mobile: vendor.mobile,
-            company_name: vendor.company_name,
-            address: vendor.address,
-            about: vendor.about,
-            is_private: vendor.is_private,
-            website: vendor.website,
-            city_name: vendor.city_name,
-            state_name: vendor.state_name,
-            image_url: vendor.image_url,
-            is_linked_with_buyer: vendor.is_linked_with_buyer,
+            company_name: vendor.company_name || vendor.organization_name,
+            address: vendor.address || "",
+            about: vendor.about || "",
+            is_private: vendor.is_private || false,
+            website: vendor.website || "",
+            city_name: vendor.city_name || "",
+            state_name: vendor.state_name || "",
+            image_url: vendor.image_url || "",
+            is_linked_with_buyer: vendor.is_linked_with_buyer || false,
+            from_variant_mapping: vendor.from_variant_mapping || false,
+            variant_id: vendor.variant_id || product.variant_id,
+            mapping_id: vendor.mapping_id
           })),
+          is_variant: product.is_variant,
+          variant_id: product.variant_id,
+          mapping_id: product.mapping_id
         };
 
         // Append new product to reviewData.products without overriding existing products
