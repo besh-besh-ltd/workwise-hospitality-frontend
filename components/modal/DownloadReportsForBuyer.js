@@ -232,6 +232,7 @@ const DownloadReportsForBuyer = (props) => {
       setLoadingState("generate");
 
       const payload = {
+        productId: selectedOption.value,
         productName: selectedOption.label,
         productCategory: productList.find((prodItem)=> prodItem.id === selectedOption.value).product_categories[0]?.id,
         startDate: dateRange.startDate,
