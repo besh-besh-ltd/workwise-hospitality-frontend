@@ -71,8 +71,6 @@ const DynamicFormModal = ({
     const [vendorApprovedList, setVendorApprovedList] = useState([]);
     const [vendorProductsList, setVendorProductsList] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
-    const [selectedVariant, setSelectedVariant] = useState(null);
-    const [variantOptions, setVariantOptions] = useState(null);
     const [productLoading, setProductLoading] = useState(false);
     const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
     const [currentProduct, setCurrentProduct] = useState(null);
@@ -137,7 +135,7 @@ const DynamicFormModal = ({
         return Object.values(groupedData).flatMap(items =>
             items.map(item => ({
                 value: item.id,
-                label: item.name,
+                label: item.unified_name,
                 categories: item.product_categories.map(cat => cat.category_name).join(" | ")
             }))
         );
@@ -194,7 +192,7 @@ const DynamicFormModal = ({
             .then((res) => {
                 const prodItem = {
                     master_id: res.data.id || '',
-                    name: res.data.name || '',
+                    name: res.data.unified_name || '',
                     description: res.data.description,
                     status: 1,
                     approved_id: [],
@@ -203,12 +201,6 @@ const DynamicFormModal = ({
                 }
                 setCurrentProduct(prodItem);
                 setSelectedProduct(selectedOption);
-                console.log(res)
-                setVariantOptions(res?.data?.product_variants?.map(variant => ({
-                  master_id: variant.id,
-                  label: variant.name,
-                  value: variant.id
-                })))
                 setSelectedApprovedBy([]);
             })
             .catch((error) => {
@@ -222,11 +214,6 @@ const DynamicFormModal = ({
             if (name === "product") {
                 const prodId = selectedOption?.value || null;
                 if (prodId) getProductDetails(selectedOption, prodId);
-            } else if (name == "variant") {
-              if(!currentProduct) toast.error("Please Choose a Product First.", {position: "top-right"})
-              else {
-                setSelectedVariant(selectedOption || null)
-              }
             } else {
                 if (!currentProduct) {
                     toast.error("Please Choose a Product First.", {position: "top-right"})
@@ -251,26 +238,21 @@ const DynamicFormModal = ({
         const handleSingleProductAdd = () => {
             // Check if the product already exists in productDetails
             const isDuplicate = vendorProductDetails.some(
-                (record) => (record.product.master_id === currentProduct?.master_id && record.variant.master_id === selectedVariant?.master_id)
+                (product) => product.master_id === currentProduct?.master_id
             );
         
             if (isDuplicate) {
-                toast.error("This variant for the product already added.", { position: "top-right" });
+                toast.error("This product is already added.", { position: "top-right" });
                 return; // Exit the function to prevent adding duplicate products
             }
         
             // Add the product if it does not already exist
             setProductDetails((prevState) => [
                 ...prevState,
-                {
-                  product: currentProduct,
-                  variant: selectedVariant,
-                  approvedByIds: selectedApprovedBy,
-                }
+                currentProduct
             ]);
             setCurrentProduct(null);
             setSelectedProduct(null);
-            setSelectedVariant(null);
             setSelectedApprovedBy([]);
         };
 
@@ -300,7 +282,7 @@ const DynamicFormModal = ({
 
         const removeSelectedVendor = (prodItem) => {
             setProductDetails((prevState) =>
-                prevState.filter((item) => (item.product.master_id !== prodItem.product.master_id && item.variant.master_id !== prodItem.variant.master_id))
+                prevState.filter((item) => item.master_id !== prodItem.master_id)
             );
         };
 
@@ -624,8 +606,6 @@ Example:
                                       if (!selectedOption) {
                                         setSelectedProduct(null); // Clear selectedProduct state
                                         setCurrentProduct(null);
-                                        setSelectedVariant(null);
-                                        setSelectedApprovedBy([]);
                                       }
                                     }}
                                     placeholder={
@@ -638,39 +618,9 @@ Example:
                                   />
                                 </div>
                                 <div className="mb-2">
-                                  <label>Select Variant</label>
-                                  <Select
-                                    isDisabled={!selectedProduct}
-                                    name="variant"
-                                    options={variantOptions}
-                                    value={selectedVariant}
-                                    components={{ Option: CustomSelectOption }}
-                                    styles={customStyles}
-                                    isLoading={productLoading}
-                                    // onInputChange={debounceGetVendorProductList}
-                                    onChange={(selectedOption) => {
-                                      handleSelectChange(selectedOption, {
-                                        name: "variant",
-                                      });
-                                      // Handle clearing of selection
-                                      if (!selectedOption) {
-                                        setSelectedVariant(null); // Clear selectedVariant state
-                                        setSelectedApprovedBy([]);
-                                      }
-                                    }}
-                                    placeholder={
-                                      currentProduct
-                                        ? "Please select a variant..."
-                                        : "Please select a product first..."
-                                    }
-                                    isSearchable
-                                    isClearable
-                                  />
-                                </div>
-                                <div className="mb-2">
                                   <label>Approved By</label>
                                   <Select
-                                    isDisabled={!selectedVariant}
+                                    isDisabled={!selectedProduct}
                                     name="approvedBy"
                                     options={vendorApprovedList}
                                     value={selectedApprovedBy}
@@ -703,14 +653,14 @@ Example:
 
                               {vendorProductDetails.length > 0 && (
                                 <div className="col-12">
-                                  <label>Added Variant(s)</label>
+                                  <label>Added Products</label>
                                   <div className="d-flex flex-wrap">
                                     {vendorProductDetails.map((prodItem) => (
                                       <div
-                                        key={prodItem.product.master_id}
+                                        key={prodItem.master_id}
                                         className="badge bg-success p-2 me-2 d-flex align-items-center gap-2"
                                       >
-                                        {`${prodItem.product.name} - ${prodItem.variant.label}`}
+                                        {prodItem.name}
                                         <FontAwesomeIcon
                                           icon={faClose}
                                           onClick={() =>
