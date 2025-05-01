@@ -143,7 +143,7 @@ export const approvedProductList = (limit = 10, page = 1, searchString, vendorAp
 export const addProducts = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(
+      let response = await axiosInstance.post(
         `${process.env.NEXT_PUBLIC_API_URL}/products/vendor-product-add`,
         payload
       );
@@ -197,7 +197,7 @@ export const exportProduct = (
 export const updateProducts = (payload, id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.put(
+      let response = await axiosInstance.put(
         `${process.env.NEXT_PUBLIC_API_URL}/products/vendor-product-edit/${id}`,
         payload
       );

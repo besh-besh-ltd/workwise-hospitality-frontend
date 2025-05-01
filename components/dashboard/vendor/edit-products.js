@@ -77,7 +77,7 @@ const EditProducts = () => {
   };
 
   const initialValues = {
-    name: productDetailsData.name ? productDetailsData.name : "",
+    name: productDetailsData.unified_name ? productDetailsData.unified_name : "",
     description: productDetailsData.description
       ? productDetailsData.description
       : "",
@@ -337,8 +337,10 @@ const EditProducts = () => {
 
     payload.append(`categories`, JSON.stringify(selectedCategories));
 
+    const payloadInJson = Object.fromEntries(payload.entries());
+
     setMainLoading(true);
-    updateProducts(payload, id)
+    updateProducts(payloadInJson, id)
       .then((res) => {
         setMainLoading(false);
         toast.success(res.message);
