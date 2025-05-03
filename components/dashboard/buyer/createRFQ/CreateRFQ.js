@@ -216,11 +216,11 @@ const CreateRFQ = () => {
       if (selectedDate < today) {
         error = 'Bid End Date cannot be in the past.';
       }
-      // Changes by Agnij 2024-08-26 [Removed bid end must be before RA start constraint]
+      // Changes by Agnij 2025-05-03 [Removed bid end must be before RA start constraint]
       // No constraint between bid end date and reverse auction start
     } else if (name === 'ra_start_date' && value && currentFormData.reverse_auction) {
         const selectedStartDate = new Date(value);
-        // Changes by Agnij 2024-08-26 [Removed RA must be after bid end constraint]
+        // Changes by Agnij 2025-05-03 [Removed RA must be after bid end constraint]
         // Removed constraint that RA start must be after bid end date
 
         // Must be before RA end date if RA end date is set
@@ -239,7 +239,7 @@ const CreateRFQ = () => {
             error = 'Reverse Auction End Date/Time must be after Reverse Auction Start Date/Time.';
         }
         
-        // Changes by Agnij 2024-08-26 [Removed RA end must be after bid end constraint]
+        // Changes by Agnij 2025-05-03 [Removed RA end must be after bid end constraint]
         // Removed constraint that RA end must be after bid end date
         
         // Check if date is in the past
@@ -283,7 +283,7 @@ const CreateRFQ = () => {
         dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
         dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
       } else if (value === 1) {
-        // Changes by Agnij 2024-08-26 [Removed default date setting for reverse auction]
+        // Changes by Agnij 2025-05-03 [Removed default date setting for reverse auction]
         // Display a toast message to inform the user to set auction dates
         toast.info("Please set the Auction Start Date & Time and End Date & Time for reverse auction");
       }
@@ -359,7 +359,7 @@ const CreateRFQ = () => {
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
     
-    // Changes by Agnij 2024-08-26 [Validate reverse auction dates without default values]
+    // Changes by Agnij 2025-05-03 [Validate reverse auction dates without default values]
     if (formDataCopy.reverse_auction === 1) {
       // Check if the reverse auction dates are empty
       if (!formDataCopy.ra_start_date || formDataCopy.ra_start_date === '') {
@@ -601,7 +601,7 @@ const CreateRFQ = () => {
   }, [hasUnsavedChanges, router]);
 
   useEffect(() => {
-    // Changes by Agnij 2024-08-26 [Removed auto-setting of default dates for reverse auction]
+    // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
     // This effect has been intentionally disabled to ensure users explicitly set dates for reverse auction
     
     // Only validate the dates if both are provided
