@@ -159,30 +159,16 @@ const MagicSearchPage = () => {
         if (name === 'reverse_auction') {
             const newValue = parseInt(value);
             
+            // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
             if (newValue === 1) {
-                // Set default auction dates when enabling reverse auction
-                const bidEndDate = formData.bid_end_date ? new Date(formData.bid_end_date) : new Date();
-                
-                // Get the date part only from bid end date
-                const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
-                
-                // Set auction end date to bid end date with default time
-                const auctionEndTime = '17:00:00';
-                const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
-                
-                // Set auction start date to day before bid end date with default time
-                const auctionStartDate = new Date(bidEndDate);
-                auctionStartDate.setDate(auctionStartDate.getDate() - 1);
-                const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
-                const auctionStartTime = '08:00:00';
-                const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
-                
+                // Just set reverse auction flag without setting default dates
                 setFormData({
                     ...formData,
-                    reverse_auction: newValue,
-                    ra_start_date: auctionStartDateTimeStr,
-                    ra_end_date: auctionEndDateStr
+                    reverse_auction: newValue
                 });
+                
+                // Show notification to inform the user to set auction dates
+                toast.info("Please set the Auction Start Date & Time and End Date & Time for reverse auction");
                 return;
             } else if (newValue === 0) {
                 // Clear auction dates when disabling reverse auction
@@ -198,48 +184,28 @@ const MagicSearchPage = () => {
         
         // Handle bid end date change
         else if (name === 'bid_end_date' && formData.reverse_auction == 1) {
-            // When changing bid end date, we'll only update auction dates if they're both empty
-            if ((!formData.ra_start_date || formData.ra_start_date === '') && 
-                (!formData.ra_end_date || formData.ra_end_date === '')) {
-                
-                // Update auction end date to match bid end date when reverse auction is enabled
-                const bidEndDate = new Date(value);
-                const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
-                
-                // Set auction end date to bid end date with default time
-                const auctionEndTime = '17:00:00';
-                const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
+            // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
+            // When changing bid end date, we don't auto-update auction dates anymore
+            setFormData({
+                ...formData,
+                [name]: value
+            });
             
-                // Set auction start date to day before bid end date with default time
-                const auctionStartDate = new Date(bidEndDate);
-                auctionStartDate.setDate(auctionStartDate.getDate() - 1);
-                const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
-                const auctionStartTime = '08:00:00';
-                const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
-                
-                setFormData({
-                    ...formData,
-                    [name]: value,
-                    ra_end_date: auctionEndDateStr,
-                    ra_start_date: auctionStartDateTimeStr
-                });
-                return;
-        } else {
-                // Just update the bid end date without changing the auction dates
-                setFormData({
-                    ...formData,
-                    [name]: value
-                });
-                return;
+            // Notify user to set auction dates if they're not set
+            if ((!formData.ra_start_date || formData.ra_start_date === '') || 
+                (!formData.ra_end_date || formData.ra_end_date === '')) {
+                toast.info("Don't forget to set the auction dates for reverse auction");
             }
+            return;
         }
         
         // Handle datetime-local inputs for auction dates
         else if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+            // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
             // Convert from datetime-local string format to server format (YYYY-MM-DD HH:MM:SS)
             // This preserves the exact time without timezone adjustments
             const [datePart, timePart] = value.split('T');
-            const serverFormatDate = `${datePart} ${timePart}:00`;
+            const serverFormatDate = `${datePart} ${timePart}`; // Don't add extra :00
             
             setFormData({
                 ...formData,
@@ -281,7 +247,6 @@ const MagicSearchPage = () => {
     }
 
     const handleGenericFilterChange = (event) => {
-      console.log(event.target.name, event.target.value)
       setGlobalFilters((prevState) => ({
         ...prevState,
         [event.target.name]: event.target.value
@@ -559,41 +524,36 @@ const MagicSearchPage = () => {
         
         // Ensure dates are in correct format
         if (rfqPayload.reverse_auction === 1) {
+            // Changes by Agnij 2025-05-03 [Added validation for reverse auction dates]
             // Validate that reverse auction dates exist and are in proper format
             if (!rfqPayload.ra_start_date || rfqPayload.ra_start_date === '') {
-                // Create a default start date in server format
-                const defaultStart = new Date();
-                defaultStart.setDate(defaultStart.getDate() + 1);
-                const startDate = defaultStart.toISOString().split('T')[0];
-                const startTime = '08:00:00';
-                rfqPayload.ra_start_date = `${startDate} ${startTime}`;
+                toast.error("Please set the Auction Start Date & Time for reverse auction");
+                return;
             }
             
             if (!rfqPayload.ra_end_date || rfqPayload.ra_end_date === '') {
-                // Set end date to bid end date with default time
-                const endDate = rfqPayload.bid_end_date || new Date().toISOString().split('T')[0];
-                const endTime = '17:00:00';
-                rfqPayload.ra_end_date = `${endDate} ${endTime}`;
+                toast.error("Please set the Auction End Date & Time for reverse auction");
+                return;
             }
             
             // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
             if (rfqPayload.ra_start_date && !rfqPayload.ra_start_date.includes(' ')) {
                 if (rfqPayload.ra_start_date.includes('T')) {
                     const [date, time] = rfqPayload.ra_start_date.split('T');
-                    rfqPayload.ra_start_date = `${date} ${time}:00`;
+                    rfqPayload.ra_start_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 } else {
                     // If only date, add default time
-                    rfqPayload.ra_start_date = `${rfqPayload.ra_start_date} 08:00:00`;
+                    rfqPayload.ra_start_date = `${rfqPayload.ra_start_date} 08:00`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 }
             }
             
             if (rfqPayload.ra_end_date && !rfqPayload.ra_end_date.includes(' ')) {
                 if (rfqPayload.ra_end_date.includes('T')) {
                     const [date, time] = rfqPayload.ra_end_date.split('T');
-                    rfqPayload.ra_end_date = `${date} ${time}:00`;
+                    rfqPayload.ra_end_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 } else {
                     // If only date, add default time
-                    rfqPayload.ra_end_date = `${rfqPayload.ra_end_date} 17:00:00`;
+                    rfqPayload.ra_end_date = `${rfqPayload.ra_end_date} 17:00`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 }
             }
         } else if (rfqPayload.reverse_auction === 0) {
@@ -739,37 +699,6 @@ const MagicSearchPage = () => {
 
     }, [fileUploadMessagesDisplayed, loading]);
 
-    useEffect(() => {
-        // Only set default values if reverse auction is enabled, we have a bid end date, and either RA date is missing
-        if (
-            formData.reverse_auction === 1 &&
-            formData.bid_end_date &&
-            (!formData.ra_start_date || formData.ra_start_date === '' || 
-             !formData.ra_end_date || formData.ra_end_date === '')
-        ) {
-            console.log("Setting default RA dates based on bid end date:", formData.bid_end_date);
-            
-            // Parse bid end date
-            const bidEndDate = new Date(formData.bid_end_date);
-            
-            // Calculate RA end date (same day as bid end date)
-            const endDateStr = bidEndDate.toISOString().split('T')[0];
-            const endDateWithTime = `${endDateStr} 17:00:00`;
-            
-            // Calculate RA start date (day before bid end date)
-            const startDateObj = new Date(bidEndDate);
-            startDateObj.setDate(startDateObj.getDate() - 1);
-            const startDateStr = startDateObj.toISOString().split('T')[0];
-            const startDateWithTime = `${startDateStr} 08:00:00`;
-            
-            // Update state
-            setFormData((prev) => ({
-                ...prev,
-                ra_start_date: startDateWithTime,
-                ra_end_date: endDateWithTime,
-            }));
-        }
-    }, [formData.reverse_auction, formData.bid_end_date]);
 
     return (
       <>
