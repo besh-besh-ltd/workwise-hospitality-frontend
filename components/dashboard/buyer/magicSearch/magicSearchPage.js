@@ -247,7 +247,6 @@ const MagicSearchPage = () => {
     }
 
     const handleGenericFilterChange = (event) => {
-      console.log(event.target.name, event.target.value)
       setGlobalFilters((prevState) => ({
         ...prevState,
         [event.target.name]: event.target.value
@@ -700,21 +699,6 @@ const MagicSearchPage = () => {
 
     }, [fileUploadMessagesDisplayed, loading]);
 
-    useEffect(() => {
-        // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
-        // This effect has been intentionally disabled to ensure users explicitly set dates for reverse auction
-        
-        // If reverse auction is enabled and we're changing the bid end date, notify the user to set auction dates
-        if (
-            formData.reverse_auction === 1 &&
-            formData.bid_end_date &&
-            (!formData.ra_start_date || formData.ra_start_date === '' || 
-             !formData.ra_end_date || formData.ra_end_date === '')
-        ) {
-            // We just show a notification instead of auto-setting the dates
-            console.log("Reverse auction enabled but dates not set");
-        }
-    }, [formData.reverse_auction, formData.bid_end_date]);
 
     return (
       <>
