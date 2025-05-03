@@ -201,10 +201,11 @@ const MagicSearchPage = () => {
         
         // Handle datetime-local inputs for auction dates
         else if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+            // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
             // Convert from datetime-local string format to server format (YYYY-MM-DD HH:MM:SS)
             // This preserves the exact time without timezone adjustments
             const [datePart, timePart] = value.split('T');
-            const serverFormatDate = `${datePart} ${timePart}:00`;
+            const serverFormatDate = `${datePart} ${timePart}`; // Don't add extra :00
             
             setFormData({
                 ...formData,
@@ -540,20 +541,20 @@ const MagicSearchPage = () => {
             if (rfqPayload.ra_start_date && !rfqPayload.ra_start_date.includes(' ')) {
                 if (rfqPayload.ra_start_date.includes('T')) {
                     const [date, time] = rfqPayload.ra_start_date.split('T');
-                    rfqPayload.ra_start_date = `${date} ${time}:00`;
+                    rfqPayload.ra_start_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 } else {
                     // If only date, add default time
-                    rfqPayload.ra_start_date = `${rfqPayload.ra_start_date} 08:00:00`;
+                    rfqPayload.ra_start_date = `${rfqPayload.ra_start_date} 08:00`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 }
             }
             
             if (rfqPayload.ra_end_date && !rfqPayload.ra_end_date.includes(' ')) {
                 if (rfqPayload.ra_end_date.includes('T')) {
                     const [date, time] = rfqPayload.ra_end_date.split('T');
-                    rfqPayload.ra_end_date = `${date} ${time}:00`;
+                    rfqPayload.ra_end_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 } else {
                     // If only date, add default time
-                    rfqPayload.ra_end_date = `${rfqPayload.ra_end_date} 17:00:00`;
+                    rfqPayload.ra_end_date = `${rfqPayload.ra_end_date} 17:00`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
                 }
             }
         } else if (rfqPayload.reverse_auction === 0) {

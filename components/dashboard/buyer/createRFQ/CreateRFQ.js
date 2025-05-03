@@ -291,10 +291,11 @@ const CreateRFQ = () => {
 
     // Handle datetime-local inputs for auction dates
     if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+      // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
       // Convert from datetime-local format to server expected format
       // This preserves the exact time without timezone adjustments
       const [datePart, timePart] = value.split('T');
-      value = `${datePart} ${timePart}:00`;
+      value = `${datePart} ${timePart}`; // Don't add the extra :00 as it's causing database errors
     }
 
     if (name === "project_id" && value !== -1) {
@@ -378,14 +379,14 @@ const CreateRFQ = () => {
       if (formDataCopy.ra_start_date && !formDataCopy.ra_start_date.includes(' ')) {
         if (formDataCopy.ra_start_date.includes('T')) {
           const [date, time] = formDataCopy.ra_start_date.split('T');
-          formDataCopy.ra_start_date = `${date} ${time}:00`;
+          formDataCopy.ra_start_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
         }
       }
       
       if (formDataCopy.ra_end_date && !formDataCopy.ra_end_date.includes(' ')) {
         if (formDataCopy.ra_end_date.includes('T')) {
           const [date, time] = formDataCopy.ra_end_date.split('T');
-          formDataCopy.ra_end_date = `${date} ${time}:00`;
+          formDataCopy.ra_end_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
         }
       }
     } else if (formDataCopy.reverse_auction === 0) {
