@@ -709,7 +709,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   <div className="col-7">
                                     <div className="container">
                                       <h2 className="sticky-top fw-semibold text-center text-white py-1 rounded-2">
-                                        Product Variants List
+                                        Product List
                                       </h2>
                                       <ul>
                                         {products.map((item, index) => {
@@ -723,10 +723,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               title={item?.unified_name ? `${item.unified_name}` : `${item.variant_name}`}
                                             >
                                               <div>
-                                                <h3>{item.unified_name ?? item.variant_name}</h3>
+                                                <h3>{item.variant_name ?? item.product_name}</h3>
                                                 <p>
                                                   <small>
-                                                    <b>{item.category_name} </b>
+                                                    <b>{item.category_name} | {item.product_name}</b>
                                                   </small>
                                                 </p>
                                               </div>
@@ -1471,7 +1471,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 {!currentSelectedProduct && (
                   <div className="col-md-12 hasblankpadding">
                     <h2 className="fs-5 text-center">
-                      <b>Search & Select a product's variant</b>
+                      <b>Search & Select a product</b>
                       <br /> to see the available vendors!
                     </h2>
                   </div>

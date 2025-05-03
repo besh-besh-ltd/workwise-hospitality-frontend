@@ -925,7 +925,7 @@ const MagicSearchPage = () => {
                   {reviewData.products && reviewData.products.length > 0 && (
                     <>
                       <div className=" mb-4 mt-4 d-flex justify-content-between align-items-end w-100 px-3">
-                        <h3 className="h5">Review Variants</h3>
+                        <h3 className="h5">Review Products</h3>
                         <ProductSearchModal
                           reviewData={reviewData}
                           setReviewData={setReviewData}
@@ -1266,7 +1266,7 @@ const MagicSearchPage = () => {
           <section className="search-sec-3 pb-4" ref={tableRef}>
             <div className="container-fluid col-md-8 mt-5 ">
               <h4 className="text-danger fw-semibold">
-                RFQ hasn't been Created for these Variants
+                RFQ hasn't been Created for these Products
               </h4>
 
               {validationErrors?.length > 0 && (
@@ -1289,7 +1289,7 @@ const MagicSearchPage = () => {
                               color: "#fff",
                             }}
                           >
-                            Variant Error
+                            Product Error
                           </th>
                         </tr>
                       </thead>
