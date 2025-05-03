@@ -215,20 +215,22 @@ const CreateRFQ = () => {
       const selectedDate = new Date(value);
       if (selectedDate < today) {
         error = 'Bid End Date cannot be in the past.';
-      } 
-      // If RA is enabled, bid end must be before RA start
-      if (currentFormData.reverse_auction && raStartDate && selectedDate >= raStartDate) {
-         error = 'Bid End Date must be before Reverse Auction Start Date/Time.';
       }
+      // Changes by Agnij 2024-08-26 [Removed bid end must be before RA start constraint]
+      // No constraint between bid end date and reverse auction start
     } else if (name === 'ra_start_date' && value && currentFormData.reverse_auction) {
         const selectedStartDate = new Date(value);
-        // Must be after bid end date
-        if (bidEndDate && selectedStartDate <= bidEndDate) {
-            error = 'Reverse Auction Start Date/Time must be after Bid End Date.';
-        }
+        // Changes by Agnij 2024-08-26 [Removed RA must be after bid end constraint]
+        // Removed constraint that RA start must be after bid end date
+
         // Must be before RA end date if RA end date is set
         if (raEndDate && selectedStartDate >= raEndDate) {
             error = 'Reverse Auction Start Date/Time must be before Reverse Auction End Date/Time.';
+        }
+        
+        // Check if date is in the past
+        if (selectedStartDate < today) {
+            error = 'Reverse Auction Start Date/Time cannot be in the past.';
         }
     } else if (name === 'ra_end_date' && value && currentFormData.reverse_auction) {
         const selectedEndDate = new Date(value);
@@ -236,9 +238,13 @@ const CreateRFQ = () => {
         if (raStartDate && selectedEndDate <= raStartDate) {
             error = 'Reverse Auction End Date/Time must be after Reverse Auction Start Date/Time.';
         }
-        // Ensure RA end is after Bid End Date if RA start is not set yet
-        if (!raStartDate && bidEndDate && selectedEndDate <= bidEndDate) {
-            error = 'Reverse Auction End Date/Time must be after Bid End Date.';
+        
+        // Changes by Agnij 2024-08-26 [Removed RA end must be after bid end constraint]
+        // Removed constraint that RA end must be after bid end date
+        
+        // Check if date is in the past
+        if (selectedEndDate < today) {
+            error = 'Reverse Auction End Date/Time cannot be in the past.';
         }
     } else if (name === 'reverse_auction' && !value) {
       // If disabling RA, clear potential errors for RA dates
@@ -277,23 +283,9 @@ const CreateRFQ = () => {
         dispatch(setOtherFormFields({ field_name: "ra_start_date", value: null }));
         dispatch(setOtherFormFields({ field_name: "ra_end_date", value: null }));
       } else if (value === 1) {
-        // When enabling reverse auction, set default dates
-        const bidEndDate = rfqFormDataFromStore.bid_end_date ? new Date(rfqFormDataFromStore.bid_end_date) : new Date();
-        
-        // Set end date to bid end date with default time
-        const bidEndDateStr = bidEndDate.toISOString().split('T')[0];
-        const auctionEndTime = '17:00:00';
-        const auctionEndDateStr = `${bidEndDateStr} ${auctionEndTime}`;
-        
-        // Set start date to day before end date
-        const auctionStartDate = new Date(bidEndDate);
-        auctionStartDate.setDate(auctionStartDate.getDate() - 1);
-        const auctionStartDateStr = auctionStartDate.toISOString().split('T')[0];
-        const auctionStartTime = '08:00:00';
-        const auctionStartDateTimeStr = `${auctionStartDateStr} ${auctionStartTime}`;
-        
-        dispatch(setOtherFormFields({ field_name: "ra_start_date", value: auctionStartDateTimeStr }));
-        dispatch(setOtherFormFields({ field_name: "ra_end_date", value: auctionEndDateStr }));
+        // Changes by Agnij 2024-08-26 [Removed default date setting for reverse auction]
+        // Display a toast message to inform the user to set auction dates
+        toast.info("Please set the Auction Start Date & Time and End Date & Time for reverse auction");
       }
     }
 
@@ -367,23 +359,19 @@ const CreateRFQ = () => {
     // Ensure company_name is included from either form values, Redux store, or user profile
     formDataCopy.company_name = values.company_name || formDataCopy.company_name || userProfile?.company_name || "";
     
-    // CRITICALLY IMPORTANT: Ensure auction dates are set if reverse auction is enabled
+    // Changes by Agnij 2024-08-26 [Validate reverse auction dates without default values]
     if (formDataCopy.reverse_auction === 1) {
-      // Make sure we have concrete dates, not empty strings
+      // Check if the reverse auction dates are empty
       if (!formDataCopy.ra_start_date || formDataCopy.ra_start_date === '') {
-        // Create a default start date in server format
-        const defaultStart = new Date();
-        defaultStart.setDate(defaultStart.getDate() + 1);
-        const startDate = defaultStart.toISOString().split('T')[0];
-        const startTime = '08:00:00';
-        formDataCopy.ra_start_date = `${startDate} ${startTime}`;
+        toast.error("Please set the Auction Start Date & Time for reverse auction");
+        setMainLoading(false);
+        return;
       }
       
-      if ((!formDataCopy.ra_end_date || formDataCopy.ra_end_date === '') && formDataCopy.bid_end_date) {
-        // Set end date to bid end date with default time
-        const endDate = formDataCopy.bid_end_date;
-        const endTime = '17:00:00';
-        formDataCopy.ra_end_date = `${endDate} ${endTime}`;
+      if (!formDataCopy.ra_end_date || formDataCopy.ra_end_date === '') {
+        toast.error("Please set the Auction End Date & Time for reverse auction");
+        setMainLoading(false);
+        return;
       }
       
       // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
@@ -613,37 +601,24 @@ const CreateRFQ = () => {
   }, [hasUnsavedChanges, router]);
 
   useEffect(() => {
-    // Only set default values if reverse auction is enabled, we have a bid end date, and either RA date is missing
+    // Changes by Agnij 2024-08-26 [Removed auto-setting of default dates for reverse auction]
+    // This effect has been intentionally disabled to ensure users explicitly set dates for reverse auction
+    
+    // Only validate the dates if both are provided
     if (
       rfqFormDataFromStore.reverse_auction === 1 &&
-      rfqFormDataFromStore.bid_end_date &&
-      (!rfqFormDataFromStore.ra_start_date || rfqFormDataFromStore.ra_start_date === '' || 
-       !rfqFormDataFromStore.ra_end_date || rfqFormDataFromStore.ra_end_date === '')
+      rfqFormDataFromStore.ra_start_date && 
+      rfqFormDataFromStore.ra_end_date
     ) {
-      console.log("Setting default RA dates based on bid end date:", rfqFormDataFromStore.bid_end_date);
+      // Validate dates
+      const startError = validateDates('ra_start_date', rfqFormDataFromStore.ra_start_date, rfqFormDataFromStore);
+      const endError = validateDates('ra_end_date', rfqFormDataFromStore.ra_end_date, rfqFormDataFromStore);
       
-      // Parse bid end date
-      const bidEndDate = new Date(rfqFormDataFromStore.bid_end_date);
-      
-      // Calculate RA end date (same day as bid end date)
-      const endDateStr = bidEndDate.toISOString().split('T')[0];
-      const endDateWithTime = `${endDateStr} 17:00:00`;
-      
-      // Calculate RA start date (day before bid end date)
-      const startDateObj = new Date(bidEndDate);
-      startDateObj.setDate(startDateObj.getDate() - 1);
-      const startDateStr = startDateObj.toISOString().split('T')[0];
-      const startDateWithTime = `${startDateStr} 08:00:00`;
-      
-      // Update Redux store
-      dispatch(setOtherFormFields({ field_name: "ra_start_date", value: startDateWithTime }));
-      dispatch(setOtherFormFields({ field_name: "ra_end_date", value: endDateWithTime }));
-      
-      // Clear any validation errors since we've now set valid default values
+      // Update validation errors
       setValidationErrors(prev => ({
         ...prev,
-        ra_start_date: '',
-        ra_end_date: ''
+        ra_start_date: startError,
+        ra_end_date: endError
       }));
     }
   }, [rfqFormDataFromStore.reverse_auction, rfqFormDataFromStore.bid_end_date]);
