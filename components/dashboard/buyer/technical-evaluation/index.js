@@ -256,6 +256,18 @@ useEffect(() => {
                           <b>Reverse Auction</b> :{" "}
                           {currentRfq.reverse_auction == 1 ? "Enabled" : "Disabled"}
                         </p>
+                        {currentRfq.reverse_auction == 1 && (
+                          <>
+                            <p className="sub-heading mb-0">
+                              <b>Auction Start Date</b> :{" "}
+                              {currentRfq.ra_start_date || "Not specified"}
+                            </p>
+                            <p className="sub-heading mb-0">
+                              <b>Auction End Date</b> :{" "}
+                              {currentRfq.ra_end_date || "Not specified"}
+                            </p>
+                          </>
+                        )}
                         {currentRfq.rfq_type && currentRfq.rfq_type != "" &&
                           <p className="sub-heading mb-0">
                             <b>RFQ Type</b> :{" "}

@@ -32,6 +32,7 @@ const SendQuotePageComp = () => {
   const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
   const [currentLowest, setCurrentLowest] = useState(null);
+  const [techEvalStatuses, setTechEvalStatuses] = useState({});
 
   useEffect(() => {
     if (id) {
@@ -46,6 +47,14 @@ const SendQuotePageComp = () => {
 
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
+      const techStatuses = {};
+      products.forEach(product => {
+        if (product.tech_evaluation_status) {
+          techStatuses[product.id] = product.tech_evaluation_status;
+        }
+      });
+      setTechEvalStatuses(techStatuses);
+      
       const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
       setCurrentLowest(hasLowestQuotation);
     } else {
@@ -908,6 +917,14 @@ const SendQuotePageComp = () => {
                                             value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
                                             disabled
                                           />
+                                          {techEvalStatuses[item.id] && techEvalStatuses[item.id].has_tech_eval && !techEvalStatuses[item.id].is_accepted && (
+                                            <div className="mt-1">
+                                              <small className="text-warning">
+                                                <i className="fas fa-info-circle me-1"></i>
+                                                You must be technically accepted to see lowest quote
+                                              </small>
+                                            </div>
+                                          )}
                                         </td>
                                         :
                                         <td>
@@ -918,6 +935,14 @@ const SendQuotePageComp = () => {
                                             placeholder="--"
                                             disabled
                                           />
+                                          {techEvalStatuses[item.id] && techEvalStatuses[item.id].has_tech_eval && !techEvalStatuses[item.id].is_accepted && (
+                                            <div className="mt-1">
+                                              <small className="text-warning">
+                                                <i className="fas fa-info-circle me-1"></i>
+                                                Technical acceptance required
+                                              </small>
+                                            </div>
+                                          )}
                                         </td>
                                       : null
                                     }

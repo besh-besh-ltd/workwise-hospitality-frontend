@@ -1163,6 +1163,18 @@ const QuoteCompare = () => {
                           <b>Reverse Auction</b> :{" "}
                           {currentRFQ.reverse_auction == 1 ? "Enabled" : "Disabled"}
                         </p>
+                        {currentRFQ.reverse_auction == 1 && (
+                          <>
+                            <p className="sub-heading mb-0">
+                              <b>Auction Start Date</b> :{" "}
+                              {currentRFQ.ra_start_date || "Not specified"}
+                            </p>
+                            <p className="sub-heading mb-0">
+                              <b>Auction End Date</b> :{" "}
+                              {currentRFQ.ra_end_date || "Not specified"}
+                            </p>
+                          </>
+                        )}
                         {currentRFQ.rfq_type && currentRFQ.rfq_type != "" &&
                           <p className="sub-heading mb-0">
                             <b>RFQ Type</b> :{" "}

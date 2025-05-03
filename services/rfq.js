@@ -276,7 +276,6 @@ export const getSImplifiedVersionOfBOQ = (file) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosFormData.post(`/rfq/boq/process-and-download`, payload);
-      console.log("  response  ", response )
       resolve(response);
     } catch (error) {
       reject({ message: error });
