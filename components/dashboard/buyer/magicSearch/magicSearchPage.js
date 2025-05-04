@@ -1260,6 +1260,10 @@ const MagicSearchPage = () => {
                         className="form-control border border-dark-subtle"
                       value={formatISOToDateTimeLocal(formData?.ra_start_date)}
                         onChange={handleFormChange}
+                       min={formData.bid_end_date 
+                              ? formatISOToDateTimeLocal(formData.bid_end_date)
+                              : new Date().toISOString().slice(0, 16)
+                          }
                       />
                     </div>
                   <div className="col-md-4 mb-2">
@@ -1273,6 +1277,12 @@ const MagicSearchPage = () => {
                       className="form-control border border-dark-subtle"
                       value={formatISOToDateTimeLocal(formData?.ra_end_date)}
                       onChange={handleFormChange}
+                      min={
+                        formData.ra_start_date
+                          ? formatISOToDateTimeLocal(formData.ra_start_date)
+                          : ""
+                      }
+                      disabled={!formData.ra_start_date}
                     />
                   </div>
                 </>
