@@ -31,7 +31,7 @@ const RfqManagementPreview = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [clauseMap, setClauseMap] = useState(null);
-  const [quoteDisabled, setQuoteDisabled] = useState(false);
+  const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   // New state variables for enhanced RA logic
   const [isReverseAuctionActive, setIsReverseAuctionActive] = useState(false);
@@ -40,6 +40,8 @@ const RfqManagementPreview = () => {
   const [raStatusChanged, setRaStatusChanged] = useState(false);
   // Add technical evaluation statuses tracking
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
+  // Changes by Agnij 2024-05-05 [Add state for technical evaluation restrictions]
+  const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -194,80 +196,91 @@ const RfqManagementPreview = () => {
   };
 
   const checkIfQuotationSendIsPossible = useCallback(() => {
+    // --- Initial Setup ---
     const now = new Date();
-    // Ensure dates are parsed correctly into Date objects
-    const bidEndDate = rfqDetails?.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
+    // Consider memoizing date objects outside this callback with useMemo for performance optimization
+    const bidEndDateRaw = rfqDetails?.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
+    const bidEndDateEndOfDay = bidEndDateRaw ? new Date(bidEndDateRaw.getFullYear(), bidEndDateRaw.getMonth(), bidEndDateRaw.getDate(), 23, 59, 59, 999) : null;
     const raStartDate = rfqDetails?.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
     const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
+
     const isReverseAuction = rfqDetails?.reverse_auction == 1;
     const isRfqClosed = rfqDetails?.status == 2;
-    // Assume all products are finalized check (replace with actual logic if available)
-    const areAllProductsFinalized = !productleftforbid; 
+    const areAllProductsFinalized = !productleftforbid; // Assumes productleftforbid is boolean/truthy
 
+    // --- Determine Status ---
+    // Default state: Allowed to send quote during normal bidding period
     let isDisabled = false;
     let message = "Send Quote";
     let currentIsReverseAuctionActive = false;
 
-
-    // Priority 1: Is Reverse Auction currently active?
+    // Priority 1: Active Reverse Auction
     if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
-      isDisabled = false; 
+      isDisabled = false; // Explicitly allowed
       message = "Reverse Auction is Active";
       currentIsReverseAuctionActive = true;
-      console.log("Check Result: Allowed (Active RA)");
-    } 
-    // Priority 2: Is the RFQ explicitly closed?
-    else if (isRfqClosed) {
-      isDisabled = true;
-      message = "RFQ is Closed";
-      console.log("Check Result: Disabled (RFQ Closed)");
-    } 
-    // Priority 3: Are all products finalized?
-    else if (areAllProductsFinalized) {
-      isDisabled = true;
-      message = "All Products are Finalized";
-      console.log("Check Result: Disabled (All Products Finalized)");
     }
-    // Priority 4: Has the normal bidding period ended?
-    else if (bidEndDate && now > bidEndDate) {
-        isDisabled = true; // Assume closed unless RA logic above allowed it
-        if (isReverseAuction) {
-              if (raEndDate && now > raEndDate) {
-                message = "Reverse Auction has Ended";
-                console.log("Check Result: Disabled (RA Ended)");
-              } else if (raStartDate && now < raStartDate) {
-                message = "Bidding Period Ended (Reverse Auction Pending)";
-                console.log("Check Result: Disabled (RA Pending)");
-              } else if (!raStartDate || !raEndDate) {
-                  message = "Bidding Period Ended (RA Dates Invalid)";
-                  console.log("Check Result: Disabled (RA Dates Invalid)");
-              } else {
-                 message = "Bidding Period Ended"; // Fallback
-                 console.log("Check Result: Disabled (Bid End Passed, RA state unclear)");
-              }
-         } else {
-             message = "Bidding Period has Ended"; // No reverse auction
-             console.log("Check Result: Disabled (Bid End Passed, No RA)");
-         }
-    } 
-    // Priority 5: Is there no bid end date? (Likely draft/invalid)
-    else if (!bidEndDate) {
-         isDisabled = true; 
-         message = "RFQ Not Open for Bidding";
-         console.log("Check Result: Disabled (No Bid End Date)");
-    }
-    // else: Bidding is allowed (within bidEndDate, RFQ not closed, RA not applicable or not active yet)
+    // Check other disabling conditions only if RA is not currently active
     else {
-        isDisabled = false;
-        message = "Send Quote"; // Default allowed state
-        console.log("Check Result: Allowed (Standard Bidding Period)");
+        // Priority 2: RFQ Closed
+        if (isRfqClosed) {
+            isDisabled = true;
+            message = "RFQ is Closed";
+        }
+        // Priority 3: All Products Finalized
+        else if (areAllProductsFinalized) {
+            isDisabled = true;
+            message = "All Products are Finalized";
+        }
+        // Priority 4: Past Bid End Date
+        // Changes by Agnij 2024-05-05 [Ensure quotes can be updated until end of bid end date]
+        else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
+            isDisabled = true; // Disable by default if bid ended
+            if (isReverseAuction) {
+                if (raEndDate && now > raEndDate) {
+                    message = "Reverse Auction has Ended";
+                } else if (raStartDate && now < raStartDate) {
+                    message = "Bidding Period Ended (Reverse Auction Pending)";
+                } else if (!raStartDate || !raEndDate) {
+                    message = "Bidding Period Ended (RA Dates Invalid)";
+                } else {
+                    // Should not happen if Priority 1 caught active RA, but acts as fallback
+                    message = "Bidding Period Ended";
+                }
+            } else {
+                // No RA, bid just ended
+                message = "Bidding Period has Ended";
+            }
+        }
+        // Priority 5: Invalid RFQ State (No Bid End Date)
+        else if (!bidEndDateRaw) {
+            isDisabled = true;
+            message = "RFQ Not Open for Bidding";
+        }
+        // If none of the above conditions met, the default "Send Quote" state remains.
     }
-    
-    setIsReverseAuctionActive(currentIsReverseAuctionActive); // Update state for lowest price display
+
+    // --- Update State ---
+    setIsReverseAuctionActive(currentIsReverseAuctionActive);
     setQuoteDisabled(isDisabled);
     setStatusMessage(message);
     
-  }, [rfqDetails, productleftforbid, isReverseAuctionActive]); 
+    // Changes by Agnij 2024-05-05 [Only show technical evaluation restrictions during active RA]
+    // Only apply technical evaluation restrictions during active reverse auction
+    setShowTechEvalRestrictions(currentIsReverseAuctionActive);
+    
+    // Update current lowest visibility based on RA status
+    setShowLowestPrice(currentIsReverseAuctionActive);
+    
+    // Track if current RA status is different from previous to notify user
+    if (wasEndDatePassed !== (bidEndDateEndOfDay && now > bidEndDateEndOfDay)) {
+      setWasEndDatePassed(bidEndDateEndOfDay && now > bidEndDateEndOfDay);
+      if (isReverseAuction && raStartDate && now >= raStartDate) {
+        setRaStatusChanged(true);
+      }
+    }
+
+  }, [rfqDetails, productleftforbid]);
 
   useEffect(() => {
     if (rfqDetails) {
@@ -331,6 +344,13 @@ const RfqManagementPreview = () => {
     // Add commas to the integer part
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join(".");
+  };
+
+  const goToQuoteCreation = () => {
+    // Changes by Agnij 2024-05-05 [Pass tech eval restriction flag to quote page]
+    router.push(
+      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
+    );
   };
 
   return (
@@ -693,18 +713,22 @@ const RfqManagementPreview = () => {
 
                         }
                         {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
-                          ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
-                            <button
+                          ? <button
                               type="button"
                               className="btn btn-secondary m-0 p-2"
                               style={{ width: "240px" }}
+                              onClick={() => {
+                                // Changes by Agnij 2024-05-05 [Pass update parameter]
+                                router.push(
+                                  `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
+                                );
+                              }}
                             >
                               <>
                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                 Update Your Quote
                               </>
                             </button>
-                          </Link>
                           : null
                         }
                       </div>
@@ -780,26 +804,10 @@ const RfqManagementPreview = () => {
                                     item?.lowest_quotation ? 
                                       <td>
                                         {addCommasToNumber(item?.lowest_quotation?.total_price)}
-                                        {techEvalStatuses[item.id]?.has_tech_eval && !techEvalStatuses[item.id]?.is_accepted && (
-                                          <div className="mt-1">
-                                            <small className="text-warning">
-                                              <i className="fas fa-info-circle me-1"></i>
-                                              You are seeing this because you're technically accepted
-                                            </small>
-                                          </div>
-                                        )}
                                       </td> 
                                     : 
                                       <td>
                                         --
-                                        {techEvalStatuses[item.id]?.has_tech_eval && !techEvalStatuses[item.id]?.is_accepted && (
-                                          <div className="mt-1">
-                                            <small className="text-warning">
-                                              <i className="fas fa-info-circle me-1"></i>
-                                              Technical acceptance required to see lowest quote
-                                            </small>
-                                          </div>
-                                        )}
                                       </td>
                                   )}
 
@@ -1189,7 +1197,7 @@ const RfqManagementPreview = () => {
                                             {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
                                           </button>
                                         ) :
-                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`}>
                                             <button
                                               type="button"
                                               className="btn btn-secondary m-0"
@@ -1355,11 +1363,13 @@ const RfqManagementPreview = () => {
                                               {statusMessage}
                                             </button>
                                           ) : (
-                                            <Link href={`/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}`}>
-                                              <button type="button" className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}>
-                                                {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
-                                              </button>
-                                            </Link>
+                                            <button 
+                                              type="button" 
+                                              className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}
+                                              onClick={goToQuoteCreation}
+                                            >
+                                              {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
+                                            </button>
                                           )}
                                         </>
                                       )}

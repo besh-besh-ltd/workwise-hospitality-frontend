@@ -223,29 +223,32 @@ const CreateRFQ = () => {
         // Changes by Agnij 2025-05-03 [Removed RA must be after bid end constraint]
         // Removed constraint that RA start must be after bid end date
 
-        // Must be before RA end date if RA end date is set
-        if (raEndDate && selectedStartDate >= raEndDate) {
-            error = 'Reverse Auction Start Date/Time must be before Reverse Auction End Date/Time.';
-        }
+        // mukul 04/may/2025: Ensure RA start date is strictly one day after bid end date
+        if (selectedStartDate && bidEndDate) {
+          const bidEndDateOnly = new Date(bidEndDate);
+          bidEndDateOnly.setHours(0, 0, 0, 0);
         
-        // Check if date is in the past
-        if (selectedStartDate < today) {
-            error = 'Reverse Auction Start Date/Time cannot be in the past.';
-        }
+          const raStartDateOnly = new Date(selectedStartDate);
+          raStartDateOnly.setHours(0, 0, 0, 0);
+        
+          const diffInDays = (raStartDateOnly - bidEndDateOnly) / (1000 * 60 * 60 * 24);
+        
+          if (diffInDays < 1) {
+            error = 'Auction Start Date must be at least one day after the Procurement End Date.';
+          } else if (selectedStartDate < today) {
+            error = 'Auction Start Date/Time cannot be in the past.';
+        }}
     } else if (name === 'ra_end_date' && value && currentFormData.reverse_auction) {
         const selectedEndDate = new Date(value);
-        // Must be after RA start date
-        if (raStartDate && selectedEndDate <= raStartDate) {
-            error = 'Reverse Auction End Date/Time must be after Reverse Auction Start Date/Time.';
-        }
-        
         // Changes by Agnij 2025-05-03 [Removed RA end must be after bid end constraint]
         // Removed constraint that RA end must be after bid end date
         
-        // Check if date is in the past
-        if (selectedEndDate < today) {
-            error = 'Reverse Auction End Date/Time cannot be in the past.';
-        }
+        // mukul - 04/may/2025: Ensure RA end date is on or after RA start date and have 60min gap
+        if (raStartDate) {
+          const timeDifference = selectedEndDate - raStartDate; // in ms
+          if (timeDifference < 60 * 60 * 1000) {
+            error = 'Reverse Auction End Time must be at least 60 minutes after the Start Time.';
+        }}
     } else if (name === 'reverse_auction' && !value) {
       // If disabling RA, clear potential errors for RA dates
       setValidationErrors(prev => ({ ...prev, ra_start_date: '', ra_end_date: '' }));
@@ -980,6 +983,21 @@ const CreateRFQ = () => {
                                     errors={errors}
                                   />
                                 </div>
+
+                                <div className="col-md-4">
+                                  <FormikField
+                                    label="Procurement end date"
+                                    value={rfqFormDataFromStore.bid_end_date}
+                                    enableHandleChange={true}
+                                    handleChange={handleFormFieldChange}
+                                    type="date"
+                                    isRequired={true}
+                                    name="bid_end_date"
+                                    touched={touched}
+                                    errors={errors}
+                                  />
+                                </div>
+                                
                                 <div className="col-md-4">
                                   <FormikField
                                     label="Reverse Auction"
@@ -998,20 +1016,7 @@ const CreateRFQ = () => {
                                     errors={errors}
                                   />
                                 </div>
-                                <div className="col-md-4">
-                                  <FormikField
-                                    label="Procurement end date"
-                                    value={rfqFormDataFromStore.bid_end_date}
-                                    enableHandleChange={true}
-                                    handleChange={handleFormFieldChange}
-                                    type="date"
-                                    isRequired={true}
-                                    name="bid_end_date"
-                                    touched={touched}
-                                    errors={errors}
-                                  />
-                                </div>
-                                
+
                                 {rfqFormDataFromStore.reverse_auction === 1 && (
                                   <>
                                     <div className="col-md-6">
@@ -1024,26 +1029,36 @@ const CreateRFQ = () => {
                                         className="form-control"
                                         value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)}
                                         onChange={handleFormFieldChange}
+                                        min={rfqFormDataFromStore.bid_end_date
+                                               ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
+                                               : new Date().toISOString().slice(0, 16)
+                                           }
                                       />
                                       {validationErrors.ra_start_date && (
                                           <div className="text-danger">{validationErrors.ra_start_date}</div>
                                       )}
                                     </div>
                                     <div className="col-md-6">
-                                      <label className="form-label">
-                                        Auction End Date & Time <span className="text-danger">*</span>
-                                      </label>
-                                      <input
-                                        type="datetime-local"
-                                        name="ra_end_date"
-                                        className="form-control"
-                                        value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_end_date)}
-                                        onChange={handleFormFieldChange}
-                                      />
-                                      {validationErrors.ra_end_date && (
-                                          <div className="text-danger">{validationErrors.ra_end_date}</div>
-                                      )}
-                                    </div>
+                                       <label className="form-label">
+                                         Auction End Date & Time <span className="text-danger">*</span>
+                                       </label>
+                                       <input
+                                         type="datetime-local"
+                                         name="ra_end_date"
+                                         className="form-control"
+                                         value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_end_date)}
+                                         onChange={handleFormFieldChange}
+                                         min={
+                                           rfqFormDataFromStore.ra_start_date
+                                             ? formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)
+                                             : ""
+                                         }
+                                         disabled={!rfqFormDataFromStore.ra_start_date}
+                                       />
+                                       {validationErrors.ra_end_date && (
+                                         <div className="text-danger">{validationErrors.ra_end_date}</div>
+                                       )}
+                                     </div>
                                   </>
                                 )}
 
