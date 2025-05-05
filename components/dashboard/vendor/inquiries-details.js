@@ -349,7 +349,7 @@ const RfqManagementPreview = () => {
   const goToQuoteCreation = () => {
     // Changes by Agnij 2024-05-05 [Pass tech eval restriction flag to quote page]
     router.push(
-      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${showTechEvalRestrictions}`
+      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
     );
   };
 
@@ -720,7 +720,7 @@ const RfqManagementPreview = () => {
                               onClick={() => {
                                 // Changes by Agnij 2024-05-05 [Pass update parameter]
                                 router.push(
-                                  `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${showTechEvalRestrictions}`
+                                  `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
                                 );
                               }}
                             >
@@ -1197,7 +1197,7 @@ const RfqManagementPreview = () => {
                                             {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
                                           </button>
                                         ) :
-                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`}>
                                             <button
                                               type="button"
                                               className="btn btn-secondary m-0"

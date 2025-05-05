@@ -15,8 +15,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 
 const SendQuotePageComp = () => {
   const router = useRouter();
-  const { id, token } = router.query;
-  const pageType = router.query.type;
+  const { id, token, type: pageType } = router.query;
   const showTechEvalRestrictionsParam = router.query.showTechEvalRestrictions === 'true';
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
@@ -34,18 +33,27 @@ const SendQuotePageComp = () => {
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
   const [currentLowest, setCurrentLowest] = useState(null);
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
-  const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(showTechEvalRestrictionsParam);
+  const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
   useEffect(() => {
     if (id) {
       getRFQdetails();
     }
-  }, [router]);
-
-  useEffect(() => {
-    // Update the tech evaluation restriction flag whenever URL parameter changes
-    setShowTechEvalRestrictions(router.query.showTechEvalRestrictions === 'true');
-  }, [router.query.showTechEvalRestrictions]);
+    
+    // Changes by Agnij 2024-07-29 [Add debug logging for URL parameters]
+    console.log("URL parameters:", {
+      id: router.query.id,
+      token: router.query.token,
+      type: router.query.type,
+      showTechEvalRestrictions: router.query.showTechEvalRestrictions,
+      parsedValue: router.query.showTechEvalRestrictions === 'true'
+    });
+    
+    // Update the tech evaluation restriction flag
+    const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
+    setShowTechEvalRestrictions(restrictionsEnabled);
+    console.log("Tech eval restrictions:", restrictionsEnabled ? "Enabled" : "Disabled");
+  }, [router, router.query]);
 
   const getProductSpecValueByTitle = (productSpecs, title) => {
     const spec = productSpecs.find(spec => spec.title === title);
@@ -54,10 +62,15 @@ const SendQuotePageComp = () => {
 
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
+      // Extract technical evaluation status for each product
       const techStatuses = {};
       products.forEach(product => {
+        // Changes by Agnij 2024-07-29 [Fix tech eval status tracking]
         if (product.tech_evaluation_status) {
-          techStatuses[product.id] = product.tech_evaluation_status;
+          techStatuses[product.id] = {
+            has_tech_eval: product.tech_evaluation_status.has_tech_eval === true,
+            is_accepted: product.tech_evaluation_status.is_accepted === true
+          };
         }
       });
       setTechEvalStatuses(techStatuses);
@@ -798,12 +811,15 @@ const SendQuotePageComp = () => {
                             rfqDetails.products.map((item, index) => {
 
                               if (isAvailableForQuote(item)) {
-                                // Changes by Agnij 2024-07-28 [Conditionally apply technical evaluation restrictions]
+                                // Changes by Agnij 2024-07-29 [Fix tech eval restrictions check]
                                 const techStatus = techEvalStatuses[item.id];
-                                // Only apply restrictions during reverse auction
+                                
+                                // Determine if inputs should be disabled - only during reverse auction for rejected products
                                 const isTechEvalPendingOrRejected = showTechEvalRestrictions && 
-                                                                   techStatus?.has_tech_eval && 
-                                                                   !techStatus?.is_accepted;
+                                                                   techStatus && 
+                                                                   techStatus.has_tech_eval === true && 
+                                                                   techStatus.is_accepted !== true;
+
 
                                 return (
                                   <tr key={`q_${item.id}_${item.product_id}_${item.variant}}`}>
@@ -947,7 +963,9 @@ const SendQuotePageComp = () => {
                                             value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
                                             disabled
                                           />
-                                          {techEvalStatuses[item.id] && techEvalStatuses[item.id].has_tech_eval && !techEvalStatuses[item.id].is_accepted && (
+                                          {techEvalStatuses[item.id] && 
+                                           techEvalStatuses[item.id].has_tech_eval && 
+                                           !techEvalStatuses[item.id].is_accepted && (
                                             <div className="mt-1">
                                               <small className="text-warning">
                                                 <i className="fas fa-info-circle me-1"></i>
@@ -965,7 +983,9 @@ const SendQuotePageComp = () => {
                                             placeholder="--"
                                             disabled
                                           />
-                                          {techEvalStatuses[item.id] && techEvalStatuses[item.id].has_tech_eval && !techEvalStatuses[item.id].is_accepted && (
+                                          {techEvalStatuses[item.id] && 
+                                           techEvalStatuses[item.id].has_tech_eval && 
+                                           !techEvalStatuses[item.id].is_accepted && (
                                             <div className="mt-1">
                                               <small className="text-warning">
                                                 <i className="fas fa-info-circle me-1"></i>
