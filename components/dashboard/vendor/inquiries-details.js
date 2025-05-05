@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { faEdit, faEye } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -11,10 +11,11 @@ import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-ico
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { checkBidExpired, extractfileName } from "@/utils/sharedFunctions";
+import { checkBidExpired, extractfileName, formatDate } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import { toast } from "react-toastify";
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -30,12 +31,22 @@ const RfqManagementPreview = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [clauseMap, setClauseMap] = useState(null);
+  const [quoteDisabled, setQuoteDisabled] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("");
+  // New state variables for enhanced RA logic
+  const [isReverseAuctionActive, setIsReverseAuctionActive] = useState(false);
+  const [showLowestPrice, setShowLowestPrice] = useState(false);
+  const [wasEndDatePassed, setWasEndDatePassed] = useState(false);
+  const [raStatusChanged, setRaStatusChanged] = useState(false);
+  // Add technical evaluation statuses tracking
+  const [techEvalStatuses, setTechEvalStatuses] = useState({});
+  // Changes by Agnij 2024-05-05 [Add state for technical evaluation restrictions]
+  const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
-
 
   useEffect(() => {
     if (id) {
@@ -75,24 +86,20 @@ const RfqManagementPreview = () => {
 
   }, [rfqDetails, buyerClauses])
 
+  // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
-    if (rfqDetails && rfqDetails.terms) {
-      console.log("RFQ Terms Debug:", {
-        count: rfqDetails.terms.length,
-        terms: rfqDetails.terms.map(t => ({
-          id: t.id,
-          name: t.name,
-          // Include a sample of other properties that might exist
-          properties: {
-            term_id: t.term_id,
-            term_text: t.term_text,
-            term_content: t.term_content,
-            content: t.content
-          }
-        }))
+    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed) {
+      toast.info("The reverse auction has started. You can send quotes again.", {
+        position: "top-right",
+        autoClose: 7000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
       });
+      setRaStatusChanged(false);
     }
-  }, [rfqDetails?.terms]);
+  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed]);
 
   const getRFQdetails = () => {
     setloading(true);
@@ -139,8 +146,28 @@ const RfqManagementPreview = () => {
 
   const updatecurrentLowest = (products) => {
     if (products && Array.isArray(products)) {
-      const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
-      setCurrentLowest(hasLowestQuotation);
+      // Extract technical evaluation status for each product
+      const techStatuses = {};
+      products.forEach(product => {
+        if (product.tech_evaluation_status) {
+          techStatuses[product.id] = product.tech_evaluation_status;
+        }
+      });
+      setTechEvalStatuses(techStatuses);
+      
+      // Determine if lowest quotation should be visible based on technical evaluation
+      const hasLowestQuotation = products.some(product => {
+        // Show lowest quote if it exists and either:
+        // 1. Product doesn't have technical evaluation, or
+        // 2. Product has technical evaluation and vendor is accepted
+        const hasTechEval = product.tech_evaluation_status?.has_tech_eval;
+        const isAccepted = product.tech_evaluation_status?.is_accepted;
+        
+        return product.lowest_quotation !== null && 
+               (!hasTechEval || (hasTechEval && isAccepted));
+      });
+      
+      setCurrentLowest(hasLowestQuotation && showLowestPrice);
     } else {
       setCurrentLowest(null);
     }
@@ -168,16 +195,100 @@ const RfqManagementPreview = () => {
       });
   };
 
-  const checkIfQuotationSendIsPossible = (rfqd) => {
-    if (rfqd?.finalizations?.length === rfqd?.products?.length) {
-      setproductleftforbid(false);
-    } else {
-      setproductleftforbid(true);
+  const checkIfQuotationSendIsPossible = useCallback(() => {
+    // --- Initial Setup ---
+    const now = new Date();
+    // Consider memoizing date objects outside this callback with useMemo for performance optimization
+    const bidEndDateRaw = rfqDetails?.bid_end_date ? new Date(rfqDetails.bid_end_date) : null;
+    const bidEndDateEndOfDay = bidEndDateRaw ? new Date(bidEndDateRaw.getFullYear(), bidEndDateRaw.getMonth(), bidEndDateRaw.getDate(), 23, 59, 59, 999) : null;
+    const raStartDate = rfqDetails?.ra_start_date ? new Date(rfqDetails.ra_start_date) : null;
+    const raEndDate = rfqDetails?.ra_end_date ? new Date(rfqDetails.ra_end_date) : null;
+
+    const isReverseAuction = rfqDetails?.reverse_auction == 1;
+    const isRfqClosed = rfqDetails?.status == 2;
+    const areAllProductsFinalized = !productleftforbid; // Assumes productleftforbid is boolean/truthy
+
+    // --- Determine Status ---
+    // Default state: Allowed to send quote during normal bidding period
+    let isDisabled = false;
+    let message = "Send Quote";
+    let currentIsReverseAuctionActive = false;
+
+    // Priority 1: Active Reverse Auction
+    if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
+      isDisabled = false; // Explicitly allowed
+      message = "Reverse Auction is Active";
+      currentIsReverseAuctionActive = true;
     }
-  };
+    // Check other disabling conditions only if RA is not currently active
+    else {
+        // Priority 2: RFQ Closed
+        if (isRfqClosed) {
+            isDisabled = true;
+            message = "RFQ is Closed";
+        }
+        // Priority 3: All Products Finalized
+        else if (areAllProductsFinalized) {
+            isDisabled = true;
+            message = "All Products are Finalized";
+        }
+        // Priority 4: Past Bid End Date
+        // Changes by Agnij 2024-05-05 [Ensure quotes can be updated until end of bid end date]
+        else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
+            isDisabled = true; // Disable by default if bid ended
+            if (isReverseAuction) {
+                if (raEndDate && now > raEndDate) {
+                    message = "Reverse Auction has Ended";
+                } else if (raStartDate && now < raStartDate) {
+                    message = "Bidding Period Ended (Reverse Auction Pending)";
+                } else if (!raStartDate || !raEndDate) {
+                    message = "Bidding Period Ended (RA Dates Invalid)";
+                } else {
+                    // Should not happen if Priority 1 caught active RA, but acts as fallback
+                    message = "Bidding Period Ended";
+                }
+            } else {
+                // No RA, bid just ended
+                message = "Bidding Period has Ended";
+            }
+        }
+        // Priority 5: Invalid RFQ State (No Bid End Date)
+        else if (!bidEndDateRaw) {
+            isDisabled = true;
+            message = "RFQ Not Open for Bidding";
+        }
+        // If none of the above conditions met, the default "Send Quote" state remains.
+    }
 
-  const handleRegretQuote = ({ reqret_reason }, resetForm) => {
+    // --- Update State ---
+    setIsReverseAuctionActive(currentIsReverseAuctionActive);
+    setQuoteDisabled(isDisabled);
+    setStatusMessage(message);
+    
+    // Changes by Agnij 2024-05-05 [Only show technical evaluation restrictions during active RA]
+    // Only apply technical evaluation restrictions during active reverse auction
+    setShowTechEvalRestrictions(currentIsReverseAuctionActive);
+    
+    // Update current lowest visibility based on RA status
+    setShowLowestPrice(currentIsReverseAuctionActive);
+    
+    // Track if current RA status is different from previous to notify user
+    if (wasEndDatePassed !== (bidEndDateEndOfDay && now > bidEndDateEndOfDay)) {
+      setWasEndDatePassed(bidEndDateEndOfDay && now > bidEndDateEndOfDay);
+      if (isReverseAuction && raStartDate && now >= raStartDate) {
+        setRaStatusChanged(true);
+      }
+    }
 
+  }, [rfqDetails, productleftforbid]);
+
+  useEffect(() => {
+    if (rfqDetails) {
+      checkIfQuotationSendIsPossible();
+    }
+  }, [rfqDetails, checkIfQuotationSendIsPossible]);
+
+  const handleRegretQuote = ({ regret_reason }, resetForm) => {
     let bidProducts = [];
     if (rfqDetails.products.length > 0) {
       rfqDetails.products.map((item, index) => {
@@ -204,28 +315,27 @@ const RfqManagementPreview = () => {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
       status: 1,
-      products: rfqDetails?.products,
       products: bidProducts,
       is_regret: 1,
-      regret_reason: reqret_reason,
-      globalPaymentTerms: "",
-      globalComment: "",
-      regret_reason: reqret_reason || "",
+      regret_reason: regret_reason,
       globalPaymentTerms: "",
       globalComment: "",
     };
 
+    setsubmitLoading(true);
     sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
+        toast.success("Quote regret submitted successfully!");
         router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         Router.reload();
       })
       .catch((err) => {
         setsubmitLoading(false);
+        toast.error("Failed to submit regret. Please try again.");
       })
       .finally(() => setregretModal(false));
-  }
+  };
 
   const addCommasToNumber = (number) => {
     let numberString = number.toString();
@@ -234,6 +344,13 @@ const RfqManagementPreview = () => {
     // Add commas to the integer part
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join(".");
+  };
+
+  const goToQuoteCreation = () => {
+    // Changes by Agnij 2024-05-05 [Pass tech eval restriction flag to quote page]
+    router.push(
+      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
+    );
   };
 
   return (
@@ -596,18 +713,22 @@ const RfqManagementPreview = () => {
 
                         }
                         {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
-                          ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
-                            <button
+                          ? <button
                               type="button"
                               className="btn btn-secondary m-0 p-2"
                               style={{ width: "240px" }}
+                              onClick={() => {
+                                // Changes by Agnij 2024-05-05 [Pass update parameter]
+                                router.push(
+                                  `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
+                                );
+                              }}
                             >
                               <>
                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                 Update Your Quote
                               </>
                             </button>
-                          </Link>
                           : null
                         }
                       </div>
@@ -621,8 +742,7 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
-                              {currentLowest ? <th>Current Lowest</th> : null}
-                              {/* {rfqDetails?.products[0]?.lowest_quotation ? <th>Current Lowest</th> : null} */}
+                              {isReverseAuctionActive && <th>Current Lowest</th>}
                               <th>TDS</th>
                               <th>QAP</th>
                               {type != "buyer-view" && <th>Finalization Status</th>}
@@ -680,7 +800,16 @@ const RfqManagementPreview = () => {
                                   </td>
 
                                   <td>{`${qty}-${unit}`}</td>
-                                  {currentLowest ? (item?.lowest_quotation ? <td>{addCommasToNumber(item?.lowest_quotation?.total_price)}</td> : <td>--</td>) : null}
+                                  {isReverseAuctionActive && (
+                                    item?.lowest_quotation ? 
+                                      <td>
+                                        {addCommasToNumber(item?.lowest_quotation?.total_price)}
+                                      </td> 
+                                    : 
+                                      <td>
+                                        --
+                                      </td>
+                                  )}
 
                                   <td>
                                     {(item.datasheet_file || item.TDS_flies) ? (
@@ -858,7 +987,7 @@ const RfqManagementPreview = () => {
 
                               {rfqDetails?.rfq_type && rfqDetails?.rfq_type != "" &&
                                 <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
+                                  <div className="form-group ">
                                     <label htmlFor="rfq_type" className="form-label">
                                       RFQ Type
                                     </label>
@@ -873,26 +1002,113 @@ const RfqManagementPreview = () => {
                                   </div>
                                 </div>}
 
-                              {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction != "" &&
-                                <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
-                                    <label htmlFor="reverse_auction" className="form-label">
-                                      Reverse Auction
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="reverse_auction"
-                                      className="form-control"
-                                      name="reverse_auction"
-                                      disabled
-                                      value={`${rfqDetails?.reverse_auction == 1 ? 'Enabled' : 'Disabled'}`}
-                                    />
+                                {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction !== "" ? (
+                                <div className="col-9">
+                                  <div className="form-group mt-0">                              
+                                    <div className="row">
+                                      <div className="col-md-4">
+                                        <div className="form-group">
+                                          <label className="form-label">Reverse Auction</label>
+                                          <input
+                                            type="text"
+                                            className="form-control"
+                                            disabled
+                                            value={rfqDetails.reverse_auction == 1 ? 'Enabled' : 'Disabled'}
+                                          />
+                                        </div>
+                                      </div>
+                              
+                                      {rfqDetails.reverse_auction == 1 && (
+                                        <>
+                                          <div className="col-md-4">
+                                            <div className="form-group">
+                                              <label className="form-label">Reverse Auction Start Time</label>
+                                              <input
+                                                type="text"
+                                                className="form-control"
+                                                disabled
+                                                value={ rfqDetails.ra_start_date
+                                                        ? (() => {
+                                                            try {
+                                                              // Parse the date string - support both formats
+                                                              let dateObj;
+                                                              if (rfqDetails.ra_start_date.includes('T')) {
+                                                                // ISO format
+                                                                dateObj = new Date(rfqDetails.ra_start_date);
+                                                              } else if (rfqDetails.ra_start_date.includes(' ')) {
+                                                                // YYYY-MM-DD HH:MM:SS format
+                                                                const [datePart, timePart] = rfqDetails.ra_start_date.split(' ');
+                                                                dateObj = new Date(`${datePart}T${timePart}`);
+                                                              } else {
+                                                                // Just date
+                                                                dateObj = new Date(rfqDetails.ra_start_date);
+                                                              }
+                                                              
+                                                              return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true
+                                                              })}`;
+                                                            } catch (e) {
+                                                              console.error("Error formatting start date:", e);
+                                                              return rfqDetails.ra_start_date; // Fallback to raw value
+                                                            }
+                                                          })()
+                                                        : 'Not specified'
+                                                    }
+                                              />
+                                            </div>
+                                          </div>
+                              
+                                          <div className="col-md-4">
+                                            <div className="form-group">
+                                              <label className="form-label">Reverse Auction End Time</label>
+                                              <input
+                                                type="text"
+                                                className="form-control"
+                                                disabled
+                                                value={ rfqDetails.ra_end_date
+                                                        ? (() => {
+                                                            try {
+                                                              // Parse the date string - support both formats
+                                                              let dateObj;
+                                                              if (rfqDetails.ra_end_date.includes('T')) {
+                                                                // ISO format
+                                                                dateObj = new Date(rfqDetails.ra_end_date);
+                                                              } else if (rfqDetails.ra_end_date.includes(' ')) {
+                                                                // YYYY-MM-DD HH:MM:SS format
+                                                                const [datePart, timePart] = rfqDetails.ra_end_date.split(' ');
+                                                                dateObj = new Date(`${datePart}T${timePart}`);
+                                                              } else {
+                                                                // Just date
+                                                                dateObj = new Date(rfqDetails.ra_end_date);
+                                                              }
+                                                              
+                                                              return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true
+                                                              })}`;
+                                                            } catch (e) {
+                                                              console.error("Error formatting end date:", e);
+                                                              return rfqDetails.ra_end_date; // Fallback to raw value
+                                                            }
+                                                          })()
+                                                        : 'Not specified'
+                                                    }
+                                          />
+                                            </div>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>}
-
+                                </div>
+                              ):""}
+                              
                               {rfqDetails?.bid_end_date && rfqDetails?.bid_end_date != "" &&
                                 <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
+                                  <div className="form-group">
                                     <label htmlFor="bid_end_date" className="form-label">
                                       Procurement End Date
                                     </label>
@@ -956,29 +1172,6 @@ const RfqManagementPreview = () => {
                                   {rfqDetails.finalizations &&
                                     rfqDetails.finalizations.length > 0 && (
                                       <div className="finalized-details">
-                                        {/* <h4>Finalized Details</h4>
-                                        <div className="noborder-table">
-                                          <div className="table-responsive">
-                                            <table>
-                                              <thead>
-                                                <tr>
-                                                  <th>Product name</th>
-                                                  <th>Vendor</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {rfqDetails.finalizations.map((item => {
-                                                  return (
-                                                    <tr>
-                                                      <td>{item?.product_details?.name}</td>
-                                                      <td>{item?.winning_vendor?.organization_name}</td>
-                                                    </tr>
-                                                  )
-                                                }))}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div> */}
                                       </div>
                                     )}
                                   {/* winning bid area end */}
@@ -987,23 +1180,24 @@ const RfqManagementPreview = () => {
                                       <div className="submitted-quotation">
                                         <h4>
                                           You've already submitted a quotation on{" "}
-                                          {moment(
-                                            new Date(rfqDetails?.quotations[0]?.timestamp
-                                          )).format("HH:mm A - DD/MM/YYYY")}{" "}
+                                          {moment
+                                          .utc(rfqDetails?.quotations[0]?.timestamp)
+                                          .local()
+                                          .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
-                                        {(rfqDetails.status == 2 || !productleftforbid) ? (
+                                        {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
                                           <button
                                             type="button"
-                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'} m-0 mx-auto mt-2`}
+                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')} m-0 mx-auto mt-2`}
                                             style={{ width: "240px" }}
-                                            disabled
+                                            disabled={quoteDisabled}
                                           >
                                             <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                            {rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized"}
+                                            {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
                                           </button>
-                                        ) : (
-                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
+                                        ) :
+                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`}>
                                             <button
                                               type="button"
                                               className="btn btn-secondary m-0"
@@ -1015,7 +1209,7 @@ const RfqManagementPreview = () => {
                                               </>
                                             </button>
                                           </Link>
-                                        )}
+                                        }
                                       </div>
                                     )}
                                   {rfqDetails.quotations.length > 0 &&
@@ -1111,7 +1305,7 @@ const RfqManagementPreview = () => {
                           )}
                           {!enableBuyerView && (
                             <>
-                              {(!isSubmitAble || rfqDetails.status == 2) ? (
+                              {quoteDisabled && statusMessage === "RFQ is Closed" ? (
                                 // Show a single disabled button saying "RFQ is Closed"
                                 <div className="row w-50">
                                   <div className="col-12">
@@ -1141,7 +1335,7 @@ const RfqManagementPreview = () => {
                                 </div>
                               ) : (
                                 // Show the two buttons if neither condition is met
-                                rfqDetails.quotations.length <= 0 && rfqDetails?.status == 1 && (
+                                rfqDetails.quotations.length <= 0 && (
                                   <div className="row w-50">
                                     <div className="col-md-6 ps-4">
                                       <button
@@ -1151,19 +1345,34 @@ const RfqManagementPreview = () => {
                                           e.preventDefault();
                                           setregretModal(true);
                                         }}
+                                        disabled={quoteDisabled && statusMessage !== "Reverse Auction is Active"}
                                       >
                                         Regret Quote
                                       </button>
                                     </div>
                                     <div className="col-md-6 d-flex justify-content-end p-0">
-                                      <Link href={`/dashboard/vendor/send-quote?id=${id}&token=${token}`}>
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary"
-                                        >
-                                          Send Quote
-                                        </button>
-                                      </Link>
+                                      {rfqDetails?.quotations?.length === 0 && (
+                                        <>
+                                          {quoteDisabled && statusMessage !== "Reverse Auction is Active" ? (
+                                            <button
+                                              type="button"
+                                              className={`btn ${statusMessage === "RFQ is Closed" ? 'btn-danger' : 'btn-secondary'}`}
+                                              disabled
+                                            >
+                                              <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                              {statusMessage}
+                                            </button>
+                                          ) : (
+                                            <button 
+                                              type="button" 
+                                              className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}
+                                              onClick={goToQuoteCreation}
+                                            >
+                                              {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
+                                            </button>
+                                          )}
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 )

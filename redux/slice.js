@@ -1,6 +1,11 @@
 const { createSlice } = require("@reduxjs/toolkit");
 import { getFuturedate } from "@/utils/sharedFunctions";
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+  return new Date().toISOString().split('T')[0];
+};
+
 const initialState = {
   storeLoading: false,
   allTerms: [],
@@ -18,6 +23,8 @@ const initialState = {
     bid_end_date: getFuturedate(),
     rfq_type: "",
     reverse_auction: 1,
+    ra_start_date: getTodayDate(), // Initialize with today's date
+    ra_end_date: getFuturedate(), // Initialize with the same as bid_end_date
     project_id: -1,
     location: "",
   }

@@ -5,7 +5,8 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
+import { isValidFileNameRFQ } from '@/services/rfq';
+import { textCapitalize, getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { createRfq, getMagicRFQPreview } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
@@ -25,6 +26,8 @@ const initialFormData = {
     reverse_auction: 1,
     rfq_type: '',
     bid_end_date: getFuturedate(),
+    ra_start_date: '',
+    ra_end_date: '',
     location: '',
     project_id: -1,
     response_email: '',
@@ -32,7 +35,6 @@ const initialFormData = {
     contact_number: '',
     company_name: '',
 }
-
 
 const MagicSearchPage = () => {
     const tableRef = useRef(null);
@@ -150,63 +152,72 @@ const MagicSearchPage = () => {
         }
     };
 
-    const handleFormChange = async (e, type) => {
-        const { name, value, checked, id } = e.target;
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
         
-        if (type === "terms-checkbox") {
-            const termId = parseInt(id.replace("term-item-", ""));
-            const updatedTerms = termList.map((termItem) => {
-                if (termItem.id === termId) {
-                    return { ...termItem, selected: checked }; // Immutable update
-                }
-                return termItem;
-            });
-            setTermList(updatedTerms);
-        } else if (name === "project_id" && value != -1) {
-            try {
-                const projectData = await getProjectData(value);
-                if (projectData) {
-                    setFormData((prevState) => ({
-                        ...prevState,
-                        project_id: value,
-                        rfq_type: projectData.rfq_type || "",
-                        reverse_auction: projectData.reverse_auction !== undefined ? projectData.reverse_auction : 1,
-                        bid_end_date: projectData.ended_at 
-                            ? new Date(projectData.ended_at).toISOString().split("T")[0] 
-                            : "",
-                        location: projectData.location || "",
-                    }));
-                } else {
-                    console.error("Project data is empty or undefined.");
-                }
-            } catch (error) {
-                console.error("Failed to handle project_id change:", error.message);
-            }
-        } else if (name === "country_code") {
-            // Extract only the mobile number (remove old country code)
-            const mobileNumber = formData?.contact_number.replace(/^\+\d{1,4}-?/, "") || "";
-    
-            setFormData((prevState) => ({
-                ...prevState,
-                contact_number: `${value}-${mobileNumber}`, // Add new country code with mobile
-            }));
-        } else if (name === "contact_number") {
-            // Extract the current country code
-            const existingCountryCode = formData?.contact_number.match(/^\+\d{1,4}/)?.[0] || "+91";
+        // Handle reverse auction toggle
+        if (name === 'reverse_auction') {
+            const newValue = parseInt(value);
             
-            // Ensure only digits are entered for the phone number
-            const cleanedNumber = value.replace(/\D/g, "");
-    
-            setFormData((prevState) => ({
-                ...prevState,
-                contact_number: `${existingCountryCode}-${cleanedNumber}`, // Keep country code + valid number
-            }));
-        } else {
-            setFormData((prevState) => ({
-                ...prevState,
-                [name]: name === "reverse_auction" ? parseInt(value) : value,
-            }));
+            // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
+            if (newValue === 1) {
+                // Just set reverse auction flag without setting default dates
+                setFormData({
+                    ...formData,
+                    reverse_auction: newValue
+                });
+                
+                // Show notification to inform the user to set auction dates
+                toast.info("Please set the Auction Start Date & Time and End Date & Time for reverse auction");
+                return;
+            } else if (newValue === 0) {
+                // Clear auction dates when disabling reverse auction
+                setFormData({
+                    ...formData,
+                    reverse_auction: newValue,
+                    ra_start_date: '',
+                    ra_end_date: ''
+                });
+                return;
+            }
         }
+        
+        // Handle bid end date change
+        else if (name === 'bid_end_date' && formData.reverse_auction == 1) {
+            // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
+            // When changing bid end date, we don't auto-update auction dates anymore
+            setFormData({
+                ...formData,
+                [name]: value
+            });
+            
+            // Notify user to set auction dates if they're not set
+            if ((!formData.ra_start_date || formData.ra_start_date === '') || 
+                (!formData.ra_end_date || formData.ra_end_date === '')) {
+                toast.info("Don't forget to set the auction dates for reverse auction");
+            }
+            return;
+        }
+        
+        // Handle datetime-local inputs for auction dates
+        else if ((name === 'ra_start_date' || name === 'ra_end_date') && value) {
+            // Changes by Agnij 2025-05-03 [Fixed timestamp format issue]
+            // Convert from datetime-local string format to server format (YYYY-MM-DD HH:MM:SS)
+            // This preserves the exact time without timezone adjustments
+            const [datePart, timePart] = value.split('T');
+            const serverFormatDate = `${datePart} ${timePart}`; // Don't add extra :00
+            
+            setFormData({
+                ...formData,
+                [name]: serverFormatDate
+            });
+            return;
+        }
+        
+        setFormData({
+            ...formData,
+            [name]: value
+        });
     };
     
 
@@ -236,7 +247,6 @@ const MagicSearchPage = () => {
     }
 
     const handleGenericFilterChange = (event) => {
-      console.log(event.target.name, event.target.value)
       setGlobalFilters((prevState) => ({
         ...prevState,
         [event.target.name]: event.target.value
@@ -411,10 +421,6 @@ const MagicSearchPage = () => {
         }
         setIsModalOpen(false);
         setPendingRemoval(null);
-        if (reviewData.length === 0) {
-            setValidationErrors(null)
-            setTermList(null);
-        }
     };
 
     const handleClose = () => {
@@ -494,7 +500,7 @@ const MagicSearchPage = () => {
 
         for (const prodItem of reviewData.products) {
             const updatedVendors = vendorMap.get(`prod_${prodItem.product_id}_${prodItem.variant}`);
-            if (updatedVendors.length === 0) {
+            if (!updatedVendors || updatedVendors.length === 0) {
                 toast.error(`No Vendor is selected for ${prodItem.name}`);
                 return;
             }
@@ -506,15 +512,59 @@ const MagicSearchPage = () => {
         }
         reviewData.products = updatedProducts;
 
-        setSubmitLoading(true);
-        createRfq({
+        // Make a copy to ensure we don't mutate original data
+        const rfqPayload = {
             ...reviewData,
             ...formDataWithoutFile,
             terms: selectedTerms.map((item) => ({
                 id: Number(item.id),
                 name: item.name || item.term_content || `Term ${item.id}`
             }))
-        })
+        };
+        
+        // Ensure dates are in correct format
+        if (rfqPayload.reverse_auction === 1) {
+            // Changes by Agnij 2025-05-03 [Added validation for reverse auction dates]
+            // Validate that reverse auction dates exist and are in proper format
+            if (!rfqPayload.ra_start_date || rfqPayload.ra_start_date === '') {
+                toast.error("Please set the Auction Start Date & Time for reverse auction");
+                return;
+            }
+            
+            if (!rfqPayload.ra_end_date || rfqPayload.ra_end_date === '') {
+                toast.error("Please set the Auction End Date & Time for reverse auction");
+                return;
+            }
+            
+            // Ensure dates are in server expected format (YYYY-MM-DD HH:MM:SS)
+            if (rfqPayload.ra_start_date && !rfqPayload.ra_start_date.includes(' ')) {
+                if (rfqPayload.ra_start_date.includes('T')) {
+                    const [date, time] = rfqPayload.ra_start_date.split('T');
+                    rfqPayload.ra_start_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
+                } else {
+                    // If only date, add default time
+                    rfqPayload.ra_start_date = `${rfqPayload.ra_start_date} 08:00`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
+                }
+            }
+            
+            if (rfqPayload.ra_end_date && !rfqPayload.ra_end_date.includes(' ')) {
+                if (rfqPayload.ra_end_date.includes('T')) {
+                    const [date, time] = rfqPayload.ra_end_date.split('T');
+                    rfqPayload.ra_end_date = `${date} ${time}`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
+                } else {
+                    // If only date, add default time
+                    rfqPayload.ra_end_date = `${rfqPayload.ra_end_date} 17:00`; // Changes by Agnij 2025-05-03 [Fixed timestamp format]
+                }
+            }
+        } else if (rfqPayload.reverse_auction === 0) {
+            // If reverse auction is disabled, explicitly set dates to null
+            rfqPayload.ra_start_date = null;
+            rfqPayload.ra_end_date = null;
+        }
+
+
+        setSubmitLoading(true);
+        createRfq(rfqPayload)
             .then((res) => {
                 toast.success(
                     <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
@@ -527,11 +577,12 @@ const MagicSearchPage = () => {
             })
             .catch((error) => {
                 console.log(error)
+                toast.error("Failed to create RFQ. Please check your form and try again.");
             })
             .finally(() => {
                 setSubmitLoading(false)
             })
-    }
+    };
 
     useEffect(() => {
         getAllProjects();
@@ -1092,7 +1143,7 @@ const MagicSearchPage = () => {
                               /^\+\d{1,4}/
                             )?.[0] || "+91"
                           }
-                          onChange={(e) => handleFormChange(e, "country_code")}
+                          onChange={handleFormChange}
                         >
                           {/* Populate options from countryCodes state */}
                           {countryCodes.map((item) => (
@@ -1161,6 +1212,23 @@ const MagicSearchPage = () => {
                       </select>
                     </div>
 
+
+                    <div className="col-md-4 mb-2">
+                      <label htmlFor="bid_end_date" className="form-label ">
+                        Procurement End Date
+                      </label>
+                      <input
+                        type="date"
+                        name="bid_end_date"
+                        id="bid_end_date"
+                        className="form-control border border-dark-subtle"
+                        value={formData?.bid_end_date}
+                        min={tomorrow.toISOString().slice(0, 10)}
+                        onChange={handleFormChange}
+                      />
+                    </div>
+
+
                     <div className="col-md-4 mb-2">
                       <label htmlFor="reverse_auction" className="form-label ">
                         Reverse Auction
@@ -1178,20 +1246,47 @@ const MagicSearchPage = () => {
                       </select>
                     </div>
 
+              {/* Add auction date fields when reverse auction is enabled */}
+              {formData?.reverse_auction == 1 && (
+                <>
                     <div className="col-md-4 mb-2">
-                      <label htmlFor="bid_end_date" className="form-label ">
-                        Procurement End Date
+                    <label htmlFor="ra_start_date" className="form-label">
+                      RA Start Date & Time
                       </label>
                       <input
-                        type="date"
-                        name="bid_end_date"
-                        id="bid_end_date"
+                      type="datetime-local"
+                      name="ra_start_date"
+                      id="ra_start_date"
                         className="form-control border border-dark-subtle"
-                        value={formData?.bid_end_date}
-                        min={tomorrow.toISOString().slice(0, 10)}
+                      value={formatISOToDateTimeLocal(formData?.ra_start_date)}
                         onChange={handleFormChange}
+                       min={formData.bid_end_date 
+                              ? formatISOToDateTimeLocal(formData.bid_end_date)
+                              : new Date().toISOString().slice(0, 16)
+                          }
                       />
                     </div>
+                  <div className="col-md-4 mb-2">
+                    <label htmlFor="ra_end_date" className="form-label">
+                      RA End Date & Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="ra_end_date"
+                      id="ra_end_date"
+                      className="form-control border border-dark-subtle"
+                      value={formatISOToDateTimeLocal(formData?.ra_end_date)}
+                      onChange={handleFormChange}
+                      min={
+                        formData.ra_start_date
+                          ? formatISOToDateTimeLocal(formData.ra_start_date)
+                          : ""
+                      }
+                      disabled={!formData.ra_start_date}
+                    />
+                  </div>
+                </>
+              )}
 
                     <div className="col-md-12 mb-2">
                       <label htmlFor="location" className="form-label ">
