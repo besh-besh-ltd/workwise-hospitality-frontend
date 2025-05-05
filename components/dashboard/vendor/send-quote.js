@@ -25,7 +25,7 @@ const SendQuotePageComp = () => {
 
   const [globalFreight, setglobalFreight] = useState(0);
   const [globalPackaging, setglobalPackaging] = useState(0);
-  const [globalTax, setglobalTax] = useState(18);
+  const [globalTax, setglobalTax] = useState(0);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
   const [previousGlobalFiles, setPreviousGlobalFiles] = useState([]);
