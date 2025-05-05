@@ -791,6 +791,10 @@ const SendQuotePageComp = () => {
                             rfqDetails.products.map((item, index) => {
 
                               if (isAvailableForQuote(item)) {
+                                // Changes by Agnij 2024-07-28 [Disable inputs based on technical evaluation]
+                                const techStatus = techEvalStatuses[item.id];
+                                const isTechEvalPendingOrRejected = techStatus?.has_tech_eval && !techStatus?.is_accepted;
+
                                 return (
                                   <tr key={`q_${item.id}_${item.product_id}_${item.variant}}`}>
                                     <td>{index + 1}</td>
@@ -824,7 +828,11 @@ const SendQuotePageComp = () => {
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
+                                        disabled={isTechEvalPendingOrRejected}
                                       />
+                                      {isTechEvalPendingOrRejected && (
+                                        <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Not accepted</small>
+                                      )}
                                     </td>
 
                                     <td>
@@ -847,7 +855,11 @@ const SendQuotePageComp = () => {
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
+                                        disabled={isTechEvalPendingOrRejected}
                                       />
+                                      {isTechEvalPendingOrRejected && (
+                                        <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Not accepted</small>
+                                      )}
                                     </td>
 
                                     <td>
@@ -870,7 +882,11 @@ const SendQuotePageComp = () => {
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
+                                        disabled={isTechEvalPendingOrRejected}
                                       />
+                                      {isTechEvalPendingOrRejected && (
+                                        <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Not accepted</small>
+                                      )}
                                     </td>
 
                                     <td>
@@ -893,7 +909,11 @@ const SendQuotePageComp = () => {
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
+                                        disabled={isTechEvalPendingOrRejected}
                                       />
+                                      {isTechEvalPendingOrRejected && (
+                                        <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Not accepted</small>
+                                      )}
                                     </td>
 
                                     <td>
@@ -966,13 +986,13 @@ const SendQuotePageComp = () => {
                                                 getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                               )
                                             }
+                                            disabled={isTechEvalPendingOrRejected}
                                           ></textarea>
                                           <span htmlFor="comment">0/300</span>
                                         </div>
-
-                                        {/* <button className="btn btn-secondary">
-                                        No Quote
-                                      </button> */}
+                                        {isTechEvalPendingOrRejected && (
+                                          <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Commenting disabled (Not technically accepted)</small>
+                                        )}
                                       </div>
                                     </td>
                                     <td style={{ width: 250 }}>
@@ -995,18 +1015,26 @@ const SendQuotePageComp = () => {
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
+                                        disabled={isTechEvalPendingOrRejected}
                                       />
+                                      {isTechEvalPendingOrRejected && (
+                                          <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Cannot set delivery (Not technically accepted)</small>
+                                        )}
                                     </td>
                                     <td style={{ maxWidth: 250 }}>
-                                      <label className="upload uploadInlineFile d-flex align-items-center justify-content-center">
+                                      <label className={`upload uploadInlineFile d-flex align-items-center justify-content-center ${isTechEvalPendingOrRejected ? 'disabled' : ''}`}>
                                         <FontAwesomeIcon icon={faFile} className="me-2" /> Upload
                                         <input
                                           type="file"
                                           accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                                           onChange={(e) => uploadQuoteItemFiles(e, item)}
                                           multiple={true}
+                                          disabled={isTechEvalPendingOrRejected}
                                         />
                                       </label>
+                                      {isTechEvalPendingOrRejected && (
+                                          <small className="d-block text-danger mt-1" style={{ fontSize: '0.7rem' }}>Upload disabled (Not technically accepted)</small>
+                                        )}
 
                                       {quoteProducts[index].document_files && quoteProducts[index].document_files.length > 0 && (
                                         quoteProducts[index].document_files.map((doc_file) => {
