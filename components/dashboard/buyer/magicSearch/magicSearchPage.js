@@ -361,13 +361,13 @@ const MagicSearchPage = () => {
         let editedData = [];
         if (type === "product") {
             editedData = reviewData.products.filter((item) =>
-                !(item.product_id === prodItem.product_id &&
+                !(item.variant_id === prodItem.variant_id &&
                     item.variant === prodItem.variant)
             );
             toast.error(prodItem.name + " - Removed Successfully!");
         } else {
             editedData = reviewData.products.map((item) => {
-                if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                if (item.variant_id === prodItem.variant_id && item.variant === prodItem.variant) {
                     const remainingVendors = item.vendors.filter((vendorItem) =>
                         vendorItem.user_id !== vendor_id
                     );

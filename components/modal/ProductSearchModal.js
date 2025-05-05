@@ -100,7 +100,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
       // Extract existing products with the same name
       const existingProducts = (reviewData?.products || []).filter(
-        (p) => p.name === product.product_name
+        (p) => p.name === product.variant_name
       );
 
       // Find the highest variant number
@@ -111,7 +111,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
       // Create product object with the specific vendor
       const productObject = {
         product_id: product.id,
-        name: product.product_name,
+        name: product.variant_name,
         variant: highestVariant + 1,
         spec: [
           { title: "Size", value: "" },
@@ -133,7 +133,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
       setQuery("");
       setVendorLoading(false);
-      toast.success(product.product_name + " - Added Successfully!");
+      toast.success(product.variant_name + " - Added Successfully!");
       return;
     }
 
@@ -141,7 +141,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
     searchProductsV2(
       {
         cat_id: null,
-        search_key: product.product_name.replace(' (Variant)', ''), // Remove the variant marker
+        search_key: product.variant_name, // Remove the variant marker
         approved_by: null,
         state: null,
         city: null,
@@ -156,7 +156,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
         // Extract existing products with the same name
         const existingProducts = (reviewData?.products || []).filter(
-          (p) => p.name === product.product_name
+          (p) => p.name === product.variant_name
         );
 
         // Find the highest variant number
@@ -167,7 +167,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
         // Create product object with fetched vendors
         const productObject = {
           product_id: product.id,
-          name: product.product_name,
+          name: product.variant_name,
           variant: highestVariant + 1,
           spec: [
             { title: "Size", value: "" },
@@ -206,12 +206,12 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
         setQuery("");
 
-        toast.success(product.product_name + " - Added Successfully!");
+        toast.success(product.variant_name + " - Added Successfully!");
       })
       .catch((error) => {
         setVendorLoading(false);
         setError("Failed to fetch vendors.");
-        toast.error(product.product_name + " - Not Added");
+        toast.error(product.variant_name + " - Not Added");
       });
   };
 
@@ -224,7 +224,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
   // Handle product selection
   const handleProductClick = (product) => {
-    setQuery(product.product_name);
+    setQuery(product.variant_name);
     setProducts([]); // Hide suggestions after selection
     fetchVendorsAndSetProduct(product); // Fetch vendors first, then add product to reviewData
   };
@@ -338,10 +338,10 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
                     key={`mp_${index}`}
                     className="list-group-item list-group-item-action ps-2 "
                     onClick={() => handleProductClick(item)}
-                    title={`${item.product_name} - ${item.description}`}
+                    title={`${item.unified_name} - ${item.description}`}
                   >
                     <div>
-                      <h3 className="h6 mb-0 ">{item.product_name}</h3>
+                      <h3 className="h6 mb-0 ">{item.unified_name}</h3>
                       <p className="mb-0">
                         <small className="text-primary">
                           {item.category_name}
