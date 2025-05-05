@@ -17,28 +17,35 @@ const SendQuotePageComp = () => {
   const router = useRouter();
   const { id, token } = router.query;
   const pageType = router.query.type;
+  const showTechEvalRestrictionsParam = router.query.showTechEvalRestrictions === 'true';
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
   const [quoteProducts, setquoteProducts] = useState([]);
   const [submitLoading, setsubmitLoading] = useState(false);
 
-  const [globalFreight, setglobalFreight] = useState(null);
-  const [globalPackaging, setglobalPackaging] = useState(null);
-  const [globalTax, setglobalTax] = useState(null);
+  const [globalFreight, setglobalFreight] = useState(0);
+  const [globalPackaging, setglobalPackaging] = useState(0);
+  const [globalTax, setglobalTax] = useState(18);
   const [globalPaymentTerms, setglobalPaymentTerms] = useState("");
   const [globalComment, setglobalComment] = useState("");
-  const [previousGlobalFiles, setPreviousGlobalFiles] = useState(null);
+  const [previousGlobalFiles, setPreviousGlobalFiles] = useState([]);
   const [globalDocumentFiles, setGlobalDocumentFiles] = useState([]);
   const [alreadyQuoted, setalreadyQuoted] = useState(null);
   const [currentLowest, setCurrentLowest] = useState(null);
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
+  const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(showTechEvalRestrictionsParam);
 
   useEffect(() => {
     if (id) {
       getRFQdetails();
     }
   }, [router]);
+
+  useEffect(() => {
+    // Update the tech evaluation restriction flag whenever URL parameter changes
+    setShowTechEvalRestrictions(router.query.showTechEvalRestrictions === 'true');
+  }, [router.query.showTechEvalRestrictions]);
 
   const getProductSpecValueByTitle = (productSpecs, title) => {
     const spec = productSpecs.find(spec => spec.title === title);
@@ -791,9 +798,12 @@ const SendQuotePageComp = () => {
                             rfqDetails.products.map((item, index) => {
 
                               if (isAvailableForQuote(item)) {
-                                // Changes by Agnij 2024-07-28 [Disable inputs based on technical evaluation]
+                                // Changes by Agnij 2024-07-28 [Conditionally apply technical evaluation restrictions]
                                 const techStatus = techEvalStatuses[item.id];
-                                const isTechEvalPendingOrRejected = techStatus?.has_tech_eval && !techStatus?.is_accepted;
+                                // Only apply restrictions during reverse auction
+                                const isTechEvalPendingOrRejected = showTechEvalRestrictions && 
+                                                                   techStatus?.has_tech_eval && 
+                                                                   !techStatus?.is_accepted;
 
                                 return (
                                   <tr key={`q_${item.id}_${item.product_id}_${item.variant}}`}>

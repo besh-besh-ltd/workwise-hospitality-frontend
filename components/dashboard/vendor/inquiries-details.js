@@ -31,7 +31,7 @@ const RfqManagementPreview = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [clauseMap, setClauseMap] = useState(null);
-  const [quoteDisabled, setQuoteDisabled] = useState(false);
+  const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   // New state variables for enhanced RA logic
   const [isReverseAuctionActive, setIsReverseAuctionActive] = useState(false);
@@ -40,6 +40,8 @@ const RfqManagementPreview = () => {
   const [raStatusChanged, setRaStatusChanged] = useState(false);
   // Add technical evaluation statuses tracking
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
+  // Changes by Agnij 2024-05-05 [Add state for technical evaluation restrictions]
+  const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -231,6 +233,7 @@ const RfqManagementPreview = () => {
             message = "All Products are Finalized";
         }
         // Priority 4: Past Bid End Date
+        // Changes by Agnij 2024-05-05 [Ensure quotes can be updated until end of bid end date]
         else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
             isDisabled = true; // Disable by default if bid ended
             if (isReverseAuction) {
@@ -257,11 +260,25 @@ const RfqManagementPreview = () => {
         // If none of the above conditions met, the default "Send Quote" state remains.
     }
 
-
     // --- Update State ---
     setIsReverseAuctionActive(currentIsReverseAuctionActive);
     setQuoteDisabled(isDisabled);
     setStatusMessage(message);
+    
+    // Changes by Agnij 2024-05-05 [Only show technical evaluation restrictions during active RA]
+    // Only apply technical evaluation restrictions during active reverse auction
+    setShowTechEvalRestrictions(currentIsReverseAuctionActive);
+    
+    // Update current lowest visibility based on RA status
+    setShowLowestPrice(currentIsReverseAuctionActive);
+    
+    // Track if current RA status is different from previous to notify user
+    if (wasEndDatePassed !== (bidEndDateEndOfDay && now > bidEndDateEndOfDay)) {
+      setWasEndDatePassed(bidEndDateEndOfDay && now > bidEndDateEndOfDay);
+      if (isReverseAuction && raStartDate && now >= raStartDate) {
+        setRaStatusChanged(true);
+      }
+    }
 
   }, [rfqDetails, productleftforbid]);
 
@@ -327,6 +344,13 @@ const RfqManagementPreview = () => {
     // Add commas to the integer part
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join(".");
+  };
+
+  const goToQuoteCreation = () => {
+    // Changes by Agnij 2024-05-05 [Pass tech eval restriction flag to quote page]
+    router.push(
+      `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${showTechEvalRestrictions}`
+    );
   };
 
   return (
@@ -689,18 +713,22 @@ const RfqManagementPreview = () => {
 
                         }
                         {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
-                          ? <Link href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}&token=${token}`}>
-                            <button
+                          ? <button
                               type="button"
                               className="btn btn-secondary m-0 p-2"
                               style={{ width: "240px" }}
+                              onClick={() => {
+                                // Changes by Agnij 2024-05-05 [Pass update parameter]
+                                router.push(
+                                  `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${showTechEvalRestrictions}`
+                                );
+                              }}
                             >
                               <>
                                 <FontAwesomeIcon icon={faEdit} className="me-2" />
                                 Update Your Quote
                               </>
                             </button>
-                          </Link>
                           : null
                         }
                       </div>
@@ -1335,11 +1363,13 @@ const RfqManagementPreview = () => {
                                               {statusMessage}
                                             </button>
                                           ) : (
-                                            <Link href={`/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}`}>
-                                              <button type="button" className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}>
-                                                {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
-                                              </button>
-                                            </Link>
+                                            <button 
+                                              type="button" 
+                                              className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}
+                                              onClick={goToQuoteCreation}
+                                            >
+                                              {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
+                                            </button>
                                           )}
                                         </>
                                       )}
