@@ -88,7 +88,7 @@ const RfqManagementPreview = () => {
 
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
-    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed) {
+    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed && !enableBuyerView) {
       toast.info("The reverse auction has started. You can send quotes again.", {
         position: "top-right",
         autoClose: 7000,
@@ -99,7 +99,7 @@ const RfqManagementPreview = () => {
       });
       setRaStatusChanged(false);
     }
-  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed]);
+  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed, enableBuyerView]);
 
   const getRFQdetails = () => {
     setloading(true);
@@ -214,50 +214,51 @@ const RfqManagementPreview = () => {
     let message = "Send Quote";
     let currentIsReverseAuctionActive = false;
 
-    // Priority 1: Active Reverse Auction
-    if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
+    // Changes by Agnij 2024-06-05 [Ensure RFQ closed status takes precedence]
+    // Priority 1: RFQ Closed (highest priority)
+    if (isRfqClosed) {
+      isDisabled = true;
+      message = "RFQ is Closed";
+    }
+    // Priority 2: Active Reverse Auction (only if RFQ is not closed)
+    else if (isReverseAuction && raStartDate && raEndDate && now >= raStartDate && now <= raEndDate) {
       isDisabled = false; // Explicitly allowed
       message = "Reverse Auction is Active";
       currentIsReverseAuctionActive = true;
     }
-    // Check other disabling conditions only if RA is not currently active
+    // Check other disabling conditions only if RA is not currently active and RFQ is not closed
     else {
-        // Priority 2: RFQ Closed
-        if (isRfqClosed) {
-            isDisabled = true;
-            message = "RFQ is Closed";
+      // Priority 3: All Products Finalized
+      if (areAllProductsFinalized) {
+        isDisabled = true;
+        message = "All Products are Finalized";
+      }
+      // Priority 4: Past Bid End Date
+      // Changes by Agnij 2024-05-05 [Ensure quotes can be updated until end of bid end date]
+      else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
+        isDisabled = true; // Disable by default if bid ended
+        if (isReverseAuction) {
+          if (raEndDate && now > raEndDate) {
+            message = "Reverse Auction has Ended";
+          } else if (raStartDate && now < raStartDate) {
+            message = "Bidding Period Ended (Reverse Auction Pending)";
+          } else if (!raStartDate || !raEndDate) {
+            message = "Bidding Period Ended (RA Dates Invalid)";
+          } else {
+            // Should not happen if Priority 1 caught active RA, but acts as fallback
+            message = "Bidding Period Ended";
+          }
+        } else {
+          // No RA, bid just ended
+          message = "Bidding Period has Ended";
         }
-        // Priority 3: All Products Finalized
-        else if (areAllProductsFinalized) {
-            isDisabled = true;
-            message = "All Products are Finalized";
-        }
-        // Priority 4: Past Bid End Date
-        // Changes by Agnij 2024-05-05 [Ensure quotes can be updated until end of bid end date]
-        else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
-            isDisabled = true; // Disable by default if bid ended
-            if (isReverseAuction) {
-                if (raEndDate && now > raEndDate) {
-                    message = "Reverse Auction has Ended";
-                } else if (raStartDate && now < raStartDate) {
-                    message = "Bidding Period Ended (Reverse Auction Pending)";
-                } else if (!raStartDate || !raEndDate) {
-                    message = "Bidding Period Ended (RA Dates Invalid)";
-                } else {
-                    // Should not happen if Priority 1 caught active RA, but acts as fallback
-                    message = "Bidding Period Ended";
-                }
-            } else {
-                // No RA, bid just ended
-                message = "Bidding Period has Ended";
-            }
-        }
-        // Priority 5: Invalid RFQ State (No Bid End Date)
-        else if (!bidEndDateRaw) {
-            isDisabled = true;
-            message = "RFQ Not Open for Bidding";
-        }
-        // If none of the above conditions met, the default "Send Quote" state remains.
+      }
+      // Priority 5: Invalid RFQ State (No Bid End Date)
+      else if (!bidEndDateRaw) {
+        isDisabled = true;
+        message = "RFQ Not Open for Bidding";
+      }
+      // If none of the above conditions met, the default "Send Quote" state remains.
     }
 
     // --- Update State ---
@@ -302,7 +303,7 @@ const RfqManagementPreview = () => {
             : "",
           unit_price: 0,
           package_price: 0,
-          tax: 18,
+          tax: 0,
           freight_price: 0,
           total_price: 0,
           comment: "",
@@ -712,7 +713,7 @@ const RfqManagementPreview = () => {
                           )
 
                         }
-                        {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0)
+                        {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0 && !rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized"))
                           ? <button
                               type="button"
                               className="btn btn-secondary m-0 p-2"
@@ -1186,15 +1187,21 @@ const RfqManagementPreview = () => {
                                           .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
-                                        {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled) ? (
+                                        {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled || rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")) ? (
                                           <button
                                             type="button"
                                             className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')} m-0 mx-auto mt-2`}
                                             style={{ width: "240px" }}
-                                            disabled={quoteDisabled}
+                                            disabled={quoteDisabled || rfqDetails.status == 2}
                                           >
                                             <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                            {statusMessage || (rfqDetails.status == 2 ? "RFQ is Closed" : "All Products are Finalized")}
+                                            {rfqDetails.status == 2 
+                                              ? "RFQ is Closed" 
+                                              : rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")
+                                                ? rfqDetails.products?.some(item => item.finalization_status === "You are finalized")
+                                                  ? "You are finalized"
+                                                  : "Another vendor is finalized"
+                                                : statusMessage || "All Products are Finalized"}
                                           </button>
                                         ) :
                                           <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`}>
@@ -1345,7 +1352,7 @@ const RfqManagementPreview = () => {
                                           e.preventDefault();
                                           setregretModal(true);
                                         }}
-                                        disabled={quoteDisabled && statusMessage !== "Reverse Auction is Active"}
+                                        disabled={quoteDisabled && statusMessage !== "Reverse Auction is Active" || rfqDetails.status == 2 || rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")}
                                       >
                                         Regret Quote
                                       </button>
@@ -1353,14 +1360,20 @@ const RfqManagementPreview = () => {
                                     <div className="col-md-6 d-flex justify-content-end p-0">
                                       {rfqDetails?.quotations?.length === 0 && (
                                         <>
-                                          {quoteDisabled && statusMessage !== "Reverse Auction is Active" ? (
+                                          {quoteDisabled && statusMessage !== "Reverse Auction is Active" || rfqDetails.status == 2 || rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized") ? (
                                             <button
                                               type="button"
-                                              className={`btn ${statusMessage === "RFQ is Closed" ? 'btn-danger' : 'btn-secondary'}`}
+                                              className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'}`}
                                               disabled
                                             >
                                               <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                              {statusMessage}
+                                              {rfqDetails.status == 2 
+                                                ? "RFQ is Closed" 
+                                                : rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")
+                                                  ? rfqDetails.products?.some(item => item.finalization_status === "You are finalized")
+                                                    ? "You are finalized"
+                                                    : "Another vendor is finalized"
+                                                  : statusMessage}
                                             </button>
                                           ) : (
                                             <button 
