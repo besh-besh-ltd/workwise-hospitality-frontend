@@ -166,16 +166,16 @@ const QuoteCompareTable = ({
                       {itemUpdated && (itemUpdated.quantity != item.quantity || itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.quantity * itemUpdated?.unit_price}</span>}
                     </div>
                     <div className="table-si-row">
-                      {item?.package_price || 0} %
-                      {itemUpdated && (itemUpdated.package_price != item.package_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.package_price || 0} %</span>}
+                      {item?.package_price !== null ? `${item?.package_price || 0} %` : "0 %"}
+                      {itemUpdated && (itemUpdated.package_price != item.package_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.package_price !== null ? `${itemUpdated?.package_price || 0} %` : "0 %"}</span>}
                     </div>
                     <div className="table-si-row table-grey-row">
-                      {item?.freight_price || 0} %
-                      {itemUpdated && (itemUpdated.freight_price != item.freight_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.freight_price || 0} %</span>}
+                      {item?.freight_price !== null ? `${item?.freight_price || 0} %` : "0 %"}
+                      {itemUpdated && (itemUpdated.freight_price != item.freight_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.freight_price !== null ? `${itemUpdated?.freight_price || 0} %` : "0 %"}</span>}
                     </div>
                     <div className="table-si-row">
-                      {item.tax || 0} %
-                      {itemUpdated && (itemUpdated.tax != item.tax) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.tax || 0} %</span>}
+                      {item.tax !== null ? `${item.tax || 0} %` : "0 %"}
+                      {itemUpdated && (itemUpdated.tax != item.tax) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.tax !== null ? `${itemUpdated?.tax || 0} %` : "0 %"}</span>}
                     </div>
                     <div className={`table-si-row fw-semibold  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-grey-row"}`} >
                       {item.total_price}

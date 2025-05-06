@@ -40,7 +40,7 @@ const RfqManagementPreview = () => {
   const [raStatusChanged, setRaStatusChanged] = useState(false);
   // Add technical evaluation statuses tracking
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
-  // Changes by Agnij 2024-05-05 [Add state for technical evaluation restrictions]
+  // Changes by Agnij 2025-05-05 [Add state for technical evaluation restrictions]
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
@@ -214,7 +214,7 @@ const RfqManagementPreview = () => {
     let message = "Send Quote";
     let currentIsReverseAuctionActive = false;
 
-    // Changes by Agnij 2024-06-05 [Ensure RFQ closed status takes precedence]
+    // Changes by Agnij 2025-05-05 [Ensure RFQ closed status takes precedence]
     // Priority 1: RFQ Closed (highest priority)
     if (isRfqClosed) {
       isDisabled = true;
@@ -228,37 +228,37 @@ const RfqManagementPreview = () => {
     }
     // Check other disabling conditions only if RA is not currently active and RFQ is not closed
     else {
-      // Priority 3: All Products Finalized
+        // Priority 3: All Products Finalized
       if (areAllProductsFinalized) {
-        isDisabled = true;
-        message = "All Products are Finalized";
-      }
-      // Priority 4: Past Bid End Date
-      // Changes by Agnij 2024-05-05 [Ensure quotes can be updated until end of bid end date]
-      else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
-        isDisabled = true; // Disable by default if bid ended
-        if (isReverseAuction) {
-          if (raEndDate && now > raEndDate) {
-            message = "Reverse Auction has Ended";
-          } else if (raStartDate && now < raStartDate) {
-            message = "Bidding Period Ended (Reverse Auction Pending)";
-          } else if (!raStartDate || !raEndDate) {
-            message = "Bidding Period Ended (RA Dates Invalid)";
-          } else {
-            // Should not happen if Priority 1 caught active RA, but acts as fallback
-            message = "Bidding Period Ended";
-          }
-        } else {
-          // No RA, bid just ended
-          message = "Bidding Period has Ended";
+            isDisabled = true;
+            message = "All Products are Finalized";
         }
-      }
-      // Priority 5: Invalid RFQ State (No Bid End Date)
-      else if (!bidEndDateRaw) {
-        isDisabled = true;
-        message = "RFQ Not Open for Bidding";
-      }
-      // If none of the above conditions met, the default "Send Quote" state remains.
+        // Priority 4: Past Bid End Date
+        // Changes by Agnij 2025-05-05 [Ensure quotes can be updated until end of bid end date]
+        else if (bidEndDateEndOfDay && now > bidEndDateEndOfDay) {
+            isDisabled = true; // Disable by default if bid ended
+            if (isReverseAuction) {
+                if (raEndDate && now > raEndDate) {
+                    message = "Reverse Auction has Ended";
+                } else if (raStartDate && now < raStartDate) {
+                    message = "Bidding Period Ended (Reverse Auction Pending)";
+                } else if (!raStartDate || !raEndDate) {
+                    message = "Bidding Period Ended (RA Dates Invalid)";
+                } else {
+                    // Should not happen if Priority 1 caught active RA, but acts as fallback
+                    message = "Bidding Period Ended";
+                }
+            } else {
+                // No RA, bid just ended
+                message = "Bidding Period has Ended";
+            }
+        }
+        // Priority 5: Invalid RFQ State (No Bid End Date)
+        else if (!bidEndDateRaw) {
+            isDisabled = true;
+            message = "RFQ Not Open for Bidding";
+        }
+        // If none of the above conditions met, the default "Send Quote" state remains.
     }
 
     // --- Update State ---
@@ -266,7 +266,7 @@ const RfqManagementPreview = () => {
     setQuoteDisabled(isDisabled);
     setStatusMessage(message);
     
-    // Changes by Agnij 2024-05-05 [Only show technical evaluation restrictions during active RA]
+    // Changes by Agnij 2025-05-05 [Only show technical evaluation restrictions during active RA]
     // Only apply technical evaluation restrictions during active reverse auction
     setShowTechEvalRestrictions(currentIsReverseAuctionActive);
     
@@ -348,7 +348,7 @@ const RfqManagementPreview = () => {
   };
 
   const goToQuoteCreation = () => {
-    // Changes by Agnij 2024-05-05 [Pass tech eval restriction flag to quote page]
+    // Changes by Agnij 2025-05-05 [Pass tech eval restriction flag to quote page]
     router.push(
       `/dashboard/vendor/send-quote?id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
     );
@@ -719,7 +719,7 @@ const RfqManagementPreview = () => {
                               className="btn btn-secondary m-0 p-2"
                               style={{ width: "240px" }}
                               onClick={() => {
-                                // Changes by Agnij 2024-05-05 [Pass update parameter]
+                                // Changes by Agnij 2025-05-05 [Pass update parameter]
                                 router.push(
                                   `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
                                 );
@@ -832,12 +832,12 @@ const RfqManagementPreview = () => {
                                     <td>
                                       {item.finalization_status ==
                                         "You are finalized" ? (
-                                        <span className="text-success">
+                                        <span className="text-success" style={{ opacity: "0.5", pointerEvents: "none" }}>
                                           You are finalized
                                         </span>
                                       ) : item.finalization_status ==
                                         "Another vendor is finalized" ? (
-                                        <span className="text-danger">
+                                        <span className="text-danger" style={{ opacity: "0.5", pointerEvents: "none" }}>
                                           Another vendor is finalized
                                         </span>
                                       ) : (
@@ -1003,7 +1003,42 @@ const RfqManagementPreview = () => {
                                   </div>
                                 </div>}
 
-                                {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction !== "" ? (
+                              {/* Changes by Agnij 2025-05-06 [Add Last Purchase Details with proper null handling] */}
+                              {rfqDetails?.last_purchase && (
+                                <div className="col-md-12 mt-3">
+                                  <h4>Last Purchase Details :</h4>
+                                  <div className="last-purchase-details p-3 bg-light rounded mb-3">
+                                    <div className="row">
+                                      <div className="col-md-2">
+                                        <p className="mb-1"><strong>Base Price</strong></p>
+                                        <p>₹{rfqDetails.last_purchase.base_price || "0.00"}</p>
+                                      </div>
+                                      <div className="col-md-2">
+                                        <p className="mb-1"><strong>Freight Rate</strong></p>
+                                        <p>{rfqDetails.last_purchase.freight_rate !== null ? `${rfqDetails.last_purchase.freight_rate}%` : "0%"}</p>
+                                      </div>
+                                      <div className="col-md-2">
+                                        <p className="mb-1"><strong>Packaging Rate</strong></p>
+                                        <p>{rfqDetails.last_purchase.packaging_rate !== null ? `${rfqDetails.last_purchase.packaging_rate}%` : "0%"}</p>
+                                      </div>
+                                      <div className="col-md-2">
+                                        <p className="mb-1"><strong>Tax</strong></p>
+                                        <p>{rfqDetails.last_purchase.tax !== null ? `${rfqDetails.last_purchase.tax}%` : "0%"}</p>
+                                      </div>
+                                      <div className="col-md-2">
+                                        <p className="mb-1"><strong>Quantity</strong></p>
+                                        <p>{rfqDetails.last_purchase.quantity || "0"}</p>
+                                      </div>
+                                      <div className="col-md-2">
+                                        <p className="mb-1"><strong>Total Price</strong></p>
+                                        <p>₹{rfqDetails.last_purchase.total_price || "0.00"}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction !== "" ? (
                                 <div className="col-9">
                                   <div className="form-group mt-0">                              
                                     <div className="row">
