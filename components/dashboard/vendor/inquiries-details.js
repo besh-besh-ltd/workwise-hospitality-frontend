@@ -88,7 +88,7 @@ const RfqManagementPreview = () => {
 
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
-    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed && !enableBuyerView) {
+    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed && !enableBuyerView && productleftforbid) {
       toast.info("The reverse auction has started. You can send quotes again.", {
         position: "top-right",
         autoClose: 7000,
@@ -99,7 +99,7 @@ const RfqManagementPreview = () => {
       });
       setRaStatusChanged(false);
     }
-  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed, enableBuyerView]);
+  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed, enableBuyerView, productleftforbid]);
 
   const getRFQdetails = () => {
     setloading(true);
@@ -108,12 +108,12 @@ const RfqManagementPreview = () => {
         setloading(false);
         let val = checkBidExpired(res.data?.bid_end_date);
         setIsSubmitable(!val);
-        
+
         // Normalize terms data to ensure consistent structure and content
         if (res.data && res.data.terms && Array.isArray(res.data.terms)) {
           res.data.terms = res.data.terms.map(term => {
             // Get term content with comprehensive fallbacks
-            const termContent = 
+            const termContent =
               term.term_content || // First try term_content
               term.name || // Then try name
               (term.content && Array.isArray(term.content) && term.content[0]?.title) || // Then try content array
@@ -122,7 +122,7 @@ const RfqManagementPreview = () => {
               (term.original?.name) || // Then try original name
               (term.original?.content && Array.isArray(term.original.content) && term.original.content[0]?.title) || // Then try original content
               `Term ${term.id || 'Unknown'}`; // Fallback to ID
-            
+
             // Return normalized term object
             return {
               id: term.id || term.term_id,
@@ -133,7 +133,7 @@ const RfqManagementPreview = () => {
             };
           });
         }
-        
+
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
         updatecurrentLowest(res.data?.products);
@@ -154,7 +154,7 @@ const RfqManagementPreview = () => {
         }
       });
       setTechEvalStatuses(techStatuses);
-      
+
       // Determine if lowest quotation should be visible based on technical evaluation
       const hasLowestQuotation = products.some(product => {
         // Show lowest quote if it exists and either:
@@ -162,11 +162,11 @@ const RfqManagementPreview = () => {
         // 2. Product has technical evaluation and vendor is accepted
         const hasTechEval = product.tech_evaluation_status?.has_tech_eval;
         const isAccepted = product.tech_evaluation_status?.is_accepted;
-        
-        return product.lowest_quotation !== null && 
+
+        return product.lowest_quotation !== null &&
                (!hasTechEval || (hasTechEval && isAccepted));
       });
-      
+
       setCurrentLowest(hasLowestQuotation && showLowestPrice);
     } else {
       setCurrentLowest(null);
@@ -265,14 +265,14 @@ const RfqManagementPreview = () => {
     setIsReverseAuctionActive(currentIsReverseAuctionActive);
     setQuoteDisabled(isDisabled);
     setStatusMessage(message);
-    
+
     // Changes by Agnij 2025-05-05 [Only show technical evaluation restrictions during active RA]
     // Only apply technical evaluation restrictions during active reverse auction
     setShowTechEvalRestrictions(currentIsReverseAuctionActive);
-    
+
     // Update current lowest visibility based on RA status
     setShowLowestPrice(currentIsReverseAuctionActive);
-    
+
     // Track if current RA status is different from previous to notify user
     if (wasEndDatePassed !== (bidEndDateEndOfDay && now > bidEndDateEndOfDay)) {
       setWasEndDatePassed(bidEndDateEndOfDay && now > bidEndDateEndOfDay);
@@ -668,7 +668,7 @@ const RfqManagementPreview = () => {
                             </button>
                           </Link>
                         )}
-                        
+
                         <button
                           type="button"
                           className=" btn btn-primary "
@@ -802,11 +802,11 @@ const RfqManagementPreview = () => {
 
                                   <td>{`${qty}-${unit}`}</td>
                                   {isReverseAuctionActive && (
-                                    item?.lowest_quotation ? 
+                                    item?.lowest_quotation ?
                                       <td>
                                         {addCommasToNumber(item?.lowest_quotation?.total_price)}
-                                      </td> 
-                                    : 
+                                      </td>
+                                    :
                                       <td>
                                         --
                                       </td>
@@ -910,7 +910,7 @@ const RfqManagementPreview = () => {
                                     id="wacomnamepp"
                                     className="form-control"
                                     name="comname"
-                                    placeholder="lorem ipsum" 
+                                    placeholder="lorem ipsum"
                                     disabled
                                     value={rfqDetails?.company_name}
                                   />
@@ -1040,7 +1040,7 @@ const RfqManagementPreview = () => {
 
                               {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction !== "" ? (
                                 <div className="col-9">
-                                  <div className="form-group mt-0">                              
+                                  <div className="form-group mt-0">
                                     <div className="row">
                                       <div className="col-md-4">
                                         <div className="form-group">
@@ -1053,7 +1053,7 @@ const RfqManagementPreview = () => {
                                           />
                                         </div>
                                       </div>
-                              
+
                                       {rfqDetails.reverse_auction == 1 && (
                                         <>
                                           <div className="col-md-4">
@@ -1079,7 +1079,7 @@ const RfqManagementPreview = () => {
                                                                 // Just date
                                                                 dateObj = new Date(rfqDetails.ra_start_date);
                                                               }
-                                                              
+
                                                               return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
                                                                 hour: 'numeric',
                                                                 minute: '2-digit',
@@ -1095,7 +1095,7 @@ const RfqManagementPreview = () => {
                                               />
                                             </div>
                                           </div>
-                              
+
                                           <div className="col-md-4">
                                             <div className="form-group">
                                               <label className="form-label">Reverse Auction End Time</label>
@@ -1119,7 +1119,7 @@ const RfqManagementPreview = () => {
                                                                 // Just date
                                                                 dateObj = new Date(rfqDetails.ra_end_date);
                                                               }
-                                                              
+
                                                               return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
                                                                 hour: 'numeric',
                                                                 minute: '2-digit',
@@ -1141,7 +1141,7 @@ const RfqManagementPreview = () => {
                                   </div>
                                 </div>
                               ):""}
-                              
+
                               {rfqDetails?.bid_end_date && rfqDetails?.bid_end_date != "" &&
                                 <div className="col-md-3">
                                   <div className="form-group">
@@ -1193,7 +1193,7 @@ const RfqManagementPreview = () => {
                                       {rfqDetails?.terms?.map((item, index) => {
                                         const termContent = item.term_content || item.name || (item.content && item.content[0]?.title);
                                         if (!termContent) return null;
-                                        
+
                                         return (
                                           <li key={`term-${item.id || index}`} className="mb-2">
                                             {termContent}
@@ -1226,12 +1226,12 @@ const RfqManagementPreview = () => {
                                           <button
                                             type="button"
                                             className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')} m-0 mx-auto mt-2`}
-                                            style={{ width: "240px" }}
+                                            style={{ width: "240px", opacity: "0.5" }}
                                             disabled={quoteDisabled || rfqDetails.status == 2}
                                           >
                                             <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                            {rfqDetails.status == 2 
-                                              ? "RFQ is Closed" 
+                                            {rfqDetails.status == 2
+                                              ? "RFQ is Closed"
                                               : rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")
                                                 ? rfqDetails.products?.some(item => item.finalization_status === "You are finalized")
                                                   ? "You are finalized"
@@ -1399,11 +1399,12 @@ const RfqManagementPreview = () => {
                                             <button
                                               type="button"
                                               className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'}`}
+                                              style={{ opacity: "0.5" }}
                                               disabled
                                             >
                                               <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                                              {rfqDetails.status == 2 
-                                                ? "RFQ is Closed" 
+                                              {rfqDetails.status == 2
+                                                ? "RFQ is Closed"
                                                 : rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")
                                                   ? rfqDetails.products?.some(item => item.finalization_status === "You are finalized")
                                                     ? "You are finalized"
@@ -1411,8 +1412,8 @@ const RfqManagementPreview = () => {
                                                   : statusMessage}
                                             </button>
                                           ) : (
-                                            <button 
-                                              type="button" 
+                                            <button
+                                              type="button"
                                               className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}
                                               onClick={goToQuoteCreation}
                                             >

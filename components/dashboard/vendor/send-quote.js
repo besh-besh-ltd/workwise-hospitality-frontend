@@ -412,13 +412,18 @@ const SendQuotePageComp = () => {
       globalPaymentTerms,
       globalComment,
     };
+    setsubmitLoading(true);
     sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
+        toast.success("Quote regretted successfully!");
         router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
       })
       .catch((err) => {
         setsubmitLoading(false);
+        // Display error message from backend
+        const errorMessage = err.response?.data?.message || "Failed to submit regret. Please try again.";
+        toast.error(errorMessage);
       });
   };
 
