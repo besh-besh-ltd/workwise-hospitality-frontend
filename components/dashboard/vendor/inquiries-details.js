@@ -352,15 +352,19 @@ const RfqManagementPreview = () => {
     sendQuotation(payload, token)
       .then((res) => {
         setsubmitLoading(false);
-        toast.success("Quote regret submitted successfully!");
-        router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
-        Router.reload();
+        setregretModal(false);
+        toast.success("Quote regret submitted successfully!", {
+          onClose: () => {
+            // Reload the page after the toast is closed
+            window.location.href = `/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`;
+          }
+        });
       })
       .catch((err) => {
         setsubmitLoading(false);
+        setregretModal(false);
         toast.error("Failed to submit regret. Please try again.");
-      })
-      .finally(() => setregretModal(false));
+      });
   };
 
   const addCommasToNumber = (number) => {
