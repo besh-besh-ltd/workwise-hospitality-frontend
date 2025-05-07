@@ -16,7 +16,6 @@ import { renderFileLink } from "@/utils/elementFunctions";
 const SendQuotePageComp = () => {
   const router = useRouter();
   const { id, token, type: pageType } = router.query;
-  const showTechEvalRestrictionsParam = router.query.showTechEvalRestrictions === 'true';
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
@@ -38,14 +37,21 @@ const SendQuotePageComp = () => {
   useEffect(() => {
     if (id) {
       getRFQdetails();
+
+      // Remove showTechEvalRestrictions parameter from URL if present
+      if (router.query.showTechEvalRestrictions !== undefined) {
+        const { showTechEvalRestrictions, ...otherParams } = router.query;
+        router.replace(
+          {
+            pathname: router.pathname,
+            query: otherParams
+          },
+          undefined,
+          { shallow: true }
+        );
+      }
     }
-    
-    
-    // Update the tech evaluation restriction flag
-    const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
-    setShowTechEvalRestrictions(restrictionsEnabled);
-    console.log("Tech eval restrictions:", restrictionsEnabled ? "Enabled" : "Disabled");
-  }, [router, router.query]);
+  }, [id, router]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
   useEffect(() => {
@@ -65,9 +71,9 @@ const SendQuotePageComp = () => {
           raStartDate = new Date(rfqDetails.ra_start_date);
         }
       }
-      
+
       const isAuctionActive = currentLowest; // Reflects the outcome of updatecurrentLowest
-    
+
     }
   }, [rfqDetails, currentLowest]);
 
@@ -90,26 +96,26 @@ const SendQuotePageComp = () => {
         }
       });
       setTechEvalStatuses(techStatuses);
-      
+
       // Changes by Agnij 2024-07-29 [Fix reverse auction display]
       // Only show current lowest if reverse auction is active (after start date)
       const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
-      
+
       // Check if reverse auction is active
       const isReverseAuctionActive = () => {
         // If rfqData isn't available, return false
         if (!rfqData) return false;
-        
+
         // Check if reverse auction is enabled
         if (rfqData.reverse_auction !== 1) return false;
-        
+
         // If no start date is defined, return false
         if (!rfqData.ra_start_date) return false;
-        
+
         // Get current time and auction start time
         const now = new Date();
         let raStartDate;
-        
+
         // Parse the ra_start_date based on its format
         if (rfqData.ra_start_date.includes('T')) {
           raStartDate = new Date(rfqData.ra_start_date);
@@ -121,13 +127,20 @@ const SendQuotePageComp = () => {
           // Try to parse as-is
           raStartDate = new Date(rfqData.ra_start_date);
         }
-        
+
         // Check if auction has started
         return raStartDate <= now;
       };
-      
+
+      // Determine if reverse auction is active
+      const isAuctionActive = isReverseAuctionActive();
+
       // Only set currentLowest to true if auction is active AND there are lowest quotations
-      setCurrentLowest(hasLowestQuotation && isReverseAuctionActive());
+      setCurrentLowest(hasLowestQuotation && isAuctionActive);
+
+      // Set technical evaluation restrictions based on whether reverse auction is active
+      // This ensures restrictions are applied during reverse auction regardless of URL parameters
+      setShowTechEvalRestrictions(isAuctionActive);
     } else {
       setCurrentLowest(null);
     }
@@ -246,7 +259,7 @@ const SendQuotePageComp = () => {
   const calculateTotal = (products) => {
 
     const d = products.map((item) => {
-      
+
       let prod = rfqDetails.products.find((pi) => pi.id == item.id);
 
       let unit_price = parseFloat(item.unit_price) || 0;
@@ -310,8 +323,10 @@ const SendQuotePageComp = () => {
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
-          toast.error("Unable to Send Quote");
-          setsubmitLoading(false)
+          setsubmitLoading(false);
+          // Display error message from backend
+          const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
+          toast.error(errorMessage);
         })
     }
     else {
@@ -359,6 +374,9 @@ const SendQuotePageComp = () => {
         })
         .catch((err) => {
           setsubmitLoading(false);
+          // Display error message from backend
+          const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
+          toast.error(errorMessage);
         });
     }
   };
@@ -865,11 +883,11 @@ const SendQuotePageComp = () => {
                               if (isAvailableForQuote(item)) {
                                 // Changes by Agnij 2024-07-29 [Fix tech eval restrictions check]
                                 const techStatus = techEvalStatuses[item.id];
-                                
+
                                 // Determine if inputs should be disabled - only during reverse auction for rejected products
-                                const isTechEvalPendingOrRejected = showTechEvalRestrictions && 
-                                                                   techStatus && 
-                                                                   techStatus.has_tech_eval === true && 
+                                const isTechEvalPendingOrRejected = showTechEvalRestrictions &&
+                                                                   techStatus &&
+                                                                   techStatus.has_tech_eval === true &&
                                                                    techStatus.is_accepted !== true;
 
 
@@ -1015,8 +1033,8 @@ const SendQuotePageComp = () => {
                                             value={rfqDetails?.products[index]?.lowest_quotation?.total_price}
                                             disabled
                                           />
-                                          {techEvalStatuses[item.id] && 
-                                           techEvalStatuses[item.id].has_tech_eval && 
+                                          {techEvalStatuses[item.id] &&
+                                           techEvalStatuses[item.id].has_tech_eval &&
                                            !techEvalStatuses[item.id].is_accepted && (
                                             <div className="mt-1">
                                               <small className="text-warning">
@@ -1035,8 +1053,8 @@ const SendQuotePageComp = () => {
                                             placeholder="--"
                                             disabled
                                           />
-                                          {techEvalStatuses[item.id] && 
-                                           techEvalStatuses[item.id].has_tech_eval && 
+                                          {techEvalStatuses[item.id] &&
+                                           techEvalStatuses[item.id].has_tech_eval &&
                                            !techEvalStatuses[item.id].is_accepted && (
                                             <div className="mt-1">
                                               <small className="text-warning">
