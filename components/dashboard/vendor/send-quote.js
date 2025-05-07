@@ -40,14 +40,6 @@ const SendQuotePageComp = () => {
       getRFQdetails();
     }
     
-    // Changes by Agnij 2024-07-29 [Add debug logging for URL parameters]
-    console.log("URL parameters:", {
-      id: router.query.id,
-      token: router.query.token,
-      type: router.query.type,
-      showTechEvalRestrictions: router.query.showTechEvalRestrictions,
-      parsedValue: router.query.showTechEvalRestrictions === 'true'
-    });
     
     // Update the tech evaluation restriction flag
     const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
@@ -55,12 +47,36 @@ const SendQuotePageComp = () => {
     console.log("Tech eval restrictions:", restrictionsEnabled ? "Enabled" : "Disabled");
   }, [router, router.query]);
 
+  // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
+  useEffect(() => {
+    if (rfqDetails) {
+      const now = new Date();
+      let raStartDate = null;
+      let raStartDateString = "Not set";
+
+      if (rfqDetails.ra_start_date) {
+        raStartDateString = rfqDetails.ra_start_date;
+        if (rfqDetails.ra_start_date.includes('T')) {
+          raStartDate = new Date(rfqDetails.ra_start_date);
+        } else if (rfqDetails.ra_start_date.includes(' ')) {
+          const [datePart, timePart] = rfqDetails.ra_start_date.split(' ');
+          raStartDate = new Date(`${datePart}T${timePart}`);
+        } else {
+          raStartDate = new Date(rfqDetails.ra_start_date);
+        }
+      }
+      
+      const isAuctionActive = currentLowest; // Reflects the outcome of updatecurrentLowest
+    
+    }
+  }, [rfqDetails, currentLowest]);
+
   const getProductSpecValueByTitle = (productSpecs, title) => {
     const spec = productSpecs.find(spec => spec.title === title);
     return spec ? spec.value : "";
   }
 
-  const updatecurrentLowest = (products) => {
+  const updatecurrentLowest = (products, rfqData) => {
     if (products && Array.isArray(products)) {
       // Extract technical evaluation status for each product
       const techStatuses = {};
@@ -75,8 +91,43 @@ const SendQuotePageComp = () => {
       });
       setTechEvalStatuses(techStatuses);
       
+      // Changes by Agnij 2024-07-29 [Fix reverse auction display]
+      // Only show current lowest if reverse auction is active (after start date)
       const hasLowestQuotation = products.some(product => product.lowest_quotation !== null);
-      setCurrentLowest(hasLowestQuotation);
+      
+      // Check if reverse auction is active
+      const isReverseAuctionActive = () => {
+        // If rfqData isn't available, return false
+        if (!rfqData) return false;
+        
+        // Check if reverse auction is enabled
+        if (rfqData.reverse_auction !== 1) return false;
+        
+        // If no start date is defined, return false
+        if (!rfqData.ra_start_date) return false;
+        
+        // Get current time and auction start time
+        const now = new Date();
+        let raStartDate;
+        
+        // Parse the ra_start_date based on its format
+        if (rfqData.ra_start_date.includes('T')) {
+          raStartDate = new Date(rfqData.ra_start_date);
+        } else if (rfqData.ra_start_date.includes(' ')) {
+          // Format: "YYYY-MM-DD HH:MM:SS"
+          const [datePart, timePart] = rfqData.ra_start_date.split(' ');
+          raStartDate = new Date(`${datePart}T${timePart}`);
+        } else {
+          // Try to parse as-is
+          raStartDate = new Date(rfqData.ra_start_date);
+        }
+        
+        // Check if auction has started
+        return raStartDate <= now;
+      };
+      
+      // Only set currentLowest to true if auction is active AND there are lowest quotations
+      setCurrentLowest(hasLowestQuotation && isReverseAuctionActive());
     } else {
       setCurrentLowest(null);
     }
@@ -135,7 +186,8 @@ const SendQuotePageComp = () => {
           if (res.data.quotations.length > 0)
             setalreadyQuoted(res.data.quotations)
         }
-        updatecurrentLowest(res.data.products);
+        // Changes by Agnij <2024-07-30> [Pass RFQ data directly to avoid state timing issues]
+        updatecurrentLowest(res.data.products, res.data);
         setrfqDetails(res.data);
       })
       .catch((error) => {
