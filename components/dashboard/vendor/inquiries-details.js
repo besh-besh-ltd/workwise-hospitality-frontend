@@ -88,7 +88,23 @@ const RfqManagementPreview = () => {
 
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
-    if (raStatusChanged && isReverseAuctionActive && wasEndDatePassed && !enableBuyerView && productleftforbid) {
+    // Only show toast if:
+    // 1. RA status has changed
+    // 2. RA is active
+    // 3. Bid end date has passed
+    // 4. Not in buyer view
+    // 5. There are products left for bidding (not all finalized)
+    // 6. No products have been finalized for any vendor
+    if (raStatusChanged &&
+        isReverseAuctionActive &&
+        wasEndDatePassed &&
+        !enableBuyerView &&
+        productleftforbid &&
+        rfqDetails?.products?.every(item =>
+          item.finalization_status !== "Another vendor is finalized" &&
+          item.finalization_status !== "You are finalized"
+        )
+    ) {
       toast.info("The reverse auction has started. You can send quotes again.", {
         position: "top-right",
         autoClose: 7000,
@@ -99,7 +115,7 @@ const RfqManagementPreview = () => {
       });
       setRaStatusChanged(false);
     }
-  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed, enableBuyerView, productleftforbid]);
+  }, [raStatusChanged, isReverseAuctionActive, wasEndDatePassed, enableBuyerView, productleftforbid, rfqDetails]);
 
   const getRFQdetails = () => {
     setloading(true);
@@ -133,6 +149,15 @@ const RfqManagementPreview = () => {
             };
           });
         }
+
+        // Check if any products are not finalized
+        const hasUnfinalizedProducts = res.data?.products?.some(
+          product => product.finalization_status !== "Another vendor is finalized" &&
+                    product.finalization_status !== "You are finalized"
+        );
+
+        // Only set productleftforbid to true if there are unfinalized products
+        setproductleftforbid(hasUnfinalizedProducts);
 
         setrfqDetails(res.data);
         checkIfQuotationSendIsPossible(res.data);
