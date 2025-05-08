@@ -47,12 +47,42 @@ export const searchProductsV2 = (values, type = "products") => {
       category_id: values.cat_id,
       search_key: values.search_key,
       vendor_name: values.vendor_name,
-      // approved_by_id: values.approved_by,
+      include_variants: true
     };
 
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.post(`/rfq/search-product`, payload);
+        
+        if (response?.data?.length === 0 && values.search_key) {
+          try {
+            const variantResponse = await axiosInstance.post(`/rfq/search-variant-products`, {
+              search_key: values.search_key
+            });
+            
+            if (variantResponse?.data?.length > 0) {
+              const formattedVariants = variantResponse.data.map(variant => ({
+                id: variant.variant_id || variant.id,
+                slug: variant.slug || `variant-${variant.variant_id || variant.id}`,
+                product_name: variant.variant_name || variant.name || "Unknown Variant",
+                category_id: variant.category_id || null,
+                description: variant.description || "",
+                image_url: variant.image_url || "",
+                cat_title: variant.category_name || "",
+                is_variant: true,
+                variant_id: variant.variant_id || variant.id,
+                mapping_id: variant.mapping_id || variant.id,
+                vendor_id: variant.vendor_id,
+                vendor_name: variant.vendor_name || variant.vendor_display_name
+              }));
+              
+              response.data = formattedVariants;
+            }
+          } catch (variantError) {
+            console.error("Error fetching variant data:", variantError);
+          }
+        }
+        
         resolve(response);
       } catch (error) {
         reject({ message: error });
@@ -71,17 +101,122 @@ export const searchProductsV2 = (values, type = "products") => {
       prevWorkedWith: values.prevWorkedWith,
       vendor_name: values.vendor_name,
       myVendorType: values?.myVendorType?.value ?? "",
+      include_variants: true,
     };
 
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.post(`/rfq/search-vendor`, payload);
+        
+        if (values.search_key && (!response?.data?.length || response?.data?.length < 3)) {
+          try {
+            const variantVendorsResponse = await axiosInstance.post(`/rfq/search-variant-vendors`, {
+              search_key: values.search_key
+            });
+            
+            if (variantVendorsResponse?.data?.length > 0) {
+              const existingVendorIds = new Set(response.data.map(v => v.id));
+              const newVendors = variantVendorsResponse.data.filter(v => !existingVendorIds.has(v.vendor_id));
+              
+              if (newVendors.length > 0) {
+                const formattedVariantVendors = newVendors.map(mapping => ({
+                  id: mapping.vendor_id,
+                  name: mapping.vendor_name || mapping.vendor_display_name || "Unknown Vendor",
+                  email: mapping.vendor_email || "",
+                  mobile: mapping.vendor_phone || "",
+                  organization_name: mapping.vendor_name || mapping.vendor_display_name || "",
+                  from_variant_mapping: true,
+                  variant_id: mapping.variant_id,
+                  variant_name: mapping.variant_name || "",
+                  mapping_id: mapping.mapping_id || mapping.id
+                }));
+                
+                response.data = [...response.data, ...formattedVariantVendors];
+              }
+            }
+          } catch (variantError) {
+            console.error("Error fetching variant vendor data:", variantError);
+          }
+        }
+        
         resolve(response);
       } catch (error) {
         reject({ message: error });
       }
     });
   }
+};
+
+export const searchVariantMappings = (searchTerm) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const timestamp = Date.now();
+      
+      const response = await axiosInstance.post(
+        `/rfq/search-variant-products`, 
+        { search_key: searchTerm }
+      );
+      
+      if (response?.data?.data) {
+        resolve({
+          status: 200,
+          data: response.data.data
+        });
+      } else if (response?.data) {
+        resolve({
+          status: 200,
+          data: response.data
+        });
+      } else {
+        resolve({
+          status: 200,
+          data: []
+        });
+      }
+    } catch (error) {
+      console.error("Error searching variant mappings:", error);
+      resolve({
+        status: 200,
+        data: []
+      });
+    }
+  });
+};
+
+export const searchVendorsByVariant = (searchTerm) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const timestamp = Date.now();
+      
+      const response = await axiosInstance.post(
+        `/rfq/search-variant-vendors`,
+        { search_key: searchTerm }
+      );
+      
+      if (response?.data?.data) {
+        resolve({
+          status: 200,
+          data: response.data.data
+        });
+      } else if (response?.data) {
+        resolve({
+          status: 200,
+          data: response.data
+        });
+      } else {
+        resolve({
+          status: 200,
+          data: []
+        });
+      }
+    } catch (error) {
+      console.error("Error searching vendors by variant:", error);
+      resolve({
+        status: 200,
+        data: []
+      });
+    }
+  });
 };
 
 export const vendorProductList = (limit, page, productName, vendorApprove) => {
@@ -143,7 +278,7 @@ export const approvedProductList = (limit = 10, page = 1, searchString, vendorAp
 export const addProducts = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(
+      let response = await axiosInstance.post(
         `${process.env.NEXT_PUBLIC_API_URL}/products/vendor-product-add`,
         payload
       );
@@ -197,7 +332,7 @@ export const exportProduct = (
 export const updateProducts = (payload, id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.put(
+      let response = await axiosInstance.put(
         `${process.env.NEXT_PUBLIC_API_URL}/products/vendor-product-edit/${id}`,
         payload
       );

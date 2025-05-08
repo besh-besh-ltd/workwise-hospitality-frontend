@@ -135,7 +135,7 @@ const DynamicFormModal = ({
         return Object.values(groupedData).flatMap(items =>
             items.map(item => ({
                 value: item.id,
-                label: item.name,
+                label: item.unified_name,
                 categories: item.product_categories.map(cat => cat.category_name).join(" | ")
             }))
         );
@@ -192,7 +192,7 @@ const DynamicFormModal = ({
             .then((res) => {
                 const prodItem = {
                     master_id: res.data.id || '',
-                    name: res.data.name || '',
+                    name: res.data.unified_name || '',
                     description: res.data.description,
                     status: 1,
                     approved_id: [],
@@ -605,6 +605,7 @@ Example:
                                       // Handle clearing of selection
                                       if (!selectedOption) {
                                         setSelectedProduct(null); // Clear selectedProduct state
+                                        setCurrentProduct(null);
                                       }
                                     }}
                                     placeholder={
@@ -619,6 +620,7 @@ Example:
                                 <div className="mb-2">
                                   <label>Approved By</label>
                                   <Select
+                                    isDisabled={!selectedProduct}
                                     name="approvedBy"
                                     options={vendorApprovedList}
                                     value={selectedApprovedBy}

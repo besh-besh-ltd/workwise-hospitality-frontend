@@ -972,7 +972,7 @@ const QuoteCompare = () => {
     const payload = {
       rfq_id: proditem.rfq_id,
       rfq_no: proditem.rfq[0].rfq_no,
-      product_id: proditem.product_id,
+      product_variant_id: proditem.product_variant_id,
       vendor_id: item.quote_details.created_by,
       quote_id: item.quote_id,
       variant: proditem.variant

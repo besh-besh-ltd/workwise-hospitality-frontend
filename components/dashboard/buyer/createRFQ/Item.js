@@ -150,7 +150,7 @@ const Item = ({
       setLoading(true);
 
       const payload = {
-        product_id: data.product_id,
+        variant_id: data.product_id,
         vendors: data.vendors.map((vendor) => ({
           vendor_id: vendor.user_id,
         })),
