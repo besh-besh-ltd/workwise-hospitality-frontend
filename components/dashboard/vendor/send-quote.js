@@ -16,6 +16,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 const SendQuotePageComp = () => {
   const router = useRouter();
   const { id, token, type: pageType } = router.query;
+  const showTechEvalRestrictionsParam = router.query.showTechEvalRestrictions === 'true';
   const [regretModal, setregretModal] = useState(false);
   const [rfqDetails, setrfqDetails] = useState(null);
   const [loading, setloading] = useState(false);
@@ -34,24 +35,53 @@ const SendQuotePageComp = () => {
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
 
+  // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
+  const isAnyFieldFilled = () => {
+    // Check global fields
+    if (globalFreight > 0 || 
+        globalPackaging > 0 || 
+        globalTax > 0 || 
+        globalPaymentTerms.trim() !== "" || 
+        globalComment.trim() !== "" || 
+        globalDocumentFiles.length > 0) {
+      return true;
+    }
+    
+    // Check product fields
+    for (const product of quoteProducts) {
+      if (product.unit_price > 0 || 
+          product.freight_price > 0 || 
+          product.package_price > 0 || 
+          product.tax > 0 || 
+          product.comment.trim() !== "" || 
+          product.delivery_period.toString().trim() !== "" || 
+          (product.document_files && product.document_files.length > 0)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   useEffect(() => {
     if (id) {
       getRFQdetails();
-
-      // Remove showTechEvalRestrictions parameter from URL if present
-      if (router.query.showTechEvalRestrictions !== undefined) {
-        const { showTechEvalRestrictions, ...otherParams } = router.query;
-        router.replace(
-          {
-            pathname: router.pathname,
-            query: otherParams
-          },
-          undefined,
-          { shallow: true }
-        );
-      }
     }
-  }, [id, router]);
+    
+    // Changes by Agnij 2024-07-29 [Add debug logging for URL parameters]
+    console.log("URL parameters:", {
+      id: router.query.id,
+      token: router.query.token,
+      type: router.query.type,
+      showTechEvalRestrictions: router.query.showTechEvalRestrictions,
+      parsedValue: router.query.showTechEvalRestrictions === 'true'
+    });
+    
+    // Update the tech evaluation restriction flag
+    const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
+    setShowTechEvalRestrictions(restrictionsEnabled);
+    console.log("Tech eval restrictions:", restrictionsEnabled ? "Enabled" : "Disabled");
+  }, [router, router.query]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
   useEffect(() => {
@@ -1198,10 +1228,12 @@ const SendQuotePageComp = () => {
                         }
                       </div>
                       <div className="col-md-6">
+                        {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
                         <button
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}
+                          disabled={!isAnyFieldFilled()}
                         >
                           Send Quote
                         </button>
