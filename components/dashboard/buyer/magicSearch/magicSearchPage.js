@@ -8,7 +8,7 @@ import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { isValidFileNameRFQ } from '@/services/rfq';
 import { textCapitalize, getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
-import { createRfq, getMagicRFQPreview } from "@/services/rfq";
+import { createRfq, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -75,9 +75,11 @@ const MagicSearchPage = () => {
         from: "",
         to: "",
         prev_worked_with: null,
+        vendor_approved_by: null,
     });
     const [vendorMap, setVendorMap] = useState(new Map());
     const [countryCodes , setCountryCodes] = useState([]);
+    const [approved_by, setApproved_by] = useState([]);
 
     const fromRef = useRef(null);
     const toRef = useRef(null);
@@ -584,12 +586,23 @@ const MagicSearchPage = () => {
             })
     };
 
+    const getVendorApprovedby = () => {
+        vendorApproveList()
+            .then((rsp) => {
+                setApproved_by(rsp.data);
+            })
+            .catch((error) => {
+                console.log(error);
+            });
+    };
+
     useEffect(() => {
         getAllProjects();
         // getTermsData();
         getAllCities();
         getAllStates();
         getAllCountries();
+        getVendorApprovedby();
     
         getCountryCodes()
             .then((res) => {
@@ -807,148 +820,127 @@ const MagicSearchPage = () => {
                 </>
               ) : (
                 <div className="row">
-                  <div className="mb-3">
-                    <h3 className="h5 mb-3">Vendor Filters</h3>
-                    <div className="row">
-                    <div className="col-md-3">
-                      <div>
-                        <p className="fw-medium  mb-2">Country</p>
+                  <div className="mb-2">
+                    <h3 className="h5 mb-2">Vendor Filters</h3>
+                    <div className="row g-2">
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium mb-1">Country</p>
+                            <Select
+                              isMulti
+                              name="country"
+                              options={countries}
+                              value={globalFilters.country}
+                              placeholder="Country"
+                              isClearable
+                              isSearchable
+                              onChange={(newValue, action) => {
+                                handleFilterChange(newValue, action, true)
+                              }}
+                            />
+                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium mb-1">State</p>
                           <Select
+                            isDisabled={!globalFilters.country || globalFilters.country.length <= 0}
                             isMulti
-                            name="country"
-                            options={countries}
-                            value={globalFilters.country}
-                            placeholder="Country"
+                            name="state"
+                            options={getFilteredStates()}
+                            value={globalFilters.state}
+                            placeholder="State"
                             isClearable
                             isSearchable
                             onChange={(newValue, action) => {
                               handleFilterChange(newValue, action, true)
                             }}
                           />
-                      </div>
-                      </div>
-                      <div className="col-md-3">
-                      <div>
-                      <p className="fw-medium  mb-2">State</p>
-                        <Select
-                          isDisabled={!globalFilters.country || globalFilters.country.length <= 0}
-                          isMulti
-                          name="state"
-                          options={getFilteredStates()}
-                          value={globalFilters.state}
-                          placeholder="State"
-                          isClearable
-                          isSearchable
-                          onChange={(newValue, action) => {
-                            handleFilterChange(newValue, action, true)
-                          }}
-                        />
                         </div>
                       </div>
                       <div className="col-md-3">
-                      <div>
-                      <p className="fw-medium  mb-2">City</p>
-                        <Select
-                          isDisabled={!globalFilters.country || globalFilters.country.length <= 0}
-                          isMulti
-                          name="city"
-                          options={getFilteredCities()}
-                          value={globalFilters.city}
-                          placeholder="City"
-                          isClearable
-                          isSearchable
-                          onChange={(newValue, action) => {
-                            handleFilterChange(newValue, action, true)
-                          }}
-                        />
+                        <div>
+                          <p className="fw-medium mb-1">City</p>
+                          <Select
+                            isDisabled={!globalFilters.country || globalFilters.country.length <= 0}
+                            isMulti
+                            name="city"
+                            options={getFilteredCities()}
+                            value={globalFilters.city}
+                            placeholder="City"
+                            isClearable
+                            isSearchable
+                            onChange={(newValue, action) => {
+                              handleFilterChange(newValue, action, true)
+                            }}
+                          />
                         </div>
                       </div>
                       <div className="col-md-3">
-                      <div>
-                      <p className="fw-medium  mb-2">My Vendors</p>
-                        <Select
-                          options={[
-                            { label: "All Vendors", value: null },
-                            { label: "Private Vendors", value: { is_private: 1, is_linked_with_buyer: 1 } },
-                            { label: "Public Vendors", value: { is_private: 0, is_linked_with_buyer: 1 } },
-                            { label: "Both Vendors", value: { is_private: null, is_linked_with_buyer: 1 } },
-                          ]}
-                          value={globalFilters.vendor_info}
-                          onChange={handleFilterChange}
-                          name="vendor_info"
-                          placeholder="Select"
-                          isClearable
-                          isSearchable
-                        />
+                        <div>
+                          <p className="fw-medium mb-1">My Vendors</p>
+                          <Select
+                            options={[
+                              { label: "All Vendors", value: null },
+                              { label: "Private Vendors", value: { is_private: 1, is_linked_with_buyer: 1 } },
+                              { label: "Public Vendors", value: { is_private: 0, is_linked_with_buyer: 1 } },
+                              { label: "Both Vendors", value: { is_private: null, is_linked_with_buyer: 1 } },
+                            ]}
+                            value={globalFilters.vendor_info}
+                            onChange={handleFilterChange}
+                            name="vendor_info"
+                            placeholder="Select"
+                            isClearable
+                            isSearchable
+                          />
                         </div>
                       </div>
                     </div>
-                    <div className="row mt-3 ">
-                      {/* <div className="col-md-6">
-                      <p className="fw-medium  mb-2">Turnover Filters</p>
-                      <div className="row">
-                        <div className="col-md-6">
-                          <div>
-                            <p className="fw-medium  mb-2">FROM</p>
-                            <input
-                              ref={fromRef}
-                              type="text"
-                              name="from"
-                              className="form-control"
-                              placeholder="FROM ( IN CR )"
-                              value={globalFilters.from}
-                              onChange={handleGenericFilterChange}
-                            />
-                          </div>
+                    <div className="row g-2 mt-2">
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium mb-1">Vendor Type</p>
+                          <Select
+                            isMulti
+                            options={vendorTypes}
+                            value={globalFilters.vendor_type}
+                            onChange={handleFilterChange}
+                            name="vendor_type"
+                            placeholder="Select"
+                            isClearable
+                            isSearchable
+                          />
                         </div>
-                        <div className="col-md-6">
-                          <div>
-                            <p className="fw-medium  mb-2">TO</p>
-                            <input
-                              ref={toRef}
-                              type="text"
-                              name="to"
-                              className="form-control"
-                              placeholder="TO ( IN CR )"
-                              value={globalFilters.to}
-                              onChange={handleGenericFilterChange}
-                            />
-                          </div>
+                      </div>
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium mb-1">Previously Worked With</p>
+                          <Select
+                            options={vendorConditions}
+                            value={globalFilters.prev_worked_with}
+                            onChange={handleFilterChange}
+                            name="prev_worked_with"
+                            placeholder="Select"
+                            isClearable
+                            isSearchable
+                          />
                         </div>
-                        </div>
-                      </div> */}
-                      <div className="col-md-6">
-                        <p className="fw-medium  mb-2 opacity-0">Behavioural Filters</p>
-                        <div className="row">
-                        <div className="col-md-6">
-                          <div>
-                            <p className="fw-medium  mb-2">Vendor Type</p>
-                            <Select
-                              isMulti
-                              options={vendorTypes}
-                              value={globalFilters.vendor_type}
-                              onChange={handleFilterChange}
-                              name="vendor_type"
-                              placeholder="Select"
-                              isClearable
-                              isSearchable
-                            />
-                          </div>
-                        </div>
-                        <div className="col-md-6">
-                          <div>
-                            <p className="fw-medium  mb-2">Previously Worked With</p>
-                            <Select
-                              options={vendorConditions}
-                              value={globalFilters.prev_worked_with}
-                              onChange={handleFilterChange}
-                              name="prev_worked_with"
-                              placeholder="Select"
-                              isClearable
-                              isSearchable
-                            />
-                          </div>
-                        </div>
+                      </div>
+                      <div className="col-md-3">
+                        <div>
+                          <p className="fw-medium mb-1">Vendor Approved By</p>
+                          <Select
+                            options={approved_by ? approved_by.map(item => ({
+                              label: item.vendor_approve,
+                              value: item.id
+                            })) : []}
+                            value={globalFilters.vendor_approved_by}
+                            onChange={handleFilterChange}
+                            name="vendor_approved_by"
+                            placeholder="Select"
+                            isClearable
+                            isSearchable
+                          />
                         </div>
                       </div>
                     </div>
@@ -978,6 +970,7 @@ const MagicSearchPage = () => {
                         states={states}
                         countries={countries}
                         vendorTypes={vendorTypes}
+                        approved_by={approved_by}
                       />
                     </>
                   )}
