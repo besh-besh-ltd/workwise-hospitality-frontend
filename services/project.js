@@ -93,7 +93,7 @@ export const getProjectReportData = (payload) => {
 export const getProductReportData = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.get(`/rfq/report/rfq-product-wise?productName=${payload.productName}&parentCategory=${payload.productCategory}&startDate=${payload.startDate}&endDate=${payload.endDate}`);
+      let response = await axiosFormData.get(`/rfq/report/rfq-product-wise?productId=${payload.productId}&productName=${payload.productName}&parentCategory=${payload.productCategory}&startDate=${payload.startDate}&endDate=${payload.endDate}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });

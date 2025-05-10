@@ -232,6 +232,7 @@ const DownloadReportsForBuyer = (props) => {
       setLoadingState("generate");
 
       const payload = {
+        productId: selectedOption.value,
         productName: selectedOption.label,
         productCategory: productList.find((prodItem)=> prodItem.id === selectedOption.value).product_categories[0]?.id,
         startDate: dateRange.startDate,
@@ -240,6 +241,11 @@ const DownloadReportsForBuyer = (props) => {
 
       try {
         const res = await getProductReportData(payload);
+        if(res.length <= 0) {
+          toast.error("Not enough data to generate report")
+          setLoadingState("done")
+          return;
+        }
         const fileBlob = createProductWiseExcelReport(res);
         setLatestReportFile(fileBlob); // Store Excel Blob in state
         toast.success("Product report successfully generated");
@@ -584,7 +590,6 @@ const DownloadReportsForBuyer = (props) => {
           border: "none",
           background: "#fff",
           borderRadius: "10px",
-          overflow: "hidden",
           padding: "20px",
           maxHeight: "100vh",
           height: "auto",
