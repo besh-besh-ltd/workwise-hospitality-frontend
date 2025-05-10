@@ -50,12 +50,39 @@ const ReviewProducts = ({
 
     const [localFilterMap, setLocalFilterMap] = useState(new Map());
 
+    // Changes by Agnij 2024-10-22 [Added helper function to normalize vendor data]
+    // This function ensures we get consistent access to vendor approved info
+    const normalizeVendorData = (vendor) => {
+        if (!vendor) return vendor;
+        
+        // Log the first vendor to see its structure
+        console.log("Normalizing vendor data:", JSON.stringify(vendor));
+        
+        // Create standardized vendor_approved_info
+        vendor.vendor_approved_info = {
+            id: vendor.vendor_approved_id || 
+               (vendor.vendor_approved && vendor.vendor_approved.id) || 
+               (vendor.vendor_info && vendor.vendor_info.vendor_approved_id),
+            name: (vendor.vendor_approved && vendor.vendor_approved.vendor_approve) || 
+                 (vendor.vendor_approved_name)
+        };
+        
+        return vendor;
+    };
+
     const updateVendorList = () => {
         const vMap = new Map();
 
         for (const prodItem of data) {
             const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
-            let updatedVendors = prodItem.vendors || [];
+            // Normalize vendor data before using it
+            let updatedVendors = (prodItem.vendors || []).map(normalizeVendorData);
+            
+            // Changes by Agnij 2024-10-22 [Added vendor data logging]
+            console.log("Product:", prodItem.name, "Initial vendors:", updatedVendors.length);
+            if (updatedVendors.length > 0) {
+                console.log("Sample vendor data structure:", JSON.stringify(updatedVendors[0]));
+            }
 
             const filter = localFilterMap.get(prodKey);
             if (filter?.vendor_info?.value) {
@@ -97,9 +124,46 @@ const ReviewProducts = ({
                     );
             }
             if(filter?.vendor_approved_by && filter.vendor_approved_by.length > 0) {
-                updatedVendors = updatedVendors.filter(
-                    (vendorItem) => filter.vendor_approved_by.some(approved => approved.value === vendorItem.vendor_approved_id)
-                );
+                // Changes by Agnij 2024-10-22 [Fixed vendor approved by filter]
+                console.log("Filtering by vendor_approved_by:", filter.vendor_approved_by);
+                console.log("Before filtering:", updatedVendors.length);
+                
+                updatedVendors = updatedVendors.filter((vendorItem) => {
+                    // Use normalized vendor_approved_info
+                    console.log("Vendor", vendorItem.name, "approved info:", 
+                              JSON.stringify(vendorItem.vendor_approved_info));
+                    
+                    // Match by ID
+                    const matchedById = vendorItem.vendor_approved_info && 
+                                     filter.vendor_approved_by.some(approved => 
+                                         approved.value == vendorItem.vendor_approved_info.id);
+                    
+                    // Match by name (especially for PDIL)
+                    const matchedByName = vendorItem.vendor_approved_info && 
+                                       vendorItem.vendor_approved_info.name &&
+                                       filter.vendor_approved_by.some(approved => {
+                                           if (approved.label && vendorItem.vendor_approved_info.name) {
+                                               return approved.label.toLowerCase().includes(
+                                                   vendorItem.vendor_approved_info.name.toLowerCase()
+                                               ) || 
+                                               vendorItem.vendor_approved_info.name.toLowerCase().includes(
+                                                   approved.label.toLowerCase()
+                                               );
+                                           }
+                                           return false;
+                                       });
+                    
+                    const matched = matchedById || matchedByName;
+                    
+                    console.log("Vendor", vendorItem.name, 
+                              "matched by id:", matchedById, 
+                              "matched by name:", matchedByName, 
+                              "final:", matched);
+                              
+                    return matched;
+                });
+                
+                console.log("After filtering:", updatedVendors.length, updatedVendors.map(v => v.name));
             }
             if (filter?.country && filter.country.length > 0) {
                 updatedVendors = updatedVendors.filter(
@@ -256,18 +320,35 @@ const ReviewProducts = ({
     }, [])
 
     useEffect(() => {
+        // Changes by Agnij 2024-10-22 [Enhanced global filters handling]
+        console.log("Global filters changed:", globalFilters);
         setLocalFilterMap((prevState) => {
             const lFMap = new Map(prevState);
             for (const [key, value] of lFMap.entries()) {
-                lFMap.set(key, globalFilters);
+                lFMap.set(key, {
+                    ...value,
+                    ...globalFilters
+                });
             }
             return lFMap;
-        })
-        cities.keys().forEach(city => {
-            getAllCities(city, globalFilters.state, globalFilters.country)
+        });
+
+        // Changes by Agnij 2024-10-22 [Added safety checks]
+        // Safely iterate over cities keys if available
+        if (cities && typeof cities.keys === 'function') {
+            const cityKeys = Array.from(cities.keys());
+            cityKeys.forEach(city => {
+                getAllCities(city, globalFilters.state, globalFilters.country);
+            });
         }
-    )
-        states.keys().forEach(state => getAllStates(state, globalFilters.country))
+        
+        // Safely iterate over states keys if available
+        if (states && typeof states.keys === 'function') {
+            const stateKeys = Array.from(states.keys());
+            stateKeys.forEach(state => {
+                getAllStates(state, globalFilters.country);
+            });
+        }
     }, [globalFilters]);
 
     useEffect(() => {

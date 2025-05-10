@@ -224,6 +224,9 @@ const MagicSearchPage = () => {
     
 
     const handleFilterChange = (selectedOption, actionMeta, clearLocation = false) => {
+      // Changes by Agnij 2024-10-22 [Fixed global filters]
+      console.log("handleFilterChange:", actionMeta.name, selectedOption);
+      
       if(clearLocation) {
         if(actionMeta.name == 'country') {
           setGlobalFilters((prevState) => ({
@@ -242,6 +245,12 @@ const MagicSearchPage = () => {
           return;
         }
       }
+      
+      // Special handling for vendor_approved_by to ensure it works properly
+      if (actionMeta.name === 'vendor_approved_by') {
+        console.log("Setting vendor_approved_by filter:", selectedOption);
+      }
+      
       setGlobalFilters((prevState) => ({
         ...prevState,
         [actionMeta.name]: selectedOption
@@ -718,7 +727,6 @@ const MagicSearchPage = () => {
 
     }, [fileUploadMessagesDisplayed, loading]);
 
-
     return (
       <>
         {loading && (
@@ -940,6 +948,7 @@ const MagicSearchPage = () => {
                               label: item.vendor_approve,
                               value: item.id
                             })) : []}
+                            isMulti
                             value={globalFilters.vendor_approved_by}
                             onChange={handleFilterChange}
                             name="vendor_approved_by"
