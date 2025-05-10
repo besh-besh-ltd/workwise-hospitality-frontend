@@ -88,17 +88,17 @@ const ReviewProducts = ({
                 if(prev_worked_with_value == 'prev_finalized')
                     updatedVendors = updatedVendors.filter(
                         (vendorItem) =>
-                            vendorItem.vendor_info.prev_finalized
+                            vendorItem.vendor_info && vendorItem.vendor_info.prev_finalized
                     );
                 else
                     updatedVendors = updatedVendors.filter(
                         (vendorItem) =>
-                            vendorItem.vendor_info.rfq_added
+                            vendorItem.vendor_info && vendorItem.vendor_info.rfq_added
                     );
             }
-            if(filter?.vendor_approved_by?.value) {
+            if(filter?.vendor_approved_by && filter.vendor_approved_by.length > 0) {
                 updatedVendors = updatedVendors.filter(
-                    (vendorItem) => vendorItem.vendor_approved_id === filter.vendor_approved_by.value
+                    (vendorItem) => filter.vendor_approved_by.some(approved => approved.value === vendorItem.vendor_approved_id)
                 );
             }
             if (filter?.country && filter.country.length > 0) {
@@ -293,6 +293,7 @@ const ReviewProducts = ({
                 is_private: null,
                 from: "",
                 to: "",
+                vendor_approved_by: [],
             });
             
             const statesResult = _states.map((state) => ({
@@ -634,6 +635,7 @@ const ReviewProducts = ({
                                             label: item.vendor_approve,
                                             value: item.id
                                           })) : []}
+                                          isMulti
                                           value={
                                             localFilterMap.get(prodKey)
                                               ?.vendor_approved_by

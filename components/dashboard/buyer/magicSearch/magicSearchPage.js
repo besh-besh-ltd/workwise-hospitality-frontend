@@ -587,12 +587,18 @@ const MagicSearchPage = () => {
     };
 
     const getVendorApprovedby = () => {
+        // Changes by Agnij 2024-10-22 [Fixed vendor approved by filter]
         vendorApproveList()
             .then((rsp) => {
-                setApproved_by(rsp.data);
+                if (rsp && rsp.data) {
+                    setApproved_by(rsp.data);
+                    console.log("Vendor approved by data loaded:", rsp.data);
+                } else {
+                    console.error("No vendor approved by data returned");
+                }
             })
             .catch((error) => {
-                console.log(error);
+                console.error("Error fetching vendor approved by data:", error);
             });
     };
 
