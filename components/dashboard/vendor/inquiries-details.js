@@ -861,12 +861,12 @@ const RfqManagementPreview = () => {
                                     <td>
                                       {item.finalization_status ==
                                         "You are finalized" ? (
-                                        <span className="text-success" style={{ opacity: "0.5", pointerEvents: "none" }}>
+                                        <span className="text-success" style={{ pointerEvents: "none" }}>
                                           You are finalized
                                         </span>
                                       ) : item.finalization_status ==
                                         "Another vendor is finalized" ? (
-                                        <span className="text-danger" style={{ opacity: "0.5", pointerEvents: "none" }}>
+                                        <span className="text-danger" style={{ pointerEvents: "none" }}>
                                           Another vendor is finalized
                                         </span>
                                       ) : (
