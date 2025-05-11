@@ -149,9 +149,9 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         const file = event.target.files[0];
         if (file) {
             const fileType = file.name.split('.').pop().toLowerCase();
-            const validTypes = ['xlsx', 'xls'];
+            const validTypes = ['xlsx', 'xls', 'pdf'];
             if (!validTypes.includes(fileType)) {
-                toast.error('Please upload a valid Excel file (xlsx, xls)');
+                toast.error('Please upload a valid file (PDF, xlsx, xls)');
             } else {
                 setFileName(file.name);
                 setClauseFile(file);
@@ -336,11 +336,11 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     <div className="d-flex gap-1 mb-1">
                                         <h2 className="title fs-6 mb-0">Step 1: </h2>
                                         <a
-                                            title="Download this sample Excel and fill all the columns."
+                                            title="Download this sample Excel and fill all the columns. You can also upload PDF files directly."
                                             href="/Sample Bulk Clause Format.xlsx"
                                             className="d-flex justify-content-between align-items-center "
                                             style={{ cursor: "pointer" }}>
-                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the Bulk Clause file</p>
+                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the Bulk Clause file (Excel) or upload a PDF file</p>
                                             <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
                                         </a>
                                     </div>
@@ -358,14 +358,14 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         onClick={() => document.getElementById('fileInput').click()}
                                     >
                                         <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "30px" }} />
-                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your file (PDF or Excel) here'}</p>
                                     </div>
 
                                     {/* //{ Hidden File Input } */}
                                     <input
                                         id="fileInput"
                                         type="file"
-                                        accept=".xlsx, .xls"
+                                        accept=".xlsx, .xls, .pdf"
                                         style={{ display: 'none' }}
                                         onChange={handleMagicFileUpload}
                                     />
