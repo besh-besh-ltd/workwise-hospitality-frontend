@@ -564,7 +564,14 @@ const MagicSearchPage = () => {
 
 
         setSubmitLoading(true);
-        createRfq(rfqPayload)
+        const modifiedPayload = { ...rfqPayload };
+
+        if (modifiedPayload.country_code && modifiedPayload.contact_number) {
+          modifiedPayload.contact_number = `${modifiedPayload.country_code}-${modifiedPayload.contact_number}`;
+        }
+        delete modifiedPayload.country_code;
+
+        createRfq(modifiedPayload)
             .then((res) => {
                 toast.success(
                     <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
