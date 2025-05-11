@@ -1139,7 +1139,7 @@ const MagicSearchPage = () => {
                           className="form-select border border-dark-subtle"
                           style={{ width: "30%" }}
                           value={
-                            formData?.contact_number?.match(
+                            formData?.country_code?.match(
                               /^\+\d{1,4}/
                             )?.[0] || "+91"
                           }
