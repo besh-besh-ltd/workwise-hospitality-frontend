@@ -211,13 +211,19 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
   const calculateTotal = (item, quantity) => {
     let total_qty = parseInt(quantity) || 0;
+    let unit_price = item.unit_price || 0;
+    
+    // Handle null values by defaulting to 0
+    let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
+    let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
+    let tax = item.tax !== null ? parseFloat(item.tax) : 0;
 
-    let total_without_fpt = item.unit_price * total_qty;
-    let FP = (total_without_fpt * parseFloat(item.freight_price)) / 100;
-    let PP = (total_without_fpt * parseFloat(item.package_price)) / 100;
+    let total_without_fpt = unit_price * total_qty;
+    let FP = (total_without_fpt * freight_price) / 100;
+    let PP = (total_without_fpt * package_price) / 100;
 
     let total_with_fpt = total_without_fpt + FP + PP;
-    let T = (total_without_fpt * parseFloat(item.tax)) / 100;
+    let T = (total_without_fpt * tax) / 100;
 
     let TotalPrice = total_with_fpt + T;
     return Math.round(TotalPrice);
@@ -332,7 +338,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <td>
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(item.last_purchase_rate?.unit_price)
-                                        : "-"}
+                                        : "0"}
                                     </td>
                                   </tr>
                                   <tr>
@@ -340,31 +346,31 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <td>
                                       {item.last_purchase_rate?.total_price
                                         ? addCommasToNumber(item.last_purchase_rate?.unit_price * parseInt(item.quotations[0]?.quote_details[0]?.quantity))
-                                        : "-"}
+                                        : "0"}
                                     </td>
                                   </tr>
                                   <tr>
                                     <th>Packaging(%)</th>
                                     <td>
-                                      {item.last_purchase_rate?.package_price
-                                        ? addCommasToNumber(item.last_purchase_rate?.package_price)
-                                        : "-"}
+                                      {item.last_purchase_rate?.package_price !== null
+                                        ? `${addCommasToNumber(item.last_purchase_rate?.package_price)}%`
+                                        : "0%"}
                                     </td>
                                   </tr>
                                   <tr>
                                     <th>Freight(%)</th>
                                     <td>
-                                      {item.last_purchase_rate?.freight_price
-                                        ? addCommasToNumber(item.last_purchase_rate?.freight_price)
-                                        : "-"}
+                                      {item.last_purchase_rate?.freight_price !== null
+                                        ? `${addCommasToNumber(item.last_purchase_rate?.freight_price)}%`
+                                        : "0%"}
                                     </td>
                                   </tr>
                                   <tr>
                                     <th>GST(%)</th>
                                     <td>
-                                      {item.last_purchase_rate?.tax
+                                      {item.last_purchase_rate?.tax !== null
                                         ? `${addCommasToNumber(item.last_purchase_rate?.tax)}%`
-                                        : "-"}
+                                        : "0%"}
                                     </td>
                                   </tr>
                                   <tr className="is_lowest ">
@@ -372,18 +378,24 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <td>
                                       {item.last_purchase_rate
                                         ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
-                                        : "-"}
+                                        : "0"}
                                     </td>
                                   </tr>
                                 </table>
                                 <p>
-                                  {item.last_purchase_rate?.total_price
+                                  {item.last_purchase_rate?.total_price !== null
                                     ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
-                                    : "-"}
+                                    : "0"}
                                 </p>
                               </label>
                             </td>
-                            : <td>-</td>
+                            : <td>
+                                <label className="view_breakup">
+                                  <span></span>
+                                  <input type="checkbox" />
+                                  <p>-</p>
+                                </label>
+                              </td>
                           }
 
 

@@ -68,6 +68,7 @@ const QueryComponent = () => {
         setSelectedVendor({
           user_id: response.data.created_by,
           user_name: response.data.contact_name,
+          company_name: response.data.company_name
         });
       }
     } catch (error) {

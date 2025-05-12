@@ -205,7 +205,7 @@ const Register = ({registerAs}) => {
                   type="text"
                   id="organization_name"
                   name="organization_name"
-                  placeholder="Ex. Worksise Private Limited"
+                  placeholder="Ex. Workwise Private Limited"
                 />
                 {touched.organization_name && errors.organization_name && (
                   <div className="form-error">{errors.organization_name}</div>
@@ -240,7 +240,7 @@ const Register = ({registerAs}) => {
                     type="text"
                     id="mobile"
                     name="mobile"
-                    placeholder="Ex. 9123456789"
+                    placeholder="Ex. XXXXX XXXXX"
                     className="form-control"
                     style={{
                       "::placeholder": { color: "#6c757d", opacity: 1 },

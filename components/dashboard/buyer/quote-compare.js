@@ -972,7 +972,7 @@ const QuoteCompare = () => {
     const payload = {
       rfq_id: proditem.rfq_id,
       rfq_no: proditem.rfq[0].rfq_no,
-      product_id: proditem.product_id,
+      product_variant_id: proditem.product_variant_id,
       vendor_id: item.quote_details.created_by,
       quote_id: item.quote_id,
       variant: proditem.variant
@@ -1293,21 +1293,21 @@ const QuoteCompare = () => {
                                         <span>Freight Rate </span>
                                         {loading
                                           ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.freight_price}%` || "---"}</span>
+                                          : <span className="d-block fw-medium text-muted ">{item?.last_purchase_rate?.freight_price !== null ? `${item?.last_purchase_rate?.freight_price}%` : "0%"}</span>
                                         }
                                       </div>
                                       <div className="col-md-3 col-lg-2">
                                         <span>Packaging Rate </span>
                                         {loading
                                           ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.package_price}%` || "---"}</span>
+                                          : <span className="d-block fw-medium text-muted ">{item?.last_purchase_rate?.package_price !== null ? `${item?.last_purchase_rate?.package_price}%` : "0%"}</span>
                                         }
                                       </div>
                                       <div className="col-md-3 col-lg-2">
                                         <span>Tax </span>
                                         {loading
                                           ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                          : <span className="d-block fw-medium text-muted ">{`${item?.last_purchase_rate?.tax}%` || "---"}</span>
+                                          : <span className="d-block fw-medium text-muted ">{item?.last_purchase_rate?.tax !== null ? `${item?.last_purchase_rate?.tax}%` : "0%"}</span>
                                         }
                                       </div>
                                       <div className="col-md-3 col-lg-2">
