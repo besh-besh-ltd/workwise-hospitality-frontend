@@ -922,7 +922,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   }`}
                                   onClick={() => handleAutocompleteClick(item)}
                                 >
-                                  {item.product_name}
+                                  {item.variant_name ?? item.product_name}
                                 </p>
                               </div>
                             );
