@@ -330,60 +330,59 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                         </Tab.Pane>
 
                         {/* Technical Evaluation Tab */}
-                        <Tab.Pane eventKey="bulkclause">                            
-
-                            <div className="col-md-10 mx-auto mt-2">
-                                    <div className="d-flex gap-1 mb-1">
-                                        <h2 className="title fs-6 mb-0">Step 1: </h2>
-                                        <a
-                                            title="Download this sample Excel and fill all the columns. You can also upload PDF files directly."
-                                            href="/Sample Bulk Clause Format.xlsx"
-                                            className="d-flex justify-content-between align-items-center "
-                                            style={{ cursor: "pointer" }}>
-                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the Bulk Clause file (Excel) or upload a PDF file</p>
-                                            <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
-                                        </a>
+                        <Tab.Pane eventKey="bulkclause">
+                            <div className="mb-4">
+                                <div className="row align-items-center">
+                                    <div className="col-md-12">
+                                        <div className="text-center p-4" style={{ border: "1px dashed #d5d6d7", borderRadius: "4px" }}>
+                                            <h6 className="mb-2">Upload a file (PDF, XLSX, XLS)</h6>
+                                            <p className="small text-muted mb-3">
+                                                AI will intelligently extract clauses and specifications specifically for <strong>{product.name}</strong>.
+                                                <br />If your document contains information about multiple products, only content relevant to <strong>{product.name}</strong> will be extracted.
+                                            </p>
+                                            
+                                            <label htmlFor="fileInput" className="btn btn-outline-primary">
+                                                <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
+                                                Select File
+                                            </label>
+                                            <input
+                                                id="fileInput"
+                                                type="file"
+                                                accept=".xlsx, .xls, .pdf"
+                                                style={{ display: 'none' }}
+                                                onChange={handleMagicFileUpload}
+                                            />
+                                            <p className="small my-2">{fileName || "No file selected"}</p>
+                                            {clauseFile && (
+                                                <div>
+                                                    <button
+                                                        disabled={loading || fileLoading}
+                                                        onClick={uploadClauseFile}
+                                                        className={`btn btn-success`}
+                                                    >
+                                                        <FontAwesomeIcon icon={faFileExcel} className="mr-2" />{" "}
+                                                        {loading ? "Extracting Clauses..." : "Extract Clauses Using AI"}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="col-md-10 mx-auto">
-                                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
-                                    <div
-                                        className="file-drop-area text-center rounded py-1"
-                                        style={{
-                                            border: '2px dashed grey',
-                                            cursor: 'pointer',
-                                            backgroundColor: '#fff',
-                                            color: 'green',
-                                        }}
-                                        onClick={() => document.getElementById('fileInput').click()}
-                                    >
-                                        <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "30px" }} />
-                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your file (PDF or Excel) here'}</p>
-                                    </div>
+                            </div>
 
-                                    {/* //{ Hidden File Input } */}
-                                    <input
-                                        id="fileInput"
-                                        type="file"
-                                        accept=".xlsx, .xls, .pdf"
-                                        style={{ display: 'none' }}
-                                        onChange={handleMagicFileUpload}
-                                    />
-                                </div>
-                            <div className="mt-2">
-                                {!loading && clauseErrors && clauseErrors.length > 0 && (
-                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                        <strong className="text-danger">Errors</strong>
-                                        {clauseErrors.map((error, index) => (
-                                            <li key={index} className="list-group-item ">
-                                                <p className="text-sm mb-1">
-                                                    <strong>Row {error?.Row + 1} : </strong> {error?.error}
-                                                </p>
-                                            </li>
-                                        ))}
+                            <div className="mb-3">
+                                {clauseErrors && clauseErrors.length > 0 && (
+                                    <div className="alert alert-danger mt-3">
+                                        <h5 className="alert-heading">Processing Errors</h5>
+                                        <ul className="mb-0">
+                                            {clauseErrors.map((err, idx) => (
+                                                <li key={idx}>{err.error || `Error in row ${err.Row + 1}`}</li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 )}
                             </div>
+
                             <div className={clauseErrors.length>0 ? `mt-4`: `mt-3`}>
                                 <strong className="text-primary">List of Clauses</strong>
                                 {loading && <FullLoader />}
