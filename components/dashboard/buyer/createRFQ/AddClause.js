@@ -2,10 +2,10 @@ import { toast } from "react-toastify";
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Form, Tab, Nav} from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCloudArrowUp, faDownload, faPaperclip, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faDownload, faPaperclip, faTrash, faFilePdf } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
 import FileLink from "@/components/shared/FileLink";
-import { faEdit, faFileExcel  } from "@fortawesome/free-regular-svg-icons";
+import { faEdit } from "@fortawesome/free-regular-svg-icons";
 import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, updateClause } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 
@@ -149,9 +149,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         const file = event.target.files[0];
         if (file) {
             const fileType = file.name.split('.').pop().toLowerCase();
-            const validTypes = ['xlsx', 'xls', 'pdf'];
-            if (!validTypes.includes(fileType)) {
-                toast.error('Please upload a valid file (PDF, xlsx, xls)');
+            if (fileType !== 'pdf') {
+                toast.error('Please upload a valid PDF file');
             } else {
                 setFileName(file.name);
                 setClauseFile(file);
@@ -273,7 +272,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                accept=".pdf"
                                 style={{ display: 'none' }}
                                 onChange={(e) => uploadToServer(e)}
                             />
@@ -335,18 +334,15 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                             <div className="col-md-10 mx-auto mt-2">
                                     <div className="d-flex gap-1 mb-1">
                                         <h2 className="title fs-6 mb-0">Step 1: </h2>
-                                        <a
-                                            title="Download this sample Excel and fill all the columns. You can also upload PDF files directly."
-                                            href="/Sample Bulk Clause Format.xlsx"
-                                            className="d-flex justify-content-between align-items-center "
-                                            style={{ cursor: "pointer" }}>
-                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Download, fill and upload the Bulk Clause file (Excel) or upload a PDF file</p>
-                                            <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
-                                        </a>
+                                        <div
+                                            title="Upload PDF files with your technical clauses and information"
+                                            className="d-flex justify-content-between align-items-center ">
+                                            <p className="fw-semibold mb-0 me-2" style={{ color: "var(--primary-color)" }}>Upload a PDF file with your technical clauses and other information</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="col-md-10 mx-auto">
-                                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
+                                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File.</h2>
                                     <div
                                         className="file-drop-area text-center rounded py-1"
                                         style={{
@@ -357,72 +353,34 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         }}
                                         onClick={() => document.getElementById('fileInput').click()}
                                     >
-                                        <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "30px" }} />
-                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your file (PDF or Excel) here'}</p>
+                                        <FontAwesomeIcon icon={fileName ? faFilePdf : faCloudArrowUp} style={{ fontSize: "30px" }} />
+                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your PDF file here'}</p>
                                     </div>
 
-                                    {/* //{ Hidden File Input } */}
+                                    {/* Hidden File Input */}
                                     <input
                                         id="fileInput"
                                         type="file"
-                                        accept=".xlsx, .xls, .pdf"
+                                        accept=".pdf"
                                         style={{ display: 'none' }}
                                         onChange={handleMagicFileUpload}
                                     />
                                 </div>
-                            <div className="mt-2">
-                                {!loading && clauseErrors && clauseErrors.length > 0 && (
-                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                        <strong className="text-danger">Errors</strong>
-                                        {clauseErrors.map((error, index) => (
-                                            <li key={index} className="list-group-item ">
-                                                <p className="text-sm mb-1">
-                                                    <strong>Row {error?.Row + 1} : </strong> {error?.error}
-                                                </p>
-                                            </li>
-                                        ))}
+                                
+                                {/* Show Errors if any */}
+                                {clauseErrors && clauseErrors.length > 0 && (
+                                    <div className="col-md-10 mx-auto mt-3">
+                                        <div className="alert alert-danger">
+                                            <h6>Errors:</h6>
+                                            <ul className="mb-0">
+                                                {clauseErrors.map((error, index) => (
+                                                    <li key={index}>{`Row ${error.Row}: ${error.error}`}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     </div>
                                 )}
-                            </div>
-                            <div className={clauseErrors.length>0 ? `mt-4`: `mt-3`}>
-                                <strong className="text-primary">List of Clauses</strong>
-                                {loading && <FullLoader />}
-                                {!loading && previousClauses && previousClauses.length > 0 && (
-                                    <div className="list-group" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                                        {previousClauses.map((clause, index) => (
-                                            <li key={index} className="list-group-item ">
-                                                <p className="text-sm mb-1">
-                                                    <strong>Message:</strong> {clause.clause_text}
-                                                </p>
-                                                {clause.files.length > 0 && (
-                                                    <div className="d-flex gap-2 align-items-start text-sm mb-1">
-                                                        <strong className="text-nowrap my-1">Files :</strong>
-                                                        <div style={{ width: "90%" }}>
-                                                            <FileLink
-                                                                Files={clause.files}
-                                                                ColumnClass="col-md-5"
-                                                                Style={{ fontSize: "12px" }}
-                                                                showDownload={true}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="d-flex justify-content-end">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-danger p-1"
-                                                        style={{ width: "110px", fontSize: "12px" }}
-                                                        onClick={() => handleDeleteClause(clause.clause_id)}
-                                                    >
-                                                        <FontAwesomeIcon icon={faTrash} className="me-2" />
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+
                         </Tab.Pane>
 
                     </Tab.Content>
