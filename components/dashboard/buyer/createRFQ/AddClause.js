@@ -47,17 +47,19 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             // rfq_id,
             rfq_product_id: product.id
         }
+        if (active === 'clause') setLoading(true);
         try {
-            setLoading(true);
             const res = await getClausesByRfqProductId(payload);
             if (res.data)
                 setPreviousClauses(res.data);
         } catch (error) {
             console.log(error)
         } finally {
-            setLoading(false);
-            setClauseFile(null);
-            setFileName('');
+            if (active === 'clause') setLoading(false);
+            if (!loading || active === 'clause') {
+                setClauseFile(null);
+                setFileName('');
+            }
         }
     }
 
@@ -74,8 +76,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             file_url: files
         }
 
+        setLoading(true);
         try {
-            setLoading(true)
             const res = await addClause(payload);
             toast.success(res.message)
             getPreviousClauses();
@@ -95,9 +97,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             clause_text: message,
             file_url: files
         }
-
+        setLoading(true);
         try {
-            setLoading(true)
             const res = await updateClause(payload);
             toast.success(res.message)
             getPreviousClauses();
@@ -114,15 +115,16 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     }
 
     const handleDeleteClause = async (clause_id) => {
+        setLoading(true);
         try {
             setClauseErrors([]);
-            setLoading(true)
             const res = await removeClause(clause_id);
             toast.success(res.message)
             getPreviousClauses();
-
         } catch (error) {
             console.log(error)
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -141,8 +143,11 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     }
 
     useEffect(() => {
-        getPreviousClauses();
-    }, [])
+        if(show) {
+            getPreviousClauses();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [show, product.id])
 
 
     const handleMagicFileUpload = (event) => {
@@ -156,7 +161,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                 setClauseFile(file);
             }
         }
-        // when we have already taken the file in the state
         event.target.value = null;
     };
 
@@ -166,29 +170,29 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             return;
         }
 
+        setLoading(true);
+        setClauseErrors([]);
         try {
-            setClauseErrors([]);
-            setLoading(true);
-
-            // Create a new FormData object
             const formData = new FormData();
             formData.append('file', clauseFile); 
             formData.append('rfq_id', rfq_id); 
             formData.append('rfq_product_id', product.id); 
 
-            // Send the FormData to your endpoint
             const res = await addClauseUsingFile(formData);
             if(res?.status){
-                toast.success(res.message);            
+                toast.success(res.message);  
+                setClauseFile(null);
+                setFileName('');
             }else{
                 setClauseErrors(res?.errors);
                 toast.error("Error file uploading the file");
             }
         } catch (error) {
             console.log(error)
-            toast.error(error.message);
-            setLoading(false);
+            toast.error(error.message || "An unexpected error occurred.");
+            setClauseErrors([{ Row: 0, error: error.message || "An unexpected error occurred."}]);
         } finally{
+            setLoading(false);
             getPreviousClauses();
         }
     };
@@ -395,13 +399,21 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                     className="btn btn-secondary border-0 p-2"
                     style={{ width: "120px" }}
                     onClick={() => {
-                        if (message !== "")
-                            handleAddClause();
-                        toast.success("Clauses Saved successfully.");
-                        onClose();
+                        if (message.trim() !== "" || files.length > 0) {
+                             if (update) {
+                                handleUpdateClause();
+                            } else {
+                                handleAddClause();
+                            }
+                        } else {
+                            toast.info("No changes to save.")
+                        }
                     }}
+                    disabled={loading}
                 >
-                    Save
+                    {loading && active==='clause' ? (
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    ) : update ? 'Update' : 'Save'}
                 </button>
                 : 
                 <button
