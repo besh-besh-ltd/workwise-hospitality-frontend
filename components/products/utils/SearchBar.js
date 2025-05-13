@@ -33,15 +33,23 @@ export const ProductSearchBar = () => {
   }, [searchTerm]);
 
   const handleProductSelect = (product) => {
-    setSearchTerm(product.product_name);
+    const displayName = product.is_variant ? `${product.product_name} (Variant)` : product.product_name;
+    setSearchTerm(displayName);
     setShowDropdown(false);
-    setSelectedProduct(product)
-   
+    setSelectedProduct(product);
   };
 
   const handleRedirect = () => {
     if (selectedProduct) {
-      router.push(`/vendor/${selectedProduct.slug}`);
+      if (selectedProduct.is_variant) {
+        if (selectedProduct.mapping_id) {
+          router.push(`/product-management/mapping/${selectedProduct.mapping_id}`);
+        } else {
+          router.push(`/product-management/variant/${selectedProduct.variant_id}`);
+        }
+      } else {
+        router.push(`/vendor/${selectedProduct.slug}`);
+      }
     }
   };
   
@@ -52,7 +60,7 @@ export const ProductSearchBar = () => {
       <div className="input-group shadow-sm w-100 item-center">
         <input
           type="text"
-          placeholder="Search for products..."
+          placeholder="Search for products and variants..."
           className="form-control border-2 border-primary rounded-start-pill px-3 py-2"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -87,17 +95,26 @@ export const ProductSearchBar = () => {
           {productList.map((product, index) => (
             <button 
               key={index} 
-              className="dropdown-item d-flex flex-column py-2" 
+              className={`dropdown-item d-flex flex-column py-2 ${product.is_variant ? 'border-start border-4 border-primary' : ''}`}
               onClick={() => handleProductSelect(product)}
               style={{ transition: "all 0.2s" }}
             >
               <div className="d-flex justify-content-between align-items-center">
-                <span className="fw-medium" style={{ fontSize: "1rem" }}>{product.product_name}</span>
+                <span className="fw-medium" style={{ fontSize: "1rem" }}>
+                  {product.product_name}
+                  {product.is_variant && (
+                    <span className="badge bg-primary ms-2" style={{ fontSize: "0.7rem" }}>Variant</span>
+                  )}
+                </span>
                 <span className="badge bg-secondary" style={{ fontSize: "0.75rem" }}>
-                  {product.category_name}
+                  {product.category_name || product.cat_title}
                 </span>
               </div>
-              
+              {product.is_variant && product.vendor_name && (
+                <small className="text-muted">
+                  Mapped vendor: {product.vendor_name}
+                </small>
+              )}
             </button>
           ))}
         </div>

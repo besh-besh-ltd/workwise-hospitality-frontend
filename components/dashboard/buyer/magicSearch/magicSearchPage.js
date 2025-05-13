@@ -372,13 +372,13 @@ const MagicSearchPage = () => {
         let editedData = [];
         if (type === "product") {
             editedData = reviewData.products.filter((item) =>
-                !(item.product_id === prodItem.product_id &&
+                !(item.variant_id === prodItem.variant_id &&
                     item.variant === prodItem.variant)
             );
             toast.error(prodItem.name + " - Removed Successfully!");
         } else {
             editedData = reviewData.products.map((item) => {
-                if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
+                if (item.variant_id === prodItem.variant_id && item.variant === prodItem.variant) {
                     const remainingVendors = item.vendors.filter((vendorItem) =>
                         vendorItem.user_id !== vendor_id
                     );
@@ -564,7 +564,14 @@ const MagicSearchPage = () => {
 
 
         setSubmitLoading(true);
-        createRfq(rfqPayload)
+        const modifiedPayload = { ...rfqPayload };
+
+        if (modifiedPayload.country_code && modifiedPayload.contact_number) {
+          modifiedPayload.contact_number = `${modifiedPayload.country_code}-${modifiedPayload.contact_number}`;
+        }
+        delete modifiedPayload.country_code;
+
+        createRfq(modifiedPayload)
             .then((res) => {
                 toast.success(
                     <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
@@ -1139,7 +1146,7 @@ const MagicSearchPage = () => {
                           className="form-select border border-dark-subtle"
                           style={{ width: "30%" }}
                           value={
-                            formData?.contact_number?.match(
+                            formData?.country_code?.match(
                               /^\+\d{1,4}/
                             )?.[0] || "+91"
                           }
@@ -1341,7 +1348,7 @@ const MagicSearchPage = () => {
           <section className="search-sec-3 pb-4" ref={tableRef}>
             <div className="container-fluid col-md-8 mt-5 ">
               <h4 className="text-danger fw-semibold">
-                RFQ hasn't been Created for this Products
+                RFQ hasn't been Created for these Products
               </h4>
 
               {validationErrors?.length > 0 && (

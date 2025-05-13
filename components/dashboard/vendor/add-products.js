@@ -299,7 +299,7 @@ const AddProducts = () => {
       return Object.values(groupedData).flatMap(items =>
           items.map(item => ({
               value: item.id,
-              label: item.name,
+              label: item.unified_name,
               categories: item.product_categories.map(cat => cat.category_name).join(" | ")
           }))
       );
@@ -402,8 +402,11 @@ const AddProducts = () => {
     // for (const [key, value] of payload.entries()) {
     //   console.log(`${key}: ${value}`);
     // }
+
+    const payloadInJson = Object.fromEntries(payload.entries());
+
     setMainLoading(true);
-    addProducts(payload)
+    addProducts(payloadInJson)
       .then((res) => {
         setMainLoading(false);
         router.push("/dashboard/vendor/product-management");

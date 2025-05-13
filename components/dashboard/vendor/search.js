@@ -301,7 +301,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       setIsLoading(true);
 
       const payload = {
-        product_id: currentSelectedProduct.product_id,
+        variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
         }))
@@ -511,10 +511,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const handleAutocompleteClick = (item) => {
     setIsOpen(false);
     // Check if the clicked product is already selected
-    if (item.product_name === currentSelectedProduct?.product_name) return;
+    if (item.variant_name === currentSelectedProduct?.variant_name) return;
 
     // Set the search key and update the selected product
-    setSearch_key(item.product_name);
+    setSearch_key(item.variant_name);
     setCat_id(item.category_id);
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
@@ -524,7 +524,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Update the URL to include the selected product's slug
-    router.push(`/vendor/${item.slug}`);
+    router.push(`/vendor/${item.slug ?? item.variant_name.replace(' ', '_').toLowerCase()}`);
     storageInstance.setStorage("product_name", slug);
   };
 
@@ -720,13 +720,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               onClick={() =>
                                                 handleAutocompleteClick(item)
                                               }
-                                              title={`${item.product_name} - ${item.description}`}
+                                              title={item?.unified_name ? `${item.unified_name}` : `${item.variant_name}`}
                                             >
                                               <div>
-                                                <h3>{item.product_name}</h3>
+                                                <h3>{item.variant_name ?? item.product_name}</h3>
                                                 <p>
                                                   <small>
-                                                    <b>{item.category_name} </b>
+                                                    <b>{item.category_name} | {item.product_name}</b>
                                                   </small>
                                                 </p>
                                               </div>
@@ -922,7 +922,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                   }`}
                                   onClick={() => handleAutocompleteClick(item)}
                                 >
-                                  {item.product_name}
+                                  {item.variant_name ?? item.product_name}
                                 </p>
                               </div>
                             );
@@ -1354,7 +1354,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       <h2 className="fs-5">
                         Available Vendors for{" "}
                         <span style={{ fontWeight: "500" }}>
-                          {currentSelectedProduct.product_name}
+                          {currentSelectedProduct.variant_name}
                         </span>
                       </h2>
                     )}
