@@ -17,6 +17,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [files, setFiles] = useState([]);
     const [fileLoading, setFileLoading] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [uploadLoading, setUploadLoading] = useState(false);
     const fileInputRef = useRef(null);
     const [currentClause, setCurrentClause] = useState(null);
     const [update, setUpdate] = useState(false);
@@ -53,6 +54,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             if (res.data)
                 setPreviousClauses(res.data);
         } catch (error) {
+            toast.error("Failed to load clauses. Please try again.");
             console.log(error)
         } finally {
             if (active === 'clause') setLoading(false);
@@ -171,28 +173,39 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         }
 
         setLoading(true);
+        setUploadLoading(true);
         setClauseErrors([]);
         try {
+            toast.info("Processing file. This may take a moment...", {
+                autoClose: false,
+                toastId: "clause-processing"
+            });
+            
             const formData = new FormData();
             formData.append('file', clauseFile); 
             formData.append('rfq_id', rfq_id); 
             formData.append('rfq_product_id', product.id); 
 
             const res = await addClauseUsingFile(formData);
+            
+            toast.dismiss("clause-processing");
+            
             if(res?.status){
                 toast.success(res.message);  
                 setClauseFile(null);
                 setFileName('');
             }else{
                 setClauseErrors(res?.errors);
-                toast.error("Error file uploading the file");
+                toast.error("Error uploading the file");
             }
         } catch (error) {
+            toast.dismiss("clause-processing");
             console.log(error)
             toast.error(error.message || "An unexpected error occurred.");
             setClauseErrors([{ Row: 0, error: error.message || "An unexpected error occurred."}]);
         } finally{
             setLoading(false);
+            setUploadLoading(false);
             getPreviousClauses();
         }
     };
@@ -387,6 +400,51 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
                         </Tab.Pane>
 
+                        <Tab.Pane eventKey="file">
+                            <div className="d-flex flex-column mb-3 mt-2">
+
+                                <div className="d-flex align-items-center justify-content-center m-3">
+                                    <label htmlFor="formFile" className="form-label d-flex align-items-center gap-2 mb-0">
+                                        <div className="btn btn-light px-3 py-2">
+                                            <FontAwesomeIcon icon={faFilePdf} className="me-2" /> Select File
+                                        </div>
+                                        <input
+                                            type="file"
+                                            id="formFile"
+                                            accept=".pdf"
+                                            style={{ display: 'none' }}
+                                            onChange={handleMagicFileUpload}
+                                        />
+                                        {fileName && <div className="file-name text-primary-emphasis">{fileName}</div>}
+                                    </label>
+                                </div>
+                                <div className="d-flex align-items-center justify-content-center text-center text-muted mb-3">
+                                    <small>(PDF files only)</small>
+                                </div>
+
+                                {/* Changes by Agnij May 13, 2025 [Added upload loading indicator] */}
+                                {uploadLoading && (
+                                    <div className="text-center">
+                                        <div className="spinner-border text-primary mb-3" role="status">
+                                            <span className="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p>Processing your document. Please wait...</p>
+                                    </div>
+                                )}
+
+                                {clauseErrors && clauseErrors.length > 0 && (
+                                    <div className="alert alert-danger mt-3">
+                                        <h6>Errors occurred while processing:</h6>
+                                        <ul className="mb-0">
+                                            {clauseErrors.map((error, index) => (
+                                                <li key={index}>{error.error}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </Tab.Pane>
+
                     </Tab.Content>
                 </Tab.Container>
             </Modal.Body>
@@ -423,8 +481,13 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                 onClick={() => {
                         uploadClauseFile();
                 }}
+                disabled={uploadLoading || !clauseFile}
             >
-                upload
+                {uploadLoading ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                ) : (
+                    'Upload'
+                )}
             </button>
                 }
             </Modal.Footer>
