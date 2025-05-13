@@ -386,16 +386,35 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                 
                                 {/* Show Errors if any */}
                                 {clauseErrors && clauseErrors.length > 0 && (
-                                    <div className="col-md-10 mx-auto mt-3">
-                                        <div className="alert alert-danger">
-                                            <h6>Errors:</h6>
-                                            <ul className="mb-0">
-                                        {clauseErrors.map((error, index) => (
-                                                    <li key={index}>{`Row ${error.Row}: ${error.error}`}</li>
-                                        ))}
-                                            </ul>
+                                    clauseErrors.some(e =>
+                                        (e.error &&
+                                         (e.error.toLowerCase().includes('no relevant information detected') ||
+                                          e.error.toLowerCase().includes('no information was found') ||
+                                          e.error.toLowerCase().includes('no information detected in the document') ||
+                                          e.error.toLowerCase().includes('no clause')
+                                         ))
+                                    ) ? (
+                                        <div className="col-md-10 mx-auto mt-3">
+                                            <div className="alert alert-info d-flex align-items-center" role="alert">
+                                                <FontAwesomeIcon icon={faFilePdf} className="me-2" style={{ fontSize: '1.5rem' }} />
+                                                <div>
+                                                    <strong>No relevant technical clauses or information were found for this product in the uploaded PDF.</strong>
+                                                    <div className="mt-1">Please ensure the document is for <b>{product.name}</b> and contains technical, commercial, or regulatory details.</div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="col-md-10 mx-auto mt-3">
+                                            <div className="alert alert-danger">
+                                                <h6>Errors:</h6>
+                                                <ul className="mb-0">
+                                                    {clauseErrors.map((error, index) => (
+                                                        <li key={index}>{`Row ${error.Row}: ${error.error}`}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    )
                                 )}
 
                         </Tab.Pane>
