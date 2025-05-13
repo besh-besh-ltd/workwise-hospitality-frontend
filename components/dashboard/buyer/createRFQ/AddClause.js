@@ -1,6 +1,6 @@
 import { toast } from "react-toastify";
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Form, Tab, Nav} from 'react-bootstrap';
+import { Modal, Form, Tab, Nav, Button, Accordion, Table } from 'react-bootstrap';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCloudArrowUp, faDownload, faPaperclip, faTrash, faFilePdf } from "@fortawesome/free-solid-svg-icons";
 import { handleFileUpload } from "@/utils/sharedFunctions";
@@ -24,6 +24,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
     const [previousClauses, setPreviousClauses] = useState(null);
     const [fileName, setFileName] = useState('');
     const [clauseErrors, setClauseErrors] = useState([]);
+    const [extractedClauses, setExtractedClauses] = useState([]);
 
     const handleAttachFileClick = () => {
         fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
@@ -175,6 +176,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         setLoading(true);
         setUploadLoading(true);
         setClauseErrors([]);
+        setExtractedClauses([]);
+        
         try {
             toast.info("Processing file. This may take a moment...", {
                 autoClose: false,
@@ -192,10 +195,83 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             
             if(res?.status){
                 toast.success(res.message);            
+                
+                // Create a combined list of all clauses from structured and unstructured data
+                let allClauses = [];
+                
+                // Process direct clauses
+                if (res?.clauses && Array.isArray(res.clauses)) {
+                    allClauses = [...allClauses, ...res.clauses.map(clause => 
+                        typeof clause === 'string' ? clause : 
+                            clause.clauseTitle ? 
+                                (clause.clauseDescription ? 
+                                    `${clause.clauseTitle}: ${clause.clauseDescription}` : 
+                                    clause.clauseTitle) : 
+                                clause.clauseDescription || JSON.stringify(clause)
+                    )];
+                }
+                
+                // Process structured data if available
+                if (res?.structuredData) {
+                    // Process grouped clauses
+                    if (res.structuredData.groupedClauses && Array.isArray(res.structuredData.groupedClauses)) {
+                        allClauses = [...allClauses, ...res.structuredData.groupedClauses.map(clause => 
+                            typeof clause === 'string' ? clause : 
+                                clause.clauseTitle ? 
+                                    (clause.clauseDescription ? 
+                                        `${clause.clauseTitle}: ${clause.clauseDescription}` : 
+                                        clause.clauseTitle) : 
+                                    clause.clauseDescription || JSON.stringify(clause)
+                        )];
+                    }
+                    
+                    // Process technical specifications
+                    if (res.structuredData.technicalSpecifications && Array.isArray(res.structuredData.technicalSpecifications)) {
+                        res.structuredData.technicalSpecifications.forEach(spec => {
+                            // Changes by Agnij August 12, 2024 [Preserve complete sentences]
+                            if (spec.text) {
+                                // Keep complete sentences as-is
+                                allClauses.push(spec.text);
+                            } else if (spec.parameter) {
+                                // Only format as parameter: value when appropriate
+                                allClauses.push(`${spec.parameter}: ${spec.value || ''}${spec.unit ? ' ' + spec.unit : ''}`);
+                            }
+                        });
+                    }
+                    
+                    // Process standards
+                    if (res.structuredData.standards && Array.isArray(res.structuredData.standards)) {
+                        res.structuredData.standards.forEach(std => {
+                            allClauses.push(`Standard: ${std.standard || std.name || ''}${std.description ? ' - ' + std.description : ''}`);
+                        });
+                    }
+                    
+                    // Process notes
+                    if (res.structuredData.notes && Array.isArray(res.structuredData.notes)) {
+                        res.structuredData.notes.forEach((note, idx) => {
+                            allClauses.push(typeof note === 'string' ? 
+                                note : 
+                                `Note: ${note.note || JSON.stringify(note)}`
+                            );
+                        });
+                    }
+                    
+                    // Process inspection requirements
+                    if (res.structuredData.inspectionRequirements && Array.isArray(res.structuredData.inspectionRequirements)) {
+                        res.structuredData.inspectionRequirements.forEach(req => {
+                            allClauses.push(`Inspection Requirement: ${req.requirement || ''}${req.description ? ' - ' + req.description : ''}`);
+                        });
+                    }
+                }
+                
+                // Remove duplicates
+                const uniqueClauses = [...new Set(allClauses)];
+                setExtractedClauses(uniqueClauses);
+                
                 setClauseFile(null);
                 setFileName('');
-            }else{
-                setClauseErrors(res?.errors);
+            } else {
+                setClauseErrors(res?.errors || []);
                 toast.error("Error uploading the file");
             }
         } catch (error) {
@@ -208,6 +284,10 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             setUploadLoading(false);
             getPreviousClauses();
         }
+    };
+
+    const addSingleExactedClause = (clause) => {
+        setExtractedClauses([...extractedClauses, clause]);
     };
 
     return (
@@ -427,6 +507,39 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     )
                                 )}
 
+                                {/* Show extracted clauses after AI processing */}
+                                {extractedClauses && extractedClauses.length > 0 && (
+                                    <div className="border rounded p-3 mb-3">
+                                        {/* Changes by Agnij 2024-05-14 [Enhanced clause display for comprehensive data] */}
+                                        <h6 className="text-primary mb-3">Extracted Clauses <span className="text-muted">({extractedClauses.length})</span></h6>
+                                        <div className="clause-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                            {extractedClauses.map((clause, index) => (
+                                                <div key={index} className="border-bottom pb-2 mb-2">
+                                                    {typeof clause === 'string' ? (
+                                                        <p className="mb-1">{clause}</p>
+                                                    ) : (
+                                                        <>
+                                                            {clause.clauseTitle && <strong className="d-block mb-1">{clause.clauseTitle}</strong>}
+                                                            {clause.clauseDescription && <p className="mb-1">{clause.clauseDescription}</p>}
+                                                        </>
+                                                    )}
+                                                    <div className="d-flex justify-content-end">
+                                                        <Button 
+                                                            variant="outline-primary" 
+                                                            size="sm"
+                                                            onClick={() => addSingleExactedClause(
+                                                                typeof clause === 'string' ? clause : (clause.clauseDescription || clause.clauseTitle || JSON.stringify(clause))
+                                                            )}
+                                                        >
+                                                            <i className="far fa-plus-square"></i> Add
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                         </Tab.Pane>
 
                         <Tab.Pane eventKey="file">
@@ -479,46 +592,117 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             </Modal.Body>
 
             <Modal.Footer>
-                {active==='clause'
-                ?
+                {/* Changes by Agnij 2024-05-14 [Enhanced footer with action buttons] */}
+                <div className="d-flex gap-2 ms-auto">
+                    {active === 'clause' ? (
                 <button
                     type="button"
-                    className="btn btn-secondary border-0 p-2"
+                            className="btn btn-primary p-2"
                     style={{ width: "120px" }}
                     onClick={() => {
-                        if (message.trim() !== "" || files.length > 0) {
-                             if (update) {
-                                handleUpdateClause();
-                            } else {
+                                if (message.trim() !== "" || files.length > 0) {
+                                    if (update) {
+                                        handleUpdateClause();
+                                    } else {
                             handleAddClause();
-                            }
-                        } else {
-                            toast.info("No changes to save.")
-                        }
-                    }}
-                    disabled={loading}
-                >
-                    {loading && active==='clause' ? (
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    ) : update ? 'Update' : 'Save'}
+                                    }
+                                } else {
+                                    toast.info("No changes to save.")
+                                }
+                            }}
+                            disabled={loading}
+                        >
+                            {loading && active === 'clause' ? (
+                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            ) : update ? 'Update' : 'Save'}
                 </button>
-                : 
+                    ) : (
+                        <>
+                            {/* Show Upload button if there's a file to upload and no extracted clauses yet */}
+                            {!extractedClauses.length && (
                 <button
                 type="button"
-                className="btn btn-secondary border-0 p-2"
+                                    className="btn btn-primary p-2"
                 style={{ width: "120px" }}
+                                    onClick={() => uploadClauseFile()}
+                                    disabled={uploadLoading || !clauseFile}
+                                >
+                                    {uploadLoading ? (
+                                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                        'Upload'
+                                    )}
+                                </button>
+                            )}
+                            
+                            {/* Show buttons to add all clauses or clear results if we have extracted clauses */}
+                            {extractedClauses.length > 0 && (
+                                <>
+                                    <button 
+                                        type="button"
+                                        className="btn btn-success p-2"
+                                        style={{ width: "150px" }}
+                                        onClick={() => {
+                                            // Add all extracted clauses one by one
+                                            const addAllClauses = async () => {
+                                                setLoading(true);
+                                                try {
+                                                    for (const clause of extractedClauses) {
+                                                        const clauseText = typeof clause === 'string' 
+                                                            ? clause 
+                                                            : (clause.clauseDescription || clause.clauseTitle || JSON.stringify(clause));
+                                                        
+                                                        await addClause({
+                                                            rfq_id: rfq_id,
+                                                            rfq_product_id: product.id,
+                                                            clause_text: clauseText,
+                                                            file_url: []
+                                                        });
+                                                    }
+                                                    toast.success(`Added ${extractedClauses.length} clauses successfully`);
+                                                    setExtractedClauses([]);
+                                                    getPreviousClauses();
+                                                } catch (error) {
+                                                    toast.error("Error adding clauses: " + error.message);
+                                                } finally {
+                                                    setLoading(false);
+                                                }
+                                            };
+                                            
+                                            addAllClauses();
+                                        }}
+                                        disabled={loading} 
+                                    >
+                                        {loading ? (
+                                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        ) : (
+                                            'Add All Clauses'
+                                        )}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        className="btn btn-warning p-2"
                 onClick={() => {
-                        uploadClauseFile();
-                }}
-                disabled={uploadLoading || !clauseFile}
-            >
-                {uploadLoading ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                    'Upload'
-                )}
+                                            setExtractedClauses([]);
+                                            setClauseErrors([]);
+                                            setFileName('');
+                                            setClauseFile(null);
+                                        }}
+                                    >
+                                        Clear Results
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    )}
+                    <button
+                        type="button"
+                        className="btn btn-secondary p-2"
+                        onClick={onClose}
+                    >
+                        Close
             </button>
-                }
+                </div>
             </Modal.Footer>
         </Modal >
     
