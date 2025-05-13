@@ -356,6 +356,19 @@ export const productDetails = (id) => {
   });
 };
 
+export const singleProductDetails = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/product-details/${id}`
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const productDelete = (id) => {
   return new Promise(async (resolve, reject) => {
     try {
