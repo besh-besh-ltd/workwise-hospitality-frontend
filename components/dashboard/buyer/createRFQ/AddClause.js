@@ -388,18 +388,28 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                 {clauseErrors && clauseErrors.length > 0 && (
                                     clauseErrors.some(e =>
                                         (e.error &&
-                                         (e.error.toLowerCase().includes('no relevant information detected') ||
+                                         (e.error.toLowerCase().includes('no relevant information') ||
                                           e.error.toLowerCase().includes('no information was found') ||
-                                          e.error.toLowerCase().includes('no information detected in the document') ||
+                                          e.error.toLowerCase().includes('no information detected') ||
+                                          e.error.toLowerCase().includes('please ensure the document is for') ||
                                           e.error.toLowerCase().includes('no clause')
                                          ))
                                     ) ? (
                                         <div className="col-md-10 mx-auto mt-3">
-                                            <div className="alert alert-info d-flex align-items-center" role="alert">
-                                                <FontAwesomeIcon icon={faFilePdf} className="me-2" style={{ fontSize: '1.5rem' }} />
+                                            <div className="alert alert-warning d-flex align-items-center border-0" 
+                                                 style={{ background: "rgba(255, 248, 230, 0.6)", boxShadow: "0 2px 6px rgba(0,0,0,0.05)" }} role="alert">
+                                                <FontAwesomeIcon icon={faFilePdf} className="me-3" style={{ fontSize: '1.8rem', color: '#ffc107' }} />
                                                 <div>
-                                                    <strong>No relevant technical clauses or information were found for this product in the uploaded PDF.</strong>
-                                                    <div className="mt-1">Please ensure the document is for <b>{product.name}</b> and contains technical, commercial, or regulatory details.</div>
+                                                    <h6 className="fw-bold mb-1" style={{ color: '#664d03' }}>
+                                                        Document doesn't match the selected product
+                                                    </h6>
+                                                    <p className="mb-0" style={{ color: '#664d03' }}>
+                                                        The AI couldn't find relevant information about <b>{product.name}</b> in this document.
+                                                        <br/>
+                                                        <span className="mt-2 d-block">
+                                                            Please upload a document that specifically contains technical details for <b>{product.name}</b>.
+                                                        </span>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
@@ -408,12 +418,12 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                             <div className="alert alert-danger">
                                                 <h6>Errors:</h6>
                                                 <ul className="mb-0">
-                                                    {clauseErrors.map((error, index) => (
+                                        {clauseErrors.map((error, index) => (
                                                         <li key={index}>{`Row ${error.Row}: ${error.error}`}</li>
-                                                    ))}
+                                        ))}
                                                 </ul>
                                             </div>
-                                        </div>
+                                    </div>
                                     )
                                 )}
 
