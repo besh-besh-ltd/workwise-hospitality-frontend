@@ -59,8 +59,8 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
         } finally {
             if (active === 'clause') setLoading(false);
             if (!loading || active === 'clause') {
-                setClauseFile(null);
-                setFileName('');
+            setClauseFile(null);
+            setFileName('');
             }
         }
     }
@@ -146,7 +146,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
     useEffect(() => {
         if(show) {
-            getPreviousClauses();
+        getPreviousClauses();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show, product.id])
@@ -191,7 +191,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             toast.dismiss("clause-processing");
             
             if(res?.status){
-                toast.success(res.message);  
+                toast.success(res.message);            
                 setClauseFile(null);
                 setFileName('');
             }else{
@@ -390,9 +390,9 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         <div className="alert alert-danger">
                                             <h6>Errors:</h6>
                                             <ul className="mb-0">
-                                                {clauseErrors.map((error, index) => (
+                                        {clauseErrors.map((error, index) => (
                                                     <li key={index}>{`Row ${error.Row}: ${error.error}`}</li>
-                                                ))}
+                                        ))}
                                             </ul>
                                         </div>
                                     </div>
@@ -407,7 +407,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     <label htmlFor="formFile" className="form-label d-flex align-items-center gap-2 mb-0">
                                         <div className="btn btn-light px-3 py-2">
                                             <FontAwesomeIcon icon={faFilePdf} className="me-2" /> Select File
-                                        </div>
+                            </div>
                                         <input
                                             type="file"
                                             id="formFile"
@@ -427,10 +427,10 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     <div className="text-center">
                                         <div className="spinner-border text-primary mb-3" role="status">
                                             <span className="visually-hidden">Loading...</span>
-                                        </div>
+                                                        </div>
                                         <p>Processing your document. Please wait...</p>
-                                    </div>
-                                )}
+                                                    </div>
+                                                )}
 
                                 {clauseErrors && clauseErrors.length > 0 && (
                                     <div className="alert alert-danger mt-3">
@@ -438,7 +438,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                         <ul className="mb-0">
                                             {clauseErrors.map((error, index) => (
                                                 <li key={index}>{error.error}</li>
-                                            ))}
+                                        ))}
                                         </ul>
                                     </div>
                                 )}
@@ -461,7 +461,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                              if (update) {
                                 handleUpdateClause();
                             } else {
-                                handleAddClause();
+                            handleAddClause();
                             }
                         } else {
                             toast.info("No changes to save.")
