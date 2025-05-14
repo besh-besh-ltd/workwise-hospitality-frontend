@@ -195,79 +195,17 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             
             if(res?.status){
                 toast.success(res.message);            
-                
-                // Create a combined list of all clauses from structured and unstructured data
+                // Changes by Agnij 2025-05-14 [Remove structured clause processing]
+                // Only process direct clauses (array of strings or objects with .text)
                 let allClauses = [];
-                
-                // Process direct clauses
                 if (res?.clauses && Array.isArray(res.clauses)) {
                     allClauses = [...allClauses, ...res.clauses.map(clause => 
-                        typeof clause === 'string' ? clause : 
-                            clause.clauseTitle ? 
-                                (clause.clauseDescription ? 
-                                    `${clause.clauseTitle}: ${clause.clauseDescription}` : 
-                                    clause.clauseTitle) : 
-                                clause.clauseDescription || JSON.stringify(clause)
+                        typeof clause === 'string' ? clause : (clause.text || clause.value || JSON.stringify(clause))
                     )];
                 }
-                
-                // Process structured data if available
-                if (res?.structuredData) {
-                    // Process grouped clauses
-                    if (res.structuredData.groupedClauses && Array.isArray(res.structuredData.groupedClauses)) {
-                        allClauses = [...allClauses, ...res.structuredData.groupedClauses.map(clause => 
-                            typeof clause === 'string' ? clause : 
-                                clause.clauseTitle ? 
-                                    (clause.clauseDescription ? 
-                                        `${clause.clauseTitle}: ${clause.clauseDescription}` : 
-                                        clause.clauseTitle) : 
-                                    clause.clauseDescription || JSON.stringify(clause)
-                        )];
-                    }
-                    
-                    // Process technical specifications
-                    if (res.structuredData.technicalSpecifications && Array.isArray(res.structuredData.technicalSpecifications)) {
-                        res.structuredData.technicalSpecifications.forEach(spec => {
-                            // Changes by Agnij August 12, 2024 [Preserve complete sentences]
-                            if (spec.text) {
-                                // Keep complete sentences as-is
-                                allClauses.push(spec.text);
-                            } else if (spec.parameter) {
-                                // Only format as parameter: value when appropriate
-                                allClauses.push(`${spec.parameter}: ${spec.value || ''}${spec.unit ? ' ' + spec.unit : ''}`);
-                            }
-                        });
-                    }
-                    
-                    // Process standards
-                    if (res.structuredData.standards && Array.isArray(res.structuredData.standards)) {
-                        res.structuredData.standards.forEach(std => {
-                            allClauses.push(`Standard: ${std.standard || std.name || ''}${std.description ? ' - ' + std.description : ''}`);
-                        });
-                    }
-                    
-                    // Process notes
-                    if (res.structuredData.notes && Array.isArray(res.structuredData.notes)) {
-                        res.structuredData.notes.forEach((note, idx) => {
-                            allClauses.push(typeof note === 'string' ? 
-                                note : 
-                                `Note: ${note.note || JSON.stringify(note)}`
-                            );
-                        });
-                    }
-                    
-                    // Process inspection requirements
-                    if (res.structuredData.inspectionRequirements && Array.isArray(res.structuredData.inspectionRequirements)) {
-                        res.structuredData.inspectionRequirements.forEach(req => {
-                            allClauses.push(`Inspection Requirement: ${req.requirement || ''}${req.description ? ' - ' + req.description : ''}`);
-                        });
-                    }
-                }
-                
                 // Remove duplicates
                 const uniqueClauses = [...new Set(allClauses)];
                 setExtractedClauses(uniqueClauses);
-                
                 setClauseFile(null);
                 setFileName('');
             } else {
@@ -510,26 +448,16 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                 {/* Show extracted clauses after AI processing */}
                                 {extractedClauses && extractedClauses.length > 0 && (
                                     <div className="border rounded p-3 mb-3">
-                                        {/* Changes by Agnij 2024-05-14 [Enhanced clause display for comprehensive data] */}
                                         <h6 className="text-primary mb-3">Extracted Clauses <span className="text-muted">({extractedClauses.length})</span></h6>
                                         <div className="clause-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                                             {extractedClauses.map((clause, index) => (
                                                 <div key={index} className="border-bottom pb-2 mb-2">
-                                                    {typeof clause === 'string' ? (
-                                                        <p className="mb-1">{clause}</p>
-                                                    ) : (
-                                                        <>
-                                                            {clause.clauseTitle && <strong className="d-block mb-1">{clause.clauseTitle}</strong>}
-                                                            {clause.clauseDescription && <p className="mb-1">{clause.clauseDescription}</p>}
-                                                        </>
-                                                    )}
+                                                    <p className="mb-1">{clause}</p>
                                                     <div className="d-flex justify-content-end">
                                                         <Button 
                                                             variant="outline-primary" 
                                                             size="sm"
-                                                            onClick={() => addSingleExactedClause(
-                                                                typeof clause === 'string' ? clause : (clause.clauseDescription || clause.clauseTitle || JSON.stringify(clause))
-                                                            )}
+                                                            onClick={() => addSingleExactedClause(clause)}
                                                         >
                                                             <i className="far fa-plus-square"></i> Add
                                                         </Button>
@@ -648,14 +576,10 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                                 setLoading(true);
                                                 try {
                                                     for (const clause of extractedClauses) {
-                                                        const clauseText = typeof clause === 'string' 
-                                                            ? clause 
-                                                            : (clause.clauseDescription || clause.clauseTitle || JSON.stringify(clause));
-                                                        
                                                         await addClause({
                                                             rfq_id: rfq_id,
                                                             rfq_product_id: product.id,
-                                                            clause_text: clauseText,
+                                                            clause_text: clause,
                                                             file_url: []
                                                         });
                                                     }
@@ -668,7 +592,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                                     setLoading(false);
                                                 }
                                             };
-                                            
                                             addAllClauses();
                                         }}
                                         disabled={loading} 
@@ -682,7 +605,7 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     <button 
                                         type="button"
                                         className="btn btn-warning p-2"
-                onClick={() => {
+                                        onClick={() => {
                                             setExtractedClauses([]);
                                             setClauseErrors([]);
                                             setFileName('');
