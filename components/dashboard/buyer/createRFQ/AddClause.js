@@ -390,6 +390,18 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                     >
                                         <FontAwesomeIcon icon={fileName ? faFilePdf : faCloudArrowUp} style={{ fontSize: "30px" }} />
                                         <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your PDF file here'}</p>
+                                        
+                                        {/* Changes by Agnij 2025-05-14 [Added document guidance] */}
+                                        {!fileName && (
+                                            <div className="small text-muted mt-1">
+                                                <p className="mb-1">Please ensure your document contains:</p>
+                                                <ul className="text-start small ps-4 mb-0">
+                                                    <li>Specifications related to <strong>{product.name || 'selected product'}</strong></li>
+                                                    <li>Technical details, standards, and requirements</li>
+                                                    <li>Clear product identification</li>
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Hidden File Input */}
@@ -404,45 +416,24 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
                                 
                                 {/* Show Errors if any */}
                                 {clauseErrors && clauseErrors.length > 0 && (
-                                    clauseErrors.some(e =>
-                                        (e.error &&
-                                         (e.error.toLowerCase().includes('no relevant information') ||
-                                          e.error.toLowerCase().includes('no information was found') ||
-                                          e.error.toLowerCase().includes('no information detected') ||
-                                          e.error.toLowerCase().includes('please ensure the document is for') ||
-                                          e.error.toLowerCase().includes('no clause')
-                                         ))
-                                    ) ? (
-                                        <div className="col-md-10 mx-auto mt-3">
-                                            <div className="alert alert-warning d-flex align-items-center border-0" 
-                                                 style={{ background: "rgba(255, 248, 230, 0.6)", boxShadow: "0 2px 6px rgba(0,0,0,0.05)" }} role="alert">
-                                                <FontAwesomeIcon icon={faFilePdf} className="me-3" style={{ fontSize: '1.8rem', color: '#ffc107' }} />
-                                                <div>
-                                                    <h6 className="fw-bold mb-1" style={{ color: '#664d03' }}>
-                                                        Document doesn't match the selected product
-                                                    </h6>
-                                                    <p className="mb-0" style={{ color: '#664d03' }}>
-                                                        The AI couldn't find relevant information about <b>{product.name}</b> in this document.
-                                                        <br/>
-                                                        <span className="mt-2 d-block">
-                                                            Please upload a document that specifically contains technical details for <b>{product.name}</b>.
-                                                        </span>
-                                                    </p>
-                                                </div>
+                                    <div className="col-md-10 mx-auto mt-3">
+                                        <div className="alert alert-warning d-flex align-items-center border-0" 
+                                             style={{ background: "rgba(255, 248, 230, 0.6)", boxShadow: "0 2px 6px rgba(0,0,0,0.05)" }} role="alert">
+                                            <FontAwesomeIcon icon={faFilePdf} className="me-3" style={{ fontSize: '1.8rem', color: '#ffc107' }} />
+                                            <div>
+                                                <h6 className="fw-bold mb-1" style={{ color: '#664d03' }}>
+                                                    Document doesn't match the selected product
+                                                </h6>
+                                                <p className="mb-0" style={{ color: '#664d03' }}>
+                                                    The AI couldn't find relevant information about <b>{product.name}</b> in this document.
+                                                    <br/>
+                                                    <span className="mt-2 d-block">
+                                                        Please upload a document that specifically contains technical details for <b>{product.name}</b>.
+                                                    </span>
+                                                </p>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <div className="col-md-10 mx-auto mt-3">
-                                            <div className="alert alert-danger">
-                                                <h6>Errors:</h6>
-                                                <ul className="mb-0">
-                                        {clauseErrors.map((error, index) => (
-                                                        <li key={index}>{`Row ${error.Row}: ${error.error}`}</li>
-                                        ))}
-                                                </ul>
-                                            </div>
                                     </div>
-                                    )
                                 )}
 
                                 {/* Show extracted clauses after AI processing */}
@@ -504,12 +495,25 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
 
                                 {clauseErrors && clauseErrors.length > 0 && (
                                     <div className="alert alert-danger mt-3">
-                                        <h6>Errors occurred while processing:</h6>
+                                        <h6>
+                                          <i className="fas fa-exclamation-triangle me-2"></i>
+                                          Document Processing Error:
+                                        </h6>
                                         <ul className="mb-0">
-                                            {clauseErrors.map((error, index) => (
-                                                <li key={index}>{error.error}</li>
-                                        ))}
+                                          {clauseErrors.map((error, index) => (
+                                            <li key={index} className="mb-1">{error.error}</li>
+                                          ))}
                                         </ul>
+                                        
+                                        {/* Changes by Agnij 2025-05-14 [Improved error guidance] */}
+                                        <div className="border-top mt-3 pt-2 text-muted small">
+                                          <p className="mb-1"><strong>Common issues:</strong></p>
+                                          <ul>
+                                            <li>Make sure the document contains information about the selected product</li>
+                                            <li>Check if the product name appears in the document</li>
+                                            <li>Try a document with more specific technical specifications</li>
+                                          </ul>
+                                        </div>
                                     </div>
                                 )}
                             </div>
