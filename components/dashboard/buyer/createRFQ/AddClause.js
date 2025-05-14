@@ -520,7 +520,6 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             </Modal.Body>
 
             <Modal.Footer>
-                {/* Changes by Agnij 2024-05-14 [Enhanced footer with action buttons] */}
                 <div className="d-flex gap-2 ms-auto">
                     {active === 'clause' ? (
                 <button
