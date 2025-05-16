@@ -386,10 +386,20 @@ export const getClausesByRfqVendorSide = (payload) => {
 export const addClauseUsingFile = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(`/rfq/add-clause-using-file`,payload);
-      resolve(response);
+      // Changes by Agnij 2024-05-14 [Improved response handling]
+      let response = await axiosFormData.post(`/rfq/add-clause-using-file`, payload);
+      // Make sure we're resolving the data property of the response
+      resolve(response?.data || response);
     } catch (error) {
-      reject({ message: error });
+      console.error("Error in addClauseUsingFile:", error);
+      // Enhanced error handling
+      if (error.response) {
+        reject({ message: error.response.data?.message || "Server error", data: error.response.data });
+      } else if (error.request) {
+        reject({ message: "No response from server" });
+      } else {
+        reject({ message: error.message || "Unknown error" });
+      }
     }
   });
 };

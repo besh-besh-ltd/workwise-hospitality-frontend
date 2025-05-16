@@ -13,6 +13,7 @@ import {
   addProducts,
   approvedProductList,
   productDetails,
+  singleProductDetails,
 } from "@/services/products";
 import { useRouter } from "next/router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -446,7 +447,7 @@ const AddProducts = () => {
 
   const getProductDetails = (selectedOption, id) => {
     if (!id) return;
-    productDetails(id)
+    singleProductDetails(id)
         .then((res) => {
             const prodItem = {
                 master_id: res.data.id || '',
@@ -469,6 +470,7 @@ const AddProducts = () => {
 const handleSelectChange = (selectedOption, {name}) => {
   if (name === "product") {
     const prodId = selectedOption?.value || null;
+    console.log("SELECTED OPTION: ", selectedOption)
     if (prodId) getProductDetails(selectedOption, prodId);
 } else {
     if (!currentProduct) {

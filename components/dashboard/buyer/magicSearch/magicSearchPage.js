@@ -575,7 +575,14 @@ const MagicSearchPage = () => {
 
 
         setSubmitLoading(true);
-        createRfq(rfqPayload)
+        const modifiedPayload = { ...rfqPayload };
+
+        if (modifiedPayload.country_code && modifiedPayload.contact_number) {
+          modifiedPayload.contact_number = `${modifiedPayload.country_code}-${modifiedPayload.contact_number}`;
+        }
+        delete modifiedPayload.country_code;
+
+        createRfq(modifiedPayload)
             .then((res) => {
                 toast.success(
                     <h6><b>RFQ #{res.data.rfq_no}:</b> Successfully created!</h6>,
@@ -1147,7 +1154,7 @@ const MagicSearchPage = () => {
                           className="form-select border border-dark-subtle"
                           style={{ width: "30%" }}
                           value={
-                            formData?.contact_number?.match(
+                            formData?.country_code?.match(
                               /^\+\d{1,4}/
                             )?.[0] || "+91"
                           }

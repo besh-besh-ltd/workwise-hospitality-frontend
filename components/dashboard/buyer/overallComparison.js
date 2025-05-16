@@ -391,38 +391,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                             </td>
                             : <td>
                                 <label className="view_breakup">
-                                  <div className="tooltip_custom">
-                                    No Purchase History
-                                  </div>
                                   <span></span>
                                   <input type="checkbox" />
-                                  <table className="table has_inner_border_table">
-                                    <tr>
-                                      <th>Base Price</th>
-                                      <td>0</td>
-                                    </tr>
-                                    <tr>
-                                      <th>Total Rate</th>
-                                      <td>0</td>
-                                    </tr>
-                                    <tr>
-                                      <th>Packaging(%)</th>
-                                      <td>0%</td>
-                                    </tr>
-                                    <tr>
-                                      <th>Freight(%)</th>
-                                      <td>0%</td>
-                                    </tr>
-                                    <tr>
-                                      <th>GST(%)</th>
-                                      <td>0%</td>
-                                    </tr>
-                                    <tr className="is_lowest">
-                                      <th>Sub Total</th>
-                                      <td>0</td>
-                                    </tr>
-                                  </table>
-                                  <p>0</p>
+                                  <p>-</p>
                                 </label>
                               </td>
                           }
