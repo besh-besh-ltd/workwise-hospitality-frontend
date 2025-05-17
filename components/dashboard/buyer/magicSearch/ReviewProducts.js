@@ -55,9 +55,6 @@ const ReviewProducts = ({
     const normalizeVendorData = (vendor) => {
         if (!vendor) return vendor;
         
-        // Log the first vendor to see its structure
-        console.log("Normalizing vendor data:", JSON.stringify(vendor));
-        
         // Create standardized vendor_approved_info
         vendor.vendor_approved_info = {
             id: vendor.vendor_approved_id || 
@@ -78,11 +75,6 @@ const ReviewProducts = ({
             // Normalize vendor data before using it
             let updatedVendors = (prodItem.vendors || []).map(normalizeVendorData);
             
-            // Changes by Agnij 2024-10-22 [Added vendor data logging]
-            console.log("Product:", prodItem.name, "Initial vendors:", updatedVendors.length);
-            if (updatedVendors.length > 0) {
-                console.log("Sample vendor data structure:", JSON.stringify(updatedVendors[0]));
-            }
 
             const filter = localFilterMap.get(prodKey);
             if (filter?.vendor_info?.value) {
@@ -125,13 +117,8 @@ const ReviewProducts = ({
             }
             if(filter?.vendor_approved_by && filter.vendor_approved_by.length > 0) {
                 // Changes by Agnij 2024-10-22 [Fixed vendor approved by filter]
-                console.log("Filtering by vendor_approved_by:", filter.vendor_approved_by);
-                console.log("Before filtering:", updatedVendors.length);
-                
+
                 updatedVendors = updatedVendors.filter((vendorItem) => {
-                    // Use normalized vendor_approved_info
-                    console.log("Vendor", vendorItem.name, "approved info:", 
-                              JSON.stringify(vendorItem.vendor_approved_info));
                     
                     // Match by ID
                     const matchedById = vendorItem.vendor_approved_info && 
@@ -154,16 +141,10 @@ const ReviewProducts = ({
                                        });
                     
                     const matched = matchedById || matchedByName;
-                    
-                    console.log("Vendor", vendorItem.name, 
-                              "matched by id:", matchedById, 
-                              "matched by name:", matchedByName, 
-                              "final:", matched);
                               
                     return matched;
                 });
                 
-                console.log("After filtering:", updatedVendors.length, updatedVendors.map(v => v.name));
             }
             if (filter?.country && filter.country.length > 0) {
                 updatedVendors = updatedVendors.filter(
@@ -185,37 +166,11 @@ const ReviewProducts = ({
         setVendorMap(vMap);
     }
 
-    const handleGenericInputChange = (prodKey, event) => {
-        const fMap = new Map(localFilterMap);
-        let filters = fMap.get(prodKey);
-        console.log(filters)
-        fMap.set(prodKey, {
-            ...filters,
-            [event.target.name]: event.target.value
-        })
-        if(event.target.name == 'country' && (!event.target.value || event.target.value.length <= 0)) {
-          fMap.set(prodKey, {
-            ...filters,
-            'state': [],
-            'city': []
-          })
-        }
-        if(event.target.name == 'state' && (!event.target.value || event.target.value.length <= 0)) {
-          fMap.set(prodKey, {
-            ...filters,
-            'city': []
-          })
-        }
-        setLocalFilterMap(fMap);
-        getAllStates(prodKey, event.target.name == 'country' ? event.target.value : null);
-        getAllCities(prodKey, event.target.name == 'state' ? event.target.value : null, event.target.name == 'country' ? event.target.value : null);
-    }
-
     const handleLocalFilterChange = (prodKey, selectedOption, actionMeta) => {
         let fMap = new Map(localFilterMap);
         let filters = fMap.get(prodKey);
         if(actionMeta.name == 'country' && (!selectedOption || selectedOption.length <= 0)) {
-          console.log("Coming in country")
+
           fMap = fMap.set(prodKey, {
             ...filters,
             'state': [],
@@ -224,7 +179,6 @@ const ReviewProducts = ({
           filters = fMap.get(prodKey);
         }
         if(actionMeta.name == 'state' && (!selectedOption.value || selectedOption.length <= 0)) {
-          console.log("Coming in state")
           fMap = fMap.set(prodKey, {
             ...filters,
             'city': []
@@ -265,8 +219,8 @@ const ReviewProducts = ({
                 const prevCities = globalCities
                 const updatedCities = prev.set(
                     prod_key,
-                    state && state.length > 0 ? prevCities.filter(city => {console.log("Filtering cities from state"); return state.some(s => s.value == city.state_id)})
-                    : country && country.length > 0 ? prevCities.filter(city => {console.log("Filtering cities from country"); return country.some(c => c.value == city.country_id)})
+                    state && state.length > 0 ? prevCities.filter(city => {return state.some(s => s.value == city.state_id)})
+                    : country && country.length > 0 ? prevCities.filter(city => {return country.some(c => c.value == city.country_id)})
                     : prevCities
                 )
                 return updatedCities
@@ -321,7 +275,6 @@ const ReviewProducts = ({
 
     useEffect(() => {
         // Changes by Agnij 2024-10-22 [Enhanced global filters handling]
-        console.log("Global filters changed:", globalFilters);
         setLocalFilterMap((prevState) => {
             const lFMap = new Map(prevState);
             for (const [key, value] of lFMap.entries()) {
@@ -411,7 +364,6 @@ const ReviewProducts = ({
                         tempSpec[specItem.title] = specItem.value
                     })
                     const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
-                    console.log("PROD KEY: ", prodKey)
 
                     // Add variant badge and info
                     const isVariant = prodItem.is_variant;
