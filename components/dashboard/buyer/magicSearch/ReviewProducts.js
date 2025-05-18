@@ -358,7 +358,7 @@ const ReviewProducts = ({
     return (
         <Accordion alwaysOpen >
             {data &&
-                data.map((prodItem, index) => {
+                data.filter((prodItem) => !globalFilters.sheetName || prodItem.sheet_name === globalFilters.sheetName.value).map((prodItem, index) => {
                     let tempSpec = {};
                     prodItem.spec?.map((specItem) => {
                         tempSpec[specItem.title] = specItem.value

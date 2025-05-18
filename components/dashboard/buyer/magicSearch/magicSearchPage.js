@@ -1,13 +1,12 @@
-import { faCloudArrowUp, faDownload, faClose } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faClose } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { isValidFileNameRFQ } from '@/services/rfq';
-import { textCapitalize, getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
-import { getProjectList, getProjectTableDataById } from "@/services/project";
+import { getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
+import { getProjectList } from "@/services/project";
 import { createRfq, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
@@ -19,6 +18,8 @@ import { vendorConditions } from "../../vendor/search";
 import axiosInstance from "@/lib/axios";
 import MagicSearchDownloadModal from "@/components/modal/MagicSearchDownloadModal";
 
+
+// mukul 18/05/2025 -- added sheetNameList select filter 
 
 const initialFormData = {
     file: null,
@@ -66,6 +67,7 @@ const MagicSearchPage = () => {
     const [cities, setCities] = useState(null);
     const [states, setStates] = useState(null);
     const [countries, setCountries] = useState(null);
+    const [ sheetNameList, setSheetNameList ] = useState(null);
     const [globalFilters, setGlobalFilters] = useState({
         city: null,
         state: null,
@@ -76,13 +78,11 @@ const MagicSearchPage = () => {
         to: "",
         prev_worked_with: null,
         vendor_approved_by: null,
+        sheetName:null,
     });
     const [vendorMap, setVendorMap] = useState(new Map());
     const [countryCodes , setCountryCodes] = useState([]);
     const [approved_by, setApproved_by] = useState([]);
-
-    const fromRef = useRef(null);
-    const toRef = useRef(null);
 
     const today = new Date();
     const tomorrow = new Date(today);
@@ -145,7 +145,7 @@ const MagicSearchPage = () => {
             }, 2000 * (fileUploadMessage.length - fileUploadMessageIndex));
 
         } catch (error) {
-            console.log(error)
+            console.error(error)
             toast.error(error.message?.response?.data?.message);
             setLoading(false);
         } finally {
@@ -225,7 +225,6 @@ const MagicSearchPage = () => {
 
     const handleFilterChange = (selectedOption, actionMeta, clearLocation = false) => {
       // Changes by Agnij 2024-10-22 [Fixed global filters]
-      console.log("handleFilterChange:", actionMeta.name, selectedOption);
       
       if(clearLocation) {
         if(actionMeta.name == 'country') {
@@ -246,10 +245,6 @@ const MagicSearchPage = () => {
         }
       }
       
-      // Special handling for vendor_approved_by to ensure it works properly
-      if (actionMeta.name === 'vendor_approved_by') {
-        console.log("Setting vendor_approved_by filter:", selectedOption);
-      }
       
       setGlobalFilters((prevState) => ({
         ...prevState,
@@ -257,12 +252,6 @@ const MagicSearchPage = () => {
       }))
     }
 
-    const handleGenericFilterChange = (event) => {
-      setGlobalFilters((prevState) => ({
-        ...prevState,
-        [event.target.name]: event.target.value
-      }))
-    }
 
     const handleTermFiles = async (type, dynamicParam) => {
         try {
@@ -294,20 +283,10 @@ const MagicSearchPage = () => {
                 setProjects(d);
             })
             .catch((error) => {
-                console.log(error)
+                console.error(error)
             })
     }
 
-    const getProjectData = async (projectId) => {
-        try {
-            const res = await getProjectTableDataById(projectId);
-            const projectData = res.data[0];
-            return projectData;
-        } catch (error) {
-            console.error("Error fetching project data:", error.message);
-            throw error;
-        }
-    };
 
     const getAllCountries = async () => {
       try {
@@ -594,7 +573,7 @@ const MagicSearchPage = () => {
                 setTermList(null);
             })
             .catch((error) => {
-                console.log(error)
+                console.error(error)
                 toast.error("Failed to create RFQ. Please check your form and try again.");
             })
             .finally(() => {
@@ -608,7 +587,6 @@ const MagicSearchPage = () => {
             .then((rsp) => {
                 if (rsp && rsp.data) {
                     setApproved_by(rsp.data);
-                    console.log("Vendor approved by data loaded:", rsp.data);
                 } else {
                     console.error("No vendor approved by data returned");
                 }
@@ -631,14 +609,14 @@ const MagicSearchPage = () => {
                 setCountryCodes(res.data);
             })
             .catch((error) => {
-                console.log(error);
+                console.error(error);
             });
     
         axiosInstance.get('/rfq/vendor-types/').then(res => {
           const {data} = res;
           setVendorTypes(data)
         }).catch((e) => {
-          console.log(e)
+          console.error(e)
         })
     }, []);
     
@@ -698,6 +676,19 @@ const MagicSearchPage = () => {
             setTermFiles(data?.term_and_condition_files);
             setReviewData(data);
             setTermList(data?.terms.map(term => ({ ...term, selected: true })));
+
+              // Set sheet names
+              const sheets = data?.sheetNameList || [];
+              setSheetNameList(sheets);
+      
+              // Default to the first sheet if available
+              if (sheets.length > 0) {
+                  setGlobalFilters((prev) => ({
+                      ...prev,
+                      sheetName: { label: sheets[0], value: sheets[0] },
+                  }));
+              }
+
             setFormData((prevData) => ({
                 ...prevData,
                 response_email: data?.response_email,
@@ -826,23 +817,32 @@ const MagicSearchPage = () => {
                       onChange={handleMagicFileUpload}
                     />
                   </div>
-
-                  {/* Download Sample Excel
-                                <div className="col-md-8 mx-auto mt-2">
-                                    <a
-                                        title="Download this sample Excel and fill all the columns."
-                                        href="/Sample BOQ File Format.xlsx"
-                                        className="d-flex justify-content-end gap-2 "
-                                        style={{ cursor: "pointer" }}>
-                                        <p className="text-sm fw-semibold mb-0 " style={{ color: "var(--primary-color)" }}>Download, fill and upload the BOQ file for smooth RFQ Creation</p>
-                                        <FontAwesomeIcon icon={faDownload} style={{ fontSize: "16px", color: "var(--primary-color" }} />
-                                    </a>
-                                </div> */}
                 </>
               ) : (
                 <div className="row">
+
                   <div className="mb-2">
-                    <h3 className="h5 mb-2">Vendor Filters</h3>
+  
+                    <div className=" d-flex justify-content-between align-items-end w-100 mb-3">
+                       <h3 className="h5 mb-2">Vendor Filters</h3>
+                    
+                    
+                      <div style={{ width: "auto", minWidth: "260px" }}>
+                        <label className="form-label fw-medium mb-1">Select Subsheet</label>
+                        <Select
+                          name="sheetName"
+                          options={sheetNameList?.map(name => ({ value: name, label: name })) || []}
+                          value={globalFilters.sheetName}
+                          placeholder="Sheet Name"
+                          isClearable
+                          isSearchable
+                          onChange={(newValue, action) => {
+                            handleFilterChange(newValue, { name: 'sheetName' }, false);
+                          }}
+                        />
+                      </div>
+                    </div>
+
                     <div className="row g-2">
                       <div className="col-md-3">
                         <div>
