@@ -12,7 +12,7 @@ import AddTeamMemberModal from "./AddTeamMemberModal";
 const ProjectDetailsPage = () => {
     const router = useRouter();
     const { projectId } = router.query;
-    
+
     const [loading, setLoading] = useState(false);
     const [project, setProject] = useState(null);
     const [teamMembers, setTeamMembers] = useState([]);
@@ -35,7 +35,8 @@ const ProjectDetailsPage = () => {
         open_rfqs: 5,
         closed_rfqs: 10,
         created_at: "2023-05-10T09:30:00Z",
-        status: "active"
+        status: "active",
+        team_members: [1, 3, 4] // IDs of team members assigned to the project
     };
 
     // Mock team members data
@@ -102,10 +103,10 @@ const ProjectDetailsPage = () => {
     // Format date
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
         });
     };
 
@@ -118,10 +119,52 @@ const ProjectDetailsPage = () => {
     // Handle edit project
     const handleEditProject = (updatedProject) => {
         // In a real implementation, this would call an API
+
+        // Update the project with the new data
         setProject({
             ...project,
             ...updatedProject
         });
+
+        // If team members were updated, update the team members list
+        if (updatedProject.team_members && updatedProject.team_members.length > 0) {
+            // In a real app, this would be handled by the API
+            // For this mock implementation, we'll update the team members list based on the IDs
+            const updatedTeamMemberIds = updatedProject.team_members;
+
+            // Filter out team members that are no longer assigned to the project
+            const remainingTeamMembers = teamMembers.filter(member =>
+                updatedTeamMemberIds.includes(member.id)
+            );
+
+            // Add any new team members that weren't previously assigned
+            const existingIds = remainingTeamMembers.map(member => member.id);
+            const newMemberIds = updatedTeamMemberIds.filter(id => !existingIds.includes(id));
+
+            // For this mock implementation, we'll create new team member objects for any new IDs
+            // In a real app, this data would come from the API
+            const newTeamMembers = newMemberIds.map(id => {
+                // Find the role based on the mock data pattern (1-4 are Top Management, 5-8 are Procurement, etc.)
+                let role = 8; // Default to Top Management
+                if (id % 4 === 2) role = 2; // Procurement
+                if (id % 4 === 3) role = 9; // Engineering
+                if (id % 4 === 0) role = 10; // Finance
+
+                return {
+                    id: id,
+                    name: `Team Member ${id}`,
+                    email: `member${id}@example.com`,
+                    role: role,
+                    added_at: new Date().toISOString()
+                };
+            });
+
+            // Update the team members list
+            const updatedTeamMembers = [...remainingTeamMembers, ...newTeamMembers];
+            setTeamMembers(updatedTeamMembers);
+            setTotalData(updatedTeamMembers.length);
+        }
+
         toast.success("Project updated successfully!");
     };
 
@@ -133,7 +176,7 @@ const ProjectDetailsPage = () => {
             ...newMember,
             added_at: new Date().toISOString()
         };
-        
+
         setTeamMembers([...teamMembers, teamMember]);
         setTotalData(teamMembers.length + 1);
         toast.success("Team member added successfully!");
@@ -202,11 +245,11 @@ const ProjectDetailsPage = () => {
                                                     Edit Project
                                                 </button>
                                             </div>
-                                            
+
                                             <div className="row">
                                                 <div className="col-md-8">
                                                     <p className="text-muted mb-4">{project.description}</p>
-                                                    
+
                                                     <div className="row mb-3">
                                                         <div className="col-md-4">
                                                             <strong>Location:</strong>
@@ -215,7 +258,7 @@ const ProjectDetailsPage = () => {
                                                             {project.location}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="row mb-3">
                                                         <div className="col-md-4">
                                                             <strong>RFQ Type:</strong>
@@ -224,7 +267,7 @@ const ProjectDetailsPage = () => {
                                                             {project.rfq_type ? project.rfq_type.charAt(0).toUpperCase() + project.rfq_type.slice(1) : "Not specified"}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="row mb-3">
                                                         <div className="col-md-4">
                                                             <strong>Reverse Auction:</strong>
@@ -233,7 +276,7 @@ const ProjectDetailsPage = () => {
                                                             {project.reverse_auction ? "Enabled" : "Disabled"}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="row mb-3">
                                                         <div className="col-md-4">
                                                             <strong>End Date:</strong>
@@ -242,7 +285,7 @@ const ProjectDetailsPage = () => {
                                                             {project.ended_at ? formatDate(project.ended_at) : "Not specified"}
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="row mb-3">
                                                         <div className="col-md-4">
                                                             <strong>Created At:</strong>
@@ -252,7 +295,7 @@ const ProjectDetailsPage = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div className="col-md-4">
                                                     <div className="card bg-light">
                                                         <div className="card-body">
@@ -316,9 +359,9 @@ const ProjectDetailsPage = () => {
                                                                         <td>{member.name}</td>
                                                                         <td>{member.email}</td>
                                                                         <td>
-                                                                            <span 
-                                                                                className="badge" 
-                                                                                style={{ 
+                                                                            <span
+                                                                                className="badge"
+                                                                                style={{
                                                                                     backgroundColor: roleInfo.color,
                                                                                     color: roleInfo.color === "#FFE600" ? "#000" : "#fff",
                                                                                     padding: "6px 10px"

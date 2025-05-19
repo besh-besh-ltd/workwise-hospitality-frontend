@@ -3,8 +3,6 @@ import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClose } from '@fortawesome/free-solid-svg-icons';
 import FullLoader from '@/components/shared/FullLoader';
 
 const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
