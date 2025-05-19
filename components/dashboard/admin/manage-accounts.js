@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faToggleOn, faToggleOff, faFilter } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faToggleOn, faToggleOff } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "@/components/shared/Pagination";
 import FullLoader from "@/components/shared/FullLoader";
 import Select from 'react-select';
@@ -16,7 +16,7 @@ const ManageAccountsPage = () => {
     const [totalData, setTotalData] = useState(0);
     const [filterRole, setFilterRole] = useState(null);
     const [filterStatus, setFilterStatus] = useState(null);
-    const [filterProject, setFilterProject] = useState(null);
+    const [filterProject, setFilterProject] = useState([]);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState(null);
 
@@ -177,19 +177,21 @@ const ManageAccountsPage = () => {
     // Apply filters
     useEffect(() => {
         let filtered = [...accounts];
-        
+
         if (filterRole) {
             filtered = filtered.filter(account => account.role === filterRole.value);
         }
-        
+
         if (filterStatus) {
             filtered = filtered.filter(account => account.status === filterStatus.value);
         }
-        
-        if (filterProject) {
-            filtered = filtered.filter(account => account.projects.includes(filterProject.value));
+
+        if (filterProject && filterProject.length > 0) {
+            filtered = filtered.filter(account =>
+                filterProject.some(fp => account.projects.includes(fp.value))
+            );
         }
-        
+
         setFilteredAccounts(filtered);
         setTotalData(filtered.length);
     }, [accounts, filterRole, filterStatus, filterProject]);
@@ -204,10 +206,10 @@ const ManageAccountsPage = () => {
     // Format date
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
         });
     };
 
@@ -297,8 +299,12 @@ const ManageAccountsPage = () => {
                                                 options={projectOptions}
                                                 onChange={setFilterProject}
                                                 name="project"
-                                                placeholder="Select Project"
+                                                placeholder="Select Project(s)"
                                                 isClearable
+                                                isMulti
+                                                closeMenuOnSelect={false}
+                                                value={filterProject}
+                                                classNamePrefix="react-select"
                                             />
                                         </div>
 
@@ -343,9 +349,9 @@ const ManageAccountsPage = () => {
                                                                 <td>{account.email}</td>
                                                                 <td>{account.mobile}</td>
                                                                 <td>
-                                                                    <span 
-                                                                        className="badge" 
-                                                                        style={{ 
+                                                                    <span
+                                                                        className="badge"
+                                                                        style={{
                                                                             backgroundColor: roleInfo.color,
                                                                             color: roleInfo.color === "#FFE600" ? "#000" : "#fff",
                                                                             padding: "6px 10px"
@@ -357,7 +363,7 @@ const ManageAccountsPage = () => {
                                                                 <td>{getProjectNames(account.projects)}</td>
                                                                 <td>{formatDate(account.createdAt)}</td>
                                                                 <td>
-                                                                    <span 
+                                                                    <span
                                                                         className={`badge ${account.status === 'active' ? 'bg-success' : 'bg-danger'}`}
                                                                         style={{ padding: "6px 10px" }}
                                                                     >
@@ -375,8 +381,8 @@ const ManageAccountsPage = () => {
                                                                         className="btn btn-sm btn-secondary"
                                                                         onClick={() => handleToggleStatus(account.id)}
                                                                     >
-                                                                        <FontAwesomeIcon 
-                                                                            icon={account.status === 'active' ? faToggleOn : faToggleOff} 
+                                                                        <FontAwesomeIcon
+                                                                            icon={account.status === 'active' ? faToggleOn : faToggleOff}
                                                                         />
                                                                     </button>
                                                                 </td>
