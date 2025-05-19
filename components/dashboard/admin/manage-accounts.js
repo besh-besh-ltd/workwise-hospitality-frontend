@@ -336,7 +336,6 @@ const ManageAccountsPage = () => {
                                                         <th>Role</th>
                                                         <th>Projects Assigned</th>
                                                         <th>Created At</th>
-                                                        <th>Status</th>
                                                         <th>Actions</th>
                                                     </tr>
                                                 </thead>
@@ -363,28 +362,40 @@ const ManageAccountsPage = () => {
                                                                 <td>{getProjectNames(account.projects)}</td>
                                                                 <td>{formatDate(account.createdAt)}</td>
                                                                 <td>
-                                                                    <span
-                                                                        className={`badge ${account.status === 'active' ? 'bg-success' : 'bg-danger'}`}
-                                                                        style={{ padding: "6px 10px" }}
-                                                                    >
-                                                                        {account.status === 'active' ? 'Active' : 'Inactive'}
-                                                                    </span>
-                                                                </td>
-                                                                <td>
-                                                                    <button
-                                                                        className="btn btn-sm btn-primary me-2"
-                                                                        onClick={() => handleEditAccount(account)}
-                                                                    >
-                                                                        <FontAwesomeIcon icon={faEdit} />
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn btn-sm btn-secondary"
-                                                                        onClick={() => handleToggleStatus(account.id)}
-                                                                    >
-                                                                        <FontAwesomeIcon
-                                                                            icon={account.status === 'active' ? faToggleOn : faToggleOff}
-                                                                        />
-                                                                    </button>
+                                                                    <div className="d-flex flex-column" style={{ gap: "5px" }}>
+                                                                        <button
+                                                                            className="btn btn-sm btn-primary"
+                                                                            onClick={() => handleEditAccount(account)}
+                                                                            style={{
+                                                                                padding: "3px 12px",
+                                                                                fontSize: "0.8rem",
+                                                                                width: "100px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                                gap: "5px"
+                                                                            }}
+                                                                        >
+                                                                            <FontAwesomeIcon icon={faEdit} /> Edit
+                                                                        </button>
+                                                                        <button
+                                                                            className={`btn btn-sm ${account.status === 'active' ? 'btn-success' : 'btn-danger'}`}
+                                                                            onClick={() => handleToggleStatus(account.id)}
+                                                                            style={{
+                                                                                padding: "3px 12px",
+                                                                                fontSize: "0.8rem",
+                                                                                width: "100px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                                gap: "5px"
+                                                                            }}
+                                                                        >
+                                                                            <FontAwesomeIcon
+                                                                                icon={account.status === 'active' ? faToggleOn : faToggleOff}
+                                                                            /> {account.status === 'active' ? 'Active' : 'Inactive'}
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                         );
