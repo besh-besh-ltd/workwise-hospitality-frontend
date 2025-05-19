@@ -247,7 +247,7 @@ const ProjectDetailsPage = () => {
                                             </div>
 
                                             <div className="row">
-                                                <div className="col-md-8">
+                                                <div className="col-md-12">
                                                     <p className="text-muted mb-4">{project.description}</p>
 
                                                     <div className="row mb-3">
@@ -292,26 +292,6 @@ const ProjectDetailsPage = () => {
                                                         </div>
                                                         <div className="col-md-8">
                                                             {formatDate(project.created_at)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="col-md-4">
-                                                    <div className="card bg-light">
-                                                        <div className="card-body">
-                                                            <h5 className="card-title">RFQ Statistics</h5>
-                                                            <div className="d-flex justify-content-between mb-2">
-                                                                <span>Total RFQs:</span>
-                                                                <strong>{project.total_rfqs}</strong>
-                                                            </div>
-                                                            <div className="d-flex justify-content-between mb-2">
-                                                                <span>Open RFQs:</span>
-                                                                <strong>{project.open_rfqs}</strong>
-                                                            </div>
-                                                            <div className="d-flex justify-content-between">
-                                                                <span>Closed RFQs:</span>
-                                                                <strong>{project.closed_rfqs}</strong>
-                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -375,8 +355,17 @@ const ProjectDetailsPage = () => {
                                                                             <button
                                                                                 className="btn btn-sm btn-danger"
                                                                                 onClick={() => handleRemoveTeamMember(member.id)}
+                                                                                style={{
+                                                                                    padding: "3px 12px",
+                                                                                    fontSize: "0.8rem",
+                                                                                    width: "100px",
+                                                                                    display: "flex",
+                                                                                    alignItems: "center",
+                                                                                    justifyContent: "center",
+                                                                                    gap: "5px"
+                                                                                }}
                                                                             >
-                                                                                <FontAwesomeIcon icon={faTrash} />
+                                                                                <FontAwesomeIcon icon={faTrash} /> Delete
                                                                             </button>
                                                                         </td>
                                                                     </tr>
