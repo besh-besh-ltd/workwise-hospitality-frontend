@@ -240,8 +240,17 @@ const ProjectDetailsPage = () => {
                                                 <button
                                                     className="btn btn-primary"
                                                     onClick={() => setShowEditModal(true)}
+                                                    style={{
+                                                        padding: "10px 20px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        gap: "8px",
+                                                        width: "auto",
+                                                        minWidth: "180px"
+                                                    }}
                                                 >
-                                                    <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                    <FontAwesomeIcon icon={faEdit} />
                                                     Edit Project
                                                 </button>
                                             </div>
@@ -311,8 +320,17 @@ const ProjectDetailsPage = () => {
                                                 <button
                                                     className="btn btn-primary"
                                                     onClick={() => setShowAddTeamModal(true)}
+                                                    style={{
+                                                        padding: "10px 20px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        gap: "8px",
+                                                        width: "auto",
+                                                        minWidth: "180px"
+                                                    }}
                                                 >
-                                                    <FontAwesomeIcon icon={faUserPlus} className="me-2" />
+                                                    <FontAwesomeIcon icon={faUserPlus} />
                                                     Add Team Member
                                                 </button>
                                             </div>
