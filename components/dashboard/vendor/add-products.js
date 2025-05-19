@@ -380,29 +380,7 @@ const AddProducts = () => {
       payload.append(`tds`, file, file.name);
     });
     
-    let selectedCategories = [];
-    if (masterId != "01") {
-      values.categories.forEach((cats) => {
-        selectedCategories.push(cats);
-      });
-    } else {
-      selectedCategories = [
-        levelOneCatSelected,
-        levelTwoCatSelected,
-        levelThreeCatSelected,
-        levelFourCatSelected,
-        levelFiveCatSelected,
-        levelSixCatSelected,
-      ];
-      selectedCategories = selectedCategories.filter(
-        (v) => v != "" && v !== null
-      );
-    }
-    // console.log("selectedCategories ==>", selectedCategories);
-    payload.append(`categories`, JSON.stringify(selectedCategories));
-    // for (const [key, value] of payload.entries()) {
-    //   console.log(`${key}: ${value}`);
-    // }
+   
 
     const payloadInJson = Object.fromEntries(payload.entries());
 
