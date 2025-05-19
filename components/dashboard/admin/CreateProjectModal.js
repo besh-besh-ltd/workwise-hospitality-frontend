@@ -93,7 +93,7 @@ const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
             onRequestClose={closeModal}
             ariaHideApp={false}
             contentLabel="Create Project Modal"
-            className="modal-dialog modal-dialog-centered"
+            className="modal-dialog modal-dialog-centered modal-lg"
             style={{
                 overlay: {
                     backgroundColor: "rgba(0, 0, 0, 0.75)",
@@ -113,7 +113,7 @@ const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
                     overflow: "visible",
                     padding: 0,
                     borderRadius: 0,
-                    maxWidth: "650px",
+                    maxWidth: "900px",
                     width: "100%",
                     margin: "0 auto"
                 },

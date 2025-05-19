@@ -76,7 +76,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     // Handle form submission
     const handleSubmit = (values, { setSubmitting, resetForm }) => {
         setLoading(true);
-        
+
         // Format the data
         const teamMember = {
             id: values.user.value,
@@ -84,7 +84,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
             email: values.user.email,
             role: values.user.role
         };
-        
+
         // Simulate API call
         setTimeout(() => {
             onSave(teamMember);
@@ -107,48 +107,54 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
             onRequestClose={closeModal}
             ariaHideApp={false}
             contentLabel="Add Team Member Modal"
-            className="contact-modal contact-modal-new"
+            className="modal-dialog modal-dialog-centered modal-lg"
             style={{
                 overlay: {
                     backgroundColor: "rgba(0, 0, 0, 0.75)",
+                    zIndex: 1050,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
                 },
                 content: {
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "50vw",
-                    maxWidth: "600px",
-                    maxHeight: "90vh",
+                    position: "relative",
+                    top: "auto",
+                    left: "auto",
+                    right: "auto",
+                    bottom: "auto",
                     border: "none",
-                    background: "#fff",
-                    overflow: "auto",
-                    padding: "20px",
-                    borderRadius: "8px",
+                    background: "transparent",
+                    overflow: "visible",
+                    padding: 0,
+                    borderRadius: 0,
+                    maxWidth: "700px",
+                    width: "100%",
+                    margin: "0 auto"
                 },
             }}
         >
-            <div className="modal-header d-flex justify-content-between align-items-center mb-3">
-                <h3 className="m-0">Add Team Member</h3>
-                <button
-                    onClick={closeModal}
-                    className="btn-close"
-                    aria-label="Close"
-                ></button>
-            </div>
-            
-            <div className="modal-body hasFullLoader">
-                {loading && <FullLoader />}
-                
-                <Formik
-                    initialValues={initialValues}
-                    validationSchema={validationSchema}
-                    onSubmit={handleSubmit}
-                >
-                    {({ errors, touched, values, setFieldValue, isSubmitting }) => (
-                        <Form>
-                            <div className="row mb-4">
-                                <div className="col-md-12">
+            <div className="modal-content">
+                <div className="modal-header border-bottom">
+                    <h5 className="modal-title">Add Team Member</h5>
+                    <button
+                        type="button"
+                        className="btn-close"
+                        onClick={closeModal}
+                        aria-label="Close"
+                    ></button>
+                </div>
+
+                <div className="modal-body p-3 hasFullLoader">
+                    {loading && <FullLoader />}
+
+                    <Formik
+                        initialValues={initialValues}
+                        validationSchema={validationSchema}
+                        onSubmit={handleSubmit}
+                    >
+                        {({ errors, touched, values, setFieldValue, isSubmitting }) => (
+                            <Form>
+                                <div className="mb-4">
                                     <label htmlFor="user" className="form-label">Select User <span className="text-danger">*</span></label>
                                     <Select
                                         id="user"
@@ -157,16 +163,30 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                                         value={values.user}
                                         onChange={(option) => setFieldValue('user', option)}
                                         className={`${touched.user && errors.user ? 'is-invalid' : ''}`}
+                                        styles={{
+                                            // Make the menu position fixed to prevent modal scrolling
+                                            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                            menu: (base) => ({
+                                                ...base,
+                                                // Allow the dropdown menu to be taller
+                                                maxHeight: '200px',
+                                            }),
+                                            menuList: (base) => ({
+                                                ...base,
+                                                // Allow the dropdown menu to scroll
+                                                maxHeight: '200px',
+                                            })
+                                        }}
+                                        menuPortalTarget={document.body}
+                                        menuPosition={'fixed'}
                                     />
                                     {touched.user && errors.user && (
                                         <div className="invalid-feedback d-block">{errors.user}</div>
                                     )}
                                 </div>
-                            </div>
 
-                            {values.user && (
-                                <div className="row mb-4">
-                                    <div className="col-md-12">
+                                {values.user && (
+                                    <div className="mb-4">
                                         <div className="card bg-light">
                                             <div className="card-body">
                                                 <h5 className="card-title">User Details</h5>
@@ -180,9 +200,9 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                                                 </div>
                                                 <div className="d-flex justify-content-between align-items-center">
                                                     <span>Role:</span>
-                                                    <span 
-                                                        className="badge" 
-                                                        style={{ 
+                                                    <span
+                                                        className="badge"
+                                                        style={{
                                                             backgroundColor: getRoleInfo(values.user.role).color,
                                                             color: getRoleInfo(values.user.role).color === "#FFE600" ? "#000" : "#fff",
                                                             padding: "6px 10px"
@@ -194,29 +214,29 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            <div className="d-flex justify-content-end">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-secondary me-2"
-                                    onClick={closeModal}
-                                    disabled={isSubmitting}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary"
-                                    disabled={isSubmitting || !values.user}
-                                >
-                                    Add to Team
-                                </button>
-                            </div>
-                        </Form>
-                    )}
-                </Formik>
+                                <div className="modal-footer p-0 pt-3 border-top-0 d-flex justify-content-between">
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-secondary"
+                                        onClick={closeModal}
+                                        disabled={isSubmitting}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        disabled={isSubmitting || !values.user}
+                                    >
+                                        Add to Team
+                                    </button>
+                                </div>
+                            </Form>
+                        )}
+                    </Formik>
+                </div>
             </div>
         </Modal>
     );
