@@ -3,8 +3,7 @@ import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClose } from '@fortawesome/free-solid-svg-icons';
+
 import FullLoader from '@/components/shared/FullLoader';
 
 const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOptions, onSave }) => {
@@ -31,14 +30,14 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
     // Handle form submission
     const handleSubmit = (values, { setSubmitting }) => {
         setLoading(true);
-        
+
         // Convert form values to the expected format
         const formattedValues = {
             ...values,
             role: values.role.value,
             projects: values.projects.map(p => p.value)
         };
-        
+
         // Simulate API call
         setTimeout(() => {
             onSave(formattedValues);
@@ -53,48 +52,54 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
             onRequestClose={closeModal}
             ariaHideApp={false}
             contentLabel="Edit Account Modal"
-            className="contact-modal contact-modal-new"
+            className="modal-dialog modal-dialog-centered"
             style={{
                 overlay: {
                     backgroundColor: "rgba(0, 0, 0, 0.75)",
+                    zIndex: 1050,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
                 },
                 content: {
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "50vw",
-                    maxWidth: "600px",
-                    maxHeight: "90vh",
+                    position: "relative",
+                    top: "auto",
+                    left: "auto",
+                    right: "auto",
+                    bottom: "auto",
                     border: "none",
-                    background: "#fff",
-                    overflow: "auto",
-                    padding: "20px",
-                    borderRadius: "8px",
+                    background: "transparent",
+                    overflow: "visible",
+                    padding: 0,
+                    borderRadius: 0,
+                    maxWidth: "650px",
+                    width: "100%",
+                    margin: "0 auto"
                 },
             }}
         >
-            <div className="modal-header d-flex justify-content-between align-items-center mb-3">
-                <h3 className="m-0">Edit Account</h3>
-                <button
-                    onClick={closeModal}
-                    className="btn-close"
-                    aria-label="Close"
-                ></button>
-            </div>
-            
-            <div className="modal-body hasFullLoader">
-                {loading && <FullLoader />}
-                
-                <Formik
-                    initialValues={initialValues}
-                    validationSchema={validationSchema}
-                    onSubmit={handleSubmit}
-                >
-                    {({ errors, touched, values, setFieldValue, isSubmitting }) => (
-                        <Form>
-                            <div className="row mb-3">
-                                <div className="col-md-12">
+            <div className="modal-content">
+                <div className="modal-header border-bottom">
+                    <h5 className="modal-title">Edit Account</h5>
+                    <button
+                        type="button"
+                        className="btn-close"
+                        onClick={closeModal}
+                        aria-label="Close"
+                    ></button>
+                </div>
+
+                <div className="modal-body p-3 hasFullLoader">
+                    {loading && <FullLoader />}
+
+                    <Formik
+                        initialValues={initialValues}
+                        validationSchema={validationSchema}
+                        onSubmit={handleSubmit}
+                    >
+                        {({ errors, touched, values, setFieldValue, isSubmitting }) => (
+                            <Form>
+                                <div className="mb-3">
                                     <label htmlFor="name" className="form-label">Name <span className="text-danger">*</span></label>
                                     <Field
                                         type="text"
@@ -106,69 +111,67 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
                                         <div className="invalid-feedback">{errors.name}</div>
                                     )}
                                 </div>
-                            </div>
 
-                            <div className="row mb-3">
-                                <div className="col-md-6">
-                                    <label htmlFor="email" className="form-label">Email <span className="text-danger">*</span></label>
-                                    <Field
-                                        type="email"
-                                        id="email"
-                                        name="email"
-                                        className={`form-control ${touched.email && errors.email ? 'is-invalid' : ''}`}
-                                    />
-                                    {touched.email && errors.email && (
-                                        <div className="invalid-feedback">{errors.email}</div>
-                                    )}
+                                <div className="row mb-3">
+                                    <div className="col-md-6">
+                                        <label htmlFor="email" className="form-label">Email <span className="text-danger">*</span></label>
+                                        <Field
+                                            type="email"
+                                            id="email"
+                                            name="email"
+                                            className={`form-control ${touched.email && errors.email ? 'is-invalid' : ''}`}
+                                        />
+                                        {touched.email && errors.email && (
+                                            <div className="invalid-feedback">{errors.email}</div>
+                                        )}
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label htmlFor="mobile" className="form-label">Mobile <span className="text-danger">*</span></label>
+                                        <Field
+                                            type="text"
+                                            id="mobile"
+                                            name="mobile"
+                                            className={`form-control ${touched.mobile && errors.mobile ? 'is-invalid' : ''}`}
+                                        />
+                                        {touched.mobile && errors.mobile && (
+                                            <div className="invalid-feedback">{errors.mobile}</div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="col-md-6">
-                                    <label htmlFor="mobile" className="form-label">Mobile <span className="text-danger">*</span></label>
-                                    <Field
-                                        type="text"
-                                        id="mobile"
-                                        name="mobile"
-                                        className={`form-control ${touched.mobile && errors.mobile ? 'is-invalid' : ''}`}
-                                    />
-                                    {touched.mobile && errors.mobile && (
-                                        <div className="invalid-feedback">{errors.mobile}</div>
-                                    )}
-                                </div>
-                            </div>
 
-                            <div className="row mb-3">
-                                <div className="col-md-6">
-                                    <label htmlFor="role" className="form-label">Role <span className="text-danger">*</span></label>
-                                    <Select
-                                        id="role"
-                                        name="role"
-                                        options={roleOptions}
-                                        value={values.role}
-                                        onChange={(option) => setFieldValue('role', option)}
-                                        styles={{
-                                            option: (provided, state) => ({
-                                                ...provided,
-                                                color: state.data.color,
-                                                fontWeight: 'bold'
-                                            })
-                                        }}
-                                    />
+                                <div className="row mb-3">
+                                    <div className="col-md-6">
+                                        <label htmlFor="role" className="form-label">Role <span className="text-danger">*</span></label>
+                                        <Select
+                                            id="role"
+                                            name="role"
+                                            options={roleOptions}
+                                            value={values.role}
+                                            onChange={(option) => setFieldValue('role', option)}
+                                            styles={{
+                                                option: (provided, state) => ({
+                                                    ...provided,
+                                                    color: state.data.color,
+                                                    fontWeight: 'bold'
+                                                })
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label htmlFor="status" className="form-label">Status</label>
+                                        <Field
+                                            as="select"
+                                            id="status"
+                                            name="status"
+                                            className="form-select"
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </Field>
+                                    </div>
                                 </div>
-                                <div className="col-md-6">
-                                    <label htmlFor="status" className="form-label">Status</label>
-                                    <Field
-                                        as="select"
-                                        id="status"
-                                        name="status"
-                                        className="form-select"
-                                    >
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </Field>
-                                </div>
-                            </div>
 
-                            <div className="row mb-4">
-                                <div className="col-md-12">
+                                <div className="mb-4">
                                     <label htmlFor="projects" className="form-label">Assigned Projects</label>
                                     <Select
                                         id="projects"
@@ -179,28 +182,28 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
                                         isMulti
                                     />
                                 </div>
-                            </div>
 
-                            <div className="d-flex justify-content-end">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-secondary me-2"
-                                    onClick={closeModal}
-                                    disabled={isSubmitting}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary"
-                                    disabled={isSubmitting}
-                                >
-                                    Save Changes
-                                </button>
-                            </div>
-                        </Form>
-                    )}
-                </Formik>
+                                <div className="modal-footer p-0 pt-3 border-top-0 d-flex justify-content-between">
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-secondary"
+                                        onClick={closeModal}
+                                        disabled={isSubmitting}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        disabled={isSubmitting}
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </Form>
+                        )}
+                    </Formik>
+                </div>
             </div>
         </Modal>
     );

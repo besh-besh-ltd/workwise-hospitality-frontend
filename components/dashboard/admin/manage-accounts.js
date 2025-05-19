@@ -431,7 +431,11 @@ const ManageAccountsPage = () => {
                         // In a real implementation, this would call an API
                         const updatedAccounts = accounts.map(account => {
                             if (account.id === updatedAccount.id) {
-                                return updatedAccount;
+                                // Preserve the original createdAt date
+                                return {
+                                    ...updatedAccount,
+                                    createdAt: account.createdAt
+                                };
                             }
                             return account;
                         });

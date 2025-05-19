@@ -79,7 +79,7 @@ const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
                     overflow: "visible",
                     padding: 0,
                     borderRadius: 0,
-                    maxWidth: "500px",
+                    maxWidth: "650px",
                     width: "100%",
                     margin: "0 auto"
                 },
