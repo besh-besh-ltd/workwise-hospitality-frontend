@@ -17,7 +17,7 @@ const ProjectManagementPage = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
 
     // Mock project data
-    const mockProjects = [
+    const mockProjects = [ 
         {
             id: 1,
             name: "Office Building Renovation",
@@ -100,17 +100,6 @@ const ProjectManagementPage = () => {
         }
     ];
 
-    // Load mock data
-    useEffect(() => {
-        setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setProjects(mockProjects);
-            setTotalData(mockProjects.length);
-            setLoading(false);
-        }, 500);
-    }, []);
-
     // Get paginated data
     const getPaginatedData = () => {
         const startIndex = (page - 1) * limit;
@@ -145,6 +134,17 @@ const ProjectManagementPage = () => {
         setTotalData(projects.length + 1);
         toast.success("Project created successfully!");
     };
+
+    // Load mock data
+    useEffect(() => {
+        setLoading(true);
+        // Simulate API call
+        setTimeout(() => {
+            setProjects(mockProjects);
+            setTotalData(mockProjects.length);
+            setLoading(false);
+        }, 500);
+    }, []);
 
     return (
         <>

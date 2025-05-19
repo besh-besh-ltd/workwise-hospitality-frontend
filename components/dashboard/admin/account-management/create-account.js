@@ -9,6 +9,18 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
 
+    // Initial form values
+    const initialValues = {
+        name: "",
+        email: "",
+        mobile: "",
+        password: "",
+        confirmPassword: "",
+        role: null,
+        projects: [],
+        company_id: 1, // This would be retrieved from context in a real implementation
+    };
+
 const CreateAccountPage = () => {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -44,17 +56,6 @@ const CreateAccountPage = () => {
         role: Yup.object().required("Role is required"),
     });
 
-    // Initial form values
-    const initialValues = {
-        name: "",
-        email: "",
-        mobile: "",
-        password: "",
-        confirmPassword: "",
-        role: null,
-        projects: [],
-        company_id: 1, // This would be retrieved from context in a real implementation
-    };
 
     // Handle form submission
     const handleSubmit = (values, { resetForm, setSubmitting }) => {
@@ -69,7 +70,6 @@ const CreateAccountPage = () => {
         
         // Simulate API call
         setTimeout(() => {
-            console.log("Form data submitted:", formData);
             toast.success("Account created successfully!");
             resetForm();
             setLoading(false);
@@ -93,12 +93,14 @@ const CreateAccountPage = () => {
                     <div className="row">
                         <div className="col-md-12">
                             <div className="vendor-mngt-con">
+                                {/*START: Back Button */}
                                 <div className="mb-4">
                                     <Link href="/dashboard/admin/manage-accounts" className="btn btn-outline-secondary">
                                         <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
                                         Back to Manage Accounts
                                     </Link>
                                 </div>
+                                {/*END: Back Button */}
 
                                 <div className="card shadow-sm">
                                     <div className="card-body p-4 hasFullLoader">

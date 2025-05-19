@@ -3,7 +3,6 @@ import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
-
 import FullLoader from '@/components/shared/FullLoader';
 
 const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOptions, onSave }) => {
