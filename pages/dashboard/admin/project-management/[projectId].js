@@ -1,5 +1,5 @@
 import React from "react";
-import ProjectDetailsPage from "@/components/dashboard/admin/project-details";
+import ProjectDetailsPage from "@/components/dashboard/admin/project-management/project-details";
 import Head from "next/head";
 
 const ProjectDetails = () => {

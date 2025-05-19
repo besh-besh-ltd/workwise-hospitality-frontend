@@ -1,5 +1,5 @@
 import React from "react";
-import ProjectManagementPage from "@/components/dashboard/admin/project-management";
+import ProjectManagementPage from "@/components/dashboard/admin/project-management/project-management";
 import Head from "next/head";
 
 const ProjectManagement = () => {

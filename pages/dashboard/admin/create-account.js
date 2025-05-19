@@ -1,5 +1,5 @@
 import React from "react";
-import CreateAccountPage from "@/components/dashboard/admin/create-account";
+import CreateAccountPage from "@/components/dashboard/admin/account-management/create-account";
 import Head from "next/head";
 
 const CreateAccount = () => {
