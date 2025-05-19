@@ -1,21 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
-import * as Yup from 'yup';
 import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
+import { editProjectSchema } from '@/utils/schema';
 
 const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
     const [loading, setLoading] = useState(false);
     const [teamMembers, setTeamMembers] = useState([]);
     const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
-
-    // Validation schema
-    const validationSchema = Yup.object().shape({
-        name: Yup.string().required('Project name is required'),
-        description: Yup.string().required('Project description is required'),
-        location: Yup.string().required('Location is required'),
-    });
 
     // Role options with color coding
     const roleOptions = [
@@ -143,7 +136,7 @@ const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
 
                     <Formik
                         initialValues={initialValues}
-                        validationSchema={validationSchema}
+                        validationSchema={editProjectSchema}
                         onSubmit={handleSubmit}
                         enableReinitialize={true}
                     >

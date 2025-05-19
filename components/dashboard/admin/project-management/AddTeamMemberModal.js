@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
-import * as Yup from 'yup';
 import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
+import { addTeamMemberSchema } from '@/utils/schema';
 
 const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     const [loading, setLoading] = useState(false);
@@ -54,10 +54,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
         setUsers(mockUsers);
     }, []);
 
-    // Validation schema
-    const validationSchema = Yup.object().shape({
-        user: Yup.object().required('User is required'),
-    });
+
 
     // Initial form values
     const initialValues = {
@@ -149,7 +146,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
 
                     <Formik
                         initialValues={initialValues}
-                        validationSchema={validationSchema}
+                        validationSchema={addTeamMemberSchema}
                         onSubmit={handleSubmit}
                     >
                         {({ errors, touched, values, setFieldValue, isSubmitting }) => (

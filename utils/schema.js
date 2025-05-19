@@ -19,7 +19,7 @@ export const EditCompanyDetails = yup.object().shape({
     .min(10, "Min 10 digit is required")
     .max(11, "Mobile number not more than 11 digit long")
     .required("Mobile number is required"),
-  
+
   // Convert location to an object with required fields
   location: yup.object().shape({
     country: yup.string().optional(),
@@ -135,4 +135,60 @@ export const contactFormSchema = yup.object().shape({
     .required("Mobile number is required"),
   subject: yup.string().required("Subject is required"),
   comment: yup.string().required("Comment is required"),
+});
+
+// ==========================================
+// Admin Account Management Schemas
+// ==========================================
+
+// Edit Account validation schema
+export const editAccountSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  email: yup
+    .string()
+    .email("Invalid email")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .required("Mobile number is required"),
+});
+
+// Create Account validation schema
+export const createAccountSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  email: yup
+    .string()
+    .email("Invalid email")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .required("Mobile number is required"),
+  role: yup.object().required("Role is required"),
+  password: yup
+    .string()
+    .required("Password is required")
+    .min(6, "Password must be at least 6 characters"),
+});
+
+// ==========================================
+// Admin Project Management Schemas
+// ==========================================
+
+// Create Project validation schema
+export const createProjectSchema = yup.object().shape({
+  name: yup.string().required("Project name is required"),
+  description: yup.string().required("Project description is required"),
+  location: yup.string().required("Location is required"),
+});
+
+// Edit Project validation schema
+export const editProjectSchema = yup.object().shape({
+  name: yup.string().required("Project name is required"),
+  description: yup.string().required("Project description is required"),
+  location: yup.string().required("Location is required"),
+});
+
+// Add Team Member validation schema
+export const addTeamMemberSchema = yup.object().shape({
+  user: yup.object().required("User is required"),
 });

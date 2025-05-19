@@ -1,19 +1,12 @@
 import React, { useState } from 'react';
 import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
-import * as Yup from 'yup';
 import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
+import { editAccountSchema } from '@/utils/schema';
 
 const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOptions, onSave }) => {
     const [loading, setLoading] = useState(false);
-
-    // Validation schema
-    const validationSchema = Yup.object().shape({
-        name: Yup.string().required('Name is required'),
-        email: Yup.string().email('Invalid email').required('Email is required'),
-        mobile: Yup.string().required('Mobile number is required'),
-    });
 
     // Initial form values
     const initialValues = {
@@ -93,7 +86,7 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
 
                     <Formik
                         initialValues={initialValues}
-                        validationSchema={validationSchema}
+                        validationSchema={editAccountSchema}
                         onSubmit={handleSubmit}
                     >
                         {({ errors, touched, values, setFieldValue, isSubmitting }) => (
