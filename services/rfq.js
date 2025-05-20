@@ -2,6 +2,10 @@ import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
 import axios from "axios";
 
+// This is the base URL for the AI server
+  const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL;
+
+
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -256,12 +260,38 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
-export const getMagicRFQPreview = (file) => {
-  let payload = {};
-  payload.file = file;
+// aiServer 
+export const getBOQexcelToJsonAI = (file) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  // 👈 correct way to send UploadFile
+
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(`/rfq/magic-search-rfq-preview`, payload);
+      const response = await axios.post(
+        `${aiServerBaseURL}/boq_to_structured_boq_and_match`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",  // 👈 important
+          },
+        }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
+
+export const getMagicRFQPreview = (jsonFileUrl) => {
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, {jsonFileUrl:jsonFileUrl});
       resolve(response);
     } catch (error) {
       reject({ message: error });

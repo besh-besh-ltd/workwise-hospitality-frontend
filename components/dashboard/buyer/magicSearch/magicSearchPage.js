@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
+import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -135,7 +135,21 @@ const MagicSearchPage = () => {
 
         try {
             setLoading(true);
-            const response = await getMagicRFQPreview(file);
+            
+            //  upload boq file to ai server
+            const aiResponse = await getBOQexcelToJsonAI(file);
+
+            const downloadUrl = aiResponse?.data?.download_url;
+
+              if (!downloadUrl) {
+                toast.error("Failed to create RFQ: Please try after few minutes.");
+                setLoading(false);
+                return;
+              }
+
+            // further process json data get from ai server, to fetch vendor list and display data on ui
+            const response = await getMagicRFQPreview(downloadUrl);
+
             setApiData(response)
 
             // Delay the state update until all messages are shown
@@ -146,7 +160,7 @@ const MagicSearchPage = () => {
 
         } catch (error) {
             console.error(error)
-            toast.error(error.message?.response?.data?.message);
+            toast.error(error.message?.response?.data?.message || "not able to create RFQ: Please try after few minutes");
             setLoading(false);
         } finally {
             setFile(null);
