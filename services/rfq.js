@@ -260,11 +260,16 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
-// aiServer 
+
+/* 
+START :: AI server functions 
+*/
+
+// mart of magic serach boq to rfq, accept boq excel and return a json file url
 export const getBOQexcelToJsonAI = (file) => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);  // 👈 correct way to send UploadFile
+  formData.append("file", file);  
 
   return new Promise(async (resolve, reject) => {
     try {
@@ -274,7 +279,7 @@ export const getBOQexcelToJsonAI = (file) => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",  // 👈 important
+            "Content-Type": "multipart/form-data", 
           },
         }
       );
@@ -286,6 +291,37 @@ export const getBOQexcelToJsonAI = (file) => {
 };
 
 
+
+//  accept a unstructure boq excel and return a structure boq excel url
+export const getSImplifiedVersionOfBOQ = (file) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  
+
+
+    return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axios.post(
+        `${aiServerBaseURL}/boq_to_structured_boq`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",  
+          },
+        }
+      );
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
+/* 
+ END :: AI server functions 
+*/
 
 export const getMagicRFQPreview = (jsonFileUrl) => {
 
@@ -299,19 +335,6 @@ export const getMagicRFQPreview = (jsonFileUrl) => {
   });
 };
 
-
-export const getSImplifiedVersionOfBOQ = (file) => {
-  let payload = {};
-  payload.file = file;
-  return new Promise(async (resolve, reject) => {
-    try {
-      let response = await axiosFormData.post(`/rfq/boq/process-and-download`, payload);
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
-  });
-};
 
 export const getPastRFQS = (id) => {
   return new Promise(async (resolve, reject) => {
