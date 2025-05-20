@@ -8,8 +8,9 @@ import {
     addProducts,
     approvedProductList,
     productDetails,
+    searchVariantMappings,
   } from "@/services/products";
-import { faClose } from '@fortawesome/free-solid-svg-icons';
+import { faClose, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -76,6 +77,11 @@ const DynamicFormModal = ({
     const [currentProduct, setCurrentProduct] = useState(null);
     const [vendorProductDetails, setProductDetails] = useState([]);
 
+    // New state variables for variant search functionality
+    const [searchVariantTerm, setSearchVariantTerm] = useState('');
+    const [searchVariantResults, setSearchVariantResults] = useState([]);
+    const [loadingVariants, setLoadingVariants] = useState(false);
+
 
     const validateVendorSchema = yup.object().shape({
         vendorName: yup.string().required("Name is required")
@@ -96,7 +102,7 @@ const DynamicFormModal = ({
             .min(7, "Minimum 7 digits are required")
             .max(15, "Mobile number cannot be more than 15 digits long")
             .required("Mobile number is required")
-          
+
     });
 
     const validateProjectSchema = yup.object().shape({
@@ -130,7 +136,7 @@ const DynamicFormModal = ({
           });
       };
 
-     // Function to format product data along with it's categories 
+     // Function to format product data along with it's categories
      const formatGroupedData = (groupedData) => {
         return Object.values(groupedData).flatMap(items =>
             items.map(item => ({
@@ -186,6 +192,58 @@ const DynamicFormModal = ({
         [getVendorProductList]
     );
 
+    // Function to search variants
+    const searchVariants = useCallback(async (searchTerm) => {
+        if (!searchTerm || searchTerm.length < 3) {
+            setSearchVariantResults([]);
+            setLoadingVariants(false);
+            return;
+        }
+
+        setLoadingVariants(true);
+        try {
+            // Call the variant search API
+            const response = await searchVariantMappings(searchTerm);
+
+            if (response?.data && Array.isArray(response.data)) {
+                const variantsData = response.data;
+
+                // Format the variants for display
+                const formattedVariants = variantsData.map(variant => ({
+                    id: variant.id || variant.variant_id,
+                    name: variant.variant_name || variant.name || `Variant #${variant.id || variant.variant_id}`,
+                    product_name: variant.product_name || 'Unknown Product',
+                    category_info: variant.category_names ?
+                        (Array.isArray(variant.category_names) ?
+                            variant.category_names.join(', ') :
+                            variant.category_names) :
+                        '',
+                    created_at: variant.created_at
+                }));
+
+                setSearchVariantResults(formattedVariants);
+            } else {
+                setSearchVariantResults([]);
+            }
+        } catch (error) {
+            console.error("Error searching variants:", error);
+            toast.error("Failed to search variants");
+            setSearchVariantResults([]);
+        } finally {
+            setLoadingVariants(false);
+        }
+    }, []);
+
+    // Debounce search to avoid too many API calls
+    const debounceSearchVariants = useCallback((term) => {
+        setSearchVariantTerm(term);
+        const debounceTimeout = 500; // 500ms debounce
+        clearTimeout(window.variantSearchDebounceTimer);
+        window.variantSearchDebounceTimer = setTimeout(() => {
+            searchVariants(term);
+        }, debounceTimeout);
+    }, [searchVariants]);
+
     const getProductDetails = (selectedOption, id) => {
         if (!id) return;
         productDetails(id)
@@ -208,6 +266,38 @@ const DynamicFormModal = ({
             });
     };
 
+    // Function to handle selecting a variant from search results
+    const handleSelectVariant = (variant) => {
+        // Create a product object from the variant
+        const prodItem = {
+            master_id: variant.id,
+            name: variant.name,
+            description: variant.product_name,
+            status: 1,
+            approved_id: [],
+            approved_name: [],
+            categories: []
+        };
+
+        // Set the current product
+        setCurrentProduct(prodItem);
+
+        // Create a selected product option for display
+        const selectedOption = {
+            value: variant.id,
+            label: variant.name,
+            categories: variant.category_info || ''
+        };
+        setSelectedProduct(selectedOption);
+
+        // Reset approved by selection
+        setSelectedApprovedBy([]);
+
+        // Clear search results after selection
+        setSearchVariantResults([]);
+        setSearchVariantTerm('');
+    };
+
 
         // Function to add product/approved-by in FormData
         const handleSelectChange = (selectedOption, { name }) => {
@@ -224,7 +314,7 @@ const DynamicFormModal = ({
                         approved_ids.push(option.value)
                         approved_names.push(option.label)
                     })
-    
+
                     setSelectedApprovedBy(selectedOption);
                     setCurrentProduct((prevState) => ({
                         ...prevState,
@@ -240,12 +330,12 @@ const DynamicFormModal = ({
             const isDuplicate = vendorProductDetails.some(
                 (product) => product.master_id === currentProduct?.master_id
             );
-        
+
             if (isDuplicate) {
                 toast.error("This product is already added.", { position: "top-right" });
                 return; // Exit the function to prevent adding duplicate products
             }
-        
+
             // Add the product if it does not already exist
             setProductDetails((prevState) => [
                 ...prevState,
@@ -283,6 +373,63 @@ const DynamicFormModal = ({
         const removeSelectedVendor = (prodItem) => {
             setProductDetails((prevState) =>
                 prevState.filter((item) => item.master_id !== prodItem.master_id)
+            );
+        };
+
+        // Function to render search results
+        const renderSearchResults = () => {
+            if (!searchVariantTerm || searchVariantTerm.length === 0) return null;
+
+            return (
+                <div className="border rounded p-3 mb-3">
+                    <h6 className="mb-3">
+                        {loadingVariants ? (
+                            <span>
+                                <i className="fa fa-spinner fa-spin me-2"></i>
+                                Searching variants...
+                            </span>
+                        ) : (
+                            searchVariantTerm.length < 3 ?
+                                "Type at least 3 characters to search" :
+                                `Search Results (${searchVariantResults.length})`
+                        )}
+                    </h6>
+
+                    {!loadingVariants && searchVariantTerm.length >= 3 && (
+                        searchVariantResults.length > 0 ? (
+                            <div style={{ maxHeight: '300px', overflowY: 'auto' }} className="variant-search-results">
+                                {searchVariantResults.map((variant) => (
+                                    <div
+                                        key={variant.id}
+                                        className="d-flex justify-content-between align-items-center border-bottom py-2"
+                                    >
+                                        <div>
+                                            <p className="mb-0 font-weight-bold">{variant.name}</p>
+                                            <p className="mb-0 text-muted small">
+                                                <strong>ID:</strong> {variant.id}
+                                                {variant.product_name && (
+                                                    <>, <strong>Product:</strong> {variant.product_name}</>
+                                                )}
+                                                {variant.category_info && (
+                                                    <>, <strong>Category:</strong> {variant.category_info}</>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary btn-sm"
+                                            onClick={() => handleSelectVariant(variant)}
+                                        >
+                                            Select
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-muted">No variants found matching your search criteria</p>
+                        )
+                    )}
+                </div>
             );
         };
 
@@ -590,32 +737,21 @@ Example:
                               <div className="col-md-10 mb-2">
                                 <div className="mb-2">
                                   <label>Search Product</label>
-                                  <Select
-                                    name="product"
-                                    options={vendorProductsList}
-                                    value={selectedProduct}
-                                    components={{ Option: CustomSelectOption }}
-                                    styles={customStyles}
-                                    isLoading={productLoading}
-                                    onInputChange={debounceGetVendorProductList}
-                                    onChange={(selectedOption) => {
-                                      handleSelectChange(selectedOption, {
-                                        name: "product",
-                                      });
-                                      // Handle clearing of selection
-                                      if (!selectedOption) {
-                                        setSelectedProduct(null); // Clear selectedProduct state
-                                        setCurrentProduct(null);
-                                      }
-                                    }}
-                                    placeholder={
-                                      vendorProductsList.length === 0
-                                        ? "Please write at least 3 characters..."
-                                        : "Search or select an option..."
-                                    }
-                                    isSearchable
-                                    isClearable
-                                  />
+                                  <div className="input-group mb-3">
+                                    <span className="input-group-text">
+                                      <FontAwesomeIcon icon={faSearch} />
+                                    </span>
+                                    <input
+                                      type="text"
+                                      className="form-control"
+                                      placeholder="Search for variants (min 3 characters)"
+                                      value={searchVariantTerm}
+                                      onChange={(e) => debounceSearchVariants(e.target.value)}
+                                    />
+                                  </div>
+
+                                  {/* Search Results */}
+                                  {renderSearchResults()}
                                 </div>
                                 <div className="mb-2">
                                   <label>Approved By</label>
