@@ -39,7 +39,7 @@ const customeStyles = {
 
 const ReviewProducts = ({
     data, changeProductData, handleFiles, removeItem,
-    globalFilters, vendorMap, setVendorMap, states: _states, cities: _cities, countries, vendorTypes }) => {
+    globalFilters, vendorMap, setVendorMap, states: _states, cities: _cities, countries, vendorTypes, approved_by }) => {
 
     const [globalStates, setGlobalStates] = useState(null);
     const [globalCities, setGlobalCities] = useState(null);
@@ -50,12 +50,31 @@ const ReviewProducts = ({
 
     const [localFilterMap, setLocalFilterMap] = useState(new Map());
 
+    // Changes by Agnij 2024-10-22 [Added helper function to normalize vendor data]
+    // This function ensures we get consistent access to vendor approved info
+    const normalizeVendorData = (vendor) => {
+        if (!vendor) return vendor;
+        
+        // Create standardized vendor_approved_info
+        vendor.vendor_approved_info = {
+            id: vendor.vendor_approved_id || 
+               (vendor.vendor_approved && vendor.vendor_approved.id) || 
+               (vendor.vendor_info && vendor.vendor_info.vendor_approved_id),
+            name: (vendor.vendor_approved && vendor.vendor_approved.vendor_approve) || 
+                 (vendor.vendor_approved_name)
+        };
+        
+        return vendor;
+    };
+
     const updateVendorList = () => {
         const vMap = new Map();
 
         for (const prodItem of data) {
             const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
-            let updatedVendors = prodItem.vendors || [];
+            // Normalize vendor data before using it
+            let updatedVendors = (prodItem.vendors || []).map(normalizeVendorData);
+            
 
             const filter = localFilterMap.get(prodKey);
             if (filter?.vendor_info?.value) {
@@ -88,13 +107,44 @@ const ReviewProducts = ({
                 if(prev_worked_with_value == 'prev_finalized')
                     updatedVendors = updatedVendors.filter(
                         (vendorItem) =>
-                            vendorItem.vendor_info.prev_finalized
+                            vendorItem.vendor_info && vendorItem.vendor_info.prev_finalized
                     );
                 else
                     updatedVendors = updatedVendors.filter(
                         (vendorItem) =>
-                            vendorItem.vendor_info.rfq_added
+                            vendorItem.vendor_info && vendorItem.vendor_info.rfq_added
                     );
+            }
+            if(filter?.vendor_approved_by && filter.vendor_approved_by.length > 0) {
+                // Changes by Agnij 2024-10-22 [Fixed vendor approved by filter]
+
+                updatedVendors = updatedVendors.filter((vendorItem) => {
+                    
+                    // Match by ID
+                    const matchedById = vendorItem.vendor_approved_info && 
+                                     filter.vendor_approved_by.some(approved => 
+                                         approved.value == vendorItem.vendor_approved_info.id);
+                    
+                    // Match by name (especially for PDIL)
+                    const matchedByName = vendorItem.vendor_approved_info && 
+                                       vendorItem.vendor_approved_info.name &&
+                                       filter.vendor_approved_by.some(approved => {
+                                           if (approved.label && vendorItem.vendor_approved_info.name) {
+                                               return approved.label.toLowerCase().includes(
+                                                   vendorItem.vendor_approved_info.name.toLowerCase()
+                                               ) || 
+                                               vendorItem.vendor_approved_info.name.toLowerCase().includes(
+                                                   approved.label.toLowerCase()
+                                               );
+                                           }
+                                           return false;
+                                       });
+                    
+                    const matched = matchedById || matchedByName;
+                              
+                    return matched;
+                });
+                
             }
             if (filter?.country && filter.country.length > 0) {
                 updatedVendors = updatedVendors.filter(
@@ -116,37 +166,11 @@ const ReviewProducts = ({
         setVendorMap(vMap);
     }
 
-    const handleGenericInputChange = (prodKey, event) => {
-        const fMap = new Map(localFilterMap);
-        let filters = fMap.get(prodKey);
-        console.log(filters)
-        fMap.set(prodKey, {
-            ...filters,
-            [event.target.name]: event.target.value
-        })
-        if(event.target.name == 'country' && (!event.target.value || event.target.value.length <= 0)) {
-          fMap.set(prodKey, {
-            ...filters,
-            'state': [],
-            'city': []
-          })
-        }
-        if(event.target.name == 'state' && (!event.target.value || event.target.value.length <= 0)) {
-          fMap.set(prodKey, {
-            ...filters,
-            'city': []
-          })
-        }
-        setLocalFilterMap(fMap);
-        getAllStates(prodKey, event.target.name == 'country' ? event.target.value : null);
-        getAllCities(prodKey, event.target.name == 'state' ? event.target.value : null, event.target.name == 'country' ? event.target.value : null);
-    }
-
     const handleLocalFilterChange = (prodKey, selectedOption, actionMeta) => {
         let fMap = new Map(localFilterMap);
         let filters = fMap.get(prodKey);
         if(actionMeta.name == 'country' && (!selectedOption || selectedOption.length <= 0)) {
-          console.log("Coming in country")
+
           fMap = fMap.set(prodKey, {
             ...filters,
             'state': [],
@@ -155,7 +179,6 @@ const ReviewProducts = ({
           filters = fMap.get(prodKey);
         }
         if(actionMeta.name == 'state' && (!selectedOption.value || selectedOption.length <= 0)) {
-          console.log("Coming in state")
           fMap = fMap.set(prodKey, {
             ...filters,
             'city': []
@@ -196,8 +219,8 @@ const ReviewProducts = ({
                 const prevCities = globalCities
                 const updatedCities = prev.set(
                     prod_key,
-                    state && state.length > 0 ? prevCities.filter(city => {console.log("Filtering cities from state"); return state.some(s => s.value == city.state_id)})
-                    : country && country.length > 0 ? prevCities.filter(city => {console.log("Filtering cities from country"); return country.some(c => c.value == city.country_id)})
+                    state && state.length > 0 ? prevCities.filter(city => {return state.some(s => s.value == city.state_id)})
+                    : country && country.length > 0 ? prevCities.filter(city => {return country.some(c => c.value == city.country_id)})
                     : prevCities
                 )
                 return updatedCities
@@ -251,18 +274,34 @@ const ReviewProducts = ({
     }, [])
 
     useEffect(() => {
+        // Changes by Agnij 2024-10-22 [Enhanced global filters handling]
         setLocalFilterMap((prevState) => {
             const lFMap = new Map(prevState);
             for (const [key, value] of lFMap.entries()) {
-                lFMap.set(key, globalFilters);
+                lFMap.set(key, {
+                    ...value,
+                    ...globalFilters
+                });
             }
             return lFMap;
-        })
-        cities.keys().forEach(city => {
-            getAllCities(city, globalFilters.state, globalFilters.country)
+        });
+
+        // Changes by Agnij 2024-10-22 [Added safety checks]
+        // Safely iterate over cities keys if available
+        if (cities && typeof cities.keys === 'function') {
+            const cityKeys = Array.from(cities.keys());
+            cityKeys.forEach(city => {
+                getAllCities(city, globalFilters.state, globalFilters.country);
+            });
         }
-    )
-        states.keys().forEach(state => getAllStates(state, globalFilters.country))
+        
+        // Safely iterate over states keys if available
+        if (states && typeof states.keys === 'function') {
+            const stateKeys = Array.from(states.keys());
+            stateKeys.forEach(state => {
+                getAllStates(state, globalFilters.country);
+            });
+        }
     }, [globalFilters]);
 
     useEffect(() => {
@@ -288,6 +327,7 @@ const ReviewProducts = ({
                 is_private: null,
                 from: "",
                 to: "",
+                vendor_approved_by: [],
             });
             
             const statesResult = _states.map((state) => ({
@@ -318,13 +358,12 @@ const ReviewProducts = ({
     return (
         <Accordion alwaysOpen >
             {data &&
-                data.map((prodItem, index) => {
+                data.filter((prodItem) => !globalFilters.sheetName || prodItem.sheet_name === globalFilters.sheetName.value).map((prodItem, index) => {
                     let tempSpec = {};
                     prodItem.spec?.map((specItem) => {
                         tempSpec[specItem.title] = specItem.value
                     })
                     const prodKey = `prod_${prodItem.product_id}_${prodItem.variant}`;
-                    console.log("PROD KEY: ", prodKey)
 
                     // Add variant badge and info
                     const isVariant = prodItem.is_variant;
@@ -415,10 +454,10 @@ const ReviewProducts = ({
                               <div className={`local-filter-container ${isLocalFilterVisible[prodKey] ? "show" : ""}`}>
                                 <div className="col-md-5"></div>
                                 <div className="pt-3 mb-3">
-                                  <div className="row">
+                                  <div className="row g-2">
                                     <div className="col-md-3">
                                       <div>
-                                        <p className="fw-medium  mb-2">
+                                        <p className="fw-medium mb-1">
                                           Country
                                         </p>
                                         <Select
@@ -447,7 +486,7 @@ const ReviewProducts = ({
                                     </div>
                                     <div className="col-md-3">
                                       <div>
-                                        <p className="fw-medium  mb-2">State</p>
+                                        <p className="fw-medium mb-1">State</p>
                                         <Select
                                           isDisabled={
                                             !localFilterMap.get(prodKey)
@@ -479,7 +518,7 @@ const ReviewProducts = ({
                                     </div>
                                     <div className="col-md-3">
                                       <div>
-                                        <p className="fw-medium  mb-2">City</p>
+                                        <p className="fw-medium mb-1">City</p>
                                         <Select
                                           isDisabled={
                                             !localFilterMap.get(prodKey)
@@ -511,7 +550,7 @@ const ReviewProducts = ({
                                     </div>
                                     <div className="col-md-3">
                                       <div>
-                                        <p className="fw-medium  mb-2">
+                                        <p className="fw-medium mb-1">
                                           My Vendors
                                         </p>
                                         <Select
@@ -560,128 +599,101 @@ const ReviewProducts = ({
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="row mt-3">
-                                    {/* <div className="col-md-6">
-                                      <p className="fw-medium  mb-2">
-                                        Turnover Filters
-                                      </p>
-                                      <div className="row">
-                                        <div className="col-md-6">
-                                          <div>
-                                            <p className="fw-medium  mb-2">
-                                              FROM
-                                            </p>
-                                            <input
-                                              type="text"
-                                              name="from"
-                                              className="form-control"
-                                              placeholder="FROM ( IN CR )"
-                                              value={
-                                                localFilterMap.get(prodKey)
-                                                  ?.from
-                                              }
-                                              onChange={(event) =>
-                                                handleGenericInputChange(
-                                                  prodKey,
-                                                  event
-                                                )
-                                              }
-                                            />
-                                          </div>
-                                        </div>
-                                        <div className="col-md-6">
-                                          <div>
-                                            <p className="fw-medium  mb-2">
-                                              TO
-                                            </p>
-                                            <input
-                                              type="text"
-                                              name="to"
-                                              className="form-control"
-                                              placeholder="TO ( IN CR )"
-                                              value={
-                                                localFilterMap.get(prodKey)?.to
-                                              }
-                                              onChange={(event) =>
-                                                handleGenericInputChange(
-                                                  prodKey,
-                                                  event
-                                                )
-                                              }
-                                            />
-                                          </div>
-                                        </div>
+                                  <div className="row g-2 mt-2">
+                                    <div className="col-md-3">
+                                      <div>
+                                        <p className="fw-medium mb-1">
+                                          Vendor Type
+                                        </p>
+                                        <Select
+                                          options={vendorTypes}
+                                          isMulti
+                                          style={customeStyles.input({})}
+                                          value={
+                                            localFilterMap.get(prodKey)
+                                              ?.vendor_type
+                                          }
+                                          onChange={(
+                                            selectedOption,
+                                            actionMeta
+                                          ) =>
+                                            handleLocalFilterChange(
+                                              prodKey,
+                                              selectedOption,
+                                              actionMeta
+                                            )
+                                          }
+                                          name="vendor_type"
+                                          placeholder="Select"
+                                          isClearable
+                                          isSearchable
+                                        />
                                       </div>
-                                    </div> */}
-                                    <div className="col-md-6">
-                                      <p className="fw-medium  mb-2 opacity-0">
-                                        x
-                                      </p>
-                                      <div className="row">
-                                        <div className="col-md-6">
-                                          <div>
-                                            <p className="fw-medium  mb-2">
-                                              Vendor Type
-                                            </p>
-                                            <Select
-                                              options={vendorTypes}
-                                              isMulti
-                                              style={customeStyles.input({})}
-                                              value={
-                                                localFilterMap.get(prodKey)
-                                                  ?.vendor_type
-                                              }
-                                              onChange={(
-                                                selectedOption,
-                                                actionMeta
-                                              ) =>
-                                                handleLocalFilterChange(
-                                                  prodKey,
-                                                  selectedOption,
-                                                  actionMeta
-                                                )
-                                              }
-                                              name="vendor_type"
-                                              placeholder="Select"
-                                              isClearable
-                                              isSearchable
-                                            />
-                                          </div>
-                                        </div>
-                                        <div className="col-md-6">
-                                          <div>
-                                            <p className="fw-medium  mb-2">
-                                              Previously Worked With
-                                            </p>
-                                            <Select
-                                              options={vendorConditions}
-                                              value={
-                                                localFilterMap.get(prodKey)
-                                                  ?.prev_worked_with
-                                              }
-                                              onChange={(
-                                                selectedOption,
-                                                actionMeta
-                                              ) =>
-                                                handleLocalFilterChange(
-                                                  prodKey,
-                                                  selectedOption,
-                                                  actionMeta
-                                                )
-                                              }
-                                              name="prev_worked_with"
-                                              placeholder="Select"
-                                              isClearable
-                                              isSearchable
-                                            />
-                                          </div>
-                                        </div>
+                                    </div>
+                                    <div className="col-md-3">
+                                      <div>
+                                        <p className="fw-medium mb-1">
+                                          Previously Worked With
+                                        </p>
+                                        <Select
+                                          options={vendorConditions}
+                                          value={
+                                            localFilterMap.get(prodKey)
+                                              ?.prev_worked_with
+                                          }
+                                          onChange={(
+                                            selectedOption,
+                                            actionMeta
+                                          ) =>
+                                            handleLocalFilterChange(
+                                              prodKey,
+                                              selectedOption,
+                                              actionMeta
+                                            )
+                                          }
+                                          name="prev_worked_with"
+                                          placeholder="Select"
+                                          isClearable
+                                          isSearchable
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="col-md-3">
+                                      <div>
+                                        <p className="fw-medium mb-1">
+                                          Vendor Approved By
+                                        </p>
+                                        <Select
+                                          options={approved_by ? approved_by.map(item => ({
+                                            label: item.vendor_approve,
+                                            value: item.id
+                                          })) : []}
+                                          isMulti
+                                          value={
+                                            localFilterMap.get(prodKey)
+                                              ?.vendor_approved_by
+                                          }
+                                          onChange={(
+                                            selectedOption,
+                                            actionMeta
+                                          ) =>
+                                            handleLocalFilterChange(
+                                              prodKey,
+                                              selectedOption,
+                                              actionMeta
+                                            )
+                                          }
+                                          name="vendor_approved_by"
+                                          placeholder="Select"
+                                          isClearable
+                                          isSearchable
+                                        />
                                       </div>
                                     </div>
                                   </div>
                                 </div>
                                 <hr style={{
-                                    marginTop: 12
+                                    marginTop: 8
                                 }}/>
                               </div>
                             {/* Spec, Size, Quantity, Unit Section */}
