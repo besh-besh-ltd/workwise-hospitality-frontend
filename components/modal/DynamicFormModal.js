@@ -5,13 +5,11 @@ import * as yup from "yup";
 import Select, { components } from 'react-select';
 import { categoryList, vendorApproveList } from "@/services/rfq";
 import {
-    addProducts,
     approvedProductList,
-    productDetails,
   } from "@/services/products";
 import { faClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 
 // Custom styles for Product Select Component
 const customStyles = {
@@ -96,7 +94,7 @@ const DynamicFormModal = ({
             .min(7, "Minimum 7 digits are required")
             .max(15, "Mobile number cannot be more than 15 digits long")
             .required("Mobile number is required")
-          
+
     });
 
     const validateProjectSchema = yup.object().shape({
@@ -130,7 +128,7 @@ const DynamicFormModal = ({
           });
       };
 
-     // Function to format product data along with it's categories 
+     // Function to format product data along with it's categories
      const formatGroupedData = (groupedData) => {
         return Object.values(groupedData).flatMap(items =>
             items.map(item => ({
@@ -157,81 +155,89 @@ const DynamicFormModal = ({
 
      // Search Product Function
   const getVendorProductList = useCallback((search_key) => {
-
-    if(search_key.length > 2){
+    if(search_key && search_key.length > 2){
         setProductLoading(true);
         approvedProductList(20, 1, search_key)
         .then((res) => {
-            const product_options = groupBySlug(res.data);
-            setVendorProductsList(product_options);
+            if (res && res.data && Array.isArray(res.data)) {
+                const product_options = groupBySlug(res.data);
+                setVendorProductsList(product_options);
+            } else {
+                console.error("Invalid product data format:", res);
+                setVendorProductsList([]);
+            }
           })
           .catch((error) => {
-            console.log(error);
+            console.error("Error fetching products:", error);
+            setVendorProductsList([]);
           })
           .finally(() => setProductLoading(false));
+    } else {
+        // Clear product list if search string is too short
+        setVendorProductsList([]);
     }
-
   }, []);
 
 
     // Debouncing the search product API call for 300ms
     const debounceGetVendorProductList = useCallback(
         (inputValue) => {
-            const debounceTimeout = 500;
-            clearTimeout(window.debounceTimer);
-            window.debounceTimer = setTimeout(() => {
-                getVendorProductList(inputValue);
-            }, debounceTimeout);
+            if (inputValue && inputValue.length > 2) {
+                const debounceTimeout = 300; // Reduced timeout for better responsiveness
+                clearTimeout(window.debounceTimer);
+                window.debounceTimer = setTimeout(() => {
+                    getVendorProductList(inputValue);
+                }, debounceTimeout);
+            }
         },
         [getVendorProductList]
     );
 
     const getProductDetails = (selectedOption, id) => {
         if (!id) return;
-        productDetails(id)
-            .then((res) => {
-                const prodItem = {
-                    master_id: res.data.id || '',
-                    name: res.data.unified_name || '',
-                    description: res.data.description,
-                    status: 1,
-                    approved_id: [],
-                    approved_name: [],
-                    categories: res.data.product_categories?.map((data) => data.id)
-                }
-                setCurrentProduct(prodItem);
-                setSelectedProduct(selectedOption);
-                setSelectedApprovedBy([]);
-            })
-            .catch((error) => {
-                console.log(error);
-            });
+
+        // Show loading state
+        setProductLoading(true);
+
+        // Create a minimal product object from the selected option
+        const minimalProduct = {
+            master_id: id,
+            name: selectedOption.label || 'Unknown Product',
+            description: selectedOption.categories || '',
+            status: 1,
+            approved_id: [],
+            approved_name: [],
+            categories: []
+        };
+
+        // Set the product data directly from the selection
+        setCurrentProduct(minimalProduct);
+        setSelectedProduct(selectedOption);
+        setSelectedApprovedBy([]);
+        setProductLoading(false);
     };
 
 
-        // Function to add product/approved-by in FormData
-        const handleSelectChange = (selectedOption, { name }) => {
-            if (name === "product") {
-                const prodId = selectedOption?.value || null;
-                if (prodId) getProductDetails(selectedOption, prodId);
+        // Function to add approved-by in FormData
+        const handleSelectChange = (selectedOption) => {
+            // This function now only handles the approvedBy selection
+            // Product selection is handled directly in the onChange handler
+            if (!currentProduct) {
+                toast.error("Please Choose a Product First.", {position: "top-right"})
             } else {
-                if (!currentProduct) {
-                    toast.error("Please Choose a Product First.", {position: "top-right"})
-                } else {
-                    let approved_ids = [];
-                    let approved_names = [];
-                    selectedOption.map((option) => {
-                        approved_ids.push(option.value)
-                        approved_names.push(option.label)
-                    })
-    
-                    setSelectedApprovedBy(selectedOption);
-                    setCurrentProduct((prevState) => ({
-                        ...prevState,
-                        approved_id: approved_ids,
-                        approved_name: approved_names
-                    }))
-                }
+                let approved_ids = [];
+                let approved_names = [];
+                selectedOption.map((option) => {
+                    approved_ids.push(option.value)
+                    approved_names.push(option.label)
+                })
+
+                setSelectedApprovedBy(selectedOption);
+                setCurrentProduct((prevState) => ({
+                    ...prevState,
+                    approved_id: approved_ids,
+                    approved_name: approved_names
+                }))
             }
         }
 
@@ -240,12 +246,12 @@ const DynamicFormModal = ({
             const isDuplicate = vendorProductDetails.some(
                 (product) => product.master_id === currentProduct?.master_id
             );
-        
+
             if (isDuplicate) {
                 toast.error("This product is already added.", { position: "top-right" });
                 return; // Exit the function to prevent adding duplicate products
             }
-        
+
             // Add the product if it does not already exist
             setProductDetails((prevState) => [
                 ...prevState,
@@ -599,12 +605,14 @@ Example:
                                     isLoading={productLoading}
                                     onInputChange={debounceGetVendorProductList}
                                     onChange={(selectedOption) => {
-                                      handleSelectChange(selectedOption, {
-                                        name: "product",
-                                      });
-                                      // Handle clearing of selection
-                                      if (!selectedOption) {
-                                        setSelectedProduct(null); // Clear selectedProduct state
+                                      if (selectedOption) {
+                                        const prodId = selectedOption.value;
+                                        if (prodId) {
+                                          getProductDetails(selectedOption, prodId);
+                                        }
+                                      } else {
+                                        // Handle clearing of selection
+                                        setSelectedProduct(null);
                                         setCurrentProduct(null);
                                       }
                                     }}

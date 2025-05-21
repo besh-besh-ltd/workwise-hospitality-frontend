@@ -221,9 +221,9 @@ const VendorProfile = () => {
 
                 {/* Profile Image */}
                 <div className="user-img">
-                  {vendorDetails?.profile_image ? (
+                  {(vendorDetails?.profile_image_url || vendorDetails?.profile_image) ? (
                     <Image
-                      src={vendorDetails?.profile_image}
+                      src={vendorDetails?.profile_image_url || vendorDetails?.profile_image}
                       alt="Vendor Profile Image"
                       width={164}
                       height={164}
