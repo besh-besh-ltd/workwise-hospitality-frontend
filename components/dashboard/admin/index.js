@@ -16,7 +16,7 @@ const AdminDashboard = () => {
                 <div className="container-fluid">
                     <div className="row">
                         <div className="col-lg-4 col-md-6 buyer-col">
-                            <Link href="/dashboard/admin/manage-accounts" className="text-decoration-none">
+                            <Link href="/dashboard/admin/account-management/manage-accounts" className="text-decoration-none">
                                 <div className="detail-con">
                                     <div className="detail-con-text">
                                         <h2>Manage Accounts</h2>
@@ -29,7 +29,7 @@ const AdminDashboard = () => {
                             </Link>
                         </div>
                         <div className="col-lg-4 col-md-6 buyer-col">
-                            <Link href="/dashboard/admin/create-account" className="text-decoration-none">
+                            <Link href="/dashboard/admin/account-management/create-account" className="text-decoration-none">
                                 <div className="detail-con">
                                     <div className="detail-con-text">
                                         <h2>Create Account</h2>
@@ -42,7 +42,7 @@ const AdminDashboard = () => {
                             </Link>
                         </div>
                         <div className="col-lg-4 col-md-6 buyer-col">
-                            <Link href="/dashboard/admin/project-management" className="text-decoration-none">
+                            <Link href="/dashboard/admin/project-management/project-management" className="text-decoration-none">
                                 <div className="detail-con">
                                     <div className="detail-con-text">
                                         <h2>Project Management</h2>

@@ -76,7 +76,7 @@ const CreateAccountPage = () => {
             setSubmitting(false);
             
             // Redirect to manage accounts page
-            router.push("/dashboard/admin/manage-accounts");
+            router.push("/dashboard/admin/account-management/manage-accounts");
         }, 1000);
     };
 
@@ -95,7 +95,7 @@ const CreateAccountPage = () => {
                             <div className="vendor-mngt-con">
                                 {/*START: Back Button */}
                                 <div className="mb-4">
-                                    <Link href="/dashboard/admin/manage-accounts" className="btn btn-outline-secondary">
+                                    <Link href="/dashboard/admin/account-management/manage-accounts" className="btn btn-outline-secondary">
                                         <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
                                         Back to Manage Accounts
                                     </Link>

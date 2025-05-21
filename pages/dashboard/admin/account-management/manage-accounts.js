@@ -1,5 +1,5 @@
 import React from "react";
-import { ManageAccountsPage } from "@/components/dashboard/admin/account-management";
+import ManageAccountsPage from "@/components/dashboard/admin/account-management/manage-accounts";
 import Head from "next/head";
 
 const ManageAccounts = () => {

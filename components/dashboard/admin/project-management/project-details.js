@@ -197,7 +197,7 @@ const ProjectDetailsPage = () => {
                 <div className="alert alert-warning">
                     Project not found or invalid project ID.
                 </div>
-                <Link href="/dashboard/admin/project-management" className="btn btn-primary">
+                <Link href="/dashboard/admin/project-management/project-management" className="btn btn-primary">
                     <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
                     Back to Projects
                 </Link>
@@ -217,7 +217,7 @@ const ProjectDetailsPage = () => {
                 <div className="container-fluid">
                     <div className="row mb-4">
                         <div className="col-md-12">
-                            <Link href="/dashboard/admin/project-management" className="btn btn-outline-secondary">
+                            <Link href="/dashboard/admin/project-management/project-management" className="btn btn-outline-secondary">
                                 <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
                                 Back to Projects
                             </Link>

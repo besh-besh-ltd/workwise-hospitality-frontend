@@ -310,7 +310,7 @@ const ManageAccountsPage = () => {
 
                                         <div className="col-md-3 col-lg-3 d-flex align-items-end">
                                             <Link
-                                                href="/dashboard/admin/create-account"
+                                                href="/dashboard/admin/account-management/create-account"
                                                 className="btn btn-secondary"
                                             >
                                                 Create New Account
