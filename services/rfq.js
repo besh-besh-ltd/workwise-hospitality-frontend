@@ -114,6 +114,14 @@ export const addProductToDraft = (payload) => {
   });  
 };
 
+export const addProductToExistingRfq = async (payload) => {
+    try {
+      return await axiosInstance.post(`/rfq/add-product-to-rfq`, payload);
+    } catch (error) {
+      throw error;
+    }
+};
+
 export const removeVendorFromDraft = (payload) => {
   return new Promise(async (resolve, reject)=> {
     try {
@@ -155,6 +163,14 @@ export const getVendorsByID = (values) => {
       reject({ message: error });
     }
   });
+};
+
+export const getVendorsForProduct = async (values) => {
+  try {
+    return await axiosInstance.post(`/rfq/get-vendors-for-product`, values);
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const getVendorDetailsByID = (id) => {

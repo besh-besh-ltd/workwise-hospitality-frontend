@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
-import { updateRfq,  getTerms, vendorApproveList, getRFQById } from "@/services/rfq";
+import { updateRfq,  getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToDraft, addProductToExistingRfq } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";
@@ -19,6 +19,14 @@ import { toast } from "react-toastify";
 import { getProjectList } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
 import * as Yup from "yup";
+import { formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
+import ViewVendorModal from "./ViewVendorModal";
+import AddVendorModal from "./AddVendorModal";
+import AddProductModal from "./AddProductModal";
+import { faAdd, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Accordion } from "react-bootstrap";
+import Item from "../createRFQ/Item";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -53,6 +61,32 @@ const EditRFQSchema = Yup.object().shape({
     }),
 });
 
+const rfqTypes = [
+  {
+    label: "None",
+    value: '',
+  }, 
+  {
+    label: "Firm",
+    value: "firm",
+  }, 
+  {
+    label: "Budgetary",
+    value: "budgetary",
+  }
+]
+
+const binaryType = [
+  {
+    label: "Enabled",
+    value: 1,
+  }, 
+  {
+    label: "Disabled",
+    value: 0,
+  }
+]
+
 const EditRFQ = () => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -63,6 +97,7 @@ const EditRFQ = () => {
 
   const [projects, setProjects] = useState([]);
   const [rfqData, setRfqData] = useState(null);
+  const [products, setProducts] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [dataFetchError, setDataFetchError] = useState(null);
 
@@ -70,13 +105,33 @@ const EditRFQ = () => {
   const termRefreshCompletedRef = useRef(false);
 
   const storeLoading = useSelector((state) => state.storeLoading);
-  const rfqProductsFromStore = useSelector((state) => state.rfqProducts || []);
   const rfqFormDataFromStore = useSelector((state) => state.rfqFormData || {});
   const allTerms = useSelector((state) => state.allTerms || []);
   const selectedTerms = useSelector((state) => state.rfqFormData?.terms || []);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode, setCountryCode] = useState([]);
   const [onecountrycode, setonecountrycode] = useState("");
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [showAddVendorModal, setShowAddVendorModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showAddVendorForProductModal, setShowAddVendorForProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState([]);
+  const [updatableData, setUpdatableData] = useState({
+    products: {
+      addable: [],
+      deletable: [],
+      updatable: {},
+    },
+    vendors: {},
+  })
+  const [productAddData, setProductAddData] = useState({
+    variant_id: -1,
+    vendors: [],
+  })
+  const [vendors, setVendors] = useState([]);
+
+  // Promps a confirmation if any product is going to be deleted
+  const [isUpdateConfirm, setIsUpdateConfirm] = useState(false);
 
   // Add a ref to track if terms have been initialized
   const termsInitializedRef = useRef(false);
@@ -94,6 +149,21 @@ const EditRFQ = () => {
         setCountryCode([]);
       });
   };
+
+  const fetchAvailableVendorsForProduct = async () => {
+    if(!selectedProduct || !selectedProduct.product) return;
+
+    try {
+      const body = {
+        productId: selectedProduct.product.product_id,
+        excludeIds: selectedProduct?.vendors?.map(vendor => vendor.user_id) ?? []
+      }
+      const response = await getVendorsForProduct(body)
+      setVendors(response.data)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
   
   useEffect(() => {
     // Clear Redux store first
@@ -124,6 +194,11 @@ const EditRFQ = () => {
     };
   }, [router.query.id, dispatch]);
 
+  useEffect(() => {
+    fetchAvailableVendorsForProduct();
+  }, [selectedProduct])
+
+  // useEffect(() => {})
 
 
   // Add useEffect to force term reselection after component mounts
@@ -220,6 +295,7 @@ const EditRFQ = () => {
       }
 
       setRfqData(rfqData);
+      setProducts(rfqData?.products ?? []);
 
       // Extract country code and number from contact_number
       if (rfqData.contact_number) {
@@ -242,12 +318,9 @@ const EditRFQ = () => {
       }
 
       // Continue with other data fetching
-      const [countriesResponse, projectsResponse, vendorsResponse, profileResponse] = 
+      const [projectsResponse] = 
         await Promise.all([
-          getCountryCodes(),
           getProjectList(),
-          vendorApproveList(),
-          getProfile()
         ]);
 
       // Format the projects for select
@@ -268,10 +341,8 @@ const EditRFQ = () => {
         rfq_products: rfqData.products || []
       };
 
-      // Initialize the RFQ in Redux
       dispatch(intializeRfq(storeData));
       
-      // Set terms initialized flag
       termsInitializedRef.current = true;
 
       if (!isRefetch) {
@@ -292,7 +363,6 @@ const EditRFQ = () => {
     try {
       setHasUnsavedChanges(true);
       
-      // For dropdown select
       if (actionMeta && actionMeta.name && selectedOption) {
         dispatch(
           setOtherFormFields({
@@ -306,7 +376,6 @@ const EditRFQ = () => {
         let fieldName = e.target.name;
         let fieldValue = e.target.value;
         
-        // Update store with the new value using the new format
         dispatch(
           setOtherFormFields({
             [fieldName]: fieldValue,
@@ -326,29 +395,56 @@ const EditRFQ = () => {
         toast.error("Original RFQ data not available");
         return;
       }
-      
-      setLoading(true);
-      
-      // Create basic payload with only fields that can be edited
+
       const dataToSend = {
+        updatableData,
         rfq_id: rfqData.id,
         contact_name: formValues.contact_name || rfqData.contact_name,
-        // IMPORTANT: Send ONLY digits to backend - exactly how CreateRFQ works
         contact_number: formValues.contact_number,
         response_email: formValues.response_email || rfqData.response_email,
         bid_end_date: formValues.bid_end_date || rfqData.bid_end_date || "",
-        // Ensure we preserve the original values
        };
 
       // Only include project_id if it exists and is a valid number
-      if (formValues.project_id && !isNaN(formValues.project_id)) {
-        dataToSend.project_id = parseInt(formValues.project_id);
+      if ((formValues.project_id != rfqData.project_id) && (!isNaN(formValues.project_id) || formValues.project_id == null)) {
+        dataToSend.project_id = (parseInt(formValues.project_id ?? "-1"));
       } else if (rfqData.project_id) {
-        // Preserve the original project_id if no new one is selected
         dataToSend.project_id = parseInt(rfqData.project_id);
       }
 
-      console.log(dataToSend )
+      if (formValues.rfq_type && rfqTypes.some(type => formValues.rfq_type == type.value)) {
+        dataToSend.rfq_type = formValues.rfq_type;
+      } else if (rfqData.rfq_type) {
+        dataToSend.rfq_type = rfqData.rfq_type;
+      }
+
+      if (formValues.location) {
+        dataToSend.location = formValues.location;
+      } else if (rfqData.location) {
+        dataToSend.location = rfqData.location;
+      }
+
+      if (!isNaN(Number(formValues.reverse_auction))) {
+        dataToSend.reverse_auction = parseInt(formValues.reverse_auction);
+      } else if (rfqData.reverse_auction) {
+        dataToSend.reverse_auction = parseInt(rfqData.reverse_auction);
+      }
+
+      if(dataToSend.reverse_auction && (!formValues.ra_start_date || !formValues.ra_end_date)) {
+        console.log("REVERSE AUCTION: ", dataToSend.reverse_auction, " RE_START_DATE: ", formValues.ra_start_date, " RE_END_DATE: ", formValues.ra_end_date)
+        toast.error("Auction start and end date is required")
+        return;
+      }
+
+      if(rfqData.ra_start_date != formValues.ra_start_date)
+        dataToSend.ra_start_date = formValues.ra_start_date
+
+      if(rfqData.ra_end_date != formValues.ra_end_date)
+        dataToSend.ra_end_date = formValues.ra_end_date
+
+      console.log(dataToSend)
+
+      setLoading(true);
 
       // Submit the RFQ update
       updateRfq(dataToSend)
@@ -363,7 +459,7 @@ const EditRFQ = () => {
              !response.error);
              
           if (isSuccess) {
-            toast.success("RFQ updated successfully!");
+            toast.info("RFQ has been updated, you can change something else or go back!");
             
             // Reset initialization flag so we'll re-initialize terms on fetch
             termsInitializedRef.current = false;
@@ -404,9 +500,10 @@ const EditRFQ = () => {
             }
             
             // Navigate after success (without refetch to avoid race conditions)
-            setTimeout(() => {
-              router.push("/dashboard/buyer/rfq-management");
-            }, 500);
+            // setTimeout(() => {
+            //   router.push("/dashboard/buyer/rfq-management");
+            // }, 500);
+            fetchInitialData();
           } else {
             console.error("Update failed:", response);
             toast.error(response?.message || "Failed to update RFQ. Please check the form and try again.");
@@ -421,7 +518,12 @@ const EditRFQ = () => {
           } else {
             toast.error("Failed to update RFQ. Please check form fields and try again.");
           }
-        });
+        }).finally(() => 
+          setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 10)
+      );
+        
     } catch (error) {
       setLoading(false);
       console.error("Error in handleUpdateRFQ:", error);
@@ -429,104 +531,275 @@ const EditRFQ = () => {
     }
   };
 
+  const handleSelectProduct = (product) => {
+    setProductAddData(prev => ({
+      ...prev,
+      variant_id: product.variant_id,
+    }))
+    setSelectedProduct({
+      product,
+      vendors: [],
+    })
+    setShowAddProductModal(false);
+    setShowAddVendorForProductModal(true);
+  }
+
+  const handleAddVendorForProduct = (vendor) => {
+    console.log(vendor)
+    setProductAddData(prev => ({
+      ...prev,
+      vendors: [...prev.vendors, vendor.id]
+    }))
+  }
+
+  const handleAddProduct = async () => {
+    if(!rfqData || !rfqData.id) return;
+
+    const payload = {
+      rfqId: rfqData.id,
+      ...productAddData
+    }
+
+    const {data} = await addProductToExistingRfq(payload)
+    await fetchInitialData()
+    toast.success(`Product added ${productAddData.vendors.length > 0 ? 'with' : 'without'} vendors`)
+    setProductAddData({
+      variant_id: -1,
+      vendors: [],
+    })
+    // setUpdatableData(prev => ({
+    //   ...prev,
+    //   products: {
+    //     ...prev.products,
+    //     addable: [...prev.products.addable, data.rfqProductId]
+    //   }
+    // }))
+    setShowAddVendorForProductModal(false)
+  }
+
 
   // Render product table
-  const renderProductTable = () => {
+  const renderDeletedProductsTable = () => {
     
-    if (!rfqProductsFromStore || rfqProductsFromStore.length === 0) {
-      return (
-        <div className="alert alert-info">
-          No products found for this RFQ. Products cannot be added in edit mode.
-        </div>
-      );
+    if (!updatableData.products?.deletable || updatableData.products?.deletable.length === 0) {
+      return;
     }
     
     return (
-      <div className="details-table">
-      <div className="table-responsive">
-        <table className="table table-striped">
-          <thead>
-            <tr>
-              <th>Name Of Product</th>
-              <th>Size & Specifications</th>
-              <th>Quantity</th>
-              <th>Current Lowest</th>
-              <th>TDS</th>
-              <th>QAP</th>
-              <th>Comments</th>
-              <th>Selected Vendors</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rfqProductsFromStore && rfqProductsFromStore.length > 0 ? (
-              rfqProductsFromStore.map((product, index) => {
-                return (
-                  <tr key={`product-${index}`}>
-                    <td>{product.product_details?.[0]?.name || "---"}</td>
-                    <td>
-                        <div className="size-specification">
-                          Size: {product.size || "---"}<br />
-                          Spec: {product.product_specs?.map(s => `${s.title}: ${s.value}`).join(", ") || "---"}
-                        </div>
-                    </td>
-                    <td>
-                      {(() => {
-                        // Try to extract from the spec text that's visible in the UI
-                        const specText = product.product_specs?.map(s => `${s.title}: ${s.value}`).join(", ") || "";
-                        
-                        // Look for Quantity: X pattern in the spec text
-                        const quantityMatch = specText.match(/Quantity:\s*(\d+)/i);
-                        const quantity = quantityMatch ? quantityMatch[1] : null;
-                        
-                        // Look for Unit: X pattern in the spec text
-                        const unitMatch = specText.match(/Unit:\s*(\w+)/i);
-                        const unit = unitMatch ? unitMatch[1] : "NB";
-                        
-                        // If we found quantity and unit in the text, use them
-                        if (quantity && unit) {
-                          return `${quantity}-${unit}`;
-                        }
-                                                    
-                        // Try extracting from original spec array if available
-                        const quantitySpec = product.spec?.find(s => s.title === "Quantity");
-                        const unitSpec = product.spec?.find(s => s.title === "Unit");
-                        
-                        if (quantitySpec?.value && unitSpec?.value) {
-                          return `${quantitySpec.value}-${unitSpec.value}`;
-                        }
-                        
-                        // Fallback to product quantity and hardcoded unit if spec not available
-                        return product.quantity ? `${product.quantity}-${product.unit || "NB"}` : "---";
-                      })()}
-                    </td>
-                    <td>{product.lowest_price || "---"}</td>
-                    <td>{product.datasheet_file?.length > 0 ? "Available" : "N/A"}</td>
-                    <td>{product.qap_file?.length > 0 ? "Available" : "N/A"}</td>
-                    <td>{product.comment || "---"}</td>
-                    <td>
-                      {product.vendor_details?.length > 0 ? (
-                        <div className="view-selected-vendors">
-                              <a 
-                            href={`/dashboard/buyer/rfq-management-vendor?type=buyer-view&vendors=${product.vendor_details.map(vendor => vendor.user_id).join(',')}&productid=${product.product_id}&variant=${product.variant}`}
-                            className="page-link"
-                              >
-                            View
-                              </a>
-                        </div>
-                      ) : (
-                          <span className="text-muted">None</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
+      <div className="details-table mt-4">
+        <div className="table-responsive">
+          <h4>Deleted Products</h4>
+          <table className="border">
+            <thead>
               <tr>
-                  <td colSpan="8" className="text-center">No products found</td>
+                <th>Name Of Product</th>
+                <th>Size & Specifications</th>
+                <th>Quantity</th>
+                <th>TDS</th>
+                <th>QAP</th>
+                <th>Comments</th>
+                <th>Action</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(
+                products.filter((product) =>
+                  updatableData.products?.deletable?.includes(product.id)
+                ) ?? []
+              ).length > 0 ? (
+                products
+                  .filter((product) =>
+                    updatableData.products?.deletable?.includes(product.id)
+                  )
+                  .map((product, index) => {
+                    return (
+                      <tr key={`product-${index}`}>
+                        <td>{product.product_details?.[0]?.name || "---"}</td>
+                        <td>
+                          <div className="size-specification">
+                            Size: {product.size || "---"}
+                            <br />
+                            Spec:{" "}
+                            {product.product_specs
+                              ?.map((s) => `${s.title}: ${s.value}`)
+                              .join(", ") || "---"}
+                          </div>
+                        </td>
+                        <td>
+                          {(() => {
+                            // Try to extract from the spec text that's visible in the UI
+                            const specText =
+                              product.product_specs
+                                ?.map((s) => `${s.title}: ${s.value}`)
+                                .join(", ") || "";
+
+                            // Look for Quantity: X pattern in the spec text
+                            const quantityMatch =
+                              specText.match(/Quantity:\s*(\d+)/i);
+                            const quantity = quantityMatch
+                              ? quantityMatch[1]
+                              : null;
+
+                            // Look for Unit: X pattern in the spec text
+                            const unitMatch = specText.match(/Unit:\s*(\w+)/i);
+                            const unit = unitMatch ? unitMatch[1] : "NB";
+
+                            // If we found quantity and unit in the text, use them
+                            if (quantity && unit) {
+                              return `${quantity}-${unit}`;
+                            }
+
+                            // Try extracting from original spec array if available
+                            const quantitySpec = product.spec?.find(
+                              (s) => s.title === "Quantity"
+                            );
+                            const unitSpec = product.spec?.find(
+                              (s) => s.title === "Unit"
+                            );
+
+                            if (quantitySpec?.value && unitSpec?.value) {
+                              return `${quantitySpec.value}-${unitSpec.value}`;
+                            }
+
+                            // Fallback to product quantity and hardcoded unit if spec not available
+                            return product.quantity
+                              ? `${product.quantity}-${product.unit || "NB"}`
+                              : "---";
+                          })()}
+                        </td>
+                        <td>
+                          {product.datasheet_file?.length > 0
+                            ? "Available"
+                            : "N/A"}
+                        </td>
+                        <td>
+                          {product.qap_file?.length > 0 ? "Available" : "N/A"}
+                        </td>
+                        <td>{product.comment || "---"}</td>
+                        <td>
+                          <button
+                            onClick={() => {
+                              setUpdatableData((prev) => ({
+                                ...prev,
+                                products: {
+                                  ...prev.products,
+                                  deletable: (
+                                    prev.products?.deletable ?? []
+                                  ).filter(
+                                    (productId) => productId != product.id
+                                  ),
+                                },
+                              }));
+                            }}
+                            className="default-btn"
+                          >
+                            Restore
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+              ) : (
+                <tr>
+                  <td colSpan="8" className="text-center">
+                    No products found
+                  </td>
+                </tr>
+              )}
+              <ViewVendorModal
+                productData={selectedProduct}
+                updatableData={updatableData}
+                isOpen={showVendorModal}
+                onClose={() => setShowVendorModal(false)}
+                onAdd={(item) =>
+                  setUpdatableData((prev) => ({
+                    ...prev,
+                    vendors: {
+                      ...prev.vendors,
+                      [selectedProduct.product.id]: {
+                        ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                          product_id: selectedProduct.product.product_id,
+                          variant: selectedProduct.product.variant,
+                        }),
+                        deletable: [
+                          ...(prev.vendors?.[selectedProduct.product.id]
+                            ?.deletable ?? []),
+                          item.user_id,
+                        ],
+                      },
+                    },
+                  }))
+                }
+                onRemove={(item) =>
+                  setUpdatableData((prev) => ({
+                    ...prev,
+                    vendors: {
+                      ...prev.vendors,
+                      [selectedProduct.product.id]: {
+                        ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                          product_id: selectedProduct.product.product_id,
+                          variant: selectedProduct.product.variant,
+                        }),
+                        deletable: (
+                          prev.vendors?.[selectedProduct.product.id]?.deletable ??
+                          []
+                        ).filter(
+                          (deletableVendorId) => deletableVendorId != item.user_id
+                        ),
+                      },
+                    },
+                  }))
+                }
+              />
+              <AddVendorModal
+                headerTitle={`Add Vendor in ${selectedProduct?.product?.name}`}
+                vendors={vendors}
+                productData={selectedProduct}
+                updatableData={updatableData}
+                isOpen={showAddVendorModal}
+                onClose={() => setShowAddVendorModal(false)}
+                onAdd={(item) =>
+                  setUpdatableData((prev) => ({
+                    ...prev,
+                    vendors: {
+                      ...prev.vendors,
+                      [selectedProduct.product.id]: {
+                        ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                          product_id: selectedProduct.product.product_id,
+                          variant: selectedProduct.product.variant,
+                        }),
+                        addable: [
+                          ...(prev.vendors?.[selectedProduct.product.id]
+                            ?.addable ?? []),
+                          item.id,
+                        ],
+                      },
+                    },
+                  }))
+                }
+                onRemove={(item) =>
+                  setUpdatableData((prev) => ({
+                    ...prev,
+                    vendors: {
+                      ...prev.vendors,
+                      [selectedProduct.product.id]: {
+                        ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                          product_id: selectedProduct.product.product_id,
+                          variant: selectedProduct.product.variant,
+                        }),
+                        addable: (
+                          prev.vendors?.[selectedProduct.product.id]?.addable ??
+                          []
+                        ).filter(
+                          (deletableVendorId) => deletableVendorId != item.id
+                        ),
+                      },
+                    },
+                  }))
+                }
+              />
+            </tbody>
+          </table>
         </div>
       </div>
     );
@@ -594,11 +867,13 @@ const EditRFQ = () => {
 
       <div className="container-fluid">
         {/* Products table */}
-        <div className="card mb-4">
-          <div className="card-header bg-light">
-            <h5 className="mb-0">RFQ #{rfqData?.rfq_no} details</h5>
+        <div style={{
+          borderRadius: 0
+        }} className="mb-4">
+          <div className="mb-3">
+            <h4 className="mb-0">RFQ #{rfqData?.rfq_no} details</h4>
           </div>
-          <div className="card-body p-0">
+          {/* <div className="p-0">
             {rfqLoading ? (
               <div className="text-center p-4">
                 <Loader size="sm" />
@@ -607,7 +882,223 @@ const EditRFQ = () => {
             ) : (
               renderProductTable()
             )}
+          </div> */}
+
+          <div
+            className=""
+            style={{
+              height: "fit-content",
+              background: "#ffffa",
+              border: "2px solid #CCCCCC",
+              borderRadius: "10px",
+              padding: "10px",
+            }}
+          >
+            <Accordion flush defaultActiveKey="">
+              {rfqData.products &&
+                rfqData.products.length > 0 &&
+                rfqData.products.filter(product => !updatableData.products?.deletable?.includes(product.id)).map((product) => {
+                  return (
+                    <Item
+                      // vendorApprovedList={vendorApprovedList}
+                      data={(() => {
+                        const productObj = product;
+                        const updatedObj = {
+                          ...productObj,
+                          spec: productObj.product_specs,
+                        };
+
+                        delete updatedObj.product_specs;
+
+                        return updatedObj;
+                      })()}
+                      rfq_id={rfqData.id}
+                      setHasUnsavedChanges={setHasUnsavedChanges}
+                      getDraftInitialData={fetchInitialData}
+                      saveDraft={() => console.log("SAVINGGG")}
+                      onSpecValueChange={(change) => {
+                        setRfqData((prev) => ({
+                          ...prev,
+                          products: prev.products.map((product) =>
+                            product.product_id == change.product_id
+                              ? {
+                                  ...product,
+                                  product_specs: !product?.product_specs
+                                    ? [
+                                        {
+                                          title: 'variant',
+                                          value: product.variant,
+                                        },
+                                        {
+                                          title: change.title,
+                                          value: change.value,
+                                        },
+                                      ]
+                                    : !product.product_specs.find(
+                                        (spec) => spec.title == change.title
+                                      )
+                                    ? [
+                                        ...product.product_specs,
+                                        {
+                                          title: change.title,
+                                          value: change.value,
+                                        },
+                                      ]
+                                    : product.product_specs.map((spec) =>
+                                        spec.title == change.title
+                                          ? { ...spec, value: change.value }
+                                          : spec
+                                      ),
+                                }
+                              : product
+                          ),
+                        }));
+                        setUpdatableData(prev => ({
+                          ...prev,
+                          products: {
+                            ...prev.products,
+                            updatable: {
+                              ...(prev.products.updatable),
+                              specs: {
+                                ...(prev.products.updatable?.specs ?? {}),
+                                [product.id]: {
+                                  ...(prev.products.updatable?.specs?.[product.id] ?? {
+                                    product_id: product.product_id,
+                                    variant: product.variant,
+                                  }),
+                                  [change.title]: change.value,
+                                }
+                              }
+                            }
+                          }
+                        }))
+                      }}
+                      onFilesChange={(change) => {
+                        console.log("CHANGE --- ", change);
+                        setRfqData((prev) => ({
+                          ...prev,
+                          products: prev.products.map((product) =>
+                            product.product_id == change.product_id
+                              ? {
+                                  ...product,
+                                  [change.type]: change.value
+                                }
+                              : product
+                          ),
+                        }));
+                        setUpdatableData(prev => ({
+                          ...prev,
+                          products: {
+                            ...prev.products,
+                            updatable: {
+                              ...prev.products.updatable,
+                              files: {
+                                ...(prev.products.updatable?.files ?? {}),
+                                [product.id]: {
+                                  ...(prev.products.updatable?.files?.[product.id] ?? {
+                                    product_id: product.product_id,
+                                    variant: product.variant,
+                                  }),
+                                  [change.type]: change?.value.length > 0 ? change.value[0] : 'rm',
+                                }
+                              }
+                            }
+                          }
+                        }))
+                      }}
+                      onCommentChange={(change) => {
+                        setRfqData((prev) => ({
+                          ...prev,
+                          products: prev.products.map((product) =>
+                            product.product_id == change.product_id
+                              ? {
+                                  ...product,
+                                  comment: change.value
+                                }
+                              : product
+                          ),
+                        }));
+                        setUpdatableData(prev => ({
+                          ...prev,
+                          products: {
+                            ...prev.products,
+                            updatable: {
+                              ...prev.products.updatable,
+                              comment: {
+                                ...(prev.products.updatable?.comment ?? {}),
+                                [product.id]: {
+                                  ...(prev.products.updatable?.comment?.[product.id] ?? {
+                                    product_id: product.product_id,
+                                    variant: product.variant,
+                                  }),
+                                  comment: change.value,
+                                }
+                              }
+                            }
+                          }
+                        }))
+                      }}
+                      onClauseChange={(change) => {
+                        setUpdatableData(prev => ({
+                          ...prev,
+                          products: {
+                            ...prev.products,
+                            updatable: {
+                              ...prev.products.updatable,
+                              techEval: {
+                                ...(prev.products.updatable?.techEval ?? {}),
+                                [product.id]: {
+                                  ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                                    product_id: product.product_id,
+                                    variant: product.variant,
+                                  }),
+                                  techEval: [...(prev.products.updatable?.techEval?.[product.id]?.techEval ?? []), change.action],
+                                }
+                              }
+                            }
+                          }
+                        }))
+                      }}
+                      handleViewVendorInEdit={() => {
+                        setShowVendorModal(true);
+                        setSelectedProduct({
+                          product,
+                          vendors: product.vendor_details,
+                        });
+                      }}
+                      handleAddVendorInEdit={() => {
+                        setShowAddVendorModal(true);
+                        setSelectedProduct({
+                          product,
+                          vendors: product.vendor_details,
+                        });
+                      }}
+                      handleRemoveProductInEdit={(data) => {
+                        setUpdatableData((prev) => ({
+                          ...prev,
+                          products: {
+                            ...prev.products,
+                            deletable: [
+                              ...(prev.products?.deletable ?? []),
+                              data.id,
+                            ],
+                          },
+                        }));
+                      }}
+                      type="edit"
+                    />
+                  );
+                })}
+            </Accordion>
           </div>
+          {renderDeletedProductsTable()}
+        </div>
+        <div className="mb-4 d-flex justify-content-end">
+          <button
+            onClick={() => setShowAddProductModal(true)}
+            className="btn btn-primary btn-sm">
+            Add A Product
+          </button>
         </div>
 
         {initialDataLoaded ? (
@@ -620,7 +1111,8 @@ const EditRFQ = () => {
               response_email: rfqFormDataFromStore.response_email || "",
               location: rfqData.location || " ", // Use original location with non-empty fallback
               bid_end_date: rfqFormDataFromStore.bid_end_date || "",
-              comment: rfqFormDataFromStore.comment || ""
+              comment: rfqFormDataFromStore.comment || "",
+              rfq_type: rfqFormDataFromStore.rfq_type || "",
             }}
             validationSchema={EditRFQSchema}
             enableReinitialize={true}
@@ -822,18 +1314,23 @@ const EditRFQ = () => {
                         {/* RFQ Type */}
                         <div className="mb-3">
                           <label className="form-label fw-medium">RFQ Type  </label>
-                          <input
-                            type="text"
-                            className="form-control bg-light"
-                            value={
-                              (() => {
-                                const type = rfqData?.rfq_type;
-                                if (type === "firm") return "Firm";
-                                if (type === "budgetary") return "Budgetary";
-                                return type || "Not specified";
-                              })()
-                            }
-                            disabled
+                          <Select
+                            options={rfqTypes}
+                            value={(() => {
+                              if (!rfqFormDataFromStore.rfq_type) return null;
+                              const rfqType = rfqFormDataFromStore.rfq_type;
+                              const match = rfqTypes.find(p => p.value === rfqType);
+                              return match || null;
+                            })()}
+                            onChange={(selectedOption) => {
+                              const rfqType = selectedOption ? selectedOption.value : null;
+                              dispatch(setOtherFormFields({ rfq_type: rfqType }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            placeholder="Select Rfq Type"
+                            className="basic-select"
+                            classNamePrefix="select"
+                            isClearable={true}
                           />
                         </div>
                       </div>
@@ -842,31 +1339,75 @@ const EditRFQ = () => {
                         {/* Reverse Auction */}
                         <div className="mb-3">
                           <label className="form-label fw-medium">Reverse Auction</label>
-                          <input
-                            type="text"
-                            className="form-control bg-light"
-                            value={
-                              (() => {
-                                const ra = rfqData?.reverse_auction;
-                                return (ra === 1 || ra === true || ra === "1") ? "Enabled" : "Disabled";
-                              })()
-                            }
-                            disabled
+                          <Select
+                            options={binaryType}
+                            value={(() => {
+                              const reverseAuction = parseInt(rfqFormDataFromStore.reverse_auction);
+                              const match = binaryType.find(p => p.value == reverseAuction);
+                              return match ?? null;
+                            })()}
+                            onChange={(selectedOption) => {
+                              const reverseAuction = selectedOption ? parseInt(selectedOption.value) : null;
+                              dispatch(setOtherFormFields({ reverse_auction: reverseAuction }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            placeholder="Select Reverse Auction"
+                            className="basic-select"
+                            classNamePrefix="select"
+                            isClearable={true}
                           />
                         </div>
                       </div>
+
+                      {
+                        !!rfqFormDataFromStore.reverse_auction && parseInt(rfqFormDataFromStore.reverse_auction) && (
+                          <>
+                            <div className="col-md-6">  
+                              <div className="mb-3">
+                                <label className="form-label fw-medium">Auction Start Date & Time</label>
+                                <input
+                                  type="datetime-local"
+                                  name="ra_start_date"
+                                  className="form-control"
+                                  value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)}
+                                  onChange={handleFormFieldChange}
+                                  min={rfqFormDataFromStore.bid_end_date
+                                    ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
+                                    : new Date().toISOString().slice(0, 16)
+                                  }
+                                />
+                              </div>
+                            </div>  
+                            <div className="col-md-6">  
+                              <div className="mb-3">
+                                <label className="form-label fw-medium">Auction End Date & Time</label>
+                                <input
+                                  type="datetime-local"
+                                  name="ra_end_date"
+                                  className="form-control"
+                                  value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_end_date)}
+                                  onChange={handleFormFieldChange}
+                                  min={rfqFormDataFromStore.ra_start_date
+                                    ? formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)
+                                  : ""}
+                                  disabled={!rfqFormDataFromStore.ra_start_date}
+                                />
+                              </div>
+                            </div>  
+                          </>
+                        )
+                      }
 
                       {/* Delivery Location - Full Width - Now Read Only */}
                       <div className="col-12">
                         <div className="mb-3">
                           <label className="form-label fw-medium">Delivery Location  </label>
-                          <textarea
-                            className="form-control bg-light"
+                          <input
+                            type="text"
                             name="location"
-                            rows="3"
-                            value={rfqData.location || " "} // Always use original location with non-empty fallback
-                            onChange={handleChange}
-                            disabled
+                            className="form-control"
+                            value={rfqFormDataFromStore.location}
+                            onChange={handleFormFieldChange}
                           />
                         </div>
                       </div>
@@ -938,23 +1479,32 @@ const EditRFQ = () => {
                 </div>
 
                 <div className="d-flex justify-content-between mb-4">
-                  <button
-                    type="submit" 
-                    className="btn btn-success px-4" 
-                    disabled={storeLoading || loading}
-                    onClick={(e) => {
-                      // Ensure form validation is triggered
-                      if (Object.keys(errors).length > 0) {
-                        // Display validation errors to user
-                        Object.keys(errors).forEach(key => {
-                          toast.error(`${key}: ${errors[key]}`);
-                        });
-                        e.preventDefault();
-                      }
-                    }}
-                  >
-                    {storeLoading || loading ? "Updating..." : "Update RFQ"}
-                  </button>
+                  <div className="d-flex flex-column">
+                    <button
+                      type="submit" 
+                      className="btn btn-success px-4" 
+                      disabled={storeLoading || loading}
+                      onClick={(e) => {
+                        // Ensure form validation is triggered
+                        if (Object.keys(errors).length > 0) {
+                          // Display validation errors to user
+                          Object.keys(errors).forEach(key => {
+                            toast.error(`${key}: ${errors[key]}`);
+                          });
+                          e.preventDefault();
+                        }
+                        if(!isUpdateConfirm && updatableData.products.deletable.length > 0) {
+                          setIsUpdateConfirm(true);
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      {storeLoading || loading ? "Updating..." : "Update RFQ"}
+                    </button>
+                    {isUpdateConfirm && (
+                      <span className="text-danger mt-2">Updation have deletable products,<br/>click again to confirm.</span>
+                    )}
+                  </div>
                     <button
                       type="button"
                     className="btn btn-danger px-4"
@@ -979,6 +1529,130 @@ const EditRFQ = () => {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <ViewVendorModal
+        productData={selectedProduct}
+        updatableData={updatableData}
+        setUpdatableData={setUpdatableData}
+        isOpen={showVendorModal}
+        onClose={() => setShowVendorModal(false)}
+        onAdd={(item) =>
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: [
+                  ...(prev.vendors?.[selectedProduct.product.id]
+                    ?.deletable ?? []),
+                  item.user_id,
+                ],
+              },
+            },
+          }))
+        }
+        onRemove={(item) =>
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: (
+                  prev.vendors?.[selectedProduct.product.id]?.deletable ??
+                  []
+                ).filter(
+                  (deletableVendorId) => deletableVendorId != item.user_id
+                ),
+              },
+            },
+          }))
+        }
+      />
+      <AddVendorModal
+        headerTitle={`Add Vendor in ${selectedProduct?.product?.name}`}
+        vendors={vendors}
+        productData={selectedProduct}
+        updatableData={updatableData}
+        isOpen={showAddVendorModal}
+        onClose={() => setShowAddVendorModal(false)}
+        onAdd={(item) =>
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: [
+                  ...(prev.vendors?.[selectedProduct.product.id]
+                    ?.addable ?? []),
+                  item.id,
+                ],
+              },
+            },
+          }))
+        }
+        onRemove={(item) =>
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: (
+                  prev.vendors?.[selectedProduct.product.id]?.addable ??
+                  []
+                ).filter(
+                  (deletableVendorId) => deletableVendorId != item.id
+                ),
+              },
+            },
+          }))
+        }
+        addedVendorsList={(updatableData?.vendors?.[
+          selectedProduct?.product?.id
+        ]?.addable) ?? []}
+      />
+
+      {/* This one is to add vendors to new product */}
+      <AddVendorModal
+        headerTitle={`Add Vendors for ${selectedProduct?.product?.variant_name ?? "-"}`}
+        vendors={vendors}
+        productData={selectedProduct}
+        updatableData={updatableData}
+        isOpen={showAddVendorForProductModal}
+        onClose={() => setShowAddVendorForProductModal(false)}
+        onAdd={handleAddVendorForProduct}
+        onRemove={(item) => setProductAddData(prev => ({
+          ...prev,
+          vendors: prev.vendors.filter(vendorId => vendorId != item.id)
+        }))}
+        onSubmit={handleAddProduct}
+        addedVendorsList={productAddData?.vendors ?? []}
+        submitText={"Add Product"}
+      />
+      <AddProductModal
+        headerTitle={`Add Vendors to RFQ #${rfqData.rfq_no}`}
+        rfqData={rfqData}
+        isOpen={showAddProductModal}
+        onClose={() => setShowAddProductModal(false)}
+        onAdd={handleSelectProduct}
+        updatableData={updatableData}
+      />
     </>
   );
 };

@@ -682,7 +682,7 @@ const CreateRFQ = () => {
                   </div>
 
                   {/* RFQ Products Table */}
-                  <h4>Review Variants</h4>
+                  <h4>Review Products</h4>
                   <div
                     className=""
                     style={{
