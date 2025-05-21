@@ -11,6 +11,7 @@ import _ from 'lodash';
 import { vendorConditions } from '../../vendor/search';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
+import React, { memo } from 'react';
 
 const customeStyles = {
     control: (provided) => ({
@@ -373,7 +374,7 @@ const ReviewProducts = ({
                     return (
                       <Accordion.Item
                         key={prodKey}
-                        eventKey={index}
+                        eventKey={prodKey}
                         className="border-0"
                       >
                         <div className={`border border-2 rounded-3 mb-2 p-2 ${isVariant ? 'border-primary' : ''}`}>
@@ -658,7 +659,7 @@ const ReviewProducts = ({
                                         />
                                       </div>
                                     </div>
-                                    <div className="col-md-3">
+                                    {/* <div className="col-md-3">
                                       <div>
                                         <p className="fw-medium mb-1">
                                           Vendor Approved By
@@ -689,7 +690,7 @@ const ReviewProducts = ({
                                           isSearchable
                                         />
                                       </div>
-                                    </div>
+                                    </div> */}
                                   </div>
                                 </div>
                                 <hr style={{
