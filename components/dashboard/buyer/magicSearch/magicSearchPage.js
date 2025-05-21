@@ -5,7 +5,7 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
+import { getFuturedate, formatISOToDateTimeLocal, handleFileUpload } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
 import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
