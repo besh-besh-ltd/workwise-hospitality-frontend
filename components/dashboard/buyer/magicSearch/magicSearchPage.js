@@ -481,7 +481,7 @@ const MagicSearchPage = () => {
                     if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
                         return {
                             ...item,
-                            [type]: [...item[type], filePath]
+                            [type]: [...(item?.[type] ?? []), filePath]
                         };
                     }
                     return item;
