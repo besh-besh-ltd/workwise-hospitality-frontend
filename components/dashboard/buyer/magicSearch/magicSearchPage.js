@@ -139,11 +139,11 @@ const MagicSearchPage = () => {
             setLoading(true);
             
             //  upload boq file to ai server
-            const aiResponse = await getBOQexcelToJsonAI(file);
+            // const aiResponse = await getBOQexcelToJsonAI(file);
 
-            const downloadUrl = aiResponse?.data?.download_url;
+            // const downloadUrl = aiResponse?.data?.download_url;
 
-            // const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=0b3f06af64f1ac699827a2ac33f430ab47eb243e91d22d1501eb85564d1150b5&stage=matched"
+            const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=0b3f06af64f1ac699827a2ac33f430ab47eb243e91d22d1501eb85564d1150b5&stage=matched"
 
               if (!downloadUrl) {
                 toast.error("Failed to create RFQ: Please try after few minutes.");
@@ -463,6 +463,7 @@ const MagicSearchPage = () => {
     }
 
     const handleFiles = async (type, e, prodItem, isRemove, fileLink) => {
+      console.log(reviewData)
         let editedData = [];
         if (isRemove) {
             editedData = reviewData.products.map((item) => {
@@ -481,7 +482,7 @@ const MagicSearchPage = () => {
                     if (item.product_id === prodItem.product_id && item.variant === prodItem.variant) {
                         return {
                             ...item,
-                            [type]: [...item[type], filePath]
+                            [type]: [...(item?.[type] ?? []), filePath]
                         };
                     }
                     return item;
