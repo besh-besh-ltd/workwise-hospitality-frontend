@@ -6,7 +6,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 
-export default function ProductSearchModal({ reviewData, setReviewData, formData, handleFormChange, projects }) {
+export default function ProductSearchModal({ reviewData, setReviewData, formData, sheetName, handleFormChange, projects }) {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState([]);
@@ -122,7 +122,9 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
         vendors: [vendorFromMapping],
         is_variant: product.is_variant,
         variant_id: product.variant_id,
-        mapping_id: product.mapping_id
+        mapping_id: product.mapping_id,
+        sheet_name: sheetName,
+
       };
 
       // Append new product to reviewData.products
@@ -166,7 +168,7 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
 
         // Create product object with fetched vendors
         const productObject = {
-          product_id: product.id,
+          product_id: product.product_id,
           name: product.variant_name,
           variant: highestVariant + 1,
           spec: [
@@ -195,7 +197,8 @@ export default function ProductSearchModal({ reviewData, setReviewData, formData
           })),
           is_variant: product.is_variant,
           variant_id: product.variant_id,
-          mapping_id: product.mapping_id
+          mapping_id: product.mapping_id,
+          sheet_name: sheetName,
         };
 
         // Append new product to reviewData.products without overriding existing products

@@ -5,9 +5,9 @@ import { Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
-import { getFuturedate, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
+import { getFuturedate, formatISOToDateTimeLocal, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
+import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -37,6 +37,22 @@ const initialFormData = {
     company_name: '',
 }
 
+
+    // Array of messages to display during loading
+    const fileUploadMessage = [
+        'Workwise AI is scanning your BOQ… Extracting all product details.',
+        'Analyzing specifications, sizes, and quantities with precision…',
+        'AI is matching products with the most relevant vendors…',
+        'Identifying top vendors based on your specific requirements…',
+    ];
+
+    const submitMessage = [
+        'Creating custom RFQs for each vendor—tailored to your needs…',
+        'AI is sending RFQs directly to the selected vendors…',
+        'Your AI-powered sourcing is underway… Sit back and relax!',
+        'Almost done! Workwise AI has sent your enquiries. Expect responses soon.'
+    ]
+
 const MagicSearchPage = () => {
     const tableRef = useRef(null);
     const [file, setFile] = useState(null);
@@ -50,7 +66,6 @@ const MagicSearchPage = () => {
     const [termFiles, setTermFiles] = useState([]);
 
     const [loading, setLoading] = useState(false);
-    const [termsLoading, setTermsLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [apiData, setApiData] = useState(null)
 
@@ -92,20 +107,7 @@ const MagicSearchPage = () => {
     defaultEndDate.setDate(today.getDate() + 30); // Default to 30 days ahead
 
 
-    // Array of messages to display during loading
-    const fileUploadMessage = [
-        'Workwise AI is scanning your BOQ… Extracting all product details.',
-        'Analyzing specifications, sizes, and quantities with precision…',
-        'AI is matching products with the most relevant vendors…',
-        'Identifying top vendors based on your specific requirements…',
-    ];
 
-    const submitMessage = [
-        'Creating custom RFQs for each vendor—tailored to your needs…',
-        'AI is sending RFQs directly to the selected vendors…',
-        'Your AI-powered sourcing is underway… Sit back and relax!',
-        'Almost done! Workwise AI has sent your enquiries. Expect responses soon.'
-    ]
 
     const handleMagicFileUpload = (event) => {
         const file = event.target.files[0];
@@ -135,7 +137,23 @@ const MagicSearchPage = () => {
 
         try {
             setLoading(true);
-            const response = await getMagicRFQPreview(file);
+            
+            //  upload boq file to ai server
+            const aiResponse = await getBOQexcelToJsonAI(file);
+
+            const downloadUrl = aiResponse?.data?.download_url;
+
+            // const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=0b3f06af64f1ac699827a2ac33f430ab47eb243e91d22d1501eb85564d1150b5&stage=matched"
+
+              if (!downloadUrl) {
+                toast.error("Failed to create RFQ: Please try after few minutes.");
+                setLoading(false);
+                return;
+              }
+
+            // further process json data get from ai server, to fetch vendor list and display data on ui
+            const response = await getMagicRFQPreview(downloadUrl);
+
             setApiData(response)
 
             // Delay the state update until all messages are shown
@@ -146,7 +164,7 @@ const MagicSearchPage = () => {
 
         } catch (error) {
             console.error(error)
-            toast.error(error.message?.response?.data?.message);
+            toast.error(error.message?.response?.data?.message || "not able to create RFQ: Please try after few minutes");
             setLoading(false);
         } finally {
             setFile(null);
@@ -362,7 +380,7 @@ const MagicSearchPage = () => {
         let editedData = [];
         if (type === "product") {
             editedData = reviewData.products.filter((item) =>
-                !(item.variant_id === prodItem.variant_id &&
+                !(item.product_id === prodItem.product_id &&
                     item.variant === prodItem.variant)
             );
             toast.error(prodItem.name + " - Removed Successfully!");
@@ -775,9 +793,6 @@ const MagicSearchPage = () => {
         <section className="vendor-common-header sc-pt-80">
           <div className="container-fluid text-center">
             <h1 className="heading">Magic Search</h1>
-            {/* <Link href="/vendor/all" className="page-link backBtn">
-                        <FontAwesomeIcon icon={faArrowLeft} /> Go back
-                    </Link> */}
           </div>
         </section>
 
@@ -834,8 +849,8 @@ const MagicSearchPage = () => {
                           options={sheetNameList?.map(name => ({ value: name, label: name })) || []}
                           value={globalFilters.sheetName}
                           placeholder="Sheet Name"
-                          isClearable
-                          isSearchable
+                          // isClearable
+                          // isSearchable
                           onChange={(newValue, action) => {
                             handleFilterChange(newValue, { name: 'sheetName' }, false);
                           }}
@@ -948,7 +963,7 @@ const MagicSearchPage = () => {
                         </div>
                       </div>
                       <div className="col-md-3">
-                        <div>
+                        {/* <div>
                           <p className="fw-medium mb-1">Vendor Approved By</p>
                           <Select
                             options={approved_by ? approved_by.map(item => ({
@@ -963,7 +978,7 @@ const MagicSearchPage = () => {
                             isClearable
                             isSearchable
                           />
-                        </div>
+                        </div> */}
                       </div>
                     </div>
                   </div>
@@ -975,6 +990,7 @@ const MagicSearchPage = () => {
                           reviewData={reviewData}
                           setReviewData={setReviewData}
                           formData={formData}
+                          sheetName={globalFilters?.sheetName?.value}
                           handleFormChange={handleFormChange}
                           projects={projects}
                         />
@@ -1003,10 +1019,7 @@ const MagicSearchPage = () => {
               {termList && (
                 <div className=" mt-4">
                   <h3 className="h5">Suggested Terms</h3>
-                  {termsLoading ? (
-                    <FullLoader />
-                  ) : (
-                    termList && (
+
                       <ul className="list-group">
                         {termList.map((item, index) => {
                           return (
@@ -1034,8 +1047,7 @@ const MagicSearchPage = () => {
                           );
                         })}
                       </ul>
-                    )
-                  )}
+                    
                 </div>
               )}
 

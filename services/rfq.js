@@ -2,6 +2,10 @@ import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
 import axios from "axios";
 
+// This is the base URL for the AI server
+  const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL;
+
+
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -256,12 +260,29 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
-export const getMagicRFQPreview = (file) => {
-  let payload = {};
-  payload.file = file;
+
+/* 
+START :: AI server functions 
+*/
+
+// mart of magic serach boq to rfq, accept boq excel and return a json file url
+export const getBOQexcelToJsonAI = (file) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  
+
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(`/rfq/magic-search-rfq-preview`, payload);
+      const response = await axios.post(
+        `${aiServerBaseURL}/boq_to_structured_boq_and_match`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data", 
+          },
+        }
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -270,18 +291,50 @@ export const getMagicRFQPreview = (file) => {
 };
 
 
+
+//  accept a unstructure boq excel and return a structure boq excel url
 export const getSImplifiedVersionOfBOQ = (file) => {
-  let payload = {};
-  payload.file = file;
-  return new Promise(async (resolve, reject) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  
+
+
+    return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosFormData.post(`/rfq/boq/process-and-download`, payload);
+      const response = await axios.post(
+        `${aiServerBaseURL}/boq_to_structured_boq`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",  
+          },
+        }
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
     }
   });
 };
+
+
+/* 
+ END :: AI server functions 
+*/
+
+export const getMagicRFQPreview = (jsonFileUrl) => {
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, {jsonFileUrl:jsonFileUrl});
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 
 export const getPastRFQS = (id) => {
   return new Promise(async (resolve, reject) => {
