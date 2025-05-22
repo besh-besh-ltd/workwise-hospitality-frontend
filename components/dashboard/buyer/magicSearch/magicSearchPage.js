@@ -463,7 +463,6 @@ const MagicSearchPage = () => {
     }
 
     const handleFiles = async (type, e, prodItem, isRemove, fileLink) => {
-      console.log(reviewData)
         let editedData = [];
         if (isRemove) {
             editedData = reviewData.products.map((item) => {
