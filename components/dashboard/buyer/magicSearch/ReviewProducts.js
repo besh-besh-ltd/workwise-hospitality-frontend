@@ -558,10 +558,7 @@ const ReviewProducts = ({
                                           options={[
                                             {
                                               label: "All Vendors",
-                                              value: {
-                                                is_private: 0,
-                                                is_linked_with_buyer: 0,
-                                              },
+                                              value: null
                                             },
                                             {
                                               label: "Private Vendors",
