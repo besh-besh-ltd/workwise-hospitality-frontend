@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -29,6 +29,7 @@ import { getCountryCodes } from "@/services/cms";
 
 const CreateRFQ = () => {
   const router = useRouter();
+  const { draft_id } = router.query;
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
@@ -37,6 +38,7 @@ const CreateRFQ = () => {
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
+  const [draftRfqId, setDraftRfqId] = useState(draft_id ? parseInt(draft_id) : -1);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -498,9 +500,16 @@ const CreateRFQ = () => {
     dispatch(clearState());
     dispatch(setStoreLoading(true));
     try {
-      const draftRes = await getDraftData();
+      // If a draft_id is provided in the URL, load that specific draft
+      let draftRes;
+      if (draftRfqId && draftRfqId !== -1) {
+        draftRes = await getDraftById(draftRfqId);
+        // Set the title to indicate we're editing a draft
+        document.title = `Edit Draft RFQ #${draftRfqId}`;
+      } else {
+        draftRes = await getDraftData();
+      }
 
-      
       if (draftRes?.data?.rfq_form_data?.contact_number) {
         let fullContactNumber = draftRes?.data?.rfq_form_data?.contact_number?.trim();
         let extractedCountryCode = "";
@@ -540,6 +549,14 @@ const CreateRFQ = () => {
     fetchCountryCodes();
 
   }, []);
+
+  // Watch for changes in the draft_id from URL
+  useEffect(() => {
+    if (draft_id) {
+      setDraftRfqId(parseInt(draft_id));
+      getDraftInitialData();
+    }
+  }, [draft_id]);
 
   // Add a useEffect to set the company name in the store when userProfile is loaded
   useEffect(() => {
@@ -657,7 +674,10 @@ const CreateRFQ = () => {
             <div className="details-table mt-0">
               {!loading && rfqProducts.length == 0 ? (
                 <div className="text-center">
-                  <Link href="/vendor/all" className="btn btn-primary">
+                  <Link
+                    href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ''}`}
+                    className="btn btn-primary"
+                  >
                     Add Products
                   </Link>
                 </div>
@@ -712,7 +732,10 @@ const CreateRFQ = () => {
                   </div>
 
                   <div className="float-end addmore mt-4 ">
-                    <Link href="/vendor/all" className="me-2">
+                    <Link
+                      href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ''}`}
+                      className="me-2"
+                    >
                       Add More Products
                     </Link>
                   </div>
