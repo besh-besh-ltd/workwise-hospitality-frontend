@@ -300,11 +300,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     try {
       setIsLoading(true);
 
+      // Get the rfq_id from the URL if it exists
+      const { rfq_id } = router.query;
+
       const payload = {
         variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
-        }))
+        })),
+        // Include rfq_id in the payload if it exists
+        ...(rfq_id && { rfq_id: parseInt(rfq_id) })
       };
 
       await addProductToDraft(payload);
@@ -423,8 +428,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setloading(false)
         setIsOpen(false);
 
-        // Update the URL to include the selected product's name
-        const newUrl = `/vendor/${cleanAndAddHyphen(category_name)}`;
+        // Get the rfq_id from the URL if it exists
+        const { rfq_id } = router.query;
+
+        // Update the URL to include the selected product's name and preserve rfq_id if it exists
+        const categorySlug = cleanAndAddHyphen(category_name);
+        const newUrl = rfq_id
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
+          : `/vendor/${categorySlug}`;
+
         window.history.pushState(null, null, newUrl);
 
       })
@@ -523,8 +535,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
     tempProdRef.current = null;
 
-    // Update the URL to include the selected product's slug
-    router.push(`/vendor/${item.slug ?? item.variant_name.replace(' ', '_').toLowerCase()}`);
+    // Get the rfq_id from the URL if it exists
+    const { rfq_id } = router.query;
+
+    // Update the URL to include the selected product's slug and preserve rfq_id if it exists
+    const productSlug = item.slug ?? item.variant_name.replace(' ', '_').toLowerCase();
+    const newUrl = rfq_id
+      ? `/vendor/${productSlug}?rfq_id=${rfq_id}`
+      : `/vendor/${productSlug}`;
+
+    router.push(newUrl);
     storageInstance.setStorage("product_name", slug);
   };
 
@@ -566,7 +586,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setcurrentSelectedProduct(null);
     setCat_id(null);
     setSearch_key("");
-    router.push(`/vendor/all`);
+
+    // Get the rfq_id from the URL if it exists
+    const { rfq_id } = router.query;
+
+    // Preserve rfq_id when clearing search
+    const newUrl = rfq_id
+      ? `/vendor/all?rfq_id=${rfq_id}`
+      : `/vendor/all`;
+
+    router.push(newUrl);
     storageInstance.setStorage("product_name", "all");
   }
 

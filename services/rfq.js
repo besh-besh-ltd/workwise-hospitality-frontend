@@ -96,6 +96,30 @@ export const getDraftData = () => {
   });
 };
 
+export const getDraftById = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/draft/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getDraftRFQs = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // This will be implemented when backend is ready
+      // For now, we'll simulate this with client-side state
+      let response = await axiosInstance.post(`/rfq/get-draft-rfqs`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const saveDraft = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
