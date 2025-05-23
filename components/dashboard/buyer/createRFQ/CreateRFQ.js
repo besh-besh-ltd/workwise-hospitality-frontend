@@ -488,7 +488,17 @@ const CreateRFQ = () => {
         { position: "top-right" }
       );
       setHasUnsavedChanges(false);
-      getDraftInitialData();
+      
+      // Changes by Agnij 2025-06-17 [Improved state cleanup and redirect]
+      // Clear state and URL parameters
+      dispatch(clearState());
+      // Use router.push with the replace option to prevent back navigation to this page
+      router.push({
+        pathname: '/dashboard/buyer/rfq-management',
+        query: { tab: 'draft-rfqs' }
+      }, undefined, { shallow: false }).then(() => {
+        router.reload();
+      });
     } catch (error) {
       console.error("Error saving draft:", error);
       setMainLoading(false);
@@ -503,20 +513,13 @@ const CreateRFQ = () => {
       // If a draft_id is provided in the URL, load that specific draft
       let draftRes;
       
-      // Changes by Agnij 2025-05-24 [Added debug logs]
-      console.log("Draft ID from URL:", draftRfqId);
-      
       if (draftRfqId && draftRfqId !== -1) {
-        console.log("Fetching draft with ID:", draftRfqId);
         draftRes = await getDraftById(draftRfqId);
-        console.log("Draft data response:", draftRes);
         // Set the title to indicate we're editing a draft
         document.title = `Edit Draft RFQ #${draftRfqId}`;
       } else {
         // Changes by Agnij 2025-06-17 [Using fresh=true to always create a new RFQ when opening the Create RFQ page]
-        console.log("Creating a fresh RFQ draft");
         draftRes = await getDraftData(true);
-        console.log("Fresh draft data:", draftRes);
         // Set the title to indicate we're creating a new RFQ
         document.title = "Create New RFQ";
       }
@@ -537,19 +540,15 @@ const CreateRFQ = () => {
         draftRes.data.rfq_form_data.country_code = extractedCountryCode; // Add extracted country code
     
         // **Pass modified draftRes to the function that sets RFQ data**
-        console.log("Initializing RFQ with data:", draftRes.data);
         dispatch(intializeRfq(draftRes.data));
         setonecountrycode(extractedCountryCode);
       }
       else{
-        console.log("Initializing RFQ with data (no contact number):", draftRes.data);
         dispatch(intializeRfq(draftRes.data));
       }
       getTermsData();
 
     } catch (error) {
-      console.error("Error loading draft data:", error);
-      // Changes by Agnij 2025-06-17 [Improved error handling with toast notifications]
       toast.error(error.message || "Error loading draft RFQ");
     } finally {
       dispatch(setStoreLoading(false));
@@ -560,15 +559,38 @@ const CreateRFQ = () => {
     getProfileDetails();
     getVendorApproveList();
     getAllProjects();
-    getDraftInitialData();
     fetchCountryCodes();
 
   }, []);
 
   // Watch for changes in the draft_id from URL
   useEffect(() => {
+    // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
+    // If no draft_id is present, clear state and force a fresh draft
+    if (!draft_id) {
+      dispatch(clearState());
+      // Create a fresh draft
+      const loadFreshDraft = async () => {
+        dispatch(setStoreLoading(true));
+        try {
+          const draftRes = await getDraftData(true);
+          dispatch(intializeRfq(draftRes.data));
+          document.title = "Create New RFQ";
+          getTermsData();
+        } catch (error) {
+          console.error("Error creating fresh draft:", error);
+          toast.error(error.message || "Error creating fresh RFQ draft");
+        } finally {
+          dispatch(setStoreLoading(false));
+        }
+      };
+      
+      loadFreshDraft();
+      return;
+    }
+    
+    // If draft_id is present, load that specific draft
     if (draft_id) {
-      // Changes by Agnij 2025-05-24 [Improved draft_id handling]
       try {
         const id = parseInt(draft_id);
         if (!isNaN(id) && id > 0) {

@@ -295,7 +295,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
   const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
-    if (!canAddItem()) return;
+    if (bulkRFQVendors.length === 0) {
+      toast.error(
+        <h6>Please select at least one vendor to add to RFQ.</h6>,
+        { position: "top-right" }
+      );
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -307,18 +313,38 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         variant_id: currentSelectedProduct.variant_id,
         vendors: bulkRFQVendors.map(vendor => ({
           vendor_id: vendor.id
-        })),
-        // Include rfq_id in the payload if it exists
-        ...(rfq_id && { rfq_id: parseInt(rfq_id) })
+        }))
       };
+      
+      // Only include rfq_id in payload if it exists and is valid
+      // This ensures a new RFQ is created when no rfq_id is provided
+      if (rfq_id && !isNaN(parseInt(rfq_id))) {
+        payload.rfq_id = parseInt(rfq_id);
+      }
 
-      await addProductToDraft(payload);
+      const response = await addProductToDraft(payload);
+      
       toast.success(
         <h6>
           <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ list!
         </h6>,
         { position: "top-right" }
       );
+      
+      // Extract the rfq_id from the response - check all possible locations
+      const newRfqId = 
+        response?.data?.rfq_id || 
+        response?.data?.data?.rfq_id || 
+        (payload.rfq_id ? payload.rfq_id : null);
+
+      if (newRfqId) {
+        // Always redirect to create RFQ tab with the draft_id parameter
+        router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${newRfqId}`);
+      } else {
+        // Fallback to create RFQ tab without draft_id to create a fresh RFQ
+        router.push('/dashboard/buyer/rfq-management?tab=create-rfq');
+      }
+      
     } catch (error) {
       toast.error(
         <h6>Failed to add vendors to RFQ. Please try again.</h6>,

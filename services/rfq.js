@@ -139,6 +139,11 @@ export const addProductToDraft = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
       const response = await axiosInstance.post(`/rfq/add-product-to-draft`, payload);
+      // Ensure we have a consistent response format
+      if (response && !response.data && response.rfq_id) {
+        response.data = { rfq_id: response.rfq_id };
+      }
+      
       resolve(response);
     } catch (error) {
       reject({ message: error });
