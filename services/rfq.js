@@ -85,10 +85,10 @@ export const createRfq = (values) => {
   });
 };
 
-export const getDraftData = () => {
+export const getDraftData = (fresh = false) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/draft`);
+      let response = await axiosInstance.get(`/rfq/draft${fresh ? '?fresh=true' : ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -96,13 +96,18 @@ export const getDraftData = () => {
   });
 };
 
+// Changes by Agnij 2025-06-17 [Improved error handling for draft RFQ retrieval]
 export const getDraftById = (id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/draft/${id}`);
+      let response = await axiosInstance.get(`/rfq/get-draft-by-id/${id}`);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      console.error(`[getDraftById] Error fetching draft RFQ with ID ${id}:`, error);
+      reject({ 
+        message: error?.response?.data?.message || 'Error loading draft RFQ',
+        status: error?.response?.data?.status || 3
+      });
     }
   });
 };
@@ -110,8 +115,7 @@ export const getDraftById = (id) => {
 export const getDraftRFQs = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
-      // This will be implemented when backend is ready
-      // For now, we'll simulate this with client-side state
+      // Changes by Agnij 2025-05-24 [Updated to use real API instead of mock data]
       let response = await axiosInstance.post(`/rfq/get-draft-rfqs`, payload);
       resolve(response);
     } catch (error) {

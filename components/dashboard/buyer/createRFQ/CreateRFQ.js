@@ -502,12 +502,23 @@ const CreateRFQ = () => {
     try {
       // If a draft_id is provided in the URL, load that specific draft
       let draftRes;
+      
+      // Changes by Agnij 2025-05-24 [Added debug logs]
+      console.log("Draft ID from URL:", draftRfqId);
+      
       if (draftRfqId && draftRfqId !== -1) {
+        console.log("Fetching draft with ID:", draftRfqId);
         draftRes = await getDraftById(draftRfqId);
+        console.log("Draft data response:", draftRes);
         // Set the title to indicate we're editing a draft
         document.title = `Edit Draft RFQ #${draftRfqId}`;
       } else {
-        draftRes = await getDraftData();
+        // Changes by Agnij 2025-06-17 [Using fresh=true to always create a new RFQ when opening the Create RFQ page]
+        console.log("Creating a fresh RFQ draft");
+        draftRes = await getDraftData(true);
+        console.log("Fresh draft data:", draftRes);
+        // Set the title to indicate we're creating a new RFQ
+        document.title = "Create New RFQ";
       }
 
       if (draftRes?.data?.rfq_form_data?.contact_number) {
@@ -526,16 +537,20 @@ const CreateRFQ = () => {
         draftRes.data.rfq_form_data.country_code = extractedCountryCode; // Add extracted country code
     
         // **Pass modified draftRes to the function that sets RFQ data**
+        console.log("Initializing RFQ with data:", draftRes.data);
         dispatch(intializeRfq(draftRes.data));
         setonecountrycode(extractedCountryCode);
       }
       else{
+        console.log("Initializing RFQ with data (no contact number):", draftRes.data);
         dispatch(intializeRfq(draftRes.data));
       }
       getTermsData();
 
     } catch (error) {
-      console.log(error)
+      console.error("Error loading draft data:", error);
+      // Changes by Agnij 2025-06-17 [Improved error handling with toast notifications]
+      toast.error(error.message || "Error loading draft RFQ");
     } finally {
       dispatch(setStoreLoading(false));
     }
@@ -553,8 +568,67 @@ const CreateRFQ = () => {
   // Watch for changes in the draft_id from URL
   useEffect(() => {
     if (draft_id) {
-      setDraftRfqId(parseInt(draft_id));
-      getDraftInitialData();
+      // Changes by Agnij 2025-05-24 [Improved draft_id handling]
+      try {
+        const id = parseInt(draft_id);
+        if (!isNaN(id) && id > 0) {
+          setDraftRfqId(id);
+          
+          // Clear existing state before loading the draft
+          dispatch(clearState());
+          
+          // Explicitly load this draft by ID
+          const loadDraft = async () => {
+            dispatch(setStoreLoading(true));
+            try {
+              console.log("Loading specific draft with ID:", id);
+              const draftRes = await getDraftById(id);
+              console.log("Draft data received:", draftRes);
+              
+              if (draftRes?.data) {
+                if (draftRes.data.rfq_form_data?.contact_number) {
+                  let fullContactNumber = draftRes.data.rfq_form_data.contact_number.trim();
+                  let extractedCountryCode = "";
+                  let extractedContactNumber = fullContactNumber;
+            
+                  if (fullContactNumber?.includes('-')) {
+                    const parts = fullContactNumber.split('-');  
+                    extractedCountryCode = parts[0].replace("-", "").trim();
+                    extractedContactNumber = parts.slice(1).join("").trim();
+                  }
+            
+                  draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
+                  draftRes.data.rfq_form_data.country_code = extractedCountryCode;
+              
+                  dispatch(intializeRfq(draftRes.data));
+                  setonecountrycode(extractedCountryCode);
+                } else {
+                  dispatch(intializeRfq(draftRes.data));
+                }
+                
+                // Update document title
+                document.title = `Edit Draft RFQ #${id}`;
+                
+                // Set up other form-related data
+                getTermsData();
+              } else {
+                console.error("No data found in draft response");
+                toast.error("Failed to load draft RFQ data");
+              }
+            } catch (error) {
+              console.error("Error loading draft by ID:", error);
+              // Changes by Agnij 2025-06-17 [Improved error message with specific details]
+              toast.error(error.message || "Error loading draft RFQ");
+            } finally {
+              dispatch(setStoreLoading(false));
+            }
+          };
+          
+          loadDraft();
+        }
+      } catch (error) {
+        console.error("Error processing draft_id:", error);
+      }
     }
   }, [draft_id]);
 

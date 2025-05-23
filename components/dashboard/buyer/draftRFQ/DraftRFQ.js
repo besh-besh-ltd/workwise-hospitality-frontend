@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import DraftRFQItem from "./Item";
 import Pagination from "@/components/shared/Pagination";
 import FilterSection from "@/components/shared/FilterSection";
+import { toast } from "react-toastify";
 
 const initialFilterData = {
   project_id: -1,
@@ -25,83 +26,24 @@ const DraftRFQ = () => {
   const getAllDraftRFQs = () => {
     setloading(true);
 
-    // For now, we'll simulate this with client-side state
-    // This will be replaced with an actual API call when backend is ready
-    // getDraftRFQs({ ...filterData, page })
-    //   .then((res) => {
-    //     setloading(false);
-    //     setMyDraftRFQs(res.data);
-    //     setTotalDraftRFQs(res.total_items);
-    //   })
-    //   .catch((err) => {
-    //     setloading(false);
-    //     console.log(err);
-    //   });
-
-    // Simulate API call with mock data
-    setTimeout(() => {
-      // Mock data for draft RFQs
-      const mockDraftRFQs = [
-        {
-          id: 1001,
-          rfq_no: "402763",
-          project_name: "Project Alpha",
-          products: [
-            {
-              product_details: [
-                { name: "FLOW TRANSMITTER" }
-              ]
-            }
-          ],
-          timestamp: "2025-05-21",
-          bid_end_date: "2025-06-13",
-          status: 1,
-          rfq_type: "",
-          reverse_auction: 0,
-          is_draft: true
-        },
-        {
-          id: 1002,
-          rfq_no: "402764",
-          project_name: "Project Beta",
-          products: [
-            {
-              product_details: [
-                { name: "FLOW TRANSMITTER" }
-              ]
-            }
-          ],
-          timestamp: "2025-05-21",
-          bid_end_date: "2025-06-13",
-          status: 1,
-          rfq_type: "",
-          reverse_auction: 0,
-          is_draft: true
-        },
-        {
-          id: 1003,
-          rfq_no: "402765",
-          project_name: "Project Gamma",
-          products: [
-            {
-              product_details: [
-                { name: "FLOW TRANSMITTER" }
-              ]
-            }
-          ],
-          timestamp: "2025-05-21",
-          bid_end_date: "2025-06-13",
-          status: 1,
-          rfq_type: "",
-          reverse_auction: 0,
-          is_draft: true
+    getDraftRFQs({ ...filterData, page, limit })
+      .then((res) => {
+        setloading(false);
+        if (res && res.status === 1) {
+          setMyDraftRFQs(res.data || []);
+          setTotalDraftRFQs(res.total_items || 0);
+        } else {
+          setMyDraftRFQs([]);
+          setTotalDraftRFQs(0);
+          toast.error("Failed to fetch draft RFQs");
         }
-      ];
-
-      setMyDraftRFQs(mockDraftRFQs);
-      setTotalDraftRFQs(mockDraftRFQs.length);
-      setloading(false);
-    }, 1000);
+      })
+      .catch((err) => {
+        setloading(false);
+        toast.error("Error fetching draft RFQs");
+        setMyDraftRFQs([]);
+        setTotalDraftRFQs(0);
+      });
   };
 
   useEffect(() => {
