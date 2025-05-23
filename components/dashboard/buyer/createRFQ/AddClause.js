@@ -10,7 +10,7 @@ import { addClause, addClauseUsingFile, getClausesByRfqProductId, removeClause, 
 import FullLoader from "@/components/shared/FullLoader";
 
 
-function AddClauseModal({ show, onClose, product, rfq_id }) {
+function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
     const [clauseFile, setClauseFile] = useState(null);
     const [active, setActive] = useState('clause');
     const [message, setMessage] = useState("");
@@ -84,6 +84,14 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             const res = await addClause(payload);
             toast.success(res.message)
             getPreviousClauses();
+            onClauseChange && onClauseChange({
+                action: 'add',
+                payload: {
+                    ...payload,
+                    product_variant_id: product.product_id,
+                    variant: product.variant,
+                },
+            });
 
         } catch (error) {
             console.log(error)
@@ -105,6 +113,15 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             const res = await updateClause(payload);
             toast.success(res.message)
             getPreviousClauses();
+            onClauseChange && onClauseChange({
+                action: 'update',
+                payload: {
+                    ...payload,
+                    rfq_product_id: product.id,
+                    product_variant_id: product.product_id,
+                    variant: product.variant,
+                },
+            });
 
         } catch (error) {
             console.log(error)
@@ -124,6 +141,15 @@ function AddClauseModal({ show, onClose, product, rfq_id }) {
             const res = await removeClause(clause_id);
             toast.success(res.message)
             getPreviousClauses();
+            onClauseChange && onClauseChange({
+                action: 'delete',
+                payload: {
+                    clause_id,
+                    rfq_product_id: product.id,
+                    product_variant_id: product.product_id,
+                    variant: product.variant,
+                },
+            });
         } catch (error) {
             console.log(error)
         } finally {
