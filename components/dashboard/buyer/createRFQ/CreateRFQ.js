@@ -26,6 +26,7 @@ import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
+import axiosInstance from "@/lib/axios";
 
 const CreateRFQ = () => {
   const router = useRouter();
@@ -39,6 +40,11 @@ const CreateRFQ = () => {
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
   const [draftRfqId, setDraftRfqId] = useState(draft_id ? parseInt(draft_id) : -1);
+
+  // Changes by Agnij 2025-08-05 [Added sheet filter state for RFQs created from magic search]
+  const [isMagicRfq, setIsMagicRfq] = useState(false);
+  const [sheetNameList, setSheetNameList] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState(null);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -496,8 +502,6 @@ const CreateRFQ = () => {
       router.push({
         pathname: '/dashboard/buyer/rfq-management',
         query: { tab: 'draft-rfqs' }
-      }, undefined, { shallow: false }).then(() => {
-        router.reload();
       });
     } catch (error) {
       console.error("Error saving draft:", error);
@@ -517,6 +521,33 @@ const CreateRFQ = () => {
         draftRes = await getDraftById(draftRfqId);
         // Set the title to indicate we're editing a draft
         document.title = `Edit Draft RFQ #${draftRfqId}`;
+
+        // Changes by Agnij 2025-08-05 [Check if this RFQ is from magic search]
+        // If the draft has rfq_added_from = 'magic', we'll show the sheet filter
+        if (draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic') {
+          setIsMagicRfq(true);
+          
+          // Get sheet data for this RFQ
+          try {
+            const response = await axiosInstance.get(`/rfq/get-draft-sheets?rfqId=${draftRfqId}`);
+            if (response?.data?.sheets && Array.isArray(response.data.sheets)) {
+              setSheetNameList(response.data.sheets.map(sheet => ({
+                label: sheet.sheet_name,
+                value: sheet.id
+              })));
+              
+              // Set default selected sheet
+              if (response.data.sheets.length > 0) {
+                setSelectedSheet({
+                  label: response.data.sheets[0].sheet_name,
+                  value: response.data.sheets[0].id
+                });
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching sheet data:", error);
+          }
+        }
       } else {
         // Changes by Agnij 2025-06-17 [Using fresh=true to always create a new RFQ when opening the Create RFQ page]
         draftRes = await getDraftData(true);
@@ -554,6 +585,35 @@ const CreateRFQ = () => {
       dispatch(setStoreLoading(false));
     }
   }
+
+  // Changes by Agnij 2025-08-05 [Added handler for sheet selection]
+  const handleSheetChange = async (selectedOption) => {
+    if (!selectedOption || !draftRfqId) return;
+    
+    setSelectedSheet(selectedOption);
+    setMainLoading(true);
+    
+    try {
+      // Fetch data for the selected sheet
+      const response = await axiosInstance.get(
+        `/rfq/get-draft-rfq-sheet-wise?rfqId=${draftRfqId}&sheetId=${selectedOption.value}`
+      );
+      
+      if (response?.data?.data) {
+        // Update the products in the Redux store
+        dispatch(intializeRfq({
+          ...response.data.data,
+          rfq_id: draftRfqId
+        }));
+        toast.success(`Loaded products from sheet: ${selectedOption.label}`);
+      }
+    } catch (error) {
+      console.error("Error fetching sheet data:", error);
+      toast.error("Failed to load products for selected sheet");
+    } finally {
+      setMainLoading(false);
+    }
+  };
 
   useEffect(() => {
     getProfileDetails();
@@ -1226,6 +1286,24 @@ const CreateRFQ = () => {
                 </>
               )}
             </div>
+
+            {/* Changes by Agnij 2025-08-05 [Added sheet filter UI] */}
+            {isMagicRfq && sheetNameList.length > 0 && (
+              <div className="container-fluid">
+                <div className="row mb-4">
+                  <div className="col-md-4 ms-auto">
+                    <label className="form-label fw-medium mb-1">Select Sheet</label>
+                    <Select
+                      name="sheetName"
+                      options={sheetNameList}
+                      value={selectedSheet}
+                      placeholder="Select Sheet"
+                      onChange={handleSheetChange}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
