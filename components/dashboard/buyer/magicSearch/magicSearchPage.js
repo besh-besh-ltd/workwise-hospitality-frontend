@@ -161,108 +161,20 @@ const MagicSearchPage = () => {
                 if (response) {
                     console.log("Full Magic Search response object:", response);
                     
-                    // Get the RFQ ID from the response - this is the most important part
-                    let rfqId = null;
+                    let extractedId = null;
                     
-                    // First try to get it directly from standard locations
-                    if (response.data?.rfq_id) {
-                        rfqId = response.data.rfq_id;
-                        console.log("Found rfqId in response.data.rfq_id:", rfqId);
-                    } else if (response.data?.draft_id) {
-                        rfqId = response.data.draft_id;
-                        console.log("Found rfqId in response.data.draft_id:", rfqId);
-                    } else if (response.data?.id) {
-                        rfqId = response.data.id;
-                        console.log("Found rfqId in response.data.id:", rfqId);
-                    } else if (response.rfq_id) {
-                        rfqId = response.rfq_id;
-                        console.log("Found rfqId in response.rfq_id:", rfqId);
-                    } else if (response.draft_id) {
-                        rfqId = response.draft_id;
-                        console.log("Found rfqId in response.draft_id:", rfqId);
-                    } else if (response.id) {
-                        rfqId = response.id;
-                        console.log("Found rfqId in response.id:", rfqId);
-                    } else if (response.message?.rfq_id) {
-                        rfqId = response.message.rfq_id;
-                        console.log("Found rfqId in response.message.rfq_id:", rfqId);
-                    }
+                    extractedId = response.savedRfq;
                     
-                    // If we found an ID and it's valid, redirect to edit page
-                    if (rfqId && !isNaN(parseInt(rfqId))) {
-                        // Make sure it's a number
-                        rfqId = parseInt(rfqId);
-                        
-                        // Success toast notification
-                        toast.success("Magic Search completed! Opening RFQ draft for editing...");
-                        
-                        // Set a brief timeout to ensure the toast is visible
-                        setTimeout(() => {
-                            // Redirect to the CreateRFQ page with the correct draft_id parameter
-                            console.log(`Redirecting to edit draft RFQ #${rfqId}`);
-                            router.push(`/dashboard/buyer/createRFQ?draft_id=${rfqId}`);
-                        }, 1500);
-                        
-                        // Reset form state before exiting
-                        setFile(null);
-                        setFileName('');
-                        setLoading(false);
-                        return; // Exit function to prevent further processing
-                    } else {
-                        // Try one more approach - call getDraftData to get the latest draft
-                        try {
-                            console.log("Attempting to retrieve the latest draft...");
-                            // Get the latest draft data - don't create a fresh one
-                            const draftDataResponse = await getDraftData(false);
-                            console.log("Latest draft data:", draftDataResponse);
-                            
-                            // Extract the draft ID from the response
-                            let latestDraftId = null;
-                            if (draftDataResponse?.data?.rfq_id) {
-                                latestDraftId = draftDataResponse.data.rfq_id;
-                            } else if (draftDataResponse?.data?.id) {
-                                latestDraftId = draftDataResponse.data.id;
-                            } else if (draftDataResponse?.rfq_id) {
-                                latestDraftId = draftDataResponse.rfq_id;
-                            }
-                            
-                            if (latestDraftId) {
-                                toast.success("Magic Search completed! Opening latest RFQ draft...");
-                                
-                                setTimeout(() => {
-                                    console.log(`Redirecting to latest draft RFQ #${latestDraftId}`);
-                                    router.push(`/dashboard/buyer/createRFQ?draft_id=${latestDraftId}`);
-                                }, 1500);
-                                
-                                // Reset form state before exiting
-                                setFile(null);
-                                setFileName('');
-                                setLoading(false);
-                                return;
-                            } else {
-                                console.error("No draft ID found in latest draft data:", draftDataResponse);
-                                throw new Error("Failed to extract draft ID from latest draft data");
-                            }
-                        } catch (draftError) {
-                            console.error("Error retrieving or processing latest draft:", draftError);
-                            // Continue to fallback redirect
-                        }
-                        
-                        // If still no ID found, show error and redirect to RFQ management
-                        console.error("Failed to find RFQ draft ID in response:", response);
-                        toast.error("Magic Search created a draft but couldn't open it. Please check RFQ Management.");
-                        
-                        // Redirect to RFQ management as fallback
-                        setTimeout(() => {
-                            router.push('/dashboard/buyer/rfq-management?tab=draft-rfqs');
-                        }, 1500);
-                        
-                        // Reset form state before exiting
-                        setFile(null);
-                        setFileName('');
-                        setLoading(false);
-                        return;
-                    }
+                    // Valid ID found, redirect to edit page
+                    const numericId = parseInt(extractedId);
+                    router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${numericId}`);
+                    
+                    // Reset form state
+                    setFile(null);
+                    setFileName('');
+                    setLoading(false);
+                    return
+                    
                 }
                 
                 // If we reach here, we have a response but need to show the review UI
@@ -695,8 +607,6 @@ const MagicSearchPage = () => {
 
         createRfq(modifiedPayload)
             .then((res) => {
-                // Changes by Agnij 2025-08-05 [Added redirect to create RFQ page with draft ID]
-                // Extract the draft ID from response, handling different possible formats
                 const draftId = res.data?.rfq_id || res.data?.id || res.message?.rfq_id;
                 
                 toast.success(
@@ -712,10 +622,9 @@ const MagicSearchPage = () => {
                 
                 // Redirect to the create RFQ page with the draft ID
                 if (draftId) {
-                    router.push(`/dashboard/buyer/createRFQ?draft_id=${draftId}`);
+                    router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${draftId}`);
                 } else {
                     console.error('Draft ID not found in response:', res);
-                    // Fall back to RFQ management if we couldn't extract a draft ID
                     router.push('/dashboard/buyer/rfq-management');
                 }
             })
