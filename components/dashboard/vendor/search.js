@@ -792,48 +792,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
 
-                    {/* <div className="col-md-3 hasNoBlur">
-                      <div className="action-top mb-0">
-                        {vabloading && (
-                          <select>
-                            <option value="">Loading List</option>
-                          </select>
-                        )}
-                        {!vabloading && (
-                          <select
-                            name="vab"
-                            id="vab"
-                            value={selectedVbaa}
-                            onChange={(e) => {
-                              localStorage.setItem(
-                                "selected_vab",
-                                e.target.value
-                              );
-                              setselectedVbaa(e.target.value);
-                            }}
-                          >
-                            <option value="">Vendor Approved By</option>
-                            {approved_by &&
-                              approved_by.map((item) => {
-                                if (
-                                  item.show_in_website == 1 &&
-                                  item.vendor_approve &&
-                                  item.vendor_approve != "null"
-                                ) {
-                                  return (
-                                    <option
-                                      value={item.id}
-                                      key={`va_${item.id}`}
-                                    >
-                                      {item.vendor_approve}
-                                    </option>
-                                  );
-                                }
-                              })}
-                          </select>
-                        )}
-                      </div>
-                    </div> */}
                   </div>
                 </form>
               </div>
@@ -936,23 +894,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             </div>
           )}
 
-          {/* Product Price Stats Section */}
-          {/* {isLoggedIn && currentSelectedProduct && showInsights && (
-            <div className=" col-md-12 bg-white rounded-5 p-4">
-              <div className="search-sec-3-mdl mt-2 mb-0">
-                <div className="search-sec-3-mdl-con ">
-                  <div className="container">
-                    <h2 className="fs-3">
-                      Product Insight{"  "}
-                      <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
-                    </h2>
-                    <ProductOverview data={currentSelectedProduct} setShowInsights={setShowInsights} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )} */}
-
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
             {currentSelectedProduct && (
@@ -973,7 +914,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   )}
-                  {/* <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4> */}
 
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">My Vendors</p>
@@ -1049,60 +989,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   </div>
-                  {/* <div className="search-con-right-1">
-                    <p className="fw-semibold  mb-2">Turn Over</p>
-                    {(turnOver.from > 0 || turnOver.to > 0) && (
-                      <Link
-                        href="#"
-                        className="clearFilter"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setTurnOver({
-                            from: -1,
-                            to: -1,
-                          });
-                          if (fromRef.current && toRef.current) {
-                            fromRef.current.value = "";
-                            toRef.current.value = "";
-                          }
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faTimesCircle} /> clear
-                      </Link>
-                    )}
-                    <div className="row">
-                      <div className="col-md-6">
-                        <div>
-                          <p className="fw-medium  mb-2">FROM</p>
-                          <input
-                            ref={fromRef}
-                            type="text"
-                            name="turnOverFrom"
-                            className="form-control"
-                            placeholder="FROM ( IN CR )"
-                            onChange={(e) =>
-                              debouncedSetFrom(parseInt(e.target.value || 0))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="col-md-6">
-                        <div>
-                          <p className="fw-medium  mb-2">TO</p>
-                          <input
-                            ref={toRef}
-                            type="text"
-                            name="turnOverTo"
-                            className="form-control"
-                            placeholder="TO ( IN CR )"
-                            onChange={(e) =>
-                              debouncedSetTo(parseInt(e.target.value || 0))
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div> */}
+
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
                     <div
@@ -1284,65 +1171,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
-                  {/* <div className="search-con-right-1">
-                    <p className="fw-semibold  mb-2">Vendor Approved By</p>
-                    <div>
-                      {vabloading && (
-                        <select>
-                          <option value="">Loading List</option>
-                        </select>
-                      )}
-                      {!vabloading && (
-                        <select
-                          name="vab"
-                          id="vab"
-                          value={selectedVbaa}
-                          onChange={(e) => {
-                            if (
-                              !vendorMetaData.logged_In ||
-                              !vendorMetaData.subscription
-                            )
-                              setOpenAuthModal(true);
-                            else {
-                              localStorage.setItem(
-                                "selected_vab",
-                                e.target.value
-                              );
-                              setselectedVbaa(e.target.value);
-                            }
-                          }}
-                        >
-                          <option value="">Select Vendor Approved by</option>
-                          {approved_by &&
-                            approved_by.map((item) => {
-                              if (
-                                item.show_in_website == 1 &&
-                                item.vendor_approve &&
-                                item.vendor_approve != "null"
-                              ) {
-                                return (
-                                  <option value={item.id} key={`va_${item.id}`}>
-                                    {item.vendor_approve}
-                                  </option>
-                                );
-                              }
-                            })}
-                        </select>
-                      )}
-                      {selectedVbaa && (
-                        <Link
-                          className="clearFilter"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setselectedVbaa("");
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faTimesCircle} /> clear
-                        </Link>
-                      )}
-                    </div>
-                  </div> */}
                 </aside>
               </div>
             )}
