@@ -865,16 +865,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           )
                             setOpenAuthModal(true);
                           else {
-                                const selected = makeList.find((option) => option.id == e.target.value);
-                                if (selected) {
-                                setSelectedMakes([selected]);
-                                } else {
-                                setSelectedMakes([]);
-                                }
+                              const selected = makeList.find((option) => option.id == e.target.value);
+                               if (selected) {
+                               setSelectedMakes((prev) => [...prev, selected]);
+                              }
                           }
                         }}
                   >
-                    <option value="">All Makes</option>
+                    <option value="">Select Product Makes</option>
                     {makeList &&
                       makeList.map((option) => (
                         <option key={option.id} value={option.id}>
@@ -897,6 +895,24 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     </Link>
                   )}
                    </div>
+
+                  <div className="d-flex gap-2 flex-wrap mt-2">
+                    {selectedMakes.map((item) => (
+                      <div className="selected-country" key={item.value}>
+                        {item.value}
+                        <button
+                          onClick={() =>
+                            setSelectedMakes((prev) =>
+                              prev.filter((_item) => _item.value !== item.value)
+                            )
+                          }
+                        >
+                          X
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
                  </div>
                   {/* END: product make filter */}
 
@@ -922,7 +938,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           }
                         }}
                       >
-                        <option value="">All Vendors</option>
+                        <option value="">Select All Vendors</option>
                         {optionVendors &&
                           optionVendors.map((option) => (
                             <option key={option.value} value={option.value}>
