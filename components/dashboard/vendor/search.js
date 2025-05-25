@@ -10,46 +10,21 @@ import {  searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import {
-  removeRfqProduct,
   setDefaultVAB,
 } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
-import { faLightbulb as faSolidLightbulb } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
-import ProductOverview from "@/components/shared/ProductOverview";
 import Head from "next/head";
 import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
 
-// export const vendorTypes = [
-//   {
-//     label: "Manufacturer",
-//     value: "manufacturer",
-//   },
-//   {
-//     label: "Supplier",
-//     value: "supplier",
-//   },
-//   {
-//     label: "Distributor",
-//     value: "distributor",
-//   },
-//   {
-//     label: "Dealer",
-//     value: "dealer",
-//   },
-//   {
-//     label: "Exporter",
-//     value: "exporter",
-//   },
-// ]
 
 export const vendorConditions = [
   {
@@ -61,6 +36,13 @@ export const vendorConditions = [
     value: "rfq_sent",
   },
 ]
+
+  // Options for the dropdown
+  const optionVendors = [
+    { value: 'is_private', label: 'My Private Vendor' },
+    { value: 'is_public', label: 'My Public Vendor' },
+    { value: 'both', label: 'Both' },
+  ];
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
@@ -111,15 +93,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [productsList, setProductsList] = useState([]);
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
-  const [showInsights, setShowInsights] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
   const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
-  const fromRef = useRef(null);
-  const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
   const vendorApprovedByRef = useRef(null);
 
@@ -130,21 +109,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       router.push('/dashboard/buyer/subscription');
   }
 
-  const debouncedSetFrom = useMemo(
-    () =>
-      debounce((value) => {
-        setTurnOver((prev) => ({ ...prev, from: value }));
-      }, 1000),
-    []
-  );
-
-  const debouncedSetTo = useMemo(
-    () =>
-      debounce((value) => {
-        setTurnOver((prev) => ({ ...prev, to: value }));
-      }, 1000),
-    []
-  );
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -217,10 +181,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   useEffect(() => {
     setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
   }, [selectedApprovedBy])
-
-  // const handleSearchClick = () => {
-  //   setIsOpen(!isOpen);
-  // };
 
   useEffect(() => {
     // getProfileDetails();
@@ -358,9 +318,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           });
           
           setVendors(d);
-          
-          // console.log("268 ******************")
-          // console.table(bulkRFQVendors)
 
           setVendorMetaData(rsp)
           currentSelectedProduct
@@ -518,7 +475,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     setCat_id(item.category_id);
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
-    setShowInsights(true);
     setbulkRFQVendors([]);
 
     tempProdRef.current = null;
@@ -526,30 +482,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     // Update the URL to include the selected product's slug
     router.push(`/vendor/${item.slug ?? item.variant_name.replace(' ', '_').toLowerCase()}`);
     storageInstance.setStorage("product_name", slug);
-  };
-
-  const getChildCategories = (id, level) => {
-    let childItems = categories.filter((item) => item.parent_id == id);
-    let options = [];
-    if (childItems.length > 0) {
-      childItems.map((item) => {
-        options.push({ value: item?.id, label: item?.title });
-      });
-    }
-    if (level == 1) {
-      setlevelOneCat(options);
-    } else if (level == 2) {
-      setlevelTwoCat(options);
-    } else if (level == 3) {
-      setlevelThreeCat(options);
-    } else if (level == 4) {
-      setlevelFourCat(options);
-    } else if (level == 5) {
-      setlevelFiveCat(options);
-    } else if (level == 6) {
-      setlevelSixCat(options);
-    } else {
-    }
   };
 
 
@@ -560,25 +492,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
 
   const mapEntries = Array.from(categoryLvlRef.current.entries());
-
-  // for clear the search from the input of search vendor
-  const clearProductSearch = () => {
-    setcurrentSelectedProduct(null);
-    setCat_id(null);
-    setSearch_key("");
-    router.push(`/vendor/all`);
-    storageInstance.setStorage("product_name", "all");
-  }
-
-  // Options for the dropdown
-  const optionVendors = [
-    { value: 'is_private', label: 'My Private Vendor' },
-    { value: 'is_public', label: 'My Public Vendor' },
-    { value: 'both', label: 'Both' },
-  ];
-
-  // Handle selection changes to ensure only one filter is active at a time
-
+  
   // Generalized clear filter function to reset both filters
   const clearVendorFilters = () => {
     setMyVendorType(null);
@@ -662,8 +576,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         value={search_key}
                         // onClick={handleSearchClick}
                       />
-                      {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
-                      </div> */}
+             
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
