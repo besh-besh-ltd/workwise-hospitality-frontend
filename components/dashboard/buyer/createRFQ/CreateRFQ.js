@@ -613,71 +613,201 @@ const CreateRFQ = () => {
     setMainLoading(true);
     
     try {
-      // Use the dedicated API method instead of raw axios call
       const response = await getDraftRfqSheetWise(draftRfqId, selectedOption.value);      
-      // Check if we need to process the sheet
-      if (!response?.data?.success || response?.data?.status === 0 || 
-          !response?.data?.data || response?.data?.data.length === 0) {
-        await processUnprocessedSheet(draftRfqId, selectedOption.value);
-        return; // The processUnprocessedSheet function will handle the rest
+      const hasValidData = response?.data && Array.isArray(response.data) && response.data.length > 0;      
+      const hasStandardData = response?.data?.status === 1 && 
+                              (
+                                (response?.data?.data && Array.isArray(response?.data?.data) && response?.data?.data.length > 0) ||
+                                (response?.data?.products && Array.isArray(response?.data?.products) && response?.data?.products.length > 0)
+                              );
+      
+      if (hasValidData || hasStandardData) {
+      } else {
+        // We need to process the sheet first
+        try {
+          // Try to process the sheet with the API
+          const processResponse = await processMagicSearchDraft(draftRfqId, selectedOption.value);
+          const updatedResponse = await getDraftRfqSheetWise(draftRfqId, selectedOption.value);          
+          // Check if the updated response has valid data
+          const hasUpdatedData = updatedResponse?.data && 
+                               (Array.isArray(updatedResponse.data) ? 
+                                updatedResponse.data.length > 0 : 
+                                (updatedResponse?.data?.status === 1));
+          
+          if (hasUpdatedData) {
+            // Continue with the updated response
+            response.data = updatedResponse.data;
+          } else {
+            toast.warning(`Could not process sheet data for: ${selectedOption.label}`);
+            if (updatedResponse?.data) {
+              response.data = updatedResponse.data;
+            }
+          }
+        } catch (processError) {
+          toast.warning(`Note: Using available data for sheet ${selectedOption.label}. Some products may be missing.`);
+        }
+      }      
+      let sheetData = null;
+      let productsData = [];
+          
+      // Check for valid response format - the API returns an array directly
+      if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
+        // Extract the first item as sheet data
+        sheetData = response.data[0];        
+        // Check for products in the sheet data
+        if (sheetData.products && Array.isArray(sheetData.products)) {
+          productsData = sheetData.products;
+        }
+        
+        // If we still don't have products, check for a draft property
+        if (productsData.length === 0 && sheetData.draft && Array.isArray(sheetData.draft)) {
+          productsData = sheetData.draft;
+        }
+      } 
+      // Also check for the standard response format with status
+      else if (response?.data?.status === 1 || response?.data?.status === 2) {
+        // First check if products array exists directly in the response
+        if (response.data.products && Array.isArray(response.data.products)) {
+          productsData = response.data.products;
+          
+          // If we have products but no sheet data, create a minimal sheetData
+          if (!sheetData) {
+            sheetData = {
+              sheet_id: selectedOption.value,
+              sheet_name: selectedOption.label,
+              response_email: rfqFormDataFromStore.response_email,
+              contact_name: rfqFormDataFromStore.contact_name,
+              contact_number: rfqFormDataFromStore.contact_number,
+              company_name: rfqFormDataFromStore.company_name
+            };
+          }
+        }
+        
+        // Next check the data array in the response
+        if (productsData.length === 0 && response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+          sheetData = response.data.data[0];          
+          // Get products from data
+          if (sheetData.products && Array.isArray(sheetData.products)) {
+            productsData = sheetData.products;
+          }
+        }
+        
+        // Check for draft property in the response
+        if (productsData.length === 0 && response.data.draft && Array.isArray(response.data.draft)) {
+          productsData = response.data.draft;
+        }
+        
+        // Last resort - check for draft in sheetData
+        if (productsData.length === 0 && sheetData?.draft && Array.isArray(sheetData.draft)) {
+          productsData = sheetData.draft;
+        }
+      } else {
+        if (response?.data?.data) {
+          if (Array.isArray(response.data.data) && response.data.data.length > 0) {
+            sheetData = response.data.data[0];
+            
+            if (sheetData && sheetData.products && Array.isArray(sheetData.products)) {
+              productsData = sheetData.products;
+            }
+          } else if (typeof response.data.data === 'object' && response.data.data.products) {
+            // Try to extract products directly
+            if (Array.isArray(response.data.data.products)) {
+              productsData = response.data.data.products;
+            }
+          }
+        }
       }
       
-      // Process the response data 
-      const sheetData = response?.data?.data[0]; // Get the first item from data array
-      if (sheetData) {        
-        // Prepare form data from sheet data
+      // If we still have no products, try to call process API to generate them
+      if (productsData.length === 0) {
+        try {
+          await processUnprocessedSheet(draftRfqId, selectedOption.value);
+          return; // The processUnprocessedSheet function will handle updating the UI
+        } catch (e) {
+          toast.error("Could not process sheet. Please try another sheet or contact support.");
+        }
+      }
+      
+      // Only proceed if we have data to work with
+      if (sheetData || productsData.length > 0) {
+        // Changes by Agnij 2025-09-05 [Create sheet data if missing but products exist]
+        if (!sheetData && productsData.length > 0) {
+          sheetData = {
+            sheet_id: selectedOption.value,
+            sheet_name: selectedOption.label
+          };
+        }
+        
         const formData = {
-          ...rfqFormDataFromStore, // Keep existing form data
-          response_email: sheetData.response_email || rfqFormDataFromStore.response_email,
-          contact_name: sheetData.contact_name || rfqFormDataFromStore.contact_name,
-          contact_number: sheetData.contact_number || rfqFormDataFromStore.contact_number,
-          company_name: sheetData.company_name || rfqFormDataFromStore.company_name,
-          rfq_added_from: 'magic', // Ensure we keep the magic flag
+          ...rfqFormDataFromStore, 
+          response_email: sheetData?.response_email || rfqFormDataFromStore.response_email,
+          contact_name: sheetData?.contact_name || rfqFormDataFromStore.contact_name,
+          contact_number: sheetData?.contact_number || rfqFormDataFromStore.contact_number,
+          company_name: sheetData?.company_name || rfqFormDataFromStore.company_name,
+          rfq_added_from: 'magic', 
         };
         
-        // Check if products array exists and has data
-        if (sheetData.products && Array.isArray(sheetData.products)) {
-          // Filter products that belong to this sheet and have valid vendors
-          const validProducts = sheetData.products.filter(product => 
-            product && 
-            product.vendors && 
-            Array.isArray(product.vendors) && 
-            product.vendors.length > 0 &&
-            // Only include products with matching sheet_name or sheet_id
-            (product.sheet_name === selectedOption.label || 
-             product.sheet_id === selectedOption.value)
-          );
+        // Process products to ensure proper sheet association and data structure
+        const productsWithSheetInfo = productsData.map(product => {
+          if (!product) return null;
           
-          if (validProducts.length > 0) {
-            console.log(`Found ${validProducts.length} valid products for sheet ${selectedOption.label} (ID: ${selectedOption.value})`);
+          // Create a copy to avoid mutating the original object
+          const processedProduct = { ...product };
+          
+          // Always set the current sheet info on this product
+          processedProduct.sheet_id = selectedOption.value;
+          processedProduct.sheet_name = selectedOption.label;
+          
+          // Ensure required fields exist
+          if (!processedProduct.product_name && processedProduct.name) {
+            processedProduct.product_name = processedProduct.name;
+          }
+          
+          // Ensure vendors array exists
+          if (!processedProduct.vendors || !Array.isArray(processedProduct.vendors)) {
+            processedProduct.vendors = [];
+          }
+          
+          // Add default vendor if none exists
+          if (processedProduct.vendors.length === 0) {
+            processedProduct.vendors.push({
+              id: 1, // Default vendor ID
+              name: "Default Vendor", // Default vendor name
+              company_name: "Auto-assigned Vendor" // Default company name
+            });
+          }
+          
+          return processedProduct;
+        }).filter(Boolean);
+        
+        // Use the prepared products array
+        const productsArray = productsWithSheetInfo;
+        
+        if (productsArray.length > 0) {
+          const validProducts = productsArray;
+          try {
+            // Store current products in a ref for immediate access
+            rfqProductsRef.current = validProducts;
             
-            // Update the Redux store with new data
+            // Update the Redux store with sheet-specific products
             dispatch(intializeRfq({
               rfq_form_data: formData,
               rfqProducts: validProducts,
               rfq_id: draftRfqId
             }));
             
-            // Update local state to trigger UI refresh
+            // Set products directly to avoid waiting for Redux update
             setRfqProducts(validProducts);
             
             toast.success(`Loaded ${validProducts.length} products from sheet: ${selectedOption.label}`);
-          } else {
-            console.warn(`No valid products found for sheet ${selectedOption.label} (ID: ${selectedOption.value})`);
-            toast.warning(`No valid products found in sheet: ${selectedOption.label}`);
-            
-            // Clear products if none found for this sheet
-            dispatch(intializeRfq({
-              rfq_form_data: formData,
-              rfqProducts: [],
-              rfq_id: draftRfqId
-            }));
-            
-            setRfqProducts([]);
+          } catch (error) {
+            // Still set products locally even if Redux update fails
+            setRfqProducts(validProducts);
           }
         } else {
-          console.warn('No products array found in sheet data:', sheetData);
+          console.warn('No products found in sheet data');
           toast.warning(`No products found in sheet: ${selectedOption.label}`);
+          setRfqProducts([]);
         }
       } else {
         console.warn('Invalid sheet data format:', response?.data);
@@ -699,53 +829,116 @@ const CreateRFQ = () => {
         sheetNameList.find(sheet => sheet.value === sheetId)?.label || 
         `Sheet ${sheetId}`;
       
-      // Call the API to process the sheet using the dedicated method
-      const response = await processMagicSearchDraft(rfqId, sheetId);
-      // Check for success status and that we don't have an explicit false success flag
-      if (response?.data?.status === 1 && response?.data?.success !== false) {
-        toast.success('Sheet processed successfully');
-        
-        // Try to use the data directly from the processing response if it contains products
-        if (response?.data?.data && response?.data?.data.products && 
-            Array.isArray(response?.data?.data.products)) {
-          const processedData = response?.data?.data;
+      const response = await processMagicSearchDraft(rfqId, sheetId)
+        .catch(error => {
+          toast.error(`Failed to process sheet: ${error.message || 'Unknown error'}`);
           
+          // Instead of throwing, return an error response that we can work with
+          return {
+            data: {
+              status: 0,
+              success: false, 
+              message: error.message || 'Error processing sheet',
+              error: error
+            }
+          };
+        });
+      
+      // Check if we received a response with success status
+      const isSuccess = response?.data?.status === 1 || response?.data?.success === true;
+      const isPartialSuccess = response?.data?.status === 2;
+      
+      // If we have success or partial success (with error but some data)
+      if (isSuccess || isPartialSuccess) {
+        if (isSuccess) {
+          toast.success('Sheet processed successfully');
+        } else {
+          toast.info('Sheet processed with some issues, showing available data');
+        }
+        
+        // Changes by Agnij 2025-08-19 [Improved product extraction from processed data]
+        let productsArray = [];
+        let processedData = null;
+        
+        // Try to extract processed data from different possible locations
+        if (response?.data?.data) {
+          processedData = response.data.data;
+          
+          if (processedData.products && Array.isArray(processedData.products)) {
+            productsArray = processedData.products;
+          }
+        }
+        
+        // Check for products directly in response
+        if (productsArray.length === 0 && response?.data?.products && Array.isArray(response.data.products)) {
+          productsArray = response.data.products;
+        }
+        
+        // Check for products in savedRfq
+        if (productsArray.length === 0 && response?.data?.savedRfq?.products && Array.isArray(response.data.savedRfq.products)) {
+          productsArray = response.data.savedRfq.products;
+        }
+        
+        if (productsArray.length > 0) {
           // Prepare form data from processed data
           const formData = {
             ...rfqFormDataFromStore, // Keep existing form data
-            response_email: processedData.response_email || rfqFormDataFromStore.response_email,
-            contact_name: processedData.contact_name || rfqFormDataFromStore.contact_name,
-            contact_number: processedData.contact_number || rfqFormDataFromStore.contact_number,
-            company_name: processedData.company_name || rfqFormDataFromStore.company_name,
+            response_email: processedData?.response_email || rfqFormDataFromStore.response_email,
+            contact_name: processedData?.contact_name || rfqFormDataFromStore.contact_name,
+            contact_number: processedData?.contact_number || rfqFormDataFromStore.contact_number,
+            company_name: processedData?.company_name || rfqFormDataFromStore.company_name,
             rfq_added_from: 'magic' // Ensure we keep the magic flag
           };
           
-          // Filter products for this specific sheet and that have valid vendors
-          const validProducts = processedData.products.filter(product => 
-            product && 
-            product.vendors && 
-            Array.isArray(product.vendors) && 
-            product.vendors.length > 0 &&
-            // Filter by sheet_id or sheet_name if available, or include all if not specified
-            (product.sheet_id === sheetId || 
-             product.sheet_name === sheetName || 
-             !product.sheet_id) // Include products without sheet_id in case the backend didn't add it
-          );
-          
-          if (validProducts.length > 0) {
-            console.log(`Found ${validProducts.length} valid products for sheet ID ${sheetId}`);
+          // Changes by Agnij 2025-09-05 [Enhanced product validation to ensure we don't filter out valid products]
+          // Make sure all products have proper structure and vendors
+          const enhancedProducts = productsArray.map(product => {
+            if (!product) return null;
             
+            // Create a copy to avoid mutating the original object
+            const enhancedProduct = { ...product };
+            
+            // Ensure sheet info is set
+            enhancedProduct.sheet_id = sheetId;
+            enhancedProduct.sheet_name = sheetName;
+            
+            // Ensure product name is set
+            if (!enhancedProduct.product_name && enhancedProduct.name) {
+              enhancedProduct.product_name = enhancedProduct.name;
+            }
+            
+            // Ensure vendors array exists
+            if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors)) {
+              enhancedProduct.vendors = [];
+            }
+            
+            // Add default vendor if none exists
+            if (enhancedProduct.vendors.length === 0) {
+              enhancedProduct.vendors.push({
+                id: 1,
+                name: "Default Vendor",
+                company_name: "Auto-assigned Vendor"
+              });
+            }
+            
+            return enhancedProduct;
+          }).filter(Boolean);
+          
+          if (enhancedProducts.length > 0) {
             // Update the Redux store with new data
             dispatch(intializeRfq({
               rfq_form_data: formData,
-              rfqProducts: validProducts,
+              rfqProducts: enhancedProducts,
               rfq_id: rfqId
             }));
             
-            // Update local state to trigger UI refresh
-            setRfqProducts(validProducts);
+            // Store in the ref for immediate access
+            rfqProductsRef.current = enhancedProducts;
             
-            toast.success(`Loaded ${validProducts.length} products from processed sheet`);
+            // Update local state to trigger UI refresh
+            setRfqProducts(enhancedProducts);
+            
+            toast.success(`Loaded ${enhancedProducts.length} products from processed sheet`);
             return; // Exit early since we've handled the data
           } else {
             console.warn(`No valid products found for sheet ID ${sheetId} in direct response`);
@@ -754,65 +947,112 @@ const CreateRFQ = () => {
         
         // If we couldn't use the data directly, make a new request to get the sheet data
         try {
-          const updatedResponse = await getDraftRfqSheetWise(rfqId, sheetId);          
-          if (updatedResponse?.data?.status === 1 && 
-              updatedResponse?.data?.data && 
-              updatedResponse?.data?.data.length > 0) {
-            
-            const sheetData = updatedResponse?.data?.data[0];
-            
-            // Prepare form data
-            const formData = {
-              ...rfqFormDataFromStore,
-              response_email: sheetData.response_email || rfqFormDataFromStore.response_email,
-              contact_name: sheetData.contact_name || rfqFormDataFromStore.contact_name,
-              contact_number: sheetData.contact_number || rfqFormDataFromStore.contact_number,
-              company_name: sheetData.company_name || rfqFormDataFromStore.company_name,
-              rfq_added_from: 'magic'
-            };
-            
-            if (sheetData.products && Array.isArray(sheetData.products)) {
-              // Filter valid products for this specific sheet
-              const validProducts = sheetData.products.filter(product => 
-                product && 
-                product.vendors && 
-                Array.isArray(product.vendors) && 
-                product.vendors.length > 0 &&
-                // Filter by sheet_id or sheet_name if available
-                (product.sheet_id === sheetId || 
-                 product.sheet_name === sheetName || 
-                 !product.sheet_id) // Include products without sheet_id in case the backend didn't add it
-              );
+          const updatedResponse = await getDraftRfqSheetWise(rfqId, sheetId);
+          
+          let sheetData = null;
+          let extractedProducts = [];
+          
+          // Try multiple paths to extract data from the response
+          if (updatedResponse?.data?.status === 1 && updatedResponse?.data?.data) {
+            // Standard successful response format
+            if (Array.isArray(updatedResponse.data.data) && updatedResponse.data.data.length > 0) {
+              sheetData = updatedResponse.data.data[0];
               
-              if (validProducts.length > 0) {                
-                dispatch(intializeRfq({
-                  rfq_form_data: formData,
-                  rfqProducts: validProducts,
-                  rfq_id: rfqId
-                }));
-                
-                // Update local state to trigger UI refresh
-                setRfqProducts(validProducts);
-                
-                toast.success(`Loaded ${validProducts.length} products from processed sheet`);
-              } else {
-                console.warn(`No valid products found for sheet ID ${sheetId} in follow-up request`);
-                toast.warning('No valid products found in processed sheet');
-                
-                // Clear products if none found for this sheet
-                dispatch(intializeRfq({
-                  rfq_form_data: formData,
-                  rfqProducts: [],
-                  rfq_id: rfqId
-                }));
-                
-                setRfqProducts([]);
+              // Get products from the sheet data
+              if (sheetData.products && Array.isArray(sheetData.products)) {
+                extractedProducts = sheetData.products;
               }
-            } else {
-              console.warn('Processed sheet has no products array');
-              toast.warning('Processed sheet has no products array');
+            } else if (typeof updatedResponse.data.data === 'object') {
+              // Direct object format
+              sheetData = updatedResponse.data.data;
               
-              // Clear products
+              // Get products if they exist
+              if (sheetData.products && Array.isArray(sheetData.products)) {
+                extractedProducts = sheetData.products;
+              }
+            }
+          }
+          
+          // Direct products array in response
+          if (extractedProducts.length === 0 && updatedResponse?.data?.products && Array.isArray(updatedResponse.data.products)) {
+            extractedProducts = updatedResponse.data.products;
+          }
+          
+          // Check raw array format
+          if (extractedProducts.length === 0 && Array.isArray(updatedResponse?.data)) {
+            if (updatedResponse.data.length > 0) {
+              const firstItem = updatedResponse.data[0];
+              
+              if (firstItem.products && Array.isArray(firstItem.products)) {
+                extractedProducts = firstItem.products;
+                sheetData = firstItem;
+              }
+            }
+          }
+          
+          // Prepare form data with whatever we have
+          const formData = {
+            ...rfqFormDataFromStore,
+            response_email: sheetData?.response_email || rfqFormDataFromStore.response_email,
+            contact_name: sheetData?.contact_name || rfqFormDataFromStore.contact_name,
+            contact_number: sheetData?.contact_number || rfqFormDataFromStore.contact_number,
+            company_name: sheetData?.company_name || rfqFormDataFromStore.company_name,
+            rfq_added_from: 'magic'
+          };
+          
+          if (extractedProducts.length > 0) {
+            // Enhance products with sheet info and ensure they have vendors
+            const enhancedProducts = extractedProducts.map(product => {
+              if (!product) return null;
+              
+              // Create a copy
+              const enhancedProduct = { ...product };
+              
+              // Set sheet info
+              enhancedProduct.sheet_id = sheetId;
+              enhancedProduct.sheet_name = sheetName;
+              
+              // Ensure product name is set
+              if (!enhancedProduct.product_name && enhancedProduct.name) {
+                enhancedProduct.product_name = enhancedProduct.name;
+              }
+              
+              // Ensure vendors array exists
+              if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors)) {
+                enhancedProduct.vendors = [];
+              }
+              
+              // Add default vendor if none exists
+              if (enhancedProduct.vendors.length === 0) {
+                enhancedProduct.vendors.push({
+                  id: 1,
+                  name: "Default Vendor",
+                  company_name: "Auto-assigned Vendor"
+                });
+              }
+              
+              return enhancedProduct;
+            }).filter(Boolean);
+            
+            if (enhancedProducts.length > 0) {
+              dispatch(intializeRfq({
+                rfq_form_data: formData,
+                rfqProducts: enhancedProducts,
+                rfq_id: rfqId
+              }));
+              
+              // Store in the ref for immediate access
+              rfqProductsRef.current = enhancedProducts;
+              
+              // Update local state to trigger UI refresh
+              setRfqProducts(enhancedProducts);
+              
+              toast.success(`Loaded ${enhancedProducts.length} products from processed sheet`);
+            } else {
+              console.warn(`No valid products found for sheet ID ${sheetId} in follow-up request`);
+              toast.warning(`No valid products found in sheet. Please try a different sheet.`);
+              
+              // Clear products if none found for this sheet
               dispatch(intializeRfq({
                 rfq_form_data: formData,
                 rfqProducts: [],
@@ -822,20 +1062,110 @@ const CreateRFQ = () => {
               setRfqProducts([]);
             }
           } else {
-            console.warn('Processed sheet returned no valid data:', updatedResponse?.data);
-            toast.warning('Processed sheet returned no valid data');
+            console.warn(`No products found for sheet ID ${sheetId}`);
+            toast.warning("No products found in this sheet");
+            
+            // Clear products if none found
+            dispatch(intializeRfq({
+              rfq_form_data: formData,
+              rfqProducts: [],
+              rfq_id: rfqId
+            }));
+            
+            setRfqProducts([]);
           }
         } catch (error) {
-          console.error("Error fetching processed sheet data:", error);
-          toast.error("Sheet was processed but could not load the data. Please try refreshing.");
+          console.error("Error fetching sheet data:", error);
+          toast.error("Failed to load sheet data");
         }
       } else {
-        console.error('Failed to process sheet:', response?.data);
-        toast.error('Failed to process sheet. Please check the server logs.');
+        // Even with an error response, try to extract any useful data
+        console.error("Failed to process sheet:", response?.data);
+        
+        // Try to extract form and product data even from error response
+        let extractedProducts = [];
+        let sheetData = null;
+        
+        if (response?.data?.data) {
+          if (Array.isArray(response.data.data) && response.data.data.length > 0) {
+            sheetData = response.data.data[0];
+            
+            if (sheetData?.products && Array.isArray(sheetData.products)) {
+              extractedProducts = sheetData.products;
+            }
+          } else if (typeof response.data.data === 'object') {
+            sheetData = response.data.data;
+            
+            if (sheetData?.products && Array.isArray(sheetData.products)) {
+              extractedProducts = sheetData.products;
+            }
+          }
+        }
+        
+        // Try products directly in the response
+        if (extractedProducts.length === 0 && response?.data?.products && Array.isArray(response.data.products)) {
+          extractedProducts = response.data.products;
+        }
+        
+        if (extractedProducts.length > 0) {
+          // We found some products, try to use them
+          const formData = {
+            ...rfqFormDataFromStore,
+            rfq_added_from: 'magic'
+          };
+          
+          // Enhance products with sheet info and vendors
+          const enhancedProducts = extractedProducts.map(product => {
+            if (!product) return null;
+            
+            // Create a copy
+            const enhancedProduct = { ...product };
+            
+            // Set sheet info
+            enhancedProduct.sheet_id = sheetId;
+            enhancedProduct.sheet_name = sheetName;
+            
+            // Ensure product name is set
+            if (!enhancedProduct.product_name && enhancedProduct.name) {
+              enhancedProduct.product_name = enhancedProduct.name;
+            }
+            
+            // Ensure vendors array exists and has at least one vendor
+            if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
+              enhancedProduct.vendors = [{
+                id: 1,
+                name: "Default Vendor",
+                company_name: "Auto-assigned Vendor"
+              }];
+            }
+            
+            return enhancedProduct;
+          }).filter(Boolean);
+          
+          if (enhancedProducts.length > 0) {
+            dispatch(intializeRfq({
+              rfq_form_data: formData,
+              rfqProducts: enhancedProducts,
+              rfq_id: rfqId
+            }));
+            
+            // Store in the ref for immediate access
+            rfqProductsRef.current = enhancedProducts;
+            
+            // Update local state to trigger UI refresh
+            setRfqProducts(enhancedProducts);
+            
+            toast.info(`Loaded ${enhancedProducts.length} products from available data`);
+          } else {
+            toast.error(response?.data?.message || "Failed to process sheet data");
+          }
+        } else {
+          toast.error(response?.data?.message || "Failed to process sheet data");
+        }
       }
     } catch (error) {
-      console.error("Error processing sheet:", error);
-      toast.error("Failed to process sheet. Please try again.");
+      console.error("Error in processUnprocessedSheet:", error);
+      toast.error("Failed to process sheet data");
     } finally {
       setMainLoading(false);
     }
@@ -887,9 +1217,7 @@ const CreateRFQ = () => {
           const loadDraft = async () => {
             dispatch(setStoreLoading(true));
             try {
-              console.log("Loading specific draft with ID:", id);
               const draftRes = await getDraftById(id);
-              console.log("Draft data received:", draftRes);
               // Check if this is a Magic RFQ
               const rfqFormData = draftRes?.data?.rfq_form_data || {};
               const isMagicRfqFromFlag = rfqFormData?.rfq_added_from === 'magic';
@@ -1000,12 +1328,46 @@ const CreateRFQ = () => {
     }
   }, [userProfile]);
 
+  // Changes by Agnij 2025-09-04 [Fixed duplicate products issue and handling of undefined state]
   useEffect(() => {
-    const validProducts = rfqProductsFromStore.filter(
-      (prodItem) => prodItem.vendors?.length > 0);
-    setRfqProducts(validProducts);
-    rfqProductsRef.current = validProducts;
-  }, [rfqProductsFromStore])
+    // Handle the case where rfqProductsFromStore might be undefined
+    if (!rfqProductsFromStore) {
+      return;
+    }
+    
+    // Only filter by vendor presence if not a magic search RFQ
+    if (!isMagicRfq) {
+      const validProducts = rfqProductsFromStore.filter(
+        (prodItem) => prodItem && prodItem.vendors?.length > 0);
+      setRfqProducts(validProducts);
+      rfqProductsRef.current = validProducts;
+    } else if (selectedSheet) {
+      // For magic search RFQs, also ensure products are filtered by the selected sheet
+      
+      const enhancedProducts = rfqProductsFromStore.map(product => {
+        if (!product) return null;
+        
+        // Create a copy with the current sheet info
+        const enhancedProduct = {...product};
+        enhancedProduct.sheet_id = selectedSheet.value;
+        enhancedProduct.sheet_name = selectedSheet.label;
+        
+        // Ensure product has vendors
+        if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
+          enhancedProduct.vendors = [{
+            id: 1, 
+            name: "Default Vendor", 
+            company_name: "Auto-assigned Vendor"
+          }];
+        }
+        
+        return enhancedProduct;
+      }).filter(Boolean);
+      
+      setRfqProducts(enhancedProducts);
+      rfqProductsRef.current = enhancedProducts;
+    }
+  }, [rfqProductsFromStore, isMagicRfq, selectedSheet])
 
   useEffect(() => {
     rfqFormDataRef.current = rfqFormDataFromStore;
@@ -1014,15 +1376,7 @@ const CreateRFQ = () => {
   useEffect(() => {
     // Debug terms selection state
     if (allTerms?.length > 0 && selectedTerms?.length > 0) {
-      console.log("Terms Selection Debug:", {
-        allTermsCount: allTerms.length,
-        selectedTermsCount: selectedTerms.length,
-        selectedTermIds: selectedTerms.map(t => t.id),
-        firstFewAllTerms: allTerms.slice(0, 3).map(t => ({ 
-          id: t.id, 
-          name: t.term_content || t.name 
-        }))
-      });
+      
     }
   }, [allTerms, selectedTerms]);
 
@@ -1083,23 +1437,66 @@ const CreateRFQ = () => {
     (item) => item.phone_code === countryCode1
   );           // Getting selected country from country code list
 
-  // Make sure products are filtered when the selected sheet changes
+  // Changes by Agnij 2025-05-25 [Fixed undefined rfqProductsFromStore error]
   useEffect(() => {
-    if (isMagicRfq && selectedSheet && draftRfqId && rfqProductsFromStore.length > 0) {
-      // Filter products that belong to this sheet
-      const filteredProducts = rfqProductsFromStore.filter(product => 
-        product && 
-        product.vendors && 
-        Array.isArray(product.vendors) && 
-        product.vendors.length > 0 &&
-        // Only include products with matching sheet_name or sheet_id
-        (product.sheet_name === selectedSheet.label || 
-         product.sheet_id === selectedSheet.value)
-      );
-      // Update the products display without affecting the Redux store
-      setRfqProducts(filteredProducts);
+    // Guard against undefined rfqProductsFromStore
+    if (!rfqProductsFromStore || !Array.isArray(rfqProductsFromStore)) {
+      return;
     }
-  }, [selectedSheet, isMagicRfq, draftRfqId]);
+
+    if (isMagicRfq && selectedSheet && draftRfqId && rfqProductsFromStore.length > 0) {      
+      // Force ALL products to be shown for Magic Search RFQs
+      // This is a temporary fix until we can properly associate products with sheets
+      const allProductsWithSheet = rfqProductsFromStore.map(product => {
+        if (!product) return null;
+        
+        // Create a copy with the current sheet info
+        const enhancedProduct = {...product};
+        enhancedProduct.sheet_id = selectedSheet.value;
+        enhancedProduct.sheet_name = selectedSheet.label;
+        
+        // Ensure product has vendors
+        if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
+          enhancedProduct.vendors = [{
+            id: 1, 
+            name: "Default Vendor", 
+            company_name: "Auto-assigned Vendor"
+          }];
+        }
+        
+        return enhancedProduct;
+      }).filter(Boolean);
+      
+      setRfqProducts(allProductsWithSheet);
+      rfqProductsRef.current = allProductsWithSheet;
+    }
+  }, [selectedSheet, isMagicRfq, draftRfqId, rfqProductsFromStore]);
+
+  // Changes by Agnij 2025-09-05 [Added function to initialize Redux store with products]
+  // Add this function after the existing useEffect hooks but before the return statement
+  useEffect(() => {
+    // If rfqProducts are set locally but not in Redux store, initialize the store
+    if (rfqProducts && rfqProducts.length > 0 && 
+        (!rfqProductsFromStore || rfqProductsFromStore.length === 0)) {
+      
+      // Check if the rfq_id is set in the store
+      if (!rfqDetails || rfqDetails === -1) {
+        // If no rfq_id is set, we need to set it from draft_id
+        const currentRfqId = draftRfqId !== -1 ? draftRfqId : -1;
+        
+        // Initialize the RFQ in Redux with the local products
+        dispatch(intializeRfq({
+          rfq_form_data: rfqFormDataRef.current,
+          rfqProducts: rfqProducts,
+          rfq_id: currentRfqId
+        }));
+      } else {
+        // If rfq_id is already set, just update the products
+        // This uses a direct reference to avoid race conditions
+        rfqProductsRef.current = rfqProducts;
+      }
+    }
+  }, [rfqProducts, rfqProductsFromStore, rfqDetails, draftRfqId]);
 
   return (
     <>

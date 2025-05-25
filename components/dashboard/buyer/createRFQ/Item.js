@@ -213,17 +213,18 @@ const Item = ({
   };
 
   const getProductClauses = useCallback(async () => {
+    const productId = data.id || data.product_id || (data.variant_id ? data.variant_id : null);    
     const payload = {
-      rfq_product_id: data.id,
+      rfq_product_id: productId,
       vendor_id: null,
     };
     try {
       const res = await getClausesByRfqProductId(payload);
       setBuyerClauses(res.data);
     } catch (error) {
-      console.error(error);
+      setBuyerClauses([]);
     }
-  }, [data.id]);
+  }, [data]);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -235,15 +236,24 @@ const Item = ({
   };
 
   useEffect(() => {
-    getProductClauses();
-  }, []);
+    // Only try to fetch clauses if the component is mounted and we have data
+    if (data) {
+      getProductClauses();
+    }
+  }, [getProductClauses]);
 
   useEffect(() => {
-    setRfqProduct(data);
-    setUploadedQapFile(data?.qap_file || []);
-    setUploadedSpecFile(data?.spec_file || []);
-    setUploadedDatasheetFile(data?.datasheet_file || []);
-    setComment(data?.comment || "");
+    if (data) {
+      setRfqProduct(data);
+      const qapFiles = data?.qap_file || data?.QAP_files || [];
+      const specFiles = data?.spec_file || data?.SPEC_files || [];
+      const dsFiles = data?.datasheet_file || data?.TDS_flies || [];
+      
+      setUploadedQapFile(Array.isArray(qapFiles) ? qapFiles : []);
+      setUploadedSpecFile(Array.isArray(specFiles) ? specFiles : []);
+      setUploadedDatasheetFile(Array.isArray(dsFiles) ? dsFiles : []);
+      setComment(data?.comment || "");
+    }
   }, [data]);
 
   return (

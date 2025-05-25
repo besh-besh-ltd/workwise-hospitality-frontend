@@ -465,10 +465,22 @@ export const getAllClauses = (rfq_id) => {
 export const getClausesByRfqProductId = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // Changes by Agnij 2025-09-05 [Improved error handling for clause API]
+      // Validate payload to prevent 400 errors
+      if (!payload || !payload.rfq_product_id) {
+        // Return empty data instead of rejecting to prevent component errors
+        resolve({ data: [] });
+        return;
+      }
       let response = await axiosInstance.post(`/rfq/get-clauses-of-product`, payload);
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      // For 400 errors, return empty array instead of rejecting
+      if (error.response && error.response.status === 400) {
+        resolve({ data: [] });
+      } else {
+        reject({ message: error });
+      }
     }
   });
 };
@@ -718,6 +730,99 @@ export const updateRfq = (data) => {
         status: error.response?.status || 500,
         message: error.response?.data?.message || "Failed to update RFQ",
         error: error
+      });
+    }
+  });
+};
+export const getDraftRfqSheets = (rfqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {      
+      let response = await axiosInstance.get('/rfq/draft-sheets', { 
+        params: { rfqId }
+      });
+      resolve(response);
+    } catch (error) {
+      reject({ 
+        message: error?.response?.data?.message || 'Error loading RFQ sheets',
+        status: error?.response?.data?.status || 3
+      });
+    }
+  });
+};
+
+// Changes by Agnij 2025-09-04 [Fixed API integration for getting draft RFQ sheet data]
+export const getDraftRfqSheetWise = (rfqId, sheetId) => {
+  return new Promise(async (resolve, reject) => {
+    try {      
+      // Build the query params
+      const params = { rfqId };
+      if (sheetId) {
+        params.sheetId = sheetId;
+      }
+      
+      // Use params object to properly format the query string
+      let response = await axiosInstance.get('/rfq/draft-sheet-wise', { params });      
+      // Ensure we have a consistent response format even if the API returns bare data
+      if (response.data && Array.isArray(response.data) && !response.data.status) {
+        // If API returns a raw array, wrap it in a standard format
+        response = {
+          ...response,
+          data: {
+            status: 1,
+            message: 'Sheet data retrieved successfully',
+            data: response.data
+          }
+        };
+      }
+      resolve(response);
+    } catch (error) {      
+      if (error.response && error.response.status === 500) {
+        resolve({
+          data: {
+            status: 2, // Partial success
+            message: 'Server error while fetching sheet data, using available data',
+            data: error.response.data || []
+          }
+        });
+        return;
+      }
+      
+      reject({ 
+        message: error?.response?.data?.message || 'Error loading sheet data',
+        status: error?.response?.data?.status || 3
+      });
+    }
+  });
+};
+
+// Changes by Agnij 2025-05-25 [Fixed Magic Search processing API integration]
+export const processMagicSearchDraft = (rfqId, sheetId) => {
+  return new Promise(async (resolve, reject) => {
+    try {      
+      // Using query parameters directly in URL as the server expects them there
+      let response = await axiosInstance.post(`/rfq/process-magic-search-draft?rfqId=${rfqId}&sheetId=${sheetId}`);
+      
+      resolve(response);
+    } catch (error) {
+      if (error.response) {
+        if (error.response.status === 500) {
+          resolve({
+            data: {
+              status: 2, // Partial success
+              message: 'Server error while processing sheet, using available data',
+              data: error.response.data || {}
+            }
+          });
+          return;
+        }
+      }
+      resolve({
+        data: {
+          status: 0, // Error status
+          success: false,
+          message: error?.response?.data?.message || 'Error processing sheet data',
+          error: error?.message || 'Unknown error'
+        }
       });
     }
   });
