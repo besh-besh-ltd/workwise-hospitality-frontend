@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -475,6 +475,10 @@ const CreateRFQ = () => {
       
       console.log("Terms filtered for draft save:", formDataCopy.terms);
     }
+    // Make sure we maintain the rfq_added_from flag if this is a magic search RFQ
+    if (isMagicRfq && !formDataCopy.rfq_added_from) {
+      formDataCopy.rfq_added_from = 'magic';
+    }
 
     const payload = {
       ...formDataCopy, // Use the filtered copy
@@ -483,7 +487,6 @@ const CreateRFQ = () => {
       is_published: 0,
       contact_number: fullMobile
     };
-
     try {
       const res = await saveDraft(payload);
       setMainLoading(false);
@@ -495,14 +498,11 @@ const CreateRFQ = () => {
       );
       setHasUnsavedChanges(false);
       
-      // Changes by Agnij 2025-06-17 [Improved state cleanup and redirect]
-      // Clear state and URL parameters
-      dispatch(clearState());
-      // Use router.push with the replace option to prevent back navigation to this page
-      router.push({
-        pathname: '/dashboard/buyer/rfq-management',
-        query: { tab: 'draft-rfqs' }
-      });
+      // Don't reload or redirect, just update the local state if needed
+      if (res.message?.rfq_id && !rfqDetails) {
+        // If this is a new draft and we got an ID back, update it locally
+        dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
+      }
     } catch (error) {
       console.error("Error saving draft:", error);
       setMainLoading(false);
@@ -522,30 +522,49 @@ const CreateRFQ = () => {
         // Set the title to indicate we're editing a draft
         document.title = `Edit Draft RFQ #${draftRfqId}`;
 
-        // Changes by Agnij 2025-08-05 [Check if this RFQ is from magic search]
-        // If the draft has rfq_added_from = 'magic', we'll show the sheet filter
-        if (draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic') {
+        // Check if this is a Magic RFQ
+        const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
+        const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
+        if (isMagicRfqFromFlag || hasMagicSheets) {
           setIsMagicRfq(true);
           
-          // Get sheet data for this RFQ
-          try {
-            const response = await axiosInstance.get(`/rfq/get-draft-sheets?rfqId=${draftRfqId}`);
-            if (response?.data?.sheets && Array.isArray(response.data.sheets)) {
-              setSheetNameList(response.data.sheets.map(sheet => ({
-                label: sheet.sheet_name,
-                value: sheet.id
-              })));
-              
-              // Set default selected sheet
-              if (response.data.sheets.length > 0) {
-                setSelectedSheet({
-                  label: response.data.sheets[0].sheet_name,
-                  value: response.data.sheets[0].id
-                });
+          // Get sheet data for this RFQ - either from the response or make a new request
+          let sheetData = [];
+          
+          if (hasMagicSheets) {
+            // Use sheets from the response
+            sheetData = draftRes.data.sheets;
+          } else {
+            // Make a separate API call to get sheets
+            try {
+              // Use the dedicated API method instead of raw axios call
+              const sheetsResponse = await getDraftRfqSheets(draftRfqId);              
+              if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
+                sheetData = sheetsResponse.data.sheets;
+              } else {
               }
+            } catch (error) {
+              toast.error("Failed to load sheet data for this RFQ");
             }
-          } catch (error) {
-            console.error("Error fetching sheet data:", error);
+          }
+          
+          if (sheetData && sheetData.length > 0) {
+            const sheetOptions = sheetData.map(sheet => ({
+              label: sheet.sheet_name,
+              value: sheet.id
+            }));
+            setSheetNameList(sheetOptions);
+            
+            // Set default selected sheet
+            if (sheetData.length > 0) {
+              const defaultSheet = {
+                label: sheetData[0].sheet_name,
+                value: sheetData[0].id
+              };
+              setSelectedSheet(defaultSheet);
+            }
+          } else {
+            console.warn("No sheets found for Magic RFQ ID:", draftRfqId);
           }
         }
       } else {
@@ -594,22 +613,229 @@ const CreateRFQ = () => {
     setMainLoading(true);
     
     try {
-      // Fetch data for the selected sheet
-      const response = await axiosInstance.get(
-        `/rfq/get-draft-rfq-sheet-wise?rfqId=${draftRfqId}&sheetId=${selectedOption.value}`
-      );
+      // Use the dedicated API method instead of raw axios call
+      const response = await getDraftRfqSheetWise(draftRfqId, selectedOption.value);      
+      // Check if we need to process the sheet
+      if (!response?.data?.success || response?.data?.status === 0 || 
+          !response?.data?.data || response?.data?.data.length === 0) {
+        await processUnprocessedSheet(draftRfqId, selectedOption.value);
+        return; // The processUnprocessedSheet function will handle the rest
+      }
       
-      if (response?.data?.data) {
-        // Update the products in the Redux store
-        dispatch(intializeRfq({
-          ...response.data.data,
-          rfq_id: draftRfqId
-        }));
-        toast.success(`Loaded products from sheet: ${selectedOption.label}`);
+      // Process the response data 
+      const sheetData = response?.data?.data[0]; // Get the first item from data array
+      if (sheetData) {        
+        // Prepare form data from sheet data
+        const formData = {
+          ...rfqFormDataFromStore, // Keep existing form data
+          response_email: sheetData.response_email || rfqFormDataFromStore.response_email,
+          contact_name: sheetData.contact_name || rfqFormDataFromStore.contact_name,
+          contact_number: sheetData.contact_number || rfqFormDataFromStore.contact_number,
+          company_name: sheetData.company_name || rfqFormDataFromStore.company_name,
+          rfq_added_from: 'magic', // Ensure we keep the magic flag
+        };
+        
+        // Check if products array exists and has data
+        if (sheetData.products && Array.isArray(sheetData.products)) {
+          // Filter products that belong to this sheet and have valid vendors
+          const validProducts = sheetData.products.filter(product => 
+            product && 
+            product.vendors && 
+            Array.isArray(product.vendors) && 
+            product.vendors.length > 0 &&
+            // Only include products with matching sheet_name or sheet_id
+            (product.sheet_name === selectedOption.label || 
+             product.sheet_id === selectedOption.value)
+          );
+          
+          if (validProducts.length > 0) {
+            console.log(`Found ${validProducts.length} valid products for sheet ${selectedOption.label} (ID: ${selectedOption.value})`);
+            
+            // Update the Redux store with new data
+            dispatch(intializeRfq({
+              rfq_form_data: formData,
+              rfqProducts: validProducts,
+              rfq_id: draftRfqId
+            }));
+            
+            // Update local state to trigger UI refresh
+            setRfqProducts(validProducts);
+            
+            toast.success(`Loaded ${validProducts.length} products from sheet: ${selectedOption.label}`);
+          } else {
+            console.warn(`No valid products found for sheet ${selectedOption.label} (ID: ${selectedOption.value})`);
+            toast.warning(`No valid products found in sheet: ${selectedOption.label}`);
+            
+            // Clear products if none found for this sheet
+            dispatch(intializeRfq({
+              rfq_form_data: formData,
+              rfqProducts: [],
+              rfq_id: draftRfqId
+            }));
+            
+            setRfqProducts([]);
+          }
+        } else {
+          console.warn('No products array found in sheet data:', sheetData);
+          toast.warning(`No products found in sheet: ${selectedOption.label}`);
+        }
+      } else {
+        console.warn('Invalid sheet data format:', response?.data);
+        toast.warning(`Could not process data from sheet: ${selectedOption.label}`);
       }
     } catch (error) {
       console.error("Error fetching sheet data:", error);
       toast.error("Failed to load products for selected sheet");
+    } finally {
+      setMainLoading(false);
+    }
+  };
+  const processUnprocessedSheet = async (rfqId, sheetId) => {
+    try {
+      setMainLoading(true);
+      
+      // Get the current sheet name from the selected sheet
+      const sheetName = selectedSheet?.label || 
+        sheetNameList.find(sheet => sheet.value === sheetId)?.label || 
+        `Sheet ${sheetId}`;
+      
+      // Call the API to process the sheet using the dedicated method
+      const response = await processMagicSearchDraft(rfqId, sheetId);
+      // Check for success status and that we don't have an explicit false success flag
+      if (response?.data?.status === 1 && response?.data?.success !== false) {
+        toast.success('Sheet processed successfully');
+        
+        // Try to use the data directly from the processing response if it contains products
+        if (response?.data?.data && response?.data?.data.products && 
+            Array.isArray(response?.data?.data.products)) {
+          const processedData = response?.data?.data;
+          
+          // Prepare form data from processed data
+          const formData = {
+            ...rfqFormDataFromStore, // Keep existing form data
+            response_email: processedData.response_email || rfqFormDataFromStore.response_email,
+            contact_name: processedData.contact_name || rfqFormDataFromStore.contact_name,
+            contact_number: processedData.contact_number || rfqFormDataFromStore.contact_number,
+            company_name: processedData.company_name || rfqFormDataFromStore.company_name,
+            rfq_added_from: 'magic' // Ensure we keep the magic flag
+          };
+          
+          // Filter products for this specific sheet and that have valid vendors
+          const validProducts = processedData.products.filter(product => 
+            product && 
+            product.vendors && 
+            Array.isArray(product.vendors) && 
+            product.vendors.length > 0 &&
+            // Filter by sheet_id or sheet_name if available, or include all if not specified
+            (product.sheet_id === sheetId || 
+             product.sheet_name === sheetName || 
+             !product.sheet_id) // Include products without sheet_id in case the backend didn't add it
+          );
+          
+          if (validProducts.length > 0) {
+            console.log(`Found ${validProducts.length} valid products for sheet ID ${sheetId}`);
+            
+            // Update the Redux store with new data
+            dispatch(intializeRfq({
+              rfq_form_data: formData,
+              rfqProducts: validProducts,
+              rfq_id: rfqId
+            }));
+            
+            // Update local state to trigger UI refresh
+            setRfqProducts(validProducts);
+            
+            toast.success(`Loaded ${validProducts.length} products from processed sheet`);
+            return; // Exit early since we've handled the data
+          } else {
+            console.warn(`No valid products found for sheet ID ${sheetId} in direct response`);
+          }
+        }
+        
+        // If we couldn't use the data directly, make a new request to get the sheet data
+        try {
+          const updatedResponse = await getDraftRfqSheetWise(rfqId, sheetId);          
+          if (updatedResponse?.data?.status === 1 && 
+              updatedResponse?.data?.data && 
+              updatedResponse?.data?.data.length > 0) {
+            
+            const sheetData = updatedResponse?.data?.data[0];
+            
+            // Prepare form data
+            const formData = {
+              ...rfqFormDataFromStore,
+              response_email: sheetData.response_email || rfqFormDataFromStore.response_email,
+              contact_name: sheetData.contact_name || rfqFormDataFromStore.contact_name,
+              contact_number: sheetData.contact_number || rfqFormDataFromStore.contact_number,
+              company_name: sheetData.company_name || rfqFormDataFromStore.company_name,
+              rfq_added_from: 'magic'
+            };
+            
+            if (sheetData.products && Array.isArray(sheetData.products)) {
+              // Filter valid products for this specific sheet
+              const validProducts = sheetData.products.filter(product => 
+                product && 
+                product.vendors && 
+                Array.isArray(product.vendors) && 
+                product.vendors.length > 0 &&
+                // Filter by sheet_id or sheet_name if available
+                (product.sheet_id === sheetId || 
+                 product.sheet_name === sheetName || 
+                 !product.sheet_id) // Include products without sheet_id in case the backend didn't add it
+              );
+              
+              if (validProducts.length > 0) {                
+                dispatch(intializeRfq({
+                  rfq_form_data: formData,
+                  rfqProducts: validProducts,
+                  rfq_id: rfqId
+                }));
+                
+                // Update local state to trigger UI refresh
+                setRfqProducts(validProducts);
+                
+                toast.success(`Loaded ${validProducts.length} products from processed sheet`);
+              } else {
+                console.warn(`No valid products found for sheet ID ${sheetId} in follow-up request`);
+                toast.warning('No valid products found in processed sheet');
+                
+                // Clear products if none found for this sheet
+                dispatch(intializeRfq({
+                  rfq_form_data: formData,
+                  rfqProducts: [],
+                  rfq_id: rfqId
+                }));
+                
+                setRfqProducts([]);
+              }
+            } else {
+              console.warn('Processed sheet has no products array');
+              toast.warning('Processed sheet has no products array');
+              
+              // Clear products
+              dispatch(intializeRfq({
+                rfq_form_data: formData,
+                rfqProducts: [],
+                rfq_id: rfqId
+              }));
+              
+              setRfqProducts([]);
+            }
+          } else {
+            console.warn('Processed sheet returned no valid data:', updatedResponse?.data);
+            toast.warning('Processed sheet returned no valid data');
+          }
+        } catch (error) {
+          console.error("Error fetching processed sheet data:", error);
+          toast.error("Sheet was processed but could not load the data. Please try refreshing.");
+        }
+      } else {
+        console.error('Failed to process sheet:', response?.data);
+        toast.error('Failed to process sheet. Please check the server logs.');
+      }
+    } catch (error) {
+      console.error("Error processing sheet:", error);
+      toast.error("Failed to process sheet. Please try again.");
     } finally {
       setMainLoading(false);
     }
@@ -620,9 +846,7 @@ const CreateRFQ = () => {
     getVendorApproveList();
     getAllProjects();
     fetchCountryCodes();
-
   }, []);
-
   // Watch for changes in the draft_id from URL
   useEffect(() => {
     // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
@@ -666,6 +890,55 @@ const CreateRFQ = () => {
               console.log("Loading specific draft with ID:", id);
               const draftRes = await getDraftById(id);
               console.log("Draft data received:", draftRes);
+              // Check if this is a Magic RFQ
+              const rfqFormData = draftRes?.data?.rfq_form_data || {};
+              const isMagicRfqFromFlag = rfqFormData?.rfq_added_from === 'magic';
+              const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
+                          
+              if (isMagicRfqFromFlag || hasMagicSheets) {
+                setIsMagicRfq(true);
+                
+                // Get sheet data for this RFQ - either from the response or make a new request
+                let sheetData = [];
+                
+                if (hasMagicSheets) {
+                  // Use sheets from the response
+                  sheetData = draftRes.data.sheets;
+                } else {
+                  // Make a separate API call to get sheets
+                  try {
+                    // Use the dedicated API method instead of raw axios call
+                    const sheetsResponse = await getDraftRfqSheets(id);
+                    if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
+                      sheetData = sheetsResponse.data.sheets;                      
+                    } else {
+                      console.warn('No sheets found in API response:', sheetsResponse?.data);
+                    }
+                  } catch (error) {
+                    console.error("Error fetching magic search sheets:", error);
+                    toast.error("Failed to load sheet data for this RFQ");
+                  }
+                }
+                
+                if (sheetData && sheetData.length > 0) {
+                  const sheetOptions = sheetData.map(sheet => ({
+                    label: sheet.sheet_name,
+                    value: sheet.id
+                  }));
+                  setSheetNameList(sheetOptions);
+                  
+                  // Set default selected sheet
+                  if (sheetData.length > 0) {
+                    const defaultSheet = {
+                      label: sheetData[0].sheet_name,
+                      value: sheetData[0].id
+                    };
+                    setSelectedSheet(defaultSheet);
+                  }
+                } else {
+                  console.warn("No sheets found for Magic RFQ ID:", id);
+                }
+              }
               
               if (draftRes?.data) {
                 if (draftRes.data.rfq_form_data?.contact_number) {
@@ -810,8 +1083,23 @@ const CreateRFQ = () => {
     (item) => item.phone_code === countryCode1
   );           // Getting selected country from country code list
 
- 
-  
+  // Make sure products are filtered when the selected sheet changes
+  useEffect(() => {
+    if (isMagicRfq && selectedSheet && draftRfqId && rfqProductsFromStore.length > 0) {
+      // Filter products that belong to this sheet
+      const filteredProducts = rfqProductsFromStore.filter(product => 
+        product && 
+        product.vendors && 
+        Array.isArray(product.vendors) && 
+        product.vendors.length > 0 &&
+        // Only include products with matching sheet_name or sheet_id
+        (product.sheet_name === selectedSheet.label || 
+         product.sheet_id === selectedSheet.value)
+      );
+      // Update the products display without affecting the Redux store
+      setRfqProducts(filteredProducts);
+    }
+  }, [selectedSheet, isMagicRfq, draftRfqId]);
 
   return (
     <>
@@ -839,22 +1127,39 @@ const CreateRFQ = () => {
                 </div>
               ) : (
                 <>
-                  <div className="col-md-3 mb-3">
-                    <h4>Select Project</h4>
-                    <Select
-                      options={projects}
-                      value={projects.find(
-                        (project) =>
-                          project.value === rfqFormDataFromStore.project_id
-                      )}
-                      defaultValue={-1}
-                      onChange={(selectedOption, actionMeta) =>
-                        handleFormFieldChange(null, selectedOption, actionMeta)
-                      }
-                      name="project_id"
-                      placeholder="Select"
-                      isClearable
-                    />
+                  <div className="d-flex justify-content-between align-items-end mb-3">
+                    <div className="col-md-3">
+                      <h4>Select Project</h4>
+                      <Select
+                        options={projects}
+                        value={projects.find(
+                          (project) =>
+                            project.value === rfqFormDataFromStore.project_id
+                        )}
+                        defaultValue={-1}
+                        onChange={(selectedOption, actionMeta) =>
+                          handleFormFieldChange(null, selectedOption, actionMeta)
+                        }
+                        name="project_id"
+                        placeholder="Select"
+                        isClearable
+                      />
+                    </div>
+                    
+                    {/* Changes by Agnij 2025-08-08 [Simplified sheet selector UI] */}
+                    {isMagicRfq && sheetNameList.length > 0 && (
+                      <div className="col-md-3">
+                        <h4>Select Sheet</h4>
+                        <Select
+                          name="sheetName"
+                          options={sheetNameList}
+                          value={selectedSheet}
+                          placeholder="Select Sheet"
+                          onChange={handleSheetChange}
+                          className="sheet-selector"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* RFQ Products Table */}
@@ -1286,24 +1591,6 @@ const CreateRFQ = () => {
                 </>
               )}
             </div>
-
-            {/* Changes by Agnij 2025-08-05 [Added sheet filter UI] */}
-            {isMagicRfq && sheetNameList.length > 0 && (
-              <div className="container-fluid">
-                <div className="row mb-4">
-                  <div className="col-md-4 ms-auto">
-                    <label className="form-label fw-medium mb-1">Select Sheet</label>
-                    <Select
-                      name="sheetName"
-                      options={sheetNameList}
-                      value={selectedSheet}
-                      placeholder="Select Sheet"
-                      onChange={handleSheetChange}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

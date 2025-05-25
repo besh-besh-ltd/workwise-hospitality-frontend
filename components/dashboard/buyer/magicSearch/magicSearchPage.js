@@ -146,15 +146,15 @@ const MagicSearchPage = () => {
 
             // Use a known valid test URL that returns a proper response structure
             const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&stage=matched"
-            if (!downloadUrl) {
+              if (!downloadUrl) {
                 toast.error("Failed to create RFQ: Please try after few minutes.");
                 setLoading(false);
                 return;
-            }
+              }
 
             // further process json data get from ai server, to fetch vendor list
             try {
-                const response = await getMagicRFQPreview(downloadUrl);
+            const response = await getMagicRFQPreview(downloadUrl);
                 console.log("Magic RFQ Preview Response:", response);
                 
                 // Changes by Agnij 2025-08-05 [Improved magic search redirect to match Edit Draft behavior]
@@ -171,7 +171,7 @@ const MagicSearchPage = () => {
                     
                     // Reset form state
                     setFile(null);
-                    setFileName('');
+                setFileName('');
                     setLoading(false);
                     return
                     
