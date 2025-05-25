@@ -6,7 +6,7 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import {  searchProductsV2 } from "@/services/products";
+import {  getProductMakeList, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
@@ -82,6 +82,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     to: -1
   })
   const [prevWorkedWith, setPrevWorkedWith] = useState(null);
+  const [makeList, setMakeList] = useState([]);
+  const [selectedMakes, setSelectedMakes] = useState([]);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -160,7 +162,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       setVendorTypes(data)
       setInternalVendorTypes(data)
     }).catch((e) => {
-      console.log(e)
+      console.error(e)
     })
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -187,6 +189,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProducts(slug);
     getCategories();
     getVendorApprovedby();
+    getMakeList();
   }, []);
 
 
@@ -205,6 +208,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     isLoggedIn,
     debouncedVendorName, // Use debouncedVendorName instead of vendorName,
     myVendorType,
+    selectedMakes
   ]);
 
   useEffect(() => {
@@ -304,14 +308,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           prevWorkedWith,
           vendor_name: vendorName,
           myVendorType,
+          selectedMakes
         },
         "vendors"
       )
         .then((rsp) => {
 
           setloading(false);
-          console.log("259 ******************")
-          console.table(bulkRFQVendors)
+
           let d = rsp.data.map((item) => {
             item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
             return item;
@@ -374,7 +378,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setSearchSubCategories(res.subCategoryList);
       })
       .catch((error) => {
-        console.log(error);
+        console.error(error);
       })
       .finally(() => {
         setloading(false)
@@ -419,7 +423,19 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setvabloading(false);
       });
   };
-  
+
+  // get product make list for filters
+  const getMakeList = () => {
+  getProductMakeList()
+    .then((rsp) => {
+      setMakeList(rsp); // Set the list of makes
+      setSelectedMakes([]); // Clear any previously selected makes (optional)
+    })
+    .catch((error) => {
+      console.error("Error fetching make list:", error);
+    });
+};
+
   const handleSearchChange = (e) => {
     const searchValue = e.target.value;
 
@@ -809,12 +825,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
+      
+            {/* START : Filter side bar */}
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
                     Filters
                   </h4>
+
+                  {/* START: Vender search by name */}
                   {currentSelectedProduct && (
                     <div className="search-con-right-1">
                       <input
@@ -827,10 +847,62 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   )}
+                  {/* END: Vender search by name */}
 
+                   {/* START: product make filter */}
                   <div className="search-con-right-1">
-                    <p className="fw-semibold mb-2">My Vendors</p>
+                   <p className="fw-semibold mb-2 mt-3">Product Make</p>
+                   <div>
+                  <select
+                    name="product_make"
+                    id="product_make"
+                    value={selectedMakes.length > 0 ? selectedMakes[0].id : ""}
 
+                     onChange={(e) => {
+                          if (
+                            !vendorMetaData.logged_In ||
+                            !vendorMetaData.subscription
+                          )
+                            setOpenAuthModal(true);
+                          else {
+                                const selected = makeList.find((option) => option.id == e.target.value);
+                                if (selected) {
+                                setSelectedMakes([selected]);
+                                } else {
+                                setSelectedMakes([]);
+                                }
+                          }
+                        }}
+                  >
+                    <option value="">All Makes</option>
+                    {makeList &&
+                      makeList.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.value}
+                        </option>
+                      ))}
+                  </select>
+                
+                  {/* Display clear link if any filter is active */}
+                  {selectedMakes.length > 0 && (
+                    <Link
+                      href="#"
+                      className="clearFilter"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelectedMakes([]);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faTimesCircle} /> clear
+                    </Link>
+                  )}
+                   </div>
+                 </div>
+                  {/* END: product make filter */}
+
+                  {/* START: my vendor filter */}
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2 mt-3 ">My Vendors</p>
                     <div>
                       <select
                         name="vendors"
@@ -874,6 +946,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: my vendor filter */}
+
+                  {/* START: Location filter */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Location</p>
                     {selectedCountry != 0 && (
@@ -902,7 +977,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   </div>
+                  {/* END: Location filter */}
 
+                  {/* START: Vendor Type */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
                     <div
@@ -968,6 +1045,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: Vendor Type */}
+
+                 {/* START:  Previously Worked With */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Previously Worked With</p>
                     <div>
@@ -1008,6 +1088,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: Previously Worked With */}
+
+                  {/* START: Vendor Approved By */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Approved By</p>
                     <div
@@ -1084,9 +1167,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: Vendor Approved By */}
+
                 </aside>
               </div>
             )}
+            {/* END: Filter side bar */}
+
+           
+           {/* START:  vendor list*/}
             <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
               <div className="row">
                 {currentSelectedProduct && (
@@ -1219,6 +1308,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 )}
               </div>
             </div>
+           {/* END:  vendor list*/}
+
           </div>
         </div>
 
