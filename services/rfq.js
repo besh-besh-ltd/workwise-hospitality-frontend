@@ -97,10 +97,10 @@ export const getDraftData = (fresh = false) => {
 };
 
 // Changes by Agnij 2025-06-17 [Improved error handling for draft RFQ retrieval]
-export const getDraftById = (id) => {
+export const getDraftById = (id, sheet_id) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-draft-by-id/${id}`);
+      let response = await axiosInstance.get(`/rfq/get-draft-by-id/${id}`, {params: {sheetId: sheet_id}});
       resolve(response);
     } catch (error) {
       console.error(`[getDraftById] Error fetching draft RFQ with ID ${id}:`, error);
@@ -754,26 +754,12 @@ export const getDraftRfqSheets = (rfqId) => {
 export const getDraftRfqSheetWise = (rfqId, sheetId) => {
   return new Promise(async (resolve, reject) => {
     try {      
-      // Build the query params
       const params = { rfqId };
       if (sheetId) {
         params.sheetId = sheetId;
       }
       
-      // Use params object to properly format the query string
       let response = await axiosInstance.get('/rfq/draft-sheet-wise', { params });      
-      // Ensure we have a consistent response format even if the API returns bare data
-      if (response.data && Array.isArray(response.data) && !response.data.status) {
-        // If API returns a raw array, wrap it in a standard format
-        response = {
-          ...response,
-          data: {
-            status: 1,
-            message: 'Sheet data retrieved successfully',
-            data: response.data
-          }
-        };
-      }
       resolve(response);
     } catch (error) {      
       if (error.response && error.response.status === 500) {

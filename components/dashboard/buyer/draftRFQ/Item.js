@@ -65,7 +65,6 @@ const DraftRFQItem = ({ data }) => {
         <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>
-          <div className="d-flex flex-column gap-2">
             <Link
               href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data?.id}`}
               className="btn btn-primary"
@@ -73,7 +72,6 @@ const DraftRFQItem = ({ data }) => {
             >
               Edit
             </Link>
-          </div>
         </td>
       </tr>
     </>

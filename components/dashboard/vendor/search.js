@@ -118,6 +118,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
+  const [queryMeta, setQueryMeta] = useState({
+    rfq_id: null,
+    sheet_id: null,
+  })
   const fromRef = useRef(null);
   const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
@@ -156,7 +160,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, [vendorName]);
 
-
+  useEffect(() => {
+    const { rfq_id, sheet_id } = router.query;
+    setQueryMeta({
+      rfq_id,
+      sheet_id,
+    })
+  }, [router.query])
 
   useEffect(() => {
     if (s && s != "") {
@@ -307,7 +317,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       setIsLoading(true);
 
       // Get the rfq_id from the URL if it exists
-      const { rfq_id } = router.query;
+      const { rfq_id, sheet_id } = queryMeta;
 
       const payload = {
         variant_id: currentSelectedProduct.variant_id,
@@ -322,7 +332,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         payload.rfq_id = parseInt(rfq_id);
       }
 
-      const response = await addProductToDraft(payload);
+      if (sheet_id && !isNaN(parseInt(sheet_id))) {
+        payload.sheet_id = parseInt(sheet_id);
+      }
+
+      await addProductToDraft(payload);
       
       toast.success(
         <h6>
@@ -330,20 +344,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         </h6>,
         { position: "top-right" }
       );
-      
-      // Extract the rfq_id from the response - check all possible locations
-      const newRfqId = 
-        response?.data?.rfq_id || 
-        response?.data?.data?.rfq_id || 
-        (payload.rfq_id ? payload.rfq_id : null);
 
-      if (newRfqId) {
-        // Always redirect to create RFQ tab with the draft_id parameter
-        router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${newRfqId}`);
-      } else {
-        // Fallback to create RFQ tab without draft_id to create a fresh RFQ
-        router.push('/dashboard/buyer/rfq-management?tab=create-rfq');
-      }
+      setbulkRFQVendors([]);
+      setVendors(prev => prev.map(vendor => ({
+        ...vendor,
+        selected: false,
+      })));
       
     } catch (error) {
       toast.error(
@@ -562,12 +568,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     tempProdRef.current = null;
 
     // Get the rfq_id from the URL if it exists
-    const { rfq_id } = router.query;
+    const { rfq_id, sheet_id } = router.query;
 
     // Update the URL to include the selected product's slug and preserve rfq_id if it exists
     const productSlug = item.slug ?? item.variant_name.replace(' ', '_').toLowerCase();
-    const newUrl = rfq_id
-      ? `/vendor/${productSlug}?rfq_id=${rfq_id}`
+    const newUrl = rfq_id && sheet_id
+      ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
+      : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 
       : `/vendor/${productSlug}`;
 
     router.push(newUrl);
@@ -775,13 +782,23 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               onClick={() =>
                                                 handleAutocompleteClick(item)
                                               }
-                                              title={item?.unified_name ? `${item.unified_name}` : `${item.variant_name}`}
+                                              title={
+                                                item?.unified_name
+                                                  ? `${item.unified_name}`
+                                                  : `${item.variant_name}`
+                                              }
                                             >
                                               <div>
-                                                <h3>{item.variant_name ?? item.product_name}</h3>
+                                                <h3>
+                                                  {item.variant_name ??
+                                                    item.product_name}
+                                                </h3>
                                                 <p>
                                                   <small>
-                                                    <b>{item.category_name} | {item.product_name}</b>
+                                                    <b>
+                                                      {item.category_name} |{" "}
+                                                      {item.product_name}
+                                                    </b>
                                                   </small>
                                                 </p>
                                               </div>
@@ -1160,15 +1177,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   </div> */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
-                    <div
-                      ref={vendorTypeRef}
-                      className="selection-dropdown"
-                    >
+                    <div ref={vendorTypeRef} className="selection-dropdown">
                       <input
                         type="text"
                         onChange={(e) => {
                           setInternalVendorTypes(
-                            vendorTypes.filter((type) => type.value.toLowerCase().includes(e.target.value.toLowerCase())
+                            vendorTypes.filter((type) =>
+                              type.value
+                                .toLowerCase()
+                                .includes(e.target.value.toLowerCase())
                             )
                           );
                         }}
@@ -1200,10 +1217,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             maxWidth: 315,
                           }}
                         >
-                          {internalVendorTypes && internalVendorTypes.length > 0 ? (
+                          {internalVendorTypes &&
+                          internalVendorTypes.length > 0 ? (
                             internalVendorTypes.map((type) => (
                               <li
-                                key={type.value}  
+                                key={type.value}
                                 onClick={() => {
                                   setSelectedVendorTypes((prev) => [
                                     ...prev,
@@ -1275,7 +1293,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         onChange={(e) => {
                           setInternalApprovedBy(
                             approved_by.filter((_) =>
-                              _.vendor_approve.toLowerCase().includes(e.target.value)
+                              _.vendor_approve
+                                .toLowerCase()
+                                .includes(e.target.value)
                             )
                           );
                         }}
@@ -1290,7 +1310,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               onClick={() =>
                                 setSelectedApprovedBy((prev) =>
                                   prev.filter(
-                                    (_approvedBy) => !(_approvedBy.id == approvedBy.id)
+                                    (_approvedBy) =>
+                                      !(_approvedBy.id == approvedBy.id)
                                   )
                                 )
                               }
@@ -1308,30 +1329,34 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           }}
                         >
                           {internalApprovedBy.length > 0 ? (
-                            internalApprovedBy.filter(item => {
-                              return item.show_in_website == 1 &&
-                              item.vendor_approve &&
-                              item.vendor_approve != "null"
-                            }).map((approveBy) => (
-                              <li
-                                key={approveBy.id}
-                                onClick={() => {
-                                  if (
-                                    !vendorMetaData.logged_In ||
-                                    !vendorMetaData.subscription
-                                  )
-                                    return setOpenAuthModal(true);
-                                  setSelectedApprovedBy((prev) => [
-                                    ...prev,
-                                    approveBy,
-                                  ]);
-                                  setApprovedByOpen(false);
-                                }}
-                                className="dropdown-item"
-                              >
-                                {approveBy.vendor_approve}
-                              </li>
-                            ))
+                            internalApprovedBy
+                              .filter((item) => {
+                                return (
+                                  item.show_in_website == 1 &&
+                                  item.vendor_approve &&
+                                  item.vendor_approve != "null"
+                                );
+                              })
+                              .map((approveBy) => (
+                                <li
+                                  key={approveBy.id}
+                                  onClick={() => {
+                                    if (
+                                      !vendorMetaData.logged_In ||
+                                      !vendorMetaData.subscription
+                                    )
+                                      return setOpenAuthModal(true);
+                                    setSelectedApprovedBy((prev) => [
+                                      ...prev,
+                                      approveBy,
+                                    ]);
+                                    setApprovedByOpen(false);
+                                  }}
+                                  className="dropdown-item"
+                                >
+                                  {approveBy.vendor_approve}
+                                </li>
+                              ))
                           ) : (
                             <li className="dropdown-item">No results found</li>
                           )}
@@ -1447,14 +1472,26 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                           {/* View Current RFQ Button (Always Renders) */}
                           <Link
-                            href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                            href={
+                              queryMeta
+                                ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
+                                    queryMeta.rfq_id
+                                  }${
+                                    queryMeta.sheet_id
+                                      ? `&sheet_id=${queryMeta.sheet_id}`
+                                      : ""
+                                  }`
+                                : "/dashboard/buyer/rfq-management?tab=create-rfq"
+                            }
                             className={`btn btn-primary ${
                               isLoading ? "disabled" : ""
                             }`}
                             role="button"
                             aria-disabled={isLoading}
                           >
-                            View Current RFQ
+                            {queryMeta
+                              ? `View RFQ #${queryMeta.rfq_id}`
+                              : "View Current RFQ"}
                           </Link>
                         </div>
                       </div>

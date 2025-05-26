@@ -110,6 +110,7 @@ export const rfqProductsSlice = createSlice({
     },
 
     addProductSpecValue: (state, action) => {
+      console.log("state.rfqProducts ---- ", state.rfqProducts)
       let d = state.rfqProducts.map((item) => {
         if (item.product_id == action.payload.product_id && item.variant == action.payload.variant) {
           if (!item.spec) {

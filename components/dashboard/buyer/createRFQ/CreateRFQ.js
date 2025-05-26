@@ -56,6 +56,10 @@ const CreateRFQ = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
+  const [queryMeta, setQueryMeta] = useState({
+    draft_id: null,
+    sheet_id: null,
+  })
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
@@ -485,7 +489,8 @@ const CreateRFQ = () => {
       rfq_id: rfqDetails,
       products: rfqProductsRef.current,
       is_published: 0,
-      contact_number: fullMobile
+      contact_number: fullMobile,
+      sheet_id: selectedSheet.value,
     };
     try {
       const res = await saveDraft(payload);
@@ -510,6 +515,98 @@ const CreateRFQ = () => {
     }
   };
 
+  const loadDraft = async (id, sheet_id = queryMeta.sheet_id) => {
+    dispatch(setStoreLoading(true));
+    try {
+      const draftRes = await getDraftById(id, sheet_id);
+      const rfqFormData = draftRes?.data?.rfq_form_data || {};
+      const isMagicRfqFromFlag = rfqFormData?.rfq_added_from === 'magic';
+      const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
+                  
+      if (isMagicRfqFromFlag || hasMagicSheets) {
+        setIsMagicRfq(true);
+        
+        let sheetData = [];
+        
+        if (hasMagicSheets) {
+          sheetData = draftRes.data.sheets;
+        } else {
+          try {
+            const sheetsResponse = await getDraftRfqSheets(id);
+            if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
+              sheetData = sheetsResponse.data.sheets;                      
+            } else {
+              console.warn('No sheets found in API response:', sheetsResponse?.data);
+            }
+          } catch (error) {
+            console.error("Error fetching magic search sheets:", error);
+            toast.error("Failed to load sheet data for this RFQ");
+          }
+        }
+        
+        if (sheetData && sheetData.length > 0) {
+          const sheetOptions = sheetData.map(sheet => ({
+            label: sheet.sheet_name,
+            value: sheet.id
+          }));
+          setSheetNameList(sheetOptions);
+          
+          // Set default selected sheet
+          if (sheetData.length > 0) {
+            const defaultSheet = {
+              label: sheetData[0].sheet_name,
+              value: sheetData[0].id
+            };
+            if(queryMeta.sheet_id) {
+              const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
+              setSelectedSheet(sheet);
+            } else if(!selectedSheet)
+              setSelectedSheet(defaultSheet);
+          }
+        } else {
+          console.warn("No sheets found for Magic RFQ ID:", id);
+        }
+      }
+      
+      if (draftRes?.data) {
+        if (draftRes.data.rfq_form_data?.contact_number) {
+          let fullContactNumber = draftRes.data.rfq_form_data.contact_number.trim();
+          let extractedCountryCode = "";
+          let extractedContactNumber = fullContactNumber;
+    
+          if (fullContactNumber?.includes('-')) {
+            const parts = fullContactNumber.split('-');  
+            extractedCountryCode = parts[0].replace("-", "").trim();
+            extractedContactNumber = parts.slice(1).join("").trim();
+          }
+    
+          draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
+          draftRes.data.rfq_form_data.country_code = extractedCountryCode;
+      
+          dispatch(intializeRfq(draftRes.data));
+          setonecountrycode(extractedCountryCode);
+        } else {
+          dispatch(intializeRfq(draftRes.data));
+        }
+        
+        // Update document title
+        document.title = `Edit Draft RFQ #${id}`;
+        
+        // Set up other form-related data
+        getTermsData();
+      } else {
+        console.error("No data found in draft response");
+        toast.error("Failed to load draft RFQ data");
+      }
+    } catch (error) {
+      console.error("Error loading draft by ID:", error);
+      // Changes by Agnij 2025-06-17 [Improved error message with specific details]
+      toast.error(error.message || "Error loading draft RFQ");
+    } finally {
+      dispatch(setStoreLoading(false));
+    }
+  };
+
   const getDraftInitialData = async () => {
     dispatch(clearState());
     dispatch(setStoreLoading(true));
@@ -519,25 +616,19 @@ const CreateRFQ = () => {
       
       if (draftRfqId && draftRfqId !== -1) {
         draftRes = await getDraftById(draftRfqId);
-        // Set the title to indicate we're editing a draft
         document.title = `Edit Draft RFQ #${draftRfqId}`;
 
-        // Check if this is a Magic RFQ
         const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
         const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
         if (isMagicRfqFromFlag || hasMagicSheets) {
           setIsMagicRfq(true);
           
-          // Get sheet data for this RFQ - either from the response or make a new request
           let sheetData = [];
           
           if (hasMagicSheets) {
-            // Use sheets from the response
             sheetData = draftRes.data.sheets;
           } else {
-            // Make a separate API call to get sheets
             try {
-              // Use the dedicated API method instead of raw axios call
               const sheetsResponse = await getDraftRfqSheets(draftRfqId);              
               if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
                 sheetData = sheetsResponse.data.sheets;
@@ -570,7 +661,6 @@ const CreateRFQ = () => {
       } else {
         // Changes by Agnij 2025-06-17 [Using fresh=true to always create a new RFQ when opening the Create RFQ page]
         draftRes = await getDraftData(true);
-        // Set the title to indicate we're creating a new RFQ
         document.title = "Create New RFQ";
       }
 
@@ -607,569 +697,29 @@ const CreateRFQ = () => {
 
   // Changes by Agnij 2025-08-05 [Added handler for sheet selection]
   const handleSheetChange = async (selectedOption) => {
+    console.log("SELECTED OPTION ->", selectedOption)
+    console.log("DRAFT RFQ ID -> ", draftRfqId)
     if (!selectedOption || !draftRfqId) return;
     
+    dispatch(clearState());
+
     setSelectedSheet(selectedOption);
     setMainLoading(true);
-    
-    try {
-      const response = await getDraftRfqSheetWise(draftRfqId, selectedOption.value);      
-      const hasValidData = response?.data && Array.isArray(response.data) && response.data.length > 0;      
-      const hasStandardData = response?.data?.status === 1 && 
-                              (
-                                (response?.data?.data && Array.isArray(response?.data?.data) && response?.data?.data.length > 0) ||
-                                (response?.data?.products && Array.isArray(response?.data?.products) && response?.data?.products.length > 0)
-                              );
-      
-      if (hasValidData || hasStandardData) {
-      } else {
-        // We need to process the sheet first
-        try {
-          // Try to process the sheet with the API
-          const processResponse = await processMagicSearchDraft(draftRfqId, selectedOption.value);
-          const updatedResponse = await getDraftRfqSheetWise(draftRfqId, selectedOption.value);          
-          // Check if the updated response has valid data
-          const hasUpdatedData = updatedResponse?.data && 
-                               (Array.isArray(updatedResponse.data) ? 
-                                updatedResponse.data.length > 0 : 
-                                (updatedResponse?.data?.status === 1));
-          
-          if (hasUpdatedData) {
-            // Continue with the updated response
-            response.data = updatedResponse.data;
-          } else {
-            toast.warning(`Could not process sheet data for: ${selectedOption.label}`);
-            if (updatedResponse?.data) {
-              response.data = updatedResponse.data;
-            }
-          }
-        } catch (processError) {
-          toast.warning(`Note: Using available data for sheet ${selectedOption.label}. Some products may be missing.`);
-        }
-      }      
-      let sheetData = null;
-      let productsData = [];
-          
-      // Check for valid response format - the API returns an array directly
-      if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
-        // Extract the first item as sheet data
-        sheetData = response.data[0];        
-        // Check for products in the sheet data
-        if (sheetData.products && Array.isArray(sheetData.products)) {
-          productsData = sheetData.products;
-        }
-        
-        // If we still don't have products, check for a draft property
-        if (productsData.length === 0 && sheetData.draft && Array.isArray(sheetData.draft)) {
-          productsData = sheetData.draft;
-        }
-      } 
-      // Also check for the standard response format with status
-      else if (response?.data?.status === 1 || response?.data?.status === 2) {
-        // First check if products array exists directly in the response
-        if (response.data.products && Array.isArray(response.data.products)) {
-          productsData = response.data.products;
-          
-          // If we have products but no sheet data, create a minimal sheetData
-          if (!sheetData) {
-            sheetData = {
-              sheet_id: selectedOption.value,
-              sheet_name: selectedOption.label,
-              response_email: rfqFormDataFromStore.response_email,
-              contact_name: rfqFormDataFromStore.contact_name,
-              contact_number: rfqFormDataFromStore.contact_number,
-              company_name: rfqFormDataFromStore.company_name
-            };
-          }
-        }
-        
-        // Next check the data array in the response
-        if (productsData.length === 0 && response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-          sheetData = response.data.data[0];          
-          // Get products from data
-          if (sheetData.products && Array.isArray(sheetData.products)) {
-            productsData = sheetData.products;
-          }
-        }
-        
-        // Check for draft property in the response
-        if (productsData.length === 0 && response.data.draft && Array.isArray(response.data.draft)) {
-          productsData = response.data.draft;
-        }
-        
-        // Last resort - check for draft in sheetData
-        if (productsData.length === 0 && sheetData?.draft && Array.isArray(sheetData.draft)) {
-          productsData = sheetData.draft;
-        }
-      } else {
-        if (response?.data?.data) {
-          if (Array.isArray(response.data.data) && response.data.data.length > 0) {
-            sheetData = response.data.data[0];
-            
-            if (sheetData && sheetData.products && Array.isArray(sheetData.products)) {
-              productsData = sheetData.products;
-            }
-          } else if (typeof response.data.data === 'object' && response.data.data.products) {
-            // Try to extract products directly
-            if (Array.isArray(response.data.data.products)) {
-              productsData = response.data.data.products;
-            }
-          }
-        }
-      }
-      
-      // If we still have no products, try to call process API to generate them
-      if (productsData.length === 0) {
-        try {
-          await processUnprocessedSheet(draftRfqId, selectedOption.value);
-          return; // The processUnprocessedSheet function will handle updating the UI
-        } catch (e) {
-          toast.error("Could not process sheet. Please try another sheet or contact support.");
-        }
-      }
-      
-      // Only proceed if we have data to work with
-      if (sheetData || productsData.length > 0) {
-        // Changes by Agnij 2025-09-05 [Create sheet data if missing but products exist]
-        if (!sheetData && productsData.length > 0) {
-          sheetData = {
-            sheet_id: selectedOption.value,
-            sheet_name: selectedOption.label
-          };
-        }
-        
-        const formData = {
-          ...rfqFormDataFromStore, 
-          response_email: sheetData?.response_email || rfqFormDataFromStore.response_email,
-          contact_name: sheetData?.contact_name || rfqFormDataFromStore.contact_name,
-          contact_number: sheetData?.contact_number || rfqFormDataFromStore.contact_number,
-          company_name: sheetData?.company_name || rfqFormDataFromStore.company_name,
-          rfq_added_from: 'magic', 
-        };
-        
-        // Process products to ensure proper sheet association and data structure
-        const productsWithSheetInfo = productsData.map(product => {
-          if (!product) return null;
-          
-          // Create a copy to avoid mutating the original object
-          const processedProduct = { ...product };
-          
-          // Always set the current sheet info on this product
-          processedProduct.sheet_id = selectedOption.value;
-          processedProduct.sheet_name = selectedOption.label;
-          
-          // Ensure required fields exist
-          if (!processedProduct.product_name && processedProduct.name) {
-            processedProduct.product_name = processedProduct.name;
-          }
-          
-          // Ensure vendors array exists
-          if (!processedProduct.vendors || !Array.isArray(processedProduct.vendors)) {
-            processedProduct.vendors = [];
-          }
-          
-          // Add default vendor if none exists
-          if (processedProduct.vendors.length === 0) {
-            processedProduct.vendors.push({
-              id: 1, // Default vendor ID
-              name: "Default Vendor", // Default vendor name
-              company_name: "Auto-assigned Vendor" // Default company name
-            });
-          }
-          
-          return processedProduct;
-        }).filter(Boolean);
-        
-        // Use the prepared products array
-        const productsArray = productsWithSheetInfo;
-        
-        if (productsArray.length > 0) {
-          const validProducts = productsArray;
-          try {
-            // Store current products in a ref for immediate access
-            rfqProductsRef.current = validProducts;
-            
-            // Update the Redux store with sheet-specific products
-            dispatch(intializeRfq({
-              rfq_form_data: formData,
-              rfqProducts: validProducts,
-              rfq_id: draftRfqId
-            }));
-            
-            // Set products directly to avoid waiting for Redux update
-            setRfqProducts(validProducts);
-            
-            toast.success(`Loaded ${validProducts.length} products from sheet: ${selectedOption.label}`);
-          } catch (error) {
-            // Still set products locally even if Redux update fails
-            setRfqProducts(validProducts);
-          }
-        } else {
-          console.warn('No products found in sheet data');
-          toast.warning(`No products found in sheet: ${selectedOption.label}`);
-          setRfqProducts([]);
-        }
-      } else {
-        console.warn('Invalid sheet data format:', response?.data);
-        toast.warning(`Could not process data from sheet: ${selectedOption.label}`);
-      }
-    } catch (error) {
-      console.error("Error fetching sheet data:", error);
-      toast.error("Failed to load products for selected sheet");
-    } finally {
-      setMainLoading(false);
-    }
+    dispatch(setStoreLoading(true));
+
+    await loadDraft(draftRfqId, selectedOption.value)
+
+    setMainLoading(false);
+    dispatch(setStoreLoading(false));
   };
-  const processUnprocessedSheet = async (rfqId, sheetId) => {
-    try {
-      setMainLoading(true);
-      
-      // Get the current sheet name from the selected sheet
-      const sheetName = selectedSheet?.label || 
-        sheetNameList.find(sheet => sheet.value === sheetId)?.label || 
-        `Sheet ${sheetId}`;
-      
-      const response = await processMagicSearchDraft(rfqId, sheetId)
-        .catch(error => {
-          toast.error(`Failed to process sheet: ${error.message || 'Unknown error'}`);
-          
-          // Instead of throwing, return an error response that we can work with
-          return {
-            data: {
-              status: 0,
-              success: false, 
-              message: error.message || 'Error processing sheet',
-              error: error
-            }
-          };
-        });
-      
-      // Check if we received a response with success status
-      const isSuccess = response?.data?.status === 1 || response?.data?.success === true;
-      const isPartialSuccess = response?.data?.status === 2;
-      
-      // If we have success or partial success (with error but some data)
-      if (isSuccess || isPartialSuccess) {
-        if (isSuccess) {
-          toast.success('Sheet processed successfully');
-        } else {
-          toast.info('Sheet processed with some issues, showing available data');
-        }
-        
-        // Changes by Agnij 2025-08-19 [Improved product extraction from processed data]
-        let productsArray = [];
-        let processedData = null;
-        
-        // Try to extract processed data from different possible locations
-        if (response?.data?.data) {
-          processedData = response.data.data;
-          
-          if (processedData.products && Array.isArray(processedData.products)) {
-            productsArray = processedData.products;
-          }
-        }
-        
-        // Check for products directly in response
-        if (productsArray.length === 0 && response?.data?.products && Array.isArray(response.data.products)) {
-          productsArray = response.data.products;
-        }
-        
-        // Check for products in savedRfq
-        if (productsArray.length === 0 && response?.data?.savedRfq?.products && Array.isArray(response.data.savedRfq.products)) {
-          productsArray = response.data.savedRfq.products;
-        }
-        
-        if (productsArray.length > 0) {
-          // Prepare form data from processed data
-          const formData = {
-            ...rfqFormDataFromStore, // Keep existing form data
-            response_email: processedData?.response_email || rfqFormDataFromStore.response_email,
-            contact_name: processedData?.contact_name || rfqFormDataFromStore.contact_name,
-            contact_number: processedData?.contact_number || rfqFormDataFromStore.contact_number,
-            company_name: processedData?.company_name || rfqFormDataFromStore.company_name,
-            rfq_added_from: 'magic' // Ensure we keep the magic flag
-          };
-          
-          // Changes by Agnij 2025-09-05 [Enhanced product validation to ensure we don't filter out valid products]
-          // Make sure all products have proper structure and vendors
-          const enhancedProducts = productsArray.map(product => {
-            if (!product) return null;
-            
-            // Create a copy to avoid mutating the original object
-            const enhancedProduct = { ...product };
-            
-            // Ensure sheet info is set
-            enhancedProduct.sheet_id = sheetId;
-            enhancedProduct.sheet_name = sheetName;
-            
-            // Ensure product name is set
-            if (!enhancedProduct.product_name && enhancedProduct.name) {
-              enhancedProduct.product_name = enhancedProduct.name;
-            }
-            
-            // Ensure vendors array exists
-            if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors)) {
-              enhancedProduct.vendors = [];
-            }
-            
-            // Add default vendor if none exists
-            if (enhancedProduct.vendors.length === 0) {
-              enhancedProduct.vendors.push({
-                id: 1,
-                name: "Default Vendor",
-                company_name: "Auto-assigned Vendor"
-              });
-            }
-            
-            return enhancedProduct;
-          }).filter(Boolean);
-          
-          if (enhancedProducts.length > 0) {
-            // Update the Redux store with new data
-            dispatch(intializeRfq({
-              rfq_form_data: formData,
-              rfqProducts: enhancedProducts,
-              rfq_id: rfqId
-            }));
-            
-            // Store in the ref for immediate access
-            rfqProductsRef.current = enhancedProducts;
-            
-            // Update local state to trigger UI refresh
-            setRfqProducts(enhancedProducts);
-            
-            toast.success(`Loaded ${enhancedProducts.length} products from processed sheet`);
-            return; // Exit early since we've handled the data
-          } else {
-            console.warn(`No valid products found for sheet ID ${sheetId} in direct response`);
-          }
-        }
-        
-        // If we couldn't use the data directly, make a new request to get the sheet data
-        try {
-          const updatedResponse = await getDraftRfqSheetWise(rfqId, sheetId);
-          
-          let sheetData = null;
-          let extractedProducts = [];
-          
-          // Try multiple paths to extract data from the response
-          if (updatedResponse?.data?.status === 1 && updatedResponse?.data?.data) {
-            // Standard successful response format
-            if (Array.isArray(updatedResponse.data.data) && updatedResponse.data.data.length > 0) {
-              sheetData = updatedResponse.data.data[0];
-              
-              // Get products from the sheet data
-              if (sheetData.products && Array.isArray(sheetData.products)) {
-                extractedProducts = sheetData.products;
-              }
-            } else if (typeof updatedResponse.data.data === 'object') {
-              // Direct object format
-              sheetData = updatedResponse.data.data;
-              
-              // Get products if they exist
-              if (sheetData.products && Array.isArray(sheetData.products)) {
-                extractedProducts = sheetData.products;
-              }
-            }
-          }
-          
-          // Direct products array in response
-          if (extractedProducts.length === 0 && updatedResponse?.data?.products && Array.isArray(updatedResponse.data.products)) {
-            extractedProducts = updatedResponse.data.products;
-          }
-          
-          // Check raw array format
-          if (extractedProducts.length === 0 && Array.isArray(updatedResponse?.data)) {
-            if (updatedResponse.data.length > 0) {
-              const firstItem = updatedResponse.data[0];
-              
-              if (firstItem.products && Array.isArray(firstItem.products)) {
-                extractedProducts = firstItem.products;
-                sheetData = firstItem;
-              }
-            }
-          }
-          
-          // Prepare form data with whatever we have
-          const formData = {
-            ...rfqFormDataFromStore,
-            response_email: sheetData?.response_email || rfqFormDataFromStore.response_email,
-            contact_name: sheetData?.contact_name || rfqFormDataFromStore.contact_name,
-            contact_number: sheetData?.contact_number || rfqFormDataFromStore.contact_number,
-            company_name: sheetData?.company_name || rfqFormDataFromStore.company_name,
-            rfq_added_from: 'magic'
-          };
-          
-          if (extractedProducts.length > 0) {
-            // Enhance products with sheet info and ensure they have vendors
-            const enhancedProducts = extractedProducts.map(product => {
-              if (!product) return null;
-              
-              // Create a copy
-              const enhancedProduct = { ...product };
-              
-              // Set sheet info
-              enhancedProduct.sheet_id = sheetId;
-              enhancedProduct.sheet_name = sheetName;
-              
-              // Ensure product name is set
-              if (!enhancedProduct.product_name && enhancedProduct.name) {
-                enhancedProduct.product_name = enhancedProduct.name;
-              }
-              
-              // Ensure vendors array exists
-              if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors)) {
-                enhancedProduct.vendors = [];
-              }
-              
-              // Add default vendor if none exists
-              if (enhancedProduct.vendors.length === 0) {
-                enhancedProduct.vendors.push({
-                  id: 1,
-                  name: "Default Vendor",
-                  company_name: "Auto-assigned Vendor"
-                });
-              }
-              
-              return enhancedProduct;
-            }).filter(Boolean);
-            
-            if (enhancedProducts.length > 0) {
-              dispatch(intializeRfq({
-                rfq_form_data: formData,
-                rfqProducts: enhancedProducts,
-                rfq_id: rfqId
-              }));
-              
-              // Store in the ref for immediate access
-              rfqProductsRef.current = enhancedProducts;
-              
-              // Update local state to trigger UI refresh
-              setRfqProducts(enhancedProducts);
-              
-              toast.success(`Loaded ${enhancedProducts.length} products from processed sheet`);
-            } else {
-              console.warn(`No valid products found for sheet ID ${sheetId} in follow-up request`);
-              toast.warning(`No valid products found in sheet. Please try a different sheet.`);
-              
-              // Clear products if none found for this sheet
-              dispatch(intializeRfq({
-                rfq_form_data: formData,
-                rfqProducts: [],
-                rfq_id: rfqId
-              }));
-              
-              setRfqProducts([]);
-            }
-          } else {
-            console.warn(`No products found for sheet ID ${sheetId}`);
-            toast.warning("No products found in this sheet");
-            
-            // Clear products if none found
-            dispatch(intializeRfq({
-              rfq_form_data: formData,
-              rfqProducts: [],
-              rfq_id: rfqId
-            }));
-            
-            setRfqProducts([]);
-          }
-        } catch (error) {
-          console.error("Error fetching sheet data:", error);
-          toast.error("Failed to load sheet data");
-        }
-      } else {
-        // Even with an error response, try to extract any useful data
-        console.error("Failed to process sheet:", response?.data);
-        
-        // Try to extract form and product data even from error response
-        let extractedProducts = [];
-        let sheetData = null;
-        
-        if (response?.data?.data) {
-          if (Array.isArray(response.data.data) && response.data.data.length > 0) {
-            sheetData = response.data.data[0];
-            
-            if (sheetData?.products && Array.isArray(sheetData.products)) {
-              extractedProducts = sheetData.products;
-            }
-          } else if (typeof response.data.data === 'object') {
-            sheetData = response.data.data;
-            
-            if (sheetData?.products && Array.isArray(sheetData.products)) {
-              extractedProducts = sheetData.products;
-            }
-          }
-        }
-        
-        // Try products directly in the response
-        if (extractedProducts.length === 0 && response?.data?.products && Array.isArray(response.data.products)) {
-          extractedProducts = response.data.products;
-        }
-        
-        if (extractedProducts.length > 0) {
-          // We found some products, try to use them
-          const formData = {
-            ...rfqFormDataFromStore,
-            rfq_added_from: 'magic'
-          };
-          
-          // Enhance products with sheet info and vendors
-          const enhancedProducts = extractedProducts.map(product => {
-            if (!product) return null;
-            
-            // Create a copy
-            const enhancedProduct = { ...product };
-            
-            // Set sheet info
-            enhancedProduct.sheet_id = sheetId;
-            enhancedProduct.sheet_name = sheetName;
-            
-            // Ensure product name is set
-            if (!enhancedProduct.product_name && enhancedProduct.name) {
-              enhancedProduct.product_name = enhancedProduct.name;
-            }
-            
-            // Ensure vendors array exists and has at least one vendor
-            if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
-              enhancedProduct.vendors = [{
-                id: 1,
-                name: "Default Vendor",
-                company_name: "Auto-assigned Vendor"
-              }];
-            }
-            
-            return enhancedProduct;
-          }).filter(Boolean);
-          
-          if (enhancedProducts.length > 0) {
-            dispatch(intializeRfq({
-              rfq_form_data: formData,
-              rfqProducts: enhancedProducts,
-              rfq_id: rfqId
-            }));
-            
-            // Store in the ref for immediate access
-            rfqProductsRef.current = enhancedProducts;
-            
-            // Update local state to trigger UI refresh
-            setRfqProducts(enhancedProducts);
-            
-            toast.info(`Loaded ${enhancedProducts.length} products from available data`);
-          } else {
-            toast.error(response?.data?.message || "Failed to process sheet data");
-          }
-        } else {
-          toast.error(response?.data?.message || "Failed to process sheet data");
-        }
-      }
-    } catch (error) {
-      console.error("Error in processUnprocessedSheet:", error);
-      toast.error("Failed to process sheet data");
-    } finally {
-      setMainLoading(false);
-    }
-  };
+
+  useEffect(() => {
+    const { draft_id, sheet_id } = router.query;
+    setQueryMeta({
+      draft_id,
+      sheet_id,
+    })
+  }, [router.query])
 
   useEffect(() => {
     getProfileDetails();
@@ -1210,104 +760,9 @@ const CreateRFQ = () => {
         if (!isNaN(id) && id > 0) {
           setDraftRfqId(id);
           
-          // Clear existing state before loading the draft
           dispatch(clearState());
           
-          // Explicitly load this draft by ID
-          const loadDraft = async () => {
-            dispatch(setStoreLoading(true));
-            try {
-              const draftRes = await getDraftById(id);
-              // Check if this is a Magic RFQ
-              const rfqFormData = draftRes?.data?.rfq_form_data || {};
-              const isMagicRfqFromFlag = rfqFormData?.rfq_added_from === 'magic';
-              const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
-                          
-              if (isMagicRfqFromFlag || hasMagicSheets) {
-                setIsMagicRfq(true);
-                
-                // Get sheet data for this RFQ - either from the response or make a new request
-                let sheetData = [];
-                
-                if (hasMagicSheets) {
-                  // Use sheets from the response
-                  sheetData = draftRes.data.sheets;
-                } else {
-                  // Make a separate API call to get sheets
-                  try {
-                    // Use the dedicated API method instead of raw axios call
-                    const sheetsResponse = await getDraftRfqSheets(id);
-                    if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
-                      sheetData = sheetsResponse.data.sheets;                      
-                    } else {
-                      console.warn('No sheets found in API response:', sheetsResponse?.data);
-                    }
-                  } catch (error) {
-                    console.error("Error fetching magic search sheets:", error);
-                    toast.error("Failed to load sheet data for this RFQ");
-                  }
-                }
-                
-                if (sheetData && sheetData.length > 0) {
-                  const sheetOptions = sheetData.map(sheet => ({
-                    label: sheet.sheet_name,
-                    value: sheet.id
-                  }));
-                  setSheetNameList(sheetOptions);
-                  
-                  // Set default selected sheet
-                  if (sheetData.length > 0) {
-                    const defaultSheet = {
-                      label: sheetData[0].sheet_name,
-                      value: sheetData[0].id
-                    };
-                    setSelectedSheet(defaultSheet);
-                  }
-                } else {
-                  console.warn("No sheets found for Magic RFQ ID:", id);
-                }
-              }
-              
-              if (draftRes?.data) {
-                if (draftRes.data.rfq_form_data?.contact_number) {
-                  let fullContactNumber = draftRes.data.rfq_form_data.contact_number.trim();
-                  let extractedCountryCode = "";
-                  let extractedContactNumber = fullContactNumber;
-            
-                  if (fullContactNumber?.includes('-')) {
-                    const parts = fullContactNumber.split('-');  
-                    extractedCountryCode = parts[0].replace("-", "").trim();
-                    extractedContactNumber = parts.slice(1).join("").trim();
-                  }
-            
-                  draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
-                  draftRes.data.rfq_form_data.country_code = extractedCountryCode;
-              
-                  dispatch(intializeRfq(draftRes.data));
-                  setonecountrycode(extractedCountryCode);
-                } else {
-                  dispatch(intializeRfq(draftRes.data));
-                }
-                
-                // Update document title
-                document.title = `Edit Draft RFQ #${id}`;
-                
-                // Set up other form-related data
-                getTermsData();
-              } else {
-                console.error("No data found in draft response");
-                toast.error("Failed to load draft RFQ data");
-              }
-            } catch (error) {
-              console.error("Error loading draft by ID:", error);
-              // Changes by Agnij 2025-06-17 [Improved error message with specific details]
-              toast.error(error.message || "Error loading draft RFQ");
-            } finally {
-              dispatch(setStoreLoading(false));
-            }
-          };
-          
-          loadDraft();
+          loadDraft(id);
         }
       } catch (error) {
         console.error("Error processing draft_id:", error);
@@ -1591,7 +1046,7 @@ const CreateRFQ = () => {
 
                   <div className="float-end addmore mt-4 ">
                     <Link
-                      href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ''}`}
+                      href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}${selectedSheet ? `&sheet_id=${selectedSheet.value}` : ``}` : ''}`}
                       className="me-2"
                     >
                       Add More Products
