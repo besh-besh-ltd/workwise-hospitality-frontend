@@ -102,6 +102,7 @@ export const searchProductsV2 = (values, type = "products") => {
       vendor_name: values.vendor_name,
       myVendorType: values?.myVendorType?.value ?? "",
       include_variants: true,
+      productMakes: values?.selectedMakes?.map((item) => item.value),
     };
 
     return new Promise(async (resolve, reject) => {
@@ -479,3 +480,17 @@ export const getProductByProductAndCategorySlug = (productSlug) =>{
     }
   })
 }
+
+
+/** 
+ * Fetches the product make list from the API.
+ * Endpoint: /api/v1/products/product-make-list
+ * @returns {Promise<Object>} The response data from the API.
+ */
+export const getProductMakeList = () => {
+  return new Promise((resolve, reject) => {
+    axiosInstance.get(`${process.env.NEXT_PUBLIC_API_URL}/products/product-make-list`)
+      .then(response => resolve(response.data))
+      .catch(error => reject(error));
+  });
+};
