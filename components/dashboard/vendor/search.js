@@ -189,7 +189,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProducts(slug);
     getCategories();
     getVendorApprovedby();
-    getMakeList();
   }, []);
 
 
@@ -425,8 +424,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
 
   // get product make list for filters
-  const getMakeList = () => {
-  getProductMakeList()
+  const getMakeList = (variant_id) => {
+  getProductMakeList(variant_id)
     .then((rsp) => {
       setMakeList(rsp); // Set the list of makes
       setSelectedMakes([]); // Clear any previously selected makes (optional)
@@ -487,6 +486,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     if (item.variant_name === currentSelectedProduct?.variant_name) return;
 
     // Set the search key and update the selected product
+    getMakeList(item?.variant_id)
     setSearch_key(item.variant_name);
     setCat_id(item.category_id);
     setcurrentSelectedProduct(null);
@@ -850,6 +850,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   {/* END: Vender search by name */}
 
                    {/* START: product make filter */}
+                   {makeList?.length > 0 && (
                   <div className="search-con-right-1">
                    <p className="fw-semibold mb-2 mt-3">Product Make</p>
                    <div>
@@ -857,26 +858,26 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     name="product_make"
                     id="product_make"
                     value={selectedMakes.length > 0 ? selectedMakes[0].id : ""}
-
                      onChange={(e) => {
-                          if (
-                            !vendorMetaData.logged_In ||
-                            !vendorMetaData.subscription
-                          )
+                          if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
                             setOpenAuthModal(true);
-                          else {
-                              const selected = makeList.find((option) => option.id == e.target.value);
-                               if (selected) {
-                               setSelectedMakes((prev) => [...prev, selected]);
-                              }
-                          }
-                        }}
-                  >
+                       } else {
+                         const selectedId = e.target.value; // Get selected id from option
+                         const selected = makeList.find((option) => option.id == selectedId);
+                         if (selected) {
+                           // Check if already selected to avoid duplicates
+                           if (!selectedMakes.some((item) => item.id === selected.id)) {
+                             setSelectedMakes((prev) => [...prev, selected]);
+                           }
+                         }
+                       }
+                     }}
+                   >
                     <option value="">Select Product Makes</option>
                     {makeList &&
                       makeList.map((option) => (
                         <option key={option.id} value={option.id}>
-                          {option.value}
+                          {option.make_name}
                         </option>
                       ))}
                   </select>
@@ -898,12 +899,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                   <div className="d-flex gap-2 flex-wrap mt-2">
                     {selectedMakes.map((item) => (
-                      <div className="selected-country" key={item.value}>
-                        {item.value}
+                      <div className="selected-country" key={item.make_name}>
+                        {item.make_name}
                         <button
                           onClick={() =>
                             setSelectedMakes((prev) =>
-                              prev.filter((_item) => _item.value !== item.value)
+                              prev.filter((_item) => _item.make_name !== item.make_name)
                             )
                           }
                         >
@@ -913,7 +914,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                     ))}
                   </div>
 
-                 </div>
+                  </div>
+                  )}
                   {/* END: product make filter */}
 
                   {/* START: my vendor filter */}
