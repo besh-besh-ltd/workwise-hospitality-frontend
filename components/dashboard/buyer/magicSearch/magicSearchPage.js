@@ -143,7 +143,8 @@ const MagicSearchPage = () => {
 
             const downloadUrl = aiResponse?.data?.download_url;
 
-            // const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=0b3f06af64f1ac699827a2ac33f430ab47eb243e91d22d1501eb85564d1150b5&stage=matched"
+            // const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&stage=matched"
+
 
               if (!downloadUrl) {
                 toast.error("Failed to create RFQ: Please try after few minutes.");
@@ -614,6 +615,27 @@ const MagicSearchPage = () => {
             });
     };
 
+
+    // once user created unstructure to structure excel fuile, and click on next button, we will call this function to create RFQ, by uploading the same file user uploaded to unstructure to structure
+  const handleUploadForRFQ = async (jsonUrl) => {
+  if (!jsonUrl) {
+    toast.error("Invalid BOQ URL");
+    return;
+  }
+  try {
+    setLoading(true);
+    const response = await getMagicRFQPreview(jsonUrl);
+    setApiData(response);
+  } catch (error) {
+    console.error("RFQ Preview fetch failed:", error);
+    toast.error("Failed to generate RFQ preview.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
     useEffect(() => {
         getAllProjects();
         // getTermsData();
@@ -804,7 +826,7 @@ const MagicSearchPage = () => {
                 <>
                   <div className="col-md-8 mx-auto mt-2">
         
-        <MagicSearchDownloadModal />
+        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ}  />
 
                   </div>
                   <div className="col-md-8 mx-auto">
