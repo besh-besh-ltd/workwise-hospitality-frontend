@@ -36,13 +36,16 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
     }
   };
 
- const handleDownload = async () => {
+const handleDownload = async () => {
   if (!fileUrl) return;
+
+  const originalUrl = fileUrl;
+  const replacedUrl = fileUrl.replace("http://", "https://");
 
   const tryDownload = async (url) => {
     try {
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Fetch failed with status: " + response.status);
+      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -60,13 +63,12 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
     }
   };
 
-  // First try with https
-  const httpsUrl = fileUrl.replace("http://", "https://");
-  const success = await tryDownload(httpsUrl);
+  // Try with replaced URL first
+  const success = await tryDownload(replacedUrl);
 
-  // If https fails, retry once with original http
+  // Retry with original URL if the first fails
   if (!success) {
-    await tryDownload(fileUrl);
+    await tryDownload(originalUrl);
   }
 };
 
