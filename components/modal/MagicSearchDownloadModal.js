@@ -12,6 +12,8 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
   const [fileName, setFileName] = useState("");
   const [fileUrl, setFileUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [creatingRFQ, setCreatingRFQ] = useState(false);
+  const [jsonData, setJsonData] = useState(null);
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -25,7 +27,8 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
 
     try {
       const response = await getSImplifiedVersionOfBOQ(file);
-      setFileUrl(response?.data?.download_excel);
+      setFileUrl(response?.data?.download_excel_url);
+      setJsonData(response?.data?.download_url);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
@@ -41,6 +44,28 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleCreateRFQ = async () => {
+    if (!file) {
+      console.error("Original file not found for RFQ creation.");
+      return;
+    }
+    setCreatingRFQ(true);
+    try {
+      const response = await getBOQexcelToJsonAI(file); // Get jsonUrl
+      const jsonUrl = response?.data?.download_url;
+      if (jsonUrl) {
+        onUploadForRFQ(jsonUrl); // Call MagicSearchPage to proceed
+        setShow(false);
+      } else {
+        console.error("No JSON URL received from getBOQexcelToJsonAI.");
+      }
+    } catch (error) {
+      console.error("Error creating RFQ:", error);
+    } finally {
+      setCreatingRFQ(false);
+    }
   };
 
   const handleClose = () => {
@@ -89,15 +114,12 @@ const handleViewBOQ = () => {
                       </a>
                     </div>
                         
-      {/* <Button variant="primary"   className="ms-auto border-0" style={{ width: "280px" }}>
-        Simplified BOQ
-      </Button> */}
 
       <Modal show={show} onHide={handleClose} centered  >
         <Modal.Header closeButton className="p-3 border-b-2 " >
           <Modal.Title className="d-flex align-items-center">
             <FontAwesomeIcon icon={faFileExcel} className="me-2 text-success" />
-            <span>Create Simplify Your BOQ</span>
+            <span>Simplify Your BOQ</span>
           </Modal.Title>
         </Modal.Header>
 
@@ -163,12 +185,6 @@ const handleViewBOQ = () => {
           )}
         </Modal.Body>
 
-        {/* <Modal.Footer>
-          <Button variant="outline-secondary" onClick={handleClose}>
-            <FontAwesomeIcon icon={faTimes} className="me-1" />
-            Close
-          </Button>
-        </Modal.Footer> */}
       </Modal>
     </>
   );
