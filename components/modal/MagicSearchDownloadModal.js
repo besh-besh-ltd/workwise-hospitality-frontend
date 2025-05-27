@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
-import { getSImplifiedVersionOfBOQ } from "@/services/rfq";
+import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
+import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI } from "@/services/rfq";
+import { useRouter } from "next/navigation";
 
-const MagicSearchDownloadModal = () => {
+const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
+  const router = useRouter()
   const [show, setShow] = useState(false);
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -47,6 +49,18 @@ const MagicSearchDownloadModal = () => {
     setFileUrl(null);
     setFileName("");
   };
+
+  
+const handleViewBOQ = () => {
+  if (!jsonData) {
+    console.error("No JSON data available for viewing.");
+    return;
+  }
+  const viewUrl = `http://localhost:8001/dashboard/buyer/magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
+  window.open(viewUrl, '_blank'); // Open in a new tab
+};
+
+
 
   return (
     <>
@@ -132,9 +146,17 @@ const MagicSearchDownloadModal = () => {
                 BOQ processed! Click below to download the simplified version.
               </p>
               <div className="text-center">
-                <Button variant="success" onClick={handleDownload}>
+                <Button variant="primary" onClick={handleDownload} className="me-2">
                   <FontAwesomeIcon icon={faDownload} className="me-2" />
                   Download BOQ
+                </Button>
+                <Button variant="primary"  onClick={handleViewBOQ} disabled={creatingRFQ}>
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  View BOQ
+                </Button>
+                <Button variant="success" onClick={handleCreateRFQ} disabled={creatingRFQ} className="mt-3" >
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  {creatingRFQ ? "Processing..." : "Create RFQ's"}
                 </Button>
               </div>
             </>
