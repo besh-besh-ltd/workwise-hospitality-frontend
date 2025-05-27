@@ -6,50 +6,25 @@ import {
   faPlus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
-import {  searchProductsV2 } from "@/services/products";
+import {  getProductMakeList, searchProductsV2 } from "@/services/products";
 import SearchItem from "@/components/search/searchItem";
 import FullLoader from "@/components/shared/FullLoader";
 import { categoryList, categoryListById, vendorApproveList, addProductToDraft } from "@/services/rfq";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import {
-  removeRfqProduct,
   setDefaultVAB,
 } from "@/redux/slice";
 import { toast } from "react-toastify";
 import { faTimesCircle } from "@fortawesome/free-regular-svg-icons";
-import { faLightbulb as faSolidLightbulb } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from "next/router";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
-import ProductOverview from "@/components/shared/ProductOverview";
 import Head from "next/head";
 import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
 
-// export const vendorTypes = [
-//   {
-//     label: "Manufacturer",
-//     value: "manufacturer",
-//   },
-//   {
-//     label: "Supplier",
-//     value: "supplier",
-//   },
-//   {
-//     label: "Distributor",
-//     value: "distributor",
-//   },
-//   {
-//     label: "Dealer",
-//     value: "dealer",
-//   },
-//   {
-//     label: "Exporter",
-//     value: "exporter",
-//   },
-// ]
 
 export const vendorConditions = [
   {
@@ -61,6 +36,13 @@ export const vendorConditions = [
     value: "rfq_sent",
   },
 ]
+
+  // Options for the dropdown
+  const optionVendors = [
+    { value: 'is_private', label: 'My Private Vendor' },
+    { value: 'is_public', label: 'My Public Vendor' },
+    { value: 'both', label: 'Both' },
+  ];
 
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
@@ -100,6 +82,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     to: -1
   })
   const [prevWorkedWith, setPrevWorkedWith] = useState(null);
+  const [makeList, setMakeList] = useState([]);
+  const [selectedMakes, setSelectedMakes] = useState([]);
 
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
@@ -111,15 +95,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [productsList, setProductsList] = useState([]);
   const categoryLvlRef = useRef(new Map());
   const [firstVisit, setFirstVisit] = useState(true);
-  const [showInsights, setShowInsights] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
   const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
-  const fromRef = useRef(null);
-  const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
   const vendorApprovedByRef = useRef(null);
 
@@ -130,21 +111,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       router.push('/dashboard/buyer/subscription');
   }
 
-  const debouncedSetFrom = useMemo(
-    () =>
-      debounce((value) => {
-        setTurnOver((prev) => ({ ...prev, from: value }));
-      }, 1000),
-    []
-  );
-
-  const debouncedSetTo = useMemo(
-    () =>
-      debounce((value) => {
-        setTurnOver((prev) => ({ ...prev, to: value }));
-      }, 1000),
-    []
-  );
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -196,7 +162,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       setVendorTypes(data)
       setInternalVendorTypes(data)
     }).catch((e) => {
-      console.log(e)
+      console.error(e)
     })
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -217,10 +183,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   useEffect(() => {
     setInternalApprovedBy(approved_by?.filter(approveBy => !selectedApprovedBy.some(_approvedBy => approveBy.vendor_approve == _approvedBy.vendor_approve)))
   }, [selectedApprovedBy])
-
-  // const handleSearchClick = () => {
-  //   setIsOpen(!isOpen);
-  // };
 
   useEffect(() => {
     // getProfileDetails();
@@ -245,6 +207,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     isLoggedIn,
     debouncedVendorName, // Use debouncedVendorName instead of vendorName,
     myVendorType,
+    selectedMakes
   ]);
 
   useEffect(() => {
@@ -344,23 +307,20 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           prevWorkedWith,
           vendor_name: vendorName,
           myVendorType,
+          selectedMakes
         },
         "vendors"
       )
         .then((rsp) => {
 
           setloading(false);
-          console.log("259 ******************")
-          console.table(bulkRFQVendors)
+
           let d = rsp.data.map((item) => {
             item.selected = bulkRFQVendors.some(vendor => vendor.id === item.id);
             return item;
           });
           
           setVendors(d);
-          
-          // console.log("268 ******************")
-          // console.table(bulkRFQVendors)
 
           setVendorMetaData(rsp)
           currentSelectedProduct
@@ -417,7 +377,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setSearchSubCategories(res.subCategoryList);
       })
       .catch((error) => {
-        console.log(error);
+        console.error(error);
       })
       .finally(() => {
         setloading(false)
@@ -462,7 +422,19 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setvabloading(false);
       });
   };
-  
+
+  // get product make list for filters
+  const getMakeList = (variant_id) => {
+  getProductMakeList(variant_id)
+    .then((rsp) => {
+      setMakeList(rsp); // Set the list of makes
+      setSelectedMakes([]); // Clear any previously selected makes (optional)
+    })
+    .catch((error) => {
+      console.error("Error fetching make list:", error);
+    });
+};
+
   const handleSearchChange = (e) => {
     const searchValue = e.target.value;
 
@@ -514,11 +486,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     if (item.variant_name === currentSelectedProduct?.variant_name) return;
 
     // Set the search key and update the selected product
+    getMakeList(item?.variant_id)
     setSearch_key(item.variant_name);
     setCat_id(item.category_id);
     setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
-    setShowInsights(true);
     setbulkRFQVendors([]);
 
     tempProdRef.current = null;
@@ -526,30 +498,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     // Update the URL to include the selected product's slug
     router.push(`/vendor/${item.slug ?? item.variant_name.replace(' ', '_').toLowerCase()}`);
     storageInstance.setStorage("product_name", slug);
-  };
-
-  const getChildCategories = (id, level) => {
-    let childItems = categories.filter((item) => item.parent_id == id);
-    let options = [];
-    if (childItems.length > 0) {
-      childItems.map((item) => {
-        options.push({ value: item?.id, label: item?.title });
-      });
-    }
-    if (level == 1) {
-      setlevelOneCat(options);
-    } else if (level == 2) {
-      setlevelTwoCat(options);
-    } else if (level == 3) {
-      setlevelThreeCat(options);
-    } else if (level == 4) {
-      setlevelFourCat(options);
-    } else if (level == 5) {
-      setlevelFiveCat(options);
-    } else if (level == 6) {
-      setlevelSixCat(options);
-    } else {
-    }
   };
 
 
@@ -560,25 +508,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
 
   const mapEntries = Array.from(categoryLvlRef.current.entries());
-
-  // for clear the search from the input of search vendor
-  const clearProductSearch = () => {
-    setcurrentSelectedProduct(null);
-    setCat_id(null);
-    setSearch_key("");
-    router.push(`/vendor/all`);
-    storageInstance.setStorage("product_name", "all");
-  }
-
-  // Options for the dropdown
-  const optionVendors = [
-    { value: 'is_private', label: 'My Private Vendor' },
-    { value: 'is_public', label: 'My Public Vendor' },
-    { value: 'both', label: 'Both' },
-  ];
-
-  // Handle selection changes to ensure only one filter is active at a time
-
+  
   // Generalized clear filter function to reset both filters
   const clearVendorFilters = () => {
     setMyVendorType(null);
@@ -662,8 +592,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         value={search_key}
                         // onClick={handleSearchClick}
                       />
-                      {/* {currentSelectedProduct || true && <i> <FontAwesomeIcon icon={faClose} onClick={clearProductSearch}/> </i> }
-                      </div> */}
+             
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
@@ -792,48 +721,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
 
-                    {/* <div className="col-md-3 hasNoBlur">
-                      <div className="action-top mb-0">
-                        {vabloading && (
-                          <select>
-                            <option value="">Loading List</option>
-                          </select>
-                        )}
-                        {!vabloading && (
-                          <select
-                            name="vab"
-                            id="vab"
-                            value={selectedVbaa}
-                            onChange={(e) => {
-                              localStorage.setItem(
-                                "selected_vab",
-                                e.target.value
-                              );
-                              setselectedVbaa(e.target.value);
-                            }}
-                          >
-                            <option value="">Vendor Approved By</option>
-                            {approved_by &&
-                              approved_by.map((item) => {
-                                if (
-                                  item.show_in_website == 1 &&
-                                  item.vendor_approve &&
-                                  item.vendor_approve != "null"
-                                ) {
-                                  return (
-                                    <option
-                                      value={item.id}
-                                      key={`va_${item.id}`}
-                                    >
-                                      {item.vendor_approve}
-                                    </option>
-                                  );
-                                }
-                              })}
-                          </select>
-                        )}
-                      </div>
-                    </div> */}
                   </div>
                 </form>
               </div>
@@ -936,31 +823,18 @@ const Search = ({ title = "Preffered Vendors", type }) => {
             </div>
           )}
 
-          {/* Product Price Stats Section */}
-          {/* {isLoggedIn && currentSelectedProduct && showInsights && (
-            <div className=" col-md-12 bg-white rounded-5 p-4">
-              <div className="search-sec-3-mdl mt-2 mb-0">
-                <div className="search-sec-3-mdl-con ">
-                  <div className="container">
-                    <h2 className="fs-3">
-                      Product Insight{"  "}
-                      <FontAwesomeIcon icon={faSolidLightbulb} color={"#FFD700"} />
-                    </h2>
-                    <ProductOverview data={currentSelectedProduct} setShowInsights={setShowInsights} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )} */}
-
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
+      
+            {/* START : Filter side bar */}
             {currentSelectedProduct && (
               <div className="col-md-3">
                 <aside>
                   <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">
                     Filters
                   </h4>
+
+                  {/* START: Vender search by name */}
                   {currentSelectedProduct && (
                     <div className="search-con-right-1">
                       <input
@@ -973,11 +847,80 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   )}
-                  {/* <h4 className=" text-center mb-4 fw-semibold border-bottom border-bottom-2px  py-2 ">Filter</h4> */}
+                  {/* END: Vender search by name */}
 
+                   {/* START: product make filter */}
+                   {makeList?.length > 0 && (
                   <div className="search-con-right-1">
-                    <p className="fw-semibold mb-2">My Vendors</p>
+                   <p className="fw-semibold mb-2 mt-3">Product Make</p>
+                   <div>
+                  <select
+                    name="product_make"
+                    id="product_make"
+                    value={selectedMakes.length > 0 ? selectedMakes[0].id : ""}
+                     onChange={(e) => {
+                          if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
+                            setOpenAuthModal(true);
+                       } else {
+                         const selectedId = e.target.value; // Get selected id from option
+                         const selected = makeList.find((option) => option.id == selectedId);
+                         if (selected) {
+                           // Check if already selected to avoid duplicates
+                           if (!selectedMakes.some((item) => item.id === selected.id)) {
+                             setSelectedMakes((prev) => [...prev, selected]);
+                           }
+                         }
+                       }
+                     }}
+                   >
+                    <option value="">Select Product Makes</option>
+                    {makeList &&
+                      makeList.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.make_name}
+                        </option>
+                      ))}
+                  </select>
+                
+                  {/* Display clear link if any filter is active */}
+                  {selectedMakes.length > 0 && (
+                    <Link
+                      href="#"
+                      className="clearFilter"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelectedMakes([]);
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faTimesCircle} /> clear
+                    </Link>
+                  )}
+                   </div>
 
+                  <div className="d-flex gap-2 flex-wrap mt-2">
+                    {selectedMakes.map((item) => (
+                      <div className="selected-country" key={item.make_name}>
+                        {item.make_name}
+                        <button
+                          onClick={() =>
+                            setSelectedMakes((prev) =>
+                              prev.filter((_item) => _item.make_name !== item.make_name)
+                            )
+                          }
+                        >
+                          X
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  </div>
+                  )}
+                  {/* END: product make filter */}
+
+                  {/* START: my vendor filter */}
+                  <div className="search-con-right-1">
+                    <p className="fw-semibold mb-2 mt-3 ">My Vendors</p>
                     <div>
                       <select
                         name="vendors"
@@ -997,7 +940,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           }
                         }}
                       >
-                        <option value="">All Vendors</option>
+                        <option value="">Select All Vendors</option>
                         {optionVendors &&
                           optionVendors.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1021,6 +964,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: my vendor filter */}
+
+                  {/* START: Location filter */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Location</p>
                     {selectedCountry != 0 && (
@@ -1049,60 +995,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       />
                     </div>
                   </div>
-                  {/* <div className="search-con-right-1">
-                    <p className="fw-semibold  mb-2">Turn Over</p>
-                    {(turnOver.from > 0 || turnOver.to > 0) && (
-                      <Link
-                        href="#"
-                        className="clearFilter"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setTurnOver({
-                            from: -1,
-                            to: -1,
-                          });
-                          if (fromRef.current && toRef.current) {
-                            fromRef.current.value = "";
-                            toRef.current.value = "";
-                          }
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faTimesCircle} /> clear
-                      </Link>
-                    )}
-                    <div className="row">
-                      <div className="col-md-6">
-                        <div>
-                          <p className="fw-medium  mb-2">FROM</p>
-                          <input
-                            ref={fromRef}
-                            type="text"
-                            name="turnOverFrom"
-                            className="form-control"
-                            placeholder="FROM ( IN CR )"
-                            onChange={(e) =>
-                              debouncedSetFrom(parseInt(e.target.value || 0))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="col-md-6">
-                        <div>
-                          <p className="fw-medium  mb-2">TO</p>
-                          <input
-                            ref={toRef}
-                            type="text"
-                            name="turnOverTo"
-                            className="form-control"
-                            placeholder="TO ( IN CR )"
-                            onChange={(e) =>
-                              debouncedSetTo(parseInt(e.target.value || 0))
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div> */}
+                  {/* END: Location filter */}
+
+                  {/* START: Vendor Type */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
                     <div
@@ -1168,6 +1063,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: Vendor Type */}
+
+                 {/* START:  Previously Worked With */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Previously Worked With</p>
                     <div>
@@ -1208,6 +1106,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
+                  {/* END: Previously Worked With */}
+
+                  {/* START: Vendor Approved By */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Approved By</p>
                     <div
@@ -1284,68 +1185,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                       )}
                     </div>
                   </div>
-                  {/* <div className="search-con-right-1">
-                    <p className="fw-semibold  mb-2">Vendor Approved By</p>
-                    <div>
-                      {vabloading && (
-                        <select>
-                          <option value="">Loading List</option>
-                        </select>
-                      )}
-                      {!vabloading && (
-                        <select
-                          name="vab"
-                          id="vab"
-                          value={selectedVbaa}
-                          onChange={(e) => {
-                            if (
-                              !vendorMetaData.logged_In ||
-                              !vendorMetaData.subscription
-                            )
-                              setOpenAuthModal(true);
-                            else {
-                              localStorage.setItem(
-                                "selected_vab",
-                                e.target.value
-                              );
-                              setselectedVbaa(e.target.value);
-                            }
-                          }}
-                        >
-                          <option value="">Select Vendor Approved by</option>
-                          {approved_by &&
-                            approved_by.map((item) => {
-                              if (
-                                item.show_in_website == 1 &&
-                                item.vendor_approve &&
-                                item.vendor_approve != "null"
-                              ) {
-                                return (
-                                  <option value={item.id} key={`va_${item.id}`}>
-                                    {item.vendor_approve}
-                                  </option>
-                                );
-                              }
-                            })}
-                        </select>
-                      )}
-                      {selectedVbaa && (
-                        <Link
-                          className="clearFilter"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setselectedVbaa("");
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faTimesCircle} /> clear
-                        </Link>
-                      )}
-                    </div>
-                  </div> */}
+                  {/* END: Vendor Approved By */}
+
                 </aside>
               </div>
             )}
+            {/* END: Filter side bar */}
+
+           
+           {/* START:  vendor list*/}
             <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
               <div className="row">
                 {currentSelectedProduct && (
@@ -1478,6 +1326,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                 )}
               </div>
             </div>
+           {/* END:  vendor list*/}
+
           </div>
         </div>
 
