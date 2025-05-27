@@ -20,8 +20,8 @@ const MagicSearchView = () => {
     }
 
   const fetchData = async () => {
-    const replacedUrl = decodeURIComponent(jsonUrl).replace("http://", "https://");
-    const originalUrl = decodeURIComponent(jsonUrl);
+    const replacedUrl = jsonUrl.replace("http://", "https://");
+    const originalUrl = jsonUrl;
 
     const tryFetch = async (url) => {
       try {
