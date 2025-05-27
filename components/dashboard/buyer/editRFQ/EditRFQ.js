@@ -504,6 +504,15 @@ const EditRFQ = () => {
             //   router.push("/dashboard/buyer/rfq-management");
             // }, 500);
             fetchInitialData();
+            setUpdatableData({
+              products: {
+                addable: [],
+                deletable: [],
+                updatable: {},
+              },
+              vendors: {},
+            });
+
           } else {
             console.error("Update failed:", response);
             toast.error(response?.message || "Failed to update RFQ. Please check the form and try again.");

@@ -614,10 +614,7 @@ export const searchVendorByName = (vendor_name) => {
 export const updateRfq = (data) => {
   return new Promise(async (resolve, reject) => {
     try {
-
-      const response = await axiosInstance.put(
-        `/rfq/update`,{...data}
-      );
+      const response = await axiosInstance.put("/rfq/update", data); // no need for spread
 
       resolve({
         success: true,
@@ -625,8 +622,15 @@ export const updateRfq = (data) => {
         data: response.data,
         message: "RFQ updated successfully"
       });
+
     } catch (error) {
-      console.error("RFQ Update Error:", error);
+      console.error("RFQ Update Error:", {
+        message: error.message,
+        status: error.response?.status,
+        responseData: error.response?.data,
+        requestData: data,
+      });
+
       reject({
         success: false,
         status: error.response?.status || 500,
