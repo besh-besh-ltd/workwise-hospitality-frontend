@@ -560,20 +560,20 @@ const EditRFQ = () => {
       ...productAddData
     }
 
-    const {data} = await addProductToExistingRfq(payload)
+    const data = await addProductToExistingRfq(payload)
     await fetchInitialData()
     toast.success(`Product added ${productAddData.vendors.length > 0 ? 'with' : 'without'} vendors`)
     setProductAddData({
       variant_id: -1,
       vendors: [],
     })
-    // setUpdatableData(prev => ({
-    //   ...prev,
-    //   products: {
-    //     ...prev.products,
-    //     addable: [...prev.products.addable, data.rfqProductId]
-    //   }
-    // }))
+    setUpdatableData(prev => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        addable: [...prev.products.addable, data.rfqProductId]
+      }
+    }))
     setShowAddVendorForProductModal(false)
   }
 

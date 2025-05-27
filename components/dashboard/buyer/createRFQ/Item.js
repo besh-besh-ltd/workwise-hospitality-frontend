@@ -601,7 +601,7 @@ const Item = ({
                   {" "}
                   Selected Vendors - <strpng>
                     {" "}
-                    {data.vendors.length}{" "}
+                    {data.vendors?.length}{" "}
                   </strpng>{" "}
                 </span>
                 {
