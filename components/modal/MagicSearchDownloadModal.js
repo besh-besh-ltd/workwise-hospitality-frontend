@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
-import { getSImplifiedVersionOfBOQ } from "@/services/rfq";
+import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
+import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI } from "@/services/rfq";
 
-const MagicSearchDownloadModal = () => {
+const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
   const [show, setShow] = useState(false);
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [fileUrl, setFileUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [creatingRFQ, setCreatingRFQ] = useState(false);
+  const [jsonData, setJsonData] = useState(null);
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -40,6 +42,28 @@ const MagicSearchDownloadModal = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleCreateRFQ = async () => {
+    if (!file) {
+      console.error("Original file not found for RFQ creation.");
+      return;
+    }
+    setCreatingRFQ(true);
+    try {
+      const response = await getBOQexcelToJsonAI(file); // Get jsonUrl
+      const jsonUrl = response?.data?.download_url;
+      if (jsonUrl) {
+        onUploadForRFQ(jsonUrl); // Call MagicSearchPage to proceed
+        setShow(false);
+      } else {
+        console.error("No JSON URL received from getBOQexcelToJsonAI.");
+      }
+    } catch (error) {
+      console.error("Error creating RFQ:", error);
+    } finally {
+      setCreatingRFQ(false);
+    }
   };
 
   const handleClose = () => {
@@ -130,9 +154,13 @@ const MagicSearchDownloadModal = () => {
                 BOQ processed! Click below to download the simplified version.
               </p>
               <div className="text-center">
-                <Button variant="success" onClick={handleDownload}>
+                <Button variant="success" onClick={handleDownload} className="me-2">
                   <FontAwesomeIcon icon={faDownload} className="me-2" />
                   Download BOQ
+                </Button>
+                <Button variant="primary" onClick={handleCreateRFQ} disabled={creatingRFQ}>
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  {creatingRFQ ? "Processing..." : "Create RFQ"}
                 </Button>
               </div>
             </>
