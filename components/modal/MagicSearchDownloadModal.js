@@ -23,7 +23,8 @@ const MagicSearchDownloadModal = () => {
 
     try {
       const response = await getSImplifiedVersionOfBOQ(file);
-      setFileUrl(response?.data?.download_excel);
+      setFileUrl(response?.data?.download_excel_url);
+      setJsonData(response?.data?.download_url);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
@@ -75,15 +76,12 @@ const MagicSearchDownloadModal = () => {
                       </a>
                     </div>
                         
-      {/* <Button variant="primary"   className="ms-auto border-0" style={{ width: "280px" }}>
-        Simplified BOQ
-      </Button> */}
 
       <Modal show={show} onHide={handleClose} centered  >
         <Modal.Header closeButton className="p-3 border-b-2 " >
           <Modal.Title className="d-flex align-items-center">
             <FontAwesomeIcon icon={faFileExcel} className="me-2 text-success" />
-            <span>Create Simplify Your BOQ</span>
+            <span>Simplify Your BOQ</span>
           </Modal.Title>
         </Modal.Header>
 
@@ -141,12 +139,6 @@ const MagicSearchDownloadModal = () => {
           )}
         </Modal.Body>
 
-        {/* <Modal.Footer>
-          <Button variant="outline-secondary" onClick={handleClose}>
-            <FontAwesomeIcon icon={faTimes} className="me-1" />
-            Close
-          </Button>
-        </Modal.Footer> */}
       </Modal>
     </>
   );
