@@ -36,16 +36,40 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
     }
   };
 
-  const handleDownload = () => {
-    if (!fileUrl) return;
-    const a = document.createElement("a");
-    fileUrl.replace("http://","https://")
-    a.href = fileUrl;
-    a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+ const handleDownload = async () => {
+  if (!fileUrl) return;
+
+  const tryDownload = async (url) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Fetch failed with status: " + response.status);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      console.log("Download successful from:", url);
+      return true;
+    } catch (err) {
+      console.error("Download failed from:", url, err);
+      return false;
+    }
   };
+
+  // First try with https
+  const httpsUrl = fileUrl.replace("http://", "https://");
+  const success = await tryDownload(httpsUrl);
+
+  // If https fails, retry once with original http
+  if (!success) {
+    await tryDownload(fileUrl);
+  }
+};
+
 
   const handleCreateRFQ = async () => {
     if (!file) {
