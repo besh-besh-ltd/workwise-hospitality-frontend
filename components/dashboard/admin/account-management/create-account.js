@@ -8,6 +8,7 @@ import Select from "react-select";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
+import { createBuyerCompanyUser } from "@/services/Auth";
 
     // Initial form values
     const initialValues = {
@@ -57,27 +58,37 @@ const CreateAccountPage = () => {
     });
 
 
-    // Handle form submission
-    const handleSubmit = (values, { resetForm, setSubmitting }) => {
+    const handleSubmit = async (values, { resetForm, setSubmitting }) => {
         setLoading(true);
         
-        // Format the data for API
-        const formData = {
-            ...values,
-            role: values.role.value,
-            projects: values.projects.map(project => project.value),
-        };
-        
-        // Simulate API call
-        setTimeout(() => {
-            toast.success("Account created successfully!");
-            resetForm();
+        try {
+            // Format the data for API
+            const apiData = {
+                name: values.name,
+                email: values.email,
+                mobile: values.mobile,
+                user_type: values.role.value.toString(),
+                password: values.password
+            };
+            
+            const response = await createBuyerCompanyUser(apiData);
+            
+            if (response.status) {
+                toast.success("Account created successfully!");
+                resetForm();
+                
+                // Redirect to manage accounts page
+                router.push("/dashboard/admin/account-management/manage-accounts");
+            } else {
+                toast.error(response.message || "Failed to create account");
+            }
+        } catch (error) {
+            console.error("Error creating account:", error);
+            toast.error(error?.message?.response?.data?.message || "Failed to create account. Please try again.");
+        } finally {
             setLoading(false);
             setSubmitting(false);
-            
-            // Redirect to manage accounts page
-            router.push("/dashboard/admin/account-management/manage-accounts");
-        }, 1000);
+        }
     };
 
     return (
