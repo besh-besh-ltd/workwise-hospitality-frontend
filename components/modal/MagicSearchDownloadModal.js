@@ -39,6 +39,7 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
   const handleDownload = () => {
     if (!fileUrl) return;
     const a = document.createElement("a");
+    fileUrl.replace("http://","https://")
     a.href = fileUrl;
     a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
     document.body.appendChild(a);
@@ -81,7 +82,7 @@ const handleViewBOQ = () => {
     console.error("No JSON data available for viewing.");
     return;
   }
-  const viewUrl = `http://localhost:8001/dashboard/buyer/magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
+  const viewUrl = `magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
   window.open(viewUrl, '_blank'); // Open in a new tab
 };
 
