@@ -4,57 +4,75 @@ import { Field, Form, Formik } from 'formik';
 import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
 import { addTeamMemberSchema } from '@/utils/schema';
+import { toast } from 'react-toastify';
+import axiosInstance from '@/lib/axios';
 
 const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     const [loading, setLoading] = useState(false);
     const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Mock users data
-    const mockUsers = [
-        {
-            id: 1,
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: 8 // Top Management
-        },
-        {
-            id: 2,
-            name: "Jane Smith",
-            email: "jane.smith@example.com",
-            role: 2 // Procurement
-        },
-        {
-            id: 3,
-            name: "Robert Johnson",
-            email: "robert.johnson@example.com",
-            role: 9 // Engineering
-        },
-        {
-            id: 4,
-            name: "Emily Davis",
-            email: "emily.davis@example.com",
-            role: 10 // Finance
-        },
-        {
-            id: 5,
-            name: "Michael Wilson",
-            email: "michael.wilson@example.com",
-            role: 8 // Top Management
-        },
-        {
-            id: 6,
-            name: "Sarah Brown",
-            email: "sarah.brown@example.com",
-            role: 2 // Procurement
-        }
-    ];
-
-    // Load mock users
+    // Fetch users from API
     useEffect(() => {
-        setUsers(mockUsers);
-    }, []);
-
-
+        const fetchUsers = async () => {
+            try {
+                setLoadingUsers(true);
+                const mockUsers = [
+                    {
+                        id: 1,
+                        name: "John Doe",
+                        email: "john.doe@example.com",
+                        role: 8 // Top Management
+                    },
+                    {
+                        id: 2,
+                        name: "Jane Smith",
+                        email: "jane.smith@example.com",
+                        role: 2 // Procurement
+                    },
+                    {
+                        id: 3,
+                        name: "Robert Johnson",
+                        email: "robert.johnson@example.com",
+                        role: 9 // Engineering
+                    },
+                    {
+                        id: 4,
+                        name: "Emily Davis",
+                        email: "emily.davis@example.com",
+                        role: 10 // Finance
+                    },
+                    {
+                        id: 5,
+                        name: "Michael Wilson",
+                        email: "michael.wilson@example.com",
+                        role: 8 // Top Management
+                    },
+                    {
+                        id: 6,
+                        name: "Sarah Brown",
+                        email: "sarah.brown@example.com",
+                        role: 2 // Procurement
+                    }
+                ];
+                
+                // Uncomment this when the API endpoint is available
+                // const response = await axiosInstance.get('users/list');
+                // const usersData = response.data.data;
+                
+                setUsers(mockUsers);
+            } catch (error) {
+                toast.error("Failed to fetch users");
+                setUsers([]);
+            } finally {
+                setLoadingUsers(false);
+            }
+        };
+        
+        if (isOpen) {
+            fetchUsers();
+        }
+    }, [isOpen]);
 
     // Initial form values
     const initialValues = {
@@ -85,11 +103,8 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
         // Simulate API call
         setTimeout(() => {
             onSave(teamMember);
-            setLoading(false);
-            setSubmitting(false);
             resetForm();
-            closeModal();
-        }, 500);
+        }, 1000);
     };
 
     // Get role label and color

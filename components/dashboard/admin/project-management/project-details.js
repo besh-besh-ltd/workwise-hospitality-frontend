@@ -8,12 +8,13 @@ import Pagination from "@/components/shared/Pagination";
 import { toast } from "react-toastify";
 import EditProjectModal from "./EditProjectModal";
 import AddTeamMemberModal from "./AddTeamMemberModal";
+import { getProjectById, updateProject, getProjectTeamMembers, addTeamMember, removeTeamMember } from "@/services/project";
 
 const ProjectDetailsPage = () => {
     const router = useRouter();
     const { projectId } = router.query;
 
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [project, setProject] = useState(null);
     const [teamMembers, setTeamMembers] = useState([]);
     const [page, setPage] = useState(1);
@@ -21,55 +22,6 @@ const ProjectDetailsPage = () => {
     const [totalData, setTotalData] = useState(0);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showAddTeamModal, setShowAddTeamModal] = useState(false);
-
-    // Mock project data
-    const mockProject = {
-        id: 1,
-        name: "Office Building Renovation",
-        description: "Complete renovation of the corporate headquarters including structural repairs, electrical upgrades, and interior redesign.",
-        location: "New York, NY",
-        rfq_type: "firm",
-        reverse_auction: 1,
-        ended_at: "2024-12-31",
-        total_rfqs: 15,
-        open_rfqs: 5,
-        closed_rfqs: 10,
-        created_at: "2023-05-10T09:30:00Z",
-        status: "active",
-        team_members: [1, 3, 4] // IDs of team members assigned to the project
-    };
-
-    // Mock team members data
-    const mockTeamMembers = [
-        {
-            id: 1,
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: 8, // Top Management
-            added_at: "2023-05-15T10:30:00Z"
-        },
-        {
-            id: 2,
-            name: "Jane Smith",
-            email: "jane.smith@example.com",
-            role: 2, // Procurement
-            added_at: "2023-06-20T14:45:00Z"
-        },
-        {
-            id: 3,
-            name: "Robert Johnson",
-            email: "robert.johnson@example.com",
-            role: 9, // Engineering
-            added_at: "2023-07-10T09:15:00Z"
-        },
-        {
-            id: 4,
-            name: "Emily Davis",
-            email: "emily.davis@example.com",
-            role: 10, // Finance
-            added_at: "2023-08-05T16:20:00Z"
-        }
-    ];
 
     // Role options with color coding
     const roleOptions = [
@@ -79,17 +31,46 @@ const ProjectDetailsPage = () => {
         { value: 10, label: "Finance", color: "#5b5b5b" }, // Text color
     ];
 
-    // Load mock data
+    // Fetch project details
+    const fetchProjectDetails = async () => {
+        try {
+            setLoading(true);
+            const timestamp = new Date().getTime();
+            const response = await getProjectById(projectId, { t: timestamp });
+            if (response && response.data && response.data.status && response.data.data) {
+                const projectData = Array.isArray(response.data.data) && response.data.data.length > 0 
+                    ? response.data.data[0] 
+                    : response.data.data;
+                
+                if (!projectData || (Array.isArray(projectData) && projectData.length === 0)) {
+                    toast.error("Project not found or access denied");
+                    setProject(null);
+                } else {
+                    setProject(projectData);
+                    try {
+                        setTeamMembers([]);
+                        setTotalData(0);
+                    } catch (teamError) {
+                        toast.error("Failed to fetch team members");
+                        setTeamMembers([]);
+                        setTotalData(0);
+                    }
+                }
+            } else {
+                toast.error("Failed to fetch project details");
+                setProject(null);
+            }
+        } catch (error) {
+            toast.error(error?.message?.response?.data?.message || "Failed to fetch project details");
+            setProject(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (projectId) {
-            setLoading(true);
-            // Simulate API call
-            setTimeout(() => {
-                setProject(mockProject);
-                setTeamMembers(mockTeamMembers);
-                setTotalData(mockTeamMembers.length);
-                setLoading(false);
-            }, 500);
+            fetchProjectDetails();
         }
     }, [projectId]);
 
@@ -102,12 +83,18 @@ const ProjectDetailsPage = () => {
 
     // Format date
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        if (!dateString) return "Not specified";
+        
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return dateString;
+        }
     };
 
     // Get role label and color
@@ -117,78 +104,65 @@ const ProjectDetailsPage = () => {
     };
 
     // Handle edit project
-    const handleEditProject = (updatedProject) => {
-        // In a real implementation, this would call an API
-
-        // Update the project with the new data
-        setProject({
-            ...project,
-            ...updatedProject
-        });
-
-        // If team members were updated, update the team members list
-        if (updatedProject.team_members && updatedProject.team_members.length > 0) {
-            // In a real app, this would be handled by the API
-            // For this mock implementation, we'll update the team members list based on the IDs
-            const updatedTeamMemberIds = updatedProject.team_members;
-
-            // Filter out team members that are no longer assigned to the project
-            const remainingTeamMembers = teamMembers.filter(member =>
-                updatedTeamMemberIds.includes(member.id)
-            );
-
-            // Add any new team members that weren't previously assigned
-            const existingIds = remainingTeamMembers.map(member => member.id);
-            const newMemberIds = updatedTeamMemberIds.filter(id => !existingIds.includes(id));
-
-            // For this mock implementation, we'll create new team member objects for any new IDs
-            // In a real app, this data would come from the API
-            const newTeamMembers = newMemberIds.map(id => {
-                // Find the role based on the mock data pattern (1-4 are Top Management, 5-8 are Procurement, etc.)
-                let role = 8; // Default to Top Management
-                if (id % 4 === 2) role = 2; // Procurement
-                if (id % 4 === 3) role = 9; // Engineering
-                if (id % 4 === 0) role = 10; // Finance
-
-                return {
-                    id: id,
-                    name: `Team Member ${id}`,
-                    email: `member${id}@example.com`,
-                    role: role,
-                    added_at: new Date().toISOString()
-                };
-            });
-
-            // Update the team members list
-            const updatedTeamMembers = [...remainingTeamMembers, ...newTeamMembers];
-            setTeamMembers(updatedTeamMembers);
-            setTotalData(updatedTeamMembers.length);
+    const handleEditProject = async (updatedProject) => {
+        try {
+            setLoading(true);
+            const response = await updateProject(projectId, updatedProject);
+            if (response && response.data && response.data.status) {
+                setProject({
+                    ...project,
+                    ...response.data.data
+                });
+                
+                toast.success("Project updated successfully!");
+            } else {
+                toast.error("Failed to update project");
+            }
+        } catch (error) {
+            toast.error(error?.message?.response?.data?.message || "Failed to update project");
+        } finally {
+            setLoading(false);
+            setShowEditModal(false);
         }
-
-        toast.success("Project updated successfully!");
     };
 
     // Handle add team member
-    const handleAddTeamMember = (newMember) => {
-        // In a real implementation, this would call an API
-        const teamMember = {
-            id: teamMembers.length + 1,
-            ...newMember,
-            added_at: new Date().toISOString()
-        };
-
-        setTeamMembers([...teamMembers, teamMember]);
-        setTotalData(teamMembers.length + 1);
-        toast.success("Team member added successfully!");
+    const handleAddTeamMember = async (newMember) => {
+        try {
+            setLoading(true);
+            const teamMember = {
+                id: teamMembers.length + 1,
+                ...newMember,
+                added_at: new Date().toISOString()
+            };
+            
+            const updatedTeamMembers = [...teamMembers, teamMember];
+            setTeamMembers(updatedTeamMembers);
+            setTotalData(updatedTeamMembers.length);
+            
+            toast.success("Team member added successfully!");
+        } catch (error) {
+            toast.error("Failed to add team member");
+        } finally {
+            setLoading(false);
+            setShowAddTeamModal(false);
+        }
     };
 
     // Handle remove team member
-    const handleRemoveTeamMember = (memberId) => {
-        // In a real implementation, this would call an API
-        const updatedTeamMembers = teamMembers.filter(member => member.id !== memberId);
-        setTeamMembers(updatedTeamMembers);
-        setTotalData(updatedTeamMembers.length);
-        toast.success("Team member removed successfully!");
+    const handleRemoveTeamMember = async (memberId) => {
+        try {
+            setLoading(true);
+            const updatedTeamMembers = teamMembers.filter(member => member.id !== memberId);
+            setTeamMembers(updatedTeamMembers);
+            setTotalData(updatedTeamMembers.length);
+            
+            toast.success("Team member removed successfully!");
+        } catch (error) {
+            toast.error("Failed to remove team member");
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!project && !loading) {

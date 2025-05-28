@@ -7,6 +7,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import ReadMore from "@/components/shared/ReadMore";
 import CreateProjectModal from "./CreateProjectModal";
 import { toast } from "react-toastify";
+import { getAllProjects, createProject } from "@/services/project";
 
 const ProjectManagementPage = () => {
     const [loading, setLoading] = useState(false);
@@ -15,90 +16,6 @@ const ProjectManagementPage = () => {
     const [limit, setLimit] = useState(10);
     const [totalData, setTotalData] = useState(0);
     const [showCreateModal, setShowCreateModal] = useState(false);
-
-    // Mock project data
-    const mockProjects = [ 
-        {
-            id: 1,
-            name: "Office Building Renovation",
-            description: "Complete renovation of the corporate headquarters including structural repairs, electrical upgrades, and interior redesign.",
-            total_rfqs: 15,
-            open_rfqs: 5,
-            closed_rfqs: 10,
-            created_at: "2023-05-10T09:30:00Z",
-            status: "active"
-        },
-        {
-            id: 2,
-            name: "IT Infrastructure Upgrade",
-            description: "Upgrading the company's IT infrastructure including servers, networking equipment, and cybersecurity systems.",
-            total_rfqs: 8,
-            open_rfqs: 3,
-            closed_rfqs: 5,
-            created_at: "2023-06-15T14:45:00Z",
-            status: "active"
-        },
-        {
-            id: 3,
-            name: "Manufacturing Plant Expansion",
-            description: "Expansion of the manufacturing facility to increase production capacity by 50%.",
-            total_rfqs: 20,
-            open_rfqs: 8,
-            closed_rfqs: 12,
-            created_at: "2023-07-20T11:15:00Z",
-            status: "active"
-        },
-        {
-            id: 4,
-            name: "Supply Chain Optimization",
-            description: "Project to optimize the supply chain processes and reduce logistics costs.",
-            total_rfqs: 12,
-            open_rfqs: 4,
-            closed_rfqs: 8,
-            created_at: "2023-08-05T10:00:00Z",
-            status: "active"
-        },
-        {
-            id: 5,
-            name: "Green Energy Initiative",
-            description: "Implementation of solar panels and other renewable energy sources across company facilities.",
-            total_rfqs: 10,
-            open_rfqs: 6,
-            closed_rfqs: 4,
-            created_at: "2023-09-12T13:30:00Z",
-            status: "active"
-        },
-        {
-            id: 6,
-            name: "Product Line Expansion",
-            description: "Development and launch of a new product line targeting the consumer market.",
-            total_rfqs: 18,
-            open_rfqs: 7,
-            closed_rfqs: 11,
-            created_at: "2023-10-18T09:45:00Z",
-            status: "active"
-        },
-        {
-            id: 7,
-            name: "Employee Training Program",
-            description: "Comprehensive training program for all employees on new technologies and processes.",
-            total_rfqs: 5,
-            open_rfqs: 2,
-            closed_rfqs: 3,
-            created_at: "2023-11-22T15:20:00Z",
-            status: "active"
-        },
-        {
-            id: 8,
-            name: "Quality Control Enhancement",
-            description: "Implementation of advanced quality control systems in the production process.",
-            total_rfqs: 9,
-            open_rfqs: 3,
-            closed_rfqs: 6,
-            created_at: "2023-12-10T11:10:00Z",
-            status: "active"
-        }
-    ];
 
     // Get paginated data
     const getPaginatedData = () => {
@@ -118,32 +35,79 @@ const ProjectManagementPage = () => {
     };
 
     // Handle create project
-    const handleCreateProject = (projectData) => {
-        // In a real implementation, this would call an API
-        const newProject = {
-            id: projects.length + 1,
-            ...projectData,
-            total_rfqs: 0,
-            open_rfqs: 0,
-            closed_rfqs: 0,
-            created_at: new Date().toISOString(),
-            status: "active"
-        };
-        
-        setProjects([newProject, ...projects]);
-        setTotalData(projects.length + 1);
-        toast.success("Project created successfully!");
+    const handleCreateProject = async (projectData) => {
+        try {
+            setLoading(true);
+            const response = await createProject(projectData);
+            if (response && response.data && response.data.status === true) {
+                // Close modal first
+                setShowCreateModal(false);
+                toast.success("Project created successfully!");
+                await fetchProjects();
+            } else {
+                toast.error("Failed to create project: Unknown error");
+            }
+        } catch (error) {
+            let errorMessage = "Failed to create project";
+            if (error.details) {
+                if (error.details.errors && Object.keys(error.details.errors).length > 0) {
+                    const firstError = Object.values(error.details.errors)[0];
+                    errorMessage = `Failed to create project: ${firstError}`;
+                } else if (error.details.message) {
+                    errorMessage = `Failed to create project: ${error.details.message}`;
+                }
+            } else if (error.message && error.message.response && error.message.response.data) {
+                // Fallback to the old error format
+                errorMessage = error.message.response.data.message || errorMessage;
+            }
+            
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Load mock data
-    useEffect(() => {
-        setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setProjects(mockProjects);
-            setTotalData(mockProjects.length);
+    // Fetch projects from API
+    const fetchProjects = async () => {
+        try {
+            setLoading(true);
+            const response = await getAllProjects();
+            if (response && response.data) {
+                const projectsData = response.data.data;
+                if (Array.isArray(projectsData) && projectsData.length > 0) {
+                    setProjects(projectsData);
+                    setTotalData(projectsData.length);
+                } else if (Array.isArray(projectsData)) {
+                    setProjects([]);
+                    setTotalData(0);
+                } else {
+                    setProjects([]);
+                    setTotalData(0);
+                    toast.error("Invalid project data format received");
+                }
+            } else {
+                toast.error("Failed to fetch projects");
+                setProjects([]);
+                setTotalData(0);
+            }
+        } catch (error) {
+            if (error.data && error.data.message) {
+                toast.error(error.data.message);
+            } else if (error.message?.response?.data) {
+                toast.error(error.message?.response?.data?.message || "Failed to fetch projects");
+            } else {
+                toast.error("Failed to fetch projects. Please try again.");
+            }
+            
+            setProjects([]);
+            setTotalData(0);
+        } finally {
             setLoading(false);
-        }, 500);
+        }
+    };
+
+    useEffect(() => {
+        fetchProjects();
     }, []);
 
     return (
@@ -201,9 +165,9 @@ const ProjectManagementPage = () => {
                                                                     "---"
                                                                 )}
                                                             </td>
-                                                            <td>{project.total_rfqs || "---"}</td>
-                                                            <td>{project.open_rfqs || "---"}</td>
-                                                            <td>{project.closed_rfqs || "---"}</td>
+                                                            <td>{project.total_rfqs || "0"}</td>
+                                                            <td>{project.open_rfqs || "0"}</td>
+                                                            <td>{project.closed_rfqs || "0"}</td>
                                                             <td>{formatDate(project.created_at)}</td>
                                                             <td>
                                                                 <Link
