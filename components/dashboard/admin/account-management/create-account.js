@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,6 +9,7 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
 import { createBuyerCompanyUser } from "@/services/Auth";
+import { getAllProjects } from "@/services/project";
 
     // Initial form values
     const initialValues = {
@@ -25,6 +26,8 @@ import { createBuyerCompanyUser } from "@/services/Auth";
 const CreateAccountPage = () => {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [projects, setProjects] = useState([]);
+    const [loadingProjects, setLoadingProjects] = useState(false);
 
     // Role options with color coding
     const roleOptions = [
@@ -35,12 +38,6 @@ const CreateAccountPage = () => {
         { value: 10, label: "Finance", color: "#5b5b5b" }, // Text color
     ];
 
-    // Project options
-    const projectOptions = [
-        { value: 1, label: "Project 1" },
-        { value: 2, label: "Project 2" },
-        { value: 3, label: "Project 3" },
-    ];
 
     // Validation schema
     const validationSchema = Yup.object().shape({
@@ -72,6 +69,11 @@ const CreateAccountPage = () => {
                 password: values.password
             };
             
+            // Add projects if selected
+            if (values.projects && values.projects.length > 0) {
+                apiData.projects = values.projects.map(project => project.value);
+            }
+            
             const response = await createBuyerCompanyUser(apiData);
             
             if (response.status) {
@@ -92,6 +94,40 @@ const CreateAccountPage = () => {
         }
     };
 
+        // Fetch projects on component mount
+        useEffect(() => {
+            const fetchProjects = async () => {
+                try {
+                    setLoadingProjects(true);
+                    const response = await getAllProjects();
+                    
+                    if (response && response.data && response.data.status) {
+                        const projectsData = response.data.data;
+                        if (Array.isArray(projectsData) && projectsData.length > 0) {
+                            // Format projects for the select dropdown
+                            const formattedProjects = projectsData.map(project => ({
+                                value: project.id,
+                                label: project.name || project.project_name
+                            }));
+                            setProjects(formattedProjects);
+                        } else {
+                            setProjects([]);
+                        }
+                    } else {
+                        toast.error("Failed to fetch projects");
+                        setProjects([]);
+                    }
+                } catch (error) {
+                    toast.error("Failed to fetch projects. Please try again.");
+                    setProjects([]);
+                } finally {
+                    setLoadingProjects(false);
+                }
+            };
+    
+            fetchProjects();
+        }, []);
+        
     return (
         <>
             <section className="buyer-common-header sc-pt-80">
@@ -245,11 +281,12 @@ const CreateAccountPage = () => {
                                                                 <Select
                                                                     id="projects"
                                                                     name="projects"
-                                                                    options={projectOptions}
+                                                                    options={projects}
                                                                     value={values.projects}
                                                                     onChange={(options) => setFieldValue("projects", options)}
                                                                     isMulti
-                                                                    placeholder="Select projects to assign"
+                                                                    placeholder={loadingProjects ? "Loading projects..." : "Select projects to assign"}
+                                                                    isLoading={loadingProjects}
                                                                 />
                                                                 <small className="form-text text-muted">
                                                                     Select multiple projects to assign this user to

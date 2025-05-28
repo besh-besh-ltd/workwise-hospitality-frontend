@@ -7,6 +7,9 @@ import { editAccountSchema } from '@/utils/schema';
 
 const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOptions, onSave }) => {
     const [loading, setLoading] = useState(false);
+    
+    // Check if projectOptions are loading (would be empty array if loading from parent)
+    const isProjectsLoading = projectOptions.length === 0;
 
     // Initial form values
     const initialValues = {
@@ -15,7 +18,7 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
         email: account.email,
         mobile: account.mobile,
         role: roleOptions.find(r => r.value === account.role),
-        projects: projectOptions.filter(p => account.projects.includes(p.value)),
+        projects: isProjectsLoading ? [] : projectOptions.filter(p => account.projects.includes(p.value)),
         status: account.status
     };
 
@@ -172,6 +175,8 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
                                         value={values.projects}
                                         onChange={(options) => setFieldValue('projects', options)}
                                         isMulti
+                                        isLoading={isProjectsLoading}
+                                        placeholder={isProjectsLoading ? "Loading projects..." : "Select projects to assign"}
                                     />
                                 </div>
 

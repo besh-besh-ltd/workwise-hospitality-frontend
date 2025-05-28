@@ -8,6 +8,7 @@ import Select from 'react-select';
 import EditAccountModal from "./EditAccountModal";
 import { getCompanyUsers } from "@/services/Auth";
 import { toast } from "react-toastify";
+import { getAllProjects } from "@/services/project";
 
 const ManageAccountsPage = () => {
     const [loading, setLoading] = useState(false);
@@ -21,6 +22,8 @@ const ManageAccountsPage = () => {
     const [filterProject, setFilterProject] = useState([]);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState(null);
+    const [projectOptions, setProjectOptions] = useState([]);
+    const [loadingProjects, setLoadingProjects] = useState(false);
 
     // Role options with color coding
     const roleOptions = [
@@ -36,11 +39,36 @@ const ManageAccountsPage = () => {
         { value: "inactive", label: "Inactive" },
     ];
 
-    const projectOptions = [
-        { value: 1, label: "Project 1" },
-        { value: 2, label: "Project 2" },
-        { value: 3, label: "Project 3" },
-    ];
+    // Fetch projects from API
+    const fetchProjects = async () => {
+        try {
+            setLoadingProjects(true);
+            const response = await getAllProjects();
+            
+            if (response && response.data && response.data.status) {
+                const projectsData = response.data.data;
+                if (Array.isArray(projectsData) && projectsData.length > 0) {
+                    // Format projects for the select dropdown
+                    const formattedProjects = projectsData.map(project => ({
+                        value: project.id,
+                        label: project.name || project.project_name
+                    }));
+                    setProjectOptions(formattedProjects);
+                } else {
+                    setProjectOptions([]);
+                }
+            } else {
+                toast.error("Failed to fetch projects");
+                setProjectOptions([]);
+            }
+        } catch (error) {
+            console.error("Error fetching projects:", error);
+            toast.error("Failed to fetch projects. Please try again.");
+            setProjectOptions([]);
+        } finally {
+            setLoadingProjects(false);
+        }
+    };
 
     const fetchCompanyUsers = async () => {
         setLoading(true);
@@ -55,7 +83,7 @@ const ManageAccountsPage = () => {
                     mobile: user.mobile,
                     role: user.role,
                     status: user.status,
-                    projects: [], // We would need to add project mapping in the backend if needed
+                    projects: user.projects || [], // We would need to add project mapping in the backend if needed
                     createdAt: user.created_at
                 }));
                 
@@ -72,50 +100,7 @@ const ManageAccountsPage = () => {
         }
     };
 
-    // Load data on component mount
-    useEffect(() => {
-        fetchCompanyUsers();
-    }, []);
 
-    // Changes by Agnij 14-01-2025 [Added check for refresh parameter in URL to reload data]
-    useEffect(() => {
-        // Check if there's a refresh parameter in the URL, which indicates we came from create-account
-        if (typeof window !== 'undefined') {
-            const urlParams = new URLSearchParams(window.location.search);
-            const refresh = urlParams.get('refresh');
-            
-            if (refresh === 'true') {
-                // Remove the refresh parameter from the URL without page reload
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, newUrl);
-                
-                // Reload the data
-                fetchCompanyUsers();
-            }
-        }
-    }, []);
-
-    // Apply filters
-    useEffect(() => {
-        let filtered = [...accounts];
-
-        if (filterRole) {
-            filtered = filtered.filter(account => account.role === filterRole.value);
-        }
-
-        if (filterStatus) {
-            filtered = filtered.filter(account => account.status === filterStatus.value);
-        }
-
-        if (filterProject && filterProject.length > 0) {
-            filtered = filtered.filter(account =>
-                filterProject.some(fp => account.projects && account.projects.includes(fp.value))
-            );
-        }
-
-        setFilteredAccounts(filtered);
-        setTotalData(filtered.length);
-    }, [accounts, filterRole, filterStatus, filterProject]);
 
     // Get paginated data
     const getPaginatedData = () => {
@@ -171,6 +156,52 @@ const ManageAccountsPage = () => {
         setAccounts(updatedAccounts);
     };
 
+        // Load data on component mount
+        useEffect(() => {
+            fetchProjects();
+            fetchCompanyUsers();
+        }, []);
+    
+        // Changes by Agnij 14-01-2025 [Added check for refresh parameter in URL to reload data]
+        useEffect(() => {
+            // Check if there's a refresh parameter in the URL, which indicates we came from create-account
+            if (typeof window !== 'undefined') {
+                const urlParams = new URLSearchParams(window.location.search);
+                const refresh = urlParams.get('refresh');
+                
+                if (refresh === 'true') {
+                    // Remove the refresh parameter from the URL without page reload
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                    
+                    // Reload the data
+                    fetchCompanyUsers();
+                }
+            }
+        }, []);
+    
+        // Apply filters
+        useEffect(() => {
+            let filtered = [...accounts];
+    
+            if (filterRole) {
+                filtered = filtered.filter(account => account.role === filterRole.value);
+            }
+    
+            if (filterStatus) {
+                filtered = filtered.filter(account => account.status === filterStatus.value);
+            }
+    
+            if (filterProject && filterProject.length > 0) {
+                filtered = filtered.filter(account =>
+                    filterProject.some(fp => account.projects && account.projects.includes(fp.value))
+                );
+            }
+    
+            setFilteredAccounts(filtered);
+            setTotalData(filtered.length);
+        }, [accounts, filterRole, filterStatus, filterProject]);
+
     return (
         <>
             <section className="buyer-common-header sc-pt-80">
@@ -222,12 +253,13 @@ const ManageAccountsPage = () => {
                                                 options={projectOptions}
                                                 onChange={setFilterProject}
                                                 name="project"
-                                                placeholder="Select Project(s)"
+                                                placeholder={loadingProjects ? "Loading projects..." : "Select Project(s)"}
                                                 isClearable
                                                 isMulti
                                                 closeMenuOnSelect={false}
                                                 value={filterProject}
                                                 classNamePrefix="react-select"
+                                                isLoading={loadingProjects}
                                             />
                                         </div>
 
