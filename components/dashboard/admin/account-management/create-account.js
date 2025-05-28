@@ -28,6 +28,7 @@ const CreateAccountPage = () => {
 
     // Role options with color coding
     const roleOptions = [
+        { value: 7, label: "Admin", color: "#007bff" }, // Admin color - blue
         { value: 8, label: "Top Management", color: "#2E5BA8" }, // Primary color
         { value: 2, label: "Procurement", color: "#428B41" }, // Secondary color
         { value: 9, label: "Engineering", color: "#FFE600" }, // Yellow color
@@ -77,8 +78,8 @@ const CreateAccountPage = () => {
                 toast.success("Account created successfully!");
                 resetForm();
                 
-                // Redirect to manage accounts page
-                router.push("/dashboard/admin/account-management/manage-accounts");
+                // Redirect to manage accounts page with a refresh parameter to trigger data reload
+                router.push("/dashboard/admin/account-management/manage-accounts?refresh=true");
             } else {
                 toast.error(response.message || "Failed to create account");
             }

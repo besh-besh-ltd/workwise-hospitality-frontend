@@ -307,6 +307,16 @@ export const createBuyerCompanyUser = (values) => {
 		}
 	});
 };
-  
+
+export const getCompanyUsers = () => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/users/company-users`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
 
 
