@@ -6,6 +6,7 @@ import FullLoader from '@/components/shared/FullLoader';
 import { addTeamMemberSchema } from '@/utils/schema';
 import { toast } from 'react-toastify';
 import axiosInstance from '@/lib/axios';
+import { getCompanyUsers } from '@/services/Auth';
 
 const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     const [loading, setLoading] = useState(false);
@@ -17,50 +18,25 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
         const fetchUsers = async () => {
             try {
                 setLoadingUsers(true);
-                const mockUsers = [
-                    {
-                        id: 1,
-                        name: "John Doe",
-                        email: "john.doe@example.com",
-                        role: 8 // Top Management
-                    },
-                    {
-                        id: 2,
-                        name: "Jane Smith",
-                        email: "jane.smith@example.com",
-                        role: 2 // Procurement
-                    },
-                    {
-                        id: 3,
-                        name: "Robert Johnson",
-                        email: "robert.johnson@example.com",
-                        role: 9 // Engineering
-                    },
-                    {
-                        id: 4,
-                        name: "Emily Davis",
-                        email: "emily.davis@example.com",
-                        role: 10 // Finance
-                    },
-                    {
-                        id: 5,
-                        name: "Michael Wilson",
-                        email: "michael.wilson@example.com",
-                        role: 8 // Top Management
-                    },
-                    {
-                        id: 6,
-                        name: "Sarah Brown",
-                        email: "sarah.brown@example.com",
-                        role: 2 // Procurement
-                    }
-                ];
+                // Using the actual API instead of mock data
+                const response = await getCompanyUsers();
                 
-                // Uncomment this when the API endpoint is available
-                // const response = await axiosInstance.get('users/list');
-                // const usersData = response.data.data;
-                
-                setUsers(mockUsers);
+                if (response.status) {
+                    const formattedUsers = response.data.map(user => ({
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        role: user.role,
+                        status: user.status
+                    }));
+                    
+                    // Only show active users
+                    const activeUsers = formattedUsers.filter(user => user.status === 'active');
+                    setUsers(activeUsers);
+                } else {
+                    toast.error("Failed to fetch users");
+                    setUsers([]);
+                }
             } catch (error) {
                 toast.error("Failed to fetch users");
                 setUsers([]);
@@ -158,6 +134,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
 
                 <div className="modal-body p-3 hasFullLoader">
                     {loading && <FullLoader />}
+                    {loadingUsers && <FullLoader />}
 
                     <Formik
                         initialValues={initialValues}
@@ -191,6 +168,8 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                                         }}
                                         menuPortalTarget={document.body}
                                         menuPosition={'fixed'}
+                                        isLoading={loadingUsers}
+                                        placeholder={loadingUsers ? "Loading users..." : "Select a user"}
                                     />
                                     {touched.user && errors.user && (
                                         <div className="invalid-feedback d-block">{errors.user}</div>
