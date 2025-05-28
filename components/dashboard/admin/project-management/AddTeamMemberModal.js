@@ -18,6 +18,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
         const fetchUsers = async () => {
             try {
                 setLoadingUsers(true);
+                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Fetching company users`);
                 // Using the actual API instead of mock data
                 const response = await getCompanyUsers();
                 
@@ -32,12 +33,15 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                     
                     // Only show active users
                     const activeUsers = formattedUsers.filter(user => user.status === 'active');
+                    console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Fetched ${formattedUsers.length} users, ${activeUsers.length} are active`);
                     setUsers(activeUsers);
                 } else {
+                    console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Failed to fetch users - API returned error status`);
                     toast.error("Failed to fetch users");
                     setUsers([]);
                 }
             } catch (error) {
+                console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Error fetching users:`, error);
                 toast.error("Failed to fetch users");
                 setUsers([]);
             } finally {
@@ -67,20 +71,40 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     // Handle form submission
     const handleSubmit = (values, { setSubmitting, resetForm }) => {
         setLoading(true);
+        console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Submitting form to add user ${values.user.value} with role ${values.user.role}`);
 
-        // Format the data
+        // Format the data for the API
         const teamMember = {
-            id: values.user.value,
-            name: values.user.name,
-            email: values.user.email,
-            role: values.user.role
+            user_id: values.user.value,
+            role: parseInt(values.user.role) // Ensure role is a number
         };
 
-        // Simulate API call
-        setTimeout(() => {
-            onSave(teamMember);
-            resetForm();
-        }, 1000);
+        console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Sending formatted data:`, JSON.stringify(teamMember));
+
+        // Call the actual API through the parent component
+        onSave(teamMember)
+            .then((response) => {
+                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Response from adding team member:`, response?.data);
+                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Successfully added team member ${teamMember.user_id}`);
+                resetForm();
+                setLoading(false);
+                setSubmitting(false);
+            })
+            .catch((error) => {
+                console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Error adding team member:`, error);
+                
+                // Try to extract a meaningful error message
+                let errorMessage = "Failed to add team member";
+                if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.message?.response?.data?.message) {
+                    errorMessage = error.message.response.data.message;
+                }
+                
+                toast.error(errorMessage);
+                setLoading(false);
+                setSubmitting(false);
+            });
     };
 
     // Get role label and color

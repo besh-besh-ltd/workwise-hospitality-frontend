@@ -174,6 +174,31 @@ export const getProjectTeamMembers = (projectId) => {
       // Add timestamp to prevent caching
       const timestamp = new Date().getTime();
       let response = await axiosInstance.get(`project/${projectId}/team?t=${timestamp}`);
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // Check if response.data has a status property, if not wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            data: response.data
+          };
+        }
+        
+        // Ensure data is an array
+        if (!Array.isArray(response.data.data)) {
+          response.data.data = response.data.data ? [response.data.data] : [];
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: true,
+            data: []
+          }
+        };
+      }
+      
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -185,20 +210,74 @@ export const addTeamMember = (projectId, memberData) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`project/${projectId}/team`, memberData);
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // Check if response.data has a status property, if not wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            message: "Team member added successfully",
+            data: response.data
+          };
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: false,
+            message: "Unknown error occurred"
+          }
+        };
+      }
+      
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to add team member" }
+        }
+      });
     }
   });
 };
 
-export const removeTeamMember = (projectId, memberId) => {
+export const removeTeamMember = (projectId, userId) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.delete(`project/${projectId}/team/${memberId}`);
+      let response = await axiosInstance.delete(`project/${projectId}/team`, { 
+        data: { user_id: userId } 
+      });
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // Check if response.data has a status property, if not wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            message: "Team member removed successfully",
+            data: response.data
+          };
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: false,
+            message: "Unknown error occurred"
+          }
+        };
+      }
+      
       resolve(response);
     } catch (error) {
-      reject({ message: error });
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to remove team member" }
+        }
+      });
     }
   });
 };

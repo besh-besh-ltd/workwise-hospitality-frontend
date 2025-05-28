@@ -25,6 +25,7 @@ const ProjectDetailsPage = () => {
 
     // Role options with color coding
     const roleOptions = [
+        { value: 1, label: "Admin", color: "#2E5BA8" }, // Primary color
         { value: 8, label: "Top Management", color: "#2E5BA8" }, // Primary color
         { value: 2, label: "Procurement", color: "#428B41" }, // Secondary color
         { value: 9, label: "Engineering", color: "#FFE600" }, // Yellow color
@@ -68,9 +69,36 @@ const ProjectDetailsPage = () => {
         }
     };
 
+    // Fetch team members
+    const fetchTeamMembers = async () => {
+        try {
+            if (!projectId) return;
+            
+            const response = await getProjectTeamMembers(projectId);
+            
+            if (response && response.data && response.data.status) {
+                // Ensure data is an array
+                let teamData = response.data.data || [];
+                if (!Array.isArray(teamData)) {
+                    teamData = teamData ? [teamData] : [];
+                }
+                
+                setTeamMembers(teamData);
+                setTotalData(teamData.length);
+            } else {
+                setTeamMembers([]);
+                setTotalData(0);
+            }
+        } catch (error) {
+            setTeamMembers([]);
+            setTotalData(0);
+        }
+    };
+
     useEffect(() => {
         if (projectId) {
             fetchProjectDetails();
+            fetchTeamMembers();
         }
     }, [projectId]);
 
@@ -130,37 +158,71 @@ const ProjectDetailsPage = () => {
     const handleAddTeamMember = async (newMember) => {
         try {
             setLoading(true);
-            const teamMember = {
-                id: teamMembers.length + 1,
-                ...newMember,
-                added_at: new Date().toISOString()
-            };
             
-            const updatedTeamMembers = [...teamMembers, teamMember];
-            setTeamMembers(updatedTeamMembers);
-            setTotalData(updatedTeamMembers.length);
+            const response = await addTeamMember(projectId, newMember);
             
-            toast.success("Team member added successfully!");
+            if (response && response.data && response.data.status) {
+                // Wait a moment before fetching the updated team members to ensure backend has processed the addition
+                await fetchTeamMembers();
+                setLoading(false);
+                toast.success("Team member added successfully!");
+                setShowAddTeamModal(false);
+            } else {
+                toast.error(response?.data?.message || "Failed to add team member");
+                setLoading(false);
+                setShowAddTeamModal(false);
+            }
         } catch (error) {
-            toast.error("Failed to add team member");
-        } finally {
+            // Try to extract a meaningful error message
+            let errorMessage = "Failed to add team member";
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message?.response?.data?.message) {
+                errorMessage = error.message.response.data.message;
+            }
+            
+            toast.error(errorMessage);
             setLoading(false);
             setShowAddTeamModal(false);
+            
+            // If the error might be because the user is already a team member but UI isn't showing it,
+            // refresh the team members list anyway
+            await fetchTeamMembers();
         }
     };
 
     // Handle remove team member
-    const handleRemoveTeamMember = async (memberId) => {
+    const handleRemoveTeamMember = async (userId) => {
         try {
             setLoading(true);
-            const updatedTeamMembers = teamMembers.filter(member => member.id !== memberId);
-            setTeamMembers(updatedTeamMembers);
-            setTotalData(updatedTeamMembers.length);
             
-            toast.success("Team member removed successfully!");
+            const response = await removeTeamMember(projectId, userId);
+            
+            if (response && response.data && response.data.status) {
+                // Wait a moment before fetching the updated team members to ensure backend has processed the removal
+                await fetchTeamMembers();
+                setLoading(false);
+                toast.success("Team member removed successfully!");
+            } else {
+                toast.error(response?.data?.message || "Failed to remove team member");
+                
+                // Still try to refresh the team members list in case the backend succeeded but returned an unexpected response
+                await fetchTeamMembers();
+                setLoading(false);
+            }
         } catch (error) {
-            toast.error("Failed to remove team member");
-        } finally {
+            // Try to extract a meaningful error message
+            let errorMessage = "Failed to remove team member";
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message?.response?.data?.message) {
+                errorMessage = error.message.response.data.message;
+            }
+            
+            toast.error(errorMessage);
+            
+            // Still try to refresh the team members list in case the backend succeeded but returned an error
+            await fetchTeamMembers();
             setLoading(false);
         }
     };
@@ -342,11 +404,11 @@ const ProjectDetailsPage = () => {
                                                                                 {roleInfo.label}
                                                                             </span>
                                                                         </td>
-                                                                        <td>{formatDate(member.added_at)}</td>
+                                                                        <td>{formatDate(member.created_at)}</td>
                                                                         <td>
                                                                             <button
                                                                                 className="btn btn-sm btn-danger"
-                                                                                onClick={() => handleRemoveTeamMember(member.id)}
+                                                                                onClick={() => handleRemoveTeamMember(member.user_id)}
                                                                                 style={{
                                                                                     padding: "3px 12px",
                                                                                     fontSize: "0.8rem",
