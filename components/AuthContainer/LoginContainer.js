@@ -60,6 +60,8 @@ const LoginContainer = (props) => {
                     userType = "vendor";
                 } else if (response.user_detail[0].user_type == 4) {
                     userType = "other";
+                } else if (response.user_detail[0].user_type == 7) {
+                    userType = "admin";
                 }
                 storageInstance.setStorage("current-user-type", userType);
 
@@ -76,6 +78,8 @@ const LoginContainer = (props) => {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "vendor" && pathname.includes("/dashboard/vendor/inquiries-details")) {
                         console.log("Push Sent")
+                    } else if (userType == "admin") {
+                        router.push(`/dashboard/admin`);
                     }    
                     else {
                         router.push(`/dashboard/${userType}`);
@@ -143,10 +147,14 @@ const LoginContainer = (props) => {
                         userType = "buyer";
                     } else if (response?.profile?.user_type == 3) {
                         userType = "vendor";
+                    } else if (response?.profile?.user_type == 7) {
+                        userType = "admin";
                     }
                     storageInstance.setStorage("current-user-type", userType);
                     if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
+                    } else if (userType == "admin") {
+                        router.push(`/dashboard/admin`);
                     } else {
                         router.push(`/dashboard/${userType}`);
                     }

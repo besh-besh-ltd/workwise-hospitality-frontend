@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import storageInstance from "./storageInstance";
 
-export { AuthGuard };
+export { AuthGuard, AdminGuard };
 
 function AuthGuard({ children }) {
 	const router = useRouter();
@@ -47,6 +47,59 @@ function AuthGuard({ children }) {
 				pathname: "/",
 				query: { returnUrl: router.asPath },
 			});
+		} else {
+			setAuthorized(true);
+		}
+	}
+
+	return authorized && children;
+}
+
+function AdminGuard({ children }) {
+	const router = useRouter();
+	const [authorized, setAuthorized] = useState(false);
+
+	useEffect(() => {
+		// on initial load - run auth check
+		adminAuthCheck(router.asPath);
+
+		// on route change start - hide page content by setting authorized to false
+		const hideContent = () => setAuthorized(false);
+		router.events.on("routeChangeStart", hideContent);
+
+		// on route change complete - run auth check
+		router.events.on("routeChangeComplete", adminAuthCheck);
+
+		// unsubscribe from events in useEffect return function
+		return () => {
+			router.events.off("routeChangeStart", hideContent);
+			router.events.off("routeChangeComplete", adminAuthCheck);
+		};
+
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	function adminAuthCheck(url) {
+		// Check if user is logged in and is an admin
+		const token = storageInstance.getStorage("token");
+		const userType = storageInstance.getStorage("current-user-type");
+		
+		if (!token) {
+			setAuthorized(false);
+			router.push({
+				pathname: "/",
+				query: { returnUrl: router.asPath },
+			});
+		} else if (userType !== "admin") {
+			setAuthorized(false);
+			// Redirect to their appropriate dashboard based on user type
+			if (userType === "buyer") {
+				router.push("/dashboard/buyer");
+			} else if (userType === "vendor") {
+				router.push("/dashboard/vendor");
+			} else {
+				router.push("/"); // Fallback
+			}
 		} else {
 			setAuthorized(true);
 		}
