@@ -9,7 +9,6 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
 import { createBuyerCompanyUser } from "@/services/Auth";
-import { getAllProjects } from "@/services/project";
 
     // Initial form values
     const initialValues = {
@@ -18,16 +17,12 @@ import { getAllProjects } from "@/services/project";
         mobile: "",
         password: "",
         confirmPassword: "",
-        role: null,
-        projects: [],
-        company_id: 1, // This would be retrieved from context in a real implementation
+        role: null
     };
 
 const CreateAccountPage = () => {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
-    const [projects, setProjects] = useState([]);
-    const [loadingProjects, setLoadingProjects] = useState(false);
 
     // Role options with color coding
     const roleOptions = [
@@ -69,11 +64,7 @@ const CreateAccountPage = () => {
                 password: values.password
             };
             
-            // Add projects if selected
-            if (values.projects && values.projects.length > 0) {
-                apiData.projects = values.projects.map(project => project.value);
-            }
-            
+            // Create the user
             const response = await createBuyerCompanyUser(apiData);
             
             if (response.status) {
@@ -93,40 +84,6 @@ const CreateAccountPage = () => {
             setSubmitting(false);
         }
     };
-
-        // Fetch projects on component mount
-        useEffect(() => {
-            const fetchProjects = async () => {
-                try {
-                    setLoadingProjects(true);
-                    const response = await getAllProjects();
-                    
-                    if (response && response.data && response.data.status) {
-                        const projectsData = response.data.data;
-                        if (Array.isArray(projectsData) && projectsData.length > 0) {
-                            // Format projects for the select dropdown
-                            const formattedProjects = projectsData.map(project => ({
-                                value: project.id,
-                                label: project.name || project.project_name
-                            }));
-                            setProjects(formattedProjects);
-                        } else {
-                            setProjects([]);
-                        }
-                    } else {
-                        toast.error("Failed to fetch projects");
-                        setProjects([]);
-                    }
-                } catch (error) {
-                    toast.error("Failed to fetch projects. Please try again.");
-                    setProjects([]);
-                } finally {
-                    setLoadingProjects(false);
-                }
-            };
-    
-            fetchProjects();
-        }, []);
         
     return (
         <>
@@ -241,7 +198,7 @@ const CreateAccountPage = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="row mb-3">
+                                                    <div className="row mb-4">
                                                         <div className="col-md-6">
                                                             <div className="form-group mb-3">
                                                                 <label htmlFor="password" className="form-label">
@@ -272,35 +229,12 @@ const CreateAccountPage = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="row mb-4">
-                                                        <div className="col-md-12">
-                                                            <div className="form-group">
-                                                                <label htmlFor="projects" className="form-label">
-                                                                    Assign to Projects
-                                                                </label>
-                                                                <Select
-                                                                    id="projects"
-                                                                    name="projects"
-                                                                    options={projects}
-                                                                    value={values.projects}
-                                                                    onChange={(options) => setFieldValue("projects", options)}
-                                                                    isMulti
-                                                                    placeholder={loadingProjects ? "Loading projects..." : "Select projects to assign"}
-                                                                    isLoading={loadingProjects}
-                                                                />
-                                                                <small className="form-text text-muted">
-                                                                    Select multiple projects to assign this user to
-                                                                </small>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
                                                     <div className="row">
                                                         <div className="col-md-12 d-flex justify-content-end">
                                                             <button
                                                                 type="button"
                                                                 className="btn btn-outline-secondary me-2"
-                                                                onClick={() => router.push("/dashboard/admin/manage-accounts")}
+                                                                onClick={() => router.push("/dashboard/admin/account-management/manage-accounts")}
                                                                 disabled={isSubmitting}
                                                             >
                                                                 Cancel

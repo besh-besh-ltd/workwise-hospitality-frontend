@@ -8,7 +8,7 @@ import Select from 'react-select';
 import EditAccountModal from "./EditAccountModal";
 import { getCompanyUsers } from "@/services/Auth";
 import { toast } from "react-toastify";
-import { getAllProjects } from "@/services/project";
+import { getAllProjects, getUserProjectsByUserId } from "@/services/project";
 
 const ManageAccountsPage = () => {
     const [loading, setLoading] = useState(false);
@@ -83,13 +83,38 @@ const ManageAccountsPage = () => {
                     mobile: user.mobile,
                     role: user.role,
                     status: user.status,
-                    projects: user.projects || [], // We would need to add project mapping in the backend if needed
+                    projects: [], // Initialize with empty array, will be filled below
                     createdAt: user.created_at
                 }));
                 
-                setAccounts(formattedUsers);
-                setFilteredAccounts(formattedUsers);
-                setTotalData(formattedUsers.length);
+                // Fetch projects for each user
+                const usersWithProjects = await Promise.all(
+                    formattedUsers.map(async (user) => {
+                        try {
+                            console.log(`Fetching projects for user ${user.id}`);
+                            const projectsResponse = await getUserProjectsByUserId(user.id);
+                            console.log(`Projects response for user ${user.id}:`, projectsResponse);
+                            
+                            if (projectsResponse && projectsResponse.data && projectsResponse.data.status) {
+                                const projectsData = projectsResponse.data.data;
+                                if (Array.isArray(projectsData) && projectsData.length > 0) {
+                                    // Extract just the project IDs for filtering
+                                    user.projects = projectsData.map(project => project.id);
+                                    // Also store full project data for display
+                                    user.projectsData = projectsData;
+                                    console.log(`Projects for user ${user.id}:`, user.projects);
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`Error fetching projects for user ${user.id}:`, error);
+                        }
+                        return user;
+                    })
+                );
+                
+                setAccounts(usersWithProjects);
+                setFilteredAccounts(usersWithProjects);
+                setTotalData(usersWithProjects.length);
             } else {
                 toast.error("Failed to fetch users");
             }
@@ -99,9 +124,6 @@ const ManageAccountsPage = () => {
             setLoading(false);
         }
     };
-
-
-
     // Get paginated data
     const getPaginatedData = () => {
         const startIndex = (page - 1) * limit;
@@ -127,9 +149,14 @@ const ManageAccountsPage = () => {
     };
 
     // Get project names
-    const getProjectNames = (projectIds) => {
-        if (!projectIds || !projectIds.length) return '';
-        return projectIds.map(id => {
+    const getProjectNames = (account) => {
+        if (account.projectsData && account.projectsData.length > 0) {
+            return account.projectsData.map(project => project.name).join(", ");
+        }
+        
+        if (!account.projects || !account.projects.length) return 'None';
+        
+        return account.projects.map(id => {
             const project = projectOptions.find(p => p.value === id);
             return project ? project.label : `Project ${id}`;
         }).join(", ");
@@ -314,7 +341,7 @@ const ManageAccountsPage = () => {
                                                                         {roleInfo.label}
                                                                     </span>
                                                                 </td>
-                                                                <td>{getProjectNames(account.projects)}</td>
+                                                                <td>{getProjectNames(account)}</td>
                                                                 <td>{formatDate(account.createdAt)}</td>
                                                                 <td>
                                                                     <div className="d-flex flex-column" style={{ gap: "5px" }}>

@@ -281,3 +281,47 @@ export const removeTeamMember = (projectId, userId) => {
     }
   });
 };
+
+export const getUserProjectsByUserId = (userId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      let response = await axiosInstance.get(`project/user/${userId}/projects?t=${timestamp}`);
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // If response.data doesn't have a status property, wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            data: response.data
+          };
+        }
+        
+        // Ensure data is an array
+        if (!Array.isArray(response.data.data)) {
+          response.data.data = response.data.data ? [response.data.data] : [];
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: true,
+            data: []
+          }
+        };
+      }
+      
+      resolve(response);
+    } catch (error) {
+      console.error("Error fetching user projects:", error);
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to fetch user projects" }
+        }
+      });
+    }
+  });
+};
