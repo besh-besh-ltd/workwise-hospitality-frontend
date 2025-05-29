@@ -4,57 +4,55 @@ import { Field, Form, Formik } from 'formik';
 import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
 import { addTeamMemberSchema } from '@/utils/schema';
+import { toast } from 'react-toastify';
+import axiosInstance from '@/lib/axios';
+import { getCompanyUsers } from '@/services/Auth';
 
 const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     const [loading, setLoading] = useState(false);
     const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Mock users data
-    const mockUsers = [
-        {
-            id: 1,
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: 8 // Top Management
-        },
-        {
-            id: 2,
-            name: "Jane Smith",
-            email: "jane.smith@example.com",
-            role: 2 // Procurement
-        },
-        {
-            id: 3,
-            name: "Robert Johnson",
-            email: "robert.johnson@example.com",
-            role: 9 // Engineering
-        },
-        {
-            id: 4,
-            name: "Emily Davis",
-            email: "emily.davis@example.com",
-            role: 10 // Finance
-        },
-        {
-            id: 5,
-            name: "Michael Wilson",
-            email: "michael.wilson@example.com",
-            role: 8 // Top Management
-        },
-        {
-            id: 6,
-            name: "Sarah Brown",
-            email: "sarah.brown@example.com",
-            role: 2 // Procurement
-        }
-    ];
-
-    // Load mock users
+    // Fetch users from API
     useEffect(() => {
-        setUsers(mockUsers);
-    }, []);
-
-
+        const fetchUsers = async () => {
+            try {
+                setLoadingUsers(true);
+                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Fetching company users`);
+                // Using the actual API instead of mock data
+                const response = await getCompanyUsers();
+                
+                if (response.status) {
+                    const formattedUsers = response.data.map(user => ({
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        role: user.role,
+                        status: user.status
+                    }));
+                    
+                    // Only show active users
+                    const activeUsers = formattedUsers.filter(user => user.status === 'active');
+                    console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Fetched ${formattedUsers.length} users, ${activeUsers.length} are active`);
+                    setUsers(activeUsers);
+                } else {
+                    console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Failed to fetch users - API returned error status`);
+                    toast.error("Failed to fetch users");
+                    setUsers([]);
+                }
+            } catch (error) {
+                console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Error fetching users:`, error);
+                toast.error("Failed to fetch users");
+                setUsers([]);
+            } finally {
+                setLoadingUsers(false);
+            }
+        };
+        
+        if (isOpen) {
+            fetchUsers();
+        }
+    }, [isOpen]);
 
     // Initial form values
     const initialValues = {
@@ -73,23 +71,40 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     // Handle form submission
     const handleSubmit = (values, { setSubmitting, resetForm }) => {
         setLoading(true);
+        console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Submitting form to add user ${values.user.value} with role ${values.user.role}`);
 
-        // Format the data
+        // Format the data for the API
         const teamMember = {
-            id: values.user.value,
-            name: values.user.name,
-            email: values.user.email,
-            role: values.user.role
+            user_id: values.user.value,
+            role: parseInt(values.user.role) // Ensure role is a number
         };
 
-        // Simulate API call
-        setTimeout(() => {
-            onSave(teamMember);
-            setLoading(false);
-            setSubmitting(false);
-            resetForm();
-            closeModal();
-        }, 500);
+        console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Sending formatted data:`, JSON.stringify(teamMember));
+
+        // Call the actual API through the parent component
+        onSave(teamMember)
+            .then((response) => {
+                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Response from adding team member:`, response?.data);
+                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Successfully added team member ${teamMember.user_id}`);
+                resetForm();
+                setLoading(false);
+                setSubmitting(false);
+            })
+            .catch((error) => {
+                console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Error adding team member:`, error);
+                
+                // Try to extract a meaningful error message
+                let errorMessage = "Failed to add team member";
+                if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.message?.response?.data?.message) {
+                    errorMessage = error.message.response.data.message;
+                }
+                
+                toast.error(errorMessage);
+                setLoading(false);
+                setSubmitting(false);
+            });
     };
 
     // Get role label and color
@@ -143,6 +158,7 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
 
                 <div className="modal-body p-3 hasFullLoader">
                     {loading && <FullLoader />}
+                    {loadingUsers && <FullLoader />}
 
                     <Formik
                         initialValues={initialValues}
@@ -176,6 +192,8 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                                         }}
                                         menuPortalTarget={document.body}
                                         menuPosition={'fixed'}
+                                        isLoading={loadingUsers}
+                                        placeholder={loadingUsers ? "Loading users..." : "Select a user"}
                                     />
                                     {touched.user && errors.user && (
                                         <div className="invalid-feedback d-block">{errors.user}</div>

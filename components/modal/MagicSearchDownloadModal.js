@@ -1,15 +1,19 @@
 import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
-import { getSImplifiedVersionOfBOQ } from "@/services/rfq";
+import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
+import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI } from "@/services/rfq";
+import { useRouter } from "next/navigation";
 
-const MagicSearchDownloadModal = () => {
+const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
+  const router = useRouter()
   const [show, setShow] = useState(false);
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [fileUrl, setFileUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [creatingRFQ, setCreatingRFQ] = useState(false);
+  const [jsonData, setJsonData] = useState(null);
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -23,7 +27,8 @@ const MagicSearchDownloadModal = () => {
 
     try {
       const response = await getSImplifiedVersionOfBOQ(file);
-      setFileUrl(response?.data?.download_excel);
+      setFileUrl(response?.data?.download_excel_url);
+      setJsonData(response?.data?.download_url);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
@@ -31,14 +36,63 @@ const MagicSearchDownloadModal = () => {
     }
   };
 
-  const handleDownload = () => {
-    if (!fileUrl) return;
-    const a = document.createElement("a");
-    a.href = fileUrl;
-    a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+const handleDownload = async () => {
+  if (!fileUrl) return;
+
+  const originalUrl = fileUrl;
+  const replacedUrl = fileUrl.replace("http://", "https://");
+
+  const tryDownload = async (url) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      console.log("Download successful from:", url);
+      return true;
+    } catch (err) {
+      console.error("Download failed from:", url, err);
+      return false;
+    }
+  };
+
+  // Try with replaced URL first
+  const success = await tryDownload(replacedUrl);
+
+  // Retry with original URL if the first fails
+  if (!success) {
+    await tryDownload(originalUrl);
+  }
+};
+
+
+  const handleCreateRFQ = async () => {
+    if (!file) {
+      console.error("Original file not found for RFQ creation.");
+      return;
+    }
+    setCreatingRFQ(true);
+    try {
+      const response = await getBOQexcelToJsonAI(file); // Get jsonUrl
+      const jsonUrl = response?.data?.download_url;
+      if (jsonUrl) {
+        onUploadForRFQ(jsonUrl); // Call MagicSearchPage to proceed
+        setShow(false);
+      } else {
+        console.error("No JSON URL received from getBOQexcelToJsonAI.");
+      }
+    } catch (error) {
+      console.error("Error creating RFQ:", error);
+    } finally {
+      setCreatingRFQ(false);
+    }
   };
 
   const handleClose = () => {
@@ -47,6 +101,18 @@ const MagicSearchDownloadModal = () => {
     setFileUrl(null);
     setFileName("");
   };
+
+  
+const handleViewBOQ = () => {
+  if (!jsonData) {
+    console.error("No JSON data available for viewing.");
+    return;
+  }
+  const viewUrl = `magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
+  window.open(viewUrl, '_blank'); // Open in a new tab
+};
+
+
 
   return (
     <>
@@ -75,15 +141,12 @@ const MagicSearchDownloadModal = () => {
                       </a>
                     </div>
                         
-      {/* <Button variant="primary"   className="ms-auto border-0" style={{ width: "280px" }}>
-        Simplified BOQ
-      </Button> */}
 
       <Modal show={show} onHide={handleClose} centered  >
         <Modal.Header closeButton className="p-3 border-b-2 " >
           <Modal.Title className="d-flex align-items-center">
             <FontAwesomeIcon icon={faFileExcel} className="me-2 text-success" />
-            <span>Create Simplify Your BOQ</span>
+            <span>Simplify Your BOQ</span>
           </Modal.Title>
         </Modal.Header>
 
@@ -132,21 +195,23 @@ const MagicSearchDownloadModal = () => {
                 BOQ processed! Click below to download the simplified version.
               </p>
               <div className="text-center">
-                <Button variant="success" onClick={handleDownload}>
+                <Button variant="primary" onClick={handleDownload} className="me-2">
                   <FontAwesomeIcon icon={faDownload} className="me-2" />
                   Download BOQ
+                </Button>
+                <Button variant="primary"  onClick={handleViewBOQ} disabled={creatingRFQ}>
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  View BOQ
+                </Button>
+                <Button variant="success" onClick={handleCreateRFQ} disabled={creatingRFQ} className="mt-3" >
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  {creatingRFQ ? "Processing..." : "Create RFQ's"}
                 </Button>
               </div>
             </>
           )}
         </Modal.Body>
 
-        {/* <Modal.Footer>
-          <Button variant="outline-secondary" onClick={handleClose}>
-            <FontAwesomeIcon icon={faTimes} className="me-1" />
-            Close
-          </Button>
-        </Modal.Footer> */}
       </Modal>
     </>
   );

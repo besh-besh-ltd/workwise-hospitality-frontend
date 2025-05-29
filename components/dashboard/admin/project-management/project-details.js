@@ -8,12 +8,13 @@ import Pagination from "@/components/shared/Pagination";
 import { toast } from "react-toastify";
 import EditProjectModal from "./EditProjectModal";
 import AddTeamMemberModal from "./AddTeamMemberModal";
+import { getProjectById, updateProject, getProjectTeamMembers, addTeamMember, removeTeamMember } from "@/services/project";
 
 const ProjectDetailsPage = () => {
     const router = useRouter();
     const { projectId } = router.query;
 
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [project, setProject] = useState(null);
     const [teamMembers, setTeamMembers] = useState([]);
     const [page, setPage] = useState(1);
@@ -22,74 +23,82 @@ const ProjectDetailsPage = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showAddTeamModal, setShowAddTeamModal] = useState(false);
 
-    // Mock project data
-    const mockProject = {
-        id: 1,
-        name: "Office Building Renovation",
-        description: "Complete renovation of the corporate headquarters including structural repairs, electrical upgrades, and interior redesign.",
-        location: "New York, NY",
-        rfq_type: "firm",
-        reverse_auction: 1,
-        ended_at: "2024-12-31",
-        total_rfqs: 15,
-        open_rfqs: 5,
-        closed_rfqs: 10,
-        created_at: "2023-05-10T09:30:00Z",
-        status: "active",
-        team_members: [1, 3, 4] // IDs of team members assigned to the project
-    };
-
-    // Mock team members data
-    const mockTeamMembers = [
-        {
-            id: 1,
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: 8, // Top Management
-            added_at: "2023-05-15T10:30:00Z"
-        },
-        {
-            id: 2,
-            name: "Jane Smith",
-            email: "jane.smith@example.com",
-            role: 2, // Procurement
-            added_at: "2023-06-20T14:45:00Z"
-        },
-        {
-            id: 3,
-            name: "Robert Johnson",
-            email: "robert.johnson@example.com",
-            role: 9, // Engineering
-            added_at: "2023-07-10T09:15:00Z"
-        },
-        {
-            id: 4,
-            name: "Emily Davis",
-            email: "emily.davis@example.com",
-            role: 10, // Finance
-            added_at: "2023-08-05T16:20:00Z"
-        }
-    ];
-
     // Role options with color coding
     const roleOptions = [
+        { value: 1, label: "Admin", color: "#2E5BA8" }, // Primary color
         { value: 8, label: "Top Management", color: "#2E5BA8" }, // Primary color
         { value: 2, label: "Procurement", color: "#428B41" }, // Secondary color
         { value: 9, label: "Engineering", color: "#FFE600" }, // Yellow color
         { value: 10, label: "Finance", color: "#5b5b5b" }, // Text color
     ];
 
-    // Load mock data
+    // Fetch project details
+    const fetchProjectDetails = async () => {
+        try {
+            setLoading(true);
+            const timestamp = new Date().getTime();
+            const response = await getProjectById(projectId, { t: timestamp });
+            if (response && response.data && response.data.status && response.data.data) {
+                const projectData = Array.isArray(response.data.data) && response.data.data.length > 0 
+                    ? response.data.data[0] 
+                    : response.data.data;
+                
+                if (!projectData || (Array.isArray(projectData) && projectData.length === 0)) {
+                    toast.error("Project not found or access denied");
+                    setProject(null);
+                } else {
+                    setProject(projectData);
+                    try {
+                        setTeamMembers([]);
+                        setTotalData(0);
+                    } catch (teamError) {
+                        toast.error("Failed to fetch team members");
+                        setTeamMembers([]);
+                        setTotalData(0);
+                    }
+                }
+            } else {
+                toast.error("Failed to fetch project details");
+                setProject(null);
+            }
+        } catch (error) {
+            toast.error(error?.message?.response?.data?.message || "Failed to fetch project details");
+            setProject(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Fetch team members
+    const fetchTeamMembers = async () => {
+        try {
+            if (!projectId) return;
+            
+            const response = await getProjectTeamMembers(projectId);
+            
+            if (response && response.data && response.data.status) {
+                // Ensure data is an array
+                let teamData = response.data.data || [];
+                if (!Array.isArray(teamData)) {
+                    teamData = teamData ? [teamData] : [];
+                }
+                
+                setTeamMembers(teamData);
+                setTotalData(teamData.length);
+            } else {
+                setTeamMembers([]);
+                setTotalData(0);
+            }
+        } catch (error) {
+            setTeamMembers([]);
+            setTotalData(0);
+        }
+    };
+
     useEffect(() => {
         if (projectId) {
-            setLoading(true);
-            // Simulate API call
-            setTimeout(() => {
-                setProject(mockProject);
-                setTeamMembers(mockTeamMembers);
-                setTotalData(mockTeamMembers.length);
-                setLoading(false);
-            }, 500);
+            fetchProjectDetails();
+            fetchTeamMembers();
         }
     }, [projectId]);
 
@@ -102,12 +111,18 @@ const ProjectDetailsPage = () => {
 
     // Format date
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        if (!dateString) return "Not specified";
+        
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return dateString;
+        }
     };
 
     // Get role label and color
@@ -117,78 +132,99 @@ const ProjectDetailsPage = () => {
     };
 
     // Handle edit project
-    const handleEditProject = (updatedProject) => {
-        // In a real implementation, this would call an API
-
-        // Update the project with the new data
-        setProject({
-            ...project,
-            ...updatedProject
-        });
-
-        // If team members were updated, update the team members list
-        if (updatedProject.team_members && updatedProject.team_members.length > 0) {
-            // In a real app, this would be handled by the API
-            // For this mock implementation, we'll update the team members list based on the IDs
-            const updatedTeamMemberIds = updatedProject.team_members;
-
-            // Filter out team members that are no longer assigned to the project
-            const remainingTeamMembers = teamMembers.filter(member =>
-                updatedTeamMemberIds.includes(member.id)
-            );
-
-            // Add any new team members that weren't previously assigned
-            const existingIds = remainingTeamMembers.map(member => member.id);
-            const newMemberIds = updatedTeamMemberIds.filter(id => !existingIds.includes(id));
-
-            // For this mock implementation, we'll create new team member objects for any new IDs
-            // In a real app, this data would come from the API
-            const newTeamMembers = newMemberIds.map(id => {
-                // Find the role based on the mock data pattern (1-4 are Top Management, 5-8 are Procurement, etc.)
-                let role = 8; // Default to Top Management
-                if (id % 4 === 2) role = 2; // Procurement
-                if (id % 4 === 3) role = 9; // Engineering
-                if (id % 4 === 0) role = 10; // Finance
-
-                return {
-                    id: id,
-                    name: `Team Member ${id}`,
-                    email: `member${id}@example.com`,
-                    role: role,
-                    added_at: new Date().toISOString()
-                };
-            });
-
-            // Update the team members list
-            const updatedTeamMembers = [...remainingTeamMembers, ...newTeamMembers];
-            setTeamMembers(updatedTeamMembers);
-            setTotalData(updatedTeamMembers.length);
+    const handleEditProject = async (updatedProject) => {
+        try {
+            setLoading(true);
+            const response = await updateProject(projectId, updatedProject);
+            if (response && response.data && response.data.status) {
+                setProject({
+                    ...project,
+                    ...response.data.data
+                });
+                
+                toast.success("Project updated successfully!");
+            } else {
+                toast.error("Failed to update project");
+            }
+        } catch (error) {
+            toast.error(error?.message?.response?.data?.message || "Failed to update project");
+        } finally {
+            setLoading(false);
+            setShowEditModal(false);
         }
-
-        toast.success("Project updated successfully!");
     };
 
     // Handle add team member
-    const handleAddTeamMember = (newMember) => {
-        // In a real implementation, this would call an API
-        const teamMember = {
-            id: teamMembers.length + 1,
-            ...newMember,
-            added_at: new Date().toISOString()
-        };
-
-        setTeamMembers([...teamMembers, teamMember]);
-        setTotalData(teamMembers.length + 1);
-        toast.success("Team member added successfully!");
+    const handleAddTeamMember = async (newMember) => {
+        try {
+            setLoading(true);
+            
+            const response = await addTeamMember(projectId, newMember);
+            
+            if (response && response.data && response.data.status) {
+                // Wait a moment before fetching the updated team members to ensure backend has processed the addition
+                await fetchTeamMembers();
+                setLoading(false);
+                toast.success("Team member added successfully!");
+                setShowAddTeamModal(false);
+            } else {
+                toast.error(response?.data?.message || "Failed to add team member");
+                setLoading(false);
+                setShowAddTeamModal(false);
+            }
+        } catch (error) {
+            // Try to extract a meaningful error message
+            let errorMessage = "Failed to add team member";
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message?.response?.data?.message) {
+                errorMessage = error.message.response.data.message;
+            }
+            
+            toast.error(errorMessage);
+            setLoading(false);
+            setShowAddTeamModal(false);
+            
+            // If the error might be because the user is already a team member but UI isn't showing it,
+            // refresh the team members list anyway
+            await fetchTeamMembers();
+        }
     };
 
     // Handle remove team member
-    const handleRemoveTeamMember = (memberId) => {
-        // In a real implementation, this would call an API
-        const updatedTeamMembers = teamMembers.filter(member => member.id !== memberId);
-        setTeamMembers(updatedTeamMembers);
-        setTotalData(updatedTeamMembers.length);
-        toast.success("Team member removed successfully!");
+    const handleRemoveTeamMember = async (userId) => {
+        try {
+            setLoading(true);
+            
+            const response = await removeTeamMember(projectId, userId);
+            
+            if (response && response.data && response.data.status) {
+                // Wait a moment before fetching the updated team members to ensure backend has processed the removal
+                await fetchTeamMembers();
+                setLoading(false);
+                toast.success("Team member removed successfully!");
+            } else {
+                toast.error(response?.data?.message || "Failed to remove team member");
+                
+                // Still try to refresh the team members list in case the backend succeeded but returned an unexpected response
+                await fetchTeamMembers();
+                setLoading(false);
+            }
+        } catch (error) {
+            // Try to extract a meaningful error message
+            let errorMessage = "Failed to remove team member";
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message?.response?.data?.message) {
+                errorMessage = error.message.response.data.message;
+            }
+            
+            toast.error(errorMessage);
+            
+            // Still try to refresh the team members list in case the backend succeeded but returned an error
+            await fetchTeamMembers();
+            setLoading(false);
+        }
     };
 
     if (!project && !loading) {
@@ -368,11 +404,11 @@ const ProjectDetailsPage = () => {
                                                                                 {roleInfo.label}
                                                                             </span>
                                                                         </td>
-                                                                        <td>{formatDate(member.added_at)}</td>
+                                                                        <td>{formatDate(member.created_at)}</td>
                                                                         <td>
                                                                             <button
                                                                                 className="btn btn-sm btn-danger"
-                                                                                onClick={() => handleRemoveTeamMember(member.id)}
+                                                                                onClick={() => handleRemoveTeamMember(member.user_id)}
                                                                                 style={{
                                                                                     padding: "3px 12px",
                                                                                     fontSize: "0.8rem",

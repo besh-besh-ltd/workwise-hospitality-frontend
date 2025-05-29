@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
 import Select from 'react-select';
@@ -7,27 +7,29 @@ import { editProjectSchema } from '@/utils/schema';
 
 const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
     const [loading, setLoading] = useState(false);
-    const [teamMembers, setTeamMembers] = useState([]);
-    const [selectedTeamMembers, setSelectedTeamMembers] = useState([]);
 
-    // Role options with color coding
-    const roleOptions = [
-        { value: 8, label: "Top Management", color: "#2E5BA8" },
-        { value: 2, label: "Procurement", color: "#428B41" },
-        { value: 9, label: "Engineering", color: "#FFE600" },
-        { value: 10, label: "Finance", color: "#5b5b5b" },
-    ];
+    // Format date for input fields
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return '';
+        }
+    };
 
     // Initial form values
     const initialValues = {
         id: project.id,
-        name: project.name,
-        description: project.description,
-        location: project.location,
-        rfq_type: project.rfq_type,
-        reverse_auction: project.reverse_auction,
-        ended_at: project.ended_at ? new Date(project.ended_at).toISOString().split('T')[0] : '',
-        team_members: selectedTeamMembers
+        name: project.name || '',
+        description: project.description || '',
+        location: project.location || '',
+        rfq_type: project.rfq_type || '',
+        reverse_auction: project.reverse_auction !== undefined ? project.reverse_auction : 0,
+        ended_at: formatDateForInput(project.ended_at),
+        status: project.status || 1
     };
 
     // RFQ type options
@@ -42,50 +44,25 @@ const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
         { value: 0, label: 'Disabled' }
     ];
 
-    // Load team members
-    useEffect(() => {
-        // Simulate API call to get team members
-        setTimeout(() => {
-            const mockTeamMembers = [
-                { value: 1, label: "John Doe (Top Management)", role: 8 },
-                { value: 2, label: "Jane Smith (Procurement)", role: 2 },
-                { value: 3, label: "Mike Johnson (Engineering)", role: 9 },
-                { value: 4, label: "Sarah Williams (Finance)", role: 10 },
-                { value: 5, label: "Robert Brown (Top Management)", role: 8 },
-                { value: 6, label: "Emily Davis (Procurement)", role: 2 },
-                { value: 7, label: "David Wilson (Engineering)", role: 9 },
-                { value: 8, label: "Lisa Miller (Finance)", role: 10 }
-            ];
-
-            setTeamMembers(mockTeamMembers);
-
-            // Set selected team members based on project data
-            // In a real app, this would come from the project data
-            const projectTeamMembers = project.team_members || [1, 3, 5];
-            const selectedMembers = mockTeamMembers.filter(member =>
-                projectTeamMembers.includes(member.value)
-            );
-            setSelectedTeamMembers(selectedMembers);
-        }, 300);
-    }, [project.id]);
+    // Status options
+    const statusOptions = [
+        { value: 1, label: 'Active' },
+        { value: 0, label: 'Inactive' }
+    ];
 
     // Handle form submission
     const handleSubmit = (values, { setSubmitting }) => {
         setLoading(true);
 
-        // Format team members for API
         const formattedValues = {
             ...values,
-            team_members: values.team_members.map(member => member.value)
+            reverse_auction: Number(values.reverse_auction),
+            status: Number(values.status)
         };
 
-        // Simulate API call
-        setTimeout(() => {
-            onSave(formattedValues);
-            setLoading(false);
-            setSubmitting(false);
-            closeModal();
-        }, 500);
+        onSave(formattedValues);
+        setLoading(false);
+        setSubmitting(false);
     };
 
     return (
@@ -151,6 +128,7 @@ const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
                                             name="name"
                                             className={`form-control ${touched.name && errors.name ? 'is-invalid' : ''}`}
                                             placeholder="Demo Project Name"
+                                            disabled={true} // Project name cannot be changed
                                         />
                                         {touched.name && errors.name && (
                                             <div className="invalid-feedback">{errors.name}</div>
@@ -187,6 +165,21 @@ const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
                                     </div>
 
                                     <div className="col-md-6 mb-3">
+                                        <label htmlFor="status" className="form-label">Status <span className="text-danger">*</span></label>
+                                        <Select
+                                            id="status"
+                                            name="status"
+                                            options={statusOptions}
+                                            value={statusOptions.find(option => option.value === values.status) || null}
+                                            onChange={(option) => setFieldValue('status', option ? option.value : 1)}
+                                            placeholder="Active"
+                                            classNamePrefix="react-select"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="row">
+                                    <div className="col-md-12 mb-3">
                                         <label htmlFor="description" className="form-label">Project Description <span className="text-danger">*</span></label>
                                         <Field
                                             as="textarea"
@@ -235,20 +228,6 @@ const EditProjectModal = ({ project, isOpen, closeModal, onSave }) => {
                                             classNamePrefix="react-select"
                                         />
                                     </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label htmlFor="team_members" className="form-label">Assign Teams</label>
-                                    <Select
-                                        id="team_members"
-                                        name="team_members"
-                                        options={teamMembers}
-                                        value={values.team_members}
-                                        onChange={(selectedOptions) => setFieldValue('team_members', selectedOptions || [])}
-                                        isMulti
-                                        placeholder="Select team members..."
-                                        classNamePrefix="react-select"
-                                    />
                                 </div>
 
                                 <div className="modal-footer p-0 pt-3 border-top-0 d-flex justify-content-between">

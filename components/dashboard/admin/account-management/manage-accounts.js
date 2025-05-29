@@ -6,6 +6,9 @@ import Pagination from "@/components/shared/Pagination";
 import FullLoader from "@/components/shared/FullLoader";
 import Select from 'react-select';
 import EditAccountModal from "./EditAccountModal";
+import { getCompanyUsers } from "@/services/Auth";
+import { toast } from "react-toastify";
+import { getAllProjects } from "@/services/project";
 
 const ManageAccountsPage = () => {
     const [loading, setLoading] = useState(false);
@@ -19,9 +22,12 @@ const ManageAccountsPage = () => {
     const [filterProject, setFilterProject] = useState([]);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState(null);
+    const [projectOptions, setProjectOptions] = useState([]);
+    const [loadingProjects, setLoadingProjects] = useState(false);
 
     // Role options with color coding
     const roleOptions = [
+        { value: 7, label: "Admin", color: "#007bff" }, // Admin color - blue
         { value: 8, label: "Top Management", color: "#2E5BA8" }, // Primary color
         { value: 2, label: "Procurement", color: "#428B41" }, // Secondary color
         { value: 9, label: "Engineering", color: "#FFE600" }, // Yellow color
@@ -33,168 +39,68 @@ const ManageAccountsPage = () => {
         { value: "inactive", label: "Inactive" },
     ];
 
-    const projectOptions = [
-        { value: 1, label: "Project 1" },
-        { value: 2, label: "Project 2" },
-        { value: 3, label: "Project 3" },
-    ];
-
-    // Mock data for accounts
-    const mockAccounts = [
-        {
-            id: 1,
-            name: "John Doe",
-            email: "john.doe@example.com",
-            mobile: "+91 9876543210",
-            role: 8, // Top Management
-            projects: [1, 2],
-            status: "active",
-            createdAt: "2023-05-15T10:30:00Z"
-        },
-        {
-            id: 2,
-            name: "Jane Smith",
-            email: "jane.smith@example.com",
-            mobile: "+91 9876543211",
-            role: 2, // Procurement
-            projects: [1],
-            status: "active",
-            createdAt: "2023-06-20T14:45:00Z"
-        },
-        {
-            id: 3,
-            name: "Robert Johnson",
-            email: "robert.johnson@example.com",
-            mobile: "+91 9876543212",
-            role: 9, // Engineering
-            projects: [2, 3],
-            status: "inactive",
-            createdAt: "2023-07-10T09:15:00Z"
-        },
-        {
-            id: 4,
-            name: "Emily Davis",
-            email: "emily.davis@example.com",
-            mobile: "+91 9876543213",
-            role: 10, // Finance
-            projects: [3],
-            status: "active",
-            createdAt: "2023-08-05T16:20:00Z"
-        },
-        {
-            id: 5,
-            name: "Michael Wilson",
-            email: "michael.wilson@example.com",
-            mobile: "+91 9876543214",
-            role: 8, // Top Management
-            projects: [1, 3],
-            status: "active",
-            createdAt: "2023-09-12T11:10:00Z"
-        },
-        {
-            id: 6,
-            name: "Sarah Brown",
-            email: "sarah.brown@example.com",
-            mobile: "+91 9876543215",
-            role: 2, // Procurement
-            projects: [2],
-            status: "inactive",
-            createdAt: "2023-10-18T13:25:00Z"
-        },
-        {
-            id: 7,
-            name: "David Miller",
-            email: "david.miller@example.com",
-            mobile: "+91 9876543216",
-            role: 9, // Engineering
-            projects: [1, 2, 3],
-            status: "active",
-            createdAt: "2023-11-22T08:40:00Z"
-        },
-        {
-            id: 8,
-            name: "Jennifer Taylor",
-            email: "jennifer.taylor@example.com",
-            mobile: "+91 9876543217",
-            role: 10, // Finance
-            projects: [3],
-            status: "active",
-            createdAt: "2023-12-30T15:55:00Z"
-        },
-        {
-            id: 9,
-            name: "Thomas Anderson",
-            email: "thomas.anderson@example.com",
-            mobile: "+91 9876543218",
-            role: 8, // Top Management
-            projects: [1],
-            status: "inactive",
-            createdAt: "2024-01-14T10:05:00Z"
-        },
-        {
-            id: 10,
-            name: "Lisa White",
-            email: "lisa.white@example.com",
-            mobile: "+91 9876543219",
-            role: 2, // Procurement
-            projects: [2, 3],
-            status: "active",
-            createdAt: "2024-02-28T12:15:00Z"
-        },
-        {
-            id: 11,
-            name: "James Martin",
-            email: "james.martin@example.com",
-            mobile: "+91 9876543220",
-            role: 9, // Engineering
-            projects: [1, 3],
-            status: "active",
-            createdAt: "2024-03-17T09:30:00Z"
-        },
-        {
-            id: 12,
-            name: "Patricia Harris",
-            email: "patricia.harris@example.com",
-            mobile: "+91 9876543221",
-            role: 10, // Finance
-            projects: [2],
-            status: "inactive",
-            createdAt: "2024-04-05T14:20:00Z"
+    // Fetch projects from API
+    const fetchProjects = async () => {
+        try {
+            setLoadingProjects(true);
+            const response = await getAllProjects();
+            
+            if (response && response.data && response.data.status) {
+                const projectsData = response.data.data;
+                if (Array.isArray(projectsData) && projectsData.length > 0) {
+                    // Format projects for the select dropdown
+                    const formattedProjects = projectsData.map(project => ({
+                        value: project.id,
+                        label: project.name || project.project_name
+                    }));
+                    setProjectOptions(formattedProjects);
+                } else {
+                    setProjectOptions([]);
+                }
+            } else {
+                toast.error("Failed to fetch projects");
+                setProjectOptions([]);
+            }
+        } catch (error) {
+            console.error("Error fetching projects:", error);
+            toast.error("Failed to fetch projects. Please try again.");
+            setProjectOptions([]);
+        } finally {
+            setLoadingProjects(false);
         }
-    ];
+    };
 
-    // Load mock data
-    useEffect(() => {
+    const fetchCompanyUsers = async () => {
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setAccounts(mockAccounts);
-            setTotalData(mockAccounts.length);
+        try {
+            const response = await getCompanyUsers();
+            
+            if (response.status) {
+                const formattedUsers = response.data.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    mobile: user.mobile,
+                    role: user.role,
+                    status: user.status,
+                    projects: user.projects || [], // We would need to add project mapping in the backend if needed
+                    createdAt: user.created_at
+                }));
+                
+                setAccounts(formattedUsers);
+                setFilteredAccounts(formattedUsers);
+                setTotalData(formattedUsers.length);
+            } else {
+                toast.error("Failed to fetch users");
+            }
+        } catch (error) {
+            toast.error("Error fetching users. Please try again.");
+        } finally {
             setLoading(false);
-        }, 500);
-    }, []);
-
-    // Apply filters
-    useEffect(() => {
-        let filtered = [...accounts];
-
-        if (filterRole) {
-            filtered = filtered.filter(account => account.role === filterRole.value);
         }
+    };
 
-        if (filterStatus) {
-            filtered = filtered.filter(account => account.status === filterStatus.value);
-        }
 
-        if (filterProject && filterProject.length > 0) {
-            filtered = filtered.filter(account =>
-                filterProject.some(fp => account.projects.includes(fp.value))
-            );
-        }
-
-        setFilteredAccounts(filtered);
-        setTotalData(filtered.length);
-    }, [accounts, filterRole, filterStatus, filterProject]);
 
     // Get paginated data
     const getPaginatedData = () => {
@@ -205,6 +111,7 @@ const ManageAccountsPage = () => {
 
     // Format date
     const formatDate = (dateString) => {
+        if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
@@ -221,6 +128,7 @@ const ManageAccountsPage = () => {
 
     // Get project names
     const getProjectNames = (projectIds) => {
+        if (!projectIds || !projectIds.length) return '';
         return projectIds.map(id => {
             const project = projectOptions.find(p => p.value === id);
             return project ? project.label : `Project ${id}`;
@@ -247,6 +155,52 @@ const ManageAccountsPage = () => {
         });
         setAccounts(updatedAccounts);
     };
+
+        // Load data on component mount
+        useEffect(() => {
+            fetchProjects();
+            fetchCompanyUsers();
+        }, []);
+    
+        // Changes by Agnij 14-01-2025 [Added check for refresh parameter in URL to reload data]
+        useEffect(() => {
+            // Check if there's a refresh parameter in the URL, which indicates we came from create-account
+            if (typeof window !== 'undefined') {
+                const urlParams = new URLSearchParams(window.location.search);
+                const refresh = urlParams.get('refresh');
+                
+                if (refresh === 'true') {
+                    // Remove the refresh parameter from the URL without page reload
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                    
+                    // Reload the data
+                    fetchCompanyUsers();
+                }
+            }
+        }, []);
+    
+        // Apply filters
+        useEffect(() => {
+            let filtered = [...accounts];
+    
+            if (filterRole) {
+                filtered = filtered.filter(account => account.role === filterRole.value);
+            }
+    
+            if (filterStatus) {
+                filtered = filtered.filter(account => account.status === filterStatus.value);
+            }
+    
+            if (filterProject && filterProject.length > 0) {
+                filtered = filtered.filter(account =>
+                    filterProject.some(fp => account.projects && account.projects.includes(fp.value))
+                );
+            }
+    
+            setFilteredAccounts(filtered);
+            setTotalData(filtered.length);
+        }, [accounts, filterRole, filterStatus, filterProject]);
 
     return (
         <>
@@ -299,12 +253,13 @@ const ManageAccountsPage = () => {
                                                 options={projectOptions}
                                                 onChange={setFilterProject}
                                                 name="project"
-                                                placeholder="Select Project(s)"
+                                                placeholder={loadingProjects ? "Loading projects..." : "Select Project(s)"}
                                                 isClearable
                                                 isMulti
                                                 closeMenuOnSelect={false}
                                                 value={filterProject}
                                                 classNamePrefix="react-select"
+                                                isLoading={loadingProjects}
                                             />
                                         </div>
 

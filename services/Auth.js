@@ -296,6 +296,27 @@ export const editSpoc = (payload,spocId) => {
 		}
 	});
   }
-  
+
+export const createBuyerCompanyUser = (values) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(`/users/create-buyer-company-user`, values);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+export const getCompanyUsers = () => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/users/company-users`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
 
 

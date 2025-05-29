@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
 import Select from 'react-select';
@@ -9,7 +9,6 @@ import { createProjectSchema } from '@/utils/schema';
 
 const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
     const [loading, setLoading] = useState(false);
-    const [teamMembers, setTeamMembers] = useState([]);
 
     // Initial form values
     const initialValues = {
@@ -18,8 +17,7 @@ const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
         location: '',
         rfq_type: '',
         reverse_auction: 0,
-        ended_at: '',
-        team_members: []
+        ended_at: ''
     };
 
     // RFQ type options
@@ -34,50 +32,22 @@ const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
         { value: 0, label: 'Disabled' }
     ];
 
-    // Role options with color coding
-    const roleOptions = [
-        { value: 8, label: "Top Management", color: "#2E5BA8" },
-        { value: 2, label: "Procurement", color: "#428B41" },
-        { value: 9, label: "Engineering", color: "#FFE600" },
-        { value: 10, label: "Finance", color: "#5b5b5b" },
-    ];
-
-    // Mock team members data - in a real app, this would come from an API
-    useEffect(() => {
-        // Simulate API call to get team members
-        setTimeout(() => {
-            const mockTeamMembers = [
-                { value: 1, label: "John Doe (Top Management)", role: 8 },
-                { value: 2, label: "Jane Smith (Procurement)", role: 2 },
-                { value: 3, label: "Mike Johnson (Engineering)", role: 9 },
-                { value: 4, label: "Sarah Williams (Finance)", role: 10 },
-                { value: 5, label: "Robert Brown (Top Management)", role: 8 },
-                { value: 6, label: "Emily Davis (Procurement)", role: 2 },
-                { value: 7, label: "David Wilson (Engineering)", role: 9 },
-                { value: 8, label: "Lisa Miller (Finance)", role: 10 }
-            ];
-            setTeamMembers(mockTeamMembers);
-        }, 300);
-    }, []);
-
     // Handle form submission
     const handleSubmit = (values, { setSubmitting, resetForm }) => {
         setLoading(true);
 
-        // Format team members for API
+        // Format data for API
         const formattedValues = {
             ...values,
-            team_members: values.team_members.map(member => member.value)
+            // Convert to proper data types if needed
+            reverse_auction: Number(values.reverse_auction)
         };
 
-        // Simulate API call
-        setTimeout(() => {
-            onSave(formattedValues);
-            setLoading(false);
-            setSubmitting(false);
-            resetForm();
-            closeModal();
-        }, 500);
+        onSave(formattedValues);
+        setLoading(false);
+        setSubmitting(false);
+        resetForm();
+        closeModal();
     };
 
     return (
@@ -226,20 +196,6 @@ const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
                                             classNamePrefix="react-select"
                                         />
                                     </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label htmlFor="team_members" className="form-label">Assign Teams</label>
-                                    <Select
-                                        id="team_members"
-                                        name="team_members"
-                                        options={teamMembers}
-                                        value={values.team_members}
-                                        onChange={(selectedOptions) => setFieldValue('team_members', selectedOptions || [])}
-                                        isMulti
-                                        placeholder="Select team members..."
-                                        classNamePrefix="react-select"
-                                    />
                                 </div>
 
                                 <div className="modal-footer p-0 pt-3 border-top-0 d-flex justify-content-between">

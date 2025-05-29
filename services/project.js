@@ -4,7 +4,36 @@ import axiosFormData from "@/lib/axiosFormData";
 export const getAllProjects = ()=> {
     return new Promise(async (resolve, reject) => {
         try {
-          let response = await axiosInstance.get(`project`);
+          // Add timestamp parameter to prevent caching
+          const timestamp = new Date().getTime();
+          let response = await axiosInstance.get(`project?t=${timestamp}`);
+          
+          // Check the structure of the response
+          if (response.data) {
+            // If the data is already an array, wrap it properly
+            if (Array.isArray(response.data)) {
+              // Modify the response to match the expected format
+              response.data = {
+                status: true,
+                data: response.data
+              };
+            } else if (response.data.data) {
+              // The response already has the correct structure
+            } else {
+              // Ensure we have a consistent format even with unexpected data
+              response.data = {
+                status: true,
+                data: []
+              };
+            }
+          } else {
+            // Empty response, ensure consistent format
+            response.data = {
+              status: true,
+              data: []
+            };
+          }
+          
           resolve(response);
         } catch (error) {
           reject({ message: error });
@@ -15,7 +44,22 @@ export const getAllProjects = ()=> {
 export const getProjectById = (projectId, payload)=> {
   return new Promise(async (resolve, reject) => {
       try {
-        let response = await axiosInstance.post(`project/${projectId}`, payload);
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        const queryParams = payload ? `?t=${timestamp}` : `?t=${timestamp}`;
+        let response = await axiosInstance.post(`project/${projectId}${queryParams}`, payload || {});
+        
+        // Ensure response format is consistent
+        if (response.data) {
+          if (!response.data.status && !response.data.message) {
+            // This might be a direct data array without status wrapper
+            response.data = {
+              status: true,
+              data: response.data
+            };
+          }
+        }
+        
         resolve(response);
       } catch (error) {
         reject({ message: error });
@@ -26,7 +70,19 @@ export const getProjectById = (projectId, payload)=> {
 export const getProjectTableDataById = (projectId)=> {
   return new Promise(async (resolve, reject) => {
       try {
-        let response = await axiosInstance.get(`project/${projectId}`);
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        let response = await axiosInstance.get(`project/${projectId}?t=${timestamp}`);        
+        // Ensure response format is consistent
+        if (response.data) {
+          if (!response.data.status && !response.data.message) {
+            // This might be a direct data array without status wrapper
+            response.data = {
+              status: true,
+              data: response.data
+            };
+          }
+        }
         resolve(response);
       } catch (error) {
         reject({ message: error });
@@ -108,6 +164,120 @@ export const sendReportOnEmail = (payload) => {
       resolve(response);
     } catch (error) {
       reject({ message: error });
+    }
+  });
+};
+
+export const getProjectTeamMembers = (projectId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      let response = await axiosInstance.get(`project/${projectId}/team?t=${timestamp}`);
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // Check if response.data has a status property, if not wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            data: response.data
+          };
+        }
+        
+        // Ensure data is an array
+        if (!Array.isArray(response.data.data)) {
+          response.data.data = response.data.data ? [response.data.data] : [];
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: true,
+            data: []
+          }
+        };
+      }
+      
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const addTeamMember = (projectId, memberData) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`project/${projectId}/team`, memberData);
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // Check if response.data has a status property, if not wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            message: "Team member added successfully",
+            data: response.data
+          };
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: false,
+            message: "Unknown error occurred"
+          }
+        };
+      }
+      
+      resolve(response);
+    } catch (error) {
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to add team member" }
+        }
+      });
+    }
+  });
+};
+
+export const removeTeamMember = (projectId, userId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.delete(`project/${projectId}/team`, { 
+        data: { user_id: userId } 
+      });
+      
+      // Ensure consistent response format
+      if (response && response.data) {
+        // Check if response.data has a status property, if not wrap it
+        if (!response.data.hasOwnProperty('status')) {
+          response.data = {
+            status: true,
+            message: "Team member removed successfully",
+            data: response.data
+          };
+        }
+      } else {
+        // Create a default response if the response is empty
+        response = {
+          data: {
+            status: false,
+            message: "Unknown error occurred"
+          }
+        };
+      }
+      
+      resolve(response);
+    } catch (error) {
+      reject({ 
+        message: error,
+        response: {
+          data: error.response?.data || { message: "Failed to remove team member" }
+        }
+      });
     }
   });
 };
