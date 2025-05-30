@@ -47,6 +47,7 @@ const DynamicFormModal = ({
         vendorName: "",
         email: "",
         phone: "",
+        countryCode: "+91",
         is_private: 0
     };
 
@@ -269,20 +270,24 @@ const DynamicFormModal = ({
 
         const handleSubmit = (values,resetForm) => {
 
-            const fullMobile = `${values.countryCode}-${values.phone.trim().replace(/^0+/, '')}`;
+            const fullMobile = `${values.countryCode || '+91'}-${values.phone.trim().replace(/^0+/, '')}`;
 
-
-           const {countryCode, ...updatedData} = {
-            ...values,
-            phone: fullMobile
-           }
+           const requestData = {
+            name: values.vendorName,
+            email: values.email,
+            mobile: fullMobile,
+            organization_name: values.vendorName,
+            user_type: 3, // Vendor type
+            is_private: values.is_private,
+            productDetails: vendorProductDetails
+           };
 
             if(currentProduct){
                 toast.error("Please Add/Remove The Selected Product First!", { position: "top-right" });
                 return;
             }
 
-            handleAddVendor(updatedData,vendorProductDetails,resetForm);
+            handleAddVendor(requestData, vendorProductDetails,resetForm);
             closeModal();
         }
 

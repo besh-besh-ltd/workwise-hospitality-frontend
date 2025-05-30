@@ -29,9 +29,19 @@ export const LoginService = (values, confirm) => {
 export const RegisterService = (values) => {
 	return new Promise(async (resolve, reject) => {
 		try {
+			let mobile = values.mobile;
+			if (values.mobile && values.countryCode) {
+				const cleanMobile = values.mobile.replace(/^\+\d+\-/, '').trim();
+				mobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
+			}
+			
 			let response = await axiosInstance.post(
-				`/users/user-registration`,
-				values
+				`/users/company-registration`,
+				{
+					...values,
+					mobile: mobile,
+					user_type: values.register_as || "3" // Default to vendor (3) if not specified
+				}
 			);
 			resolve(response);
 		} catch (error) {

@@ -484,6 +484,34 @@ const Header = () => {
                               Change Password
                             </Link>
                           </li>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/vendor-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link
+                              href="/dashboard/buyer/vendor-management"
+                              onClick={() => setPopoverVisible(false)}
+                            >
+                              Vendor Management
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/project-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link
+                              href="/dashboard/buyer/project-management"
+                              onClick={() => setPopoverVisible(false)}
+                            >
+                              Project Management
+                            </Link>
+                          </li>
                         </ul>
                       )}
                       {currentUserType == "other" && (
@@ -850,7 +878,34 @@ const Header = () => {
                         {/* ... existing vendor conditions ... */}
                         {currentUserType == "buyer" && (
                           <>                            
-                            {/* ... existing buyer options ... */}
+                            <li
+                              className={
+                                router.pathname == "/dashboard/buyer/vendor-management"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href="/dashboard/buyer/vendor-management"
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Vendor Management
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/dashboard/buyer/project-management"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href="/dashboard/buyer/project-management"
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Project Management
+                              </Link>
+                            </li>
                           </>
                         )}
                         <li
