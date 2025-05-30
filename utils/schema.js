@@ -1,21 +1,22 @@
 import * as yup from "yup";
+
+// Common email regex pattern
+const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+
+// Common mobile regex pattern  
+const mobileRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im;
+
 export const EditCompanyDetails = yup.object().shape({
   company_name: yup.string().required("Company name is required"),
   name: yup.string().required("Company name is required"),
   email: yup
     .string()
     .email()
-    .matches(
-      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-      "Please enter valid email address"
-    )
+    .matches(emailRegex, "Please enter valid email address")
     .required("Email is required"),
   mobile: yup
     .string()
-    .matches(
-      /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-      "Please enter valid mobile number"
-    )
+    .matches(mobileRegex, "Please enter valid mobile number")
     .min(10, "Min 10 digit is required")
     .max(11, "Mobile number not more than 11 digit long")
     .required("Mobile number is required"),
@@ -31,16 +32,12 @@ export const EditCompanyDetails = yup.object().shape({
   cin: yup.string().optional(),
 });
 
-
 export const CreateRFQSchema = yup.object().shape({
   comment: yup.string().optional(),
   response_email: yup
     .string()
     .email()
-    .matches(
-      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-      "Please enter valid email address"
-    )
+    .matches(emailRegex, "Please enter valid email address")
     .required("Email is required"),
   contact_number: yup
     .string()
@@ -59,10 +56,7 @@ export const EditSocialDetails = yup.object().shape({
   facebook: yup.string().optional(),
   whatsapp: yup
     .string()
-    .matches(
-      /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-      "please enter valid mobile number"
-    )
+    .matches(mobileRegex, "please enter valid mobile number")
     .min(10, "Min 10 digit is required")
     .max(10, "Whatsapp number not more than 10 digit long")
     .optional(),
@@ -92,12 +86,10 @@ export const ForgetPassword = yup.object().shape({
   email: yup
     .string()
     .email()
-    .matches(
-      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-      "Please enter valid email address"
-    )
+    .matches(emailRegex, "Please enter valid email address")
     .required("Email is required"),
 });
+
 export const ForgetPasswordOtpValidation = yup.object().shape({
   otp: yup.string().required("OTP is required"),
   password: yup
@@ -119,17 +111,11 @@ export const contactFormSchema = yup.object().shape({
   email: yup
     .string()
     .email()
-    .matches(
-      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-      "Please enter valid email address"
-    )
+    .matches(emailRegex, "Please enter valid email address")
     .required("Email is required"),
   phone: yup
     .string()
-    .matches(
-      /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-      "please enter valid mobile number"
-    )
+    .matches(mobileRegex, "please enter valid mobile number")
     .min(10, "Min 10 digit is required")
     .max(12, "Mobile number not more than 8 digit long")
     .required("Mobile number is required"),
@@ -150,7 +136,11 @@ export const editAccountSchema = yup.object().shape({
     .required("Email is required"),
   mobile: yup
     .string()
+    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
+    .min(8, "Mobile number must be at least 8 digits")
+    .max(15, "Mobile number cannot exceed 15 digits")
     .required("Mobile number is required"),
+  countryCode: yup.string().required("Country code is required"),
 });
 
 // Create Account validation schema
@@ -162,12 +152,20 @@ export const createAccountSchema = yup.object().shape({
     .required("Email is required"),
   mobile: yup
     .string()
+    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
+    .min(8, "Mobile number must be at least 8 digits")
+    .max(15, "Mobile number cannot exceed 15 digits")
     .required("Mobile number is required"),
+  countryCode: yup.string().required("Country code is required"),
   role: yup.object().required("Role is required"),
   password: yup
     .string()
     .required("Password is required")
-    .min(6, "Password must be at least 6 characters"),
+    .min(8, "Password must be at least 8 characters"),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref("password"), null], "Passwords must match")
+    .required("Confirm password is required"),
 });
 
 // ==========================================
@@ -191,4 +189,110 @@ export const editProjectSchema = yup.object().shape({
 // Add Team Member validation schema
 export const addTeamMemberSchema = yup.object().shape({
   user: yup.object().required("User is required"),
+});
+
+// ==========================================
+// Admin User Management Schemas
+// ==========================================
+
+// Add Sub Admin validation schema
+export const addSubAdminSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  email: yup
+    .string()
+    .email()
+    .matches(emailRegex, "Please enter valid email address")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .matches(mobileRegex, "Please enter valid mobile number")
+    .min(10, "Min 10 digits required")
+    .max(15, "Max 15 digits allowed")
+    .required("Mobile is required"),
+  country_code: yup.string().required("Country code is required"),
+  password: yup.string().required("Password field is required"),
+  confirm_password: yup
+    .string()
+    .oneOf([yup.ref("password")], "Password must match")
+    .required("Confirm Password field is required"),
+  image: yup.mixed().nullable().required("Please select a file"),
+});
+
+// Add Data Member validation schema
+export const addDataMemberSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  email: yup
+    .string()
+    .email()
+    .matches(emailRegex, "Please enter valid email address")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .matches(mobileRegex, "Please enter a valid mobile number")
+    .min(7, "Min 7 digits required")
+    .max(15, "Max 15 digits allowed")
+    .required("Mobile is required"),
+  countryCode: yup.string().required("Country code is required"),
+  password: yup.string().required("Password field is required"),
+  confirm_password: yup
+    .string()
+    .oneOf([yup.ref("password")], "Password must match")
+    .required("Confirm Password field is required"),
+  image: yup.mixed().nullable().required("Please select a file"),
+});
+
+// Add Other User validation schema
+export const addOtherUserSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  organization_name: yup.string().required("Organization is required"),
+  email: yup
+    .string()
+    .email()
+    .matches(emailRegex, "Please enter valid email address")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .matches(mobileRegex, "Please enter valid mobile number")
+    .min(10, "Min 10 digits required")
+    .max(11, "Max 11 digits allowed")
+    .required("Mobile is required"),
+  countryCode: yup.string().required("Country code is required"),
+  image: yup.mixed().nullable().required("Please select a file"),
+});
+
+// Add Buyer validation schema
+export const addBuyerSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  email: yup.string().email("Invalid email format").required("Email is required"),
+  countryCode: yup.string().required("Country code is required"),
+  mobile: yup
+    .string()
+    .matches(/^\d{7,15}$/, "Please enter a valid mobile number")
+    .required("Mobile is required"),
+  organization_name: yup.string().required("Organization name is required"),
+  password: yup.string().optional(),
+  address: yup.string().required("Address is required"),
+  country: yup.string().required("Country is required"),
+  gstin: yup.string().optional(),
+  cin: yup.string().optional(),
+  profile: yup.mixed().nullable(),
+  nature_of_business: yup.string().required("Nature of business is required"),
+  type_of_business: yup.string().required("Type of business is required"),
+  website: yup.string().url("Enter a valid website URL").nullable(),
+  max_top_management: yup
+    .number()
+    .min(1, "At least 1 top management user allowed")
+    .required("Required"),
+  max_procurement: yup
+    .number()
+    .min(1, "At least 1 procurement user allowed")
+    .required("Required"),
+  max_engineering: yup
+    .number()
+    .min(1, "At least 1 engineering user allowed")
+    .required("Required"),
+  max_finance: yup
+    .number()
+    .min(1, "At least 1 finance user allowed")
+    .required("Required"),
 });
