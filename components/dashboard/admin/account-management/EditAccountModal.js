@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from 'react-modal';
 import { Field, Form, Formik } from 'formik';
 import Select from 'react-select';
@@ -6,19 +6,38 @@ import FullLoader from '@/components/shared/FullLoader';
 import { editAccountSchema } from '@/utils/schema';
 import { toast } from 'react-toastify';
 import { addTeamMember, removeTeamMember } from '@/services/project';
+import { getCountryCodes } from '@/services/cms';
 
 const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOptions, onSave }) => {
-    const [loading, setLoading] = useState(false);
+    // Grouped states to reduce individual state declarations
+    const [modalState, setModalState] = useState({
+        loading: false,
+        countryCodes: []
+    });
     
-    // Check if projectOptions are loading (would be empty array if loading from parent)
+    // Check if projectOptions are loading
     const isProjectsLoading = projectOptions.length === 0;
+
+    // Parse mobile number to extract country code and number
+    const parseMobile = (mobile) => {
+        if (!mobile) return { countryCode: "+91", mobileNumber: "" };
+        
+        const parts = mobile.split('-');
+        if (parts.length === 2) {
+            return { countryCode: parts[0], mobileNumber: parts[1] };
+        }
+        return { countryCode: "+91", mobileNumber: mobile };
+    };
+
+    const { countryCode, mobileNumber } = parseMobile(account.mobile);
 
     // Initial form values
     const initialValues = {
         id: account.id,
         name: account.name,
         email: account.email,
-        mobile: account.mobile,
+        mobile: mobileNumber,
+        countryCode: countryCode,
         role: roleOptions.find(r => r.value === account.role),
         projects: isProjectsLoading ? [] : projectOptions.filter(p => account.projects.includes(p.value)),
         status: account.status
@@ -26,56 +45,81 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
 
     // Handle form submission
     const handleSubmit = async (values, { setSubmitting }) => {
-        setLoading(true);
+        setModalState(prev => ({ ...prev, loading: true }));
 
         try {
+            // Format mobile with country code
+            const formattedMobile = `${values.countryCode}-${values.mobile}`;
+            
             // Convert form values to the expected format
             const formattedValues = {
                 ...values,
+                mobile: formattedMobile,
                 role: values.role.value,
                 projects: values.projects.map(p => p.value)
             };
 
-            // Get project IDs that need to be added (in new projects but not in original projects)
+            // Get project IDs that need to be added/removed
             const originalProjectIds = account.projects || [];
             const newProjectIds = formattedValues.projects;
             
             const projectsToAdd = newProjectIds.filter(id => !originalProjectIds.includes(id));
             const projectsToRemove = originalProjectIds.filter(id => !newProjectIds.includes(id));
             
-            // First handle project assignment updates
+            // Handle project assignment updates
             const projectPromises = [];
             
             // Add user to new projects
-            for (const projectId of projectsToAdd) {
+            projectsToAdd.forEach(projectId => {
                 projectPromises.push(
                     addTeamMember(projectId, {
                         user_id: account.id,
                         role: formattedValues.role
                     })
                 );
-            }
+            });
             
-            // Remove user from projects they've been removed from
-            for (const projectId of projectsToRemove) {
+            // Remove user from projects
+            projectsToRemove.forEach(projectId => {
                 projectPromises.push(removeTeamMember(projectId, account.id));
-            }
+            });
             
             // Wait for all project operations to complete
             if (projectPromises.length > 0) {
-                await Promise.all(projectPromises.map(p => p));
+                await Promise.all(projectPromises);
             }
             
-            // Now call the parent onSave to update user details
+            // Call the parent onSave to update user details
             onSave(formattedValues);
             toast.success("Account updated successfully!");
         } catch (error) {
             toast.error("Failed to update account. Please try again.");
         } finally {
-            setLoading(false);
+            setModalState(prev => ({ ...prev, loading: false }));
             setSubmitting(false);
         }
     };
+
+    // Fetch country codes when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            const fetchCountryCodes = async () => {
+                try {
+                    const response = await getCountryCodes();
+                    if (response?.data) {
+                        setModalState(prev => ({
+                            ...prev,
+                            countryCodes: response.data
+                        }));
+                    }
+                } catch (error) {
+                    console.error("Error fetching country codes:", error);
+                }
+            };
+            
+            fetchCountryCodes();
+        }
+        }, [isOpen]);
 
     return (
         <Modal
@@ -121,7 +165,7 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
                 </div>
 
                 <div className="modal-body p-3 hasFullLoader">
-                    {loading && <FullLoader />}
+                    {modalState.loading && <FullLoader />}
 
                     <Formik
                         initialValues={initialValues}
@@ -158,12 +202,36 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
                                     </div>
                                     <div className="col-md-6">
                                         <label htmlFor="mobile" className="form-label">Mobile <span className="text-danger">*</span></label>
-                                        <Field
-                                            type="text"
-                                            id="mobile"
-                                            name="mobile"
-                                            className={`form-control ${touched.mobile && errors.mobile ? 'is-invalid' : ''}`}
-                                        />
+                                        <div className="d-flex">
+                                            {/*START: Country Code Selector */}
+                                            <Field name="countryCode">
+                                                {({ field, form }) => (
+                                                    <select
+                                                        {...field}
+                                                        className="form-select me-2"
+                                                        style={{ maxWidth: "120px" }}
+                                                        onChange={(e) => {
+                                                            form.setFieldValue("countryCode", e.target.value);
+                                                        }}
+                                                    >
+                                                        {modalState.countryCodes.map((country) => (
+                                                            <option key={country.id} value={country.phone_code}>
+                                                                {country.country_code} ({country.phone_code})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </Field>
+                                            {/*END: Country Code Selector */}
+                                            
+                                            <Field
+                                                type="text"
+                                                id="mobile"
+                                                name="mobile"
+                                                placeholder="Enter mobile number"
+                                                className={`form-control ${touched.mobile && errors.mobile ? 'is-invalid' : ''}`}
+                                            />
+                                        </div>
                                         {touched.mobile && errors.mobile && (
                                             <div className="invalid-feedback">{errors.mobile}</div>
                                         )}
