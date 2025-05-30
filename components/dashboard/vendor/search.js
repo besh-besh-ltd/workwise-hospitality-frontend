@@ -1473,7 +1473,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {/* View Current RFQ Button (Always Renders) */}
                           <Link
                             href={
-                              queryMeta
+                              queryMeta.rfq_id
                                 ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
                                     queryMeta.rfq_id
                                   }${
@@ -1481,7 +1481,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                       ? `&sheet_id=${queryMeta.sheet_id}`
                                       : ""
                                   }`
-                                : "/dashboard/buyer/rfq-management?tab=create-rfq"
+                                : "/dashboard/buyer/rfq-management?tab=draft-rfq"
                             }
                             className={`btn btn-primary ${
                               isLoading ? "disabled" : ""
@@ -1489,9 +1489,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             role="button"
                             aria-disabled={isLoading}
                           >
-                            {queryMeta
+                            {queryMeta.rfq_id
                               ? `View RFQ #${queryMeta.rfq_id}`
-                              : "View Current RFQ"}
+                              : "View My Drafts"}
                           </Link>
                         </div>
                       </div>
