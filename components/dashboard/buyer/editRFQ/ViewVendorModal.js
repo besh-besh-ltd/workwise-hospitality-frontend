@@ -15,10 +15,6 @@ const ViewVendorModal = ({
 }) => {
   const vendors = productData.vendors;
 
-  useEffect(() => {
-    console.log(updatableData);
-  }, [updatableData]);
-
   return (
     <>
       {isOpen && (

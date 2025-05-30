@@ -3,7 +3,6 @@ import Link from "next/link";
 import moment from "moment";
 
 const DraftRFQItem = ({ data }) => {
-  const [isHovered, setIsHovered] = useState(false);
 
   const textCapitalize = (text) => {
     if (!text) return "";
@@ -27,7 +26,7 @@ const DraftRFQItem = ({ data }) => {
       return (
         <span className="mproducts">
           {limitedProducts.map((title, index) => (
-            <React.Fragment key={index}>
+            <React.Fragment key={title}>
               {title}
               <br />
             </React.Fragment>

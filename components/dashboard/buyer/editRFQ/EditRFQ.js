@@ -198,8 +198,6 @@ const EditRFQ = () => {
     fetchAvailableVendorsForProduct();
   }, [selectedProduct])
 
-  // useEffect(() => {})
-
 
   // Add useEffect to force term reselection after component mounts
   useEffect(() => {
@@ -388,6 +386,173 @@ const EditRFQ = () => {
     }
   };
 
+  const handleSpecChange = (product, change) => {
+    setRfqData((prev) => ({
+      ...prev,
+      products: prev.products.map((product) =>
+        product.product_id == change.product_id
+          ? {
+              ...product,
+              product_specs: !product?.product_specs
+                ? [
+                    {
+                      title: "variant",
+                      value: product.variant,
+                    },
+                    {
+                      title: change.title,
+                      value: change.value,
+                    },
+                  ]
+                : !product.product_specs.find(
+                    (spec) => spec.title == change.title
+                  )
+                ? [
+                    ...product.product_specs,
+                    {
+                      title: change.title,
+                      value: change.value,
+                    },
+                  ]
+                : product.product_specs.map((spec) =>
+                    spec.title == change.title
+                      ? { ...spec, value: change.value }
+                      : spec
+                  ),
+            }
+          : product
+      ),
+    }));
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          specs: {
+            ...(prev.products.updatable?.specs ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.specs?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.title]: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleFileChange = (product, change) => {
+    setRfqData((prev) => ({
+      ...prev,
+      products: prev.products.map((product) =>
+        product.product_id == change.product_id
+          ? {
+              ...product,
+              [change.type]: change.value,
+            }
+          : product
+      ),
+    }));
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          files: {
+            ...(prev.products.updatable?.files ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.files?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleCommentChange = (product, change) => {
+    setRfqData((prev) => ({
+      ...prev,
+      products: prev.products.map((product) =>
+        product.product_id == change.product_id
+          ? {
+              ...product,
+              comment: change.value,
+            }
+          : product
+      ),
+    }));
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          comment: {
+            ...(prev.products.updatable?.comment ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.comment?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              comment: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleClauseChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          techEval: {
+            ...(prev.products.updatable?.techEval ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              techEval: [
+                ...(prev.products.updatable?.techEval?.[product.id]?.techEval ??
+                  []),
+                change.action,
+              ],
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleShowVendorModal = (product, stateSetter) => {
+    stateSetter(true);
+    setSelectedProduct({
+      product,
+      vendors: product.vendor_details,
+    });
+  };
+
+  const handleRemoveProduct = (data) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        deletable: [...(prev.products?.deletable ?? []), data.id],
+      },
+    }));
+  };
 
   const handleUpdateRFQ = async (formValues) => {
     try {
@@ -611,9 +776,9 @@ const EditRFQ = () => {
                   .filter((product) =>
                     updatableData.products?.deletable?.includes(product.id)
                   )
-                  .map((product, index) => {
+                  .map((product) => {
                     return (
-                      <tr key={`product-${index}`}>
+                      <tr key={product.product_details?.[0]?.id}>
                         <td>{product.product_details?.[0]?.name || "---"}</td>
                         <td>
                           <div className="size-specification">
@@ -916,175 +1081,13 @@ const EditRFQ = () => {
                       setHasUnsavedChanges={setHasUnsavedChanges}
                       getDraftInitialData={fetchInitialData}
                       saveDraft={() => console.log("SAVINGGG")}
-                      onSpecValueChange={(change) => {
-                        setRfqData((prev) => ({
-                          ...prev,
-                          products: prev.products.map((product) =>
-                            product.product_id == change.product_id
-                              ? {
-                                  ...product,
-                                  product_specs: !product?.product_specs
-                                    ? [
-                                        {
-                                          title: 'variant',
-                                          value: product.variant,
-                                        },
-                                        {
-                                          title: change.title,
-                                          value: change.value,
-                                        },
-                                      ]
-                                    : !product.product_specs.find(
-                                        (spec) => spec.title == change.title
-                                      )
-                                    ? [
-                                        ...product.product_specs,
-                                        {
-                                          title: change.title,
-                                          value: change.value,
-                                        },
-                                      ]
-                                    : product.product_specs.map((spec) =>
-                                        spec.title == change.title
-                                          ? { ...spec, value: change.value }
-                                          : spec
-                                      ),
-                                }
-                              : product
-                          ),
-                        }));
-                        setUpdatableData(prev => ({
-                          ...prev,
-                          products: {
-                            ...prev.products,
-                            updatable: {
-                              ...(prev.products.updatable),
-                              specs: {
-                                ...(prev.products.updatable?.specs ?? {}),
-                                [product.id]: {
-                                  ...(prev.products.updatable?.specs?.[product.id] ?? {
-                                    product_id: product.product_id,
-                                    variant: product.variant,
-                                  }),
-                                  [change.title]: change.value,
-                                }
-                              }
-                            }
-                          }
-                        }))
-                      }}
-                      onFilesChange={(change) => {
-                        console.log("CHANGE --- ", change);
-                        setRfqData((prev) => ({
-                          ...prev,
-                          products: prev.products.map((product) =>
-                            product.product_id == change.product_id
-                              ? {
-                                  ...product,
-                                  [change.type]: change.value
-                                }
-                              : product
-                          ),
-                        }));
-                        setUpdatableData(prev => ({
-                          ...prev,
-                          products: {
-                            ...prev.products,
-                            updatable: {
-                              ...prev.products.updatable,
-                              files: {
-                                ...(prev.products.updatable?.files ?? {}),
-                                [product.id]: {
-                                  ...(prev.products.updatable?.files?.[product.id] ?? {
-                                    product_id: product.product_id,
-                                    variant: product.variant,
-                                  }),
-                                  [change.type]: change?.value.length > 0 ? change.value[0] : 'rm',
-                                }
-                              }
-                            }
-                          }
-                        }))
-                      }}
-                      onCommentChange={(change) => {
-                        setRfqData((prev) => ({
-                          ...prev,
-                          products: prev.products.map((product) =>
-                            product.product_id == change.product_id
-                              ? {
-                                  ...product,
-                                  comment: change.value
-                                }
-                              : product
-                          ),
-                        }));
-                        setUpdatableData(prev => ({
-                          ...prev,
-                          products: {
-                            ...prev.products,
-                            updatable: {
-                              ...prev.products.updatable,
-                              comment: {
-                                ...(prev.products.updatable?.comment ?? {}),
-                                [product.id]: {
-                                  ...(prev.products.updatable?.comment?.[product.id] ?? {
-                                    product_id: product.product_id,
-                                    variant: product.variant,
-                                  }),
-                                  comment: change.value,
-                                }
-                              }
-                            }
-                          }
-                        }))
-                      }}
-                      onClauseChange={(change) => {
-                        setUpdatableData(prev => ({
-                          ...prev,
-                          products: {
-                            ...prev.products,
-                            updatable: {
-                              ...prev.products.updatable,
-                              techEval: {
-                                ...(prev.products.updatable?.techEval ?? {}),
-                                [product.id]: {
-                                  ...(prev.products.updatable?.techEval?.[product.id] ?? {
-                                    product_id: product.product_id,
-                                    variant: product.variant,
-                                  }),
-                                  techEval: [...(prev.products.updatable?.techEval?.[product.id]?.techEval ?? []), change.action],
-                                }
-                              }
-                            }
-                          }
-                        }))
-                      }}
-                      handleViewVendorInEdit={() => {
-                        setShowVendorModal(true);
-                        setSelectedProduct({
-                          product,
-                          vendors: product.vendor_details,
-                        });
-                      }}
-                      handleAddVendorInEdit={() => {
-                        setShowAddVendorModal(true);
-                        setSelectedProduct({
-                          product,
-                          vendors: product.vendor_details,
-                        });
-                      }}
-                      handleRemoveProductInEdit={(data) => {
-                        setUpdatableData((prev) => ({
-                          ...prev,
-                          products: {
-                            ...prev.products,
-                            deletable: [
-                              ...(prev.products?.deletable ?? []),
-                              data.id,
-                            ],
-                          },
-                        }));
-                      }}
+                      onSpecValueChange={(change) => handleSpecChange(product, change)}
+                      onFilesChange={(change) => handleFileChange(product, change)}
+                      onCommentChange={(change) => handleCommentChange(product, change)}
+                      onClauseChange={(change) => handleClauseChange(product, change)}
+                      handleViewVendorInEdit={() => handleShowVendorModal(product, setShowVendorModal)}
+                      handleAddVendorInEdit={() => handleShowVendorModal(product, setShowAddVendorModal)}
+                      handleRemoveProductInEdit={handleRemoveProduct}
                       type="edit"
                     />
                   );
@@ -1459,7 +1462,7 @@ const EditRFQ = () => {
                         <h6 className="mb-3 fw-medium">Terms & Conditions Files  </h6>
                         <div className="row g-2">
                           {rfqData.term_and_condition_files.map((file, idx) => (
-                            <div key={`file-${idx}`} className="col-md-6 col-lg-4">
+                            <div key={file} className="col-md-6 col-lg-4">
                               <a 
                                 href={file} 
                                 target="_blank" 

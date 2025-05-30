@@ -56,7 +56,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 setPreviousClauses(res.data);
         } catch (error) {
             toast.error("Failed to load clauses. Please try again.");
-            console.log(error)
         } finally {
             if (active === 'clause') setLoading(false);
             if (!loading || active === 'clause') {
@@ -94,7 +93,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             });
 
         } catch (error) {
-            console.log(error)
+            toast.error(error.message)
         } finally {
             setLoading(false);
             setMessage("");
@@ -124,7 +123,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             });
 
         } catch (error) {
-            console.log(error)
+            toast.error(error.message)
         } finally {
             setLoading(false);
             setMessage("");
@@ -151,7 +150,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 },
             });
         } catch (error) {
-            console.log(error)
+            toast.error(error.message)
         } finally {
             setLoading(false);
         }
@@ -240,7 +239,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
             }
         } catch (error) {
             toast.dismiss("clause-processing");
-            console.log(error)
             toast.error(error.message || "An unexpected error occurred.");
             setClauseErrors([{ Row: 0, error: error.message || "An unexpected error occurred."}]);
         } finally{
