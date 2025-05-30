@@ -60,6 +60,16 @@ const CreateRFQ = () => {
     draft_id: null,
     sheet_id: null,
   })
+  const [updatableData, setUpdatableData] = useState({
+    products: {
+      addable: [],
+      deletable: [],
+      updatable: {},
+    },
+    vendors: {},
+  })
+  const [termsChanged, setTermsChanged] = useState(false);
+  const [termFilesChanged, setTermFilesChanged] = useState(false);
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
@@ -149,6 +159,7 @@ const CreateRFQ = () => {
 
   const handleTermChange = (e, item) => {
     try {
+      setTermsChanged(true);
       const isChecked = e.target.checked;
       // Always convert ID to string for consistent comparison
       const termId = String(item.id || item.term_id);
@@ -358,6 +369,7 @@ const CreateRFQ = () => {
       dispatch(setTermFiles({ type, value: dynamicParam }))
     }
     setHasUnsavedChanges(true);
+    setTermFilesChanged(true);
   };
 
   const handleCreateRFQ = (values, resetForm) => {
@@ -420,10 +432,12 @@ const CreateRFQ = () => {
     
     let payload = {
       rfq_id: rfqDetails,
-      products: rfqProductsRef.current,
       ...formDataCopy,
       project_id: formDataCopy.project_id || -1,
-      contact_number: fullMobile
+      contact_number: fullMobile,
+      updatableData,
+      termsChanged,
+      termFilesChanged,
     };
 
     // Remove country_code if it exists
@@ -480,7 +494,6 @@ const CreateRFQ = () => {
         name: term.name || term.term_content || `Term ${term.id}`
       }));
       
-      console.log("Terms filtered for draft save:", formDataCopy.terms);
     }
     // Make sure we maintain the rfq_added_from flag if this is a magic search RFQ
     if (isMagicRfq && !formDataCopy.rfq_added_from) {
@@ -490,10 +503,11 @@ const CreateRFQ = () => {
     const payload = {
       ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
-      products: rfqProductsRef.current,
-      is_published: 0,
       contact_number: fullMobile,
       sheet_id: selectedSheet?.value,
+      updatableData,
+      termsChanged,
+      termFilesChanged,
     };
     try {
       const res = await saveDraft(payload);
@@ -1044,6 +1058,109 @@ const CreateRFQ = () => {
                               getDraftInitialData={getDraftInitialData}
                               saveDraft={handleSaveDraft}
                               selectedSheet={selectedSheet}
+                              onSpecValueChange={(change) => {
+                                setUpdatableData((prev) => ({
+                                  ...prev,
+                                  products: {
+                                    ...prev.products,
+                                    updatable: {
+                                      ...prev.products.updatable,
+                                      specs: {
+                                        ...(prev.products.updatable?.specs ??
+                                          {}),
+                                        [product.id]: {
+                                          ...(prev.products.updatable?.specs?.[
+                                            product.id
+                                          ] ?? {
+                                            product_id: product.product_id,
+                                            variant: product.variant,
+                                          }),
+                                          [change.title]: change.value,
+                                        },
+                                      },
+                                    },
+                                  },
+                                }));
+                              }}
+                              onFilesChange={(change) => {
+                                console.log("CHANGE -> ", change)
+                                setUpdatableData((prev) => ({
+                                  ...prev,
+                                  products: {
+                                    ...prev.products,
+                                    updatable: {
+                                      ...prev.products.updatable,
+                                      files: {
+                                        ...(prev.products.updatable?.files ??
+                                          {}),
+                                        [product.id]: {
+                                          ...(prev.products.updatable?.files?.[
+                                            product.id
+                                          ] ?? {
+                                            product_id: product.product_id,
+                                            variant: product.variant,
+                                          }),
+                                          [change.type]:
+                                            change?.value.length > 0
+                                              ? change.value[0]
+                                              : "rm",
+                                        },
+                                      },
+                                    },
+                                  },
+                                }));
+                              }}
+                              onCommentChange={(change) => {
+                                setUpdatableData((prev) => ({
+                                  ...prev,
+                                  products: {
+                                    ...prev.products,
+                                    updatable: {
+                                      ...prev.products.updatable,
+                                      comment: {
+                                        ...(prev.products.updatable?.comment ??
+                                          {}),
+                                        [product.id]: {
+                                          ...(prev.products.updatable
+                                            ?.comment?.[product.id] ?? {
+                                            product_id: product.product_id,
+                                            variant: product.variant,
+                                          }),
+                                          comment: change.value,
+                                        },
+                                      },
+                                    },
+                                  },
+                                }));
+                              }}
+                              onClauseChange={(change) => {
+                                setUpdatableData((prev) => ({
+                                  ...prev,
+                                  products: {
+                                    ...prev.products,
+                                    updatable: {
+                                      ...prev.products.updatable,
+                                      techEval: {
+                                        ...(prev.products.updatable?.techEval ??
+                                          {}),
+                                        [product.id]: {
+                                          ...(prev.products.updatable
+                                            ?.techEval?.[product.id] ?? {
+                                            product_id: product.product_id,
+                                            variant: product.variant,
+                                          }),
+                                          techEval: [
+                                            ...(prev.products.updatable
+                                              ?.techEval?.[product.id]
+                                              ?.techEval ?? []),
+                                            change.action,
+                                          ],
+                                        },
+                                      },
+                                    },
+                                  },
+                                }));
+                              }}
                             />
                           );
                         })}

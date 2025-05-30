@@ -212,8 +212,21 @@ const MagicSearchPage = () => {
             // const aiResponse = await getBOQexcelToJsonAI(file);
 
             // const downloadUrl = aiResponse?.data?.download_url;
+            // const availableSheets = aiResponse?.data?.sheetwise_downloads;
 
             const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&stage=matched"
+            const availableSheets = [
+              {
+                sheet_name: "sedond",
+                download_url:
+                  "http://test.letsworkwise.com/download/sheet_json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&sheet=sedond",
+              },
+              {
+                sheet_name: "Sheet1",
+                download_url:
+                  "http://test.letsworkwise.com/download/sheet_json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&sheet=Sheet1",
+              },
+            ];
 
               if (!downloadUrl) {
                 toast.error("Failed to create RFQ: Please try after few minutes.");
@@ -222,7 +235,7 @@ const MagicSearchPage = () => {
               }
 
             // further process json data get from ai server, to fetch vendor list and display data on ui
-            const response = await getMagicRFQPreview(downloadUrl);
+            const response = await getMagicRFQPreview(downloadUrl, availableSheets);
             if(response.validation_errors && Array.isArray(response.validation_errors) && response.validation_errors.length > 0) {
               setApiData(response)
   

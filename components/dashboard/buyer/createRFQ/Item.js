@@ -123,22 +123,20 @@ const Item = ({
     if (fileType === "spec_file") setUploadedSpecFile(updatedFiles);
     if (fileType === "datasheet_file") setUploadedDatasheetFile(updatedFiles);
 
-    if (type == 'edit')
-      if(onFilesChange)
-        onFilesChange({
-          type: fileType,
-          value: updatedFiles,
-          product_id: rfqProduct.product_id,
-          variant: rfqProduct.variant,
-        })
-    else
-      dispatch(
-        removeFiles({
-          type: fileType,
-          value: fileUrl,
-          product_id: rfqProduct.product_id,
-          variant: rfqProduct.variant,
-        })
+    if (onFilesChange)
+      onFilesChange({
+        type: fileType,
+        value: updatedFiles,
+        product_id: rfqProduct.product_id,
+        variant: rfqProduct.variant,
+      });
+    dispatch(
+      removeFiles({
+        type: fileType,
+        value: fileUrl,
+        product_id: rfqProduct.product_id,
+        variant: rfqProduct.variant,
+      })
       );
     setHasUnsavedChanges(true);
   };
