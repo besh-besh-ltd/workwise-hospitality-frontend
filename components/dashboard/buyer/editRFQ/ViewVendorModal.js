@@ -128,9 +128,10 @@ const ViewVendorModal = ({
                                           background: "transparent",
                                           color: "red",
                                         }}
-                                        onClick={(e) =>
+                                        onClick={(e) => {
                                           // handleRemoveVendorFromStore(e, item)
                                           onAdd(item)
+                                        }
                                         }
                                       >
                                         <FontAwesomeIcon icon={faTrash} />
@@ -145,9 +146,10 @@ const ViewVendorModal = ({
                                           background: "transparent",
                                           color: "#BA8E23",
                                         }}
-                                        onClick={(e) =>
+                                        onClick={(e) => {
                                           // handleRemoveVendorFromStore(e, item)
                                           onRemove(item)
+                                        }
                                         }
                                       >
                                         <FontAwesomeIcon

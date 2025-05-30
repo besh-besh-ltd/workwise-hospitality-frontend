@@ -27,6 +27,7 @@ import { faAdd, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Accordion } from "react-bootstrap";
 import Item from "../createRFQ/Item";
+import { editRfqSchema } from "@/utils/schema";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -116,6 +117,8 @@ const EditRFQ = () => {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddVendorForProductModal, setShowAddVendorForProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState([]);
+  const [totalProductsInrfq , setTotalProductsInrfq] = useState(0);
+
   const [updatableData, setUpdatableData] = useState({
     products: {
       addable: [],
@@ -396,6 +399,11 @@ const EditRFQ = () => {
         return;
       }
 
+      if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
+       toast.error("You cannot delete all products from RFQ, at least one product is required");
+       return;
+      }
+
       const dataToSend = {
         updatableData,
         rfq_id: rfqData.id,
@@ -442,7 +450,26 @@ const EditRFQ = () => {
       if(rfqData.ra_end_date != formValues.ra_end_date)
         dataToSend.ra_end_date = formValues.ra_end_date
 
-      console.log(dataToSend)
+   try {
+     
+
+     // Use strict() to prevent empty objects from passing
+     await editRfqSchema
+       .strict()
+       .validate({ updatableData }, { abortEarly: false });
+     
+   } catch (validationError) {
+     // FIXED: Use the caught validationError obje
+
+     const errorMessages = validationError.inner
+       .map((err) => err.message)
+       .join("\n");
+     toast.error(
+       "Validation Error: " +
+         (validationError.errors?.join(", ") || validationError.message)
+     );
+     return;
+   }
 
       setLoading(true);
 
@@ -720,7 +747,25 @@ const EditRFQ = () => {
                 updatableData={updatableData}
                 isOpen={showVendorModal}
                 onClose={() => setShowVendorModal(false)}
-                onAdd={(item) =>
+                onAdd={(item) => {
+                 
+                  if (
+                    (
+                      updatableData.vendors?.[selectedProduct.product.id]
+                        ?.deletable ?? []
+                    ).length +
+                      1 +
+                      (
+                        updatableData.vendors?.[selectedProduct.product.id]
+                          ?.addable ?? []
+                      ).length <
+                    1
+                  ) {
+                    toast.error(
+                      "At least one vendor is required for the product"
+                    );
+                    return;
+                  }
                   setUpdatableData((prev) => ({
                     ...prev,
                     vendors: {
@@ -739,7 +784,8 @@ const EditRFQ = () => {
                     },
                   }))
                 }
-                onRemove={(item) =>
+                }
+                onRemove={(item) => {
                   setUpdatableData((prev) => ({
                     ...prev,
                     vendors: {
@@ -758,6 +804,7 @@ const EditRFQ = () => {
                       },
                     },
                   }))
+                }
                 }
               />
               <AddVendorModal
@@ -921,6 +968,7 @@ const EditRFQ = () => {
 
                         return updatedObj;
                       })()}
+                      updatableData={updatableData}
                       rfq_id={rfqData.id}
                       setHasUnsavedChanges={setHasUnsavedChanges}
                       getDraftInitialData={fetchInitialData}
@@ -1083,6 +1131,9 @@ const EditRFQ = () => {
                         });
                       }}
                       handleRemoveProductInEdit={(data) => {
+                        if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
+                          toast.warning("You cannot delete all products from RFQ, at least one product is required");
+                        else
                         setUpdatableData((prev) => ({
                           ...prev,
                           products: {
@@ -1546,7 +1597,21 @@ const EditRFQ = () => {
         setUpdatableData={setUpdatableData}
         isOpen={showVendorModal}
         onClose={() => setShowVendorModal(false)}
-        onAdd={(item) =>
+        onAdd={(item) => {
+          const totalVendors = rfqData.products?.find(
+            (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
+          
+          const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+          const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+          
+          if (
+            totalVendors + addableVendors - deletableVendors <= 0
+          ) {
+            toast.error(
+              "At least one vendor is required for the product"
+            );
+            return;
+          }
           setUpdatableData((prev) => ({
             ...prev,
             vendors: {
@@ -1564,6 +1629,7 @@ const EditRFQ = () => {
               },
             },
           }))
+        }
         }
         onRemove={(item) =>
           setUpdatableData((prev) => ({
@@ -1612,7 +1678,21 @@ const EditRFQ = () => {
             },
           }))
         }
-        onRemove={(item) =>
+        onRemove={(item) => {
+          const totalVendors = rfqData.products?.find(
+            (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
+          
+          const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length;
+          const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length - 1;
+          
+          if (
+            totalVendors + addableVendors - deletableVendors <= 0
+          ) {
+            toast.error(
+              "At least one vendor is required for the product"
+            );
+            return;
+          }
           setUpdatableData((prev) => ({
             ...prev,
             vendors: {
@@ -1631,6 +1711,7 @@ const EditRFQ = () => {
               },
             },
           }))
+        }
         }
         addedVendorsList={(updatableData?.vendors?.[
           selectedProduct?.product?.id

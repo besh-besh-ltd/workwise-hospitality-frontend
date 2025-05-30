@@ -32,6 +32,7 @@ const Item = ({
   onFilesChange,
   onCommentChange,
   onClauseChange,
+  updatableData,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -599,10 +600,10 @@ const Item = ({
               >
                 <span style={{ marginBottom: "-8px" }}>
                   {" "}
-                  Selected Vendors - <strpng>
+                  Selected Vendors - <strong>
                     {" "}
                     {data.vendors?.length}{" "}
-                  </strpng>{" "}
+                  </strong>{" "}
                 </span>
                 {
                   type == 'create' ? (
