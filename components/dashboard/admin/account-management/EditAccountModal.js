@@ -4,6 +4,8 @@ import { Field, Form, Formik } from 'formik';
 import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
 import { editAccountSchema } from '@/utils/schema';
+import { toast } from 'react-toastify';
+import { addTeamMember, removeTeamMember } from '@/services/project';
 
 const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOptions, onSave }) => {
     const [loading, setLoading] = useState(false);
@@ -23,22 +25,56 @@ const EditAccountModal = ({ account, isOpen, closeModal, roleOptions, projectOpt
     };
 
     // Handle form submission
-    const handleSubmit = (values, { setSubmitting }) => {
+    const handleSubmit = async (values, { setSubmitting }) => {
         setLoading(true);
 
-        // Convert form values to the expected format
-        const formattedValues = {
-            ...values,
-            role: values.role.value,
-            projects: values.projects.map(p => p.value)
-        };
+        try {
+            // Convert form values to the expected format
+            const formattedValues = {
+                ...values,
+                role: values.role.value,
+                projects: values.projects.map(p => p.value)
+            };
 
-        // Simulate API call
-        setTimeout(() => {
+            // Get project IDs that need to be added (in new projects but not in original projects)
+            const originalProjectIds = account.projects || [];
+            const newProjectIds = formattedValues.projects;
+            
+            const projectsToAdd = newProjectIds.filter(id => !originalProjectIds.includes(id));
+            const projectsToRemove = originalProjectIds.filter(id => !newProjectIds.includes(id));
+            
+            // First handle project assignment updates
+            const projectPromises = [];
+            
+            // Add user to new projects
+            for (const projectId of projectsToAdd) {
+                projectPromises.push(
+                    addTeamMember(projectId, {
+                        user_id: account.id,
+                        role: formattedValues.role
+                    })
+                );
+            }
+            
+            // Remove user from projects they've been removed from
+            for (const projectId of projectsToRemove) {
+                projectPromises.push(removeTeamMember(projectId, account.id));
+            }
+            
+            // Wait for all project operations to complete
+            if (projectPromises.length > 0) {
+                await Promise.all(projectPromises.map(p => p));
+            }
+            
+            // Now call the parent onSave to update user details
             onSave(formattedValues);
+            toast.success("Account updated successfully!");
+        } catch (error) {
+            toast.error("Failed to update account. Please try again.");
+        } finally {
             setLoading(false);
             setSubmitting(false);
-        }, 500);
+        }
     };
 
     return (
