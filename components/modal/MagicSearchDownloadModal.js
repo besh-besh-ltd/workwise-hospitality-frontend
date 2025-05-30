@@ -1,15 +1,19 @@
 import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
-import { getSImplifiedVersionOfBOQ } from "@/services/rfq";
+import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
+import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI } from "@/services/rfq";
+import { useRouter } from "next/navigation";
 
-const MagicSearchDownloadModal = () => {
+const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
+  const router = useRouter()
   const [show, setShow] = useState(false);
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [fileUrl, setFileUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [creatingRFQ, setCreatingRFQ] = useState(false);
+  const [jsonData, setJsonData] = useState(null);
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -23,7 +27,8 @@ const MagicSearchDownloadModal = () => {
 
     try {
       const response = await getSImplifiedVersionOfBOQ(file);
-      setFileUrl(response?.data?.download_excel);
+      setFileUrl(response?.data?.download_excel_url);
+      setJsonData(response?.data?.download_url);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
@@ -41,12 +46,46 @@ const MagicSearchDownloadModal = () => {
     document.body.removeChild(a);
   };
 
+  const handleCreateRFQ = async () => {
+    if (!file) {
+      console.error("Original file not found for RFQ creation.");
+      return;
+    }
+    setCreatingRFQ(true);
+    try {
+      const response = await getBOQexcelToJsonAI(file); // Get jsonUrl
+      const jsonUrl = response?.data?.download_url;
+      if (jsonUrl) {
+        onUploadForRFQ(jsonUrl); // Call MagicSearchPage to proceed
+        setShow(false);
+      } else {
+        console.error("No JSON URL received from getBOQexcelToJsonAI.");
+      }
+    } catch (error) {
+      console.error("Error creating RFQ:", error);
+    } finally {
+      setCreatingRFQ(false);
+    }
+  };
+
   const handleClose = () => {
     setShow(false);
     setFile(null);
     setFileUrl(null);
     setFileName("");
   };
+
+  
+const handleViewBOQ = () => {
+  if (!jsonData) {
+    console.error("No JSON data available for viewing.");
+    return;
+  }
+  const viewUrl = `http://localhost:8001/dashboard/buyer/magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
+  window.open(viewUrl, '_blank'); // Open in a new tab
+};
+
+
 
   return (
     <>
@@ -75,15 +114,12 @@ const MagicSearchDownloadModal = () => {
                       </a>
                     </div>
                         
-      {/* <Button variant="primary"   className="ms-auto border-0" style={{ width: "280px" }}>
-        Simplified BOQ
-      </Button> */}
 
       <Modal show={show} onHide={handleClose} centered  >
         <Modal.Header closeButton className="p-3 border-b-2 " >
           <Modal.Title className="d-flex align-items-center">
             <FontAwesomeIcon icon={faFileExcel} className="me-2 text-success" />
-            <span>Create Simplify Your BOQ</span>
+            <span>Simplify Your BOQ</span>
           </Modal.Title>
         </Modal.Header>
 
@@ -132,21 +168,23 @@ const MagicSearchDownloadModal = () => {
                 BOQ processed! Click below to download the simplified version.
               </p>
               <div className="text-center">
-                <Button variant="success" onClick={handleDownload}>
+                <Button variant="primary" onClick={handleDownload} className="me-2">
                   <FontAwesomeIcon icon={faDownload} className="me-2" />
                   Download BOQ
+                </Button>
+                <Button variant="primary"  onClick={handleViewBOQ} disabled={creatingRFQ}>
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  View BOQ
+                </Button>
+                <Button variant="success" onClick={handleCreateRFQ} disabled={creatingRFQ} className="mt-3" >
+                  <FontAwesomeIcon icon={faRocket} className="me-2" />
+                  {creatingRFQ ? "Processing..." : "Create RFQ's"}
                 </Button>
               </div>
             </>
           )}
         </Modal.Body>
 
-        {/* <Modal.Footer>
-          <Button variant="outline-secondary" onClick={handleClose}>
-            <FontAwesomeIcon icon={faTimes} className="me-1" />
-            Close
-          </Button>
-        </Modal.Footer> */}
       </Modal>
     </>
   );

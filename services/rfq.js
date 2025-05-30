@@ -3,8 +3,7 @@ import axiosFormData from "@/lib/axiosFormData";
 import axios from "axios";
 
 // This is the base URL for the AI server
-  const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL;
-
+  const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL || "https://test.letsworkwise.com/";
 
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {

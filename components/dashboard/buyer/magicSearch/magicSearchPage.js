@@ -209,24 +209,12 @@ const MagicSearchPage = () => {
             setLoading(true);
             
             //  upload boq file to ai server
-            // const aiResponse = await getBOQexcelToJsonAI(file);
+            const aiResponse = await getBOQexcelToJsonAI(file);
 
-            // const downloadUrl = aiResponse?.data?.download_url;
-            // const availableSheets = aiResponse?.data?.sheetwise_downloads;
+            const downloadUrl = aiResponse?.data?.download_url;
+            const availableSheets = aiResponse?.data?.sheetwise_downloads;
 
-            const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&stage=matched"
-            const availableSheets = [
-              {
-                sheet_name: "sedond",
-                download_url:
-                  "http://test.letsworkwise.com/download/sheet_json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&sheet=sedond",
-              },
-              {
-                sheet_name: "Sheet1",
-                download_url:
-                  "http://test.letsworkwise.com/download/sheet_json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&sheet=Sheet1",
-              },
-            ];
+            // const downloadUrl = "http://test.letsworkwise.com/download/json?file_hash=5c0955b4e84ec9ad541c78ffc1af66be23e17c2700eef94deade21b99ccf926b&stage=matched"
 
               if (!downloadUrl) {
                 toast.error("Failed to create RFQ: Please try after few minutes.");
@@ -605,6 +593,27 @@ const MagicSearchPage = () => {
             });
     };
 
+
+    // once user created unstructure to structure excel fuile, and click on next button, we will call this function to create RFQ, by uploading the same file user uploaded to unstructure to structure
+  const handleUploadForRFQ = async (jsonUrl) => {
+  if (!jsonUrl) {
+    toast.error("Invalid BOQ URL");
+    return;
+  }
+  try {
+    setLoading(true);
+    const response = await getMagicRFQPreview(jsonUrl);
+    setApiData(response);
+  } catch (error) {
+    console.error("RFQ Preview fetch failed:", error);
+    toast.error("Failed to generate RFQ preview.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
     useEffect(() => {
         getAllProjects();
         // getTermsData();
@@ -795,7 +804,7 @@ const MagicSearchPage = () => {
                 <>
                   <div className="col-md-8 mx-auto mt-2">
         
-        <MagicSearchDownloadModal />
+        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ}  />
 
                   </div>
                   <div className="col-md-8 mx-auto">
