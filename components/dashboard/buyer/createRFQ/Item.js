@@ -32,6 +32,7 @@ const Item = ({
   onFilesChange,
   onCommentChange,
   onClauseChange,
+  selectedSheet,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -88,23 +89,21 @@ const Item = ({
       if (fileType === "spec_file") setUploadedSpecFile(updatedFiles);
       if (fileType === "datasheet_file") setUploadedDatasheetFile(updatedFiles);
 
-      if (type == 'edit')
-        if(onFilesChange)
-          onFilesChange({
-            type: fileType,
-            value: updatedFiles,
-            product_id: rfqProduct.product_id,
-            variant: rfqProduct.variant,
-          })
-      else
-        dispatch(
-          addFiles({
-            type: fileType,
-            value: filePath,
-            product_id: rfqProduct.product_id,
-            variant: rfqProduct.variant,
-          })
-        );
+      if(onFilesChange)
+        onFilesChange({
+          type: fileType,
+          value: updatedFiles,
+          product_id: rfqProduct.product_id,
+          variant: rfqProduct.variant,
+        })
+      dispatch(
+        addFiles({
+          type: fileType,
+          value: filePath,
+          product_id: rfqProduct.product_id,
+          variant: rfqProduct.variant,
+        })
+      );
       setHasUnsavedChanges(true);
     } catch (error) {
       toast.error(error.message);
@@ -191,8 +190,10 @@ const Item = ({
       await saveDraft();
       setLoading(true);
 
+
       const payload = {
-        rfqId: rfq_id,
+        rfq_id,
+        sheet_id: selectedSheet.value,
         variant_id: data.product_id,
         vendors: data.vendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
@@ -224,7 +225,7 @@ const Item = ({
     } catch (error) {
       setBuyerClauses([]);
     }
-  }, [data]);
+  }, [data.id]);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);

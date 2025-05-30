@@ -431,6 +431,9 @@ const CreateRFQ = () => {
       delete payload.country_code;
     }
 
+    if(selectedSheet && selectedSheet.value) {
+      payload.sheet_id = selectedSheet.value;
+    }
 
     createRfq(payload)
       .then((res) => {
@@ -490,7 +493,7 @@ const CreateRFQ = () => {
       products: rfqProductsRef.current,
       is_published: 0,
       contact_number: fullMobile,
-      sheet_id: selectedSheet.value,
+      sheet_id: selectedSheet?.value,
     };
     try {
       const res = await saveDraft(payload);
@@ -652,7 +655,11 @@ const CreateRFQ = () => {
                 label: sheetData[0].sheet_name,
                 value: sheetData[0].id
               };
-              setSelectedSheet(defaultSheet);
+              if(queryMeta.sheet_id) {
+                const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
+                setSelectedSheet(sheet);
+              } else if(!selectedSheet)
+                setSelectedSheet(defaultSheet);
             }
           } else {
             console.warn("No sheets found for Magic RFQ ID:", draftRfqId);
@@ -697,8 +704,6 @@ const CreateRFQ = () => {
 
   // Changes by Agnij 2025-08-05 [Added handler for sheet selection]
   const handleSheetChange = async (selectedOption) => {
-    console.log("SELECTED OPTION ->", selectedOption)
-    console.log("DRAFT RFQ ID -> ", draftRfqId)
     if (!selectedOption || !draftRfqId) return;
     
     dispatch(clearState());
@@ -1038,6 +1043,7 @@ const CreateRFQ = () => {
                               setHasUnsavedChanges={setHasUnsavedChanges}
                               getDraftInitialData={getDraftInitialData}
                               saveDraft={handleSaveDraft}
+                              selectedSheet={selectedSheet}
                             />
                           );
                         })}
