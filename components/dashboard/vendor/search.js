@@ -424,11 +424,12 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setIsOpen(false);
 
         // Get the rfq_id from the URL if it exists
-        const { rfq_id } = router.query;
+        const { rfq_id, sheet_id } = router.query;
 
         // Update the URL to include the selected product's name and preserve rfq_id if it exists
         const categorySlug = cleanAndAddHyphen(category_name);
-        const newUrl = rfq_id
+        const newUrl = rfq_id && sheet_id
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id && !sheet_id 
           ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
           : `/vendor/${categorySlug}`;
 

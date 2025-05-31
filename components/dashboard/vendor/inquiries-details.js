@@ -845,7 +845,6 @@ const RfqManagementPreview = () => {
                                     {(item.datasheet_file || item.TDS_flies) ? (
                                       <>
                                         {renderFileLink(item.datasheet_file)}
-                                        {/* {renderFileLink(item.TDS_flies)} */}
                                       </>
                                     ) : <span>N/A</span>}
                                   </td>
@@ -853,7 +852,6 @@ const RfqManagementPreview = () => {
                                     {(item.qap_file || item.QAP_files) ? (
                                       <>
                                         {renderFileLink(item.qap_file)}
-                                        {/* {renderFileLink(item.QAP_files)} */}
                                       </>
                                     ) : <span>N/A</span>}
                                   </td>

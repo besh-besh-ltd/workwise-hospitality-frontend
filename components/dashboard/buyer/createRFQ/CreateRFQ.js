@@ -86,7 +86,7 @@ const CreateRFQ = () => {
           }
         })
         .catch((error) => {
-          console.log("Error fetching countries:", error);
+          toast.error(error.message);
           setCountryCode([]);
         });
     };
@@ -101,7 +101,7 @@ const CreateRFQ = () => {
         setProjects(d);
       })
       .catch((error) => {
-        console.log(error)
+        toast.error(error.message);
       })
   }
 
@@ -145,15 +145,14 @@ const CreateRFQ = () => {
             };
           });
           
-          console.log("Terms fetched and normalized:", normalizedTerms.length);
           dispatch(setAllTerms(normalizedTerms));
         } else {
-          console.log("No terms found or invalid format");
+          toast.error("Something went wrong fetching terms, please refresh the page.");
           dispatch(setAllTerms([]));
         }
       })
       .catch((err) => {
-        console.error("Error fetching terms:", err);
+        toast.error(err.message);
       });
   };
 
@@ -168,8 +167,6 @@ const CreateRFQ = () => {
       const termName = item.term_content || item.name || item.term_text || 
                      (item.content && item.content[0] ? item.content[0].title : null) ||
                      `Term ${termId}`;
-      
-      console.log(`Term change: ${termName} (ID: ${termId}) -> ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
       
       // Clone the current terms array to avoid direct state mutation
       let updatedTerms = [...(selectedTerms || [])];
@@ -186,22 +183,6 @@ const CreateRFQ = () => {
             id: Number(termId), // Convert to number as required by backend
             name: termName
           });
-          
-          console.log(`Added term: ${termName} (ID: ${termId})`);
-        } else {
-          console.log(`Term already selected: ${termName} (ID: ${termId})`);
-        }
-      } else {
-        // Filter out the term with matching ID - check both id and term_id
-        const previousLength = updatedTerms.length;
-        updatedTerms = updatedTerms.filter(term => 
-          String(term.id) !== termId && String(term.term_id || '') !== termId
-        );
-        
-        if (previousLength !== updatedTerms.length) {
-          console.log(`Removed term: ${termName} (ID: ${termId})`);
-        } else {
-          console.log(`Term not found for removal: ${termName} (ID: ${termId})`);
         }
       }
       
@@ -732,6 +713,98 @@ const CreateRFQ = () => {
     dispatch(setStoreLoading(false));
   };
 
+  const handleSpecChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          specs: {
+            ...(prev.products.updatable?.specs ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.specs?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.title]: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleFilesChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          files: {
+            ...(prev.products.updatable?.files ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.files?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleCommentChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          comment: {
+            ...(prev.products.updatable?.comment ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.comment?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              comment: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleClauseChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          techEval: {
+            ...(prev.products.updatable?.techEval ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              techEval: [
+                ...(prev.products.updatable?.techEval?.[product.id]?.techEval ??
+                  []),
+                change.action,
+              ],
+            },
+          },
+        },
+      },
+    }));
+  };
+
   useEffect(() => {
     const { draft_id, sheet_id } = router.query;
     setQueryMeta({
@@ -1058,109 +1131,10 @@ const CreateRFQ = () => {
                               getDraftInitialData={getDraftInitialData}
                               saveDraft={handleSaveDraft}
                               selectedSheet={selectedSheet}
-                              onSpecValueChange={(change) => {
-                                setUpdatableData((prev) => ({
-                                  ...prev,
-                                  products: {
-                                    ...prev.products,
-                                    updatable: {
-                                      ...prev.products.updatable,
-                                      specs: {
-                                        ...(prev.products.updatable?.specs ??
-                                          {}),
-                                        [product.id]: {
-                                          ...(prev.products.updatable?.specs?.[
-                                            product.id
-                                          ] ?? {
-                                            product_id: product.product_id,
-                                            variant: product.variant,
-                                          }),
-                                          [change.title]: change.value,
-                                        },
-                                      },
-                                    },
-                                  },
-                                }));
-                              }}
-                              onFilesChange={(change) => {
-                                console.log("CHANGE -> ", change)
-                                setUpdatableData((prev) => ({
-                                  ...prev,
-                                  products: {
-                                    ...prev.products,
-                                    updatable: {
-                                      ...prev.products.updatable,
-                                      files: {
-                                        ...(prev.products.updatable?.files ??
-                                          {}),
-                                        [product.id]: {
-                                          ...(prev.products.updatable?.files?.[
-                                            product.id
-                                          ] ?? {
-                                            product_id: product.product_id,
-                                            variant: product.variant,
-                                          }),
-                                          [change.type]:
-                                            change?.value.length > 0
-                                              ? change.value[0]
-                                              : "rm",
-                                        },
-                                      },
-                                    },
-                                  },
-                                }));
-                              }}
-                              onCommentChange={(change) => {
-                                setUpdatableData((prev) => ({
-                                  ...prev,
-                                  products: {
-                                    ...prev.products,
-                                    updatable: {
-                                      ...prev.products.updatable,
-                                      comment: {
-                                        ...(prev.products.updatable?.comment ??
-                                          {}),
-                                        [product.id]: {
-                                          ...(prev.products.updatable
-                                            ?.comment?.[product.id] ?? {
-                                            product_id: product.product_id,
-                                            variant: product.variant,
-                                          }),
-                                          comment: change.value,
-                                        },
-                                      },
-                                    },
-                                  },
-                                }));
-                              }}
-                              onClauseChange={(change) => {
-                                setUpdatableData((prev) => ({
-                                  ...prev,
-                                  products: {
-                                    ...prev.products,
-                                    updatable: {
-                                      ...prev.products.updatable,
-                                      techEval: {
-                                        ...(prev.products.updatable?.techEval ??
-                                          {}),
-                                        [product.id]: {
-                                          ...(prev.products.updatable
-                                            ?.techEval?.[product.id] ?? {
-                                            product_id: product.product_id,
-                                            variant: product.variant,
-                                          }),
-                                          techEval: [
-                                            ...(prev.products.updatable
-                                              ?.techEval?.[product.id]
-                                              ?.techEval ?? []),
-                                            change.action,
-                                          ],
-                                        },
-                                      },
-                                    },
-                                  },
-                                }));
-                              }}
+                              onSpecValueChange={(change) => handleSpecChange(product, change)}
+                              onFilesChange={(change) => handleFilesChange(product, change)}
+                              onCommentChange={(change) => handleCommentChange(product, change)}
+                              onClauseChange={(change) => handleClauseChange(product, change)}
                             />
                           );
                         })}
