@@ -136,3 +136,77 @@ export const contactFormSchema = yup.object().shape({
   subject: yup.string().required("Subject is required"),
   comment: yup.string().required("Comment is required"),
 });
+
+
+export const editRfqSchema = yup.object().shape({
+  updatableData: yup.object().shape({
+    products: yup.object().shape({
+      addable: yup.array().of(yup.number()).required('Addable is required'),
+      deletable: yup.array().of(yup.number()).required('Deletable is required'),
+      updatable: yup
+        .object()
+        .required('Updatable is required')
+        .test(
+          'updatable-specs-validation',
+          'Invalid specification data',
+          function (value) {
+            if (!value || typeof value !== 'object') {
+              return this.createError({
+                message: `Updatable must be a valid object`,
+              });
+            }
+
+            const specs = value.specs;
+
+            if (!specs || typeof specs !== 'object') {
+              return false; // Allow if specs is missing — change this to `false` if you want to force specs
+            }
+
+            if (Object.keys(specs).length === 0) {
+              return false; // Allow empty specs — change to `false` to disallow
+            }
+
+            for (const [specKey, spec] of Object.entries(specs)) {
+              if (!spec || typeof spec !== 'object') {
+                return this.createError({
+                  message: `Specification "${specKey}" must be a valid object`,
+                });
+              }
+
+              const { Size, Spec: SpecValue, Quantity, Unit } = spec;
+
+              if (Size !== undefined && (typeof Size !== 'string' || Size.trim() === '')) {
+                return this.createError({
+                  message: `Size must be a non-empty string for specification"`,
+                });
+              }
+
+              if (SpecValue !== undefined && (typeof SpecValue !== 'string' || SpecValue.trim() === '')) {
+                return this.createError({
+                  message: `Specification description must be a non-empty string"`,
+                });
+              }
+
+              if (Quantity !== undefined) {
+                const num = typeof Quantity === 'string' ? parseFloat(Quantity) : Quantity;
+                if (isNaN(num) || num <= 0) {
+                  return this.createError({
+                    message: `Quantity must be a non-negative number greater than 0"`,
+                  });
+                }
+              }
+
+              if (Unit !== undefined && (typeof Unit !== 'string' || Unit.trim() === '')) {
+                return this.createError({
+                  message: `Unit must be a non-empty string"`,
+                });
+              }
+            }
+
+            return true;
+          }
+        )
+    }).required(),
+    vendors: yup.object().optional(),
+  }).required()
+});

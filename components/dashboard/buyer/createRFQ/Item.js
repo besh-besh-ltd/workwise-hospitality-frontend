@@ -33,6 +33,7 @@ const Item = ({
   onCommentChange,
   onClauseChange,
   selectedSheet,
+  updatableData,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -96,6 +97,7 @@ const Item = ({
           product_id: rfqProduct.product_id,
           variant: rfqProduct.variant,
         })
+      else
       dispatch(
         addFiles({
           type: fileType,
@@ -130,6 +132,7 @@ const Item = ({
         product_id: rfqProduct.product_id,
         variant: rfqProduct.variant,
       });
+    else
     dispatch(
       removeFiles({
         type: fileType,
@@ -608,10 +611,10 @@ const Item = ({
               >
                 <span style={{ marginBottom: "-8px" }}>
                   {" "}
-                  Selected Vendors - <strpng>
+                  Selected Vendors - <strong>
                     {" "}
                     {data.vendors.length}{" "}
-                  </strpng>{" "}
+                  </strong>{" "}
                 </span>
                 {
                   type == 'create' ? (
