@@ -34,6 +34,7 @@ import { faAdd, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Accordion } from "react-bootstrap";
 import Item from "../createRFQ/Item";
+import { editRfqSchema } from "@/utils/schema";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -131,6 +132,8 @@ const EditRFQ = () => {
   const [showAddVendorForProductModal, setShowAddVendorForProductModal] =
     useState(false);
   const [selectedProduct, setSelectedProduct] = useState([]);
+  const [totalProductsInrfq , setTotalProductsInrfq] = useState(0);
+
   const [updatableData, setUpdatableData] = useState({
     products: {
       addable: [],
@@ -576,13 +579,16 @@ const EditRFQ = () => {
   };
 
   const handleRemoveProduct = (data) => {
-    setUpdatableData((prev) => ({
-      ...prev,
-      products: {
-        ...prev.products,
-        deletable: [...(prev.products?.deletable ?? []), data.id],
-      },
-    }));
+    if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
+      toast.warning("You cannot delete all products from RFQ, at least one product is required");
+    else
+      setUpdatableData((prev) => ({
+        ...prev,
+        products: {
+          ...prev.products,
+          deletable: [...(prev.products?.deletable ?? []), data.id],
+        },
+      }));
   };
 
   const handleUpdateRFQ = async (formValues) => {
@@ -590,6 +596,11 @@ const EditRFQ = () => {
       if (!rfqData || !rfqData.id) {
         toast.error("Original RFQ data not available");
         return;
+      }
+
+      if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
+       toast.error("You cannot delete all products from RFQ, at least one product is required");
+       return;
       }
 
       const dataToSend = {
@@ -651,8 +662,26 @@ const EditRFQ = () => {
       if (rfqData.ra_start_date != formValues.ra_start_date)
         dataToSend.ra_start_date = formValues.ra_start_date;
 
-      if (rfqData.ra_end_date != formValues.ra_end_date)
-        dataToSend.ra_end_date = formValues.ra_end_date;
+   try {
+     
+
+     // Use strict() to prevent empty objects from passing
+     await editRfqSchema
+       .strict()
+       .validate({ updatableData }, { abortEarly: false });
+     
+   } catch (validationError) {
+     // FIXED: Use the caught validationError obje
+
+     const errorMessages = validationError.inner
+       .map((err) => err.message)
+       .join("\n");
+     toast.error(
+       "Validation Error: " +
+         (validationError.errors?.join(", ") || validationError.message)
+     );
+     return;
+   }
 
       setLoading(true);
 
@@ -714,6 +743,15 @@ const EditRFQ = () => {
 
             // Navigate after success (without refetch to avoid race conditions)
             fetchInitialData();
+            setUpdatableData({
+              products: {
+                addable: [],
+                deletable: [],
+                updatable: {},
+              },
+              vendors: {},
+            });
+
           } else {
             console.error("Update failed:", response);
             toast.error(
@@ -781,37 +819,56 @@ const EditRFQ = () => {
       ...productAddData,
     };
 
-    await addProductToExistingRfq(payload);
-    await fetchInitialData();
-    toast.success(
-      `Product added ${
-        productAddData.vendors.length > 0 ? "with" : "without"
-      } vendors`
-    );
+    const data = await addProductToExistingRfq(payload)
+    await fetchInitialData()
+    toast.success(`Product added ${productAddData.vendors.length > 0 ? 'with' : 'without'} vendors`)
     setProductAddData({
       variant_id: -1,
       vendors: [],
-    });
-    setShowAddVendorForProductModal(false);
-  };
+    })
+    setUpdatableData(prev => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        addable: [...prev.products.addable, data.rfqProductId]
+      }
+    }))
+    setShowAddVendorForProductModal(false)
+  }
 
-  const handleRemoveExistingVendor = (item) =>
-      setUpdatableData((prev) => ({
-        ...prev,
-        vendors: {
-          ...prev.vendors,
-          [selectedProduct.product.id]: {
-            ...(prev.vendors?.[selectedProduct.product.id] ?? {
-              product_id: selectedProduct.product.product_id,
-              variant: selectedProduct.product.variant,
-            }),
-            deletable: [
-              ...(prev.vendors?.[selectedProduct.product.id]?.deletable ?? []),
-              item.user_id,
-            ],
-          },
+  const handleRemoveExistingVendor = (item) => {
+    const totalVendors = rfqData.products?.find(
+      (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
+
+    const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+    const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+
+    if (
+      totalVendors + addableVendors - deletableVendors <= 0
+    ) {
+      toast.error(
+        "At least one vendor is required for the product"
+      );
+      return;
+    }
+    
+    setUpdatableData((prev) => ({
+      ...prev,
+      vendors: {
+        ...prev.vendors,
+        [selectedProduct.product.id]: {
+          ...(prev.vendors?.[selectedProduct.product.id] ?? {
+            product_id: selectedProduct.product.product_id,
+            variant: selectedProduct.product.variant,
+          }),
+          deletable: [
+            ...(prev.vendors?.[selectedProduct.product.id]?.deletable ?? []),
+            item.user_id,
+          ],
         },
-      }));
+      },
+    }));
+  }
     
     const handleRestoreExistingVendor = (item) =>
       setUpdatableData((prev) => ({
@@ -848,7 +905,22 @@ const EditRFQ = () => {
         },
       }));
 
-    const handleRemoveAddedVendor = (item) =>
+    const handleRemoveAddedVendor = (item) => {
+      const totalVendors = rfqData.products?.find(
+        (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
+
+      const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+      const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+
+      if (
+        totalVendors + addableVendors - deletableVendors <= 0
+      ) {
+        toast.error(
+          "At least one vendor is required for the product"
+        );
+        return;
+      }
+      
       setUpdatableData((prev) => ({
         ...prev,
         vendors: {
@@ -864,7 +936,7 @@ const EditRFQ = () => {
           },
         },
       }));
-
+    }
   // Render product table
   const renderDeletedProductsTable = () => {
     if (
@@ -995,8 +1067,65 @@ const EditRFQ = () => {
                 updatableData={updatableData}
                 isOpen={showVendorModal}
                 onClose={() => setShowVendorModal(false)}
-                onAdd={handleRemoveExistingVendor}
-                onRemove={handleRestoreExistingVendor}
+                onAdd={(item) => {
+                 
+                  if (
+                    (
+                      updatableData.vendors?.[selectedProduct.product.id]
+                        ?.deletable ?? []
+                    ).length +
+                      1 +
+                      (
+                        updatableData.vendors?.[selectedProduct.product.id]
+                          ?.addable ?? []
+                      ).length <
+                    1
+                  ) {
+                    toast.error(
+                      "At least one vendor is required for the product"
+                    );
+                    return;
+                  }
+                  setUpdatableData((prev) => ({
+                    ...prev,
+                    vendors: {
+                      ...prev.vendors,
+                      [selectedProduct.product.id]: {
+                        ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                          product_id: selectedProduct.product.product_id,
+                          variant: selectedProduct.product.variant,
+                        }),
+                        deletable: [
+                          ...(prev.vendors?.[selectedProduct.product.id]
+                            ?.deletable ?? []),
+                          item.user_id,
+                        ],
+                      },
+                    },
+                  }))
+                }
+                }
+                onRemove={(item) => {
+                  setUpdatableData((prev) => ({
+                    ...prev,
+                    vendors: {
+                      ...prev.vendors,
+                      [selectedProduct.product.id]: {
+                        ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                          product_id: selectedProduct.product.product_id,
+                          variant: selectedProduct.product.variant,
+                        }),
+                        deletable: (
+                          prev.vendors?.[selectedProduct.product.id]?.deletable ??
+                          []
+                        ).filter(
+                          (deletableVendorId) => deletableVendorId != item.user_id
+                        ),
+                      },
+                    },
+                  }))
+                }
+                }
               />
               <AddVendorModal
                 headerTitle={`Add Vendor in ${selectedProduct?.product?.name}`}

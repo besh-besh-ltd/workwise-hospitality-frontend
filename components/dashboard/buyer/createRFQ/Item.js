@@ -33,6 +33,7 @@ const Item = ({
   onCommentChange,
   onClauseChange,
   selectedSheet,
+  updatableData,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -608,10 +609,10 @@ const Item = ({
               >
                 <span style={{ marginBottom: "-8px" }}>
                   {" "}
-                  Selected Vendors - <strpng>
+                  Selected Vendors - <strong>
                     {" "}
-                    {data.vendors.length}{" "}
-                  </strpng>{" "}
+                    {data.vendors?.length}{" "}
+                  </strong>{" "}
                 </span>
                 {
                   type == 'create' ? (
