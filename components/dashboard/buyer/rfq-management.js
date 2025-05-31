@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from 'next/router';
 import CreateRFQ from "./createRFQ/CreateRFQ";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
+import DraftRFQ from "./draftRFQ/DraftRFQ";
 
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("manageRFQs");
@@ -26,7 +27,9 @@ const RfqManagement = () => {
   useEffect(() => {
     if(tab && tab == 'create-rfq'){
       setActiveTab('createRFQs')
-    }else{
+    } else if(tab && tab == 'draft-rfq'){
+      setActiveTab('draftRFQs')
+    } else{
       setActiveTab('manageRFQs')
     }
   }, [router])
@@ -68,6 +71,14 @@ const RfqManagement = () => {
                 >
                   Create RFQs
                 </button>
+                <button
+                  className={`tab ${
+                    activeTab === "draftRFQs" ? "active" : ""
+                  }`}
+                  onClick={() => handleTabChange("draftRFQs")}
+                >
+                  Draft RFQs
+                </button>
               </div>
 
               {activeTab === "manageRFQs" && (
@@ -75,6 +86,9 @@ const RfqManagement = () => {
               )}
               {activeTab === "createRFQs" && (
                 <CreateRFQ/>
+              )}
+              {activeTab === "draftRFQs" && (
+                <DraftRFQ/>
               )}
             </div>
           </div>

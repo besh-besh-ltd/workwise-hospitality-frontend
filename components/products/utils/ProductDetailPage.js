@@ -127,7 +127,17 @@ const productComponent = () => {
             <button
               class="upload btn btn-primary pt-2 btn-sm "
               style={{ height: "40px", width: "100%", marginBottom: "20px",  }}
-              onClick={() => router.push(`/vendor/${productSlug[productSlug?.length-1]}`)}
+              onClick={() => {
+                // Get the rfq_id from the URL if it exists
+                const { rfq_id } = router.query;
+
+                // Preserve rfq_id when navigating to vendor page
+                const vendorUrl = rfq_id
+                  ? `/vendor/${productSlug[productSlug?.length-1]}?rfq_id=${rfq_id}`
+                  : `/vendor/${productSlug[productSlug?.length-1]}`;
+
+                router.push(vendorUrl);
+              }}
               >
               Find Vendors for this product..
             </button>
