@@ -148,7 +148,7 @@ const Header = () => {
         <div className="container-fluid">
           <div className="header-container">
             <div className="logo">
-              <Link href={loggedinUser ? currentUserType === "vendor" ? "/dashboard/vendor" : currentUserType === "admin" ? "/dashboard/admin" : "/dashboard/buyer" : "/"}>
+              <Link href={loggedinUser ? currentUserType === "vendor" ? "/dashboard/vendor" : currentUserType === "admin" ? "/dashboard/admin" : currentUserType === "top-management" ? "/dashboard/top-management" : currentUserType === "engineering" ? "/dashboard/engineering" : currentUserType === "finance" ? "/dashboard/finance" : "/dashboard/buyer" : "/"}>
                 <Image
                   src="/assets/images/logo1.png"
                   alt="Workwise"
@@ -903,6 +903,474 @@ const Header = () => {
                     </div>
                   )}
                 </div>
+
+                {currentUserType == "top-management" && (
+                  <>
+                    <div className="header-right header-center align-items-center forLoggedIn">
+                      <nav className="main-menu">
+                        <ul className="d-flex justify-content-center w-100">
+                          <li
+                            className={
+                              router.pathname == "/dashboard/top-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/top-management">Dashboard</Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/vendor/all" ? "active" : ""
+                            }
+                          >
+                            <Link href="/vendor/all">Search Vendor</Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/buyer/rfq-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/rfq-management">
+                              RFQ management
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/technical-evaluation"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/technical-evaluation">
+                              Technical Evaluation
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname ==
+                                "/dashboard/buyer/quote-compare"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/quote-compare">
+                              Quote Comparison
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/vendor-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/vendor-management">
+                              Vendor Management
+                            </Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname == "/dashboard/buyer/project-management"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/project-management">
+                              Project Management
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+                      <div className="extra-buttons dashboard-area-buttons hideDesktop">
+                        <ul>
+                          <li
+                            className="login"
+                            onClick={() => {
+                              router.push(
+                                `/dashboard/${currentUserType}/editprofile`
+                              );
+                            }}
+                          >
+                            <Link href="">
+                              {" "}
+                              <FontAwesomeIcon icon={faUser} />{" "}
+                              <span>My Profile</span>
+                            </Link>
+                          </li>
+                          <li className="signup" onClick={handleLogout}>
+                            <Link href="">
+                              <FontAwesomeIcon icon={faSignOut} />{" "}
+                              <span>Logout</span>
+                            </Link>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="header-right align-items-center forLoggedIn hidemobile">
+                      <nav className="main-menu">
+                        <ul>
+                          <li className="">
+                            <Link href="" onClick={handleUserIconClick}>
+                              <FontAwesomeIcon icon={faUser} />
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+                      {popoverVisible && (
+                        <div className="popover-account" ref={popoverRef}>
+                          <ul className="vertical-links">
+                            <li
+                              className={
+                                router.pathname == `/dashboard/${currentUserType}`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/dashboard/${currentUserType}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                My Account
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/editprofile`
+                                ? "active"
+                                : ""
+                              }
+                            >
+                              <Link
+                                href={`/dashboard/${currentUserType}/editprofile`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Edit Profile
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/dashboard/buyer/vendor-management"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href="/dashboard/buyer/vendor-management"
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Vendor Management
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/dashboard/buyer/project-management"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href="/dashboard/buyer/project-management"
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Project Management
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/change-password"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/change-password?redirect_url=${window.location.pathname}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Change Password
+                              </Link>
+                            </li>
+                            <li className="">
+                              <Link href="/" onClick={handleLogout}>
+                                Logout
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {currentUserType == "engineering" && (
+                  <>
+                    <div className="header-right header-center align-items-center forLoggedIn">
+                      <nav className="main-menu">
+                        <ul className="d-flex justify-content-center w-100">
+                          <li
+                            className={
+                              router.pathname == "/dashboard/engineering"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/engineering">Dashboard</Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname.startsWith("/dashboard/buyer/technical-evaluation")
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/technical-evaluation">Technical Evaluation</Link>
+                          </li>
+                        </ul>
+                      </nav>
+                      <div className="extra-buttons dashboard-area-buttons hideDesktop">
+                        <ul>
+                          <li
+                            className="login"
+                            onClick={() => {
+                              router.push(
+                                `/dashboard/${currentUserType}/editprofile`
+                              );
+                            }}
+                          >
+                            <Link href="">
+                              {" "}
+                              <FontAwesomeIcon icon={faUser} />{" "}
+                              <span>My Profile</span>
+                            </Link>
+                          </li>
+                          <li className="signup" onClick={handleLogout}>
+                            <Link href="">
+                              <FontAwesomeIcon icon={faSignOut} />{" "}
+                              <span>Logout</span>
+                            </Link>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="header-right align-items-center forLoggedIn hidemobile">
+                      <nav className="main-menu">
+                        <ul>
+                          <li className="">
+                            <Link href="" onClick={handleUserIconClick}>
+                              <FontAwesomeIcon icon={faUser} />
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+                      {popoverVisible && (
+                        <div className="popover-account" ref={popoverRef}>
+                          <ul className="vertical-links">
+                            <li
+                              className={
+                                router.pathname == `/dashboard/${currentUserType}`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/dashboard/${currentUserType}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                My Account
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/editprofile`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/dashboard/${currentUserType}/editprofile`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Edit Profile
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/dashboard/buyer/technical-evaluation"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href="/dashboard/buyer/technical-evaluation"
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Technical Evaluation
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/change-password"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/change-password?redirect_url=${window.location.pathname}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Change Password
+                              </Link>
+                            </li>
+                            <li className="">
+                              <Link href="/" onClick={handleLogout}>
+                                Logout
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {currentUserType == "finance" && (
+                  <>
+                    <div className="header-right header-center align-items-center forLoggedIn">
+                      <nav className="main-menu">
+                        <ul className="d-flex justify-content-center w-100">
+                          <li
+                            className={
+                              router.pathname == "/dashboard/finance"
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/finance">Dashboard</Link>
+                          </li>
+                          <li
+                            className={
+                              router.pathname.startsWith("/dashboard/buyer/quote-compare")
+                                ? "active"
+                                : ""
+                            }
+                          >
+                            <Link href="/dashboard/buyer/quote-compare">Quote Comparison</Link>
+                          </li>
+                        </ul>
+                      </nav>
+                      <div className="extra-buttons dashboard-area-buttons hideDesktop">
+                        <ul>
+                          <li
+                            className="login"
+                            onClick={() => {
+                              router.push(
+                                `/dashboard/${currentUserType}/editprofile`
+                              );
+                            }}
+                          >
+                            <Link href="">
+                              {" "}
+                              <FontAwesomeIcon icon={faUser} />{" "}
+                              <span>My Profile</span>
+                            </Link>
+                          </li>
+                          <li className="signup" onClick={handleLogout}>
+                            <Link href="">
+                              <FontAwesomeIcon icon={faSignOut} />{" "}
+                              <span>Logout</span>
+                            </Link>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="header-right align-items-center forLoggedIn hidemobile">
+                      <nav className="main-menu">
+                        <ul>
+                          <li className="">
+                            <Link href="" onClick={handleUserIconClick}>
+                              <FontAwesomeIcon icon={faUser} />
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+                      {popoverVisible && (
+                        <div className="popover-account" ref={popoverRef}>
+                          <ul className="vertical-links">
+                            <li
+                              className={
+                                router.pathname == `/dashboard/${currentUserType}`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/dashboard/${currentUserType}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                My Account
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname ==
+                                  `/dashboard/${currentUserType}/editprofile`
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/dashboard/${currentUserType}/editprofile`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Edit Profile
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/dashboard/buyer/quote-compare"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href="/dashboard/buyer/quote-compare"
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Quote Comparison
+                              </Link>
+                            </li>
+                            <li
+                              className={
+                                router.pathname == "/change-password"
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              <Link
+                                href={`/change-password?redirect_url=${window.location.pathname}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Change Password
+                              </Link>
+                            </li>
+                            <li className="">
+                              <Link href="/" onClick={handleLogout}>
+                                Logout
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             ) : null}
           </div>

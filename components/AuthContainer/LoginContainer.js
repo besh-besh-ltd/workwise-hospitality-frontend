@@ -62,6 +62,12 @@ const LoginContainer = (props) => {
                     userType = "other";
                 } else if (response.user_detail[0].user_type == 7) {
                     userType = "admin";
+                } else if (response.user_detail[0].user_type == 8) {
+                    userType = "top-management";
+                } else if (response.user_detail[0].user_type == 9) {
+                    userType = "engineering";
+                } else if (response.user_detail[0].user_type == 10) {
+                    userType = "finance";
                 }
                 storageInstance.setStorage("current-user-type", userType);
 
@@ -149,6 +155,12 @@ const LoginContainer = (props) => {
                         userType = "vendor";
                     } else if (response?.profile?.user_type == 7) {
                         userType = "admin";
+                    } else if (response?.profile?.user_type == 8) {
+                        userType = "top-management";
+                    } else if (response?.profile?.user_type == 9) {
+                        userType = "engineering";
+                    } else if (response?.profile?.user_type == 10) {
+                        userType = "finance";
                     }
                     storageInstance.setStorage("current-user-type", userType);
                     if (userType == "buyer") {
