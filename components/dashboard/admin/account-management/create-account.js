@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
@@ -9,81 +8,90 @@ import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
 import { createBuyerCompanyUser } from "@/services/Auth";
+import { getCountryCodes } from "@/services/cms";
+import { createAccountSchema } from "@/utils/schema";
+
+const CreateAccountPage = () => {
+    const router = useRouter();
+    
+    // Grouped states object to reduce number of individual states
+    const [appState, setAppState] = useState({
+        loading: false,
+        countryCodes: [],
+        selectedCountryCode: "+91"
+    });
+
+    // Role options with color coding
+    const roleOptions = [
+        { value: 7, label: "Admin", color: "#007bff" },
+        { value: 8, label: "Top Management", color: "#2E5BA8" },
+        { value: 2, label: "Procurement", color: "#428B41" },
+        { value: 9, label: "Engineering", color: "#FFE600" },
+        { value: 10, label: "Finance", color: "#5b5b5b" },
+    ];
 
     // Initial form values
     const initialValues = {
         name: "",
         email: "",
         mobile: "",
+        countryCode: "+91",
         password: "",
         confirmPassword: "",
         role: null
     };
 
-const CreateAccountPage = () => {
-    const router = useRouter();
-    const [loading, setLoading] = useState(false);
-
-    // Role options with color coding
-    const roleOptions = [
-        { value: 7, label: "Admin", color: "#007bff" }, // Admin color - blue
-        { value: 8, label: "Top Management", color: "#2E5BA8" }, // Primary color
-        { value: 2, label: "Procurement", color: "#428B41" }, // Secondary color
-        { value: 9, label: "Engineering", color: "#FFE600" }, // Yellow color
-        { value: 10, label: "Finance", color: "#5b5b5b" }, // Text color
-    ];
-
-
-    // Validation schema
-    const validationSchema = Yup.object().shape({
-        name: Yup.string().required("Name is required"),
-        email: Yup.string().email("Invalid email format").required("Email is required"),
-        mobile: Yup.string()
-            .matches(/^[0-9+\- ]+$/, "Invalid mobile number format")
-            .required("Mobile number is required"),
-        password: Yup.string()
-            .min(8, "Password must be at least 8 characters")
-            .required("Password is required"),
-        confirmPassword: Yup.string()
-            .oneOf([Yup.ref("password"), null], "Passwords must match")
-            .required("Confirm password is required"),
-        role: Yup.object().required("Role is required"),
-    });
-
-
     const handleSubmit = async (values, { resetForm, setSubmitting }) => {
-        setLoading(true);
+        setAppState(prev => ({ ...prev, loading: true }));
         
         try {
-            // Format the data for API
+            // Format mobile with country code
+            const formattedMobile = `${values.countryCode}-${values.mobile}`;
+            
             const apiData = {
                 name: values.name,
                 email: values.email,
-                mobile: values.mobile,
+                mobile: formattedMobile,
                 user_type: values.role.value.toString(),
                 password: values.password
             };
             
-            // Create the user
             const response = await createBuyerCompanyUser(apiData);
             
             if (response.status) {
                 toast.success("Account created successfully!");
                 resetForm();
-                
-                // Redirect to manage accounts page with a refresh parameter to trigger data reload
                 router.push("/dashboard/admin/account-management/manage-accounts?refresh=true");
             } else {
                 toast.error(response.message || "Failed to create account");
             }
         } catch (error) {
             console.error("Error creating account:", error);
-            toast.error(error?.message?.response?.data?.message || "Failed to create account. Please try again.");
+            toast.error("Failed to create account. Please try again.");
         } finally {
-            setLoading(false);
+            setAppState(prev => ({ ...prev, loading: false }));
             setSubmitting(false);
         }
     };
+    
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await getCountryCodes();
+                if (response?.data) {
+                    setAppState(prev => ({
+                        ...prev,
+                        countryCodes: response.data
+                    }));
+                }
+            } catch (error) {
+                console.error("Error fetching country codes:", error);
+                toast.error("Failed to load country codes");
+            }
+        };
+        
+        fetchData();
+    }, []);
         
     return (
         <>
@@ -109,11 +117,11 @@ const CreateAccountPage = () => {
 
                                 <div className="card shadow-sm">
                                     <div className="card-body p-4 hasFullLoader">
-                                        {loading && <FullLoader />}
+                                        {appState.loading && <FullLoader />}
                                         
                                         <Formik
                                             initialValues={initialValues}
-                                            validationSchema={validationSchema}
+                                            validationSchema={createAccountSchema}
                                             onSubmit={handleSubmit}
                                         >
                                             {({ errors, touched, values, setFieldValue, isSubmitting }) => (
@@ -162,13 +170,42 @@ const CreateAccountPage = () => {
                                                                 <label htmlFor="mobile" className="form-label">
                                                                     Mobile <span className="text-danger">*</span>
                                                                 </label>
-                                                                <Field
-                                                                    type="text"
-                                                                    id="mobile"
-                                                                    name="mobile"
-                                                                    className={`form-control ${touched.mobile && errors.mobile ? "is-invalid" : ""}`}
-                                                                />
+                                                                <div className="d-flex">
+                                                                    {/*START: Country Code Selector */}
+                                                                    <Field name="countryCode">
+                                                                        {({ field, form }) => (
+                                                                            <select
+                                                                                {...field}
+                                                                                className={`form-select me-2 ${touched.countryCode && errors.countryCode ? "is-invalid" : ""}`}
+                                                                                style={{ maxWidth: "140px" }}
+                                                                                onChange={(e) => {
+                                                                                    form.setFieldValue("countryCode", e.target.value);
+                                                                                    setAppState(prev => ({ 
+                                                                                        ...prev, 
+                                                                                        selectedCountryCode: e.target.value 
+                                                                                    }));
+                                                                                }}
+                                                                            >
+                                                                                {appState.countryCodes.map((country) => (
+                                                                                    <option key={country.id} value={country.phone_code}>
+                                                                                        {country.country_code} ({country.phone_code})
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        )}
+                                                                    </Field>
+                                                                    {/*END: Country Code Selector */}
+                                                                    
+                                                                    <Field
+                                                                        type="text"
+                                                                        id="mobile"
+                                                                        name="mobile"
+                                                                        placeholder="Enter mobile number"
+                                                                        className={`form-control ${touched.mobile && errors.mobile ? "is-invalid" : ""}`}
+                                                                    />
+                                                                </div>
                                                                 <ErrorMessage name="mobile" component="div" className="invalid-feedback" />
+                                                                <ErrorMessage name="countryCode" component="div" className="invalid-feedback" />
                                                             </div>
                                                         </div>
                                                         <div className="col-md-6">
