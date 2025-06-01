@@ -53,36 +53,6 @@ export const searchProductsV2 = (values, type = "products") => {
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.post(`/rfq/search-product`, payload);
-        
-        if (response?.data?.length === 0 && values.search_key) {
-          try {
-            const variantResponse = await axiosInstance.post(`/rfq/search-variant-products`, {
-              search_key: values.search_key
-            });
-            
-            if (variantResponse?.data?.length > 0) {
-              const formattedVariants = variantResponse.data.map(variant => ({
-                id: variant.variant_id || variant.id,
-                slug: variant.slug || `variant-${variant.variant_id || variant.id}`,
-                product_name: variant.variant_name || variant.name || "Unknown Variant",
-                category_id: variant.category_id || null,
-                description: variant.description || "",
-                image_url: variant.image_url || "",
-                cat_title: variant.category_name || "",
-                is_variant: true,
-                variant_id: variant.variant_id || variant.id,
-                mapping_id: variant.mapping_id || variant.id,
-                vendor_id: variant.vendor_id,
-                vendor_name: variant.vendor_name || variant.vendor_display_name
-              }));
-              
-              response.data = formattedVariants;
-            }
-          } catch (variantError) {
-            console.error("Error fetching variant data:", variantError);
-          }
-        }
-        
         resolve(response);
       } catch (error) {
         reject({ message: error });
