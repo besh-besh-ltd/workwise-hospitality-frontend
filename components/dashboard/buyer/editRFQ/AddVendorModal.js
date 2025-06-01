@@ -124,7 +124,7 @@ const AddVendorModal = ({
                                     // !updatableData.vendors?.[
                                     //   productData.product.id
                                     // ]?.addable
-                                    !addedVendorsList.includes(item.id) ? (
+                                    !addedVendorsList?.includes(item.id) ? (
                                       <button
                                         href="#"
                                         className="page-linkd remove-icon d-flex gap-2 align-items-center"
