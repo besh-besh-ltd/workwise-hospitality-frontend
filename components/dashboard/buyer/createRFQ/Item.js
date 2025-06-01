@@ -97,6 +97,7 @@ const Item = ({
           product_id: rfqProduct.product_id,
           variant: rfqProduct.variant,
         })
+      else
       dispatch(
         addFiles({
           type: fileType,
@@ -131,6 +132,7 @@ const Item = ({
         product_id: rfqProduct.product_id,
         variant: rfqProduct.variant,
       });
+    else
     dispatch(
       removeFiles({
         type: fileType,
