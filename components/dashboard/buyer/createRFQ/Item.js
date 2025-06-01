@@ -613,7 +613,7 @@ const Item = ({
                   {" "}
                   Selected Vendors - <strong>
                     {" "}
-                    {data.vendors.length}{" "}
+                    {data.vendors?.length}{" "}
                   </strong>{" "}
                 </span>
                 {

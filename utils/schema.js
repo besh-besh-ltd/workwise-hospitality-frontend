@@ -98,6 +98,7 @@ export const ForgetPassword = yup.object().shape({
     )
     .required("Email is required"),
 });
+
 export const ForgetPasswordOtpValidation = yup.object().shape({
   otp: yup.string().required("OTP is required"),
   password: yup
@@ -136,7 +137,6 @@ export const contactFormSchema = yup.object().shape({
   subject: yup.string().required("Subject is required"),
   comment: yup.string().required("Comment is required"),
 });
-
 
 export const editRfqSchema = yup.object().shape({
   updatableData: yup.object().shape({
@@ -210,3 +210,4 @@ export const editRfqSchema = yup.object().shape({
     vendors: yup.object().optional(),
   }).required()
 });
+

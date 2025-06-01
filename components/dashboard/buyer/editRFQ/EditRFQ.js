@@ -394,11 +394,187 @@ const EditRFQ = () => {
   };
 
 
+  const handleSpecChange = (product, change) => {
+    setRfqData((prev) => ({
+      ...prev,
+      products: prev.products.map((product) =>
+        product.product_id == change.product_id
+          ? {
+              ...product,
+              product_specs: !product?.product_specs
+                ? [
+                    {
+                      title: "variant",
+                      value: product.variant,
+                    },
+                    {
+                      title: change.title,
+                      value: change.value,
+                    },
+                  ]
+                : !product.product_specs.find(
+                    (spec) => spec.title == change.title
+                  )
+                ? [
+                    ...product.product_specs,
+                    {
+                      title: change.title,
+                      value: change.value,
+                    },
+                  ]
+                : product.product_specs.map((spec) =>
+                    spec.title == change.title
+                      ? { ...spec, value: change.value }
+                      : spec
+                  ),
+            }
+          : product
+      ),
+    }));
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          specs: {
+            ...(prev.products.updatable?.specs ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.specs?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.title]: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleFileChange = (product, change) => {
+    setRfqData((prev) => ({
+      ...prev,
+      products: prev.products.map((product) =>
+        product.product_id == change.product_id
+          ? {
+              ...product,
+              [change.type]: change.value,
+            }
+          : product
+      ),
+    }));
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          files: {
+            ...(prev.products.updatable?.files ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.files?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleCommentChange = (product, change) => {
+    setRfqData((prev) => ({
+      ...prev,
+      products: prev.products.map((product) =>
+        product.product_id == change.product_id
+          ? {
+              ...product,
+              comment: change.value,
+            }
+          : product
+      ),
+    }));
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          comment: {
+            ...(prev.products.updatable?.comment ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.comment?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              comment: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleClauseChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          techEval: {
+            ...(prev.products.updatable?.techEval ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              techEval: [
+                ...(prev.products.updatable?.techEval?.[product.id]?.techEval ??
+                  []),
+                change.action,
+              ],
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleShowVendorModal = (product, stateSetter) => {
+    stateSetter(true);
+    setSelectedProduct({
+      product,
+      vendors: product.vendor_details,
+    });
+  };
+
+  const handleRemoveProduct = (data) => {
+    if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
+      toast.warning("You cannot delete all products from RFQ, at least one product is required");
+    else
+      setUpdatableData((prev) => ({
+        ...prev,
+        products: {
+          ...prev.products,
+          deletable: [...(prev.products?.deletable ?? []), data.id],
+        },
+      }));
+  };
+
   const handleUpdateRFQ = async (formValues) => {
     try {
       if (!rfqData || !rfqData.id) {
         toast.error("Original RFQ data not available");
         return;
+      }
+
+      if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
+       toast.error("You cannot delete all products from RFQ, at least one product is required");
+       return;
       }
 
       const dataToSend = {
@@ -441,43 +617,31 @@ const EditRFQ = () => {
         return;
       }
 
-      if(rfqData.ra_start_date != formValues.ra_start_date)
-        dataToSend.ra_start_date = formValues.ra_start_date
 
-      if(rfqData.ra_end_date != formValues.ra_end_date)
-        dataToSend.ra_end_date = formValues.ra_end_date
+      if (rfqData.ra_start_date != formValues.ra_start_date)
+        dataToSend.ra_start_date = formValues.ra_start_date;
 
-  //  try {
-  //    // Check if updatableData has any actual updatable values
-  //    const isUpdatableEmpty = !(
-  //      (updatableData.products &&
-  //        (Object.keys(updatableData.products.updatable || {}).length > 0 ||
-  //          (updatableData.products.addable || []).length > 0 ||
-  //          (updatableData.products.deletable || []).length > 0)) ||
-  //      (updatableData.vendors &&
-  //        Object.keys(updatableData.vendors || {}).length > 0)
-  //    );
-  //    // Use strict() to prevent empty objects from passing
-  //    if (isUpdatableEmpty) {
-  //      toast.warning("No updatable data found. Skipping validation.");
-  //      return;
-  //    } else {
-  //      await editRfqSchema
-  //        .strict()
-  //        .validate({ updatableData }, { abortEarly: false });
-  //    }
-  //  } catch (validationError) {
-  //    // FIXED: Use the caught validationError obje
+   try {
+     
 
-  //    const errorMessages = validationError.inner
-  //      .map((err) => err.message)
-  //      .join("\n");
-  //    toast.error(
-  //      "Validation Error: " +
-  //        (validationError.errors?.join(", ") || validationError.message)
-  //    );
-  //    return;
-  //  }
+     // Use strict() to prevent empty objects from passing
+     await editRfqSchema
+       .strict()
+       .validate({ updatableData }, { abortEarly: false });
+     
+   } catch (validationError) {
+     // FIXED: Use the caught validationError obje
+
+     const errorMessages = validationError.inner
+       .map((err) => err.message)
+       .join("\n");
+     toast.error(
+       "Validation Error: " +
+         (validationError.errors?.join(", ") || validationError.message)
+     );
+     return;
+   }
+
 
       setLoading(true);
 
@@ -621,6 +785,108 @@ const EditRFQ = () => {
     setShowAddVendorForProductModal(false)
   }
 
+
+  const handleRemoveExistingVendor = (item) => {
+    const totalVendors = rfqData.products?.find(
+      (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
+
+    const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+    const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+
+    if (
+      totalVendors + addableVendors - deletableVendors <= 0
+    ) {
+      toast.error(
+        "At least one vendor is required for the product"
+      );
+      return;
+    }
+    
+    setUpdatableData((prev) => ({
+      ...prev,
+      vendors: {
+        ...prev.vendors,
+        [selectedProduct.product.id]: {
+          ...(prev.vendors?.[selectedProduct.product.id] ?? {
+            product_id: selectedProduct.product.product_id,
+            variant: selectedProduct.product.variant,
+          }),
+          deletable: [
+            ...(prev.vendors?.[selectedProduct.product.id]?.deletable ?? []),
+            item.user_id,
+          ],
+        },
+      },
+    }));
+  }
+    
+    const handleRestoreExistingVendor = (item) =>
+      setUpdatableData((prev) => ({
+        ...prev,
+        vendors: {
+          ...prev.vendors,
+          [selectedProduct.product.id]: {
+            ...(prev.vendors?.[selectedProduct.product.id] ?? {
+              product_id: selectedProduct.product.product_id,
+              variant: selectedProduct.product.variant,
+            }),
+            deletable: (
+              prev.vendors?.[selectedProduct.product.id]?.deletable ?? []
+            ).filter((deletableVendorId) => deletableVendorId != item.user_id),
+          },
+        },
+      }));
+
+    const handleAddVendor = (item) =>
+      setUpdatableData((prev) => ({
+        ...prev,
+        vendors: {
+          ...prev.vendors,
+          [selectedProduct.product.id]: {
+            ...(prev.vendors?.[selectedProduct.product.id] ?? {
+              product_id: selectedProduct.product.product_id,
+              variant: selectedProduct.product.variant,
+            }),
+            addable: [
+              ...(prev.vendors?.[selectedProduct.product.id]?.addable ?? []),
+              item.id,
+            ],
+          },
+        },
+      }));
+
+    const handleRemoveAddedVendor = (item) => {
+      const totalVendors = rfqData.products?.find(
+        (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
+
+      const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+      const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+
+      if (
+        totalVendors + addableVendors - deletableVendors <= 0
+      ) {
+        toast.error(
+          "At least one vendor is required for the product"
+        );
+        return;
+      }
+      
+      setUpdatableData((prev) => ({
+        ...prev,
+        vendors: {
+          ...prev.vendors,
+          [selectedProduct.product.id]: {
+            ...(prev.vendors?.[selectedProduct.product.id] ?? {
+              product_id: selectedProduct.product.product_id,
+              variant: selectedProduct.product.variant,
+            }),
+            addable: (
+              prev.vendors?.[selectedProduct.product.id]?.addable ?? []
+            ).filter((deletableVendorId) => deletableVendorId != item.id),
+          },
+        },
+      }));
+    }
 
   // Render product table
   const renderDeletedProductsTable = () => {
