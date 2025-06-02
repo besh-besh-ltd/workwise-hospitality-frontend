@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -26,9 +26,11 @@ import { faClose } from "@fortawesome/free-solid-svg-icons";
 import { extractfileName, handleFileUpload, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
+import axiosInstance from "@/lib/axios";
 
 const CreateRFQ = () => {
   const router = useRouter();
+  const { draft_id } = router.query;
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [mainLoading, setMainLoading] = useState(false);
@@ -37,6 +39,12 @@ const CreateRFQ = () => {
   const [vendorApprovedList, setVendorApprovedList] = useState([]);
   const [projects, setProjects] = useState([]);
   const [rfqProducts, setRfqProducts] = useState([]);
+  const [draftRfqId, setDraftRfqId] = useState(draft_id ? parseInt(draft_id) : -1);
+
+  // Changes by Agnij 2025-08-05 [Added sheet filter state for RFQs created from magic search]
+  const [isMagicRfq, setIsMagicRfq] = useState(false);
+  const [sheetNameList, setSheetNameList] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState(null);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -48,6 +56,20 @@ const CreateRFQ = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
+  const [queryMeta, setQueryMeta] = useState({
+    draft_id: null,
+    sheet_id: null,
+  })
+  const [updatableData, setUpdatableData] = useState({
+    products: {
+      addable: [],
+      deletable: [],
+      updatable: {},
+    },
+    vendors: {},
+  })
+  const [termsChanged, setTermsChanged] = useState(false);
+  const [termFilesChanged, setTermFilesChanged] = useState(false);
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
@@ -64,7 +86,7 @@ const CreateRFQ = () => {
           }
         })
         .catch((error) => {
-          console.log("Error fetching countries:", error);
+          toast.error(error.message);
           setCountryCode([]);
         });
     };
@@ -79,7 +101,7 @@ const CreateRFQ = () => {
         setProjects(d);
       })
       .catch((error) => {
-        console.log(error)
+        toast.error(error.message);
       })
   }
 
@@ -123,20 +145,20 @@ const CreateRFQ = () => {
             };
           });
           
-          console.log("Terms fetched and normalized:", normalizedTerms.length);
           dispatch(setAllTerms(normalizedTerms));
         } else {
-          console.log("No terms found or invalid format");
+          toast.error("Something went wrong fetching terms, please refresh the page.");
           dispatch(setAllTerms([]));
         }
       })
       .catch((err) => {
-        console.error("Error fetching terms:", err);
+        toast.error(err.message);
       });
   };
 
   const handleTermChange = (e, item) => {
     try {
+      setTermsChanged(true);
       const isChecked = e.target.checked;
       // Always convert ID to string for consistent comparison
       const termId = String(item.id || item.term_id);
@@ -145,8 +167,6 @@ const CreateRFQ = () => {
       const termName = item.term_content || item.name || item.term_text || 
                      (item.content && item.content[0] ? item.content[0].title : null) ||
                      `Term ${termId}`;
-      
-      console.log(`Term change: ${termName} (ID: ${termId}) -> ${isChecked ? 'CHECKED' : 'UNCHECKED'}`);
       
       // Clone the current terms array to avoid direct state mutation
       let updatedTerms = [...(selectedTerms || [])];
@@ -163,22 +183,6 @@ const CreateRFQ = () => {
             id: Number(termId), // Convert to number as required by backend
             name: termName
           });
-          
-          console.log(`Added term: ${termName} (ID: ${termId})`);
-        } else {
-          console.log(`Term already selected: ${termName} (ID: ${termId})`);
-        }
-      } else {
-        // Filter out the term with matching ID - check both id and term_id
-        const previousLength = updatedTerms.length;
-        updatedTerms = updatedTerms.filter(term => 
-          String(term.id) !== termId && String(term.term_id || '') !== termId
-        );
-        
-        if (previousLength !== updatedTerms.length) {
-          console.log(`Removed term: ${termName} (ID: ${termId})`);
-        } else {
-          console.log(`Term not found for removal: ${termName} (ID: ${termId})`);
         }
       }
       
@@ -346,6 +350,7 @@ const CreateRFQ = () => {
       dispatch(setTermFiles({ type, value: dynamicParam }))
     }
     setHasUnsavedChanges(true);
+    setTermFilesChanged(true);
   };
 
   const handleCreateRFQ = (values, resetForm) => {
@@ -408,10 +413,12 @@ const CreateRFQ = () => {
     
     let payload = {
       rfq_id: rfqDetails,
-      products: rfqProductsRef.current,
       ...formDataCopy,
       project_id: formDataCopy.project_id || -1,
-      contact_number: fullMobile
+      contact_number: fullMobile,
+      updatableData,
+      termsChanged,
+      termFilesChanged,
     };
 
     // Remove country_code if it exists
@@ -419,6 +426,9 @@ const CreateRFQ = () => {
       delete payload.country_code;
     }
 
+    if(selectedSheet && selectedSheet.value) {
+      payload.sheet_id = selectedSheet.value;
+    }
 
     createRfq(payload)
       .then((res) => {
@@ -465,17 +475,21 @@ const CreateRFQ = () => {
         name: term.name || term.term_content || `Term ${term.id}`
       }));
       
-      console.log("Terms filtered for draft save:", formDataCopy.terms);
+    }
+    // Make sure we maintain the rfq_added_from flag if this is a magic search RFQ
+    if (isMagicRfq && !formDataCopy.rfq_added_from) {
+      formDataCopy.rfq_added_from = 'magic';
     }
 
     const payload = {
       ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
-      products: rfqProductsRef.current,
-      is_published: 0,
-      contact_number: fullMobile
+      contact_number: fullMobile,
+      sheet_id: selectedSheet?.value,
+      updatableData,
+      termsChanged,
+      termFilesChanged,
     };
-
     try {
       const res = await saveDraft(payload);
       setMainLoading(false);
@@ -486,7 +500,12 @@ const CreateRFQ = () => {
         { position: "top-right" }
       );
       setHasUnsavedChanges(false);
-      getDraftInitialData();
+      
+      // Don't reload or redirect, just update the local state if needed
+      if (res.message?.rfq_id && !rfqDetails) {
+        // If this is a new draft and we got an ID back, update it locally
+        dispatch(setOtherFormFields({ rfq_id: res.message.rfq_id }));
+      }
     } catch (error) {
       console.error("Error saving draft:", error);
       setMainLoading(false);
@@ -494,13 +513,159 @@ const CreateRFQ = () => {
     }
   };
 
+  const loadDraft = async (id, sheet_id = queryMeta.sheet_id) => {
+    dispatch(setStoreLoading(true));
+    try {
+      const draftRes = await getDraftById(id, sheet_id);
+      const rfqFormData = draftRes?.data?.rfq_form_data || {};
+      const isMagicRfqFromFlag = rfqFormData?.rfq_added_from === 'magic';
+      const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
+                  
+      if (isMagicRfqFromFlag || hasMagicSheets) {
+        setIsMagicRfq(true);
+        
+        let sheetData = [];
+        
+        if (hasMagicSheets) {
+          sheetData = draftRes.data.sheets;
+        } else {
+          try {
+            const sheetsResponse = await getDraftRfqSheets(id);
+            if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
+              sheetData = sheetsResponse.data.sheets;                      
+            } else {
+              console.warn('No sheets found in API response:', sheetsResponse?.data);
+            }
+          } catch (error) {
+            console.error("Error fetching magic search sheets:", error);
+            toast.error("Failed to load sheet data for this RFQ");
+          }
+        }
+        
+        if (sheetData && sheetData.length > 0) {
+          const sheetOptions = sheetData.map(sheet => ({
+            label: sheet.sheet_name,
+            value: sheet.id
+          }));
+          setSheetNameList(sheetOptions);
+          
+          // Set default selected sheet
+          if (sheetData.length > 0) {
+            const defaultSheet = {
+              label: sheetData[0].sheet_name,
+              value: sheetData[0].id
+            };
+            if(queryMeta.sheet_id) {
+              const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
+              setSelectedSheet(sheet);
+            } else if(!selectedSheet)
+              setSelectedSheet(defaultSheet);
+          }
+        } else {
+          console.warn("No sheets found for Magic RFQ ID:", id);
+        }
+      }
+      
+      if (draftRes?.data) {
+        if (draftRes.data.rfq_form_data?.contact_number) {
+          let fullContactNumber = draftRes.data.rfq_form_data.contact_number.trim();
+          let extractedCountryCode = "";
+          let extractedContactNumber = fullContactNumber;
+    
+          if (fullContactNumber?.includes('-')) {
+            const parts = fullContactNumber.split('-');  
+            extractedCountryCode = parts[0].replace("-", "").trim();
+            extractedContactNumber = parts.slice(1).join("").trim();
+          }
+    
+          draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
+          draftRes.data.rfq_form_data.country_code = extractedCountryCode;
+      
+          dispatch(intializeRfq(draftRes.data));
+          setonecountrycode(extractedCountryCode);
+        } else {
+          dispatch(intializeRfq(draftRes.data));
+        }
+        
+        // Update document title
+        document.title = `Edit Draft RFQ #${id}`;
+        
+        // Set up other form-related data
+        getTermsData();
+      } else {
+        console.error("No data found in draft response");
+        toast.error("Failed to load draft RFQ data");
+      }
+    } catch (error) {
+      console.error("Error loading draft by ID:", error);
+      // Changes by Agnij 2025-06-17 [Improved error message with specific details]
+      toast.error(error.message || "Error loading draft RFQ");
+    } finally {
+      dispatch(setStoreLoading(false));
+    }
+  };
+
   const getDraftInitialData = async () => {
     dispatch(clearState());
     dispatch(setStoreLoading(true));
     try {
-      const draftRes = await getDraftData();
-
+      // If a draft_id is provided in the URL, load that specific draft
+      let draftRes;
       
+      if (draftRfqId && draftRfqId !== -1) {
+        draftRes = await getDraftById(draftRfqId);
+        document.title = `Edit Draft RFQ #${draftRfqId}`;
+
+        const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
+        const hasMagicSheets = draftRes?.data?.sheets && Array.isArray(draftRes.data.sheets) && draftRes.data.sheets.length > 0;
+        if (isMagicRfqFromFlag || hasMagicSheets) {
+          setIsMagicRfq(true);
+          
+          let sheetData = [];
+          
+          if (hasMagicSheets) {
+            sheetData = draftRes.data.sheets;
+          } else {
+            try {
+              const sheetsResponse = await getDraftRfqSheets(draftRfqId);              
+              if (sheetsResponse?.data?.sheets && Array.isArray(sheetsResponse.data.sheets)) {
+                sheetData = sheetsResponse.data.sheets;
+              } else {
+              }
+            } catch (error) {
+              toast.error("Failed to load sheet data for this RFQ");
+            }
+          }
+          
+          if (sheetData && sheetData.length > 0) {
+            const sheetOptions = sheetData.map(sheet => ({
+              label: sheet.sheet_name,
+              value: sheet.id
+            }));
+            setSheetNameList(sheetOptions);
+            
+            // Set default selected sheet
+            if (sheetData.length > 0) {
+              const defaultSheet = {
+                label: sheetData[0].sheet_name,
+                value: sheetData[0].id
+              };
+              if(queryMeta.sheet_id) {
+                const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
+                setSelectedSheet(sheet);
+              } else if(!selectedSheet)
+                setSelectedSheet(defaultSheet);
+            }
+          } else {
+            console.warn("No sheets found for Magic RFQ ID:", draftRfqId);
+          }
+        }
+      } else {
+        // Changes by Agnij 2025-06-17 [Using fresh=true to always create a new RFQ when opening the Create RFQ page]
+        draftRes = await getDraftData(true);
+        document.title = "Create New RFQ";
+      }
+
       if (draftRes?.data?.rfq_form_data?.contact_number) {
         let fullContactNumber = draftRes?.data?.rfq_form_data?.contact_number?.trim();
         let extractedCountryCode = "";
@@ -526,20 +691,176 @@ const CreateRFQ = () => {
       getTermsData();
 
     } catch (error) {
-      console.log(error)
+      toast.error(error.message || "Error loading draft RFQ");
     } finally {
       dispatch(setStoreLoading(false));
     }
   }
 
+  // Changes by Agnij 2025-08-05 [Added handler for sheet selection]
+  const handleSheetChange = async (selectedOption) => {
+    if (!selectedOption || !draftRfqId) return;
+    
+    dispatch(clearState());
+
+    setSelectedSheet(selectedOption);
+    setMainLoading(true);
+    dispatch(setStoreLoading(true));
+
+    await loadDraft(draftRfqId, selectedOption.value)
+
+    setMainLoading(false);
+    dispatch(setStoreLoading(false));
+  };
+
+  const handleSpecChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          specs: {
+            ...(prev.products.updatable?.specs ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.specs?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.title]: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleFilesChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          files: {
+            ...(prev.products.updatable?.files ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.files?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleCommentChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          comment: {
+            ...(prev.products.updatable?.comment ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.comment?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              comment: change.value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleClauseChange = (product, change) => {
+    setUpdatableData((prev) => ({
+      ...prev,
+      products: {
+        ...prev.products,
+        updatable: {
+          ...prev.products.updatable,
+          techEval: {
+            ...(prev.products.updatable?.techEval ?? {}),
+            [product.id]: {
+              ...(prev.products.updatable?.techEval?.[product.id] ?? {
+                product_id: product.product_id,
+                variant: product.variant,
+              }),
+              techEval: [
+                ...(prev.products.updatable?.techEval?.[product.id]?.techEval ??
+                  []),
+                change.action,
+              ],
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  useEffect(() => {
+    const { draft_id, sheet_id } = router.query;
+    setQueryMeta({
+      draft_id,
+      sheet_id,
+    })
+  }, [router.query])
+
   useEffect(() => {
     getProfileDetails();
     getVendorApproveList();
     getAllProjects();
-    getDraftInitialData();
     fetchCountryCodes();
-
   }, []);
+  // Watch for changes in the draft_id from URL
+  useEffect(() => {
+    // Changes by Agnij 2025-06-17 [Reset state when draft_id changes]
+    // If no draft_id is present, clear state and force a fresh draft
+    if (!draft_id) {
+      dispatch(clearState());
+      // Create a fresh draft
+      const loadFreshDraft = async () => {
+        dispatch(setStoreLoading(true));
+        try {
+          const draftRes = await getDraftData(true);
+          dispatch(intializeRfq(draftRes.data));
+          document.title = "Create New RFQ";
+          getTermsData();
+        } catch (error) {
+          console.error("Error creating fresh draft:", error);
+          toast.error(error.message || "Error creating fresh RFQ draft");
+        } finally {
+          dispatch(setStoreLoading(false));
+        }
+      };
+      
+      loadFreshDraft();
+      return;
+    }
+    
+    // If draft_id is present, load that specific draft
+    if (draft_id) {
+      try {
+        const id = parseInt(draft_id);
+        if (!isNaN(id) && id > 0) {
+          setDraftRfqId(id);
+          
+          dispatch(clearState());
+          
+          loadDraft(id);
+        }
+      } catch (error) {
+        console.error("Error processing draft_id:", error);
+      }
+    }
+  }, [draft_id]);
 
   // Add a useEffect to set the company name in the store when userProfile is loaded
   useEffect(() => {
@@ -554,12 +875,46 @@ const CreateRFQ = () => {
     }
   }, [userProfile]);
 
+  // Changes by Agnij 2025-09-04 [Fixed duplicate products issue and handling of undefined state]
   useEffect(() => {
-    const validProducts = rfqProductsFromStore.filter(
-      (prodItem) => prodItem.vendors?.length > 0);
-    setRfqProducts(validProducts);
-    rfqProductsRef.current = validProducts;
-  }, [rfqProductsFromStore])
+    // Handle the case where rfqProductsFromStore might be undefined
+    if (!rfqProductsFromStore) {
+      return;
+    }
+    
+    // Only filter by vendor presence if not a magic search RFQ
+    if (!isMagicRfq) {
+      const validProducts = rfqProductsFromStore.filter(
+        (prodItem) => prodItem && prodItem.vendors?.length > 0);
+      setRfqProducts(validProducts);
+      rfqProductsRef.current = validProducts;
+    } else if (selectedSheet) {
+      // For magic search RFQs, also ensure products are filtered by the selected sheet
+      
+      const enhancedProducts = rfqProductsFromStore.map(product => {
+        if (!product) return null;
+        
+        // Create a copy with the current sheet info
+        const enhancedProduct = {...product};
+        enhancedProduct.sheet_id = selectedSheet.value;
+        enhancedProduct.sheet_name = selectedSheet.label;
+        
+        // Ensure product has vendors
+        if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
+          enhancedProduct.vendors = [{
+            id: 1, 
+            name: "Default Vendor", 
+            company_name: "Auto-assigned Vendor"
+          }];
+        }
+        
+        return enhancedProduct;
+      }).filter(Boolean);
+      
+      setRfqProducts(enhancedProducts);
+      rfqProductsRef.current = enhancedProducts;
+    }
+  }, [rfqProductsFromStore, isMagicRfq, selectedSheet])
 
   useEffect(() => {
     rfqFormDataRef.current = rfqFormDataFromStore;
@@ -568,15 +923,7 @@ const CreateRFQ = () => {
   useEffect(() => {
     // Debug terms selection state
     if (allTerms?.length > 0 && selectedTerms?.length > 0) {
-      console.log("Terms Selection Debug:", {
-        allTermsCount: allTerms.length,
-        selectedTermsCount: selectedTerms.length,
-        selectedTermIds: selectedTerms.map(t => t.id),
-        firstFewAllTerms: allTerms.slice(0, 3).map(t => ({ 
-          id: t.id, 
-          name: t.term_content || t.name 
-        }))
-      });
+      
     }
   }, [allTerms, selectedTerms]);
 
@@ -637,8 +984,66 @@ const CreateRFQ = () => {
     (item) => item.phone_code === countryCode1
   );           // Getting selected country from country code list
 
- 
-  
+  // Changes by Agnij 2025-05-25 [Fixed undefined rfqProductsFromStore error]
+  useEffect(() => {
+    // Guard against undefined rfqProductsFromStore
+    if (!rfqProductsFromStore || !Array.isArray(rfqProductsFromStore)) {
+      return;
+    }
+
+    if (isMagicRfq && selectedSheet && draftRfqId && rfqProductsFromStore.length > 0) {      
+      // Force ALL products to be shown for Magic Search RFQs
+      // This is a temporary fix until we can properly associate products with sheets
+      const allProductsWithSheet = rfqProductsFromStore.map(product => {
+        if (!product) return null;
+        
+        // Create a copy with the current sheet info
+        const enhancedProduct = {...product};
+        enhancedProduct.sheet_id = selectedSheet.value;
+        enhancedProduct.sheet_name = selectedSheet.label;
+        
+        // Ensure product has vendors
+        if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
+          enhancedProduct.vendors = [{
+            id: 1, 
+            name: "Default Vendor", 
+            company_name: "Auto-assigned Vendor"
+          }];
+        }
+        
+        return enhancedProduct;
+      }).filter(Boolean);
+      
+      setRfqProducts(allProductsWithSheet);
+      rfqProductsRef.current = allProductsWithSheet;
+    }
+  }, [selectedSheet, isMagicRfq, draftRfqId, rfqProductsFromStore]);
+
+  // Changes by Agnij 2025-09-05 [Added function to initialize Redux store with products]
+  // Add this function after the existing useEffect hooks but before the return statement
+  useEffect(() => {
+    // If rfqProducts are set locally but not in Redux store, initialize the store
+    if (rfqProducts && rfqProducts.length > 0 && 
+        (!rfqProductsFromStore || rfqProductsFromStore.length === 0)) {
+      
+      // Check if the rfq_id is set in the store
+      if (!rfqDetails || rfqDetails === -1) {
+        // If no rfq_id is set, we need to set it from draft_id
+        const currentRfqId = draftRfqId !== -1 ? draftRfqId : -1;
+        
+        // Initialize the RFQ in Redux with the local products
+        dispatch(intializeRfq({
+          rfq_form_data: rfqFormDataRef.current,
+          rfqProducts: rfqProducts,
+          rfq_id: currentRfqId
+        }));
+      } else {
+        // If rfq_id is already set, just update the products
+        // This uses a direct reference to avoid race conditions
+        rfqProductsRef.current = rfqProducts;
+      }
+    }
+  }, [rfqProducts, rfqProductsFromStore, rfqDetails, draftRfqId]);
 
   return (
     <>
@@ -657,32 +1062,52 @@ const CreateRFQ = () => {
             <div className="details-table mt-0">
               {!loading && rfqProducts.length == 0 ? (
                 <div className="text-center">
-                  <Link href="/vendor/all" className="btn btn-primary">
+                  <Link
+                    href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ''}`}
+                    className="btn btn-primary"
+                  >
                     Add Products
                   </Link>
                 </div>
               ) : (
                 <>
-                  <div className="col-md-3 mb-3">
-                    <h4>Select Project</h4>
-                    <Select
-                      options={projects}
-                      value={projects.find(
-                        (project) =>
-                          project.value === rfqFormDataFromStore.project_id
-                      )}
-                      defaultValue={-1}
-                      onChange={(selectedOption, actionMeta) =>
-                        handleFormFieldChange(null, selectedOption, actionMeta)
-                      }
-                      name="project_id"
-                      placeholder="Select"
-                      isClearable
-                    />
+                  <div className="d-flex justify-content-between align-items-end mb-3">
+                    <div className="col-md-3">
+                      <h4>Select Project</h4>
+                      <Select
+                        options={projects}
+                        value={projects.find(
+                          (project) =>
+                            project.value === rfqFormDataFromStore.project_id
+                        )}
+                        defaultValue={-1}
+                        onChange={(selectedOption, actionMeta) =>
+                          handleFormFieldChange(null, selectedOption, actionMeta)
+                        }
+                        name="project_id"
+                        placeholder="Select"
+                        isClearable
+                      />
+                    </div>
+                    
+                    {/* Changes by Agnij 2025-08-08 [Simplified sheet selector UI] */}
+                    {isMagicRfq && sheetNameList.length > 0 && (
+                      <div className="col-md-3">
+                        <h4>Select Sheet</h4>
+                        <Select
+                          name="sheetName"
+                          options={sheetNameList}
+                          value={selectedSheet}
+                          placeholder="Select Sheet"
+                          onChange={handleSheetChange}
+                          className="sheet-selector"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* RFQ Products Table */}
-                  <h4>Review Variants</h4>
+                  <h4>Review Products</h4>
                   <div
                     className=""
                     style={{
@@ -705,6 +1130,11 @@ const CreateRFQ = () => {
                               setHasUnsavedChanges={setHasUnsavedChanges}
                               getDraftInitialData={getDraftInitialData}
                               saveDraft={handleSaveDraft}
+                              selectedSheet={selectedSheet}
+                              onSpecValueChange={(change) => handleSpecChange(product, change)}
+                              onFilesChange={(change) => handleFilesChange(product, change)}
+                              onCommentChange={(change) => handleCommentChange(product, change)}
+                              onClauseChange={(change) => handleClauseChange(product, change)}
                             />
                           );
                         })}
@@ -712,7 +1142,10 @@ const CreateRFQ = () => {
                   </div>
 
                   <div className="float-end addmore mt-4 ">
-                    <Link href="/vendor/all" className="me-2">
+                    <Link
+                      href={`/vendor/all${rfqDetails !== -1 ? `?rfq_id=${rfqDetails}${selectedSheet ? `&sheet_id=${selectedSheet.value}` : ``}` : ''}`}
+                      className="me-2"
+                    >
                       Add More Products
                     </Link>
                   </div>

@@ -16,15 +16,24 @@ import { faPlusCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
-import { addProductToDraft, getClausesByRfqProductId } from "@/services/rfq";
+import { addProductToDraft, addProductToExistingRfq, getClausesByRfqProductId } from "@/services/rfq";
 
 const Item = ({
   rfq_id,
   data,
-  vendorApprovedList,
   setHasUnsavedChanges,
   getDraftInitialData,
   saveDraft,
+  type = "create",
+  handleRemoveProductInEdit,
+  handleViewVendorInEdit,
+  handleAddVendorInEdit,
+  onSpecValueChange,
+  onFilesChange,
+  onCommentChange,
+  onClauseChange,
+  selectedSheet,
+  updatableData,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -55,28 +64,43 @@ const Item = ({
         variant: rfqProduct.variant,
       })
     );
+    if(onSpecValueChange)
+      onSpecValueChange({
+        title: type.charAt(0).toUpperCase() + type.slice(1),
+        value,
+        product_id: rfqProduct.product_id,
+        variant: rfqProduct.variant,
+      })
     setHasUnsavedChanges(true);
   };
 
-  const uploadToServer = async (e, type) => {
+  const uploadToServer = async (e, fileType) => {
     try {
       const filePath = await handleFileUpload(e);
       const updatedFiles = [
-        ...(type === "qap_file"
+        ...(fileType === "qap_file"
           ? uploadedQapFile
-          : type === "spec_file"
+          : fileType === "spec_file"
           ? uploadedSpecFile
           : uploadedDatasheetFile),
         filePath,
       ];
 
-      if (type === "qap_file") setUploadedQapFile(updatedFiles);
-      if (type === "spec_file") setUploadedSpecFile(updatedFiles);
-      if (type === "datasheet_file") setUploadedDatasheetFile(updatedFiles);
+      if (fileType === "qap_file") setUploadedQapFile(updatedFiles);
+      if (fileType === "spec_file") setUploadedSpecFile(updatedFiles);
+      if (fileType === "datasheet_file") setUploadedDatasheetFile(updatedFiles);
 
+      if(onFilesChange)
+        onFilesChange({
+          type: fileType,
+          value: updatedFiles,
+          product_id: rfqProduct.product_id,
+          variant: rfqProduct.variant,
+        })
+      else
       dispatch(
         addFiles({
-          type,
+          type: fileType,
           value: filePath,
           product_id: rfqProduct.product_id,
           variant: rfqProduct.variant,
@@ -88,27 +112,35 @@ const Item = ({
     }
   };
 
-  const handleRemoveFile = (fileUrl, type) => {
+  const handleRemoveFile = (fileUrl, fileType) => {
     const updatedFiles = (
-      type === "qap_file"
+      fileType === "qap_file"
         ? uploadedQapFile
-        : type === "spec_file"
+        : fileType === "spec_file"
         ? uploadedSpecFile
         : uploadedDatasheetFile
     ).filter((file) => file !== fileUrl);
 
-    if (type === "qap_file") setUploadedQapFile(updatedFiles);
-    if (type === "spec_file") setUploadedSpecFile(updatedFiles);
-    if (type === "datasheet_file") setUploadedDatasheetFile(updatedFiles);
+    if (fileType === "qap_file") setUploadedQapFile(updatedFiles);
+    if (fileType === "spec_file") setUploadedSpecFile(updatedFiles);
+    if (fileType === "datasheet_file") setUploadedDatasheetFile(updatedFiles);
 
+    if (onFilesChange)
+      onFilesChange({
+        type: fileType,
+        value: updatedFiles,
+        product_id: rfqProduct.product_id,
+        variant: rfqProduct.variant,
+      });
+    else
     dispatch(
       removeFiles({
-        type,
+        type: fileType,
         value: fileUrl,
         product_id: rfqProduct.product_id,
         variant: rfqProduct.variant,
       })
-    );
+      );
     setHasUnsavedChanges(true);
   };
 
@@ -127,18 +159,28 @@ const Item = ({
   const handleaddProductComment = (e) => {
     const newComment = e.target.value;
     setComment(newComment);
-    dispatch(
-      addProductComment({
+    if(type == 'edit')
+      onCommentChange({
         value: newComment,
         product_id: rfqProduct.product_id,
         variant: rfqProduct.variant,
       })
-    );
+    else
+      dispatch(
+        addProductComment({
+          value: newComment,
+          product_id: rfqProduct.product_id,
+          variant: rfqProduct.variant,
+        })
+      );
     setHasUnsavedChanges(true);
   };
 
   const handleRemoveProduct = () => {
-    dispatch(removeRfqProduct(data));
+    if(type == 'edit')
+      handleRemoveProductInEdit(data)
+    else
+      dispatch(removeRfqProduct(data));
     setHasUnsavedChanges(true);
   };
 
@@ -149,13 +191,19 @@ const Item = ({
       await saveDraft();
       setLoading(true);
 
+
       const payload = {
+        rfq_id,
+        sheet_id: selectedSheet.value,
         variant_id: data.product_id,
-        vendors: data.vendors.map((vendor) => ({
+        vendors: data.vendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
         })),
       };
-      await addProductToDraft(payload);
+      if(type == 'edit')
+        await addProductToExistingRfq(payload);
+      else
+        await addProductToDraft(payload);
       getDraftInitialData();
     } catch (error) {
       toast.error(<h6>Failed to add vendors to RFQ. Please try again.</h6>, {
@@ -167,15 +215,16 @@ const Item = ({
   };
 
   const getProductClauses = useCallback(async () => {
+    const productId = data.id || data.product_id || (data.variant_id ? data.variant_id : null);    
     const payload = {
-      rfq_product_id: data.id,
+      rfq_product_id: productId,
       vendor_id: null,
     };
     try {
       const res = await getClausesByRfqProductId(payload);
       setBuyerClauses(res.data);
     } catch (error) {
-      console.error(error);
+      setBuyerClauses([]);
     }
   }, [data.id]);
 
@@ -189,15 +238,24 @@ const Item = ({
   };
 
   useEffect(() => {
-    getProductClauses();
-  }, []);
+    // Only try to fetch clauses if the component is mounted and we have data
+    if (data) {
+      getProductClauses();
+    }
+  }, [getProductClauses]);
 
   useEffect(() => {
-    setRfqProduct(data);
-    setUploadedQapFile(data?.qap_file || []);
-    setUploadedSpecFile(data?.spec_file || []);
-    setUploadedDatasheetFile(data?.datasheet_file || []);
-    setComment(data?.comment || "");
+    if (data) {
+      setRfqProduct(data);
+      const qapFiles = data?.qap_file || data?.QAP_files || [];
+      const specFiles = data?.spec_file || data?.SPEC_files || [];
+      const dsFiles = data?.datasheet_file || data?.TDS_flies || [];
+      
+      setUploadedQapFile(Array.isArray(qapFiles) ? qapFiles : []);
+      setUploadedSpecFile(Array.isArray(specFiles) ? specFiles : []);
+      setUploadedDatasheetFile(Array.isArray(dsFiles) ? dsFiles : []);
+      setComment(data?.comment || "");
+    }
   }, [data]);
 
   return (
@@ -290,7 +348,7 @@ const Item = ({
                 >
                   {
                     <label
-                      className="upload uploadInlineFile d-flex align-items-center "
+                      className="upload uploadInlineFile d-flex align-items-center"
                       style={{ maxWidth: "100%" }}
                     >
                       {/* <FontAwesomeIcon icon={faFile} className="me-2" />  */}
@@ -553,19 +611,37 @@ const Item = ({
               >
                 <span style={{ marginBottom: "-8px" }}>
                   {" "}
-                  Selected Vendors - <strpng>
+                  Selected Vendors - <strong>
                     {" "}
-                    {data.vendors.length}{" "}
-                  </strpng>{" "}
+                    {data.vendors?.length}{" "}
+                  </strong>{" "}
                 </span>
-                <Link
-                  href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
-                  className="btn btn-primary "
-                  // style={{ height: "40px" }}
-                >
-                  {/* <FontAwesomeIcon icon={faEye} />{" "} */}
-                  View vendors
-                </Link>
+                {
+                  type == 'create' ? (
+                    <Link
+                      href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
+                      className="btn btn-primary "
+                      // style={{ height: "40px" }}
+                    >
+                      {/* <FontAwesomeIcon icon={faEye} />{" "} */}
+                      View vendors
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={handleViewVendorInEdit ?? null}
+                      className="btn btn-primary "
+                      // style={{ height: "40px" }}
+                    >
+                      {/* <FontAwesomeIcon icon={faEye} />{" "} */}
+                      View vendors
+                    </button>
+                  )
+                }
+                {type == 'edit' && (
+                  <button onClick={handleAddVendorInEdit ?? null} style={{ height: "40px" }} className="upload btn btn-success text-white pt-2 btn-sm">
+                    Add Vendors
+                  </button>
+                )}
               </div>
             </div>
 
@@ -592,6 +668,7 @@ const Item = ({
                 onClose={handleCloseModal}
                 product={data}
                 rfq_id={rfq_id}
+                onClauseChange={onClauseChange}
               />
             )}
           </div>
