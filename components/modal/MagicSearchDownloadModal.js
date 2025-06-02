@@ -36,15 +36,42 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
     }
   };
 
-  const handleDownload = () => {
-    if (!fileUrl) return;
-    const a = document.createElement("a");
-    a.href = fileUrl;
-    a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+const handleDownload = async () => {
+  if (!fileUrl) return;
+
+  const originalUrl = fileUrl;
+  const replacedUrl = fileUrl.replace("http://", "https://");
+
+  const tryDownload = async (url) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+      console.log("Download successful from:", url);
+      return true;
+    } catch (err) {
+      console.error("Download failed from:", url, err);
+      return false;
+    }
   };
+
+  // Try with replaced URL first
+  const success = await tryDownload(replacedUrl);
+
+  // Retry with original URL if the first fails
+  if (!success) {
+    await tryDownload(originalUrl);
+  }
+};
+
 
   const handleCreateRFQ = async () => {
     if (!file) {
@@ -81,7 +108,7 @@ const handleViewBOQ = () => {
     console.error("No JSON data available for viewing.");
     return;
   }
-  const viewUrl = `http://localhost:8001/dashboard/buyer/magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
+  const viewUrl = `magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
   window.open(viewUrl, '_blank'); // Open in a new tab
 };
 

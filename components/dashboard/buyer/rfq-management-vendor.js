@@ -34,7 +34,7 @@ const RfqManagementVendorPage = () => {
       router.back();
     }
     else {
-      router.push('/dashboard/buyer/rfq-management?tab=create-rfq')
+      router.back();
     }
   }
 

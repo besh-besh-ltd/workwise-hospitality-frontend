@@ -18,22 +18,39 @@ const MagicSearchView = () => {
       setLoading(false);
       return;
     }
-    const fetchData = async () => {
+
+  const fetchData = async () => {
+    const replacedUrl = jsonUrl.replace("http://", "https://");
+    const originalUrl = jsonUrl;
+
+    const tryFetch = async (url) => {
       try {
-        const response = await fetch(decodeURIComponent(jsonUrl));
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
         const data = await response.json();
         setJsonData(data);
         const sheets = Object.keys(groupBySheet(data));
         if (sheets.length) setActiveSheet(sheets[0]);
-      } catch {
-        setError("Failed to load data.");
-        toast.error("Failed to load products");
-      } finally {
-        setLoading(false);
+        console.log("Data fetched successfully from:", url);
+        return true;
+      } catch (err) {
+        console.error("Fetch failed from:", url, err);
+        return false;
       }
     };
-    fetchData();
-  }, [isReady, query]);
+
+    setLoading(true);
+    const success = await tryFetch(replacedUrl);
+
+    if (!success) {
+      await tryFetch(originalUrl);
+    }
+
+    setLoading(false);
+  };
+
+  fetchData();
+}, [isReady, query]);
 
   const groupBySheet = (data) =>
     data.reduce((acc, item) => {
