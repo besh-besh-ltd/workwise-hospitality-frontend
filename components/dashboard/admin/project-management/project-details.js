@@ -6,9 +6,10 @@ import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import Pagination from "@/components/shared/Pagination";
 import { toast } from "react-toastify";
-import EditProjectModal from "./EditProjectModal";
-import AddTeamMemberModal from "./AddTeamMemberModal";
+import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { getProjectById, updateProject, getProjectTeamMembers, addTeamMember, removeTeamMember } from "@/services/project";
+import { getCountryCodes } from "@/services/cms";
+import { getCompanyUsers } from "@/services/Auth";
 
 const ProjectDetailsPage = () => {
     const router = useRouter();
@@ -22,6 +23,8 @@ const ProjectDetailsPage = () => {
     const [totalData, setTotalData] = useState(0);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+    const [countryCodes, setCountryCodes] = useState([]);
+    const [teamMemberUsers, setTeamMemberUsers] = useState([]);
 
     // Role options with color coding
     const roleOptions = [
@@ -31,6 +34,45 @@ const ProjectDetailsPage = () => {
         { value: 9, label: "Engineering", color: "#FFE600" }, // Yellow color
         { value: 10, label: "Finance", color: "#5b5b5b" }, // Text color
     ];
+
+    // Fetch country codes
+    const fetchCountryCodes = async () => {
+        try {
+            const response = await getCountryCodes();
+            if (response?.data) {
+                setCountryCodes(response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching country codes:", error);
+        }
+    };
+
+    // Fetch team member users
+    const fetchTeamMemberUsers = async () => {
+        try {
+            const response = await getCompanyUsers();
+            if (response.status) {
+                const formattedUsers = response.data.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    status: user.status
+                }));
+                
+                // Only show active users
+                const activeUsers = formattedUsers.filter(user => user.status === 'active');
+                setTeamMemberUsers(activeUsers);
+            } else {
+                toast.error("Failed to fetch users");
+                setTeamMemberUsers([]);
+            }
+        } catch (error) {
+            console.error("Error fetching users:", error);
+            toast.error("Failed to fetch users");
+            setTeamMemberUsers([]);
+        }
+    };
 
     // Fetch project details
     const fetchProjectDetails = async () => {
@@ -99,6 +141,8 @@ const ProjectDetailsPage = () => {
         if (projectId) {
             fetchProjectDetails();
             fetchTeamMembers();
+            fetchCountryCodes();
+            fetchTeamMemberUsers();
         }
     }, [projectId]);
 
@@ -155,7 +199,7 @@ const ProjectDetailsPage = () => {
     };
 
     // Handle add team member
-    const handleAddTeamMember = async (newMember) => {
+    const handleAddTeamMember = async (newMember, resetForm) => {
         try {
             setLoading(true);
             
@@ -167,6 +211,7 @@ const ProjectDetailsPage = () => {
                 setLoading(false);
                 toast.success("Team member added successfully!");
                 setShowAddTeamModal(false);
+                if (resetForm) resetForm();
             } else {
                 toast.error(response?.data?.message || "Failed to add team member");
                 setLoading(false);
@@ -450,20 +495,24 @@ const ProjectDetailsPage = () => {
 
             {/* Edit Project Modal */}
             {showEditModal && project && (
-                <EditProjectModal
-                    project={project}
-                    isOpen={showEditModal}
+                <DynamicFormModal
+                    type="edit-project"
+                    projectData={project}
+                    openModal={showEditModal}
                     closeModal={() => setShowEditModal(false)}
-                    onSave={handleEditProject}
+                    handleEditProject={handleEditProject}
+                    countryCodes={countryCodes}
                 />
             )}
 
             {/* Add Team Member Modal */}
             {showAddTeamModal && (
-                <AddTeamMemberModal
-                    isOpen={showAddTeamModal}
+                <DynamicFormModal
+                    type="add-team-member"
+                    teamMemberUsers={teamMemberUsers}
+                    openModal={showAddTeamModal}
                     closeModal={() => setShowAddTeamModal(false)}
-                    onSave={handleAddTeamMember}
+                    handleAddTeamMember={handleAddTeamMember}
                     roleOptions={roleOptions}
                 />
             )}

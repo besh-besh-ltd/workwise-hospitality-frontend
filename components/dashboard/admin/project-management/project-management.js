@@ -5,9 +5,10 @@ import Link from "next/link";
 import Pagination from "@/components/shared/Pagination";
 import FullLoader from "@/components/shared/FullLoader";
 import ReadMore from "@/components/shared/ReadMore";
-import CreateProjectModal from "./CreateProjectModal";
+import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { toast } from "react-toastify";
 import { getAllProjects, createProject } from "@/services/project";
+import { getCountryCodes } from "@/services/cms";
 
 const ProjectManagementPage = () => {
     const [loading, setLoading] = useState(false);
@@ -16,6 +17,7 @@ const ProjectManagementPage = () => {
     const [limit, setLimit] = useState(10);
     const [totalData, setTotalData] = useState(0);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [countryCodes, setCountryCodes] = useState([]);
 
     // Get paginated data
     const getPaginatedData = () => {
@@ -34,34 +36,32 @@ const ProjectManagementPage = () => {
         });
     };
 
+    // Fetch country codes
+    const fetchCountryCodes = async () => {
+        try {
+            const response = await getCountryCodes();
+            if (response?.data) {
+                setCountryCodes(response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching country codes:", error);
+        }
+    };
+
     // Handle create project
     const handleCreateProject = async (projectData) => {
         try {
             setLoading(true);
             const response = await createProject(projectData);
-            if (response && response.data && response.data.status === true) {
-                // Close modal first
+            if (response && respons.status === true) {
                 setShowCreateModal(false);
                 toast.success("Project created successfully!");
                 await fetchProjects();
             } else {
-                toast.error("Failed to create project: Unknown error");
+                toast.error("Failed to create project");
             }
         } catch (error) {
-            let errorMessage = "Failed to create project";
-            if (error.details) {
-                if (error.details.errors && Object.keys(error.details.errors).length > 0) {
-                    const firstError = Object.values(error.details.errors)[0];
-                    errorMessage = `Failed to create project: ${firstError}`;
-                } else if (error.details.message) {
-                    errorMessage = `Failed to create project: ${error.details.message}`;
-                }
-            } else if (error.message && error.message.response && error.message.response.data) {
-                // Fallback to the old error format
-                errorMessage = error.message.response.data.message || errorMessage;
-            }
-            
-            toast.error(errorMessage);
+            toast.error(error?.response?.data?.message || "Failed to create project");
         } finally {
             setLoading(false);
         }
@@ -74,16 +74,12 @@ const ProjectManagementPage = () => {
             const response = await getAllProjects();
             if (response && response.data) {
                 const projectsData = response.data.data;
-                if (Array.isArray(projectsData) && projectsData.length > 0) {
+                if (Array.isArray(projectsData)) {
                     setProjects(projectsData);
                     setTotalData(projectsData.length);
-                } else if (Array.isArray(projectsData)) {
-                    setProjects([]);
-                    setTotalData(0);
                 } else {
                     setProjects([]);
                     setTotalData(0);
-                    toast.error("Invalid project data format received");
                 }
             } else {
                 toast.error("Failed to fetch projects");
@@ -91,14 +87,7 @@ const ProjectManagementPage = () => {
                 setTotalData(0);
             }
         } catch (error) {
-            if (error.data && error.data.message) {
-                toast.error(error.data.message);
-            } else if (error.message?.response?.data) {
-                toast.error(error.message?.response?.data?.message || "Failed to fetch projects");
-            } else {
-                toast.error("Failed to fetch projects. Please try again.");
-            }
-            
+            toast.error(error?.response?.data?.message || "Failed to fetch projects");
             setProjects([]);
             setTotalData(0);
         } finally {
@@ -108,6 +97,7 @@ const ProjectManagementPage = () => {
 
     useEffect(() => {
         fetchProjects();
+        fetchCountryCodes();
     }, []);
 
     return (
@@ -201,10 +191,12 @@ const ProjectManagementPage = () => {
 
             {/* Create Project Modal */}
             {showCreateModal && (
-                <CreateProjectModal
-                    isOpen={showCreateModal}
+                <DynamicFormModal
+                    type="create-project"
+                    openModal={showCreateModal}
                     closeModal={() => setShowCreateModal(false)}
-                    onSave={handleCreateProject}
+                    handleCreateProject={handleCreateProject}
+                    countryCodes={countryCodes}
                 />
             )}
         </>

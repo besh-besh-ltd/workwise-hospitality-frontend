@@ -296,3 +296,84 @@ export const addBuyerSchema = yup.object().shape({
     .min(1, "At least 1 finance user allowed")
     .required("Required"),
 });
+
+// ==========================================
+// Vendor Management Schemas
+// ==========================================
+
+// Add Vendor validation schema
+export const addVendorSchema = yup.object().shape({
+  vendorName: yup.string().required("Name is required")
+    .min(2, "Name not less than 2 characters short")
+    .max(50, "Name not more than 50 characters long"),
+  email: yup.string().email()
+    .matches(emailRegex, "Please enter valid email address")
+    .required("Email is required"),
+  phone: yup
+    .string()
+    .matches(mobileRegex, "Please enter a valid mobile number")
+    .min(7, "Minimum 7 digits are required")
+    .max(15, "Mobile number cannot be more than 15 digits long")
+    .required("Mobile number is required")
+});
+
+// ==========================================
+// Dynamic Form Modal Schemas
+// ==========================================
+
+// Project validation schema for Dynamic Form Modal
+export const dynamicProjectSchema = yup.object().shape({
+  name: yup.string().required("Project Name is required")
+    .min(2, "Name not less than 2 characters short")
+    .max(50, "Name not more than 50 characters long"),
+  description: yup.string(),
+  location: yup.string(),
+  ended_at: yup.date(),
+  rfq_type: yup.string()
+    .oneOf(['', 'firm', 'budgetary'], 'Invalid RFQ Type')
+    .nullable(),
+  reverse_auction: yup.string()
+    .oneOf(['0', '1', '-1'], 'Invalid Reverse Auction value')
+    .required('Reverse Auction selection is required'),
+  status: yup.mixed().notRequired()
+});
+
+// Project edit validation schema for Dynamic Form Modal
+export const dynamicProjectEditSchema = yup.object().shape({
+  name: yup.string().required("Project Name is required")
+    .min(2, "Name not less than 2 characters short")
+    .max(50, "Name not more than 50 characters long"),
+  description: yup.string(),
+  location: yup.string(),
+  ended_at: yup.date(),
+  rfq_type: yup.string()
+    .oneOf(['', 'firm', 'budgetary'], 'Invalid RFQ Type')
+    .nullable(),
+  reverse_auction: yup.string()
+    .oneOf(['0', '1', '-1'], 'Invalid Reverse Auction value')
+    .required('Reverse Auction selection is required'),
+  status: yup.number().oneOf([0, 1], 'Invalid status value')
+});
+
+// Account edit validation schema for Dynamic Form Modal
+export const dynamicAccountEditSchema = yup.object().shape({
+  name: yup.string().required("Name is required"),
+  email: yup
+    .string()
+    .email("Invalid email")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .matches(/^[0-9]+$/, "Mobile number should contain only digits")
+    .min(8, "Mobile number must be at least 8 digits")
+    .max(15, "Mobile number cannot exceed 15 digits")
+    .required("Mobile number is required"),
+  countryCode: yup.string().required("Country code is required"),
+});
+
+// Team member validation schema for Dynamic Form Modal
+export const dynamicTeamMemberSchema = yup.object().shape({
+  user: yup.object().required("Please select a user")
+});
+
+// ==========================================

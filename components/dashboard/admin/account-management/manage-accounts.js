@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faToggleOn, faToggleOff } from "@fortawesome/free-solid-svg-icons";
+import { faEdit } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "@/components/shared/Pagination";
 import FullLoader from "@/components/shared/FullLoader";
 import Select from 'react-select';
-import EditAccountModal from "./EditAccountModal";
+import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { getCompanyUsers } from "@/services/Auth";
 import { toast } from "react-toastify";
 import { getAllProjects, getUserProjectsByUserId } from "@/services/project";
+import { getCountryCodes } from "@/services/cms";
 
 const ManageAccountsPage = () => {
     const [loading, setLoading] = useState(false);
@@ -20,6 +21,7 @@ const ManageAccountsPage = () => {
     const [filters, setFilters] = useState({ role: null, status: null, project: [] });
     const [modals, setModals] = useState({ showEditModal: false, selectedAccount: null });
     const [projectState, setProjectState] = useState({ options: [], loading: false });
+    const [countryCodes, setCountryCodes] = useState([]);
 
     // Static options
     const roleOptions = [
@@ -90,6 +92,18 @@ const ManageAccountsPage = () => {
         }
     };
 
+    // Fetch country codes
+    const fetchCountryCodes = async () => {
+        try {
+            const response = await getCountryCodes();
+            if (response?.data) {
+                setCountryCodes(response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching country codes:", error);
+        }
+    };
+
     // Utility functions
     const getPaginatedData = () => {
         const start = (pagination.page - 1) * pagination.limit;
@@ -118,18 +132,22 @@ const ManageAccountsPage = () => {
         setModals({ showEditModal: true, selectedAccount: account });
     };
 
-    const handleToggleStatus = (accountId) => {
+    // Update user data
+    const updateUserData = async (updatedAccount) => {
         setAccounts(prev => prev.map(account => 
-            account.id === accountId ? 
-                { ...account, status: account.status === 'active' ? 'inactive' : 'active' } : 
+            account.id === updatedAccount.id ? 
+                { ...updatedAccount, createdAt: account.createdAt } : 
                 account
         ));
+        setModals(prev => ({ ...prev, showEditModal: false }));
+        toast.success("Account updated successfully!");
     };
 
     // Effects
     useEffect(() => {
         fetchProjects();
         fetchUsers();
+        fetchCountryCodes();
     }, []);
 
     // Handle URL refresh parameter
@@ -264,23 +282,13 @@ const ManageAccountsPage = () => {
                                                                 <td>{getProjectNames(account)}</td>
                                                                 <td>{formatDate(account.created_at)}</td>
                                                                 <td>
-                                                                    <div className="d-flex flex-column" style={{ gap: "5px" }}>
-                                                                        <button
-                                                                            className="btn btn-sm btn-primary"
-                                                                            onClick={() => handleEditAccount(account)}
-                                                                            style={{ padding: "3px 12px", fontSize: "0.8rem", width: "100px" }}
-                                                                        >
-                                                                            <FontAwesomeIcon icon={faEdit} /> Edit
-                                                                        </button>
-                                                                        <button
-                                                                            className={`btn btn-sm ${account.status === 'active' ? 'btn-success' : 'btn-danger'}`}
-                                                                            onClick={() => handleToggleStatus(account.id)}
-                                                                            style={{ padding: "3px 12px", fontSize: "0.8rem", width: "100px" }}
-                                                                        >
-                                                                            <FontAwesomeIcon icon={account.status === 'active' ? faToggleOn : faToggleOff} />
-                                                                            {account.status === 'active' ? 'Active' : 'Inactive'}
-                                                                        </button>
-                                                                    </div>
+                                                                    <button
+                                                                        className="btn btn-sm btn-primary"
+                                                                        onClick={() => handleEditAccount(account)}
+                                                                        style={{ padding: "3px 12px", fontSize: "0.8rem", width: "80px" }}
+                                                                    >
+                                                                        <FontAwesomeIcon icon={faEdit} /> Edit
+                                                                    </button>
                                                                 </td>
                                                             </tr>
                                                         );
@@ -306,20 +314,15 @@ const ManageAccountsPage = () => {
 
             {/* Edit Modal */}
             {modals.showEditModal && modals.selectedAccount && (
-                <EditAccountModal
-                    account={modals.selectedAccount}
-                    isOpen={modals.showEditModal}
+                <DynamicFormModal
+                    type="edit-account"
+                    accountData={modals.selectedAccount}
+                    openModal={modals.showEditModal}
                     closeModal={() => setModals(prev => ({ ...prev, showEditModal: false }))}
+                    handleEditAccount={updateUserData}
+                    countryCodes={countryCodes}
                     roleOptions={roleOptions}
                     projectOptions={projectState.options}
-                    onSave={(updatedAccount) => {
-                        setAccounts(prev => prev.map(account => 
-                            account.id === updatedAccount.id ? 
-                                { ...updatedAccount, createdAt: account.createdAt } : 
-                                account
-                        ));
-                        setModals(prev => ({ ...prev, showEditModal: false }));
-                    }}
                 />
             )}
         </>
