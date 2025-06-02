@@ -623,8 +623,8 @@ Example:
                               </div>
                             </>
                           ) : type === "edit-account" ? (
-                            // Account Edit Form Fields (Left Column)
                             <>
+                              {/* Account Edit Form Fields (Left Column) */}
                               <div className="form-group">
                                 <label htmlFor="name">
                                   Name <sup>*</sup>
@@ -633,8 +633,7 @@ Example:
                                   type="text"
                                   id="name"
                                   name="name"
-                                  className={`form-control ${touched.name && errors.name ? 'is-invalid' : ''}`}
-                                  placeholder="Enter full name"
+                                  placeholder="John Doe"
                                 />
                                 {touched.name && errors.name && (
                                   <div className="form-error">
@@ -642,7 +641,7 @@ Example:
                                   </div>
                                 )}
                               </div>
-
+                              
                               <div className="form-group">
                                 <label htmlFor="email">
                                   Email <sup>*</sup>
@@ -651,8 +650,7 @@ Example:
                                   type="email"
                                   id="email"
                                   name="email"
-                                  className={`form-control ${touched.email && errors.email ? 'is-invalid' : ''}`}
-                                  placeholder="example@letsworkwise.com"
+                                  placeholder="john@example.com"
                                 />
                                 {touched.email && errors.email && (
                                   <div className="form-error">
@@ -660,43 +658,59 @@ Example:
                                   </div>
                                 )}
                               </div>
-
+                              
                               <div className="form-group">
                                 <label htmlFor="mobile">
                                   Mobile <sup>*</sup>
                                 </label>
+                                
+                                {/* Flexbox container for country code dropdown and mobile input */}
                                 <div className="d-flex align-items-center gap-2 position-relative">
+                                  {/* Country Code Dropdown */}
                                   <Field name="countryCode">
                                     {({ field, form }) => (
                                       <select
                                         {...field}
-                                        className="form-select"
-                                        style={{ width: "30%" }}
-                                        onChange={(e) => form.setFieldValue("countryCode", e.target.value)}
+                                        className="form-select border border-success"
+                                        style={{ width: "30%", height: "54px" }}
+                                        onChange={(e) =>
+                                          form.setFieldValue(
+                                            "countryCode",
+                                            e.target.value
+                                          )
+                                        }
                                       >
                                         {countryCodes.map((country) => (
                                           <option
                                             key={country.phone_code}
                                             value={country.phone_code}
                                           >
-                                            {country.country_code} ({country.phone_code})
+                                            {country.country_code} (
+                                            {country.phone_code})
                                           </option>
                                         ))}
                                       </select>
                                     )}
                                   </Field>
-                                  
+
+                                  {/* Mobile Number Input */}
                                   <Field
                                     type="text"
                                     id="mobile"
                                     name="mobile"
-                                    className={`form-control ${touched.mobile && errors.mobile ? 'is-invalid' : ''}`}
-                                    placeholder="Enter mobile number"
-                                    style={{ flex: "1" }}
+                                    className={`form-control border border-success ${
+                                      touched.mobile && errors.mobile
+                                        ? "is-invalid"
+                                        : ""
+                                    }`}
+                                    placeholder="Ex. 9123456789"
+                                    style={{ flex: "1", height: "54px" }}
                                   />
                                 </div>
+
+                                {/* Validation Error Message BELOW both fields */}
                                 {touched.mobile && errors.mobile && (
-                                  <div className="form-error">
+                                  <div className="invalid-feedback d-block mt-1">
                                     {errors.mobile}
                                   </div>
                                 )}

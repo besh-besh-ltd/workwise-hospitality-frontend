@@ -10,6 +10,7 @@ import { getCompanyUsers } from "@/services/Auth";
 import { toast } from "react-toastify";
 import { getAllProjects, getUserProjectsByUserId } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
+import { updateUserAccount } from "@/services/Auth";
 
 const ManageAccountsPage = () => {
     const [loading, setLoading] = useState(false);
@@ -134,13 +135,41 @@ const ManageAccountsPage = () => {
 
     // Update user data
     const updateUserData = async (updatedAccount) => {
-        setAccounts(prev => prev.map(account => 
-            account.id === updatedAccount.id ? 
-                { ...updatedAccount, createdAt: account.createdAt } : 
-                account
-        ));
-        setModals(prev => ({ ...prev, showEditModal: false }));
-        toast.success("Account updated successfully!");
+        try {
+            setLoading(true);
+            
+            // Prepare data for API call
+            const apiData = {
+                name: updatedAccount.name,
+                email: updatedAccount.email,
+                mobile: updatedAccount.mobile,
+            };
+
+            // Make API call to update user
+            const response = await updateUserAccount(updatedAccount.id, apiData);
+            
+            if (response && response.status === 1) {
+                // Update local state with the new data
+                setAccounts(prev => prev.map(account => 
+                    account.id === updatedAccount.id ? 
+                        { ...account, ...updatedAccount } : 
+                        account
+                ));
+                setModals(prev => ({ ...prev, showEditModal: false }));
+                toast.success("Account updated successfully!");
+                
+                // Refresh the users list to get latest data
+                await fetchUsers();
+            } else {
+                toast.error("Failed to update account");
+            }
+            
+        } catch (error) {
+            console.error("Error updating account:", error);
+            toast.error(error?.response?.data?.message || "Failed to update account");
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Effects

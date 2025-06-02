@@ -339,5 +339,16 @@ export const getUserProjectsByUserId = (userId) => {
 		}
 	});
 };
+export const updateUserAccount = (userId, accountData) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Using the new user endpoint for admin updating user accounts (with admin role check)
+            let response = await axiosInstance.put(`users/admin-update-user-account/${userId}`, accountData);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+};
 
 
