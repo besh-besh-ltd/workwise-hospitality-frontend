@@ -572,10 +572,10 @@ const EditRFQ = () => {
         return;
       }
 
-      if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
-       toast.error("You cannot delete all products from RFQ, at least one product is required");
-       return;
-      }
+      // if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
+      //  toast.error("You cannot delete all products from RFQ, at least one product is required");
+      //  return;
+      // }
 
       const dataToSend = {
         updatableData,
@@ -621,27 +621,26 @@ const EditRFQ = () => {
       if (rfqData.ra_start_date != formValues.ra_start_date)
         dataToSend.ra_start_date = formValues.ra_start_date;
 
-   try {
+  //  try {
      
 
-     // Use strict() to prevent empty objects from passing
-     await editRfqSchema
-       .strict()
-       .validate({ updatableData }, { abortEarly: false });
+  //    // Use strict() to prevent empty objects from passing
+  //    await editRfqSchema
+  //      .strict()
+  //      .validate({ updatableData }, { abortEarly: false });
      
-   } catch (validationError) {
-     // FIXED: Use the caught validationError obje
+  //  } catch (validationError) {
+  //    // FIXED: Use the caught validationError obje
 
-     const errorMessages = validationError.inner
-       .map((err) => err.message)
-       .join("\n");
-     toast.error(
-       "Validation Error: " +
-         (validationError.errors?.join(", ") || validationError.message)
-     );
-     return;
-   }
-
+  //    const errorMessages = validationError.inner
+  //      .map((err) => err.message)
+  //      .join("\n");
+  //    toast.error(
+  //      "Validation Error: " +
+  //        (validationError.errors?.join(", ") || validationError.message)
+  //    );
+  //    return;
+  //  }
 
       setLoading(true);
 
