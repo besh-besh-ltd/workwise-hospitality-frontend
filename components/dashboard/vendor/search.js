@@ -268,6 +268,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     );
 };
 
+const addRfqIdParam = (rfq_id) => {
+    const currentPath = router.pathname;
+    const currentQuery = { ...router.query, rfq_id };
+
+    router.push({
+      pathname: currentPath,
+      query: currentQuery,
+    }, undefined, { shallow: true }); // shallow avoids getServerSideProps/data reloading
+  };
+
 
   const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
@@ -302,7 +312,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         payload.sheet_id = parseInt(sheet_id);
       }
 
-      await addProductToDraft(payload);
+      const response = await addProductToDraft(payload);
+      const rfqResponse = response.data;
+      if(rfqResponse && rfqResponse.isNew) {
+        addRfqIdParam(rfqResponse.rfq_id)
+      }
       
       toast.success(
         <h6>
@@ -1343,7 +1357,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           {/* View Current RFQ Button (Always Renders) */}
                           <Link
                             href={
-                              queryMeta.rfq_id
+                              queryMeta.rfq_id && queryMeta.rfq_id != null
                                 ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
                                     queryMeta.rfq_id
                                   }${
@@ -1359,7 +1373,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             role="button"
                             aria-disabled={isLoading}
                           >
-                            {queryMeta.rfq_id
+                            {queryMeta.rfq_id && queryMeta.rfq_id != null
                               ? `View RFQ #${queryMeta.rfq_id}`
                               : "View My Drafts"}
                           </Link>
