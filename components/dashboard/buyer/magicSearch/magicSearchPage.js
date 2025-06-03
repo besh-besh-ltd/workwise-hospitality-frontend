@@ -141,29 +141,29 @@ const MagicSearchPage = () => {
             setLoading(true);
             
             //  upload boq file to ai server
-            // const aiResponse = await getBOQexcelToJsonAI(file);
+            const aiResponse = await getBOQexcelToJsonAI(file);
 
-            // const downloadUrl = aiResponse?.data?.download_url;
-            // const availableSheets = aiResponse?.data?.sheetwise_downloads;
+            const downloadUrl = aiResponse?.data?.download_url;
+            const availableSheets = aiResponse?.data?.sheetwise_downloads;
 
-            const downloadUrl = "http://13.204.45.37:8000/download/json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&stage=matched"
-            const availableSheets = [
-              {
-                sheet_name: "MONOMER_COLD_ROOM",
-                download_url:
-                  "http://13.204.45.37:8000/download/sheet_json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&sheet=MONOMER_COLD_ROOM",
-              },
-              {
-                sheet_name: "PRE_TREATMENT_CHEMICAL_PTC_",
-                download_url:
-                  "http://13.204.45.37:8000/download/sheet_json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&sheet=PRE_TREATMENT_CHEMICAL_PTC_",
-              },
-              {
-                sheet_name: "SOLVENT_PLANT",
-                download_url:
-                  "http://13.204.45.37:8000/download/sheet_json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&sheet=SOLVENT_PLANT",
-              },
-            ];
+            // const downloadUrl = "http://13.204.45.37:8000/download/json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&stage=matched"
+            // const availableSheets = [
+            //   {
+            //     sheet_name: "MONOMER_COLD_ROOM",
+            //     download_url:
+            //       "http://13.204.45.37:8000/download/sheet_json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&sheet=MONOMER_COLD_ROOM",
+            //   },
+            //   {
+            //     sheet_name: "PRE_TREATMENT_CHEMICAL_PTC_",
+            //     download_url:
+            //       "http://13.204.45.37:8000/download/sheet_json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&sheet=PRE_TREATMENT_CHEMICAL_PTC_",
+            //   },
+            //   {
+            //     sheet_name: "SOLVENT_PLANT",
+            //     download_url:
+            //       "http://13.204.45.37:8000/download/sheet_json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&sheet=SOLVENT_PLANT",
+            //   },
+            // ];
 
               if (!downloadUrl) {
                 toast.error("Failed to create RFQ: Please try after few minutes.");
