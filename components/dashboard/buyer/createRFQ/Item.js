@@ -97,7 +97,6 @@ const Item = ({
           product_id: rfqProduct.product_id,
           variant: rfqProduct.variant,
         })
-      else
       dispatch(
         addFiles({
           type: fileType,
@@ -132,7 +131,6 @@ const Item = ({
         product_id: rfqProduct.product_id,
         variant: rfqProduct.variant,
       });
-    else
     dispatch(
       removeFiles({
         type: fileType,
@@ -144,28 +142,15 @@ const Item = ({
     setHasUnsavedChanges(true);
   };
 
-  const handleSelectDefaultTDSQAPFile = (e, type, data) => {
-    dispatch(
-      setUserSelectedDefaultFile({
-        file_type: type,
-        is_selected: e.target.checked,
-        product_id: data.product_id,
-        variant: data.variant,
-      })
-    );
-    setHasUnsavedChanges(true);
-  };
-
   const handleaddProductComment = (e) => {
     const newComment = e.target.value;
     setComment(newComment);
-    if(type == 'edit')
+    if(onCommentChange)
       onCommentChange({
         value: newComment,
         product_id: rfqProduct.product_id,
         variant: rfqProduct.variant,
       })
-    else
       dispatch(
         addProductComment({
           value: newComment,
@@ -314,7 +299,7 @@ const Item = ({
               <label> Product Size </label>
               <textarea
                 type="text"
-                value={
+                defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Size")
                     ?.value || ""
                 }
@@ -511,7 +496,7 @@ const Item = ({
               <label> Product Specification </label>
               <textarea
                 type="text"
-                value={
+                defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Spec")
                     ?.value || ""
                 }
@@ -529,7 +514,7 @@ const Item = ({
                 <label> Quantity * </label>
                 <input
                   type="number"
-                  value={
+                  defaultValue={
                     rfqProduct?.spec?.find((item) => item.title === "Quantity")
                       ?.value || ""
                   }
@@ -546,7 +531,7 @@ const Item = ({
                 <label> Unit * </label>
                 <input
                   type="text"
-                  value={
+                  defaultValue={
                     rfqProduct?.spec?.find((item) => item.title === "Unit")
                       ?.value || ""
                   }
