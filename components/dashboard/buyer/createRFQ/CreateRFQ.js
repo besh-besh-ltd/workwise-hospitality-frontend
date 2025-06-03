@@ -184,11 +184,17 @@ const CreateRFQ = () => {
             name: termName
           });
         }
+      } else {
+        updatedTerms = updatedTerms.filter(term => {
+          const cond = term.id != termId
+          return cond
+        })
       }
       
       // Update Redux with the new terms array
       dispatch(setTermsData(updatedTerms));
       setHasUnsavedChanges(true);
+      setTermsChanged(true);
     } catch (error) {
       console.error("Error handling term change:", error);
       toast.error("An error occurred while updating terms. Please try again.");
@@ -1118,7 +1124,7 @@ const CreateRFQ = () => {
                       padding: "10px",
                     }}
                   >
-                    <Accordion flush defaultActiveKey="">
+                    <Accordion alwaysOpen flush defaultActiveKey="">
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
                         rfqProducts.map((product) => {

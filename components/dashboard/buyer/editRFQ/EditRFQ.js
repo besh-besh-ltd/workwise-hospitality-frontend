@@ -1223,7 +1223,7 @@ const EditRFQ = () => {
               padding: "10px",
             }}
           >
-            <Accordion flush defaultActiveKey="">
+            <Accordion alwaysOpen flush defaultActiveKey="">
               {rfqData.products &&
                 rfqData.products.length > 0 &&
                 rfqData.products.filter(product => !updatableData.products?.deletable?.includes(product.id)).map((product) => {
@@ -1250,7 +1250,7 @@ const EditRFQ = () => {
                         setRfqData((prev) => ({
                           ...prev,
                           products: prev.products.map((product) =>
-                            product.product_id == change.product_id
+                            product.product_id == change.product_id && product.variant == change.variant
                               ? {
                                   ...product,
                                   product_specs: !product?.product_specs
@@ -1304,11 +1304,10 @@ const EditRFQ = () => {
                         }))
                       }}
                       onFilesChange={(change) => {
-                        console.log("CHANGE --- ", change);
                         setRfqData((prev) => ({
                           ...prev,
                           products: prev.products.map((product) =>
-                            product.product_id == change.product_id
+                            product.product_id == change.product_id && product.variant == change.variant
                               ? {
                                   ...product,
                                   [change.type]: change.value
@@ -1340,7 +1339,7 @@ const EditRFQ = () => {
                         setRfqData((prev) => ({
                           ...prev,
                           products: prev.products.map((product) =>
-                            product.product_id == change.product_id
+                            product.product_id == change.product_id && product.variant == change.variant
                               ? {
                                   ...product,
                                   comment: change.value
