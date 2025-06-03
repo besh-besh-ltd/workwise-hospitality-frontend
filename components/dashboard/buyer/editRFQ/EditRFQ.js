@@ -572,10 +572,10 @@ const EditRFQ = () => {
         return;
       }
 
-      if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
-       toast.error("You cannot delete all products from RFQ, at least one product is required");
-       return;
-      }
+      // if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
+      //  toast.error("You cannot delete all products from RFQ, at least one product is required");
+      //  return;
+      // }
 
       const dataToSend = {
         updatableData,
@@ -621,27 +621,26 @@ const EditRFQ = () => {
       if (rfqData.ra_start_date != formValues.ra_start_date)
         dataToSend.ra_start_date = formValues.ra_start_date;
 
-   try {
+  //  try {
      
 
-     // Use strict() to prevent empty objects from passing
-     await editRfqSchema
-       .strict()
-       .validate({ updatableData }, { abortEarly: false });
+  //    // Use strict() to prevent empty objects from passing
+  //    await editRfqSchema
+  //      .strict()
+  //      .validate({ updatableData }, { abortEarly: false });
      
-   } catch (validationError) {
-     // FIXED: Use the caught validationError obje
+  //  } catch (validationError) {
+  //    // FIXED: Use the caught validationError obje
 
-     const errorMessages = validationError.inner
-       .map((err) => err.message)
-       .join("\n");
-     toast.error(
-       "Validation Error: " +
-         (validationError.errors?.join(", ") || validationError.message)
-     );
-     return;
-   }
-
+  //    const errorMessages = validationError.inner
+  //      .map((err) => err.message)
+  //      .join("\n");
+  //    toast.error(
+  //      "Validation Error: " +
+  //        (validationError.errors?.join(", ") || validationError.message)
+  //    );
+  //    return;
+  //  }
 
       setLoading(true);
 
@@ -1224,7 +1223,7 @@ const EditRFQ = () => {
               padding: "10px",
             }}
           >
-            <Accordion flush defaultActiveKey="">
+            <Accordion alwaysOpen flush defaultActiveKey="">
               {rfqData.products &&
                 rfqData.products.length > 0 &&
                 rfqData.products.filter(product => !updatableData.products?.deletable?.includes(product.id)).map((product) => {
@@ -1251,7 +1250,7 @@ const EditRFQ = () => {
                         setRfqData((prev) => ({
                           ...prev,
                           products: prev.products.map((product) =>
-                            product.product_id == change.product_id
+                            product.product_id == change.product_id && product.variant == change.variant
                               ? {
                                   ...product,
                                   product_specs: !product?.product_specs
@@ -1305,11 +1304,10 @@ const EditRFQ = () => {
                         }))
                       }}
                       onFilesChange={(change) => {
-                        console.log("CHANGE --- ", change);
                         setRfqData((prev) => ({
                           ...prev,
                           products: prev.products.map((product) =>
-                            product.product_id == change.product_id
+                            product.product_id == change.product_id && product.variant == change.variant
                               ? {
                                   ...product,
                                   [change.type]: change.value
@@ -1341,7 +1339,7 @@ const EditRFQ = () => {
                         setRfqData((prev) => ({
                           ...prev,
                           products: prev.products.map((product) =>
-                            product.product_id == change.product_id
+                            product.product_id == change.product_id && product.variant == change.variant
                               ? {
                                   ...product,
                                   comment: change.value
