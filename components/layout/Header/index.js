@@ -210,22 +210,6 @@ const Header = () => {
                         <Link href="/contactus">Contact Us</Link>
                       </li>
 
-                      {/* <li
-                        className={
-                          router.pathname == "/login" ? "active login" : "login"
-                        }
-                      >
-                        <Link href="/login">Login</Link>
-                      </li>
-                      <li
-                        className={
-                          router.pathname == "/register"
-                            ? "active signup"
-                            : "signup"
-                        }
-                      >
-                        <Link href="/register">Register</Link>
-                      </li> */}
                     </ul>
                   </nav>
 
@@ -261,30 +245,7 @@ const Header = () => {
                     {/* FOR NON LOGGED IN  */}
                     {!loggedinUser && !loggedinUser?.name && (
                       <ul>
-                        {/* <li
-                          className="login"
-                          onClick={() => {
-                            handleChange(setActiveAuthTab("login"));
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link href="javascript:void(0)">
-                            {" "}
-                            <FontAwesomeIcon icon={faUser} /> <span>Login</span>
-                          </Link>
-                        </li>
-                        <li
-                          className="signup"
-                          onClick={() => {
-                            handleChange(setActiveAuthTab("register"));
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link href="javascript:void(0)">
-                            <FontAwesomeIcon icon={faGear} />{" "}
-                            <span>Register</span>
-                          </Link>
-                        </li> */}
+
                         <li
                           className="login"
                           onClick={() => {                            
@@ -458,18 +419,6 @@ const Header = () => {
                             </Link>
                           </li>                          
 
-                          {/* <li
-														className={
-															router.pathname ==
-															"/dashboard/buyer/reviews-ratings"
-																? "active"
-																: ""
-														}
-													>
-														<Link href="/dashboard/buyer/reviews-ratings">
-															Reviews & Ratings r
-														</Link>
-													</li> */}
                           <li
                             className={
                               router.pathname == "/change-password"
@@ -727,11 +676,6 @@ const Header = () => {
                   <nav className="main-menu">
                     {currentUserType == "vendor" && (
                       <ul>
-                        {/* <li className={router.pathname == "#" ? "active" : ""}>
-													<Link href="#">
-														<FontAwesomeIcon icon={faBell} />
-													</Link>
-												</li> */}
                         <li
                           className={
                             router.pathname ==
@@ -753,23 +697,6 @@ const Header = () => {
                     )}
                     {currentUserType == "buyer" && (
                       <ul>
-                        {/* <li className={router.pathname == "#" ? "active" : ""}>
-													<Link href="#">
-														<FontAwesomeIcon icon={faBell} />
-													</Link>
-												</li> */}
-                        {/* <li
-													className={
-														router.pathname ==
-														"/dashboard/buyer/communication-setting"
-															? "active"
-															: ""
-													}
-												>
-													<Link href="/dashboard/buyer/communication-setting">
-														<FontAwesomeIcon icon={faGear} />
-													</Link>
-												</li> */}
                         <li className="">
                           <Link href="" onClick={handleUserIconClick}>
                             <FontAwesomeIcon icon={faUser} />
@@ -779,11 +706,6 @@ const Header = () => {
                     )}
                     {currentUserType == "other" && (
                       <ul>
-                        {/* <li className={router.pathname == "#" ? "active" : ""}>
-													<Link href="#">
-														<FontAwesomeIcon icon={faBell} />
-													</Link>
-												</li> */}
                         <li
                           className={
                             router.pathname ==
