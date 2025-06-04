@@ -1357,7 +1357,7 @@ const addRfqIdParam = (rfq_id) => {
                           {/* View Current RFQ Button (Always Renders) */}
                           <Link
                             href={
-                              queryMeta.rfq_id && queryMeta.rfq_id != null
+                              !!queryMeta.rfq_id && queryMeta.rfq_id != null
                                 ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
                                     queryMeta.rfq_id
                                   }${
@@ -1373,7 +1373,7 @@ const addRfqIdParam = (rfq_id) => {
                             role="button"
                             aria-disabled={isLoading}
                           >
-                            {queryMeta.rfq_id && queryMeta.rfq_id != null
+                            {!!queryMeta.rfq_id && queryMeta.rfq_id != null
                               ? `View RFQ #${queryMeta.rfq_id}`
                               : "View My Drafts"}
                           </Link>
