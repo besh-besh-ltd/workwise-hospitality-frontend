@@ -1275,6 +1275,14 @@ const QuoteCompare = () => {
                                   {item?.product_details[0]?.rfq_details && item?.product_details[0]?.rfq_details[1]?.value}
                                 </p>
                               </div>
+                              <div className="class">
+                                <p className="sub-heading mb-0"><b>Payment Terms : </b>
+                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_payment_term : "N/A"}</p>
+                               
+                                <p className="sub-heading mb-0"><b>Comments : </b>
+                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_comment : "N/A"}
+                               </p>
+                              </div>
 
                               {item?.last_purchase_rate != null &&
                                 <div className="col-12">

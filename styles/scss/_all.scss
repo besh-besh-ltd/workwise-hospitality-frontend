@@ -7312,6 +7312,15 @@ a.btn.disabled {
       color: var(--white-color);;
     }
   }
+  .is_finalised {
+    background-color: var(--primary-color);
+    color: var(--yellow-color);
+    
+    p {
+      font-weight: bold;
+      color: var(--white-color);;
+    }
+  }
 
   .all_vendors {
     background-color: var(--primary-color);

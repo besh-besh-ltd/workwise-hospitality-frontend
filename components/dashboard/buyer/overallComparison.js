@@ -1,3 +1,4 @@
+import CommentModal from "@/components/modal/CommentModal";
 import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { extractfileName } from "@/utils/sharedFunctions";
@@ -14,6 +15,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     handleDownloadQuote();
@@ -403,17 +405,24 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                             item.quotations.map((quote_item) => {
                               if (quote_item.is_regret == 1) {
                                 return (
-                                  <td key={`quote_item_${quote_item.created_by}`}>
+                                  <td className="is_lowest total_amt_field" key={`quote_item_${quote_item.created_by}`}>
                                     -
                                   </td>
                                 );
                               } else {
                                 return (
                                   <td
-                                    className={`${quote_item?.is_lowest && quote_item?.quote_details[0]?.total_price ? "is_lowest total_amt_field" : "total_amt_field"}`}
+                                    className={`${
+                                      quote_item?.is_lowest &&
+                                      quote_item?.quote_details[0]?.total_price
+                                        ? "is_lowest total_amt_field"
+                                        : "total_amt_field"
+                                    }`}
                                     key={`quote_item_${quote_item?.created_by}`}
                                   >
-                                    {quote_item?.quote_details?.length > 0 && quote_item?.quote_details[0]?.total_price ? (
+                                    {quote_item?.quote_details?.length > 0 &&
+                                    quote_item?.quote_details[0]
+                                      ?.total_price ? (
                                       <label className="view_breakup">
                                         <div className="tooltip_custom">
                                           Show/hide Breakup
@@ -424,78 +433,139 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                           <tr>
                                             <th>Base Price</th>
                                             <td>
-                                              {quote_item?.quote_details?.length > 0
+                                              {quote_item?.quote_details
+                                                ?.length > 0
                                                 ? addCommasToNumber(
-                                                  quote_item?.quote_details[0]
-                                                    ?.unit_price
-                                                )
+                                                    quote_item?.quote_details[0]
+                                                      ?.unit_price
+                                                  )
                                                 : "-"}
                                             </td>
                                           </tr>
                                           <tr>
                                             <th>Total Rate</th>
                                             <td>
-                                              {quote_item?.quote_details?.length > 0
+                                              {quote_item?.quote_details
+                                                ?.length > 0
                                                 ? addCommasToNumber(
-                                                  quote_item?.quote_details[0]
-                                                    ?.unit_price * getQty(item)
-                                                )
+                                                    quote_item?.quote_details[0]
+                                                      ?.unit_price *
+                                                      getQty(item)
+                                                  )
                                                 : "-"}
                                             </td>
                                           </tr>
                                           <tr>
                                             <th>Packaging(%)</th>
                                             <td>
-                                              {quote_item?.quote_details?.length > 0
+                                              {quote_item?.quote_details
+                                                ?.length > 0
                                                 ? addCommasToNumber(
-                                                  quote_item?.quote_details[0]
-                                                    ?.package_price
-                                                ) + "%"
+                                                    quote_item?.quote_details[0]
+                                                      ?.package_price
+                                                  ) + "%"
                                                 : "-"}
                                             </td>
                                           </tr>
                                           <tr>
                                             <th>Freight(%)</th>
                                             <td>
-                                              {quote_item?.quote_details?.length > 0
+                                              {quote_item?.quote_details
+                                                ?.length > 0
                                                 ? addCommasToNumber(
-                                                  quote_item?.quote_details[0]
-                                                    ?.freight_price
-                                                ) + "%"
+                                                    quote_item?.quote_details[0]
+                                                      ?.freight_price
+                                                  ) + "%"
                                                 : "-"}
                                             </td>
                                           </tr>
                                           <tr>
                                             <th>GST(%)</th>
                                             <td>
-                                              {quote_item?.quote_details?.length > 0
+                                              {quote_item?.quote_details
+                                                ?.length > 0
                                                 ? addCommasToNumber(
-                                                  quote_item?.quote_details[0]
-                                                    ?.tax
-                                                ) + "%"
+                                                    quote_item?.quote_details[0]
+                                                      ?.tax
+                                                  ) + "%"
                                                 : "-"}
                                             </td>
                                           </tr>
-                                          <tr className={`${quote_item?.quote_details[0]?.total_price ? "is_lowest" : ""}`}>
+                                          <tr>
+                                            <th>Delivery</th>
+                                            <td>
+                                              {
+                                                quote_item?.quote_details[0]
+                                                  ?.delivery_period
+                                              }{" "}
+                                              (in weeks)
+                                            </td>
+                                          </tr>
+                                          <tr>
+                                            <th>Comments</th>
+                                            <td>
+                                              <button
+                                                className=""
+                                                onClick={() =>
+                                                  setShowModal(true)
+                                                }
+                                              >
+                                                view
+                                              </button>
+                                              {quote_item?.quote_details[0]
+                                                .length > 0 && (
+                                                <CommentModal
+                                                  show={showModal} // Control visibility
+                                                  text={
+                                                    quote_item?.quote_details[0]
+                                                      .comment
+                                                      ? quote_item
+                                                          ?.quote_details[0]
+                                                          .comment
+                                                      : ""
+                                                  }
+                                                  onClose={() =>
+                                                    setShowModal(false)
+                                                  }
+                                                />
+                                              )}
+                                            </td>
+                                          </tr>
+                                          <tr>
+                                            <th>Files</th>
+                                            <td>{quote_item?.quote_details[0].length > 0 ? quote_item.quote_details[0]?.document_files : "NA"}</td>
+                                          </tr>
+                                          <tr
+                                            className={`${
+                                              quote_item?.quote_details[0]
+                                                ?.total_price
+                                                ? "is_lowest"
+                                                : ""
+                                            }`}
+                                          >
                                             <th>Sub Total</th>
                                             <td>
-                                              {quote_item?.quote_details.length > 0
-                                                && quote_item.quote_details[0]?.total_price
+                                              {quote_item?.quote_details
+                                                .length > 0 &&
+                                              quote_item.quote_details[0]
+                                                ?.total_price
                                                 ? addCommasToNumber(
-                                                  quote_item.quote_details[0]
-                                                    ?.total_price
-                                                )
+                                                    quote_item.quote_details[0]
+                                                      ?.total_price
+                                                  )
                                                 : "-"}
                                             </td>
                                           </tr>
                                         </table>
                                         <p>
-                                          {quote_item?.quote_details?.length > 0
-                                            && quote_item.quote_details[0]?.total_price
+                                          {quote_item?.quote_details?.length >
+                                            0 &&
+                                          quote_item.quote_details[0]
+                                            ?.total_price
                                             ? addCommasToNumber(
-                                              quote_item?.quote_details[0]
-                                                ?.total_price
-                                            )
+                                                quote_item?.quote_details[0]
+                                                  ?.total_price
+                                              )
                                             : "-"}
                                         </p>
                                       </label>
