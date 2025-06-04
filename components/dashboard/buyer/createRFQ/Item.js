@@ -48,6 +48,10 @@ const Item = ({
   const [buyerClauses, setBuyerClauses] = useState(null);
 
   const handleSpecValue = (type, value) => {
+    value = type == 'quantity' ? parseInt(value ?? "") : value
+
+    if(type == 'quantity' && isNaN(parseInt(value))) return;
+
     if (rfqProduct.spec) {
       setRfqProduct((prev) => ({
         ...prev,
@@ -513,9 +517,9 @@ const Item = ({
                 <label> Quantity * </label>
                 <input
                   type="number"
-                  defaultValue={
-                    rfqProduct?.spec?.find((item) => item.title === "Quantity")
-                      ?.value || ""
+                  value={
+                    parseInt(rfqProduct?.spec?.find((item) => item.title === "Quantity")
+                      ?.value || "")
                   }
                   onChange={(e) => handleSpecValue("quantity", e.target.value)}
                   min={0}
