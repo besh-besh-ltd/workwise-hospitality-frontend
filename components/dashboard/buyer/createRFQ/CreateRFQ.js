@@ -501,7 +501,7 @@ const CreateRFQ = () => {
       setMainLoading(false);
       toast.success(
         <h6>
-          <b>RFQ Draft #{res.message?.rfq_id}:</b> Changes saved successfully!
+          <b>RFQ Draft #{res.message?.rfq?.rfq_no}:</b> Changes saved successfully!
         </h6>,
         { position: "top-right" }
       );
@@ -809,6 +809,24 @@ const CreateRFQ = () => {
         },
       },
     }));
+  };
+
+  const handleRemoveProduct = (product) => {
+    if (
+      updatableData.products.deletable.length + 1 ===
+      rfqProducts?.length
+    )
+      toast.warning(
+        "You cannot delete all products from RFQ, at least one product is required"
+      );
+    else
+      setUpdatableData((prev) => ({
+        ...prev,
+        products: {
+          ...prev.products,
+          deletable: [...(prev.products?.deletable ?? []), product.id],
+        },
+      }));
   };
 
   useEffect(() => {
@@ -1127,7 +1145,7 @@ const CreateRFQ = () => {
                     <Accordion alwaysOpen flush defaultActiveKey="">
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
-                        rfqProducts.map((product) => {
+                        rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map((product) => {
                           return (
                             <Item
                               vendorApprovedList={vendorApprovedList}
@@ -1141,6 +1159,7 @@ const CreateRFQ = () => {
                               onFilesChange={(change) => handleFilesChange(product, change)}
                               onCommentChange={(change) => handleCommentChange(product, change)}
                               onClauseChange={(change) => handleClauseChange(product, change)}
+                              handleRemoveProductInEdit={() => handleRemoveProduct(product)}
                             />
                           );
                         })}
