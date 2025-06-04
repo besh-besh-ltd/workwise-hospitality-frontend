@@ -162,7 +162,7 @@ const Item = ({
   };
 
   const handleRemoveProduct = () => {
-    if(type == 'edit')
+    if(handleRemoveProductInEdit)
       handleRemoveProductInEdit(data)
     else
       dispatch(removeRfqProduct(data));
@@ -176,10 +176,9 @@ const Item = ({
       await saveDraft();
       setLoading(true);
 
-
       const payload = {
         rfq_id,
-        sheet_id: selectedSheet.value,
+        sheet_id: selectedSheet?.value,
         variant_id: data.product_id,
         vendors: data.vendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
