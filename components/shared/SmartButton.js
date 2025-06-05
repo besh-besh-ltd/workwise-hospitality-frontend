@@ -20,9 +20,13 @@ const SmartButton = ({
   width = "fit-content",
   className = "",
 }) => {
-  const backgroundColor =
-    theme === "secondary" ? "var(--secondary-color)" : "var(--primary-color)";
+const themeColors = {
+  primary: "var(--primary-color)",
+  secondary: "var(--secondary-color)",
+  red: "var(--red-color)"
+};
 
+const backgroundColor = themeColors[theme] || themeColors.primary;
   const ButtonContent = (
     <>
       {icon && iconPosition === "left" && <span className="me-1">{icon}</span>}
