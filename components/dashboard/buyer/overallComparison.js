@@ -1,6 +1,7 @@
 import CommentModal from "@/components/modal/CommentModal";
 import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
+import { renderFileLink } from "@/utils/elementFunctions";
 import { extractfileName } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -299,6 +300,12 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
+                      const size = item.product_specs.find(spec => spec.title === 'Size');
+                      const spec = item.product_specs.find(spec => spec.title === 'Spec');
+
+                      const quantity = item.product_specs.find(spec => spec.title === 'Quantity');
+                      const unit = item.product_specs.find(spec => spec.title === 'Unit');
+
                       return (
                         <tr key={item.id}>
                           <td>{index + 1} </td>
@@ -312,19 +319,15 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               {<p className="col-12 mb-1" >
 
                                 <strong>Size: </strong>
-                                {item.product_specs[0]?.value
-                                  ? item.product_specs[0]?.value
-                                  : "--"}
+                                {size?.value ?? "--"}
                               </p>}
                               {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
                                 <strong>Spec: </strong>
-                                {item.product_specs[1]?.value
-                                  ? item.product_specs[1]?.value
-                                  : "--"}
+                                {spec?.value ?? "--"}
                               </p>}
                             </div>
                           </td>
-                          <td>{`${item.product_specs[2]?.value}-${item.product_specs[3]?.value}`}</td>
+                          <td>{`${quantity?.value ?? 'NA'}-${unit?.value ?? 'NA'}`}</td>
 
                           {item.last_purchase_rate
                             ? <td className="total_amt_field">
@@ -403,21 +406,27 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item) => {
+                              const isSomeoneFinalized = item?.all_vendors?.find(vendor => vendor.is_finalized);
+
+                              let finalizedClass = "";
+                              if (isSomeoneFinalized && (isSomeoneFinalized?.id == quote_item?.created_by)) {
+                                finalizedClass = "is_lowest";
+                              } else if (isSomeoneFinalized && (isSomeoneFinalized?.id != quote_item?.created_by) && quote_item?.is_lowest) {
+                                finalizedClass = "is_lowest_not_finalised";
+                              } else if (!isSomeoneFinalized && quote_item?.is_lowest) {
+                                finalizedClass = "is_lowest";
+                              }
+
                               if (quote_item.is_regret == 1) {
                                 return (
-                                  <td className="is_lowest total_amt_field" key={`quote_item_${quote_item.created_by}`}>
+                                  <td className="is_regret total_amt_field" key={`quote_item_${quote_item.created_by}`}>
                                     -
                                   </td>
                                 );
                               } else {
                                 return (
                                   <td
-                                    className={`${
-                                      quote_item?.is_lowest &&
-                                      quote_item?.quote_details[0]?.total_price
-                                        ? "is_lowest total_amt_field"
-                                        : "total_amt_field"
-                                    }`}
+                                    className={`${finalizedClass} total_amt_field`}
                                     key={`quote_item_${quote_item?.created_by}`}
                                   >
                                     {quote_item?.quote_details?.length > 0 &&
@@ -533,7 +542,14 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                           </tr>
                                           <tr>
                                             <th>Files</th>
-                                            <td>{quote_item?.quote_details[0].length > 0 ? quote_item.quote_details[0]?.document_files : "NA"}</td>
+                                            <td>
+                                              {renderFileLink(
+                                                quote_item?.quote_details?.[0]
+                                                  ?.document_files?.[0]
+                                                  ?.file_url,
+                                                "View File"
+                                              )}
+                                            </td>
                                           </tr>
                                           <tr
                                             className={`${

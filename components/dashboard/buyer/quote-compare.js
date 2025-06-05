@@ -1265,7 +1265,15 @@ const QuoteCompare = () => {
                             key={`qq_${index}`}
                           >
                             <div className="row">
-                              <div className="col-12">
+                              
+                              <div className="class">
+                                <p className="sub-heading mb-0"><b>Global Payment Terms : </b>
+                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_payment_term : "N/A"}</p>
+                               
+                                <p className="sub-heading mb-0"><b>Global Comments : </b>
+                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_comment : "N/A"}
+                               </p>
+
                                 <p className="sub-heading mb-0">
                                   <b>Product</b> :{" "}
                                   {item?.product_details[0]?.product_name}
@@ -1274,14 +1282,6 @@ const QuoteCompare = () => {
                                   <b>Product Specification</b> :{" "}
                                   {item?.product_details[0]?.rfq_details && item?.product_details[0]?.rfq_details[1]?.value}
                                 </p>
-                              </div>
-                              <div className="class">
-                                <p className="sub-heading mb-0"><b>Payment Terms : </b>
-                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_payment_term : "N/A"}</p>
-                               
-                                <p className="sub-heading mb-0"><b>Comments : </b>
-                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_comment : "N/A"}
-                               </p>
                               </div>
 
                               {item?.last_purchase_rate != null &&

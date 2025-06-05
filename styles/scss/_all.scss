@@ -7312,9 +7312,19 @@ a.btn.disabled {
       color: var(--white-color);;
     }
   }
-  .is_finalised {
-    background-color: var(--primary-color);
-    color: var(--yellow-color);
+  .is_lowest_not_finalised {
+    background-color: #BA8E23;
+    color: black;
+    
+    p {
+      font-weight: bold;
+      color: var(--white-color);;
+    }
+  }
+
+  .is_regret {
+    background-color: #ba2323;
+    color: black;
     
     p {
       font-weight: bold;
