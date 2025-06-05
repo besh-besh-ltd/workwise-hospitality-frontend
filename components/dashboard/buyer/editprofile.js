@@ -123,7 +123,7 @@ const EditProfile = () => {
       let locationData = { country: "", state: "", city: "" };
       if (res.data?.location) {
         try {
-          locationData = JSON.parse(res.data.location);
+          locationData = res.data.location
         } catch (error) {
           console.error("Error parsing location data:", error);
         }
@@ -265,7 +265,7 @@ const EditProfile = () => {
                   <Formik
                     enableReinitialize={true}
                     initialValues={{
-                      company_name: userProfile?.organization_name
+                      company_name: userProfile?.company_name
                         ? userProfile?.organization_name
                         : "",
                       name: userProfile?.name ? userProfile?.name : "",
