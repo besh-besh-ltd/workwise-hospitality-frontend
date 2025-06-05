@@ -33,6 +33,7 @@ const Item = ({
   onCommentChange,
   onClauseChange,
   selectedSheet,
+  activeKey,
   updatableData,
 }) => {
   const dispatch = useDispatch();
@@ -47,10 +48,13 @@ const Item = ({
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
 
+  const eventKey = `acc_event_key_${rfqProduct.product_id}_${rfqProduct.variant}`;
+  const isActive = activeKey?.includes(eventKey);
+
   const handleSpecValue = (type, value) => {
     value = type == 'quantity' ? parseInt(value ?? "") : value
 
-    if(type == 'quantity' && isNaN(parseInt(value))) return;
+    if(type == 'quantity' && (isNaN(parseInt(value) || parseInt(value) < 0) && value.trim() != '')) return;
 
     if (rfqProduct.spec) {
       setRfqProduct((prev) => ({
@@ -210,7 +214,9 @@ const Item = ({
     };
     try {
       const res = await getClausesByRfqProductId(payload);
-      setBuyerClauses(res.data);
+      if(!res.success) setBuyerClauses([])
+      else
+        setBuyerClauses(res.data);
     } catch (error) {
       setBuyerClauses([]);
     }
@@ -226,11 +232,11 @@ const Item = ({
   };
 
   useEffect(() => {
-    // Only try to fetch clauses if the component is mounted and we have data
-    if (data) {
+    if (isActive && buyerClauses == null) {
+      // This runs when this specific item is expanded and we dont have any buyer clause fetched
       getProductClauses();
     }
-  }, [getProductClauses]);
+  }, [isActive]);
 
   useEffect(() => {
     if (data) {
@@ -249,7 +255,7 @@ const Item = ({
   return (
     <Accordion.Item
       key={`rfqp_${rfqProduct.product_id}_${rfqProduct.variant}`}
-      eventKey={`acc_event_key_${rfqProduct.product_id}_${rfqProduct.variant}`}
+      eventKey={eventKey}
     >
       <Accordion.Header>
         {/* start: Accrodian header */}
