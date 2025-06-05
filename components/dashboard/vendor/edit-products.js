@@ -15,6 +15,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 
+
+// mukul 05-06-2025
+//  THIS page is not needed, if required create a small component for edit product
+
+
+
 const EditProducts = () => {
   const parentSelectRef = useRef();
   const levelOneSelectRef = useRef();

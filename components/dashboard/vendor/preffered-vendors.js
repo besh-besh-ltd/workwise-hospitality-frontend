@@ -8,6 +8,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import StarRating from "../../StarRating";
 
+
+// mukul 05-06-2025
+//  THIS page is not in use, cross check and remove
+
 const PrefferedVendors = () => {
   const handleRatingChange = (newRating) => {
     console.log("New Rating:", newRating);
