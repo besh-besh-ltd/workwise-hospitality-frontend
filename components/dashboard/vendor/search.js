@@ -101,6 +101,14 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
+
+  const [queryMeta, setQueryMeta] = useState({
+    rfq_id: null,
+    sheet_id: null,
+  })
+  
+  const fromRef = useRef(null);
+  const toRef = useRef(null);
   const vendorTypeRef = useRef(null);
   const vendorApprovedByRef = useRef(null);
 
@@ -110,7 +118,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     else if (!vendorMetaData?.subscription)
       router.push('/dashboard/buyer/subscription');
   }
-
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -122,7 +129,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     };
   }, [vendorName]);
 
-
+  useEffect(() => {
+    const { rfq_id, sheet_id } = router.query;
+    setQueryMeta({
+      rfq_id,
+      sheet_id,
+    })
+  }, [router.query])
 
   useEffect(() => {
     if (s && s != "") {
@@ -255,13 +268,32 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     );
 };
 
+const addRfqIdParam = (rfq_id) => {
+    const currentPath = router.pathname;
+    const currentQuery = { ...router.query, rfq_id };
+
+    router.push({
+      pathname: currentPath,
+      query: currentQuery,
+    }, undefined, { shallow: true }); // shallow avoids getServerSideProps/data reloading
+  };
+
 
   const handleBulkAddToRFQ = async (e) => {
     e.preventDefault();
-    if (!canAddItem()) return;
+    if (bulkRFQVendors.length === 0) {
+      toast.error(
+        <h6>Please select at least one vendor to add to RFQ.</h6>,
+        { position: "top-right" }
+      );
+      return;
+    }
 
     try {
       setIsLoading(true);
+
+      // Get the rfq_id from the URL if it exists
+      const { rfq_id, sheet_id } = queryMeta;
 
       const payload = {
         variant_id: currentSelectedProduct.variant_id,
@@ -269,14 +301,36 @@ const Search = ({ title = "Preffered Vendors", type }) => {
           vendor_id: vendor.id
         }))
       };
+      
+      // Only include rfq_id in payload if it exists and is valid
+      // This ensures a new RFQ is created when no rfq_id is provided
+      if (rfq_id && !isNaN(parseInt(rfq_id))) {
+        payload.rfq_id = parseInt(rfq_id);
+      }
 
-      await addProductToDraft(payload);
+      if (sheet_id && !isNaN(parseInt(sheet_id))) {
+        payload.sheet_id = parseInt(sheet_id);
+      }
+
+      const response = await addProductToDraft(payload);
+      const rfqResponse = response.data;
+      if(rfqResponse && rfqResponse.isNew) {
+        addRfqIdParam(rfqResponse.rfq_id)
+      }
+      
       toast.success(
         <h6>
           <b>{bulkRFQVendors.length} vendors</b> Successfully added to RFQ list!
         </h6>,
         { position: "top-right" }
       );
+
+      setbulkRFQVendors([]);
+      setVendors(prev => prev.map(vendor => ({
+        ...vendor,
+        selected: false,
+      })));
+      
     } catch (error) {
       toast.error(
         <h6>Failed to add vendors to RFQ. Please try again.</h6>,
@@ -383,8 +437,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
         setloading(false)
         setIsOpen(false);
 
-        // Update the URL to include the selected product's name
-        const newUrl = `/vendor/${cleanAndAddHyphen(category_name)}`;
+        // Get the rfq_id from the URL if it exists
+        const { rfq_id, sheet_id } = router.query;
+
+        // Update the URL to include the selected product's name and preserve rfq_id if it exists
+        const categorySlug = cleanAndAddHyphen(category_name);
+        const newUrl = rfq_id && sheet_id
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` : rfq_id && !sheet_id 
+          ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
+          : `/vendor/${categorySlug}`;
+
         window.history.pushState(null, null, newUrl);
 
       })
@@ -495,8 +557,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
     tempProdRef.current = null;
 
-    // Update the URL to include the selected product's slug
-    router.push(`/vendor/${item.slug ?? item.variant_name.replace(' ', '_').toLowerCase()}`);
+    // Get the rfq_id from the URL if it exists
+    const { rfq_id, sheet_id } = router.query;
+
+    // Update the URL to include the selected product's slug and preserve rfq_id if it exists
+    const productSlug = item.slug ?? item.variant_name.replace(' ', '_').toLowerCase();
+    const newUrl = rfq_id && sheet_id
+      ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
+      : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 
+      : `/vendor/${productSlug}`;
+
+    router.push(newUrl);
     storageInstance.setStorage("product_name", slug);
   };
 
@@ -508,7 +579,34 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   };
 
   const mapEntries = Array.from(categoryLvlRef.current.entries());
-  
+
+  // for clear the search from the input of search vendor
+  const clearProductSearch = () => {
+    setcurrentSelectedProduct(null);
+    setCat_id(null);
+    setSearch_key("");
+
+    // Get the rfq_id from the URL if it exists
+    const { rfq_id } = router.query;
+
+    // Preserve rfq_id when clearing search
+    const newUrl = rfq_id
+      ? `/vendor/all?rfq_id=${rfq_id}`
+      : `/vendor/all`;
+
+    router.push(newUrl);
+    storageInstance.setStorage("product_name", "all");
+  }
+
+  // Options for the dropdown
+  const optionVendors = [
+    { value: 'is_private', label: 'My Private Vendor' },
+    { value: 'is_public', label: 'My Public Vendor' },
+    { value: 'both', label: 'Both' },
+  ];
+
+  // Handle selection changes to ensure only one filter is active at a time
+
   // Generalized clear filter function to reset both filters
   const clearVendorFilters = () => {
     setMyVendorType(null);
@@ -649,13 +747,23 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                                               onClick={() =>
                                                 handleAutocompleteClick(item)
                                               }
-                                              title={item?.unified_name ? `${item.unified_name}` : `${item.variant_name}`}
+                                              title={
+                                                item?.unified_name
+                                                  ? `${item.unified_name}`
+                                                  : `${item.variant_name}`
+                                              }
                                             >
                                               <div>
-                                                <h3>{item.variant_name ?? item.product_name}</h3>
+                                                <h3>
+                                                  {item.variant_name ??
+                                                    item.product_name}
+                                                </h3>
                                                 <p>
                                                   <small>
-                                                    <b>{item.category_name} | {item.product_name}</b>
+                                                    <b>
+                                                      {item.category_name} |{" "}
+                                                      {item.product_name}
+                                                    </b>
                                                   </small>
                                                 </p>
                                               </div>
@@ -1000,15 +1108,15 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                   {/* START: Vendor Type */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold mb-2">Vendor Type</p>
-                    <div
-                      ref={vendorTypeRef}
-                      className="selection-dropdown"
-                    >
+                    <div ref={vendorTypeRef} className="selection-dropdown">
                       <input
                         type="text"
                         onChange={(e) => {
                           setInternalVendorTypes(
-                            vendorTypes.filter((type) => type.value.toLowerCase().includes(e.target.value.toLowerCase())
+                            vendorTypes.filter((type) =>
+                              type.value
+                                .toLowerCase()
+                                .includes(e.target.value.toLowerCase())
                             )
                           );
                         }}
@@ -1040,10 +1148,11 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                             maxWidth: 315,
                           }}
                         >
-                          {internalVendorTypes && internalVendorTypes.length > 0 ? (
+                          {internalVendorTypes &&
+                          internalVendorTypes.length > 0 ? (
                             internalVendorTypes.map((type) => (
                               <li
-                                key={type.value}  
+                                key={type.value}
                                 onClick={() => {
                                   setSelectedVendorTypes((prev) => [
                                     ...prev,
@@ -1121,7 +1230,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                         onChange={(e) => {
                           setInternalApprovedBy(
                             approved_by.filter((_) =>
-                              _.vendor_approve.toLowerCase().includes(e.target.value)
+                              _.vendor_approve
+                                .toLowerCase()
+                                .includes(e.target.value)
                             )
                           );
                         }}
@@ -1136,7 +1247,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                               onClick={() =>
                                 setSelectedApprovedBy((prev) =>
                                   prev.filter(
-                                    (_approvedBy) => !(_approvedBy.id == approvedBy.id)
+                                    (_approvedBy) =>
+                                      !(_approvedBy.id == approvedBy.id)
                                   )
                                 )
                               }
@@ -1154,30 +1266,34 @@ const Search = ({ title = "Preffered Vendors", type }) => {
                           }}
                         >
                           {internalApprovedBy.length > 0 ? (
-                            internalApprovedBy.filter(item => {
-                              return item.show_in_website == 1 &&
-                              item.vendor_approve &&
-                              item.vendor_approve != "null"
-                            }).map((approveBy) => (
-                              <li
-                                key={approveBy.id}
-                                onClick={() => {
-                                  if (
-                                    !vendorMetaData.logged_In ||
-                                    !vendorMetaData.subscription
-                                  )
-                                    return setOpenAuthModal(true);
-                                  setSelectedApprovedBy((prev) => [
-                                    ...prev,
-                                    approveBy,
-                                  ]);
-                                  setApprovedByOpen(false);
-                                }}
-                                className="dropdown-item"
-                              >
-                                {approveBy.vendor_approve}
-                              </li>
-                            ))
+                            internalApprovedBy
+                              .filter((item) => {
+                                return (
+                                  item.show_in_website == 1 &&
+                                  item.vendor_approve &&
+                                  item.vendor_approve != "null"
+                                );
+                              })
+                              .map((approveBy) => (
+                                <li
+                                  key={approveBy.id}
+                                  onClick={() => {
+                                    if (
+                                      !vendorMetaData.logged_In ||
+                                      !vendorMetaData.subscription
+                                    )
+                                      return setOpenAuthModal(true);
+                                    setSelectedApprovedBy((prev) => [
+                                      ...prev,
+                                      approveBy,
+                                    ]);
+                                    setApprovedByOpen(false);
+                                  }}
+                                  className="dropdown-item"
+                                >
+                                  {approveBy.vendor_approve}
+                                </li>
+                              ))
                           ) : (
                             <li className="dropdown-item">No results found</li>
                           )}
@@ -1240,14 +1356,26 @@ const Search = ({ title = "Preffered Vendors", type }) => {
 
                           {/* View Current RFQ Button (Always Renders) */}
                           <Link
-                            href="/dashboard/buyer/rfq-management?tab=create-rfq"
+                            href={
+                              !!queryMeta.rfq_id && queryMeta.rfq_id != null
+                                ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
+                                    queryMeta.rfq_id
+                                  }${
+                                    queryMeta.sheet_id
+                                      ? `&sheet_id=${queryMeta.sheet_id}`
+                                      : ""
+                                  }`
+                                : "/dashboard/buyer/rfq-management?tab=draft-rfq"
+                            }
                             className={`btn btn-primary ${
                               isLoading ? "disabled" : ""
                             }`}
                             role="button"
                             aria-disabled={isLoading}
                           >
-                            View Current RFQ
+                            {!!queryMeta.rfq_id && queryMeta.rfq_id != null
+                              ? `View Current Draft`
+                              : "View My Drafts"}
                           </Link>
                         </div>
                       </div>

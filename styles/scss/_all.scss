@@ -203,7 +203,6 @@ p {
   font-weight: 500;
   font-size: 14px;
   line-height: 24px;
-  text-decoration-line: underline;
   color: #000080;
 }
 
@@ -2892,15 +2891,9 @@ textarea {
 .details-table {
   table {
     width: 100%;
-    border-spacing: 0;
-    border-collapse: separate;
-    border: 1px solid #a5a5a5;
-    border-radius: 20px;
     overflow: hidden;
 
     thead {
-      border-radius: 20px 20px 0 0;
-      border: 1px solid #000;
 
       tr {
         th {
@@ -3371,13 +3364,10 @@ textarea {
                   font-weight: 500;
                   font-size: 14px;
                   line-height: 24px;
-                  text-decoration-line: underline;
                   color: #000080;
                 }
 
                 &:last-child {
-                  display: flex;
-                  justify-content: space-between;
 
                   .page-link-btn {
                     background: var(--secondary-color);
@@ -3526,7 +3516,6 @@ textarea {
                   font-size: 14px;
                   line-height: 24px;
                   /* identical to box height, or 171% */
-                  text-decoration-line: underline;
                   color: #000080;
                 }
 
@@ -3864,7 +3853,6 @@ textarea {
                   font-weight: 500;
                   font-size: 14px;
                   line-height: 24px;
-                  text-decoration-line: underline;
                   color: #000080;
                 }
 
@@ -4944,7 +4932,6 @@ textarea {
                   font-size: 14px;
                   line-height: 24px;
                   /* identical to box height, or 171% */
-                  text-decoration-line: underline;
                   color: #000080;
                 }
 
@@ -7647,4 +7634,10 @@ td:hover .tooltip_custom {
     max-height: 65px;
     overflow-y: auto;
   }
+}
+
+.default-btn {
+  background-color: transparent;
+  border: none;
+  outline: none;
 }
