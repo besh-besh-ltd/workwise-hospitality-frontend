@@ -90,7 +90,7 @@ const roleMenus = {
       targetMenu: "popup",
     },
     {
-      href: "/dashboard/top-management",
+      href: "/dashboard/management",
       label: "Dashboard",
       targetMenu: "popup",
     },
