@@ -87,6 +87,8 @@ const RFQItem = ({ data }) => {
           </span>
         </td>
 
+        <td> {data.contact_name} </td>
+
         <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>
