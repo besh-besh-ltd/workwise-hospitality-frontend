@@ -70,6 +70,7 @@ const CreateRFQ = () => {
   })
   const [termsChanged, setTermsChanged] = useState(false);
   const [termFilesChanged, setTermFilesChanged] = useState(false);
+  const [activeKey, setActiveKey] = useState(null);
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
@@ -703,6 +704,17 @@ const CreateRFQ = () => {
     }
   }
 
+  const resetUpdatableData = () => {
+    setUpdatableData({
+      products: {
+        addable: [],
+        deletable: [],
+        updatable: {},
+      },
+      vendors: {},
+    })
+  }
+
   // Changes by Agnij 2025-08-05 [Added handler for sheet selection]
   const handleSheetChange = async (selectedOption) => {
     if (!selectedOption || !draftRfqId) return;
@@ -712,6 +724,10 @@ const CreateRFQ = () => {
     setSelectedSheet(selectedOption);
     setMainLoading(true);
     dispatch(setStoreLoading(true));
+    if(hasUnsavedChanges) {
+      await handleSaveDraft();
+      resetUpdatableData();
+    }
 
     await loadDraft(draftRfqId, selectedOption.value)
 
@@ -739,6 +755,7 @@ const CreateRFQ = () => {
         },
       },
     }));
+    setHasUnsavedChanges(true);
   };
 
   const handleFilesChange = (product, change) => {
@@ -761,6 +778,7 @@ const CreateRFQ = () => {
         },
       },
     }));
+    setHasUnsavedChanges(true)
   };
 
   const handleCommentChange = (product, change) => {
@@ -783,6 +801,7 @@ const CreateRFQ = () => {
         },
       },
     }));
+    setHasUnsavedChanges(true)
   };
 
   const handleClauseChange = (product, change) => {
@@ -809,6 +828,7 @@ const CreateRFQ = () => {
         },
       },
     }));
+    setHasUnsavedChanges(true)
   };
 
   const handleRemoveProduct = (product) => {
@@ -819,7 +839,7 @@ const CreateRFQ = () => {
       toast.warning(
         "You cannot delete all products from RFQ, at least one product is required"
       );
-    else
+    else {
       setUpdatableData((prev) => ({
         ...prev,
         products: {
@@ -827,6 +847,8 @@ const CreateRFQ = () => {
           deletable: [...(prev.products?.deletable ?? []), product.id],
         },
       }));
+      setHasUnsavedChanges(true)
+    }
   };
 
   useEffect(() => {
@@ -1142,7 +1164,7 @@ const CreateRFQ = () => {
                       padding: "10px",
                     }}
                   >
-                    <Accordion alwaysOpen flush defaultActiveKey="">
+                    <Accordion alwaysOpen flush activeKey={activeKey} onSelect={(k) => setActiveKey(k)}>
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
                         rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map((product) => {
@@ -1160,6 +1182,7 @@ const CreateRFQ = () => {
                               onCommentChange={(change) => handleCommentChange(product, change)}
                               onClauseChange={(change) => handleClauseChange(product, change)}
                               handleRemoveProductInEdit={() => handleRemoveProduct(product)}
+                              activeKey={activeKey}
                             />
                           );
                         })}

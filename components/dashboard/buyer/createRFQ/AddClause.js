@@ -235,7 +235,6 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                 setFileName('');
             } else {
                 setClauseErrors(res?.errors || []);
-                toast.error("Error uploading the file");
             }
         } catch (error) {
             toast.dismiss("clause-processing");
