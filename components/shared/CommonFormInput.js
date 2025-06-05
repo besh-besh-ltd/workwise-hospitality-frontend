@@ -4,6 +4,17 @@ import Select from "react-select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 
+/** 
+ A reusable and flexible form input component built for Formik.
+ Supports:
+ - Standard inputs: text, email, number, password (with toggle)
+ - React-select-based inputs: single/multi-select
+ - Mobile input with country code selector
+ 
+ Automatically handles touched/errors state and inline validation display.
+ */
+
+
 const CommonFormInput = ({
   name,
   label,

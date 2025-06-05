@@ -17,7 +17,7 @@ const SmartButton = ({
   icon = null,
   iconPosition = "left", // "left" or "right"
   theme = "primary", // "primary" or "secondary"
-  width = "120px",
+  width = "fit-content",
   className = "",
 }) => {
   const backgroundColor =
@@ -39,6 +39,7 @@ const SmartButton = ({
       style={{
         width,
         backgroundColor,
+        padding:"5px",
         transition: "background-color 0.3s ease",
       }}
     >
