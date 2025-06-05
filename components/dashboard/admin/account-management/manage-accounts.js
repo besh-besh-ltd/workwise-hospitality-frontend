@@ -4,358 +4,398 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "@/components/shared/Pagination";
 import FullLoader from "@/components/shared/FullLoader";
-import Select from 'react-select';
+import Select from "react-select";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
-import { getCompanyUsers } from "@/services/Auth";
-import { toast } from "react-toastify";
+import { getCompanyUsers, updateUserAccount } from "@/services/Auth";
 import { getAllProjects, getUserProjectsByUserId } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
-import { updateUserAccount } from "@/services/Auth";
+import { toast } from "react-toastify";
+import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import SmartButton from "@/components/shared/SmartButton";
+
+
+const roleOptions = [
+  { value: 7, label: "Admin", color: "#007bff" },
+  { value: 8, label: "Top Management", color: "#2E5BA8" },
+  { value: 2, label: "Procurement", color: "#428B41" },
+  { value: 9, label: "Engineering", color: "#FFE600" },
+  { value: 10, label: "Finance", color: "#5b5b5b" },
+];
+
+const statusOptions = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
+
+// here in this comonent we are fetching all projects and then applying paganition etc, no to remove this ASAP
 
 const ManageAccountsPage = () => {
-    const [loading, setLoading] = useState(false);
-    const [accounts, setAccounts] = useState([]);
-    const [filteredAccounts, setFilteredAccounts] = useState([]);
-    
-    // Grouped states
-    const [pagination, setPagination] = useState({ page: 1, limit: 10, totalData: 0 });
-    const [filters, setFilters] = useState({ role: null, status: null, project: [] });
-    const [modals, setModals] = useState({ showEditModal: false, selectedAccount: null });
-    const [projectState, setProjectState] = useState({ options: [], loading: false });
-    const [countryCodes, setCountryCodes] = useState([]);
+  const [uiState, setUiState] = useState({
+    loading: false,
+    pagination: { page: 1, limit: 10, totalData: 0 },
+    modals: { showEditModal: false, selectedAccount: null },
+  });
 
-    // Static options
-    const roleOptions = [
-        { value: 7, label: "Admin", color: "#007bff" },
-        { value: 8, label: "Top Management", color: "#2E5BA8" },
-        { value: 2, label: "Procurement", color: "#428B41" },
-        { value: 9, label: "Engineering", color: "#FFE600" },
-        { value: 10, label: "Finance", color: "#5b5b5b" },
-    ];
+  const [filters, setFilters] = useState({
+    role: null,
+    status: null,
+    project: [],
+  });
 
-    const statusOptions = [
-        { value: "active", label: "Active" },
-        { value: "inactive", label: "Inactive" },
-    ];
+  const [data, setData] = useState({
+    accounts: [],
+    filteredAccounts: [],
+    projects: { options: [], loading: false },
+    countryCodes: [],
+  });
 
-    // Fetch projects
-    const fetchProjects = async () => {
-        setProjectState(prev => ({ ...prev, loading: true }));
-        try {
-            const response = await getAllProjects();
-            const projects = response?.data?.data || [];
-            const formattedProjects = projects.map(project => ({
-                value: project.id,
-                label: project.name || project.project_name
-            }));
-            setProjectState(prev => ({ ...prev, options: formattedProjects }));
-        } catch (error) {
-            toast.error("Failed to fetch projects");
-            setProjectState(prev => ({ ...prev, options: [] }));
-        } finally {
-            setProjectState(prev => ({ ...prev, loading: false }));
-        }
-    };
+  const fetchProjects = async () => {
+    setData((prev) => ({
+      ...prev,
+      projects: { ...prev.projects, loading: true },
+    }));
+    try {
+      const response = await getAllProjects();
+      const options = (response?.data?.data || []).map((project) => ({
+        value: project.id,
+        label: project.name || project.project_name,
+      }));
+      setData((prev) => ({ ...prev, projects: { loading: false, options } }));
+    } catch {
+      toast.error("Failed to fetch projects");
+      setData((prev) => ({
+        ...prev,
+        projects: { loading: false, options: [] },
+      }));
+    }
+  };
 
-    // Fetch users with their projects
-    const fetchUsers = async () => {
-        setLoading(true);
-        try {
-            const response = await getCompanyUsers();
-            if (!response.status) {
-                toast.error("Failed to fetch users");
-                return;
-            }
+  const fetchUsers = async () => {
+    setUiState((prev) => ({ ...prev, loading: true }));
+    try {
+      const response = await getCompanyUsers();
+      if (!response.status) return toast.error("Failed to fetch users");
 
-            const users = await Promise.all(
-                response.data.map(async (user) => {
-                    try {
-                        const projectsResponse = await getUserProjectsByUserId(user.id);
-                        const projects = projectsResponse?.data?.data || [];
-                        return {
-                            ...user,
-                            projects: projects.map(p => p.id),
-                            projectsData: projects
-                        };
-                    } catch {
-                        return { ...user, projects: [], projectsData: [] };
-                    }
-                })
-            );
-
-            setAccounts(users);
-            setFilteredAccounts(users);
-            setPagination(prev => ({ ...prev, totalData: users.length }));
-        } catch (error) {
-            toast.error("Error fetching users");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Fetch country codes
-    const fetchCountryCodes = async () => {
-        try {
-            const response = await getCountryCodes();
-            if (response?.data) {
-                setCountryCodes(response.data);
-            }
-        } catch (error) {
-            console.error("Error fetching country codes:", error);
-        }
-    };
-
-    // Utility functions
-    const getPaginatedData = () => {
-        const start = (pagination.page - 1) * pagination.limit;
-        return filteredAccounts.slice(start, start + pagination.limit);
-    };
-
-    const getRoleInfo = (roleId) => roleOptions.find(r => r.value === roleId) || { label: "Unknown", color: "#000000" };
-
-    const getProjectNames = (account) => {
-        if (account.projectsData?.length) {
-            return account.projectsData.map(p => p.name).join(", ");
-        }
-        return account.projects?.length ? 
-            account.projects.map(id => projectState.options.find(p => p.value === id)?.label || `Project ${id}`).join(", ") : 
-            'None';
-    };
-
-    const formatDate = (dateString) => {
-        return dateString ? new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'short', day: 'numeric'
-        }) : '';
-    };
-
-    // Event handlers
-    const handleEditAccount = (account) => {
-        setModals({ showEditModal: true, selectedAccount: account });
-    };
-
-    // Update user data
-    const updateUserData = async (updatedAccount) => {
-        try {
-            setLoading(true);
-            
-            // Prepare data for API call
-            const apiData = {
-                name: updatedAccount.name,
-                email: updatedAccount.email,
-                mobile: updatedAccount.mobile,
+      const users = await Promise.all(
+        response.data.map(async (user) => {
+          try {
+            const res = await getUserProjectsByUserId(user.id);
+            const projects = res?.data?.data || [];
+            return {
+              ...user,
+              projects: projects.map((p) => p.id),
+              projectsData: projects,
             };
+          } catch {
+            return { ...user, projects: [], projectsData: [] };
+          }
+        })
+      );
 
-            // Make API call to update user
-            const response = await updateUserAccount(updatedAccount.id, apiData);
-            
-            if (response && response.status === 1) {
-                // Update local state with the new data
-                setAccounts(prev => prev.map(account => 
-                    account.id === updatedAccount.id ? 
-                        { ...account, ...updatedAccount } : 
-                        account
-                ));
-                setModals(prev => ({ ...prev, showEditModal: false }));
-                toast.success("Account updated successfully!");
-                
-                // Refresh the users list to get latest data
-                await fetchUsers();
-            } else {
-                toast.error("Failed to update account");
-            }
-            
-        } catch (error) {
-            console.error("Error updating account:", error);
-            toast.error(error?.response?.data?.message || "Failed to update account");
-        } finally {
-            setLoading(false);
-        }
+      setData((prev) => ({
+        ...prev,
+        accounts: users,
+        filteredAccounts: users,
+      }));
+      setUiState((prev) => ({
+        ...prev,
+        pagination: { ...prev.pagination, totalData: users.length },
+      }));
+    } catch {
+      toast.error("Error fetching users");
+    } finally {
+      setUiState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const fetchCountryCodes = async () => {
+    try {
+      const res = await getCountryCodes();
+      if (res?.data) setData((prev) => ({ ...prev, countryCodes: res.data }));
+    } catch (err) {
+      console.error("Error fetching country codes:", err);
+    }
+  };
+
+  const getPaginatedData = () => {
+    const start = (uiState.pagination.page - 1) * uiState.pagination.limit;
+    return data.filteredAccounts.slice(start, start + uiState.pagination.limit);
+  };
+
+  const getRoleInfo = (id) =>
+    roleOptions.find((r) => r.value === id) || {
+      label: "Unknown",
+      color: "#000000",
     };
 
-    // Effects
-    useEffect(() => {
-        fetchProjects();
+  const getProjectNames = (account) => {
+    if (account.projectsData?.length)
+      return account.projectsData.map((p) => p.name).join(", ");
+    return account.projects?.length
+      ? account.projects
+          .map(
+            (id) =>
+              data.projects.options.find((p) => p.value === id)?.label ||
+              `Project ${id}`
+          )
+          .join(", ")
+      : "None";
+  };
+
+  const formatDate = (d) =>
+    d
+      ? new Date(d).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      : "";
+
+  const handleEditAccount = (account) =>
+    setUiState((prev) => ({
+      ...prev,
+      modals: { showEditModal: true, selectedAccount: account },
+    }));
+
+  const updateUserData = async (updatedAccount) => {
+    setUiState((prev) => ({ ...prev, loading: true }));
+    try {
+      const payload = {
+        name: updatedAccount.name,
+        email: updatedAccount.email,
+        mobile: updatedAccount.mobile,
+      };
+      const res = await updateUserAccount(updatedAccount.id, payload);
+
+      if (res?.status === 1) {
+        toast.success("Account updated successfully!");
+        await fetchUsers();
+        setUiState((prev) => ({
+          ...prev,
+          modals: { showEditModal: false, selectedAccount: null },
+        }));
+      } else toast.error("Failed to update account");
+    } catch (err) {
+      console.error("Update error:", err);
+      toast.error(err?.response?.data?.message || "Failed to update account");
+    } finally {
+      setUiState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("refresh") === "true") {
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
         fetchUsers();
-        fetchCountryCodes();
-    }, []);
+      }
+    }
+    fetchProjects();
+    fetchUsers();
+    fetchCountryCodes();
+  }, []);
 
-    // Handle URL refresh parameter
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('refresh') === 'true') {
-                window.history.replaceState({}, document.title, window.location.pathname);
-                fetchUsers();
-            }
-        }
-    }, []);
+  useEffect(() => {
+    let filtered = data.accounts;
+    if (filters.role)
+      filtered = filtered.filter((u) => u.role === filters.role.value);
+    if (filters.status)
+      filtered = filtered.filter((u) => u.status === filters.status.value);
+    if (filters.project.length)
+      filtered = filtered.filter((u) =>
+        filters.project.some((f) => u.projects.includes(f.value))
+      );
 
-    // Apply filters
-    useEffect(() => {
-        let filtered = accounts;
-        
-        if (filters.role) filtered = filtered.filter(account => account.role === filters.role.value);
-        if (filters.status) filtered = filtered.filter(account => account.status === filters.status.value);
-        if (filters.project?.length) {
-            filtered = filtered.filter(account =>
-                filters.project.some(fp => account.projects?.includes(fp.value))
-            );
-        }
+    setData((prev) => ({ ...prev, filteredAccounts: filtered }));
+    setUiState((prev) => ({
+      ...prev,
+      pagination: { ...prev.pagination, totalData: filtered.length },
+    }));
+  }, [filters, data.accounts]);
 
-        setFilteredAccounts(filtered);
-        setPagination(prev => ({ ...prev, totalData: filtered.length }));
-    }, [accounts, filters]);
+  return (
+    <>
+      <section className="buyer-common-header sc-pt-80">
+        <div className="container-fluid">
+          <h1 className="heading">Manage Accounts</h1>
+        </div>
+      </section>
 
-    return (
-        <>
-            <section className="buyer-common-header sc-pt-80">
-                <div className="container-fluid">
-                    <h1 className="heading">Manage Accounts</h1>
-                </div>
-            </section>
-
-            <section className="buyer-sec-1">
-                <div className="container-fluid">
-                    <div className="row">
-                        <div className="col-md-12">
-                            <div className="vendor-mngt-con">
-                                {/* Filters */}
-                                <div className="filter-section">
-                                    <div className="row mb-4 text-sm">
-                                        <div className="col-md-3">
-                                            <label>Filter by Role</label>
-                                            <Select
-                                                options={roleOptions}
-                                                onChange={(selected) => setFilters(prev => ({ ...prev, role: selected }))}
-                                                placeholder="Select Role"
-                                                isClearable
-                                                styles={{
-                                                    option: (provided, state) => ({
-                                                        ...provided,
-                                                        color: state.data.color,
-                                                        fontWeight: 'bold'
-                                                    })
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="col-md-3">
-                                            <label>Filter by Status</label>
-                                            <Select
-                                                options={statusOptions}
-                                                onChange={(selected) => setFilters(prev => ({ ...prev, status: selected }))}
-                                                placeholder="Select Status"
-                                                isClearable
-                                            />
-                                        </div>
-
-                                        <div className="col-md-3">
-                                            <label>Filter by Project</label>
-                                            <Select
-                                                options={projectState.options}
-                                                onChange={(selected) => setFilters(prev => ({ ...prev, project: selected }))}
-                                                placeholder={projectState.loading ? "Loading..." : "Select Project(s)"}
-                                                isClearable
-                                                isMulti
-                                                value={filters.project}
-                                                isLoading={projectState.loading}
-                                            />
-                                        </div>
-
-                                        <div className="col-md-3 d-flex align-items-end">
-                                            <Link href="/dashboard/admin/account-management/create-account" className="btn btn-secondary">
-                                                Create New Account
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Table */}
-                                <div className="details-table hasFullLoader mt-0">
-                                    {loading && <FullLoader />}
-                                    {!loading && filteredAccounts.length === 0 && <p>No accounts found.</p>}
-                                    {!loading && filteredAccounts.length > 0 && (
-                                        <div className="table-responsive">
-                                            <table className="table table-striped">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Name</th>
-                                                        <th>Email</th>
-                                                        <th>Mobile</th>
-                                                        <th>Role</th>
-                                                        <th>Projects</th>
-                                                        <th>Created</th>
-                                                        <th>Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {getPaginatedData().map((account) => {
-                                                        const roleInfo = getRoleInfo(account.role);
-                                                        return (
-                                                            <tr key={account.id}>
-                                                                <td>{account.name}</td>
-                                                                <td>{account.email}</td>
-                                                                <td>{account.mobile}</td>
-                                                                <td>
-                                                                    <span
-                                                                        className="badge"
-                                                                        style={{
-                                                                            backgroundColor: roleInfo.color,
-                                                                            color: roleInfo.color === "#FFE600" ? "#000" : "#fff",
-                                                                            padding: "6px 10px"
-                                                                        }}
-                                                                    >
-                                                                        {roleInfo.label}
-                                                                    </span>
-                                                                </td>
-                                                                <td>{getProjectNames(account)}</td>
-                                                                <td>{formatDate(account.created_at)}</td>
-                                                                <td>
-                                                                    <button
-                                                                        className="btn btn-sm btn-primary"
-                                                                        onClick={() => handleEditAccount(account)}
-                                                                        style={{ padding: "3px 12px", fontSize: "0.8rem", width: "80px" }}
-                                                                    >
-                                                                        <FontAwesomeIcon icon={faEdit} /> Edit
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-
-                                    <Pagination
-                                        page={pagination.page}
-                                        setPage={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
-                                        limit={pagination.limit}
-                                        setLimit={(newLimit) => setPagination(prev => ({ ...prev, limit: newLimit }))}
-                                        totalData={pagination.totalData}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+      <section className="buyer-sec-1">
+        <div className="container-fluid">
+          <div className="row">
+            <div className="col-md-12">
+              <div className="vendor-mngt-con">
+                <div className="filter-section">
+                  <div className="row mb-4 text-sm">
+                  
+                    <div className="col-md-3">
+                      <label>Filter by Role</label>
+                      <Select
+                        options={roleOptions}
+                        onChange={(role) =>
+                          setFilters((prev) => ({ ...prev, role }))
+                        }
+                        placeholder="Select Role"
+                        isClearable
+                      />
                     </div>
-                </div>
-            </section>
 
-            {/* Edit Modal */}
-            {modals.showEditModal && modals.selectedAccount && (
-                <DynamicFormModal
-                    type="edit-account"
-                    accountData={modals.selectedAccount}
-                    openModal={modals.showEditModal}
-                    closeModal={() => setModals(prev => ({ ...prev, showEditModal: false }))}
-                    handleEditAccount={updateUserData}
-                    countryCodes={countryCodes}
-                    roleOptions={roleOptions}
-                    projectOptions={projectState.options}
-                />
-            )}
-        </>
-    );
+                    <div className="col-md-3">
+                      <label>Filter by Status</label>
+                      <Select
+                        options={statusOptions}
+                        onChange={(status) =>
+                          setFilters((prev) => ({ ...prev, status }))
+                        }
+                        placeholder="Select Status"
+                        isClearable
+                      />
+                    </div>
+
+                    <div className="col-md-3">
+                      <label>Filter by Project</label>
+                      <Select
+                        options={data.projects.options}
+                        value={filters.project}
+                        isMulti
+                        onChange={(project) =>
+                          setFilters((prev) => ({ ...prev, project }))
+                        }
+                        placeholder={
+                          data.projects.loading
+                            ? "Loading..."
+                            : "Select Project(s)"
+                        }
+                        isLoading={data.projects.loading}
+                      />
+                    </div>
+
+                    <div className="col-md-3 d-flex align-items-end justify-content-end">
+                      <SmartButton
+                        href="/dashboard/admin/account-management/create-account"
+                        label=" Create New Account"
+                        theme="secondary"
+                        width="fit-content"
+                        className="p-3"
+                          icon={<FontAwesomeIcon icon={faUserPlus} />}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="details-table hasFullLoader mt-0">
+                  {uiState.loading && <FullLoader />}
+                  {!uiState.loading && data.filteredAccounts.length === 0 && (
+                    <p>No accounts found.</p>
+                  )}
+
+                  {!uiState.loading && data.filteredAccounts.length > 0 && (
+                    <div className="table-responsive">
+                      <table className="table table-striped">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Mobile</th>
+                            <th>Role</th>
+                            <th>Projects</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getPaginatedData().map((account) => {
+                            const roleInfo = getRoleInfo(account.role);
+                            return (
+                              <tr key={account.id}>
+                                <td>{account.name}</td>
+                                <td>{account.email}</td>
+                                <td>{account.mobile}</td>
+                                <td>
+                                  <span
+                                    className="badge"
+                                    style={{
+                                      backgroundColor: roleInfo.color,
+                                      color:
+                                        roleInfo.color === "#FFE600"
+                                          ? "#000"
+                                          : "#fff",
+                                    }}
+                                  >
+                                    {roleInfo.label}
+                                  </span>
+                                </td>
+                                <td>{getProjectNames(account)}</td>
+                                <td>{formatDate(account.created_at)}</td>
+                                <td>
+                                  <SmartButton
+                                    label="Edit"
+                                    icon={<FontAwesomeIcon icon={faEdit} />}
+                                    iconPosition="right"
+                                    theme="primary"
+                                    className="p-2"
+                                    onClick={() => {
+                                      handleEditAccount(account);
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <Pagination
+                    page={uiState.pagination.page}
+                    setPage={(page) =>
+                      setUiState((prev) => ({
+                        ...prev,
+                        pagination: { ...prev.pagination, page },
+                      }))
+                    }
+                    limit={uiState.pagination.limit}
+                    setLimit={(limit) =>
+                      setUiState((prev) => ({
+                        ...prev,
+                        pagination: { ...prev.pagination, limit },
+                      }))
+                    }
+                    totalData={uiState.pagination.totalData}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {uiState.modals.showEditModal && uiState.modals.selectedAccount && (
+        <DynamicFormModal
+          type="edit-account"
+          accountData={uiState.modals.selectedAccount}
+          openModal={uiState.modals.showEditModal}
+          closeModal={() =>
+            setUiState((prev) => ({
+              ...prev,
+              modals: { ...prev.modals, showEditModal: false },
+            }))
+          }
+          handleEditAccount={updateUserData}
+          countryCodes={data.countryCodes}
+          roleOptions={roleOptions}
+          projectOptions={data.projects.options}
+        />
+      )}
+    </>
+  );
 };
 
 export default ManageAccountsPage;
