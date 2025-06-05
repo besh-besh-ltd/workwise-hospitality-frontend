@@ -105,14 +105,15 @@ const Item = ({
           product_id: rfqProduct.product_id,
           variant: rfqProduct.variant,
         })
-      dispatch(
-        addFiles({
-          type: fileType,
-          value: filePath,
-          product_id: rfqProduct.product_id,
-          variant: rfqProduct.variant,
-        })
-      );
+      else
+        dispatch(
+          addFiles({
+            type: fileType,
+            value: filePath,
+            product_id: rfqProduct.product_id,
+            variant: rfqProduct.variant,
+          })
+        );
       setHasUnsavedChanges(true);
     } catch (error) {
       toast.error(error.message);
