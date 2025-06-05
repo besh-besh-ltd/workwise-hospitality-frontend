@@ -38,6 +38,11 @@ const roleMenus = {
       targetMenu: "popup",
     },
     {
+      href: "/dashboard/admin",
+      label: "Dashboard",
+      targetMenu: "nav",
+    },
+    {
       href: "/dashboard/admin/project-management/project-management",
       label: "Project Management",
       targetMenu: "nav",
