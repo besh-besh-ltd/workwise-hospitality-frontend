@@ -117,7 +117,7 @@ const EditRFQ = () => {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddVendorForProductModal, setShowAddVendorForProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState([]);
-  const [totalProductsInrfq , setTotalProductsInrfq] = useState(0);
+  const [activeKey, setActiveKey] = useState(null);
 
   const [updatableData, setUpdatableData] = useState({
     products: {
@@ -1223,13 +1223,14 @@ const EditRFQ = () => {
               padding: "10px",
             }}
           >
-            <Accordion alwaysOpen flush defaultActiveKey="">
+            <Accordion alwaysOpen flush defaultActiveKey="" activeKey={activeKey} onSelect={(k) => setActiveKey(k)}>
               {rfqData.products &&
                 rfqData.products.length > 0 &&
                 rfqData.products.filter(product => !updatableData.products?.deletable?.includes(product.id)).map((product) => {
                   return (
                     <Item
                       // vendorApprovedList={vendorApprovedList}
+                      activeKey={activeKey}
                       data={(() => {
                         const productObj = product;
                         const updatedObj = {

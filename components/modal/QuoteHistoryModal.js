@@ -90,25 +90,33 @@ const QuoteHistoryModal = (props) => {
                                     <b>Product Name</b> :{" "}
                                     {productDetails.product_name}
                                 </p>
-                                <p className="sub-heading mb-0">
-                                    <b>{productDetails.rfq_details[1].title}</b> :{" "}
-                                    {productDetails.rfq_details[1].value}
-                                </p>
+                                {productDetails.rfq_details?.[1] && (
+                                    <p className="sub-heading mb-0">
+                                        <b>{productDetails.rfq_details[1]?.title}</b> :{" "}
+                                        {productDetails.rfq_details[1]?.value}
+                                    </p>
+                                )}
                             </div>
 
                             <div className='mx-5'>
-                                <p className="sub-heading mb-0">
-                                    <b>{productDetails.rfq_details[0].title}</b> :{" "}
-                                    {productDetails.rfq_details[0].value}
-                                </p>
-                                <p className="sub-heading mb-0">
-                                    <b>{productDetails.rfq_details[2].title}</b> :{" "}
-                                    {productDetails.rfq_details[2].value}
-                                </p>
-                                <p className="sub-heading mb-0">
-                                    <b>{productDetails.rfq_details[3].title}</b> :{" "}
-                                    {productDetails.rfq_details[3].value}
-                                </p>
+                                {productDetails.rfq_details?.[0] && (
+                                    <p className="sub-heading mb-0">
+                                        <b>{productDetails.rfq_details[0]?.title}</b> :{" "}
+                                        {productDetails.rfq_details[0]?.value}
+                                    </p>
+                                )}
+                                {productDetails.rfq_details?.[2] && (
+                                    <p className="sub-heading mb-0">
+                                        <b>{productDetails.rfq_details[2]?.title}</b> :{" "}
+                                        {productDetails.rfq_details[2]?.value}
+                                    </p>
+                                )}
+                                {productDetails.rfq_details?.[3] && (
+                                    <p className="sub-heading mb-0">
+                                        <b>{productDetails.rfq_details[3]?.title}</b> :{" "}
+                                        {productDetails.rfq_details[3]?.value}
+                                    </p>
+                                )}
                             </div>
 
                         </div>

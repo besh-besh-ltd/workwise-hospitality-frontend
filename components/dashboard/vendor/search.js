@@ -1374,7 +1374,7 @@ const addRfqIdParam = (rfq_id) => {
                             aria-disabled={isLoading}
                           >
                             {!!queryMeta.rfq_id && queryMeta.rfq_id != null
-                              ? `View RFQ #${queryMeta.rfq_id}`
+                              ? `View Current Draft`
                               : "View My Drafts"}
                           </Link>
                         </div>
