@@ -50,11 +50,11 @@ const QuoteCompareTable = ({
     setOpenCommonModal(true);
   };
 
-  const renderFileLink = (files) => {
+  const renderFileLink = (files,lable = "view file") => {
     return files.map((file, index) => (
       <a key={index} href={file.file_url} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
         <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-        {extractfileName(file.file_url)}
+        {lable}
       </a>
     ));
   };
@@ -76,6 +76,8 @@ const QuoteCompareTable = ({
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
+              <div className="table-si-row table-grey-row">Terms & Conditions</div>
+              <div className="table-si-row">Payment Terms</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -85,17 +87,28 @@ const QuoteCompareTable = ({
                 let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
 
                 return (
-                  <div className="table-col" key={`tab_qq_${item.quote_id}_${index}`}>
+                  <div
+                    className="table-col"
+                    key={`tab_qq_${item.quote_id}_${index}`}
+                  >
                     <div className="table-si-row table-dark-row">
                       <span>
-                        {item?.quote_details?.vendor_details?.organization_name || item?.quote_details?.vendor_details?.name}
+                        {item?.quote_details?.vendor_details
+                          ?.organization_name ||
+                          item?.quote_details?.vendor_details?.name}
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (
                         <div className="vendor_regreted_quote">
                           <div>
-                            <span style={{ fontWeight: "bold", fontSize: "1rem" }}>RFQ Declined by the vendor</span>
-                            <span style={{ fontSize: "0.85rem" }}>{item?.quote_details?.regret_reason || ""}</span>
+                            <span
+                              style={{ fontWeight: "bold", fontSize: "1rem" }}
+                            >
+                              RFQ Declined by the vendor
+                            </span>
+                            <span style={{ fontSize: "0.85rem" }}>
+                              {item?.quote_details?.regret_reason || ""}
+                            </span>
                           </div>
                         </div>
                       )}
@@ -110,8 +123,10 @@ const QuoteCompareTable = ({
                           />
                         </Dropdown.Toggle>
                         <Dropdown.Menu>
-                          {alreadyFinalized?.length == 0 && item?.quote_details?.is_regret == 0 &&
-                            !item.finalization && !isRfqClosed && (
+                          {alreadyFinalized?.length == 0 &&
+                            item?.quote_details?.is_regret == 0 &&
+                            !item.finalization &&
+                            !isRfqClosed && (
                               <Dropdown.Item
                                 className="negotiate-link"
                                 href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
@@ -126,7 +141,9 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {alreadyFinalized?.length == 0 && !item.finalization && !isRfqClosed &&
+                          {alreadyFinalized?.length == 0 &&
+                            !item.finalization &&
+                            !isRfqClosed &&
                             item?.quote_details?.is_regret == 0 && (
                               <Dropdown.Item
                                 href="#"
@@ -139,53 +156,102 @@ const QuoteCompareTable = ({
                               </Dropdown.Item>
                             )}
 
-                            {item.previous_quotes?.length > 0 && 
-                            (
-                              <Dropdown.Item
-                                href="#"
-                                onClick={() => {
-                                  setQuotehistorymodal(true);
-                                  setQuotehistorydata({product_details:proditem.product_details,previous_quotes:item.previous_quotes});
-                                }}
-                                className="history-link"
-                              >
-                                Quote History
-                              </Dropdown.Item>
-                            )}
-
+                          {item.previous_quotes?.length > 0 && (
+                            <Dropdown.Item
+                              href="#"
+                              onClick={() => {
+                                setQuotehistorymodal(true);
+                                setQuotehistorydata({
+                                  product_details: proditem.product_details,
+                                  previous_quotes: item.previous_quotes,
+                                });
+                              }}
+                              className="history-link"
+                            >
+                              Quote History
+                            </Dropdown.Item>
+                          )}
                         </Dropdown.Menu>
                       </Dropdown>
                     </div>
-                    <div className="table-si-row table-grey-row">{item.quantity}</div>
+                    <div className="table-si-row table-grey-row">
+                      {item.quantity}
+                    </div>
                     <div className="table-si-row">
                       {item.unit_price}
-                      {itemUpdated && (itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.unit_price}</span>}
+                      {itemUpdated &&
+                        itemUpdated.unit_price != item.unit_price && (
+                          <span className="d-block buyer-individual-quote-compare-text-strike ">
+                            {itemUpdated?.unit_price}
+                          </span>
+                        )}
                     </div>
-                    <div className="table-si-row table-grey-row fw-semibold" >
+                    <div className="table-si-row table-grey-row fw-semibold">
                       {item.quantity * item.unit_price}
-                      {itemUpdated && (itemUpdated.quantity != item.quantity || itemUpdated.unit_price != item.unit_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.quantity * itemUpdated?.unit_price}</span>}
+                      {itemUpdated &&
+                        (itemUpdated.quantity != item.quantity ||
+                          itemUpdated.unit_price != item.unit_price) && (
+                          <span className="d-block buyer-individual-quote-compare-text-strike ">
+                            {itemUpdated?.quantity * itemUpdated?.unit_price}
+                          </span>
+                        )}
                     </div>
                     <div className="table-si-row">
-                      {item?.package_price !== null ? `${item?.package_price || 0} %` : "0 %"}
-                      {itemUpdated && (itemUpdated.package_price != item.package_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.package_price !== null ? `${itemUpdated?.package_price || 0} %` : "0 %"}</span>}
+                      {item?.package_price !== null
+                        ? `${item?.package_price || 0} %`
+                        : "0 %"}
+                      {itemUpdated &&
+                        itemUpdated.package_price != item.package_price && (
+                          <span className="d-block buyer-individual-quote-compare-text-strike ">
+                            {itemUpdated?.package_price !== null
+                              ? `${itemUpdated?.package_price || 0} %`
+                              : "0 %"}
+                          </span>
+                        )}
                     </div>
                     <div className="table-si-row table-grey-row">
-                      {item?.freight_price !== null ? `${item?.freight_price || 0} %` : "0 %"}
-                      {itemUpdated && (itemUpdated.freight_price != item.freight_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.freight_price !== null ? `${itemUpdated?.freight_price || 0} %` : "0 %"}</span>}
+                      {item?.freight_price !== null
+                        ? `${item?.freight_price || 0} %`
+                        : "0 %"}
+                      {itemUpdated &&
+                        itemUpdated.freight_price != item.freight_price && (
+                          <span className="d-block buyer-individual-quote-compare-text-strike ">
+                            {itemUpdated?.freight_price !== null
+                              ? `${itemUpdated?.freight_price || 0} %`
+                              : "0 %"}
+                          </span>
+                        )}
                     </div>
                     <div className="table-si-row">
                       {item.tax !== null ? `${item.tax || 0} %` : "0 %"}
-                      {itemUpdated && (itemUpdated.tax != item.tax) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.tax !== null ? `${itemUpdated?.tax || 0} %` : "0 %"}</span>}
+                      {itemUpdated && itemUpdated.tax != item.tax && (
+                        <span className="d-block buyer-individual-quote-compare-text-strike ">
+                          {itemUpdated?.tax !== null
+                            ? `${itemUpdated?.tax || 0} %`
+                            : "0 %"}
+                        </span>
+                      )}
                     </div>
-                    <div className={`table-si-row fw-semibold  ${item.is_lowest ? "bg-success text-white d-flex justify-content-between " : "table-grey-row"}`} >
+                    <div
+                      className={`table-si-row fw-semibold  ${
+                        item.is_lowest
+                          ? "bg-success text-white d-flex justify-content-between "
+                          : "table-grey-row"
+                      }`}
+                    >
                       {item.total_price}
-                      {itemUpdated && (itemUpdated.total_price != item.total_price) && <span className="d-block buyer-individual-quote-compare-text-strike ">{itemUpdated?.total_price}</span>}
-                      {item.is_lowest &&
-                        <span className="d-flex align-items-center gap-2 border border-light rounded-3 text-white px-3 py-2" >
+                      {itemUpdated &&
+                        itemUpdated.total_price != item.total_price && (
+                          <span className="d-block buyer-individual-quote-compare-text-strike ">
+                            {itemUpdated?.total_price}
+                          </span>
+                        )}
+                      {item.is_lowest && (
+                        <span className="d-flex align-items-center gap-2 border border-light rounded-3 text-white px-3 py-2">
                           <FontAwesomeIcon icon={faAward} fontSize={16} />
                           Lowest
                         </span>
-                      }
+                      )}
                     </div>
                     <div className="table-si-row">
                       {item.delivery_period != ""
@@ -193,27 +259,49 @@ const QuoteCompareTable = ({
                           ? `${item.delivery_period} Week`
                           : `${item.delivery_period} Weeks`
                         : "--"}
-                      {itemUpdated && (itemUpdated.delivery_period != item.delivery_period) &&
-                        <span className="d-block buyer-individual-quote-compare-text-strike ">
-                          {parseInt(itemUpdated.delivery_period) <= 1
-                            ? `${itemUpdated.delivery_period} Week`
-                            : `${itemUpdated.delivery_period} Weeks`}
-                        </span>
-                      }
+                      {itemUpdated &&
+                        itemUpdated.delivery_period != item.delivery_period && (
+                          <span className="d-block buyer-individual-quote-compare-text-strike ">
+                            {parseInt(itemUpdated.delivery_period) <= 1
+                              ? `${itemUpdated.delivery_period} Week`
+                              : `${itemUpdated.delivery_period} Weeks`}
+                          </span>
+                        )}
                     </div>
                     <div className="table-si-row table-grey-row">
-                      {item?.comment
-                        ? <ReadMore content={item?.comment} maxLines={2} />
-                        : "--"
-                      }
+                      {item?.comment ? (
+                        <ReadMore content={item?.comment} maxLines={2} />
+                      ) : (
+                        "--"
+                      )}
+                      {item?.global_comment ? (
+                        <ReadMore content={item?.global_comment} maxLines={2} />
+                      ) : (
+                        "--"
+                      )}
                     </div>
                     <div className="table-si-row">
-                      {(item.document_files) ? (
-                        <>
-                          {renderFileLink(item.document_files)}
-                        </>
-                      ) : <span>N/A</span>}
+                      {item.document_files ? (
+                        <>{renderFileLink(item.document_files)}</>
+                      ) : (
+                        <span>N/A</span>
+                      )}
                     </div>
+                    <div className="table-si-row table-grey-row">
+                      {item.global_document_files ? (
+                        <>{renderFileLink(item.global_document_files,"view file")}</>
+                      ) : (
+                        <span>N/A</span>
+                      )}
+                    </div>
+                    <div className="table-si-row">
+                      {
+                      item?.global_payment_term ? (
+                        <ReadMore content = {item?.global_payment_term} maxLines={2}/> )
+                       : "NA"
+                       }
+                      
+                      </div>
                   </div>
                 );
               })}
