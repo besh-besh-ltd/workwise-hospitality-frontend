@@ -105,7 +105,7 @@ const Item = ({
           product_id: rfqProduct.product_id,
           variant: rfqProduct.variant,
         })
-      else
+      if(type != 'edit')
         dispatch(
           addFiles({
             type: fileType,
