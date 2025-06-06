@@ -120,12 +120,15 @@ export const rfqProductsSlice = createSlice({
               { title: "Unit", value: "" },
             ];
           }
-          item.spec.map((specItem) => {
-            if (specItem.title == action.payload.title) {
-              specItem.value = action.payload.value;
-            }
-            return specItem;
-          });
+          if(!item.spec.find(specItem => specItem.title == action.payload.title)) {
+            item.spec = [...item.spec, { title: action.payload.title, value: action.payload.value }]
+          } else
+            item.spec.map((specItem) => {
+              if (specItem.title == action.payload.title) {
+                specItem.value = action.payload.value;
+              }
+              return specItem;
+            });
         }
         return item;
       });
