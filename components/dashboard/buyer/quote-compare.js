@@ -1265,7 +1265,10 @@ const QuoteCompare = () => {
                             key={`qq_${index}`}
                           >
                             <div className="row">
-                              <div className="col-12">
+                              
+                              <div className="class">
+                           
+
                                 <p className="sub-heading mb-0">
                                   <b>Product</b> :{" "}
                                   {item?.product_details[0]?.product_name}
