@@ -56,14 +56,14 @@ const Item = ({
 
     if(type == 'quantity' && (isNaN(parseInt(value) || parseInt(value) < 0) && value.trim() != '')) return;
 
-    if (rfqProduct.spec) {
-      setRfqProduct((prev) => ({
-        ...prev,
-        spec: prev.spec.map((item) =>
-          item.title === type ? { ...item, value } : item
-        ),
-      }));
-    }
+    // if (rfqProduct.spec) {
+    //   setRfqProduct((prev) => ({
+    //     ...prev,
+    //     spec: prev.spec.map((item) =>
+    //       item.title === type ? { ...item, value } : item
+    //     ),
+    //   }));
+    // }
     dispatch(
       addProductSpecValue({
         title: type.charAt(0).toUpperCase() + type.slice(1),
