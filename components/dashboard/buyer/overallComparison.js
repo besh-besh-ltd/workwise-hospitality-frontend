@@ -17,7 +17,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [finalised , setFinalised] = useState(null);
 
   useEffect(() => {
     handleDownloadQuote();
@@ -411,9 +411,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
                               let finalizedClass = "";
                               if (isSomeoneFinalized && (isSomeoneFinalized?.id == quote_item?.created_by)) {
-                                finalizedClass = "is_lowest";
-                              } else if (isSomeoneFinalized && (isSomeoneFinalized?.id != quote_item?.created_by) && quote_item?.is_lowest) {
                                 finalizedClass = "is_lowest_not_finalised";
+                              } else if (isSomeoneFinalized && (isSomeoneFinalized?.id != quote_item?.created_by) && quote_item?.is_lowest) {
+                                finalizedClass = "is_lowest";
                               } else if (!isSomeoneFinalized && quote_item?.is_lowest) {
                                 finalizedClass = "is_lowest";
                               }
@@ -622,6 +622,26 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                         );
                       })}
                   </tr>
+                  <tr className="last_row">
+                    <th colSpan={5} scope="col">
+                      FINALIZED VENDOR
+                    </th>
+
+                    {allvendors &&
+                      allvendors.length > 0 &&
+                      allvendors.filter(item => item.is_finalized)?.map((item) => {
+                        return (
+                          <th
+                            colSpan={allvendors.length}
+                            scope="col"
+                            className="l1total"
+                          >
+                            {item.total ? addCommasToNumber(item.total) : "-"}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                    
                   <tr className="last_row">
                     <th colSpan={5} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
