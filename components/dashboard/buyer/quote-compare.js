@@ -1267,12 +1267,7 @@ const QuoteCompare = () => {
                             <div className="row">
                               
                               <div className="class">
-                                <p className="sub-heading mb-0"><b>Global Payment Terms : </b>
-                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_payment_term : "N/A"}</p>
-                               
-                                <p className="sub-heading mb-0"><b>Global Comments : </b>
-                                {item?.quotations[0].length > 0 ? item?.quotations[0]?.global_comment : "N/A"}
-                               </p>
+                           
 
                                 <p className="sub-heading mb-0">
                                   <b>Product</b> :{" "}

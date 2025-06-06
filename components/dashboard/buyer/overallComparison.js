@@ -1,5 +1,6 @@
 import CommentModal from "@/components/modal/CommentModal";
 import FullLoader from "@/components/shared/FullLoader";
+import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { extractfileName } from "@/utils/sharedFunctions";
@@ -419,8 +420,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
                               if (quote_item.is_regret == 1) {
                                 return (
-                                  <td className="is_regret total_amt_field" key={`quote_item_${quote_item.created_by}`}>
-                                    -
+                                  <td className="is_regret total_amt_field text-white" key={`quote_item_${quote_item.created_by}`}>
+                                    <p>REGRET</p>
                                   </td>
                                 );
                               } else {
@@ -513,31 +514,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                           <tr>
                                             <th>Comments</th>
                                             <td>
-                                              <button
-                                                className=""
-                                                onClick={() =>
-                                                  setShowModal(true)
-                                                }
-                                              >
-                                                view
-                                              </button>
-                                              {quote_item?.quote_details[0]
-                                                .length > 0 && (
-                                                <CommentModal
-                                                  show={showModal} // Control visibility
-                                                  text={
-                                                    quote_item?.quote_details[0]
-                                                      .comment
-                                                      ? quote_item
-                                                          ?.quote_details[0]
-                                                          .comment
-                                                      : ""
-                                                  }
-                                                  onClose={() =>
-                                                    setShowModal(false)
-                                                  }
-                                                />
-                                              )}
+                                              {quote_item?.quote_details?.[0]
+                                                      ?.comment || "--"}
                                             </td>
                                           </tr>
                                           <tr>
