@@ -278,11 +278,9 @@ const DynamicFormModal = ({
             const fullMobile = `${values.countryCode || '+91'}-${values.phone.trim().replace(/^0+/, '')}`;
 
             const requestData = {
-                name: values.vendorName,
+                vendorName: values.vendorName, // this is org name not vendor spoc name
                 email: values.email,
-                mobile: fullMobile,
-                organization_name: values.vendorName,
-                user_type: 3, // Vendor type
+                phone: fullMobile,
                 is_private: values.is_private,
                 productDetails: vendorProductDetails
             };
