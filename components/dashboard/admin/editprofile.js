@@ -140,7 +140,7 @@ const EditProfile = () => {
 
     // Transform the values to include the location object
 
-
+    console.log("values", values);
     let fullMobile;
     if (values.countryCode == "") {
       fullMobile = `${selectedCountryCode.phone_code}-${values.mobile
@@ -156,11 +156,7 @@ const EditProfile = () => {
     const { countryCode, ...restValues } = values;
     const updatedValues = {
       ...restValues,
-      location: {
-        country: selectedCountry,
-        state: selectedState,
-        city: selectedCity,
-      },
+     
       mobile: fullMobile,
     };
 
@@ -174,7 +170,28 @@ const EditProfile = () => {
         setsocialLoading(false);
       });
   };
+  const handleCompanyUpdate = (values) =>{
+    console.log("Company Update Values", values);
+    setsocialLoading(true);
+    const updatedValues = {
+      ...values,
+      location:
+     {  country: parseInt(location?.country),
+    state: parseInt(location?.state),
+    city: parseInt(location?.city)
+    }
+    };
 
+    updateProfile(updatedValues, userProfile.id)
+      .then((res) => {
+        setsocialLoading(false);
+        getProfileDetails();
+        toast(res.message);
+      })
+      .catch((error) => {
+        setsocialLoading(false);
+      });
+  }
   const uploadToClient = (event) => {
     if (event.target.files && event.target.files[0]) {
       const i = event.target.files[0];
@@ -224,236 +241,146 @@ const EditProfile = () => {
                 </div>
               )}
               {!profileImageLoading && userProfile && (
-               <ProfileImageUploader
-                imageUrl={userProfile?.logo}
-                placeholderUrl="/assets/images/user-img.png"
-                onChange={uploadToClient}
-                loading={profileImageLoading}
-              />
+                <ProfileImageUploader
+                  imageUrl={userProfile?.logo}
+                  placeholderUrl="/assets/images/user-img.png"
+                  onChange={uploadToClient}
+                  loading={profileImageLoading}
+                />
               )}
             </div>
             <div className="col-md-8">
               <div className="buyer-edit-sec-form">
-                <span className="title">Company information</span>
+                <span className="title">Contact Details</span>
                 <div className="contact-form">
                   <Formik
                     enableReinitialize={true}
                     initialValues={{
-                      company_name: userProfile?.company_name || userProfile?.organization_name,
-                      name: userProfile?.name ? userProfile?.name : "",
-                      location: {
-                        country: selectedCountry || "",
-                        state: selectedState || "",
-                        city: selectedCity || "",
-                      },
-                      email: userProfile?.email ? userProfile?.email : "",
-                      gstin: userProfile?.gstin || "",
-                      cin: userProfile?.cin ? userProfile?.cin : "",
+                      name: userProfile?.name || "NA",
+                      email: userProfile?.email || "",
                       mobile: userProfile?.mobile
                         ? userProfile.mobile.trim().replace(/^[^-]*-/, "")
                         : "",
                       countryCode: "",
                     }}
-                    validationSchema={EditCompanyDetails}
+                    // validationSchema={EditCompanyDetails}
                     onSubmit={(values) => {
+                      console.log("Submitting values", values);
                       handleUpdate(values);
                     }}
                   >
                     {({ errors, touched }) => (
                       <Form>
-                        <div className="row">
-                          <div className="col-md-12">
-                            <FormikField
-                              label="Company Name"
-                              isRequired={true}
-                              name="company_name"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
-                          <div className="col-md-12">
-                            <FormikField
-                              label="Contact Person Name"
-                              isRequired={true}
+                        <div className="row g-4">
+                          {/* Name Field */}
+                          <div className="col-12">
+                            <label htmlFor="name" className="form-label">
+                              Name <span className="text-danger">*</span>
+                            </label>
+                            <Field
+                              id="name"
                               name="name"
-                              touched={touched}
-                              errors={errors}
+                              className={`form-control ${
+                                touched.name && errors.name ? "is-invalid" : ""
+                              }`}
+                              placeholder="Enter name"
                             />
-                          </div>
-
-                          <div className="col-md-4">
-                            <div className="form-group">
-                              <label htmlFor="city">Country</label>
-                              <Field
-                                as="select"
-                                className="form-control mt-2" // Matching class for consistency
-                                name="country"
-                                onChange={handleChange}
-                                value={selectedCountry}
-                              >
-                                <option value="">Select</option>
-                                {countryList?.map((country) => (
-                                  <option key={country.id} value={country.id}>
-                                    {country.country_name}
-                                  </option>
-                                ))}
-                              </Field>
-                            </div>
-                          </div>
-
-                          <div className="col-md-4">
-                            <div className="form-group">
-                              <label>State</label>
-
-                              <select
-                                className="form-control mt-2"
-                                onChange={(e) => handleStateChange(e)}
-                                value={selectedState}
-                              >
-                                <option value={0}>Select State</option>
-                                {states.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.state_name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="col-md-4">
-                            <div className="form-group">
-                              <label>City</label>
-                              <div className="hasFullLoader">
-                                {citiesLoading && <FullLoader />}
-                                <select
-                                  className="form-control mt-2"
-                                  onChange={(e) => handleCityChange(e)}
-                                  value={selectedCity}
-                                >
-                                  <option value={0}>Select City</option>
-                                  {cities.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.city_name}
-                                    </option>
-                                  ))}
-                                </select>
+                            {touched.name && errors.name && (
+                              <div className="invalid-feedback">
+                                {errors.name}
                               </div>
-                            </div>
+                            )}
                           </div>
 
-                          <div className="row g-3">
-                            {/* Email Field */}
-                            <div className="col-md-6 ">
-                              <FormikField
-                                label="Email"
-                                isRequired={true}
-                                type="email"
-                                name="email"
-                                touched={touched}
-                                errors={errors}
-                                className="form-control border border-success"
-                              />
-                            </div>
-
-                            {/* Mobile Field */}
-                            <div className="col-md-6 ">
-                              <label className="form-label">
-                                Mobile <span className="text-danger">*</span>
-                              </label>
-
-                              {/* Container for country code and mobile number */}
-                              <div className="d-flex">
-                                {/* Country Code Dropdown */}
-                                <Field name="countryCode">
-                                  {({ field, form }) => (
-                                    <select
-                                      {...field}
-                                      className="form-select border border-success"
-                                      style={{
-                                        width: "30%", // Fixed width for country code dropdown
-                                        height: "54px",
-                                        marginLeft :"10px",
-                                        marginRight :"10px",
-                                        borderTopRightRadius: "0",
-                                        borderBottomRightRadius: "0",
-                                      }}
-                                      onChange={(e) => {
-                                        form.setFieldValue(
-                                          "countryCode",
-                                          e.target.value
-                                        );
-                                        setoneountrycode(e.target.value);
-                                      }}
-                                    >
-                                      <option value="countryCode">
-                                        {selectedCountryCode?.country_code} (
-                                        {selectedCountryCode?.phone_code})
-                                      </option>
-                                      {countryCode.map((country) => (
-                                        <option
-                                          key={country.id}
-                                          value={country.phone_code}
-                                        >
-                                          {country.country_code} (
-                                          {country.phone_code})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
-                                </Field>
-
-                                {/* Mobile Number Input */}
-                                <Field
-                                  type="text"
-                                  name="mobile"
-                                  className={`form-control border border-success rounded-end ${
-                                    touched.mobile && errors.mobile
-                                      ? "is-invalid"
-                                      : ""
-                                  }`}
-                                  placeholder="Enter mobile number"
-                                  style={{
-                                    flex: "1", // Takes the remaining space
-                                    height: "54px",
-                                    minWidth: "160px",
-                                    borderTopLeftRadius: "0",
-                                    borderBottomLeftRadius: "0",
-                                  }}
-                                />
-
-                                {touched.mobile && errors.mobile && (
-                                  <div className="invalid-feedback">
-                                    {errors.mobile}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="col-md-6 ">
-                            <FormikField
-                              label="GSTin"
-                              isRequired={false}
-                              type="text"
-                              name="gstin"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
+                          {/* Email Field */}
                           <div className="col-md-6">
-                            <FormikField
-                              label="CIN"
-                              isRequired={false}
-                              type="text"
-                              name="cin"
-                              touched={touched}
-                              errors={errors}
+                            <label htmlFor="email" className="form-label">
+                              Email <span className="text-danger">*</span>
+                            </label>
+                            <Field
+                              id="email"
+                              name="email"
+                              type="email"
+                              className={`form-control ${
+                                touched.email && errors.email
+                                  ? "is-invalid"
+                                  : ""
+                              }`}
+                              placeholder="Enter email"
                             />
+                            {touched.email && errors.email && (
+                              <div className="invalid-feedback">
+                                {errors.email}
+                              </div>
+                            )}
                           </div>
 
-                          <button type="submit" className="btn btn-secondary">
-                            Save
-                          </button>
+                          {/* Mobile Field with Country Code */}
+                          <div className="col-md-6">
+                            <label className="form-label">
+                              Mobile <span className="text-danger">*</span>
+                            </label>
+                            <div className="input-group">
+                              {/* Country Code Dropdown */}
+                              <Field name="countryCode">
+                                {({ field, form }) => (
+                                  <select
+                                    {...field}
+                                    className="form-select"
+                                    style={{ maxWidth: "120px" }}
+                                    onChange={(e) => {
+                                      form.setFieldValue(
+                                        "countryCode",
+                                        e.target.value
+                                      );
+                                      setoneountrycode(e.target.value);
+                                    }}
+                                  >
+                                    <option value="">
+                                      {selectedCountryCode?.country_code} (
+                                      {selectedCountryCode?.phone_code})
+                                    </option>
+                                    {countryCode.map((country) => (
+                                      <option
+                                        key={country.id}
+                                        value={country.phone_code}
+                                      >
+                                        {country.country_code} (
+                                        {country.phone_code})
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </Field>
+
+                              {/* Mobile Number Input */}
+                              <Field
+                                type="text"
+                                name="mobile"
+                                className={`form-control ${
+                                  touched.mobile && errors.mobile
+                                    ? "is-invalid"
+                                    : ""
+                                }`}
+                                placeholder="Enter mobile number"
+                              />
+                              {touched.mobile && errors.mobile && (
+                                <div className="invalid-feedback">
+                                  {errors.mobile}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Submit Button */}
+                          <div className="col-12 text-end">
+                            <button
+                              type="submit"
+                              className="btn btn-secondary px-4"
+                            >
+                              Save
+                            </button>
+                          </div>
                         </div>
                       </Form>
                     )}
@@ -462,32 +389,159 @@ const EditProfile = () => {
               </div>
 
               <div className="buyer-edit-sec-form">
-                <span className="title">Profile</span>
+                <span className="title">Company Details</span>
                 <div className="contact-form">
                   <Formik
                     enableReinitialize={true}
                     initialValues={{
-                      profile: userProfile?.profile ? userProfile?.profile : "",
+                      company_name: userProfile?.company_name || "",
+                      country: userProfile?.country || "",
+                      state: userProfile?.state_name || "",
+                      city: userProfile?.city_name || "",
+                      address: userProfile?.address || "",
+                      about: userProfile?.about || "",
+                      established_year: userProfile?.established_year || "",
+                      gstin: userProfile?.gstin || "",
+                      website: userProfile?.website || "",
                     }}
                     validationSchema={EditOnlyProfileSchema}
-                    onSubmit={(values) => handleUpdate(values)}
+                    onSubmit={(values) => handleCompanyUpdate(values)}
                   >
                     {({ errors, touched }) => (
                       <Form>
-                        <div className="row">
-                          <div className="col-md-12">
-                            <FormikField
-                              label="Add a sort descrption"
-                              type="textarea"
-                              name="profile"
-                              touched={touched}
-                              errors={errors}
-                            />
-                          </div>
+                        <div className="contact-form">
+                          <div className="row">
+                            <div className="col-md-6">
+                              <FormikField
+                                label="Company Name"
+                                type="text"
+                                isRequired={true}
+                                name="company_name"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <FormikField
+                                label="About the Company"
+                                type="text"
+                                name="about"
+                                isRequired={true}
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
 
-                          <button type="submit" className="btn btn-secondary">
-                            Save
-                          </button>
+                            <div className="col-md-4">
+                              <div className="form-group">
+                                <label htmlFor="city">Country</label>
+                                <Field
+                                  as="select"
+                                  className="form-control mt-2" // Matching class for consistency
+                                  name="country"
+                                  onChange={handleChange}
+                                  value={selectedCountry}
+                                >
+                                  <option value="">Select</option>
+                                  {countryList?.map((country) => (
+                                    <option key={country.id} value={country.id}>
+                                      {country.country_name}
+                                    </option>
+                                  ))}
+                                </Field>
+                              </div>
+                            </div>
+
+                            <div className="col-md-4">
+                              <div className="form-group">
+                                <label>State</label>
+
+                                <select
+                                  className="form-control mt-2"
+                                  onChange={(e) => handleStateChange(e)}
+                                  value={selectedState}
+                                >
+                                  <option value={0}>Select State</option>
+                                  {states.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.state_name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="col-md-4">
+                              <div className="form-group">
+                                <label>City</label>
+                                <div className="hasFullLoader">
+                                  {citiesLoading && <FullLoader />}
+                                  <select
+                                    className="form-control mt-2"
+                                    onChange={(e) => handleCityChange(e)}
+                                    value={selectedCity}
+                                  >
+                                    <option value={0}>Select City</option>
+                                    {cities.map((item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {item.city_name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="col-md-6">
+                              <FormikField
+                                label="Street Address"
+                                type="text"
+                                name="location"
+                                isRequired={true}
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+
+                            <div className="col-md-6">
+                              <FormikField
+                                label="Estd. Year"
+                                type="text"
+                                name="established_year"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+
+                            <div className="col-md-6">
+                              <FormikField
+                                label="GSTIN"
+                                type="text"
+                                name="gstin"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+
+                            <div className="col-md-6">
+                              <FormikField
+                                label="Website"
+                                type="text"
+                                name="website"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+
+                            <div className="col-md-12 text-right mt-4">
+                              <button
+                                type="submit"
+                                className="btn btn-secondary"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </Form>
                     )}
@@ -574,3 +628,4 @@ const EditProfile = () => {
 };
 
 export default EditProfile;
+ 

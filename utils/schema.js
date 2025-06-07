@@ -22,11 +22,11 @@ export const EditCompanyDetails = yup.object().shape({
     .required("Mobile number is required"),
 
   // Convert location to an object with required fields
-  location: yup.object().shape({
-    country: yup.string().optional(),
-    state: yup.string().optional(),
-    city: yup.string().optional()
-  }),
+  // location: yup.object().shape({
+  //   country: yup.string().optional(),
+  //   state: yup.string().optional(),
+  //   city: yup.string().optional()
+  // }),
 
   gstin: yup.string().optional(),
   cin: yup.string().optional(),
