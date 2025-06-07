@@ -185,7 +185,12 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                         <h3 className="fs-5 mb-0">
                             <span className="fw-semibold">{selectedVendor?.label}</span>
                         </h3>
-                        <div className="d-flex gap-2">
+
+                        {/* START: review status with evaluated by */}
+                        <div className="">
+                        
+                        {/* start : status tag */}
+                        <div>
                             {techEvalStatus == 1 ?
                                 techEvalCleared.status == 1
                                     ? <span
@@ -220,7 +225,20 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, selectedVendor
                                     </button>
                                 </>
                             }
+                            </div>
+                        {/* end : status tag */}
+
+
+                          {/* Display evaluated_by only when available */}
+                          {techEvalStatus == 1 && techEvalCleared?.evaluated_by && (
+                            <div className="text-muted mt-2 ">
+                              <strong>Evaluated by: </strong> {techEvalCleared.evaluated_by}
+                            </div>
+                          )}
                         </div>
+                      {/* END: review status with evaluated by */}
+
+
                     </div>
 
                     <div className="table-responsive w-100">
