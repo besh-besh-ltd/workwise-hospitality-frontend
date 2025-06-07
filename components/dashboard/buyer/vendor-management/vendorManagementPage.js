@@ -3,8 +3,6 @@ import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
 import { getCountryCodes } from '@/services/cms';
 import { addPrivateVendor, privateVendorList } from '@/services/privateVendors';
-import { get } from 'lodash';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react'
 import { toast } from "react-toastify";
@@ -33,30 +31,6 @@ const VendorManagement = () => {
         }
       }, [router.query]);
 
-
-    // const handleAddVendor = (values, resetForm) => {
-    //     setLoading(true);
-      
-    //     let payload = values;
-    //     payload.productDetails = productDetails;
-    
-    //     setOpenAddVendorModal(false);
-        
-        
-    //     addPrivateVendor(payload)
-    //         .then((res) => {
-    //             toast.success(res.message, { position: "top-right", });
-    //             getPrivateVendorList();
-    //         })
-    //         .catch((error) => {
-    //             toast.error(error.message?.response?.data?.message, { position: "top-right", });
-    //             console.log(error)
-    //         })
-    //         .finally(() => {
-    //             resetForm();
-    //             setLoading(false);
-    //         })
-    // }
 
     const handleAddVendor = (values, productDetails, resetForm) => {
         setLoading(true);
@@ -138,35 +112,7 @@ const VendorManagement = () => {
                                                     >
                                                         Add Single Vendor
                                                     </button>
-                                                    {/* <Link 
-                                                        href={`./vendor-management/bulk-vendors`}
-                                                        className="btn btn-secondary"
-                                                    >Add Bulk Vendors</Link> */}
                                                 </div>
-
-                                                {/* 
-                                                <div className="row mt-1">
-                                                    <div className="col"></div>
-                                                    <a
-                                                        title="Download this sample Excel and fill all the mandatory red columns."
-                                                        className="col d-flex justify-content-center align-items-center gap-1 p-0 me-3 "
-                                                        href={
-                                                            "http://143.110.242.57:8112/user_document/1716462955635-82ae96ef-559e-4d17-82a6-16cbcf3d02fb.xlsx"
-                                                        }
-                                                    >
-                                                        <span className="text-sm download-sample-excel-text">Download Sample Excel Format</span>
-                                                        <span>
-                                                            <Image
-                                                                src="/assets/images/download-icon.png"
-                                                                alt="Workwise"
-                                                                width={13}
-                                                                height={13}
-                                                                priority={true}
-                                                            />
-                                                        </span>
-                                                    </a>
-                                                </div> */}
-
 
                                             </div>
                                         </div>

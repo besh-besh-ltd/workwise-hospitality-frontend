@@ -27,18 +27,7 @@ export const registerVendorUnified = (payload) => {
 export const addPrivateVendor = (payload) => {
     return new Promise(async (resolve, reject) => {
         try {
-            let mobile = payload.mobile;
-            if (payload.mobile) {
-                const cleanMobile = payload.mobile.replace(/^\+\d+\-\+\d+/, '+91').trim();
-                mobile = cleanMobile.substring(0, 15);
-            }
-            
-            let response = await axiosInstance.post(`users/company-registration`, {
-                ...payload,
-                mobile: mobile,
-                user_type: 3, // Vendor type
-                organization_name: payload.organization_name || payload.company_name
-            });
+            let response = await axiosInstance.post(`users/buyer-private-vendor`, payload);
             resolve(response);
         } catch (error) {
             reject({ message: error });
