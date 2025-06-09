@@ -4121,10 +4121,11 @@ textarea {
           margin-bottom: 20px;
 
           .quote-sec-bottom-con {
-            padding: 30px;
+            padding: 10px;
             border-radius: var(--border-radius);
             background-color: #e5ebee;
-            display: inline-block;
+            display: flex;
+            justify-content: space-between;
 
             span {
               margin: 20px;
@@ -7660,4 +7661,11 @@ td:hover .tooltip_custom {
   background-color: transparent;
   border: none;
   outline: none;
+}
+
+
+.placeholder-muted::placeholder {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  color: #6c757d;
 }

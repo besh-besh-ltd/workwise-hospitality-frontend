@@ -123,7 +123,7 @@ const EditProfile = () => {
       let locationData = { country: "", state: "", city: "" };
       if (res.data?.location) {
         try {
-          locationData = JSON.parse(res.data.location);
+          locationData = res.data.location
         } catch (error) {
           console.error("Error parsing location data:", error);
         }
@@ -224,12 +224,9 @@ const EditProfile = () => {
               )}
               {!profileImageLoading && (
                 <div className="user-profile">
-                  {userProfile && userProfile.profile_image != "" ? (
+                  {userProfile && userProfile.logo != "" ? (
                     <img
-                      src={`${userProfile.profile_image.replace(
-                        "http://localhost:3000",
-                        "http://143.110.242.57:8112"
-                      )}`}
+                      src={`${userProfile.logo}`}
                       alt="Workwise"
                       width={140}
                       height={140}
@@ -265,9 +262,7 @@ const EditProfile = () => {
                   <Formik
                     enableReinitialize={true}
                     initialValues={{
-                      company_name: userProfile?.organization_name
-                        ? userProfile?.organization_name
-                        : "",
+                      company_name: userProfile?.company_name || userProfile?.organization_name,
                       name: userProfile?.name ? userProfile?.name : "",
                       location: {
                         country: selectedCountry || "",
@@ -275,7 +270,7 @@ const EditProfile = () => {
                         city: selectedCity || "",
                       },
                       email: userProfile?.email ? userProfile?.email : "",
-                      gstin: userProfile?.gstin ? userProfile?.gstin : "",
+                      gstin: userProfile?.gstin || "",
                       cin: userProfile?.cin ? userProfile?.cin : "",
                       mobile: userProfile?.mobile
                         ? userProfile.mobile.trim().replace(/^[^-]*-/, "")

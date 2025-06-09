@@ -6,6 +6,10 @@ import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 
+// mukul 05-06-2025
+//  THIS page is not in use, cross check and remove
+
+
 const ProductReview = () => {
   const router = useRouter();
   const [productReviewList, setProductReviewList] = useState([]);

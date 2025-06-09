@@ -92,10 +92,10 @@ const Register = ({registerAs}) => {
   const registerSubmitHandler = (values, resetForm) => {
    setloading(true);
 
-   console.log("checking again ",values);
+   const cleanMobile = values.mobile.trim().replace(/^0+/, '').replace(/^\+\d+\-/, '');
+   const fullMobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
    
-   const fullMobile = `${values.countryCode}-${values.mobile.trim().replace(/^0+/, '')}`;
-   const { countryCode, ...updatedValues } = { 
+   const { countryCode, confirm_password, ...updatedValues } = { 
     ...values, 
     mobile: fullMobile 
   };

@@ -29,9 +29,19 @@ export const LoginService = (values, confirm) => {
 export const RegisterService = (values) => {
 	return new Promise(async (resolve, reject) => {
 		try {
+			let mobile = values.mobile;
+			if (values.mobile && values.countryCode) {
+				const cleanMobile = values.mobile.replace(/^\+\d+\-/, '').trim();
+				mobile = `${values.countryCode}-${cleanMobile}`.substring(0, 15);
+			}
+			
 			let response = await axiosInstance.post(
-				`/users/user-registration`,
-				values
+				`/users/company-registration`,
+				{
+					...values,
+					mobile: mobile,
+					user_type: values.register_as || "3" // Default to vendor (3) if not specified
+				}
 			);
 			resolve(response);
 		} catch (error) {
@@ -78,6 +88,20 @@ export const updateProfile = (values, user_id) => {
 		try {
 			let response = await axiosInstance.put(
 				`/users/update-user-detail/`,
+				values
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+export const updatecompany = (values, user_id) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.put(
+				`/users/update-company-detail`,
 				values
 			);
 			resolve(response);
@@ -296,6 +320,49 @@ export const editSpoc = (payload,spocId) => {
 		}
 	});
   }
-  
+
+export const createBuyerCompanyUser = (values) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(`/users/create-buyer-company-user`, values);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+export const getCompanyUsers = () => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/users/company-users`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+export const getUserProjectsByUserId = (userId) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/project/user/${userId}/projects`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+export const updateUserAccount = (userId, accountData) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Using the new user endpoint for admin updating user accounts (with admin role check)
+            let response = await axiosInstance.put(`users/admin-update-user-account/${userId}`, accountData);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+};
 
 
