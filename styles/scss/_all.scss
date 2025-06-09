@@ -6716,6 +6716,8 @@ h2.pdf-icon {
           padding: 10px 15px;
           height: 54px;
           border-left: 1px solid #e7e7e7;
+          height: 100px;
+          overflow-y: auto;
 
           &.table-dark-row {
             // background-color: #263843;
@@ -6739,8 +6741,7 @@ h2.pdf-icon {
 
         .table-si-row:last-child,
         .table-si-row:nth-last-child(2) {
-          height: 100px;
-          overflow-y: auto;
+          
         }
 
         .table-si-row:nth-child(n+3):nth-child(-n+9) {
@@ -7306,6 +7307,25 @@ a.btn.disabled {
   .is_lowest {
     background-color: var(--secondary-color);
     color: #000;
+    
+    p {
+      font-weight: bold;
+      color: var(--white-color);;
+    }
+  }
+  .is_lowest_not_finalised {
+    background-color: #BA8E23;
+    color: black;
+    
+    p {
+      font-weight: bold;
+      color: var(--white-color);;
+    }
+  }
+
+  .is_regret {
+    background-color: #ba2323;
+    color: black;
     
     p {
       font-weight: bold;

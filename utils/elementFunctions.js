@@ -2,12 +2,12 @@ import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { extractfileName } from "./sharedFunctions";
 
-export const renderFileLink = (fileOrFiles) => {
+export const renderFileLink = (fileOrFiles , label = "View File") => {
     if (Array.isArray(fileOrFiles) && fileOrFiles.length > 0) {
         return fileOrFiles.map((file, index) => (
             <a key={index} href={file} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
                 <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                {extractfileName(file)}
+                {label}
             </a>
         ));
     }
@@ -15,7 +15,7 @@ export const renderFileLink = (fileOrFiles) => {
         return (
             <a href={fileOrFiles} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
                 <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                {extractfileName(fileOrFiles)}
+                {label}
             </a>
         );
     }
