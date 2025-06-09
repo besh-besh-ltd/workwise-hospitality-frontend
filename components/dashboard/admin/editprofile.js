@@ -1,101 +1,155 @@
+import React, { useEffect, useState } from "react";
+import Head from "next/head";
+import { Formik, Form } from "formik";
+import { toast } from "react-toastify";
+
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import FullLoader from "@/components/shared/FullLoader";
 import Loader from "@/components/shared/Loader";
 import ProfileImageUploader from "@/components/shared/ProfileImageUploader";
+
 import {
   getProfile,
   handleChangeProfilePicture,
   updateProfile,
 } from "@/services/Auth";
-import {
-  getCities,
-  getCountries,
-  getCountryCodes,
-  getStates,
-} from "@/services/cms";
+import { getCities, getCountries, getStates } from "@/services/cms";
 import { EditOnlyProfileSchema } from "@/utils/schema";
-import { Form, Formik } from "formik";
-import Head from "next/head";
-import React, { useEffect, useState } from "react";
-import { ToastContainer, toast } from "react-toastify";
+
+// created by mukul - 07-06-2025
+
+const initialUserDetails = {
+  name: "",
+  email: "",
+  mobile: "",
+  countryCode: "+91",
+};
+
+const initializeCompanyDetails = {
+  company_name: "",
+  about: "",
+  address: "",
+  street_address: "",
+  postal_code: "",
+  established_year: "",
+  gstin: "",
+  website: "",
+  country: null,
+  state: null,
+  city: null,
+};
+
+const initializeLocation = {
+  countries: [],
+  states: [],
+  cities: [],
+};
 
 const EditProfile = () => {
-  const [userProfile, setUserProfile] = useState(null);
-  const [countryList, setCountryList] = useState([]);
-  const [selectedCountry, setSelectedCountry] = useState("");
+  const [userDetails, setUserDetails] = useState(initialUserDetails);
+  const [companyDetails, setCompanyDetails] = useState(
+    initializeCompanyDetails
+  );
+  const [locationOptions, setLocationOptions] = useState(initializeLocation);
+
   const [mainLoading, setMainLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState(false);
   const [profileImageLoading, setProfileImageLoading] = useState(false);
-  const [states, setStates] = useState([]);
-  const [selectedState, setSelectedState] = useState(0);
-  const [citiesLoading, setCitiesLoading] = useState(false);
-  const [cities, setCities] = useState([]);
-  const [selectedCity, setSelectedCity] = useState(0);
-  const [countryCodes, setCountryCodes] = useState([]);
+  const [userProfileLogo, setUserProfileLogo] = useState(null);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
+  // fetch initial data
   const fetchInitialData = async () => {
+    setMainLoading(true);
     try {
-      const [codesRes, profileRes, countriesRes] = await Promise.all([
-        getCountryCodes(),
+      const [profileRes, countriesRes] = await Promise.all([
         getProfile(),
         getCountries(),
       ]);
-      setCountryCodes(codesRes.data);
-      setUserProfile(profileRes.data);
-      setCountryList(countriesRes.data);
 
-      if (profileRes.data?.location) {
-        const loc = profileRes.data.location;
-        setSelectedCountry(loc.country);
-        setSelectedState(loc.state);
-        setSelectedCity(loc.city);
-        getStates(loc.country).then((res) => setStates(res.data));
-        getCities(loc.state).then((res) => setCities(res.data));
-      }
-    } catch (err) {
-      console.error("Error during initial load:", err);
+      const data = profileRes.data;
+
+      // splica mobile no and code
+      const [countryCode = "+91", mobileNumber = ""] = (
+        data?.mobile || "+91-"
+      ).split("-");
+
+      // user profile logo
+      setUserProfileLogo(data?.logo);
+
+      // set user details
+      setUserDetails({
+        name: data?.name || "",
+        email: data?.email || "",
+        mobile: mobileNumber,
+        countryCode,
+      });
+
+      // update company details state
+      setCompanyDetails({
+        company_name: data?.company_name || "",
+        about: data?.about || "",
+        address: data?.address || "",
+        street_address: data?.building_name || "",
+        postal_code: data?.postal_code || "",
+        established_year: data?.established_year || "",
+        gstin: data?.gstin || "",
+        website: data?.website || "",
+        country: data?.location?.country || null,
+        state: data?.location?.state || null,
+        city: data?.location?.city || null,
+      });
+
+      const [statesRes, citiesRes] = await Promise.all([
+        getStates(data?.location?.country),
+        getCities(data?.location?.state),
+      ]);
+
+      setLocationOptions({
+        countries: countriesRes.data,
+        states: statesRes.data,
+        cities: citiesRes.data,
+      });
+    } catch (error) {
+      console.error("Error loading data:", error);
     } finally {
       setMainLoading(false);
     }
   };
 
+  // update user details, name, email, mobile only
   const handleUpdate = (values) => {
-    setSocialLoading(true);
-    const mobile = `${values.countryCode || "+91"}-${values.mobile
-      .trim()
-      .replace(/^0+/, "")}`;
-
-    updateProfile(
-      { name: values.name, email: values.email, mobile },
-      userProfile.id
-    )
+    setMainLoading(true);
+    const payload = {
+      name: values.name,
+      email: values.email,
+      mobile: `${values.countryCode}-${values.mobile
+        .trim()
+        .replace(/^0+/, "")}`,
+    };
+    updateProfile(payload)
       .then((res) => {
         toast(res.message);
         fetchInitialData();
       })
-      .finally(() => setSocialLoading(false));
+      .finally(() => setMainLoading(false));
   };
 
+  //  this function make api call to update company informatation for for user company admin and vendor can use this function
   const handleCompanyUpdate = (values) => {
-    setSocialLoading(true);
-    const updatedValues = {
+    setMainLoading(true);
+
+    const payload = {
       ...values,
-      location: {
-        country: parseInt(selectedCountry),
-        state: parseInt(selectedState),
-        city: parseInt(selectedCity),
-      },
+      country: values?.country?.value || null,
+      state: values?.state?.value || null,
+      city: values?.city?.value || null,
     };
-    updateProfile(updatedValues, userProfile.id)
+
+    updateProfile(payload)
       .then((res) => {
         toast(res.message);
         fetchInitialData();
       })
-      .finally(() => setSocialLoading(false));
+      .finally(() => setMainLoading(false));
   };
 
   const uploadToClient = (e) => {
@@ -104,12 +158,18 @@ const EditProfile = () => {
     }
   };
 
+  // update company logo
   const uploadToServer = async (file) => {
     setProfileImageLoading(true);
     await handleChangeProfilePicture(file);
     fetchInitialData();
     setProfileImageLoading(false);
   };
+
+  // fetch initial data
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
   return (
     <>
@@ -121,6 +181,7 @@ const EditProfile = () => {
           <h1 className="heading">Edit profile</h1>
         </div>
       </section>
+
       <section className="buyer-edit-sec-1">
         {mainLoading && <Loader />}
         <div className="container-fluid">
@@ -129,26 +190,22 @@ const EditProfile = () => {
               {profileImageLoading ? (
                 <FullLoader />
               ) : (
+                // user profile dispaly and update ( only company admin can update )
                 <ProfileImageUploader
-                  imageUrl={userProfile?.logo}
+                  imageUrl={userProfileLogo}
                   placeholderUrl="/assets/images/user-img.png"
                   onChange={uploadToClient}
                   loading={profileImageLoading}
                 />
               )}
             </div>
+
+            {/* START: details form cotainer */}
             <div className="col-md-8">
-              {/* Contact Details */}
+              {/* START: user details form */}
               <Formik
                 enableReinitialize
-                initialValues={{
-                  name: userProfile?.name || "",
-                  email: userProfile?.email || "",
-                  mobile: userProfile?.mobile
-                    ? userProfile.mobile.trim().replace(/^[^-]*-/, "")
-                    : "",
-                  countryCode: userProfile?.mobile.split("-")[0],
-                }}
+                initialValues={userDetails}
                 onSubmit={handleUpdate}
               >
                 {({ errors, touched, setFieldValue }) => (
@@ -159,7 +216,7 @@ const EditProfile = () => {
                       label="Name"
                       touched={touched}
                       errors={errors}
-                      values={userProfile?.name}
+                      required
                     />
                     <CommonFormInput
                       name="email"
@@ -167,15 +224,16 @@ const EditProfile = () => {
                       type="email"
                       touched={touched}
                       errors={errors}
-                      values={userProfile?.email}
+                      required
                     />
                     <CommonFormInput
                       name="mobile"
                       type="mobile"
                       label="Mobile"
-                      values={userProfile?.mobile} // ✅ just pass the value string, e.g., "+91-9876543210"
+                      values={userDetails?.mobile}
                       errors={errors}
                       setFieldValue={setFieldValue}
+                      required
                     />
                     <div className="text-end">
                       <button type="submit" className="btn btn-secondary">
@@ -185,23 +243,12 @@ const EditProfile = () => {
                   </Form>
                 )}
               </Formik>
+              {/* END: user details form */}
 
-              {/* Company Details */}
+              {/* START: company details form: only editable for company admin */}
               <Formik
                 enableReinitialize
-                initialValues={{
-                  company_name: userProfile?.company_name || "",
-                  about: userProfile?.about || "",
-                  address: userProfile?.address || "",
-                  street_address: userProfile?.building_name || "",
-                  postal_code: userProfile?.postal_code || "",
-                  established_year: userProfile?.established_year || "",
-                  gstin: userProfile?.gstin || "",
-                  website: userProfile?.website || "",
-                  city: userProfile?.city || "",
-                  state: userProfile?.state || "",
-                  country: userProfile?.country || "",
-                }}
+                initialValues={companyDetails}
                 validationSchema={EditOnlyProfileSchema}
                 onSubmit={handleCompanyUpdate}
               >
@@ -215,12 +262,13 @@ const EditProfile = () => {
                           label="Company Name"
                           touched={touched}
                           errors={errors}
+                          required
                         />
                       </div>
                       <div className="col-md-6">
                         <CommonFormInput
-                          type="number"
                           name="established_year"
+                          type="number"
                           label="Estd. Year"
                           touched={touched}
                           errors={errors}
@@ -228,8 +276,8 @@ const EditProfile = () => {
                       </div>
                       <div className="col-md-12">
                         <CommonFormInput
-                          type="textarea"
                           name="about"
+                          type="textarea"
                           label="About"
                           touched={touched}
                           errors={errors}
@@ -267,23 +315,30 @@ const EditProfile = () => {
                           errors={errors}
                         />
                       </div>
+
+                      {/* Location Inputs */}
                       <div className="col-md-4">
                         <CommonFormInput
                           name="country"
                           label="Country"
                           type="select"
                           isMulti={false}
-                          options={countryList.map((c) => ({
+                          options={locationOptions.countries.map((c) => ({
                             label: c.country_name,
                             value: c.id,
                           }))}
-                          values={countryList.find(
-                            (c) => c.id == selectedCountry
+                          values={locationOptions.countries.find(
+                            (c) => c.id === values.country
                           )}
-                          setFieldValue={(option) => {
-                            setSelectedCountry(option.value);
+                          setFieldValue={setFieldValue}
+                          onChange={(option) => {
+                            setFieldValue("country", option.value);
                             getStates(option.value).then((res) =>
-                              setStates(res.data)
+                              setLocationOptions((prev) => ({
+                                ...prev,
+                                states: res.data,
+                                cities: [],
+                              }))
                             );
                           }}
                         />
@@ -293,16 +348,24 @@ const EditProfile = () => {
                           name="state"
                           label="State"
                           type="select"
-                          options={states.map((s) => ({
+                          isMulti={false}
+                          options={locationOptions.states.map((s) => ({
                             label: s.state_name,
                             value: s.id,
                           }))}
-                          values={states.find((s) => s.id == selectedState)}
-                          setFieldValue={(option) => {
-                            setSelectedState(option.value);
+                          values={locationOptions.states.find(
+                            (s) => s.id === values.state
+                          )}
+                          setFieldValue={setFieldValue}
+                          onChange={(option) => {
+                            setFieldValue("state", option.value);
                             getCities(option.value).then((res) =>
-                              setCities(res.data)
+                              setLocationOptions((prev) => ({
+                                ...prev,
+                                cities: res.data,
+                              }))
                             );
+                            setFieldValue("city", null); // reset city on state change
                           }}
                         />
                       </div>
@@ -310,19 +373,21 @@ const EditProfile = () => {
                         <CommonFormInput
                           name="city"
                           label="City"
-                          isMulti={false}
                           type="select"
-                          options={cities.map((c) => ({
+                          isMulti={false}
+                          options={locationOptions.cities.map((c) => ({
                             label: c.city_name,
                             value: c.id,
                           }))}
-                          values={cities.find((c) => c.id == selectedCity)}
-                          setFieldValue={(option) =>
-                            setSelectedCity(option.value)
-                          }
+                          values={locationOptions.cities.find(
+                            (c) => c.id === values.city
+                          )}
+                          setFieldValue={setFieldValue}
+                          onChange={(option) => {
+                            setFieldValue("city", option.value);
+                          }}
                         />
                       </div>
-
                       <div className="col-12 text-end">
                         <button type="submit" className="btn btn-secondary">
                           Save
@@ -332,13 +397,14 @@ const EditProfile = () => {
                   </Form>
                 )}
               </Formik>
+              {/* END: company details form: only editable for company admin */}
             </div>
+            {/* END: details form cotainer */}
           </div>
         </div>
       </section>
     </>
   );
-  a;
 };
 
 export default EditProfile;
