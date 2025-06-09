@@ -502,7 +502,7 @@ const SendQuotePageComp = () => {
     const updated = quoteProducts.map((item) => ({
       ...item,
       freight_price:
-        globalFreight === "" ? "" : globalFreight ?? item.freight_price ?? 0,
+        globalFreight === "" ? 0 : globalFreight ?? item.freight_price ?? 0,
     }));
     calculateTotal(updated);
   }, [globalFreight]);
@@ -512,7 +512,7 @@ const SendQuotePageComp = () => {
       ...item,
       package_price:
         globalPackaging === ""
-          ? ""
+          ? 0
           : globalPackaging ?? item.package_price ?? 0,
     }));
     calculateTotal(updated);
@@ -521,7 +521,7 @@ const SendQuotePageComp = () => {
   useEffect(() => {
     const updated = quoteProducts.map((item) => ({
       ...item,
-      tax: globalTax === "" ? "" : globalTax ?? item.tax ?? 0,
+      tax: globalTax === "" ? 0 : globalTax ?? item.tax ?? 0,
     }));
     calculateTotal(updated);
   }, [globalTax]);
