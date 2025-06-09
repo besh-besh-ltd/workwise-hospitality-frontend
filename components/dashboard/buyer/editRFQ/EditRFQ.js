@@ -1246,7 +1246,7 @@ const EditRFQ = () => {
                       rfq_id={rfqData.id}
                       setHasUnsavedChanges={setHasUnsavedChanges}
                       getDraftInitialData={fetchInitialData}
-                      saveDraft={() => console.log("SAVINGGG")}
+                      saveDraft={() => {}}
                       onSpecValueChange={(change) => {
                         setRfqData((prev) => ({
                           ...prev,

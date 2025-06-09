@@ -1,8 +1,8 @@
 import { useRouter } from "next/router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -27,6 +27,8 @@ import { extractfileName, handleFileUpload, formatISOToDateTimeLocal } from "@/u
 import { Accordion } from "react-bootstrap";
 import { getCountryCodes } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
+import ViewVendorModal from "../editRFQ/ViewVendorModal";
+import { vendorConditions } from "../../vendor/search";
 
 const CreateRFQ = () => {
   const router = useRouter();
@@ -68,14 +70,53 @@ const CreateRFQ = () => {
     },
     vendors: {},
   })
+  const [vendors, setVendors] = useState({});
   const [termsChanged, setTermsChanged] = useState(false);
   const [termFilesChanged, setTermFilesChanged] = useState(false);
   const [activeKey, setActiveKey] = useState(null);
+  const [showModal, setShowModal] = useState({
+    vendorModal: false,
+  })
+  const [selectedProduct, setSelectedProduct] = useState({});
+  const [vendorFilters, setVendorFilters] = useState({
+    global: {},
+    local: {},
+  })
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
 
   const [validationErrors, setValidationErrors] = useState({});
+
+  const fetchVendorsForProduct = async (rfqProductId, refetch = false) => {
+    try {
+      if(!rfqProductId) return;
+
+      const key = `${rfqProductId}`;
+      if(!refetch && vendors?.[key] && vendors[key].length > 0) return;
+
+      const filters = vendorFilters.local?.[rfqProductId] ?? vendorFilters.global;
+
+      let updatedFilters = {};
+
+      if(filters) {
+        Object.keys(filters).forEach(filterKey => {
+          updatedFilters[filterKey] = filters[filterKey]?.value ?? null
+        })
+      }
+
+      const vendorRes = await getVendorsForRFQProduct(draftRfqId, rfqProductId, updatedFilters);
+      const vendorsData = vendorRes.data;
+
+      setVendors(prev => ({
+        ...prev,
+        [key]: vendorsData
+      }))
+    } catch (error) {
+      console.error("ERROR IN `fetchVendorsForProduct` => ", error);
+      toast.error(error.message);
+    }
+  }
 
   const fetchCountryCodes = () => {
       getCountryCodes()
@@ -588,11 +629,9 @@ const CreateRFQ = () => {
           draftRes.data.rfq_form_data.contact_number = extractedContactNumber;
           draftRes.data.rfq_form_data.country_code = extractedCountryCode;
       
-          dispatch(intializeRfq(draftRes.data));
           setonecountrycode(extractedCountryCode);
-        } else {
-          dispatch(intializeRfq(draftRes.data));
         }
+        dispatch(intializeRfq(draftRes.data));
         
         // Update document title
         document.title = `Edit Draft RFQ #${id}`;
@@ -866,6 +905,263 @@ const CreateRFQ = () => {
     }
   };
 
+  const populateVendorFilters = (newProducts) => {
+    if(!newProducts || !Array.isArray(newProducts) || newProducts.length <= 0) return;
+
+    setVendorFilters(prev => {
+      const updatableFilters = { ...prev };
+
+      let localFilters = { ...updatableFilters.local };
+
+      newProducts.forEach(product => {
+        if(localFilters?.[product.id]) return;
+
+        localFilters[product.id] = {};
+      })
+
+      return { ...updatableFilters, local: { ...localFilters } };
+    })
+  }
+
+  const handleFilterUpdate = (isGlobal, product = null, data) => {
+    if (!isGlobal && !product)
+      throw new Error("Local filter updation requires a product");
+
+    setVendorFilters((prev) => {
+      let updatedFilters = { ...prev };
+
+      if (isGlobal) {
+        // Update global
+        updatedFilters.global = {
+          ...updatedFilters.global,
+          ...data,
+        };
+
+        // Reflect changes in all local filters
+        const updatedLocal = {};
+
+        Object.keys(updatedFilters.local || {}).forEach((productId) => {
+          const existingLocal = updatedFilters.local[productId] ?? {};
+
+          // Override global keys with global values, but preserve other local keys
+          const merged = {
+            ...existingLocal,
+            ...data, // this will override the global filters only
+          };
+
+          updatedLocal[productId] = merged;
+        });
+
+        updatedFilters.local = updatedLocal;
+      } else {
+        // Local update for a specific product
+        const productId = product.id;
+        updatedFilters.local = {
+          ...updatedFilters.local,
+          [productId]: {
+            ...(updatedFilters.local?.[productId] ?? {}),
+            ...data,
+          },
+        };
+      }
+
+      return updatedFilters;
+    });
+  };
+
+  useEffect(() => console.log("VENDOR FILTERS => ", vendorFilters), [vendorFilters])
+
+  useEffect(() => {
+    if(activeKey) {
+      activeKey?.forEach((key) => {
+        const rfqProductId = key;
+        fetchVendorsForProduct(rfqProductId, true);
+      });
+    }
+  }, [vendorFilters.local])
+
+  // Dynamic filters inside Single RFQ Product Item
+  const generateDynamicFilter = (product = null) => {
+    const isGlobalFilter = !product;
+
+    const getFilterValue = (key) => isGlobalFilter ? vendorFilters.global?.[key] : vendorFilters.local?.[product.id]?.[key]
+
+    const forwardFilterUpdate = (newVal, action) => {
+      const param = {
+        [action.name]: newVal,
+      };
+
+      handleFilterUpdate(isGlobalFilter, product, param);
+    }
+
+    return (
+      <>
+        <div className="w-100 mb-2">
+          <div className=" d-flex justify-content-between align-items-end w-100 mb-3">
+          <div className="row g-3" style={{ width: '75%' }}>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">Country</p>
+                <Select
+                  isMulti
+                  name="country"
+                  // options={countries}
+                  value={getFilterValue('country')}
+                  placeholder="Country"
+                  isClearable
+                  isSearchable
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                />
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">State</p>
+                <Select
+                  // isDisabled={
+                  //   !globalFilters.country || globalFilters.country.length <= 0
+                  // }
+                  isMulti
+                  name="state"
+                  // options={getFilteredStates()}
+                  value={getFilterValue('state')}
+                  placeholder="State"
+                  isClearable
+                  isSearchable
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                />
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">City</p>
+                <Select
+                  // isDisabled={
+                  //   !globalFilters.country || globalFilters.country.length <= 0
+                  // }
+                  isMulti
+                  name="city"
+                  // options={getFilteredCities()}
+                  value={getFilterValue('city')}
+                  placeholder="City"
+                  isClearable
+                  isSearchable
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                />
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">My Vendors</p>
+                <Select
+                  options={[
+                    { label: "All Vendors", value: null },
+                    {
+                      label: "Private Vendors",
+                      value: "is_private",
+                    },
+                    {
+                      label: "Public Vendors",
+                      value: "is_public",
+                    },
+                    {
+                      label: "Both Vendors",
+                      value: "both",
+                    },
+                  ]}
+                  value={getFilterValue('vendor_info')}
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  name="vendor_info"
+                  placeholder="Select"
+                  isClearable
+                  isSearchable
+                />
+              </div>
+            </div>
+          </div>
+          </div>
+          <div className=" d-flex justify-content-between align-items-end w-100 mb-3">
+          <div className="row g-3" style={{ width: '75%' }}>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">Vendor Type</p>
+                <Select
+                  isMulti
+                  // options={vendorTypes}
+                  value={getFilterValue('vendor_type')}
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  name="vendor_type"
+                  placeholder="Select"
+                  isClearable
+                  isSearchable
+                />
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">Previously Worked With</p>
+                <Select
+                  options={vendorConditions}
+                  value={getFilterValue('prev_worked_with')}
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  name="prev_worked_with"
+                  placeholder="Select"
+                  isClearable
+                  isSearchable
+                />
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">Vendor Approved By</p>
+                <Select
+                  // options={
+                  //   approved_by
+                  //     ? approved_by.map((item) => ({
+                  //         label: item.vendor_approve,
+                  //         value: item.id,
+                  //       }))
+                  //     : []
+                  // }
+                  isMulti
+                  value={getFilterValue('vendor_approved_by')}
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  name="vendor_approved_by"
+                  placeholder="Select"
+                  isClearable
+                  isSearchable
+                />
+              </div>
+            </div>
+            <div className="col-md-3">
+              <div>
+                <p className="fw-medium mb-1">Product Make</p>
+                <Select
+                  // options={
+                  //   approved_by
+                  //     ? approved_by.map((item) => ({
+                  //         label: item.vendor_approve,
+                  //         value: item.id,
+                  //       }))
+                  //     : []
+                  // }
+                  isMulti
+                  value={getFilterValue('product_make')}
+                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  name="product_make"
+                  placeholder="Select"
+                  isClearable
+                  isSearchable
+                />
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   useEffect(() => {
     const { draft_id, sheet_id } = router.query;
     setQueryMeta({
@@ -946,9 +1242,13 @@ const CreateRFQ = () => {
     // Only filter by vendor presence if not a magic search RFQ
     if (!isMagicRfq) {
       const validProducts = rfqProductsFromStore.filter(
-        (prodItem) => prodItem && prodItem.vendors?.length > 0);
+        (prodItem) => prodItem);
+
       setRfqProducts(validProducts);
       rfqProductsRef.current = validProducts;
+
+      // Popluate filters for new products if not already exist
+      populateVendorFilters(validProducts)
     } else if (selectedSheet) {
       // For magic search RFQs, also ensure products are filtered by the selected sheet
       
@@ -960,20 +1260,13 @@ const CreateRFQ = () => {
         enhancedProduct.sheet_id = selectedSheet.value;
         enhancedProduct.sheet_name = selectedSheet.label;
         
-        // Ensure product has vendors
-        if (!enhancedProduct.vendors || !Array.isArray(enhancedProduct.vendors) || enhancedProduct.vendors.length === 0) {
-          enhancedProduct.vendors = [{
-            id: 1, 
-            name: "Default Vendor", 
-            company_name: "Auto-assigned Vendor"
-          }];
-        }
-        
         return enhancedProduct;
       }).filter(Boolean);
       
       setRfqProducts(enhancedProducts);
       rfqProductsRef.current = enhancedProducts;
+
+      populateVendorFilters(enhancedProducts)
     }
   }, [rfqProductsFromStore, isMagicRfq, selectedSheet])
 
@@ -1152,6 +1445,13 @@ const CreateRFQ = () => {
                     )}
                   </div>
 
+                  <div
+                    className="d-flex flex-wrap justify-content-between align-items-start"
+                    style={{ height: "fit-content" }}
+                  >
+                    {generateDynamicFilter()}
+                  </div>
+
                   {/* RFQ Products Table */}
                   <h4>Review Products</h4>
                   <div
@@ -1164,12 +1464,20 @@ const CreateRFQ = () => {
                       padding: "10px",
                     }}
                   >
-                    <Accordion alwaysOpen flush activeKey={activeKey} onSelect={(k) => setActiveKey(k)}>
+                    <Accordion alwaysOpen flush activeKey={activeKey} onSelect={(k) => {
+                      setActiveKey(k);
+                      k?.forEach(key => {
+                        const rfqProductId = key;
+                        fetchVendorsForProduct(rfqProductId);
+                      })
+                    }}>
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
                         rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map((product) => {
                           return (
                             <Item
+                              activeKey={activeKey}
+                              vendors={vendors?.[product.id] ?? []}
                               vendorApprovedList={vendorApprovedList}
                               data={product}
                               rfq_id={rfqDetails}
@@ -1181,8 +1489,21 @@ const CreateRFQ = () => {
                               onFilesChange={(change) => handleFilesChange(product, change)}
                               onCommentChange={(change) => handleCommentChange(product, change)}
                               onClauseChange={(change) => handleClauseChange(product, change)}
+                              handleViewVendorInEdit={() => {
+                                const key = `${product.id}`
+                                setShowModal(prev => ({
+                                  ...prev,
+                                  vendorModal: true
+                                }));
+                                setSelectedProduct({
+                                  product,
+                                  vendors: vendors[key],
+                                });
+                              }}
                               handleRemoveProductInEdit={() => handleRemoveProduct(product)}
-                              activeKey={activeKey}
+
+                              // Header
+                              header={generateDynamicFilter}
                             />
                           );
                         })}
@@ -1591,6 +1912,75 @@ const CreateRFQ = () => {
           </>
         )}
       </div>
+
+      {/* Modals */}
+      <ViewVendorModal
+          productData={selectedProduct}
+          updatableData={updatableData}
+          isOpen={showModal.vendorModal}
+          onClose={() => setShowModal(prev => ({
+            ...prev,
+            vendorModal: false,
+          }))}
+          onAdd={(item) => {
+            if (
+              (
+                updatableData.vendors?.[selectedProduct.product.id]
+                  ?.deletable ?? []
+              ).length +
+                1 +
+                (
+                  updatableData.vendors?.[selectedProduct.product.id]
+                    ?.addable ?? []
+                ).length <
+              1
+            ) {
+              toast.error(
+                "At least one vendor is required for the product"
+              );
+              return;
+            }
+            setUpdatableData((prev) => ({
+              ...prev,
+              vendors: {
+                ...prev.vendors,
+                [selectedProduct.product.id]: {
+                  ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                    product_id: selectedProduct.product.product_id,
+                    variant: selectedProduct.product.variant,
+                  }),
+                  deletable: [
+                    ...(prev.vendors?.[selectedProduct.product.id]
+                      ?.deletable ?? []),
+                    item.user_id,
+                  ],
+                },
+              },
+            }))
+          }
+          }
+          onRemove={(item) => {
+            setUpdatableData((prev) => ({
+              ...prev,
+              vendors: {
+                ...prev.vendors,
+                [selectedProduct.product.id]: {
+                  ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                    product_id: selectedProduct.product.product_id,
+                    variant: selectedProduct.product.variant,
+                  }),
+                  deletable: (
+                    prev.vendors?.[selectedProduct.product.id]?.deletable ??
+                    []
+                  ).filter(
+                    (deletableVendorId) => deletableVendorId != item.user_id
+                  ),
+                },
+              },
+            }))
+          }
+          }
+        />
     </>
   );
 };

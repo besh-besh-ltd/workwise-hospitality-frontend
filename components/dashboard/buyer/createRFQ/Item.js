@@ -34,7 +34,12 @@ const Item = ({
   onClauseChange,
   selectedSheet,
   activeKey,
+  vendors,
   updatableData,
+
+  // Behavioural Html injection props
+  header,
+  footer,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -48,7 +53,7 @@ const Item = ({
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
 
-  const eventKey = `acc_event_key_${rfqProduct.product_id}_${rfqProduct.variant}`;
+  const eventKey = `${rfqProduct.id}`;
   const isActive = activeKey?.includes(eventKey);
 
   const handleSpecValue = (type, value) => {
@@ -298,6 +303,14 @@ const Item = ({
       </Accordion.Header>
 
       <Accordion.Body>
+        {header && (
+          <div
+            className="d-flex flex-wrap justify-content-between align-items-start"
+            style={{ height: "fit-content" }}
+          >
+            {header(data)}
+          </div>
+        )}
         <div
           className="d-flex flex-wrap   justify-content-between align-items-start "
           style={{ height: "fit-content" }}
@@ -608,11 +621,11 @@ const Item = ({
                   {" "}
                   Selected Vendors - <strong>
                     {" "}
-                    {data.vendors?.length}{" "}
+                    {vendors ? vendors.length == 0 ? '-' : vendors.length : data.vendors?.length}
                   </strong>{" "}
                 </span>
                 {
-                  type == 'create' ? (
+                  !handleViewVendorInEdit ? (
                     <Link
                       href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
                       className="btn btn-primary "
@@ -623,7 +636,7 @@ const Item = ({
                     </Link>
                   ) : (
                     <button
-                      onClick={handleViewVendorInEdit ?? null}
+                      onClick={handleViewVendorInEdit}
                       className="btn btn-primary "
                       // style={{ height: "40px" }}
                     >
@@ -668,6 +681,14 @@ const Item = ({
             )}
           </div>
         </div>
+        {footer && (
+          <div
+            className="d-flex flex-wrap justify-content-between align-items-start"
+            style={{ height: "fit-content" }}
+          >
+            {footer(data)}
+          </div>
+        )}
       </Accordion.Body>
     </Accordion.Item>
   );

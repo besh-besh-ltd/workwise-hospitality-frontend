@@ -111,6 +111,21 @@ export const getDraftById = (id, sheet_id) => {
   });
 };
 
+export const getVendorsForRFQProduct = (draftId, rfqProductId, filters) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-draft-vendors/${draftId}`, { ...filters }, { params: { rfqProductId } });
+      resolve(response);
+    } catch (error) {
+      console.error(`[getVendorsForRFQProduct] Error fetching Vendors for RFQ Product with ID ${draftId}:`, error);
+      reject({ 
+        message: error?.response?.data?.message || 'Error loading draft RFQ',
+        status: error?.response?.data?.status || 3
+      });
+    }
+  });
+};
+
 export const getDraftRFQs = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
