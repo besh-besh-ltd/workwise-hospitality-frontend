@@ -851,6 +851,21 @@ const CreateRFQ = () => {
     }
   };
 
+  const handleRouteChange = async (url) => {
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm(
+        "You have unsaved changes. Do you want to save them before leaving?"
+      );
+      if (confirmLeave) {
+        await handleSaveDraft();
+      } else {
+        // Prevent navigation
+        router.events.emit("routeChangeError");
+        throw "Route change aborted by user."; // Suppress Next.js warning
+      }
+    }
+  };
+
   useEffect(() => {
     const { draft_id, sheet_id } = router.query;
     setQueryMeta({
@@ -974,28 +989,13 @@ const CreateRFQ = () => {
   }, [allTerms, selectedTerms]);
 
   useEffect(() => {
-    const handleRouteChange = async (url) => {
-      if (hasUnsavedChanges) {
-        const confirmLeave = window.confirm(
-          "You have unsaved changes. Do you want to save them before leaving?"
-        );
-        if (confirmLeave) {
-          handleSaveDraft();
-        } else {
-          // Prevent navigation
-          router.events.emit("routeChangeError");
-          throw "Route change aborted by user."; // Suppress Next.js warning
-        }
-      }
-    };
-
     // Listen to route change events
     router.events.on("routeChangeStart", handleRouteChange);
 
     return () => {
       router.events.off("routeChangeStart", handleRouteChange);
     };
-  }, [hasUnsavedChanges, router]);
+  }, [hasUnsavedChanges, router, updatableData]);
 
   useEffect(() => {
     // Changes by Agnij 2025-05-03 [Removed auto-setting of default dates for reverse auction]
