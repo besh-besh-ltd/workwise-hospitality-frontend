@@ -18,6 +18,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [finalised , setFinalised] = useState(null);
+  const [showBreakup, setShowBreakup] = useState(false);
 
   useEffect(() => {
     handleDownloadQuote();
@@ -235,10 +236,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
   return (
     <>
-      {loading ? <FullLoader />
-        :
+      {loading ? (
+        <FullLoader />
+      ) : (
         <div className="quote-sec-table-sub hasFullLoader">
-          {(allvendors && allvendors.length > 0) ? (
+          {allvendors && allvendors.length > 0 ? (
             <div className="table-responsive">
               <table className="table table-bordered overall-table">
                 <colgroup>
@@ -247,11 +249,15 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "120px" }} />
                   <col style={{ width: "250px" }} />
-                  {allvendors.length > 0 && allvendors.map((_, index) => {
-                    return (
-                      <col key={`col_item_${index}`} style={{ width: "250px" }} />
-                    )
-                  })}
+                  {allvendors.length > 0 &&
+                    allvendors.map((_, index) => {
+                      return (
+                        <col
+                          key={`col_item_${index}`}
+                          style={{ width: "250px" }}
+                        />
+                      );
+                    })}
                 </colgroup>
                 <thead class="thead-dark">
                   <tr>
@@ -263,19 +269,48 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       OVERALL COMPARISON CHART
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
+                      <div className="d-flex">
+                        <div className="ms-auto d-flex gap-2">
+                          <span className="badge bg-success">Lowest</span>
+                          <span className="badge bg-warning text-dark">
+                            Finalized
+                          </span>
+                          <span className="badge bg-danger">Regret</span>
+                        </div>
+                      </div>
                     </th>
                   </tr>
                   <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
-                    <th scope="col" className="sl_no" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
+                    <th
+                      scope="col"
+                      className="sl_no"
+                      rowSpan={2}
+                      style={{ backgroundColor: "#2d5ba7", color: "white" }}
+                    >
                       Sl. No
                     </th>
-                    <th scope="col" className="description" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
+                    <th
+                      scope="col"
+                      className="description"
+                      rowSpan={2}
+                      style={{ backgroundColor: "#2d5ba7", color: "white" }}
+                    >
                       Product Name
                     </th>
-                    <th scope="col" className="description" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
+                    <th
+                      scope="col"
+                      className="description"
+                      rowSpan={2}
+                      style={{ backgroundColor: "#2d5ba7", color: "white" }}
+                    >
                       Product Variant Details
                     </th>
-                    <th scope="col" className="sl_no" rowSpan={2} style={{ backgroundColor: "#2d5ba7", color: "white" }}>
+                    <th
+                      scope="col"
+                      className="sl_no"
+                      rowSpan={2}
+                      style={{ backgroundColor: "#2d5ba7", color: "white" }}
+                    >
                       Quantity
                     </th>
                     <th scope="col" className="all_vendors" rowSpan={2}>
@@ -301,11 +336,19 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
-                      const size = item.product_specs.find(spec => spec.title === 'Size');
-                      const spec = item.product_specs.find(spec => spec.title === 'Spec');
+                      const size = item.product_specs.find(
+                        (spec) => spec.title === "Size"
+                      );
+                      const spec = item.product_specs.find(
+                        (spec) => spec.title === "Spec"
+                      );
 
-                      const quantity = item.product_specs.find(spec => spec.title === 'Quantity');
-                      const unit = item.product_specs.find(spec => spec.title === 'Unit');
+                      const quantity = item.product_specs.find(
+                        (spec) => spec.title === "Quantity"
+                      );
+                      const unit = item.product_specs.find(
+                        (spec) => spec.title === "Unit"
+                      );
 
                       return (
                         <tr key={item.id}>
@@ -317,21 +360,32 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                           </td>
                           <td>
                             <div className="row">
-                              {<p className="col-12 mb-1" >
-
-                                <strong>Size: </strong>
-                                {size?.value ?? "--"}
-                              </p>}
-                              {<p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
-                                <strong>Spec: </strong>
-                                {spec?.value ?? "--"}
-                              </p>}
+                              {
+                                <p className="col-12 mb-1">
+                                  <strong>Size: </strong>
+                                  {size?.value ?? "--"}
+                                </p>
+                              }
+                              {
+                                <p
+                                  className="col-12 mb-1 truncate-text"
+                                  style={{
+                                    maxHeight: "100px",
+                                    WebkitLineClamp: 3,
+                                  }}
+                                >
+                                  <strong>Spec: </strong>
+                                  {spec?.value ?? "--"}
+                                </p>
+                              }
                             </div>
                           </td>
-                          <td>{`${quantity?.value ?? 'NA'}-${unit?.value ?? 'NA'}`}</td>
+                          <td>{`${quantity?.value ?? "NA"}-${
+                            unit?.value ?? "NA"
+                          }`}</td>
 
-                          {item.last_purchase_rate
-                            ? <td className="total_amt_field">
+                          {item.last_purchase_rate ? (
+                            <td className="total_amt_field">
                               <label className="view_breakup">
                                 <div className="tooltip_custom">
                                   Show/hide Breakup
@@ -343,7 +397,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <th>Base Price</th>
                                     <td>
                                       {item.last_purchase_rate?.unit_price
-                                        ? addCommasToNumber(item.last_purchase_rate?.unit_price)
+                                        ? addCommasToNumber(
+                                            item.last_purchase_rate?.unit_price
+                                          )
                                         : "0"}
                                     </td>
                                   </tr>
@@ -351,23 +407,38 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <th>Total Rate</th>
                                     <td>
                                       {item.last_purchase_rate?.total_price
-                                        ? addCommasToNumber(item.last_purchase_rate?.unit_price * parseInt(item.quotations[0]?.quote_details[0]?.quantity))
+                                        ? addCommasToNumber(
+                                            item.last_purchase_rate
+                                              ?.unit_price *
+                                              parseInt(
+                                                item.quotations[0]
+                                                  ?.quote_details[0]?.quantity
+                                              )
+                                          )
                                         : "0"}
                                     </td>
                                   </tr>
                                   <tr>
                                     <th>Packaging(%)</th>
                                     <td>
-                                      {item.last_purchase_rate?.package_price !== null
-                                        ? `${addCommasToNumber(item.last_purchase_rate?.package_price)}%`
+                                      {item.last_purchase_rate
+                                        ?.package_price !== null
+                                        ? `${addCommasToNumber(
+                                            item.last_purchase_rate
+                                              ?.package_price
+                                          )}%`
                                         : "0%"}
                                     </td>
                                   </tr>
                                   <tr>
                                     <th>Freight(%)</th>
                                     <td>
-                                      {item.last_purchase_rate?.freight_price !== null
-                                        ? `${addCommasToNumber(item.last_purchase_rate?.freight_price)}%`
+                                      {item.last_purchase_rate
+                                        ?.freight_price !== null
+                                        ? `${addCommasToNumber(
+                                            item.last_purchase_rate
+                                              ?.freight_price
+                                          )}%`
                                         : "0%"}
                                     </td>
                                   </tr>
@@ -375,7 +446,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <th>GST(%)</th>
                                     <td>
                                       {item.last_purchase_rate?.tax !== null
-                                        ? `${addCommasToNumber(item.last_purchase_rate?.tax)}%`
+                                        ? `${addCommasToNumber(
+                                            item.last_purchase_rate?.tax
+                                          )}%`
                                         : "0%"}
                                     </td>
                                   </tr>
@@ -383,45 +456,110 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                     <th>Sub Total</th>
                                     <td>
                                       {item.last_purchase_rate
-                                        ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
+                                        ? addCommasToNumber(
+                                            calculateTotal(
+                                              item.last_purchase_rate,
+                                              item.quotations[0]
+                                                ?.quote_details[0]?.quantity
+                                            )
+                                          )
                                         : "0"}
                                     </td>
                                   </tr>
                                 </table>
                                 <p>
                                   {item.last_purchase_rate?.total_price !== null
-                                    ? addCommasToNumber(calculateTotal(item.last_purchase_rate, item.quotations[0]?.quote_details[0]?.quantity))
+                                    ? addCommasToNumber(
+                                        calculateTotal(
+                                          item.last_purchase_rate,
+                                          item.quotations[0]?.quote_details[0]
+                                            ?.quantity
+                                        )
+                                      )
                                     : "0"}
                                 </p>
                               </label>
                             </td>
-                            : <td>
-                                <label className="view_breakup">
-                                  <span></span>
-                                  <input type="checkbox" />
-                                  <p>-</p>
-                                </label>
-                              </td>
-                          }
-
+                          ) : (
+                            <td>
+                              <label className="view_breakup">
+                                <span></span>
+                                <input type="checkbox" />
+                                <p>-</p>
+                              </label>
+                            </td>
+                          )}
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item) => {
-                              const isSomeoneFinalized = item?.all_vendors?.find(vendor => vendor.is_finalized);
+                              const isSomeoneFinalized =
+                                item?.all_vendors?.find(
+                                  (vendor) => vendor.is_finalized
+                                );
 
                               let finalizedClass = "";
-                              if (isSomeoneFinalized && (isSomeoneFinalized?.id == quote_item?.created_by)) {
+                              if (
+                                isSomeoneFinalized &&
+                                isSomeoneFinalized?.id == quote_item?.created_by
+                              ) {
                                 finalizedClass = "is_lowest_not_finalised";
-                              } else if (isSomeoneFinalized && (isSomeoneFinalized?.id != quote_item?.created_by) && quote_item?.is_lowest) {
+                              } else if (
+                                isSomeoneFinalized &&
+                                isSomeoneFinalized?.id !=
+                                  quote_item?.created_by &&
+                                quote_item?.is_lowest
+                              ) {
                                 finalizedClass = "is_lowest";
-                              } else if (!isSomeoneFinalized && quote_item?.is_lowest) {
+                              } else if (
+                                !isSomeoneFinalized &&
+                                quote_item?.is_lowest
+                              ) {
                                 finalizedClass = "is_lowest";
                               }
 
                               if (quote_item.is_regret == 1) {
                                 return (
-                                  <td className="is_regret total_amt_field text-white" key={`quote_item_${quote_item.created_by}`}>
-                                    <p>REGRET</p>
+                                  <td
+                                    className={`total_amt_field text-center align-middle ${
+                                      showBreakup
+                                        ? "bg-white"
+                                        : "is_regret text-white"
+                                    }`}
+                                    key={`quote_item_${quote_item.created_by}`}
+                                  >
+                                    {!showBreakup && (
+                                      <p className="m-0">REGRET</p>
+                                    )}
+
+                                    <label className="view_breakup d-block mt-2">
+                                      <div className="tooltip_custom">
+                                        Show/hide Breakup
+                                      </div>
+                                      <span></span>
+                                      <input
+                                        type="checkbox"
+                                        checked={showBreakup}
+                                        onChange={() =>
+                                          setShowBreakup((prev) => !prev)
+                                        }
+                                        style={{
+                                          backgroundColor: showBreakup
+                                            ? "white"
+                                            : undefined,
+                                        }}
+                                      />
+                                    </label>
+
+                                    {showBreakup && (
+                                      <div className="mt-2">
+                                        <ReadMore
+                                          content={
+                                            quote_item?.regret_reason ??
+                                            "Not Reason Provided"
+                                          }
+                                        />
+                                      </div>
+                                    )}
                                   </td>
                                 );
                               } else {
@@ -515,7 +653,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                             <th>Comments</th>
                                             <td>
                                               {quote_item?.quote_details?.[0]
-                                                      ?.comment || "--"}
+                                                ?.comment || "--"}
                                             </td>
                                           </tr>
                                           <tr>
@@ -581,7 +719,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                     <th scope="col">&nbsp;</th>
                     <th scope="col">&nbsp;</th>
                     <th scope="col">&nbsp;</th>
-                    {allvendors.length > 0 && <th scope="col" colSpan={allvendors.length}>&nbsp;</th>}
+                    {allvendors.length > 0 && (
+                      <th scope="col" colSpan={allvendors.length}>
+                        &nbsp;
+                      </th>
+                    )}
                   </tr>
                   <tr>
                     <th scope="col">&nbsp;</th>
@@ -589,7 +731,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                     <th scope="col">&nbsp;</th>
                     <th scope="col">&nbsp;</th>
                     <th scope="col">&nbsp;</th>
-                    {allvendors.length > 0 && <th scope="col" colSpan={allvendors.length}>&nbsp;</th>}
+                    {allvendors.length > 0 && (
+                      <th scope="col" colSpan={allvendors.length}>
+                        &nbsp;
+                      </th>
+                    )}
                   </tr>
                   <tr>
                     <th scope="col">&nbsp;</th>
@@ -597,7 +743,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                     <th scope="col">&nbsp;</th>
                     <th scope="col">&nbsp;</th>
                     <th scope="col">&nbsp;</th>
-                    {allvendors.length > 0 && <th scope="col" colSpan={allvendors.length}>&nbsp;</th>}
+                    {allvendors.length > 0 && (
+                      <th scope="col" colSpan={allvendors.length}>
+                        &nbsp;
+                      </th>
+                    )}
                   </tr>
                   <tr className="last_row small">
                     <th scope="col"></th>
@@ -605,7 +755,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                     <th scope="col"></th>
                     <th scope="col"></th>
                     <th scope="col"></th>
-                    {allvendors.length > 0 && <th scope="col" colSpan={allvendors.length}></th>}
+                    {allvendors.length > 0 && (
+                      <th scope="col" colSpan={allvendors.length}></th>
+                    )}
                   </tr>
                   <tr className="last_row">
                     <th colSpan={5} scope="col">
@@ -629,33 +781,35 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
 
                     {allvendors &&
                       allvendors.length > 0 &&
-                      allvendors.filter(item => item.is_finalized)?.map((item) => {
-                        return (
-                          <th
-                            colSpan={allvendors.length}
-                            scope="col"
-                            className="l1total"
-                          >
-                            {item.total ? addCommasToNumber(item.total) : "-"}
-                          </th>
-                        );
-                      })}
-                    </tr>
-                    
+                      allvendors
+                        .filter((item) => item.is_finalized)
+                        ?.map((item) => {
+                          return (
+                            <th
+                              colSpan={allvendors.length}
+                              scope="col"
+                              className="l1total"
+                            >
+                              {item.total ? addCommasToNumber(item.total) : "-"}
+                            </th>
+                          );
+                        })}
+                  </tr>
+
                   <tr className="last_row">
                     <th colSpan={5} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
-                    {allvendors &&
-                      allvendors.length > 0 &&
+                    {allvendors && allvendors.length > 0 && (
                       <th
                         colSpan={allvendors.length}
                         scope="col"
                         className="l1total"
                       >
                         {addCommasToNumber(l1total)}
-                      </th>}
+                      </th>
+                    )}
                   </tr>
 
                   <tr className="last_row">
@@ -668,7 +822,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       allvendors.map((item) => {
                         return (
                           <td key={`tp_${item.id}_total`}>
-                            {item?.quoted_products && getDeliveryRange(item.quoted_products)}
+                            {item?.quoted_products &&
+                              getDeliveryRange(item.quoted_products)}
                           </td>
                         );
                       })}
@@ -683,9 +838,13 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       allvendors.map((item) => {
                         return (
                           <td key={`tp_${item.id}_total`}>
-                            {item.global_payment_term[0].details
-                              ? item.global_payment_term[0].details
-                              : "-"}{" "}
+                            <ReadMore
+                              content={
+                                item.global_payment_term[0].details
+                                  ? item.global_payment_term[0].details
+                                  : "-"
+                              }
+                            />
                           </td>
                         );
                       })}
@@ -700,9 +859,13 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       allvendors.map((item) => {
                         return (
                           <td key={`tp_${item.id}_total`}>
-                            {item.global_payment_term[0].comment
-                              ? item.global_payment_term[0].comment
-                              : "-"}{" "}
+                            <ReadMore
+                              content={
+                                item.global_payment_term[0].comment
+                                  ? item.global_payment_term[0].comment
+                                  : "-"
+                              }
+                            />
                           </td>
                         );
                       })}
@@ -716,17 +879,32 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       attachedFiles.length > 0 &&
                       attachedFiles.map((vendor_files, index) => {
                         return (
-                          <td key={`gloal_files_${index}`} style={{ maxWidth: "200px" }} >
+                          <td
+                            key={`gloal_files_${index}`}
+                            style={{ maxWidth: "200px" }}
+                          >
                             {vendor_files?.map((file_item) => {
                               return (
-                                <a href={file_item.file_url} target="_blank" key={file_item.file_url} className="file-badge mb-2" type="button" style={{ maxWidth: "100%" }} >
-                                  <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                  <span className="text-truncate">{extractfileName(file_item.file_url)}</span>
+                                <a
+                                  href={file_item.file_url}
+                                  target="_blank"
+                                  key={file_item.file_url}
+                                  className="file-badge mb-2"
+                                  type="button"
+                                  style={{ maxWidth: "100%" }}
+                                >
+                                  <FontAwesomeIcon
+                                    icon={faDownload}
+                                    className="ms-0 me-2"
+                                  />
+                                  <span className="text-truncate">
+                                    {extractfileName(file_item.file_url)}
+                                  </span>
                                 </a>
-                              )
+                              );
                             })}
                           </td>
-                        )
+                        );
                       })}
                   </tr>
                   {/* <tr className="last_row">
@@ -743,15 +921,13 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                 </tfoot>
               </table>
             </div>
-          )
-            : (
-              <h4 className="mt-4 text-center">
-                No Technically Accepted Quotes Yet!
-              </h4>
-            )
-          }
+          ) : (
+            <h4 className="mt-4 text-center">
+              No Technically Accepted Quotes Yet!
+            </h4>
+          )}
         </div>
-      }
+      )}
     </>
   );
 };
