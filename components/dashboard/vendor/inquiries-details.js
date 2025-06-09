@@ -667,10 +667,14 @@ const RfqManagementPreview = () => {
         <>
           <section className="buyer-common-header sc-pt-80">
             <div className="container-fluid">
-              {enableBuyerView
-                ? <h1 className="heading">RFQ Management</h1>
-                : <h1 className="heading">Inquiry from {rfqDetails.company_name}. (RFQ #{rfqDetails.rfq_no})</h1>
-              }
+              {enableBuyerView ? (
+                <h1 className="heading">RFQ Management</h1>
+              ) : (
+                <h1 className="heading">
+                  Inquiry from {rfqDetails.company_name}. (RFQ #
+                  {rfqDetails.rfq_no})
+                </h1>
+              )}
             </div>
           </section>
 
@@ -679,14 +683,17 @@ const RfqManagementPreview = () => {
               <div className="row">
                 <div className="col-md-12">
                   <div className="manage-rfq-con">
-
                     {/* Content for Manage RFQs tab */}
                     <div className="d-flex justify-content-between align-items-center">
-                      <span className="title mb-0">RFQ #{rfqDetails.rfq_no} details</span>
+                      <span className="title mb-0">
+                        RFQ #{rfqDetails.rfq_no} details
+                      </span>
 
                       <div>
                         {type === "buyer-view" && rfqDetails.status === 1 && (
-                          <Link href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}>
+                          <Link
+                            href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
+                          >
                             <button
                               type="button"
                               className="btn btn-primary me-2"
@@ -705,23 +712,31 @@ const RfqManagementPreview = () => {
                           onClick={(e) => {
                             e.preventDefault();
                             router.push({
-                              pathname: `/dashboard/${type === "buyer-view" ? "buyer" : "vendor"}/query`,
+                              pathname: `/dashboard/${
+                                type === "buyer-view" ? "buyer" : "vendor"
+                              }/query`,
                               query: {
                                 rfq_id: rfqDetails.id,
-                                role: type === "buyer-view" ? "buyer" : "vendor",
-                                token: token
-                              }
+                                role:
+                                  type === "buyer-view" ? "buyer" : "vendor",
+                                token: token,
+                              },
                             });
                           }}
                         >
                           Queries
-                          {rfqDetails.unseen_query_count > 0 && <span className=" bg-danger px-2 rounded ms-2 ">{rfqDetails.unseen_query_count } +  </span>}
+                          {rfqDetails.unseen_query_count > 0 && (
+                            <span className=" bg-danger px-2 rounded ms-2 ">
+                              {rfqDetails.unseen_query_count} +{" "}
+                            </span>
+                          )}
                         </button>
 
-
                         {type == "buyer-view" &&
-                          ((rfqDetails.total_quotes_received > 0) ?
-                            <Link href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}>
+                          (rfqDetails.total_quotes_received > 0 ? (
+                            <Link
+                              href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
+                            >
                               <button
                                 type="button"
                                 className="btn btn-secondary "
@@ -730,7 +745,7 @@ const RfqManagementPreview = () => {
                                 Compare Received Quotes
                               </button>
                             </Link>
-                            :
+                          ) : (
                             <button
                               type="button"
                               className="btn btn-primary"
@@ -739,28 +754,37 @@ const RfqManagementPreview = () => {
                             >
                               No Quotes Received
                             </button>
-                          )
-
-                        }
-                        {(rfqDetails.status == 1 && !rfqDetails?.quotations[0]?.is_regret && productleftforbid && isSubmitAble && rfqDetails.quotations?.length > 0 && !rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized"))
-                          ? <button
-                              type="button"
-                              className="btn btn-secondary m-0 p-2"
-                              style={{ width: "240px" }}
-                              onClick={() => {
-                                // Changes by Agnij 2025-05-05 [Pass update parameter]
-                                router.push(
-                                  `/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`
-                                );
-                              }}
-                            >
-                              <>
-                                <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                Update Your Quote
-                              </>
-                            </button>
-                          : null
-                        }
+                          ))}
+                        {rfqDetails.status == 1 &&
+                        !rfqDetails?.quotations[0]?.is_regret &&
+                        productleftforbid &&
+                        isSubmitAble &&
+                        rfqDetails.quotations?.length > 0 &&
+                        !rfqDetails.products?.some(
+                          (item) =>
+                            item.finalization_status ===
+                              "Another vendor is finalized" ||
+                            item.finalization_status === "You are finalized"
+                        ) ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary m-0 p-2"
+                            style={{ width: "240px" }}
+                            onClick={() => {
+                              // Changes by Agnij 2025-05-05 [Pass update parameter]
+                              router.push(
+                                `/dashboard/vendor/send-quote?type=update-quote&id=${id}${
+                                  token !== undefined ? `&token=${token}` : ""
+                                }&showTechEvalRestrictions=${isReverseAuctionActive}`
+                              );
+                            }}
+                          >
+                            <>
+                              <FontAwesomeIcon icon={faEdit} className="me-2" />
+                              Update Your Quote
+                            </>
+                          </button>
+                        ) : null}
                       </div>
                     </div>
 
@@ -772,12 +796,18 @@ const RfqManagementPreview = () => {
                               <th>Name of product</th>
                               <th>Size & specifications</th>
                               <th>Quantity</th>
-                              {isReverseAuctionActive && <th>Current Lowest</th>}
+                              {isReverseAuctionActive && (
+                                <th>Current Lowest</th>
+                              )}
                               <th>TDS</th>
                               <th>QAP</th>
-                              {type != "buyer-view" && <th>Finalization Status</th>}
-                              <th >Comments</th>
-                              {type == "buyer-view" ? <th>Selected vendors</th> : null}
+                              {type != "buyer-view" && (
+                                <th>Finalization Status</th>
+                              )}
+                              <th>Comments</th>
+                              {type == "buyer-view" ? (
+                                <th>Selected vendors</th>
+                              ) : null}
                               {<th>Technical Evaluation</th>}
                             </tr>
                           </thead>
@@ -786,85 +816,121 @@ const RfqManagementPreview = () => {
                               let size, spec, qty, unit;
                               item?.product_specs?.map((p_spec) => {
                                 switch (p_spec.title) {
-                                  case 'Size':
-                                    size = p_spec.value
+                                  case "Size":
+                                    size = p_spec.value;
                                     break;
-                                  case 'Spec':
-                                    spec = p_spec.value
+                                  case "Spec":
+                                    spec = p_spec.value;
                                     break;
-                                  case 'Quantity':
-                                    qty = p_spec.value
+                                  case "Quantity":
+                                    qty = p_spec.value;
                                     break;
-                                  case 'Unit':
-                                    unit = p_spec.value
+                                  case "Unit":
+                                    unit = p_spec.value;
                                     break;
                                   default:
                                     break;
                                 }
-                              })
+                              });
                               return (
-                                <tr key={`${item?.id}_${item?.product_id}_${item?.variant}`}>
+                                <tr
+                                  key={`${item?.id}_${item?.product_id}_${item?.variant}`}
+                                >
                                   <td>{item?.product_details[0]?.name}</td>
-                                  <td style={{ minWidth: "300px", maxWidth: "500px" }}>
+                                  <td
+                                    style={{
+                                      minWidth: "300px",
+                                      maxWidth: "500px",
+                                    }}
+                                  >
                                     <div className="row">
-                                      <p className="col-12 mb-1" >
+                                      <p className="col-12 mb-1">
                                         <strong>Size: </strong>
                                         {size || "----"}
                                       </p>
-                                      <p className="col-12 mb-1 truncate-text" style={{ maxHeight: "100px", WebkitLineClamp: 3 }} >
+                                      <p
+                                        className="col-12 mb-1 truncate-text"
+                                        style={{
+                                          maxHeight: "100px",
+                                          WebkitLineClamp: 3,
+                                        }}
+                                      >
                                         <strong>Spec: </strong>
                                         {spec || "----"}
                                       </p>
                                       <div className="col-12 d-block  rounded-2 p-2 mb-1">
-                                      { item.SPEC_files? <p className="fw-bold mb-1">File Attachments</p> : '' }
+                                        {item.SPEC_files ? (
+                                          <p className="fw-bold mb-1">
+                                            File Attachments
+                                          </p>
+                                        ) : (
+                                          ""
+                                        )}
                                         <div className="row mx-1">
-                                          {item.SPEC_files?.map((file, index) => (
-                                            <a key={index} href={file} target="_blank" className="col-md-6 page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
-                                              <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                              {extractfileName(file)}
-                                            </a>
-                                          ))}
+                                          {item.SPEC_files?.map(
+                                            (file, index) => (
+                                              <a
+                                                key={index}
+                                                href={file}
+                                                target="_blank"
+                                                className="col-md-6 page-link text-truncate mb-1"
+                                                style={{ maxWidth: "200px" }}
+                                              >
+                                                <FontAwesomeIcon
+                                                  icon={faDownload}
+                                                  className="ms-0 me-2"
+                                                />
+                                                {extractfileName(file)}
+                                              </a>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     </div>
                                   </td>
 
                                   <td>{`${qty ?? "N/A"}-${unit ?? "N/A"}`}</td>
-                                  {isReverseAuctionActive && (
-                                    item?.lowest_quotation ?
+                                  {isReverseAuctionActive &&
+                                    (item?.lowest_quotation ? (
                                       <td>
-                                        {addCommasToNumber(item?.lowest_quotation?.total_price)}
+                                        {addCommasToNumber(
+                                          item?.lowest_quotation?.total_price
+                                        )}
                                       </td>
-                                    :
-                                      <td>
-                                        --
-                                      </td>
-                                  )}
+                                    ) : (
+                                      <td>--</td>
+                                    ))}
 
                                   <td>
-                                    {(item.datasheet_file || item.TDS_flies) ? (
-                                      <>
-                                        {renderFileLink(item.datasheet_file)}
-                                      </>
-                                    ) : <span>N/A</span>}
+                                    {item.datasheet_file || item.TDS_flies ? (
+                                      <>{renderFileLink(item.datasheet_file)}</>
+                                    ) : (
+                                      <span>N/A</span>
+                                    )}
                                   </td>
                                   <td>
-                                    {(item.qap_file || item.QAP_files) ? (
-                                      <>
-                                        {renderFileLink(item.qap_file)}
-                                      </>
-                                    ) : <span>N/A</span>}
+                                    {item.qap_file || item.QAP_files ? (
+                                      <>{renderFileLink(item.qap_file)}</>
+                                    ) : (
+                                      <span>N/A</span>
+                                    )}
                                   </td>
-                                  {type != "buyer-view" &&
+                                  {type != "buyer-view" && (
                                     <td>
                                       {item.finalization_status ==
-                                        "You are finalized" ? (
-                                        <span className="text-success" style={{ pointerEvents: "none" }}>
+                                      "You are finalized" ? (
+                                        <span
+                                          className="text-success"
+                                          style={{ pointerEvents: "none" }}
+                                        >
                                           You are finalized
                                         </span>
                                       ) : item.finalization_status ==
                                         "Another vendor is finalized" ? (
-                                        <span className="text-danger" style={{ pointerEvents: "none" }}>
+                                        <span
+                                          className="text-danger"
+                                          style={{ pointerEvents: "none" }}
+                                        >
                                           Another vendor is finalized
                                         </span>
                                       ) : (
@@ -873,47 +939,71 @@ const RfqManagementPreview = () => {
                                         </span>
                                       )}
                                     </td>
-                                  }
-                                  <td style={{ minWidth: "250px", maxWidth: "400px" }}>
-                                    {item?.comment && item?.comment != ""
-                                      ? <ReadMore content={item.comment} maxLines={4} additionalClasses="text-sm" />
-                                      : "N/A"}
+                                  )}
+                                  <td
+                                    style={{
+                                      minWidth: "250px",
+                                      maxWidth: "400px",
+                                    }}
+                                  >
+                                    {item?.comment && item?.comment != "" ? (
+                                      <ReadMore
+                                        content={item.comment}
+                                        maxLines={4}
+                                        additionalClasses="text-sm"
+                                      />
+                                    ) : (
+                                      "N/A"
+                                    )}
                                   </td>
 
-                                  {type == "buyer-view" &&
+                                  {type == "buyer-view" && (
                                     <td>
                                       <span>
                                         <Link
-                                          href={`rfq-management-vendor?type=buyer-view&vendors=${item.vendor_details?.map((ven_item) => ven_item.user_id).join(",")}&productid=${item.product_id}&variant=${item.variant}`}
+                                          href={`rfq-management-vendor?type=buyer-view&vendors=${item.vendor_details
+                                            ?.map(
+                                              (ven_item) => ven_item.user_id
+                                            )
+                                            .join(",")}&productid=${
+                                            item.product_id
+                                          }&variant=${item.variant}`}
                                           className="page-link"
                                         >
-                                          View selected vendors ({item.vendor_details?.length})
+                                          View selected vendors (
+                                          {item.vendor_details?.length})
                                         </Link>
                                       </span>
                                     </td>
-                                  }
+                                  )}
 
-                                        <td>
-                                      {clauseMap && clauseMap.get(item.id)
-                                        ? <a
-                                          href={`/dashboard/${type == 'buyer-view' ? 'buyer' : 'vendor'}/technical-evaluation?rfq_id=${id}&prod_id=${item.id}&token=${token}`}
-                                          className="text-dark-blue"
-                                          style={{
-                                            fontSize: '0.8rem',
-                                            padding: '5px 10px',
-                                            display: 'inline-block',
-                                            border: 'none',
-                                            backgroundColor: 'lightblue',
-                                            color: 'darkblue',
-                                            textDecoration: 'none',
-                                          }}
-
-                                        >
-                                          View Evaluation
-                                        </a>
-                                        : "N/A"
-                                      }
-                                    </td>
+                                  <td>
+                                    {clauseMap && clauseMap.get(item.id) ? (
+                                      <a
+                                        href={`/dashboard/${
+                                          type == "buyer-view"
+                                            ? "buyer"
+                                            : "vendor"
+                                        }/technical-evaluation?rfq_id=${id}&prod_id=${
+                                          item.id
+                                        }&token=${token}`}
+                                        className="text-dark-blue"
+                                        style={{
+                                          fontSize: "0.8rem",
+                                          padding: "5px 10px",
+                                          display: "inline-block",
+                                          border: "none",
+                                          backgroundColor: "lightblue",
+                                          color: "darkblue",
+                                          textDecoration: "none",
+                                        }}
+                                      >
+                                        View Evaluation
+                                      </a>
+                                    ) : (
+                                      "N/A"
+                                    )}
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -996,39 +1086,50 @@ const RfqManagementPreview = () => {
                                 </div>
                               </div>
 
-                              {type == "buyer-view" && rfqDetails?.project_name && rfqDetails?.project_name != "" &&
-                                <div className="col-md-3">
-                                  <div className="form-group mt-0 mb-2">
-                                    <label htmlFor="project_name" className="form-label">
-                                      Project Name
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="project_name"
-                                      className="form-control"
-                                      name="project_name"
-                                      disabled
-                                      value={`${rfqDetails?.project_name}`}
-                                    />
+                              {type == "buyer-view" &&
+                                rfqDetails?.project_name &&
+                                rfqDetails?.project_name != "" && (
+                                  <div className="col-md-3">
+                                    <div className="form-group mt-0 mb-2">
+                                      <label
+                                        htmlFor="project_name"
+                                        className="form-label"
+                                      >
+                                        Project Name
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="project_name"
+                                        className="form-control"
+                                        name="project_name"
+                                        disabled
+                                        value={`${rfqDetails?.project_name}`}
+                                      />
+                                    </div>
                                   </div>
-                                </div>}
+                                )}
 
-                              {rfqDetails?.rfq_type && rfqDetails?.rfq_type != "" &&
-                                <div className="col-md-3">
-                                  <div className="form-group ">
-                                    <label htmlFor="rfq_type" className="form-label">
-                                      RFQ Type
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="rfq_type"
-                                      className="form-control"
-                                      name="rfq_type"
-                                      disabled
-                                      value={`${rfqDetails?.rfq_type}`}
-                                    />
+                              {rfqDetails?.rfq_type &&
+                                rfqDetails?.rfq_type != "" && (
+                                  <div className="col-md-3">
+                                    <div className="form-group ">
+                                      <label
+                                        htmlFor="rfq_type"
+                                        className="form-label"
+                                      >
+                                        RFQ Type
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="rfq_type"
+                                        className="form-control"
+                                        name="rfq_type"
+                                        disabled
+                                        value={`${rfqDetails?.rfq_type}`}
+                                      />
+                                    </div>
                                   </div>
-                                </div>}
+                                )}
 
                               {/* Changes by Agnij 2025-05-06 [Add Last Purchase Details with proper null handling] */}
                               {rfqDetails?.last_purchase && (
@@ -1037,46 +1138,90 @@ const RfqManagementPreview = () => {
                                   <div className="last-purchase-details p-3 bg-light rounded mb-3">
                                     <div className="row">
                                       <div className="col-md-2">
-                                        <p className="mb-1"><strong>Base Price</strong></p>
-                                        <p>₹{rfqDetails.last_purchase.base_price || "0.00"}</p>
+                                        <p className="mb-1">
+                                          <strong>Base Price</strong>
+                                        </p>
+                                        <p>
+                                          ₹
+                                          {rfqDetails.last_purchase
+                                            .base_price || "0.00"}
+                                        </p>
                                       </div>
                                       <div className="col-md-2">
-                                        <p className="mb-1"><strong>Freight Rate</strong></p>
-                                        <p>{rfqDetails.last_purchase.freight_rate !== null ? `${rfqDetails.last_purchase.freight_rate}%` : "0%"}</p>
+                                        <p className="mb-1">
+                                          <strong>Freight Rate</strong>
+                                        </p>
+                                        <p>
+                                          {rfqDetails.last_purchase
+                                            .freight_rate !== null
+                                            ? `${rfqDetails.last_purchase.freight_rate}%`
+                                            : "0%"}
+                                        </p>
                                       </div>
                                       <div className="col-md-2">
-                                        <p className="mb-1"><strong>Packaging Rate</strong></p>
-                                        <p>{rfqDetails.last_purchase.packaging_rate !== null ? `${rfqDetails.last_purchase.packaging_rate}%` : "0%"}</p>
+                                        <p className="mb-1">
+                                          <strong>Packaging Rate</strong>
+                                        </p>
+                                        <p>
+                                          {rfqDetails.last_purchase
+                                            .packaging_rate !== null
+                                            ? `${rfqDetails.last_purchase.packaging_rate}%`
+                                            : "0%"}
+                                        </p>
                                       </div>
                                       <div className="col-md-2">
-                                        <p className="mb-1"><strong>Tax</strong></p>
-                                        <p>{rfqDetails.last_purchase.tax !== null ? `${rfqDetails.last_purchase.tax}%` : "0%"}</p>
+                                        <p className="mb-1">
+                                          <strong>Tax</strong>
+                                        </p>
+                                        <p>
+                                          {rfqDetails.last_purchase.tax !== null
+                                            ? `${rfqDetails.last_purchase.tax}%`
+                                            : "0%"}
+                                        </p>
                                       </div>
                                       <div className="col-md-2">
-                                        <p className="mb-1"><strong>Quantity</strong></p>
-                                        <p>{rfqDetails.last_purchase.quantity || "0"}</p>
+                                        <p className="mb-1">
+                                          <strong>Quantity</strong>
+                                        </p>
+                                        <p>
+                                          {rfqDetails.last_purchase.quantity ||
+                                            "0"}
+                                        </p>
                                       </div>
                                       <div className="col-md-2">
-                                        <p className="mb-1"><strong>Total Price</strong></p>
-                                        <p>₹{rfqDetails.last_purchase.total_price || "0.00"}</p>
+                                        <p className="mb-1">
+                                          <strong>Total Price</strong>
+                                        </p>
+                                        <p>
+                                          ₹
+                                          {rfqDetails.last_purchase
+                                            .total_price || "0.00"}
+                                        </p>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
                               )}
 
-                              {rfqDetails?.reverse_auction && rfqDetails?.reverse_auction !== "" ? (
+                              {rfqDetails?.reverse_auction &&
+                              rfqDetails?.reverse_auction !== "" ? (
                                 <div className="col-9">
                                   <div className="form-group mt-0">
                                     <div className="row">
                                       <div className="col-md-4">
                                         <div className="form-group">
-                                          <label className="form-label">Reverse Auction</label>
+                                          <label className="form-label">
+                                            Reverse Auction
+                                          </label>
                                           <input
                                             type="text"
                                             className="form-control"
                                             disabled
-                                            value={rfqDetails.reverse_auction == 1 ? 'Enabled' : 'Disabled'}
+                                            value={
+                                              rfqDetails.reverse_auction == 1
+                                                ? "Enabled"
+                                                : "Disabled"
+                                            }
                                           />
                                         </div>
                                       </div>
@@ -1085,81 +1230,147 @@ const RfqManagementPreview = () => {
                                         <>
                                           <div className="col-md-4">
                                             <div className="form-group">
-                                              <label className="form-label">Reverse Auction Start Time</label>
+                                              <label className="form-label">
+                                                Reverse Auction Start Time
+                                              </label>
                                               <input
                                                 type="text"
                                                 className="form-control"
                                                 disabled
-                                                value={ rfqDetails.ra_start_date
-                                                        ? (() => {
-                                                            try {
-                                                              // Parse the date string - support both formats
-                                                              let dateObj;
-                                                              if (rfqDetails.ra_start_date.includes('T')) {
-                                                                // ISO format
-                                                                dateObj = new Date(rfqDetails.ra_start_date);
-                                                              } else if (rfqDetails.ra_start_date.includes(' ')) {
-                                                                // YYYY-MM-DD HH:MM:SS format
-                                                                const [datePart, timePart] = rfqDetails.ra_start_date.split(' ');
-                                                                dateObj = new Date(`${datePart}T${timePart}`);
-                                                              } else {
-                                                                // Just date
-                                                                dateObj = new Date(rfqDetails.ra_start_date);
-                                                              }
+                                                value={
+                                                  rfqDetails.ra_start_date
+                                                    ? (() => {
+                                                        try {
+                                                          // Parse the date string - support both formats
+                                                          let dateObj;
+                                                          if (
+                                                            rfqDetails.ra_start_date.includes(
+                                                              "T"
+                                                            )
+                                                          ) {
+                                                            // ISO format
+                                                            dateObj = new Date(
+                                                              rfqDetails.ra_start_date
+                                                            );
+                                                          } else if (
+                                                            rfqDetails.ra_start_date.includes(
+                                                              " "
+                                                            )
+                                                          ) {
+                                                            // YYYY-MM-DD HH:MM:SS format
+                                                            const [
+                                                              datePart,
+                                                              timePart,
+                                                            ] =
+                                                              rfqDetails.ra_start_date.split(
+                                                                " "
+                                                              );
+                                                            dateObj = new Date(
+                                                              `${datePart}T${timePart}`
+                                                            );
+                                                          } else {
+                                                            // Just date
+                                                            dateObj = new Date(
+                                                              rfqDetails.ra_start_date
+                                                            );
+                                                          }
 
-                                                              return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
-                                                                hour: 'numeric',
-                                                                minute: '2-digit',
-                                                                hour12: true
-                                                              })}`;
-                                                            } catch (e) {
-                                                              console.error("Error formatting start date:", e);
-                                                              return rfqDetails.ra_start_date; // Fallback to raw value
+                                                          return `${
+                                                            dateObj
+                                                              .toISOString()
+                                                              .split("T")[0]
+                                                          }, ${dateObj.toLocaleTimeString(
+                                                            [],
+                                                            {
+                                                              hour: "numeric",
+                                                              minute: "2-digit",
+                                                              hour12: true,
                                                             }
-                                                          })()
-                                                        : 'Not specified'
-                                                    }
+                                                          )}`;
+                                                        } catch (e) {
+                                                          console.error(
+                                                            "Error formatting start date:",
+                                                            e
+                                                          );
+                                                          return rfqDetails.ra_start_date; // Fallback to raw value
+                                                        }
+                                                      })()
+                                                    : "Not specified"
+                                                }
                                               />
                                             </div>
                                           </div>
 
                                           <div className="col-md-4">
                                             <div className="form-group">
-                                              <label className="form-label">Reverse Auction End Time</label>
+                                              <label className="form-label">
+                                                Reverse Auction End Time
+                                              </label>
                                               <input
                                                 type="text"
                                                 className="form-control"
                                                 disabled
-                                                value={ rfqDetails.ra_end_date
-                                                        ? (() => {
-                                                            try {
-                                                              // Parse the date string - support both formats
-                                                              let dateObj;
-                                                              if (rfqDetails.ra_end_date.includes('T')) {
-                                                                // ISO format
-                                                                dateObj = new Date(rfqDetails.ra_end_date);
-                                                              } else if (rfqDetails.ra_end_date.includes(' ')) {
-                                                                // YYYY-MM-DD HH:MM:SS format
-                                                                const [datePart, timePart] = rfqDetails.ra_end_date.split(' ');
-                                                                dateObj = new Date(`${datePart}T${timePart}`);
-                                                              } else {
-                                                                // Just date
-                                                                dateObj = new Date(rfqDetails.ra_end_date);
-                                                              }
+                                                value={
+                                                  rfqDetails.ra_end_date
+                                                    ? (() => {
+                                                        try {
+                                                          // Parse the date string - support both formats
+                                                          let dateObj;
+                                                          if (
+                                                            rfqDetails.ra_end_date.includes(
+                                                              "T"
+                                                            )
+                                                          ) {
+                                                            // ISO format
+                                                            dateObj = new Date(
+                                                              rfqDetails.ra_end_date
+                                                            );
+                                                          } else if (
+                                                            rfqDetails.ra_end_date.includes(
+                                                              " "
+                                                            )
+                                                          ) {
+                                                            // YYYY-MM-DD HH:MM:SS format
+                                                            const [
+                                                              datePart,
+                                                              timePart,
+                                                            ] =
+                                                              rfqDetails.ra_end_date.split(
+                                                                " "
+                                                              );
+                                                            dateObj = new Date(
+                                                              `${datePart}T${timePart}`
+                                                            );
+                                                          } else {
+                                                            // Just date
+                                                            dateObj = new Date(
+                                                              rfqDetails.ra_end_date
+                                                            );
+                                                          }
 
-                                                              return `${dateObj.toISOString().split('T')[0]}, ${dateObj.toLocaleTimeString([], {
-                                                                hour: 'numeric',
-                                                                minute: '2-digit',
-                                                                hour12: true
-                                                              })}`;
-                                                            } catch (e) {
-                                                              console.error("Error formatting end date:", e);
-                                                              return rfqDetails.ra_end_date; // Fallback to raw value
+                                                          return `${
+                                                            dateObj
+                                                              .toISOString()
+                                                              .split("T")[0]
+                                                          }, ${dateObj.toLocaleTimeString(
+                                                            [],
+                                                            {
+                                                              hour: "numeric",
+                                                              minute: "2-digit",
+                                                              hour12: true,
                                                             }
-                                                          })()
-                                                        : 'Not specified'
-                                                    }
-                                          />
+                                                          )}`;
+                                                        } catch (e) {
+                                                          console.error(
+                                                            "Error formatting end date:",
+                                                            e
+                                                          );
+                                                          return rfqDetails.ra_end_date; // Fallback to raw value
+                                                        }
+                                                      })()
+                                                    : "Not specified"
+                                                }
+                                              />
                                             </div>
                                           </div>
                                         </>
@@ -1167,42 +1378,53 @@ const RfqManagementPreview = () => {
                                     </div>
                                   </div>
                                 </div>
-                              ):""}
+                              ) : (
+                                ""
+                              )}
 
-                              {rfqDetails?.bid_end_date && rfqDetails?.bid_end_date != "" &&
-                                <div className="col-md-3">
-                                  <div className="form-group">
-                                    <label htmlFor="bid_end_date" className="form-label">
-                                      Procurement End Date
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="bid_end_date"
-                                      className="form-control"
-                                      name="bid_end_date"
-                                      disabled
-                                      value={`${rfqDetails?.bid_end_date}`}
-                                    />
+                              {rfqDetails?.bid_end_date &&
+                                rfqDetails?.bid_end_date != "" && (
+                                  <div className="col-md-3">
+                                    <div className="form-group">
+                                      <label
+                                        htmlFor="bid_end_date"
+                                        className="form-label"
+                                      >
+                                        Procurement End Date
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="bid_end_date"
+                                        className="form-control"
+                                        name="bid_end_date"
+                                        disabled
+                                        value={`${rfqDetails?.bid_end_date}`}
+                                      />
+                                    </div>
                                   </div>
-                                </div>}
+                                )}
 
-                              {rfqDetails?.location && rfqDetails?.location != "" &&
-                                <div className="col-md-6">
-                                  <div className="form-group mt-0">
-                                    <label htmlFor="location" className="form-label">
-                                      Delivery Location
-                                    </label>
-                                    <input
-                                      type="text"
-                                      id="location"
-                                      className="form-control"
-                                      name="location"
-                                      disabled
-                                      value={`${rfqDetails?.location}`}
-                                    />
+                              {rfqDetails?.location &&
+                                rfqDetails?.location != "" && (
+                                  <div className="col-md-6">
+                                    <div className="form-group mt-0">
+                                      <label
+                                        htmlFor="location"
+                                        className="form-label"
+                                      >
+                                        Delivery Location
+                                      </label>
+                                      <input
+                                        type="text"
+                                        id="location"
+                                        className="form-control"
+                                        name="location"
+                                        disabled
+                                        value={`${rfqDetails?.location}`}
+                                      />
+                                    </div>
                                   </div>
-                                </div>}
-
+                                )}
                             </div>
                           </div>
 
@@ -1211,18 +1433,26 @@ const RfqManagementPreview = () => {
                               <div className="row terms-conditions">
                                 <div className="col-md-6 ">
                                   <h4>Terms & Conditions</h4>
-                                  {(!rfqDetails?.terms || rfqDetails?.terms.length === 0) && (
+                                  {(!rfqDetails?.terms ||
+                                    rfqDetails?.terms.length === 0) && (
                                     <p>No predefined terms selected!</p>
                                   )}
 
                                   {rfqDetails?.terms?.length > 0 && (
                                     <ol>
                                       {rfqDetails?.terms?.map((item, index) => {
-                                        const termContent = item.term_content || item.name || (item.content && item.content[0]?.title);
+                                        const termContent =
+                                          item.term_content ||
+                                          item.name ||
+                                          (item.content &&
+                                            item.content[0]?.title);
                                         if (!termContent) return null;
 
                                         return (
-                                          <li key={`term-${item.id || index}`} className="mb-2">
+                                          <li
+                                            key={`term-${item.id || index}`}
+                                            className="mb-2"
+                                          >
                                             {termContent}
                                           </li>
                                         );
@@ -1234,51 +1464,100 @@ const RfqManagementPreview = () => {
                                   {/* winning bid area */}
                                   {rfqDetails.finalizations &&
                                     rfqDetails.finalizations.length > 0 && (
-                                      <div className="finalized-details">
-                                      </div>
+                                      <div className="finalized-details"></div>
                                     )}
                                   {/* winning bid area end */}
                                   {rfqDetails.quotations.length > 0 &&
                                     rfqDetails.quotations[0].is_regret == 0 && (
                                       <div className="submitted-quotation">
                                         <h4>
-                                          You've already submitted a quotation on{" "}
+                                          You've already submitted a quotation
+                                          on{" "}
                                           {moment
-                                          .utc(rfqDetails?.quotations[0]?.timestamp)
-                                          .local()
-                                          .format("hh:mm A - DD/MM/YYYY")}
+                                            .utc(
+                                              rfqDetails?.quotations[0]
+                                                ?.timestamp
+                                            )
+                                            .local()
+                                            .format("hh:mm A - DD/MM/YYYY")}
                                         </h4>
 
-                                        {(rfqDetails.status == 2 || !productleftforbid || quoteDisabled || rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")) ? (
+                                        {rfqDetails.status == 2 ||
+                                        !productleftforbid ||
+                                        quoteDisabled ||
+                                        rfqDetails.products?.some(
+                                          (item) =>
+                                            item.finalization_status ===
+                                              "Another vendor is finalized" ||
+                                            item.finalization_status ===
+                                              "You are finalized"
+                                        ) ? (
                                           <button
                                             type="button"
-                                            className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : (wasEndDatePassed && isReverseAuctionActive ? 'btn-success' : 'btn-secondary')} m-0 mx-auto mt-2`}
-                                            style={{ width: "240px", opacity: "0.5" }}
-                                            disabled={quoteDisabled || rfqDetails.status == 2}
+                                            className={`btn ${
+                                              rfqDetails.status == 2
+                                                ? "btn-danger"
+                                                : wasEndDatePassed &&
+                                                  isReverseAuctionActive
+                                                ? "btn-success"
+                                                : "btn-secondary"
+                                            } m-0 mx-auto mt-2`}
+                                            style={{
+                                              width: "240px",
+                                              opacity: "0.5",
+                                            }}
+                                            disabled={
+                                              quoteDisabled ||
+                                              rfqDetails.status == 2
+                                            }
                                           >
-                                            <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                            <FontAwesomeIcon
+                                              icon={faCircleExclamation}
+                                              className="me-2"
+                                            />
                                             {rfqDetails.status == 2
                                               ? "RFQ is Closed"
-                                              : rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")
-                                                ? rfqDetails.products?.some(item => item.finalization_status === "You are finalized")
-                                                  ? "You are finalized"
-                                                  : "Another vendor is finalized"
-                                                : statusMessage || "All Products are Finalized"}
+                                              : rfqDetails.products?.some(
+                                                  (item) =>
+                                                    item.finalization_status ===
+                                                      "Another vendor is finalized" ||
+                                                    item.finalization_status ===
+                                                      "You are finalized"
+                                                )
+                                              ? rfqDetails.products?.some(
+                                                  (item) =>
+                                                    item.finalization_status ===
+                                                    "You are finalized"
+                                                )
+                                                ? "You are finalized"
+                                                : "Another vendor is finalized"
+                                              : statusMessage ||
+                                                "All Products are Finalized"}
                                           </button>
-                                        ) :
-                                          <Link className="mx-auto mt-2" href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${token !== undefined ? `&token=${token}` : ''}&showTechEvalRestrictions=${isReverseAuctionActive}`}>
+                                        ) : (
+                                          <Link
+                                            className="mx-auto mt-2"
+                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${
+                                              token !== undefined
+                                                ? `&token=${token}`
+                                                : ""
+                                            }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                          >
                                             <button
                                               type="button"
                                               className="btn btn-secondary m-0"
                                               style={{ width: "240px" }}
                                             >
                                               <>
-                                                <FontAwesomeIcon icon={faEdit} className="me-2" />
+                                                <FontAwesomeIcon
+                                                  icon={faEdit}
+                                                  className="me-2"
+                                                />
                                                 Update Your Quote
                                               </>
                                             </button>
                                           </Link>
-                                        }
+                                        )}
                                       </div>
                                     )}
                                   {rfqDetails.quotations.length > 0 &&
@@ -1291,15 +1570,11 @@ const RfqManagementPreview = () => {
                                           </span>{" "}
                                           the RFQ request on{" "}
                                           {moment(
-                                            new Date(
-                                              parseInt(
-                                                rfqDetails.quotations[0]
-                                                  .timestamp
-                                              )
-                                            )
-                                          ).format(
-                                            "DD/MM/YYYY - HH:mm:ss A"
-                                          )}{" "}
+                                            rfqDetails?.quotations[0]?.timestamp
+                                          )
+                                            .add(5, "hours")
+                                            .add(30, "minutes")
+                                            .format("DD/MM/YYYY - hh:mm:ss A")}
                                         </h4>
                                       </div>
                                     )}
@@ -1308,25 +1583,37 @@ const RfqManagementPreview = () => {
                             </div>
                           )}
 
-                          {rfqDetails.TERM_files && rfqDetails.TERM_files.length > 0 &&
-                            <div className="col-md-12 mb-2">
-                              <div className="row">
-                                <div className="col-md-6">
-                                  <h4>Terms & Conditions File</h4>
-                                  <div className="row mt-2">
-                                    {rfqDetails.TERM_files.map((file) => (
-                                      <div className="col-md-6 col-lg-4">
-                                        <a href={file} target="_blank" key={file} className="file-badge mb-2" type="button" >
-                                          <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                          <span className="text-truncate">{extractfileName(file)}</span>
-                                        </a>
-                                      </div>
-                                    ))}
+                          {rfqDetails.TERM_files &&
+                            rfqDetails.TERM_files.length > 0 && (
+                              <div className="col-md-12 mb-2">
+                                <div className="row">
+                                  <div className="col-md-6">
+                                    <h4>Terms & Conditions File</h4>
+                                    <div className="row mt-2">
+                                      {rfqDetails.TERM_files.map((file) => (
+                                        <div className="col-md-6 col-lg-4">
+                                          <a
+                                            href={file}
+                                            target="_blank"
+                                            key={file}
+                                            className="file-badge mb-2"
+                                            type="button"
+                                          >
+                                            <FontAwesomeIcon
+                                              icon={faDownload}
+                                              className="ms-0 me-2"
+                                            />
+                                            <span className="text-truncate">
+                                              {extractfileName(file)}
+                                            </span>
+                                          </a>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          }
+                            )}
 
                           <div className="col-md-12">
                             <div className="row">
@@ -1374,7 +1661,8 @@ const RfqManagementPreview = () => {
                           )}
                           {!enableBuyerView && (
                             <>
-                              {quoteDisabled && statusMessage === "RFQ is Closed" ? (
+                              {quoteDisabled &&
+                              statusMessage === "RFQ is Closed" ? (
                                 // Show a single disabled button saying "RFQ is Closed"
                                 <div className="row w-50">
                                   <div className="col-12">
@@ -1383,12 +1671,15 @@ const RfqManagementPreview = () => {
                                       className="btn btn-danger w-100"
                                       disabled
                                     >
-                                      <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                      <FontAwesomeIcon
+                                        icon={faCircleExclamation}
+                                        className="me-2"
+                                      />
                                       RFQ is Closed
                                     </button>
                                   </div>
                                 </div>
-                              ) : (!productleftforbid) ? (
+                              ) : !productleftforbid ? (
                                 // Show a single disabled button saying "All Products are Finalized"
                                 <div className="row w-50">
                                   <div className="col-12">
@@ -1397,7 +1688,10 @@ const RfqManagementPreview = () => {
                                       className="btn btn-secondary w-100"
                                       disabled
                                     >
-                                      <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                      <FontAwesomeIcon
+                                        icon={faCircleExclamation}
+                                        className="me-2"
+                                      />
                                       All Products are Finalized
                                     </button>
                                   </div>
@@ -1414,7 +1708,19 @@ const RfqManagementPreview = () => {
                                           e.preventDefault();
                                           setregretModal(true);
                                         }}
-                                        disabled={quoteDisabled && statusMessage !== "Reverse Auction is Active" || rfqDetails.status == 2 || rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")}
+                                        disabled={
+                                          (quoteDisabled &&
+                                            statusMessage !==
+                                              "Reverse Auction is Active") ||
+                                          rfqDetails.status == 2 ||
+                                          rfqDetails.products?.some(
+                                            (item) =>
+                                              item.finalization_status ===
+                                                "Another vendor is finalized" ||
+                                              item.finalization_status ===
+                                                "You are finalized"
+                                          )
+                                        }
                                       >
                                         Regret Quote
                                       </button>
@@ -1422,29 +1728,62 @@ const RfqManagementPreview = () => {
                                     <div className="col-md-6 d-flex justify-content-end p-0">
                                       {rfqDetails?.quotations?.length === 0 && (
                                         <>
-                                          {quoteDisabled && statusMessage !== "Reverse Auction is Active" || rfqDetails.status == 2 || rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized") ? (
+                                          {(quoteDisabled &&
+                                            statusMessage !==
+                                              "Reverse Auction is Active") ||
+                                          rfqDetails.status == 2 ||
+                                          rfqDetails.products?.some(
+                                            (item) =>
+                                              item.finalization_status ===
+                                                "Another vendor is finalized" ||
+                                              item.finalization_status ===
+                                                "You are finalized"
+                                          ) ? (
                                             <button
                                               type="button"
-                                              className={`btn ${rfqDetails.status == 2 ? 'btn-danger' : 'btn-secondary'}`}
+                                              className={`btn ${
+                                                rfqDetails.status == 2
+                                                  ? "btn-danger"
+                                                  : "btn-secondary"
+                                              }`}
                                               style={{ opacity: "0.5" }}
                                               disabled
                                             >
-                                              <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                                              <FontAwesomeIcon
+                                                icon={faCircleExclamation}
+                                                className="me-2"
+                                              />
                                               {rfqDetails.status == 2
                                                 ? "RFQ is Closed"
-                                                : rfqDetails.products?.some(item => item.finalization_status === "Another vendor is finalized" || item.finalization_status === "You are finalized")
-                                                  ? rfqDetails.products?.some(item => item.finalization_status === "You are finalized")
-                                                    ? "You are finalized"
-                                                    : "Another vendor is finalized"
-                                                  : statusMessage}
+                                                : rfqDetails.products?.some(
+                                                    (item) =>
+                                                      item.finalization_status ===
+                                                        "Another vendor is finalized" ||
+                                                      item.finalization_status ===
+                                                        "You are finalized"
+                                                  )
+                                                ? rfqDetails.products?.some(
+                                                    (item) =>
+                                                      item.finalization_status ===
+                                                      "You are finalized"
+                                                  )
+                                                  ? "You are finalized"
+                                                  : "Another vendor is finalized"
+                                                : statusMessage}
                                             </button>
                                           ) : (
                                             <button
                                               type="button"
-                                              className={`btn ${isReverseAuctionActive ? 'btn-success' : 'btn-secondary'}`}
+                                              className={`btn ${
+                                                isReverseAuctionActive
+                                                  ? "btn-success"
+                                                  : "btn-secondary"
+                                              }`}
                                               onClick={goToQuoteCreation}
                                             >
-                                              {isReverseAuctionActive ? 'Send Quote' : 'Send Quote'}
+                                              {isReverseAuctionActive
+                                                ? "Send Quote"
+                                                : "Send Quote"}
                                             </button>
                                           )}
                                         </>
