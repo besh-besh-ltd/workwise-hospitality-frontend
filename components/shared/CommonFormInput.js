@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Field, ErrorMessage } from "formik";
 import Select from "react-select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { getCountryCodes } from "@/services/cms";
 
 /** 
  A reusable and flexible form input component built for Formik.
  Supports:
+ - Works best wuith formik 
  - Standard inputs: text, email, number, password (with toggle)
  - React-select-based inputs: single/multi-select
- - Mobile input with country code selector
+ - Mobile input with country code selector, 
  
  Automatically handles touched/errors state and inline validation display.
  */
@@ -18,7 +20,7 @@ import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 const CommonFormInput = ({
   name,
   label,
-  type = "text", // text, email, password, select, multiselect, mobile
+  type = "text", // text, email, password, select, multiselect, mobile, textarea
   options = [],
   isMulti = false,
   touched,
@@ -27,11 +29,10 @@ const CommonFormInput = ({
   setFieldValue,
   className = "",
   placeholder = "",
-  prefixComponent = null,
-  countryCodes = [] // only needed for type="mobile"
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isInvalid = touched?.[name] && errors?.[name];
+  const [countryCodes, setCountryCodes] = useState([]);
 
   if (type === "select" || type === "multiselect") {
     return (
@@ -43,18 +44,66 @@ const CommonFormInput = ({
           id={name}
           name={name}
           options={options}
-          value={values[name] || (isMulti ? [] : null)}
-          onChange={(option) => setFieldValue(name, option)}
+          value={values}
+          onChange={(option) => {
+            console.log(name, option)
+            setFieldValue(name, option) }}
           isMulti={isMulti}
           placeholder={placeholder || `Select ${label}`}
           className={isInvalid ? "is-invalid" : ""}
         />
-        {isInvalid && <div className="invalid-feedback d-block">{errors[name]}</div>}
+        {isInvalid && (
+          <div className="invalid-feedback d-block">{errors[name]}</div>
+        )}
       </div>
     );
   }
 
+  if (type === "textarea") {
+  return (
+    <div className="form-group mb-3">
+      <label htmlFor={name} className="form-label">
+        {label} <span className="text-danger">*</span>
+      </label>
+      <textarea
+        id={name}
+        name={name}
+        className={`form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
+        placeholder={placeholder || `Enter ${label}`}
+        value={values}
+        onChange={(e) => setFieldValue(name, e.target.value)}
+        rows={4}
+      />
+      {isInvalid && (
+        <div className="invalid-feedback">{errors?.[name]}</div>
+      )}
+    </div>
+  );
+}
+
+
   if (type === "mobile") {
+    const fetchData = async () => {
+      try {
+        const response = await getCountryCodes();
+        if (response?.data) {
+          setCountryCodes(response.data);
+          console.log("label ....65 ...", label, name, values);
+
+          const countryCode = values?.split("-"); // expected value is
+          console.log("label =>", label,name,  countryCode); // ex value is +91
+        }
+      } catch (error) {
+        console.error("Error fetching country codes:", error);
+        // Optionally: toast.error("Failed to load country codes");
+      }
+    };
+
+    useEffect(() => {
+      fetchData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
       <div className="form-group mb-3">
         <label htmlFor={name} className="form-label">
@@ -65,7 +114,7 @@ const CommonFormInput = ({
             {({ field, form }) => (
               <select
                 {...field}
-                className={`form-select me-2 ${touched.countryCode && errors.countryCode ? "is-invalid" : ""}`}
+                className={`form-select me-2 `}
                 style={{ maxWidth: "140px" }}
                 onChange={(e) => {
                   form.setFieldValue("countryCode", e.target.value);
@@ -84,12 +133,22 @@ const CommonFormInput = ({
             type="text"
             id={name}
             name={name}
-            className={`form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
+            className={`form-control ${
+              isInvalid ? "is-invalid" : ""
+            } ${className}`}
             placeholder={placeholder || `Enter ${label}`}
           />
         </div>
-        <ErrorMessage name="mobile" component="div" className="invalid-feedback" />
-        <ErrorMessage name="countryCode" component="div" className="invalid-feedback" />
+        <ErrorMessage
+          name="mobile"
+          component="div"
+          className="invalid-feedback"
+        />
+        <ErrorMessage
+          name="countryCode"
+          component="div"
+          className="invalid-feedback"
+        />
       </div>
     );
   }
@@ -101,17 +160,21 @@ const CommonFormInput = ({
       </label>
       <div className="position-relative">
         <Field
-          type={type === "password" ? (showPassword ? "text" : "password") : type}
+          type={
+            type === "password" ? (showPassword ? "text" : "password") : type
+          }
           id={name}
           name={name}
-          className={`form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
+          className={`form-control ${
+            isInvalid ? "is-invalid" : ""
+          } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
         />
         {type === "password" && (
           <p
             className="position-absolute top-50 end-0 translate-middle-y me-2 bg-transparent border-0"
             onClick={() => setShowPassword((prev) => !prev)}
-            style={{ zIndex: 10, paddingRight:"25px" }}
+            style={{ zIndex: 10, paddingRight: "25px" }}
             aria-label="Toggle password visibility"
           >
             <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
