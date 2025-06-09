@@ -14,6 +14,7 @@ import { getCountryCodes } from "@/services/cms";
  - Mobile input with country code selector, 
  
  Automatically handles touched/errors state and inline validation display.
+
  */
 
 
@@ -29,6 +30,8 @@ const CommonFormInput = ({
   setFieldValue,
   className = "",
   placeholder = "",
+   required = false, 
+   disabled = false
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isInvalid = touched?.[name] && errors?.[name];
@@ -38,7 +41,7 @@ const CommonFormInput = ({
     return (
       <div className="form-group mb-3">
         <label htmlFor={name} className="form-label">
-          {label} <span className="text-danger">*</span>
+          {label} {required && <span className="text-danger">*</span>}
         </label>
         <Select
           id={name}
@@ -51,6 +54,7 @@ const CommonFormInput = ({
           isMulti={isMulti}
           placeholder={placeholder || `Select ${label}`}
           className={isInvalid ? "is-invalid" : ""}
+          isDisabled={disabled}
         />
         {isInvalid && (
           <div className="invalid-feedback d-block">{errors[name]}</div>
@@ -63,10 +67,11 @@ const CommonFormInput = ({
   return (
     <div className="form-group mb-3">
       <label htmlFor={name} className="form-label">
-        {label} <span className="text-danger">*</span>
+        {label} {required && <span className="text-danger">*</span>}
       </label>
       <textarea
         id={name}
+        disabled={disabled}
         name={name}
         className={`form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
         placeholder={placeholder || `Enter ${label}`}
@@ -119,6 +124,7 @@ const CommonFormInput = ({
                 onChange={(e) => {
                   form.setFieldValue("countryCode", e.target.value);
                 }}
+              disabled={disabled}
               >
                 {countryCodes.map((country) => (
                   <option key={country.id} value={country.phone_code}>
@@ -130,13 +136,14 @@ const CommonFormInput = ({
           </Field>
 
           <Field
-            type="text"
+            type="number"
             id={name}
             name={name}
             className={`form-control ${
               isInvalid ? "is-invalid" : ""
             } ${className}`}
             placeholder={placeholder || `Enter ${label}`}
+            disabled={disabled}
           />
         </div>
         <ErrorMessage
@@ -156,7 +163,7 @@ const CommonFormInput = ({
   return (
     <div className="form-group mb-3">
       <label htmlFor={name} className="form-label">
-        {label} <span className="text-danger">*</span>
+        {label} {required && <span className="text-danger">*</span>}
       </label>
       <div className="position-relative">
         <Field
@@ -169,6 +176,7 @@ const CommonFormInput = ({
             isInvalid ? "is-invalid" : ""
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
+          disabled={disabled}
         />
         {type === "password" && (
           <p

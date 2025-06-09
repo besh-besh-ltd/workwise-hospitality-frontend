@@ -2,7 +2,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import Image from "next/image";
 
 
-const ProfileImageUploader = ({ imageUrl, placeholderUrl, onChange, loading }) => {
+const ProfileImageUploader = ({ imageUrl, placeholderUrl, onChange, loading, disabled=false }) => {
   return (
     <div className="user-profile">
       {loading && <FullLoader />}
@@ -14,6 +14,7 @@ const ProfileImageUploader = ({ imageUrl, placeholderUrl, onChange, loading }) =
             width={140}
             height={140}
           />
+          {!disabled && ( 
           <label className="cameraicon">
             <Image
               src="/assets/images/camera-icon.png"
@@ -23,6 +24,7 @@ const ProfileImageUploader = ({ imageUrl, placeholderUrl, onChange, loading }) =
             />
             <input type="file" name="file" onChange={onChange} />
           </label>
+          )}
         </>
       )}
     </div>
