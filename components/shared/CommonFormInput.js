@@ -115,7 +115,7 @@ const CommonFormInput = ({
           {label} <span className="text-danger">*</span>
         </label>
         <div className="d-flex">
-          <Field name="countryCode">
+          <Field name="countryCode" className="placeholder-muted" >
             {({ field, form }) => (
               <select
                 {...field}
@@ -139,7 +139,7 @@ const CommonFormInput = ({
             type="number"
             id={name}
             name={name}
-            className={`form-control ${
+            className={`placeholder-muted form-control ${
               isInvalid ? "is-invalid" : ""
             } ${className}`}
             placeholder={placeholder || `Enter ${label}`}
@@ -172,7 +172,7 @@ const CommonFormInput = ({
           }
           id={name}
           name={name}
-          className={`form-control ${
+          className={`placeholder-muted form-control ${
             isInvalid ? "is-invalid" : ""
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
@@ -180,7 +180,7 @@ const CommonFormInput = ({
         />
         {type === "password" && (
           <p
-            className="position-absolute top-50 end-0 translate-middle-y me-2 bg-transparent border-0"
+            className="placeholder-muted position-absolute top-50 end-0 translate-middle-y me-2 bg-transparent border-0"
             onClick={() => setShowPassword((prev) => !prev)}
             style={{ zIndex: 10, paddingRight: "25px" }}
             aria-label="Toggle password visibility"

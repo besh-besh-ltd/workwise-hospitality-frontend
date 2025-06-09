@@ -97,6 +97,20 @@ export const updateProfile = (values, user_id) => {
 	});
 };
 
+export const updatecompany = (values, user_id) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.put(
+				`/users/update-company-detail`,
+				values
+			);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
 export const changePasswordService = (values) => {
 	return new Promise(async (resolve, reject) => {
 		try {

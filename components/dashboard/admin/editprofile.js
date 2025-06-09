@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import { Formik, Form } from "formik";
 import { toast } from "react-toastify";
@@ -11,12 +11,11 @@ import ProfileImageUploader from "@/components/shared/ProfileImageUploader";
 import {
   getProfile,
   handleChangeProfilePicture,
+  updatecompany,
   updateProfile,
 } from "@/services/Auth";
 import { getCities, getCountries, getStates } from "@/services/cms";
 import { EditOnlyProfileSchema } from "@/utils/schema";
-
-// created by mukul - 07-06-2025
 
 const initialUserDetails = {
   name: "",
@@ -27,8 +26,7 @@ const initialUserDetails = {
 
 const initializeCompanyDetails = {
   company_name: "",
-  about: "",
-  address: "",
+  about_company: "",
   street_address: "",
   postal_code: "",
   established_year: "",
@@ -45,6 +43,12 @@ const initializeLocation = {
   cities: [],
 };
 
+/**
+ * mukul 09-06-2025
+ * creating this companent for user edit profile page, this is going to be use for admin, procurment, finalce, eng team, vendor user type accounts
+ * for now creathing this here only but once we start working on vendor profile page we move this to component=>dashboard folder as this component is common for all users we have
+ */
+
 const EditProfile = () => {
   const [userDetails, setUserDetails] = useState(initialUserDetails);
   const [companyDetails, setCompanyDetails] = useState(
@@ -55,6 +59,8 @@ const EditProfile = () => {
   const [mainLoading, setMainLoading] = useState(false);
   const [profileImageLoading, setProfileImageLoading] = useState(false);
   const [userProfileLogo, setUserProfileLogo] = useState(null);
+
+  const isCompanyEditableForUserRef = useRef(null);
 
   // fetch initial data
   const fetchInitialData = async () => {
@@ -72,6 +78,14 @@ const EditProfile = () => {
         data?.mobile || "+91-"
       ).split("-");
 
+      //  company is editable only if user type is 3 or 7 ( company admin )
+      isCompanyEditableForUserRef.current =
+        data?.user_type === 3 || data?.user_type === 7;
+      console.log(
+        isCompanyEditableForUserRef.current,
+        "isCompanyEditableForUserRef.current"
+      );
+
       // user profile logo
       setUserProfileLogo(data?.logo);
 
@@ -86,9 +100,8 @@ const EditProfile = () => {
       // update company details state
       setCompanyDetails({
         company_name: data?.company_name || "",
-        about: data?.about || "",
-        address: data?.address || "",
-        street_address: data?.building_name || "",
+        about_company: data?.about || "",
+        street_address: data?.address || "",
         postal_code: data?.postal_code || "",
         established_year: data?.established_year || "",
         gstin: data?.gstin || "",
@@ -144,7 +157,7 @@ const EditProfile = () => {
       city: values?.city?.value || null,
     };
 
-    updateProfile(payload)
+    updatecompany(payload)
       .then((res) => {
         toast(res.message);
         fetchInitialData();
@@ -263,6 +276,8 @@ const EditProfile = () => {
                           touched={touched}
                           errors={errors}
                           required
+                          placeholder="e.g. Workwise Solutions Pvt. Ltd."
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-6">
@@ -272,15 +287,20 @@ const EditProfile = () => {
                           label="Estd. Year"
                           touched={touched}
                           errors={errors}
+                          placeholder="e.g. 2018"
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-12">
                         <CommonFormInput
-                          name="about"
+                          name="about_company"
                           type="textarea"
                           label="About"
                           touched={touched}
                           errors={errors}
+                          setFieldValue={setFieldValue}
+                          placeholder="Brief description about your company"
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-6">
@@ -289,6 +309,8 @@ const EditProfile = () => {
                           label="GSTIN"
                           touched={touched}
                           errors={errors}
+                          placeholder="Enter 15-digit GSTIN (e.g. 27AAECS1234F1Z2)"
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-6">
@@ -297,14 +319,19 @@ const EditProfile = () => {
                           label="Website"
                           touched={touched}
                           errors={errors}
+                          type="url"
+                          placeholder="e.g. https://www.yourcompany.com"
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-6">
                         <CommonFormInput
-                          name="address"
+                          name="street_address"
                           label="Street Address"
                           touched={touched}
                           errors={errors}
+                          placeholder="e.g. 271 Business Park, Western Express Highway"
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-6">
@@ -313,6 +340,8 @@ const EditProfile = () => {
                           label="Pin Code"
                           touched={touched}
                           errors={errors}
+                          placeholder="e.g. 110001"
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
 
@@ -341,6 +370,7 @@ const EditProfile = () => {
                               }))
                             );
                           }}
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-4">
@@ -367,6 +397,7 @@ const EditProfile = () => {
                             );
                             setFieldValue("city", null); // reset city on state change
                           }}
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
                       <div className="col-md-4">
@@ -386,13 +417,16 @@ const EditProfile = () => {
                           onChange={(option) => {
                             setFieldValue("city", option.value);
                           }}
+                          disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
-                      <div className="col-12 text-end">
-                        <button type="submit" className="btn btn-secondary">
-                          Save
-                        </button>
-                      </div>
+                      {isCompanyEditableForUserRef.current && (
+                        <div className="col-12 text-end">
+                          <button type="submit" className="btn btn-secondary">
+                            Save
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </Form>
                 )}

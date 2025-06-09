@@ -7662,3 +7662,10 @@ td:hover .tooltip_custom {
   border: none;
   outline: none;
 }
+
+
+.placeholder-muted::placeholder {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  color: #6c757d;
+}
