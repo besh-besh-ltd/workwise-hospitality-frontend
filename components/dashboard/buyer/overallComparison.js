@@ -269,7 +269,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       OVERALL COMPARISON CHART
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
-                      <div className="d-flex">
+                      {/* <div className="d-flex">
                         <div className="ms-auto d-flex gap-2">
                           <span className="badge bg-success">Lowest</span>
                           <span className="badge bg-warning text-dark">
@@ -277,7 +277,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                           </span>
                           <span className="badge bg-danger">Regret</span>
                         </div>
-                      </div>
+                      </div> */}
                     </th>
                   </tr>
                   <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>

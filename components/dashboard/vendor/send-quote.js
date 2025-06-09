@@ -499,14 +499,32 @@ const SendQuotePageComp = () => {
   }
 
   useEffect(() => {
-    let p = quoteProducts.map((item) => {
-      item["freight_price"] = globalFreight || 0;
-      item["package_price"] = globalPackaging || 0;
-      item["tax"] = globalTax || 0;
-      return item;
-    });
-    calculateTotal(p);
-  }, [globalTax, globalPackaging, globalFreight]);
+    const updated = quoteProducts.map((item) => ({
+      ...item,
+      freight_price:
+        globalFreight === "" ? "" : globalFreight ?? item.freight_price ?? 0,
+    }));
+    calculateTotal(updated);
+  }, [globalFreight]);
+
+  useEffect(() => {
+    const updated = quoteProducts.map((item) => ({
+      ...item,
+      package_price:
+        globalPackaging === ""
+          ? ""
+          : globalPackaging ?? item.package_price ?? 0,
+    }));
+    calculateTotal(updated);
+  }, [globalPackaging]);
+
+  useEffect(() => {
+    const updated = quoteProducts.map((item) => ({
+      ...item,
+      tax: globalTax === "" ? "" : globalTax ?? item.tax ?? 0,
+    }));
+    calculateTotal(updated);
+  }, [globalTax]);
 
   return (
     <>
