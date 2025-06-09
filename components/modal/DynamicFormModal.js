@@ -10,6 +10,13 @@ import {
 import { faClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { toast } from 'react-toastify';
+import { 
+    addVendorSchema, 
+    dynamicProjectSchema, 
+    dynamicProjectEditSchema, 
+    dynamicAccountEditSchema, 
+    dynamicTeamMemberSchema 
+} from '@/utils/schema';
 
 // Custom styles for Product Select Component
 const customStyles = {
@@ -35,18 +42,25 @@ const CustomSelectOption = (props) => (
 const DynamicFormModal = ({
     type,
     projectData,
+    accountData,
+    teamMemberUsers,
     openModal,
     closeModal,
     handleAddVendor,
     handleCreateProject,
     handleEditProject,
-    countryCodes
+    handleEditAccount,
+    handleAddTeamMember,
+    countryCodes,
+    roleOptions,
+    projectOptions
 }) => {
 
     const initialVendorValues = {
         vendorName: "",
         email: "",
         phone: "",
+        countryCode: "+91",
         is_private: 0
     };
 
@@ -58,13 +72,46 @@ const DynamicFormModal = ({
     defaultEndDate.setDate(today.getDate() + 30); // Default to 30 days ahead
 
     const initialProjectValues = {
-        projectName: projectData?.name || "",
-        projectDescription: projectData?.description || "",
+        name: projectData?.name || "",
+        description: projectData?.description || "",
         location: projectData?.location || "",
         ended_at: projectData?.ended_at?.slice(0, 10) || defaultEndDate.toISOString().slice(0, 10),
         rfq_type: projectData?.rfq_type || "",
-        reverse_auction: projectData?.reverse_auction ? 1 : 0
+        reverse_auction: projectData?.reverse_auction ? 1 : 0,
+        ...(type === "edit-project" && { status: projectData?.status !== undefined ? projectData?.status : 1 })
     }
+
+    // For account edit form
+    const parseMobile = (mobile) => {
+        if (!mobile) return { countryCode: "+91", mobileNumber: "" };
+        
+        const parts = mobile.split('-');
+        if (parts.length === 2) {
+            return { countryCode: parts[0], mobileNumber: parts[1] };
+        }
+        return { countryCode: "+91", mobileNumber: mobile };
+    };
+
+    const { countryCode, mobileNumber } = accountData?.mobile 
+        ? parseMobile(accountData.mobile) 
+        : { countryCode: "+91", mobileNumber: "" };
+
+    const initialAccountValues = {
+        id: accountData?.id || "",
+        name: accountData?.name || "",
+        email: accountData?.email || "",
+        mobile: mobileNumber || "",
+        countryCode: countryCode || "+91",
+        role: accountData?.role ? roleOptions?.find(r => r.value === accountData.role) : null,
+        projects: accountData?.projects 
+            ? projectOptions?.filter(p => accountData.projects.includes(p.value))
+            : [],
+        status: accountData?.status || "active"
+    };
+
+    const initialTeamMemberValues = {
+        user: null
+    };
 
     const [vendorApprovedList, setVendorApprovedList] = useState([]);
     const [vendorProductsList, setVendorProductsList] = useState([]);
@@ -73,46 +120,6 @@ const DynamicFormModal = ({
     const [selectedApprovedBy, setSelectedApprovedBy] = useState([]);
     const [currentProduct, setCurrentProduct] = useState(null);
     const [vendorProductDetails, setProductDetails] = useState([]);
-
-
-    const validateVendorSchema = yup.object().shape({
-        vendorName: yup.string().required("Name is required")
-            .min(2, "Name not less than 2 characters short")
-            .max(50, "Name not more than 50 characters long"),
-        email: yup.string().email()
-            .matches(
-                /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-                "Please enter valid email address"
-            )
-            .required("Email is required"),
-        phone: yup
-            .string()
-            .matches(
-              /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im,
-              "Please enter a valid mobile number"
-            )
-            .min(7, "Minimum 7 digits are required")
-            .max(15, "Mobile number cannot be more than 15 digits long")
-            .required("Mobile number is required")
-
-    });
-
-    const validateProjectSchema = yup.object().shape({
-        projectName: yup.string().required("Project Name is required")
-            .min(2, "Name not less than 2 characters short")
-            .max(50, "Name not more than 50 characters long"),
-        projectDescription: yup.string(),
-        location: yup.string(),
-        ended_at: yup.date(),
-        rfq_type: yup.string()
-            .oneOf(['', 'firm', 'budgetary'], 'Invalid RFQ Type')
-            .nullable(),
-        reverse_auction: yup.string()
-            .oneOf(['0', '1', '-1'], 'Invalid Reverse Auction value')
-            .required('Reverse Auction selection is required')
-    });
-
-    // for product related
 
     // Function to fetch vendor approved-by list
     const getVendorApproveList = () => {
@@ -267,24 +274,55 @@ const DynamicFormModal = ({
             // getVendorProductList();
         }, [])
 
-        const handleSubmit = (values,resetForm) => {
+        const processVendorCreate = (values, resetForm) => {
+            const fullMobile = `${values.countryCode || '+91'}-${values.phone.trim().replace(/^0+/, '')}`;
 
-            const fullMobile = `${values.countryCode}-${values.phone.trim().replace(/^0+/, '')}`;
-
-
-           const {countryCode, ...updatedData} = {
-            ...values,
-            phone: fullMobile
-           }
+            const requestData = {
+                vendorName: values.vendorName, // this is org name not vendor spoc name
+                email: values.email,
+                phone: fullMobile,
+                is_private: values.is_private,
+                productDetails: vendorProductDetails
+            };
 
             if(currentProduct){
                 toast.error("Please Add/Remove The Selected Product First!", { position: "top-right" });
                 return;
             }
 
-            handleAddVendor(updatedData,vendorProductDetails,resetForm);
+            handleAddVendor(requestData, vendorProductDetails, resetForm);
             closeModal();
         }
+        // Handle account edit form submission
+        const processAccountEdit = (values, resetForm) => {
+            // Format mobile with country code
+            const formattedMobile = `${values.countryCode}-${values.mobile}`;
+            
+            // Format the account data for submission
+            const accountData = {
+                id: values.id,
+                name: values.name,
+                email: values.email,
+                mobile: formattedMobile,
+                role: values.role?.value,
+                projects: values.projects?.map(p => p.value) || [],
+                status: values.status
+            };
+
+            // Call the parent function to save the data
+            handleEditAccount(accountData, resetForm);
+            closeModal();
+        };
+
+        const processTeamMemberAdd = (values, resetForm) => {
+            const teamMemberData = {
+                user_id: values.user.value,
+                role: parseInt(values.user.role)
+            };
+
+            handleAddTeamMember(teamMemberData, resetForm);
+            closeModal();
+        };
 
         const removeSelectedVendor = (prodItem) => {
             setProductDetails((prevState) =>
@@ -301,6 +339,52 @@ const DynamicFormModal = ({
 Example:
 'Construction of a 500-meter pipeline at XYZ site, including material procurement, welding, and testing. The project duration is 6 months, with a deadline of [specific date]. Requires adherence to ISO standards and includes three key phases: excavation, installation, and testing.'`;
 
+        // Handle project create form submission
+        const processProjectCreate = (values, resetForm) => {
+            const projectData = {
+                name: values.name,
+                description: values.description,
+                location: values.location,
+                rfq_type: values.rfq_type,
+                reverse_auction: Number(values.reverse_auction),
+                ended_at: values.ended_at
+            };
+
+            // Call the parent function to save the data
+            handleCreateProject(projectData, resetForm);
+            closeModal();
+        };
+
+        // Handle project edit form submission
+        const processProjectEdit = (values, resetForm) => {
+            const projectData = {
+                description: values.description,
+                location: values.location,
+                rfq_type: values.rfq_type,
+                reverse_auction: Number(values.reverse_auction),
+                ended_at: values.ended_at,
+                status: values.status !== undefined ? Number(values.status) : 1
+            };
+
+            // Call the parent function to save the data
+            handleEditProject(projectData, resetForm);
+            closeModal();
+        };
+
+        const userOptions = teamMemberUsers?.map(user => ({
+            value: user.id,
+            label: `${user.name} (${user.email})`,
+            email: user.email,
+            role: user.role,
+            name: user.name
+        })) || [];
+
+        // Get role label and color
+        const getRoleInfo = (roleId) => {
+            const role = roleOptions?.find(r => r.value === roleId);
+            return role || { label: "Unknown", color: "#000000" };
+        };
+
     return (
       <>
         <Modal
@@ -308,7 +392,17 @@ Example:
           onRequestClose={closeModal}
           ariaHideApp={false}
           contentLabel={
-            type === "add-vendor" ? "Add Vendor Modal" : "Create Project Modal"
+            type === "add-vendor" 
+              ? "Add Vendor Modal" 
+              : type === "create-project"
+              ? "Create Project Modal"
+              : type === "edit-project"
+              ? "Edit Project Modal"
+              : type === "edit-account"
+              ? "Edit Account Modal"
+              : type === "add-team-member"
+              ? "Add Team Member Modal"
+              : "Dynamic Form Modal"
           }
           className="login-register"
           style={{
@@ -349,28 +443,55 @@ Example:
                       ? "Add Single Vendor"
                       : type === "create-project"
                       ? "Create Project"
-                      : "Edit Project"}
+                      : type === "edit-project"
+                      ? "Edit Project"
+                      : type === "edit-account"
+                      ? "Edit Account"
+                      : type === "add-team-member"
+                      ? "Add Team Member"
+                      : ""}
                   </h2>
                   <Formik
                     initialValues={
                       type === "add-vendor"
                         ? initialVendorValues
-                        : initialProjectValues
+                        : type === "create-project" || type === "edit-project"
+                        ? initialProjectValues
+                        : type === "edit-account"
+                        ? initialAccountValues
+                        : type === "add-team-member"
+                        ? initialTeamMemberValues
+                        : {}
                     }
                     validationSchema={
                       type === "add-vendor"
-                        ? validateVendorSchema
-                        : validateProjectSchema
+                        ? addVendorSchema
+                        : type === "create-project"
+                        ? dynamicProjectSchema
+                        : type === "edit-project"
+                        ? dynamicProjectEditSchema
+                        : type === "edit-account"
+                        ? dynamicAccountEditSchema
+                        : type === "add-team-member"
+                        ? dynamicTeamMemberSchema
+                        : {}
                     }
+                    enableReinitialize={true}
                     onSubmit={(values, { resetForm }) => {
                       type === "add-vendor"
-                        ? handleSubmit(values, resetForm)
+                        ? processVendorCreate(values, resetForm)
                         : type === "create-project"
-                        ? handleCreateProject(values, resetForm)
-                        : handleEditProject(values, resetForm);
+                        ? processProjectCreate(values, resetForm)
+                        : type === "edit-project"
+                        ? processProjectEdit(values, resetForm)
+                        : type === "edit-account"
+                        ? processAccountEdit(values, resetForm)
+                        : type === "add-team-member"
+                        ? processTeamMemberAdd(values, resetForm)
+                        : null;
                     }}
                   >
-                    {({ errors, isValid, touched, setFieldValue }) => (
+                    {({ errors, isValid, touched, setFieldValue, values }) => (
                       <Form className="row add-vendor-modal-form">
                         <div className="col-md-6">
                           {type === "add-vendor" ? (
@@ -499,23 +620,178 @@ Example:
                                 )}
                               </div>
                             </>
+                          ) : type === "edit-account" ? (
+                            <>
+                              {/* Account Edit Form Fields (Left Column) */}
+                              <div className="form-group">
+                                <label htmlFor="name">
+                                  Name <sup>*</sup>
+                                </label>
+                                <Field
+                                  type="text"
+                                  id="name"
+                                  name="name"
+                                  placeholder="John Doe"
+                                />
+                                {touched.name && errors.name && (
+                                  <div className="form-error">
+                                    {errors.name}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="form-group">
+                                <label htmlFor="email">
+                                  Email <sup>*</sup>
+                                </label>
+                                <Field
+                                  type="email"
+                                  id="email"
+                                  name="email"
+                                  placeholder="john@example.com"
+                                />
+                                {touched.email && errors.email && (
+                                  <div className="form-error">
+                                    {errors.email}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="form-group">
+                                <label htmlFor="mobile">
+                                  Mobile <sup>*</sup>
+                                </label>
+                                
+                                {/* Flexbox container for country code dropdown and mobile input */}
+                                <div className="d-flex align-items-center gap-2 position-relative">
+                                  {/* Country Code Dropdown */}
+                                  <Field name="countryCode">
+                                    {({ field, form }) => (
+                                      <select
+                                        {...field}
+                                        className="form-select border border-success"
+                                        style={{ width: "30%", height: "54px" }}
+                                        onChange={(e) =>
+                                          form.setFieldValue(
+                                            "countryCode",
+                                            e.target.value
+                                          )
+                                        }
+                                      >
+                                        {countryCodes.map((country) => (
+                                          <option
+                                            key={country.phone_code}
+                                            value={country.phone_code}
+                                          >
+                                            {country.country_code} (
+                                            {country.phone_code})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </Field>
+
+                                  {/* Mobile Number Input */}
+                                  <Field
+                                    type="text"
+                                    id="mobile"
+                                    name="mobile"
+                                    className={`form-control border border-success ${
+                                      touched.mobile && errors.mobile
+                                        ? "is-invalid"
+                                        : ""
+                                    }`}
+                                    placeholder="Ex. 9123456789"
+                                    style={{ flex: "1", height: "54px" }}
+                                  />
+                                </div>
+
+                                {/* Validation Error Message BELOW both fields */}
+                                {touched.mobile && errors.mobile && (
+                                  <div className="invalid-feedback d-block mt-1">
+                                    {errors.mobile}
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          ) : type === "add-team-member" ? (
+                            <>
+                              <div className="form-group">
+                                <label htmlFor="user" className="form-label">
+                                  Select User <span className="text-danger">*</span>
+                                </label>
+                                <Field name="user">
+                                  {({ field, form }) => (
+                                    <Select
+                                      options={userOptions}
+                                      value={field.value}
+                                      onChange={(option) => form.setFieldValue('user', option)}
+                                      className={`${touched.user && errors.user ? 'is-invalid' : ''}`}
+                                      placeholder="Select a user"
+                                      styles={{
+                                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                        menu: (base) => ({ ...base, maxHeight: '200px' }),
+                                        menuList: (base) => ({ ...base, maxHeight: '200px' })
+                                      }}
+                                      menuPortalTarget={document.body}
+                                      menuPosition={'fixed'}
+                                    />
+                                  )}
+                                </Field>
+                                {touched.user && errors.user && (
+                                  <div className="form-error">{errors.user}</div>
+                                )}
+                              </div>
+
+                              {values.user && (
+                                <div className="form-group">
+                                  <div className="card bg-light">
+                                    <div className="card-body">
+                                      <h5 className="card-title">User Details</h5>
+                                      <div className="d-flex justify-content-between mb-2">
+                                        <span>Name:</span>
+                                        <strong>{values.user.name}</strong>
+                                      </div>
+                                      <div className="d-flex justify-content-between mb-2">
+                                        <span>Email:</span>
+                                        <strong>{values.user.email}</strong>
+                                      </div>
+                                      <div className="d-flex justify-content-between align-items-center">
+                                        <span>Role:</span>
+                                        <span
+                                          className="badge"
+                                          style={{
+                                            backgroundColor: getRoleInfo(values.user.role).color,
+                                            color: getRoleInfo(values.user.role).color === "#FFE600" ? "#000" : "#fff",
+                                            padding: "6px 10px"
+                                          }}
+                                        >
+                                          {getRoleInfo(values.user.role).label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
                           ) : (
                             <>
                               {/* project fields section */}
                               <div className="form-group">
-                                <label htmlFor="projectName">
+                                <label htmlFor="name">
                                   Project Name <sup>*</sup>
                                 </label>
                                 <Field
                                   type="text"
-                                  id="projectName"
-                                  name="projectName"
+                                  id="name"
+                                  name="name"
                                   placeholder="Demo Project Name"
                                   disabled={type === "edit-project"}
+                                  style={type === "edit-project" ? { backgroundColor: '#f8f9fa', cursor: 'not-allowed' } : {}}
                                 />
-                                {touched.projectName && errors.projectName && (
+                                {touched.name && errors.name && (
                                   <div className="form-error">
-                                    {errors.projectName}
+                                    {errors.name}
                                   </div>
                                 )}
                               </div>
@@ -579,19 +855,6 @@ Example:
                         <div className="col-md-6">
                           {type === "add-vendor" ? (
                             // Here we have to add product dropdown
-
-                            // <div className="form-group">
-                            //     <label htmlFor="productList">Product List <sup>*</sup></label>
-                            //     <Field
-                            //         component="textarea"
-                            //         id="productList"
-                            //         name="productList"
-                            //         placeholder="Brass Binding Wire, Ceramic Marble..."
-                            //     />
-                            //     {touched.productList && errors.productList && (
-                            //         <div className="form-error">{errors.productList}</div>
-                            //     )}
-                            // </div>
                             <div className="form-group">
                               <div className="col-md-10 mb-2">
                                 <div className="mb-2">
@@ -688,6 +951,59 @@ Example:
                                   </div>
                                 )}
                             </div>
+                          ) : type === "edit-account" ? (
+                            // Account Edit Form Fields (Right Column)
+                            <>
+                              <div className="form-group">
+                                <label htmlFor="role">Role <sup>*</sup></label>
+                                <Field name="role">
+                                  {({ field, form }) => (
+                                    <Select
+                                      options={roleOptions}
+                                      value={field.value}
+                                      onChange={(option) => form.setFieldValue('role', option)}
+                                      placeholder="Select Role"
+                                      styles={{
+                                        option: (provided, state) => ({
+                                          ...provided,
+                                          color: state.data.color || '#212529',
+                                          fontWeight: 'bold'
+                                        })
+                                      }}
+                                    />
+                                  )}
+                                </Field>
+                                {touched.role && errors.role && (
+                                  <div className="form-error">{errors.role}</div>
+                                )}
+                              </div>
+
+                              <div className="form-group">
+                                <label htmlFor="projects">Projects</label>
+                                <Field name="projects">
+                                  {({ field, form }) => (
+                                    <Select
+                                      options={projectOptions}
+                                      value={field.value}
+                                      onChange={(selected) => form.setFieldValue('projects', selected || [])}
+                                      placeholder="Select Projects"
+                                      isMulti
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+
+                              <div className="form-group">
+                                <label htmlFor="status">Status</label>
+                                <Field as="select" name="status" className="form-select">
+                                  <option value="active">Active</option>
+                                  <option value="inactive">Inactive</option>
+                                </Field>
+                              </div>
+                            </>
+                          ) : type === "add-team-member" ? (
+                            // Empty right column for team member modal
+                            <div></div>
                           ) : (
                             <>
                               <div className="form-group">
@@ -717,22 +1033,37 @@ Example:
                               </div>
 
                               <div className="form-group">
-                                <label htmlFor="projectDescription">
+                                <label htmlFor="description">
                                   Project Description
                                 </label>
                                 <Field
                                   component="textarea"
-                                  id="projectDescription"
-                                  name="projectDescription"
+                                  id="description"
+                                  name="description"
                                   placeholder={placeholderText}
                                 />
-                                {touched.projectDescription &&
-                                  errors.projectDescription && (
+                                {touched.description &&
+                                  errors.description && (
                                     <div className="form-error">
-                                      {errors.projectDescription}
+                                      {errors.description}
                                     </div>
                                   )}
                               </div>
+                              
+                              {type === "edit-project" && (
+                                <div className="form-group">
+                                  <label htmlFor="status">Status</label>
+                                  <Field
+                                    as="select"
+                                    id="status"
+                                    name="status"
+                                    className="form-control"
+                                  >
+                                    <option value={1}>Active</option>
+                                    <option value={0}>Inactive</option>
+                                  </Field>
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
@@ -743,10 +1074,16 @@ Example:
                             class="btn btn-success btn-sm"
                           >
                             {type === "add-vendor"
-                              ? "Add vendor"
+                              ? "Add Vendor"
                               : type === "create-project"
-                              ? "Create"
-                              : "Update"}
+                              ? "Create Project"
+                              : type === "edit-project"
+                              ? "Update Project"
+                              : type === "edit-account"
+                              ? "Update Account"
+                              : type === "add-team-member"
+                              ? "Add to Team"
+                              : "Submit"}
                           </button>
                         </div>
                       </Form>

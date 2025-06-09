@@ -25,8 +25,8 @@ const ProjectManagement = () => {
         setLoading(true)
         getAllProjects()
             .then((res) => {
-                setAllProjects(res.data)
-                setTotalData(res.data.length)
+                setAllProjects(res?.data?.data)
+                setTotalData(res?.data?.data?.length)
             })
             .catch((error) => {
                 console.log(error)

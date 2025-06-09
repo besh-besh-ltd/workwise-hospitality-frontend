@@ -1,6 +1,12 @@
 import React from "react";
 import NotificationPage from "@/components/dashboard/vendor/notification";
 import Head from "next/head";
+
+
+// mukul 05-06-2025
+//  THIS page is not in use, cross check and remove
+
+
 const Notification = () => {
   return (
     <>
