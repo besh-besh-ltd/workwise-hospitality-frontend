@@ -161,7 +161,7 @@ const CreateAccountPage = () => {
                                 label="Role"
                                 type="select"
                                 options={roleOptions}
-                                values={values}
+                                values={values.role}
                                 setFieldValue={setFieldValue}
                                 touched={touched}
                                 errors={errors}

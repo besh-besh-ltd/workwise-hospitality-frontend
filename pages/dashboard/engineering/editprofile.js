@@ -1,5 +1,5 @@
 import React from "react";
-import EditProfilePage from "@/components/dashboard/buyer/editprofile";
+import EditProfilePage from "@/components/dashboard/admin/editprofile";
 import Head from "next/head";
 
 const EditProfile = () => {
