@@ -93,10 +93,7 @@ const CommonFormInput = ({
         const response = await getCountryCodes();
         if (response?.data) {
           setCountryCodes(response.data);
-          console.log("label ....65 ...", label, name, values);
-
-          const countryCode = values?.split("-"); // expected value is
-          console.log("label =>", label,name,  countryCode); // ex value is +91
+          // const countryCode = values?.split("-"); // expected value is
         }
       } catch (error) {
         console.error("Error fetching country codes:", error);
@@ -112,7 +109,7 @@ const CommonFormInput = ({
     return (
       <div className="form-group mb-3">
         <label htmlFor={name} className="form-label">
-          {label} <span className="text-danger">*</span>
+          {label} {required && <span className="text-danger">*</span>}
         </label>
         <div className="d-flex">
           <Field name="countryCode" className="placeholder-muted" >
