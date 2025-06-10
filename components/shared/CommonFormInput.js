@@ -73,7 +73,7 @@ const CommonFormInput = ({
         id={name}
         disabled={disabled}
         name={name}
-        className={`form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
+        className={`placeholder-muted form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
         placeholder={placeholder || `Enter ${label}`}
         value={values}
         onChange={(e) => setFieldValue(name, e.target.value)}
