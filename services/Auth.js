@@ -346,7 +346,18 @@ export const getCompanyUsers = () => {
 export const getUserProjectsByUserId = (userId) => {
 	return new Promise(async (resolve, reject) => {
 		try {
-			let response = await axiosInstance.get(`/project/user/${userId}/projects`);
+			let response = await axiosInstance.get(`/projects/user/${userId}/projects`);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};
+
+export const getBuyerAccountLimits = () => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.get(`/users/buyer-account-limits`);
 			resolve(response);
 		} catch (error) {
 			reject({ message: error });
