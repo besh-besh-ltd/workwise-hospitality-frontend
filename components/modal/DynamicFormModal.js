@@ -107,7 +107,7 @@ const DynamicFormModal = ({
         projects: accountData?.projects 
             ? projectOptions?.filter(p => accountData.projects.includes(p.value))
             : [],
-        status: accountData?.status || "active"
+        status: accountData?.status === 1 || accountData?.status === "1" ? "active" : "inactive"
     };
 
     const initialTeamMemberValues = {
@@ -299,22 +299,21 @@ const DynamicFormModal = ({
             // Format mobile with country code
             const formattedMobile = `${values.countryCode}-${values.mobile}`;
             
-            // Format the account data for submission
+            // Create account data object
             const accountData = {
                 id: values.id,
                 name: values.name,
                 email: values.email,
                 mobile: formattedMobile,
+                status: typeof values.status === 'object' ? values.status.value : values.status
             };
 
-            // Only include role and projects if not editing an admin (role 7)
+            // Add role if not editing an admin
             if (values.role?.value !== 7) {
                 accountData.role = values.role?.value;
                 accountData.projects = values.projects?.map(p => p.value) || [];
             }
             
-            accountData.status = values.status;
-
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
             closeModal();
@@ -911,7 +910,7 @@ Example:
                                     name="role"
                                     label="Role"
                                     type="select"
-                                    options={roleOptions}
+                                    options={roleOptions.filter(role => role.value !== 7)}
                                     touched={touched}
                                     errors={errors}
                                     values={values.role}
@@ -943,10 +942,15 @@ Example:
                                 ]}
                                 touched={touched}
                                 errors={errors}
-                                values={values.status === "active" 
-                                  ? { value: "active", label: "Active" } 
-                                  : { value: "inactive", label: "Inactive" }}
+                                values={
+                                  typeof values.status === 'object' 
+                                    ? values.status 
+                                    : values.status === "active" || values.status === 1 || values.status === "1"
+                                      ? { value: "active", label: "Active" } 
+                                      : { value: "inactive", label: "Inactive" }
+                                }
                                 setFieldValue={setFieldValue}
+                                required={true}
                               />
                             </>
                           ) : type === "add-team-member" ? (

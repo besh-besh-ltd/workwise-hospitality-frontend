@@ -7,7 +7,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import Select from "react-select";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { getCompanyUsers, updateUserAccount } from "@/services/Auth";
-import { getAllProjects, getUserProjectsByUserId } from "@/services/project";
+import { getAllProjects, getUserProjectsByUserId, addTeamMember, removeTeamMember } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
 import { toast } from "react-toastify";
 import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
@@ -164,35 +164,45 @@ const ManageAccountsPage = () => {
         name: updatedAccount.name,
         email: updatedAccount.email,
         mobile: updatedAccount.mobile,
+        status: updatedAccount.status === "active" ? 1 : 0
       };
       
-      // Add role and projects to payload if they were included in the updated account
-      // (they won't be included for Admin users with role 7)
-      if (updatedAccount.role !== undefined) {
-        payload.role = updatedAccount.role;
-      }
-      
-      if (updatedAccount.projects !== undefined) {
-        payload.projects = updatedAccount.projects;
-      }
-      
-      if (updatedAccount.status !== undefined) {
-        payload.status = updatedAccount.status;
+      if (updatedAccount.role) {
+        payload.role = Number(updatedAccount.role);
       }
       
       const res = await updateUserAccount(updatedAccount.id, payload);
 
-      if (res?.status === 1) {
-        toast.success("Account updated successfully!");
-        await fetchUsers();
-        setUiState((prev) => ({
-          ...prev,
-          modals: { showEditModal: false, selectedAccount: null },
-        }));
-      } else toast.error("Failed to update account");
+      if (updatedAccount.role !== 7 && res?.status === 1 && updatedAccount.projects) {
+        try {
+          const currentProjects = await getUserProjectsByUserId(updatedAccount.id);
+          const currentIds = currentProjects?.data?.data?.map(p => p.id) || [];
+          const newIds = updatedAccount.projects || [];
+          
+          for (const id of newIds.filter(id => !currentIds.includes(id))) {
+            await addTeamMember(id, {
+              user_id: updatedAccount.id,
+              role: updatedAccount.role
+            });
+          }
+          
+          for (const id of currentIds.filter(id => !newIds.includes(id))) {
+            await removeTeamMember(id, updatedAccount.id);
+          }
+        } catch (err) {
+          console.error("Error updating projects:", err);
+        }
+      }
+
+      await fetchUsers();
+      toast.success("User updated successfully");
+      setUiState((prev) => ({
+        ...prev,
+        modals: { showEditModal: false, selectedAccount: null },
+      }));
     } catch (err) {
-      console.error("Update error:", err);
-      toast.error(err?.response?.data?.message || "Failed to update account");
+      console.error("Error updating user:", err);
+      toast.error("Failed to update user");
     } finally {
       setUiState((prev) => ({ ...prev, loading: false }));
     }
