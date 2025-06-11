@@ -21,14 +21,20 @@ import { getCountryCodes } from "@/services/cms";
 const CommonFormInput = ({
   name,
   label,
+  labelBold,
   type = "text", // text, email, password, select, multiselect, mobile, textarea
   options = [],
   isMulti = false,
+  isClearable = true,
+  isSearchable = true,
   touched,
   errors,
   values,
+  defaultValue,
   setFieldValue,
+  onChange,
   className = "",
+  style,
   placeholder = "",
    required = false, 
    disabled = false
@@ -40,7 +46,9 @@ const CommonFormInput = ({
   if (type === "select" || type === "multiselect") {
     return (
       <div className="form-group mb-3">
-        <label htmlFor={name} className="form-label">
+        <label htmlFor={name} className="form-label" style={{
+          fontWeight: labelBold ? '500' : '300'
+        }}>
           {label} {required && <span className="text-danger">*</span>}
         </label>
         <Select
@@ -48,13 +56,18 @@ const CommonFormInput = ({
           name={name}
           options={options}
           value={values}
-          onChange={(option) => {
-            console.log(name, option)
-            setFieldValue(name, option) }}
+          onChange={(option, action) => {
+              console.log(name, option)
+              setFieldValue && setFieldValue(name, option) 
+              onChange && onChange(option, action)
+            }
+          }
           isMulti={isMulti}
           placeholder={placeholder || `Select ${label}`}
           className={isInvalid ? "is-invalid" : ""}
           isDisabled={disabled}
+          isClearable={isClearable}
+          isSearchable={isSearchable}
         />
         {isInvalid && (
           <div className="invalid-feedback d-block">{errors[name]}</div>
@@ -75,9 +88,11 @@ const CommonFormInput = ({
         name={name}
         className={`placeholder-muted form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
         placeholder={placeholder || `Enter ${label}`}
+        defaultValue={defaultValue}
         value={values}
         onChange={(e) => setFieldValue(name, e.target.value)}
         rows={4}
+        style={style ?? {}}
       />
       {isInvalid && (
         <div className="invalid-feedback">{errors?.[name]}</div>

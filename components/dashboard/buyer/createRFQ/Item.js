@@ -17,6 +17,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
 import { addProductToDraft, addProductToExistingRfq, getClausesByRfqProductId } from "@/services/rfq";
+import CommonFormInput from "@/components/shared/CommonFormInput";
 
 const Item = ({
   rfq_id,
@@ -34,7 +35,12 @@ const Item = ({
   onClauseChange,
   selectedSheet,
   activeKey,
+  vendors,
   updatableData,
+
+  // Behavioural Html injection props
+  header,
+  footer,
 }) => {
   const dispatch = useDispatch();
   const [rfqProduct, setRfqProduct] = useState(data);
@@ -48,7 +54,7 @@ const Item = ({
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
 
-  const eventKey = `acc_event_key_${rfqProduct.product_id}_${rfqProduct.variant}`;
+  const eventKey = `${rfqProduct.id}`;
   const isActive = activeKey?.includes(eventKey);
 
   const handleSpecValue = (type, value) => {
@@ -298,6 +304,14 @@ const Item = ({
       </Accordion.Header>
 
       <Accordion.Body>
+        {header && (
+          <div
+            className="d-flex flex-wrap justify-content-between align-items-start"
+            style={{ height: "fit-content" }}
+          >
+            {header(data)}
+          </div>
+        )}
         <div
           className="d-flex flex-wrap   justify-content-between align-items-start "
           style={{ height: "fit-content" }}
@@ -306,14 +320,14 @@ const Item = ({
           <div className="d-flex flex-column justify-content-center align-items-center  gap-2">
             {/*start: prodiuct spec */}
             <div style={{ width: "100%" }}>
-              <label> Product Size </label>
-              <textarea
-                type="text"
+              <CommonFormInput
+                type="textarea"
+                label={"Product Size"}
                 defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Size")
                     ?.value || ""
                 }
-                onChange={(e) => handleSpecValue("size", e.target.value)}
+                setFieldValue={(_, value) => handleSpecValue("size", value)}
                 placeholder="Size"
                 className=" form-control"
                 style={{ height: "40px" }}
@@ -503,16 +517,16 @@ const Item = ({
           <div className=" px-2">
             {/*start: product spec */}
             <div style={{ width: "100%" }} className="mb-2">
-              <label> Product Specification </label>
-              <textarea
-                type="text"
+              <CommonFormInput
+                type="textarea"
+                label={"Product Specification"}
                 defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Spec")
                     ?.value || ""
                 }
-                onChange={(e) => handleSpecValue("spec", e.target.value)}
+                setFieldValue={(_, value) => handleSpecValue("spec", value)}
                 placeholder="Grade, Material and other Specs"
-                className="w-100 form-control"
+                className=" form-control"
                 style={{ height: "100px" }}
               />
             </div>
@@ -608,11 +622,14 @@ const Item = ({
                   {" "}
                   Selected Vendors - <strong>
                     {" "}
-                    {data.vendors?.length}{" "}
+                    {vendors ? vendors.length == 0 ? '-' : vendors.length : data.vendors?.length}
+                    {(updatableData.vendors?.[data.id]?.deletable ?? []).length > 0 ? (
+                      <span style={{ color: 'red' }}> - {updatableData.vendors[data.id].deletable.length}</span>
+                    ) : null}
                   </strong>{" "}
                 </span>
                 {
-                  type == 'create' ? (
+                  !handleViewVendorInEdit ? (
                     <Link
                       href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
                       className="btn btn-primary "
@@ -623,7 +640,7 @@ const Item = ({
                     </Link>
                   ) : (
                     <button
-                      onClick={handleViewVendorInEdit ?? null}
+                      onClick={handleViewVendorInEdit}
                       className="btn btn-primary "
                       // style={{ height: "40px" }}
                     >
@@ -668,6 +685,14 @@ const Item = ({
             )}
           </div>
         </div>
+        {footer && (
+          <div
+            className="d-flex flex-wrap justify-content-between align-items-start"
+            style={{ height: "fit-content" }}
+          >
+            {footer(data)}
+          </div>
+        )}
       </Accordion.Body>
     </Accordion.Item>
   );
