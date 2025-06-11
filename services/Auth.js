@@ -367,8 +367,19 @@ export const getBuyerAccountLimits = () => {
 export const updateUserAccount = (userId, accountData) => {
     return new Promise(async (resolve, reject) => {
         try {
-            // Using the new user endpoint for admin updating user accounts (with admin role check)
-            let response = await axiosInstance.put(`users/admin-update-user-account/${userId}`, accountData);
+            const payload = {
+                user_id: userId,
+                name: accountData.name,
+                email: accountData.email,
+                mobile: accountData.mobile,
+                status: accountData.status === "active" ? 1 : 0
+            };
+            
+            if (accountData.role) {
+                payload.user_type = Number(accountData.role);
+            }
+            
+            let response = await axiosInstance.put(`users/update-user-detail`, payload);
             resolve(response);
         } catch (error) {
             reject({ message: error });

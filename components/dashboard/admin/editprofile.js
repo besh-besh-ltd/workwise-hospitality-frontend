@@ -203,12 +203,13 @@ const EditProfile = () => {
               {profileImageLoading ? (
                 <FullLoader />
               ) : (
-                // user profile dispaly and update ( only company admin can update )
+                // user profile display and update ( only company admin can update )
                 <ProfileImageUploader
                   imageUrl={userProfileLogo}
                   placeholderUrl="/assets/images/user-img.png"
-                  onChange={uploadToClient}
+                  onChange={isCompanyEditableForUserRef.current ? uploadToClient : null}
                   loading={profileImageLoading}
+                  disabled={!isCompanyEditableForUserRef.current}
                 />
               )}
             </div>
