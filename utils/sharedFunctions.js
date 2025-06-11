@@ -1,6 +1,27 @@
 import axiosInstance from "@/lib/axios";
 import { handleUploadFile } from "@/services/rfq";
 
+/**
+ * Executes an asynchronous data-fetching function while managing a loading state.
+ * @async
+ * @function getDataWithLoading
+ * @param {Function} fetchingFunc - An asynchronous function that fetches data and returns a Promise.
+ * @param {Function} loadingSetter - A function to set the loading state (typically from a React state setter).
+ * @returns {Promise<*>} Returns the resolved value from the `fetchingFunc`.
+ * @throws {Error} Rethrows any error encountered during the execution of `fetchingFunc`.
+ */
+
+export const getDataWithLoading = async (fetchingFunc, loadingSetter) => {
+  try {
+    loadingSetter(true);
+    return await fetchingFunc();
+  } catch (error) {
+    throw error;
+  } finally {
+    loadingSetter(false);
+  }
+};
+
 export const textCapitalize = (str) => {
     if (!str) return str;
 

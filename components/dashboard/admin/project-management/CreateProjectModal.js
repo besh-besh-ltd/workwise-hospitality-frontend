@@ -9,6 +9,7 @@ import { createProjectSchema } from '@/utils/schema';
 
 const CreateProjectModal = ({ isOpen, closeModal, onSave }) => {
     const [loading, setLoading] = useState(false);
+    const [teamMembers, setTeamMembers] = useState([]);
 
     // Initial form values
     const initialValues = {
