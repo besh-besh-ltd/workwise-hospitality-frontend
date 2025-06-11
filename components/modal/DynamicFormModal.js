@@ -17,6 +17,7 @@ import {
     dynamicAccountEditSchema, 
     dynamicTeamMemberSchema 
 } from '@/utils/schema';
+import CommonFormInput from '@/components/shared/CommonFormInput';
 
 // Custom styles for Product Select Component
 const customStyles = {
@@ -623,96 +624,40 @@ Example:
                           ) : type === "edit-account" ? (
                             <>
                               {/* Account Edit Form Fields (Left Column) */}
-                              <div className="form-group">
-                                <label htmlFor="name">
-                                  Name <sup>*</sup>
-                                </label>
-                                <Field
-                                  type="text"
-                                  id="name"
-                                  name="name"
-                                  placeholder="John Doe"
-                                />
-                                {touched.name && errors.name && (
-                                  <div className="form-error">
-                                    {errors.name}
-                                  </div>
-                                )}
-                              </div>
+                              <CommonFormInput
+                                name="name"
+                                label="Name"
+                                type="text"
+                                placeholder="John Doe"
+                                touched={touched}
+                                errors={errors}
+                                values={values.name}
+                                setFieldValue={setFieldValue}
+                                required={true}
+                              />
                               
-                              <div className="form-group">
-                                <label htmlFor="email">
-                                  Email <sup>*</sup>
-                                </label>
-                                <Field
-                                  type="email"
-                                  id="email"
-                                  name="email"
-                                  placeholder="john@example.com"
-                                />
-                                {touched.email && errors.email && (
-                                  <div className="form-error">
-                                    {errors.email}
-                                  </div>
-                                )}
-                              </div>
+                              <CommonFormInput
+                                name="email"
+                                label="Email"
+                                type="email"
+                                placeholder="john@example.com"
+                                touched={touched}
+                                errors={errors}
+                                values={values.email}
+                                setFieldValue={setFieldValue}
+                                required={true}
+                              />
                               
-                              <div className="form-group">
-                                <label htmlFor="mobile">
-                                  Mobile <sup>*</sup>
-                                </label>
-                                
-                                {/* Flexbox container for country code dropdown and mobile input */}
-                                <div className="d-flex align-items-center gap-2 position-relative">
-                                  {/* Country Code Dropdown */}
-                                  <Field name="countryCode">
-                                    {({ field, form }) => (
-                                      <select
-                                        {...field}
-                                        className="form-select border border-success"
-                                        style={{ width: "30%", height: "54px" }}
-                                        onChange={(e) =>
-                                          form.setFieldValue(
-                                            "countryCode",
-                                            e.target.value
-                                          )
-                                        }
-                                      >
-                                        {countryCodes.map((country) => (
-                                          <option
-                                            key={country.phone_code}
-                                            value={country.phone_code}
-                                          >
-                                            {country.country_code} (
-                                            {country.phone_code})
-                                          </option>
-                                        ))}
-                                      </select>
-                                    )}
-                                  </Field>
-
-                                  {/* Mobile Number Input */}
-                                  <Field
-                                    type="text"
-                                    id="mobile"
-                                    name="mobile"
-                                    className={`form-control border border-success ${
-                                      touched.mobile && errors.mobile
-                                        ? "is-invalid"
-                                        : ""
-                                    }`}
-                                    placeholder="Ex. 9123456789"
-                                    style={{ flex: "1", height: "54px" }}
-                                  />
-                                </div>
-
-                                {/* Validation Error Message BELOW both fields */}
-                                {touched.mobile && errors.mobile && (
-                                  <div className="invalid-feedback d-block mt-1">
-                                    {errors.mobile}
-                                  </div>
-                                )}
-                              </div>
+                              <CommonFormInput
+                                name="mobile"
+                                label="Mobile"
+                                type="mobile"
+                                touched={touched}
+                                errors={errors}
+                                values={values.mobile}
+                                setFieldValue={setFieldValue}
+                                required={true}
+                              />
                             </>
                           ) : type === "add-team-member" ? (
                             <>
@@ -954,52 +899,45 @@ Example:
                           ) : type === "edit-account" ? (
                             // Account Edit Form Fields (Right Column)
                             <>
-                              <div className="form-group">
-                                <label htmlFor="role">Role <sup>*</sup></label>
-                                <Field name="role">
-                                  {({ field, form }) => (
-                                    <Select
-                                      options={roleOptions}
-                                      value={field.value}
-                                      onChange={(option) => form.setFieldValue('role', option)}
-                                      placeholder="Select Role"
-                                      styles={{
-                                        option: (provided, state) => ({
-                                          ...provided,
-                                          color: state.data.color || '#212529',
-                                          fontWeight: 'bold'
-                                        })
-                                      }}
-                                    />
-                                  )}
-                                </Field>
-                                {touched.role && errors.role && (
-                                  <div className="form-error">{errors.role}</div>
-                                )}
-                              </div>
+                              <CommonFormInput
+                                name="role"
+                                label="Role"
+                                type="select"
+                                options={roleOptions}
+                                touched={touched}
+                                errors={errors}
+                                values={values.role}
+                                setFieldValue={setFieldValue}
+                                required={true}
+                              />
 
-                              <div className="form-group">
-                                <label htmlFor="projects">Projects</label>
-                                <Field name="projects">
-                                  {({ field, form }) => (
-                                    <Select
-                                      options={projectOptions}
-                                      value={field.value}
-                                      onChange={(selected) => form.setFieldValue('projects', selected || [])}
-                                      placeholder="Select Projects"
-                                      isMulti
-                                    />
-                                  )}
-                                </Field>
-                              </div>
+                              <CommonFormInput
+                                name="projects"
+                                label="Projects"
+                                type="multiselect"
+                                options={projectOptions}
+                                isMulti={true}
+                                touched={touched}
+                                errors={errors}
+                                values={values.projects}
+                                setFieldValue={setFieldValue}
+                              />
 
-                              <div className="form-group">
-                                <label htmlFor="status">Status</label>
-                                <Field as="select" name="status" className="form-select">
-                                  <option value="active">Active</option>
-                                  <option value="inactive">Inactive</option>
-                                </Field>
-                              </div>
+                              <CommonFormInput
+                                name="status"
+                                label="Status"
+                                type="select"
+                                options={[
+                                  { value: "active", label: "Active" },
+                                  { value: "inactive", label: "Inactive" }
+                                ]}
+                                touched={touched}
+                                errors={errors}
+                                values={values.status === "active" 
+                                  ? { value: "active", label: "Active" } 
+                                  : { value: "inactive", label: "Inactive" }}
+                                setFieldValue={setFieldValue}
+                              />
                             </>
                           ) : type === "add-team-member" ? (
                             // Empty right column for team member modal
