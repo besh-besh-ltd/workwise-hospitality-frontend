@@ -15,6 +15,7 @@ import SmartButton from "@/components/shared/SmartButton";
 
 
 const roleOptions = [
+  { value: 7, label: "Admin", color: "#007bff" },
   { value: 8, label: "Top Management", color: "#2E5BA8" },
   { value: 2, label: "Procurement", color: "#428B41" },
   { value: 9, label: "Engineering", color: "#FFE600" },
