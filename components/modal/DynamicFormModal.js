@@ -305,10 +305,15 @@ const DynamicFormModal = ({
                 name: values.name,
                 email: values.email,
                 mobile: formattedMobile,
-                role: values.role?.value,
-                projects: values.projects?.map(p => p.value) || [],
-                status: values.status
             };
+
+            // Only include role and projects if not editing an admin (role 7)
+            if (values.role?.value !== 7) {
+                accountData.role = values.role?.value;
+                accountData.projects = values.projects?.map(p => p.value) || [];
+            }
+            
+            accountData.status = values.status;
 
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
@@ -899,29 +904,34 @@ Example:
                           ) : type === "edit-account" ? (
                             // Account Edit Form Fields (Right Column)
                             <>
-                              <CommonFormInput
-                                name="role"
-                                label="Role"
-                                type="select"
-                                options={roleOptions}
-                                touched={touched}
-                                errors={errors}
-                                values={values.role}
-                                setFieldValue={setFieldValue}
-                                required={true}
-                              />
+                              {/* Hide Role and Projects fields when editing an Admin (role 7) */}
+                              {!(values.role?.value === 7) && (
+                                <>
+                                  <CommonFormInput
+                                    name="role"
+                                    label="Role"
+                                    type="select"
+                                    options={roleOptions}
+                                    touched={touched}
+                                    errors={errors}
+                                    values={values.role}
+                                    setFieldValue={setFieldValue}
+                                    required={true}
+                                  />
 
-                              <CommonFormInput
-                                name="projects"
-                                label="Projects"
-                                type="multiselect"
-                                options={projectOptions}
-                                isMulti={true}
-                                touched={touched}
-                                errors={errors}
-                                values={values.projects}
-                                setFieldValue={setFieldValue}
-                              />
+                                  <CommonFormInput
+                                    name="projects"
+                                    label="Projects"
+                                    type="multiselect"
+                                    options={projectOptions}
+                                    isMulti={true}
+                                    touched={touched}
+                                    errors={errors}
+                                    values={values.projects}
+                                    setFieldValue={setFieldValue}
+                                  />
+                                </>
+                              )}
 
                               <CommonFormInput
                                 name="status"

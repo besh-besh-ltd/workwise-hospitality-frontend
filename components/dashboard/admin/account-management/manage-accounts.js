@@ -165,6 +165,21 @@ const ManageAccountsPage = () => {
         email: updatedAccount.email,
         mobile: updatedAccount.mobile,
       };
+      
+      // Add role and projects to payload if they were included in the updated account
+      // (they won't be included for Admin users with role 7)
+      if (updatedAccount.role !== undefined) {
+        payload.role = updatedAccount.role;
+      }
+      
+      if (updatedAccount.projects !== undefined) {
+        payload.projects = updatedAccount.projects;
+      }
+      
+      if (updatedAccount.status !== undefined) {
+        payload.status = updatedAccount.status;
+      }
+      
       const res = await updateUserAccount(updatedAccount.id, payload);
 
       if (res?.status === 1) {
