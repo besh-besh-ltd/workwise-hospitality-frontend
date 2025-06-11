@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -23,12 +23,30 @@ import { toast } from "react-toastify";
 import { getProjectList, getProjectTableDataById } from "@/services/project";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
-import { extractfileName, handleFileUpload, formatISOToDateTimeLocal } from "@/utils/sharedFunctions";
+import { extractfileName, handleFileUpload, formatISOToDateTimeLocal, getDataWithLoading } from "@/utils/sharedFunctions";
 import { Accordion } from "react-bootstrap";
-import { getCountryCodes } from "@/services/cms";
+import { getCities, getCountries, getCountryCodes, getStates } from "@/services/cms";
 import axiosInstance from "@/lib/axios";
 import ViewVendorModal from "../editRFQ/ViewVendorModal";
 import { vendorConditions } from "../../vendor/search";
+import { getProductMakeList } from "@/services/products";
+import CommonFormInput from "@/components/shared/CommonFormInput";
+
+const myVendorOptions = [
+  { label: "All Vendors", value: null },
+  {
+    label: "Private Vendors",
+    value: "is_private",
+  },
+  {
+    label: "Public Vendors",
+    value: "is_public",
+  },
+  {
+    label: "Both Vendors",
+    value: "both",
+  },
+];
 
 const CreateRFQ = () => {
   const router = useRouter();
@@ -82,6 +100,14 @@ const CreateRFQ = () => {
     global: {},
     local: {},
   })
+  const [initialFilterOptions, setInitialFilterOptions] = useState({
+    countries: [],
+    states: [],
+    cities: [],
+    vendorTypes: [],
+    approvedBy: [],
+    productMakes: {},
+  })
 
   const rfqProductsRef = useRef({});
   const rfqFormDataRef = useRef({});
@@ -99,10 +125,18 @@ const CreateRFQ = () => {
 
       let updatedFilters = {};
 
-      if(filters) {
-        Object.keys(filters).forEach(filterKey => {
-          updatedFilters[filterKey] = filters[filterKey]?.value ?? null
-        })
+      if (filters) {
+        Object.keys(filters).forEach((filterKey) => {
+          const filter = filters[filterKey];
+
+          if (Array.isArray(filter)) {
+            updatedFilters[filterKey] = filter
+              .map((singleFilter) => singleFilter?.value ?? null)
+              .filter(Boolean);
+            return;
+          }
+          updatedFilters[filterKey] = filter?.value ?? null;
+        });
       }
 
       const vendorRes = await getVendorsForRFQProduct(draftRfqId, rfqProductId, updatedFilters);
@@ -147,12 +181,78 @@ const CreateRFQ = () => {
       })
   }
 
-  const getVendorApproveList = () => {
-    setLoading(true);
-    vendorApproveList().then((res) => {
-      setLoading(false);
-      setVendorApprovedList(res.data);
-    });
+  const getVendorApproveList = async () => {
+    try {
+      const approvedBy = await getDataWithLoading(vendorApproveList, setLoading);
+      setInitialFilterOptions(prev => ({
+        ...prev,
+        approvedBy: approvedBy.data,
+      }))
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const getVendorTypes = async () => {
+    try {
+      const approvedBy = await getDataWithLoading(vendorTypes, setLoading);
+      setInitialFilterOptions(prev => ({
+        ...prev,
+        vendorTypes: approvedBy.data,
+      }))
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const getMakesProductWise = async (product_id) => {
+    try {
+      if(initialFilterOptions.productMakes?.[product_id]) return;
+
+      const productMakes = await getProductMakeList(product_id);
+      setInitialFilterOptions(prev => ({
+        ...prev,
+        productMakes: { ...prev.productMakes, [product_id]: productMakes?.data ?? [] }
+      }))
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const getAllCountries = async () => {
+    try {
+      const approvedBy = await getDataWithLoading(getCountries, setLoading);
+      setInitialFilterOptions(prev => ({
+        ...prev,
+        countries: approvedBy.data,
+      }))
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const getAllStates = async () => {
+    try {
+      const approvedBy = await getDataWithLoading(getStates, setLoading);
+      setInitialFilterOptions(prev => ({
+        ...prev,
+        states: approvedBy.data,
+      }))
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const getAllCities = async () => {
+    try {
+      const approvedBy = await getDataWithLoading(getCities, setLoading);
+      setInitialFilterOptions(prev => ({
+        ...prev,
+        cities: approvedBy.data,
+      }))
+    } catch (error) {
+      throw error;
+    }
   };
 
   const getProfileDetails = () => {
@@ -529,12 +629,48 @@ const CreateRFQ = () => {
       formDataCopy.rfq_added_from = 'magic';
     }
 
+    const filters = vendorFilters;
+
+    let updatedFilters = {
+      global: {},
+      local: {},
+    };
+
+    if (filters) {
+      Object.keys(filters.global).forEach((filterKey) => {
+        const filter = filters.global[filterKey];
+
+        updatedFilters.global[filterKey] = filter?.value ?? null;
+      });
+
+      Object.keys(filters.local).forEach((id) => {
+        const productFilters = filters.local[id];
+
+        if(productFilters)
+          Object.keys(productFilters).forEach(filterKey => {
+            if(!updatedFilters.local?.[id]) {
+              updatedFilters.local[id] = {};
+            }
+            const filter = productFilters[filterKey];
+
+            if (Array.isArray(filter)) {
+              updatedFilters.local[id][filterKey] = filter
+                .map((singleFilter) => singleFilter?.value ?? null)
+                .filter(Boolean);
+              return;
+            }
+            updatedFilters.local[id][filterKey] = filter?.value ?? null;
+          })
+      });
+    }
+
     const payload = {
       ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
       contact_number: fullMobile,
       sheet_id: selectedSheet?.value,
       updatableData,
+      filters: updatedFilters,
       termsChanged,
       termFilesChanged,
     };
@@ -953,6 +1089,8 @@ const CreateRFQ = () => {
         });
 
         updatedFilters.local = updatedLocal;
+
+        setVendors({})
       } else {
         // Local update for a specific product
         const productId = product.id;
@@ -968,8 +1106,6 @@ const CreateRFQ = () => {
       return updatedFilters;
     });
   };
-
-  useEffect(() => console.log("VENDOR FILTERS => ", vendorFilters), [vendorFilters])
 
   useEffect(() => {
     if(activeKey) {
@@ -994,168 +1130,191 @@ const CreateRFQ = () => {
       handleFilterUpdate(isGlobalFilter, product, param);
     }
 
+    const getFilteredStates = () => {
+      const globalCountries = getFilterValue('country')
+      if(!globalCountries || globalCountries <= 0) return initialFilterOptions.states;
+
+      let filteredStates = initialFilterOptions.states;
+      filteredStates = filteredStates.filter(state => globalCountries.some(country => country.value == state.country_id))
+
+      return filteredStates;
+    }
+
+    const getFilteredCities = () => {
+      const globalCountries = getFilterValue('country')
+      const globalStates = getFilterValue('state')
+
+      if((!globalCountries || globalCountries <= 0) && (!globalStates || globalStates <= 0)) return initialFilterOptions.cities;
+
+      let filteredCities = initialFilterOptions.cities;
+      if(globalCountries && globalCountries.length > 0)
+        filteredCities = filteredCities.filter(city => globalCountries.some(country => country.value == city.country_id))
+
+      if(globalStates && globalStates.length > 0)
+        filteredCities = filteredCities.filter(city => globalStates.some(state => state.value == city.state_id))
+
+      return filteredCities;
+    }
+
     return (
       <>
         <div className="w-100 mb-2">
-          <div className=" d-flex justify-content-between align-items-end w-100 mb-3">
-          <div className="row g-3" style={{ width: '75%' }}>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">Country</p>
-                <Select
+          <div className=" d-flex justify-content-between align-items-end w-100">
+            <div className="row g-3" style={{ width: "100%" }}>
+              <div className="col-md-3">
+                <CommonFormInput
                   isMulti
+                  type="multiselect"
+                  options={initialFilterOptions.countries.map((item) => ({
+                    label: item.country_name,
+                    value: item.id,
+                  }))}
                   name="country"
-                  // options={countries}
-                  value={getFilterValue('country')}
-                  placeholder="Country"
-                  isClearable
-                  isSearchable
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  label="Country"
+                  labelBold
+                  placeholder="Select"
+                  values={getFilterValue("country")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
-            </div>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">State</p>
-                <Select
-                  // isDisabled={
-                  //   !globalFilters.country || globalFilters.country.length <= 0
-                  // }
+              <div className="col-md-3">
+                <CommonFormInput
+                  disabled={
+                    !getFilterValue("country") ||
+                    getFilterValue("country").length <= 0
+                  }
                   isMulti
+                  type="multiselect"
+                  options={getFilteredStates().map((item) => ({
+                    label: item.state_name,
+                    value: item.id,
+                  }))}
                   name="state"
-                  // options={getFilteredStates()}
-                  value={getFilterValue('state')}
-                  placeholder="State"
-                  isClearable
-                  isSearchable
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  label="State"
+                  labelBold
+                  placeholder="Select"
+                  values={getFilterValue("state")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
-            </div>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">City</p>
-                <Select
-                  // isDisabled={
-                  //   !globalFilters.country || globalFilters.country.length <= 0
-                  // }
+              <div className="col-md-3">
+                <CommonFormInput
+                  disabled={
+                    !getFilterValue("country") ||
+                    getFilterValue("country").length <= 0
+                  }
                   isMulti
+                  type="multiselect"
+                  options={getFilteredCities().map((item) => ({
+                    label: item.city_name,
+                    value: item.id,
+                  }))}
                   name="city"
-                  // options={getFilteredCities()}
-                  value={getFilterValue('city')}
-                  placeholder="City"
-                  isClearable
-                  isSearchable
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  label="City"
+                  labelBold
+                  placeholder="Select"
+                  values={getFilterValue("city")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
-            </div>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">My Vendors</p>
-                <Select
-                  options={[
-                    { label: "All Vendors", value: null },
-                    {
-                      label: "Private Vendors",
-                      value: "is_private",
-                    },
-                    {
-                      label: "Public Vendors",
-                      value: "is_public",
-                    },
-                    {
-                      label: "Both Vendors",
-                      value: "both",
-                    },
-                  ]}
-                  value={getFilterValue('vendor_info')}
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+              <div className="col-md-3">
+                <CommonFormInput
+                  type="multiselect"
+                  options={myVendorOptions}
                   name="vendor_info"
+                  label="My Vendors"
+                  labelBold
                   placeholder="Select"
-                  isClearable
-                  isSearchable
+                  values={getFilterValue("vendor_info")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
             </div>
           </div>
-          </div>
-          <div className=" d-flex justify-content-between align-items-end w-100 mb-3">
-          <div className="row g-3" style={{ width: '75%' }}>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">Vendor Type</p>
-                <Select
+          <div className=" d-flex justify-content-between align-items-end w-100">
+            <div className="row g-3" style={{ width: "100%" }}>
+              <div className="col-md-3">
+                <CommonFormInput
                   isMulti
-                  // options={vendorTypes}
-                  value={getFilterValue('vendor_type')}
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  type="multiselect"
+                  options={initialFilterOptions.vendorTypes}
                   name="vendor_type"
+                  label="Vendor Types"
+                  labelBold
                   placeholder="Select"
-                  isClearable
-                  isSearchable
+                  values={getFilterValue("vendor_type")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
-            </div>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">Previously Worked With</p>
-                <Select
+              <div className="col-md-3">
+                <CommonFormInput
+                  type="multiselect"
                   options={vendorConditions}
-                  value={getFilterValue('prev_worked_with')}
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
                   name="prev_worked_with"
+                  label="Previously Worked With"
+                  labelBold
                   placeholder="Select"
-                  isClearable
-                  isSearchable
+                  values={getFilterValue("prev_worked_with")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
-            </div>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">Vendor Approved By</p>
-                <Select
-                  // options={
-                  //   approved_by
-                  //     ? approved_by.map((item) => ({
-                  //         label: item.vendor_approve,
-                  //         value: item.id,
-                  //       }))
-                  //     : []
-                  // }
+              <div className="col-md-3">
+                <CommonFormInput
                   isMulti
-                  value={getFilterValue('vendor_approved_by')}
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
+                  type="multiselect"
+                  options={initialFilterOptions.approvedBy.map((item) => ({
+                    label: item.vendor_approve,
+                    value: item.id,
+                  }))}
                   name="vendor_approved_by"
+                  label="Vendor Approved By"
+                  labelBold
                   placeholder="Select"
-                  isClearable
-                  isSearchable
+                  values={getFilterValue("vendor_approved_by")}
+                  onChange={(newVal, action) =>
+                    forwardFilterUpdate(newVal, action)
+                  }
                 />
               </div>
+              {!isGlobalFilter && (
+                <div className="col-md-3">
+                  <CommonFormInput
+                    isMulti
+                    type="multiselect"
+                    options={
+                      initialFilterOptions.productMakes?.[product.id]
+                        ? initialFilterOptions.productMakes[product.id].map(
+                            (item) => ({
+                              label: item.vendor_approve,
+                              value: item.id,
+                            })
+                          )
+                        : []
+                    }
+                    name="productMakes"
+                    label="Product Makes"
+                    labelBold
+                    placeholder="Select"
+                    values={getFilterValue("productMakes")}
+                    onChange={(newVal, action) =>
+                      forwardFilterUpdate(newVal, action)
+                    }
+                  />
+                </div>
+              )}
             </div>
-            <div className="col-md-3">
-              <div>
-                <p className="fw-medium mb-1">Product Make</p>
-                <Select
-                  // options={
-                  //   approved_by
-                  //     ? approved_by.map((item) => ({
-                  //         label: item.vendor_approve,
-                  //         value: item.id,
-                  //       }))
-                  //     : []
-                  // }
-                  isMulti
-                  value={getFilterValue('product_make')}
-                  onChange={(newVal, action) => forwardFilterUpdate(newVal, action)}
-                  name="product_make"
-                  placeholder="Select"
-                  isClearable
-                  isSearchable
-                />
-              </div>
-            </div>
-          </div>
           </div>
         </div>
       </>
@@ -1171,10 +1330,19 @@ const CreateRFQ = () => {
   }, [router.query])
 
   useEffect(() => {
-    getProfileDetails();
-    getVendorApproveList();
-    getAllProjects();
-    fetchCountryCodes();
+    try {
+      getProfileDetails();
+      getVendorApproveList();
+      getVendorTypes();
+      getAllCountries();
+      getAllStates();
+      getAllCities();
+      getAllProjects();
+      fetchCountryCodes();
+    } catch (error) {
+      console.log("SOMETHING WENT WRONG DURING INITIAL FETCHING");
+      toast.error(error.message)
+    }
   }, []);
   // Watch for changes in the draft_id from URL
   useEffect(() => {
@@ -1246,9 +1414,6 @@ const CreateRFQ = () => {
 
       setRfqProducts(validProducts);
       rfqProductsRef.current = validProducts;
-
-      // Popluate filters for new products if not already exist
-      populateVendorFilters(validProducts)
     } else if (selectedSheet) {
       // For magic search RFQs, also ensure products are filtered by the selected sheet
       
@@ -1265,10 +1430,22 @@ const CreateRFQ = () => {
       
       setRfqProducts(enhancedProducts);
       rfqProductsRef.current = enhancedProducts;
-
-      populateVendorFilters(enhancedProducts)
     }
   }, [rfqProductsFromStore, isMagicRfq, selectedSheet])
+
+  useEffect(() => {
+    if (
+      rfqProducts &&
+      rfqProducts.some(
+        (product) =>
+          !Object.keys(vendorFilters.local)
+            .map((key) => parseInt(key))
+            .includes(product.id)
+      )
+    ) {
+      populateVendorFilters(rfqProducts);
+    }
+  }, [rfqProducts])
 
   useEffect(() => {
     rfqFormDataRef.current = rfqFormDataFromStore;
@@ -1358,32 +1535,6 @@ const CreateRFQ = () => {
     }
   }, [selectedSheet, isMagicRfq, draftRfqId, rfqProductsFromStore]);
 
-  // Changes by Agnij 2025-09-05 [Added function to initialize Redux store with products]
-  // Add this function after the existing useEffect hooks but before the return statement
-  useEffect(() => {
-    // If rfqProducts are set locally but not in Redux store, initialize the store
-    if (rfqProducts && rfqProducts.length > 0 && 
-        (!rfqProductsFromStore || rfqProductsFromStore.length === 0)) {
-      
-      // Check if the rfq_id is set in the store
-      if (!rfqDetails || rfqDetails === -1) {
-        // If no rfq_id is set, we need to set it from draft_id
-        const currentRfqId = draftRfqId !== -1 ? draftRfqId : -1;
-        
-        // Initialize the RFQ in Redux with the local products
-        dispatch(intializeRfq({
-          rfq_form_data: rfqFormDataRef.current,
-          rfqProducts: rfqProducts,
-          rfq_id: currentRfqId
-        }));
-      } else {
-        // If rfq_id is already set, just update the products
-        // This uses a direct reference to avoid race conditions
-        rfqProductsRef.current = rfqProducts;
-      }
-    }
-  }, [rfqProducts, rfqProductsFromStore, rfqDetails, draftRfqId]);
-
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
@@ -1464,20 +1615,26 @@ const CreateRFQ = () => {
                       padding: "10px",
                     }}
                   >
-                    <Accordion alwaysOpen flush activeKey={activeKey} onSelect={(k) => {
+                    <Accordion flush alwaysOpen activeKey={activeKey} onSelect={(k) => {
                       setActiveKey(k);
                       k?.forEach(key => {
                         const rfqProductId = key;
                         fetchVendorsForProduct(rfqProductId);
+
+                        const rfqProduct = rfqProducts.find(product => product.id == rfqProductId)
+                        if(rfqProduct) {
+                          getMakesProductWise(rfqProduct.product_id);
+                        }
                       })
                     }}>
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
-                        rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map((product) => {
+                        rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map(product => {
                           return (
                             <Item
                               activeKey={activeKey}
                               vendors={vendors?.[product.id] ?? []}
+                              updatableData={updatableData}
                               vendorApprovedList={vendorApprovedList}
                               data={product}
                               rfq_id={rfqDetails}

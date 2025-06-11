@@ -17,6 +17,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
 import { addProductToDraft, addProductToExistingRfq, getClausesByRfqProductId } from "@/services/rfq";
+import CommonFormInput from "@/components/shared/CommonFormInput";
 
 const Item = ({
   rfq_id,
@@ -319,14 +320,14 @@ const Item = ({
           <div className="d-flex flex-column justify-content-center align-items-center  gap-2">
             {/*start: prodiuct spec */}
             <div style={{ width: "100%" }}>
-              <label> Product Size </label>
-              <textarea
-                type="text"
+              <CommonFormInput
+                type="textarea"
+                label={"Product Size"}
                 defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Size")
                     ?.value || ""
                 }
-                onChange={(e) => handleSpecValue("size", e.target.value)}
+                setFieldValue={(_, value) => handleSpecValue("size", value)}
                 placeholder="Size"
                 className=" form-control"
                 style={{ height: "40px" }}
@@ -516,16 +517,16 @@ const Item = ({
           <div className=" px-2">
             {/*start: product spec */}
             <div style={{ width: "100%" }} className="mb-2">
-              <label> Product Specification </label>
-              <textarea
-                type="text"
+              <CommonFormInput
+                type="textarea"
+                label={"Product Specification"}
                 defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Spec")
                     ?.value || ""
                 }
-                onChange={(e) => handleSpecValue("spec", e.target.value)}
+                setFieldValue={(_, value) => handleSpecValue("spec", value)}
                 placeholder="Grade, Material and other Specs"
-                className="w-100 form-control"
+                className=" form-control"
                 style={{ height: "100px" }}
               />
             </div>
@@ -622,6 +623,9 @@ const Item = ({
                   Selected Vendors - <strong>
                     {" "}
                     {vendors ? vendors.length == 0 ? '-' : vendors.length : data.vendors?.length}
+                    {(updatableData.vendors?.[data.id]?.deletable ?? []).length > 0 ? (
+                      <span style={{ color: 'red' }}> - {updatableData.vendors[data.id].deletable.length}</span>
+                    ) : null}
                   </strong>{" "}
                 </span>
                 {

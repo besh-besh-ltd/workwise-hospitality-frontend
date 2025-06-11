@@ -40,6 +40,17 @@ export const vendorApproveList = (values) => {
   });
 };
 
+export const vendorTypes = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/vendor-types/`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const categoryList = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
