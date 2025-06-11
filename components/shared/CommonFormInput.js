@@ -194,7 +194,7 @@ const CommonFormInput = ({
           <p
             className="placeholder-muted position-absolute top-50 end-0 translate-middle-y me-2 bg-transparent border-0"
             onClick={() => setShowPassword((prev) => !prev)}
-            style={{ zIndex: 10, paddingRight: "25px" }}
+            style={{ zIndex: 0, paddingRight: "25px" }}
             aria-label="Toggle password visibility"
           >
             <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
