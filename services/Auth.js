@@ -375,10 +375,6 @@ export const updateUserAccount = (userId, accountData) => {
                 status: accountData.status === "active" ? 1 : 0
             };
             
-            if (accountData.role) {
-                payload.user_type = Number(accountData.role);
-            }
-            
             let response = await axiosInstance.put(`users/update-user-detail`, payload);
             resolve(response);
         } catch (error) {
