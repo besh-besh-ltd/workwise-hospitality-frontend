@@ -558,6 +558,8 @@ const CreateRFQ = () => {
         name: term.name // Only include id and name
       }));
     }
+
+    const filters = getRefinedFilters();
     
     let payload = {
       rfq_id: rfqDetails,
@@ -565,6 +567,7 @@ const CreateRFQ = () => {
       project_id: formDataCopy.project_id || -1,
       contact_number: fullMobile,
       updatableData,
+      filters,
       termsChanged,
       termFilesChanged,
     };
@@ -605,30 +608,7 @@ const CreateRFQ = () => {
       });
   };
 
-  const handleSaveDraft = async () => {
-    setMainLoading(true);
-
-    const contactNumber = rfqFormDataRef?.current?.contact_number?.trim();
-    const parts = contactNumber?.includes('-') ? contactNumber?.split('-') : [contactNumber];
-    const cleanedNumber = parts[parts.length - 1];    
-    const fullMobile = `${onecountrycode}-${cleanedNumber}`;
-
-    // Deep clone the form data to avoid direct mutation
-    const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
-    
-    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
-    if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
-      formDataCopy.terms = formDataCopy.terms.map(term => ({
-        id: Number(term.id || term.term_id), // Convert to number for backend
-        name: term.name || term.term_content || `Term ${term.id}`
-      }));
-      
-    }
-    // Make sure we maintain the rfq_added_from flag if this is a magic search RFQ
-    if (isMagicRfq && !formDataCopy.rfq_added_from) {
-      formDataCopy.rfq_added_from = 'magic';
-    }
-
+  const getRefinedFilters = () => {
     const filters = vendorFilters;
 
     let updatedFilters = {
@@ -664,13 +644,42 @@ const CreateRFQ = () => {
       });
     }
 
+    return updatedFilters;
+  }
+
+  const handleSaveDraft = async () => {
+    setMainLoading(true);
+
+    const contactNumber = rfqFormDataRef?.current?.contact_number?.trim();
+    const parts = contactNumber?.includes('-') ? contactNumber?.split('-') : [contactNumber];
+    const cleanedNumber = parts[parts.length - 1];    
+    const fullMobile = `${onecountrycode}-${cleanedNumber}`;
+
+    // Deep clone the form data to avoid direct mutation
+    const formDataCopy = JSON.parse(JSON.stringify(rfqFormDataRef.current));
+    
+    // IMPORTANT: Filter terms to only include id and name to prevent validation errors
+    if (formDataCopy.terms && Array.isArray(formDataCopy.terms)) {
+      formDataCopy.terms = formDataCopy.terms.map(term => ({
+        id: Number(term.id || term.term_id), // Convert to number for backend
+        name: term.name || term.term_content || `Term ${term.id}`
+      }));
+      
+    }
+    // Make sure we maintain the rfq_added_from flag if this is a magic search RFQ
+    if (isMagicRfq && !formDataCopy.rfq_added_from) {
+      formDataCopy.rfq_added_from = 'magic';
+    }
+
+    const filters = getRefinedFilters();
+
     const payload = {
       ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
       contact_number: fullMobile,
       sheet_id: selectedSheet?.value,
       updatableData,
-      filters: updatedFilters,
+      filters,
       termsChanged,
       termFilesChanged,
     };
@@ -1741,8 +1750,9 @@ const CreateRFQ = () => {
                             countryCode:"+91"
                           }}
                           validationSchema={CreateRFQSchema}
-                          onSubmit={(values, { resetForm }) =>
+                          onSubmit={(values, { resetForm }) => {
                             handleCreateRFQ(values, resetForm)
+                          }
                           }
                         >
                           {({ errors, touched, isValid }) => (
