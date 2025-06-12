@@ -106,12 +106,14 @@ const ProjectManagement = () => {
                                                     <th scope="col">Total RFQs</th>
                                                     <th scope="col">Open RFQs</th>
                                                     <th scope="col">Closed RFQs</th>
+                                                    <th scope="col">Created By</th>
                                                     <th scope="col">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {loading &&
                                                     <tr>
+                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
@@ -136,6 +138,7 @@ const ProjectManagement = () => {
                                                                 <td>{projectItem.total_rfqs || "---"}</td>
                                                                 <td>{projectItem.open_rfqs || "---"}</td>
                                                                 <td>{projectItem.closed_rfqs || "---"}</td>
+                                                                <td>{projectItem.created_by_name || "---"}</td>
                                                                 <td>
                                                                     <Link
                                                                         href={`./project-management/${projectItem.id}`}
