@@ -313,6 +313,7 @@ const QuoteCompareTable = ({
         <div className="quote-sec-bottom">
           {lowestQuote && (
             <div className="quote-sec-bottom-con">
+            <div>
               <span>
                 <b>Lowest Bid</b> :{" "}
                 {
@@ -342,7 +343,7 @@ const QuoteCompareTable = ({
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
               </span>
-
+</div>
               {isRfqClosed ?
                 <button
                   type="submit"

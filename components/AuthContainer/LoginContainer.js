@@ -63,7 +63,7 @@ const LoginContainer = (props) => {
                 } else if (response.user_detail[0].user_type == 7) {
                     userType = "admin";
                 } else if (response.user_detail[0].user_type == 8) {
-                    userType = "top-management";
+                    userType = "management";
                 } else if (response.user_detail[0].user_type == 9) {
                     userType = "engineering";
                 } else if (response.user_detail[0].user_type == 10) {
@@ -156,7 +156,7 @@ const LoginContainer = (props) => {
                     } else if (response?.profile?.user_type == 7) {
                         userType = "admin";
                     } else if (response?.profile?.user_type == 8) {
-                        userType = "top-management";
+                        userType = "management";
                     } else if (response?.profile?.user_type == 9) {
                         userType = "engineering";
                     } else if (response?.profile?.user_type == 10) {

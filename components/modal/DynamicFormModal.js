@@ -104,9 +104,6 @@ const DynamicFormModal = ({
         mobile: mobileNumber || "",
         countryCode: countryCode || "+91",
         role: accountData?.role ? roleOptions?.find(r => r.value === accountData.role) : null,
-        projects: accountData?.projects 
-            ? projectOptions?.filter(p => accountData.projects.includes(p.value))
-            : [],
         status: accountData?.status === 1 || accountData?.status === "1" ? "active" : "inactive"
     };
 
@@ -299,7 +296,7 @@ const DynamicFormModal = ({
             // Format mobile with country code
             const formattedMobile = `${values.countryCode}-${values.mobile}`;
             
-            // Create account data object
+            // Create account data object - removed role and projects
             const accountData = {
                 id: values.id,
                 name: values.name,
@@ -307,12 +304,6 @@ const DynamicFormModal = ({
                 mobile: formattedMobile,
                 status: typeof values.status === 'object' ? values.status.value : values.status
             };
-
-            // Add role if not editing an admin
-            if (values.role?.value !== 7) {
-                accountData.role = values.role?.value;
-                accountData.projects = values.projects?.map(p => p.value) || [];
-            }
             
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
@@ -906,57 +897,25 @@ Example:
                                     </div>
                                   )}
                               </div>
-                            ) : type === "edit-account" ? (
+                            ) : type === "edit-account" && showRightColumn ? (
                               // Account Edit Form Fields (Right Column)
                               <>
-                                {/* Hide Role and Projects fields when editing an Admin (role 7) */}
+                                {/* Only show Status field for non-admin roles */}
                                 {!(values.role?.value === 7) && (
-                                  <>
-                                    <CommonFormInput
-                                      name="role"
-                                      label="Role"
-                                      type="select"
-                                      options={roleOptions.filter(role => role.value !== 7)}
-                                      touched={touched}
-                                      errors={errors}
-                                      values={values.role}
-                                      setFieldValue={setFieldValue}
-                                      required={true}
-                                    />
-
-                                    <CommonFormInput
-                                      name="projects"
-                                      label="Projects"
-                                      type="multiselect"
-                                      options={projectOptions}
-                                      isMulti={true}
-                                      touched={touched}
-                                      errors={errors}
-                                      values={values.projects}
-                                      setFieldValue={setFieldValue}
-                                    />
-
-                                    <CommonFormInput
-                                      name="status"
-                                      label="Status"
-                                      type="select"
-                                      options={[
-                                        { value: "active", label: "Active" },
-                                        { value: "inactive", label: "Inactive" }
-                                      ]}
-                                      touched={touched}
-                                      errors={errors}
-                                      values={
-                                        typeof values.status === 'object' 
-                                          ? values.status 
-                                          : values.status === "active" || values.status === 1 || values.status === "1"
-                                            ? { value: "active", label: "Active" } 
-                                            : { value: "inactive", label: "Inactive" }
-                                      }
-                                      setFieldValue={setFieldValue}
-                                      required={true}
-                                    />
-                                  </>
+                                  <CommonFormInput
+                                    name="status"
+                                    label="Status"
+                                    type="select"
+                                    options={[
+                                      { value: "active", label: "Active" },
+                                      { value: "inactive", label: "Inactive" }
+                                    ]}
+                                    touched={touched}
+                                    errors={errors}
+                                    values={values.status}
+                                    setFieldValue={setFieldValue}
+                                    required={true}
+                                  />
                                 )}
                               </>
                             ) : type === "add-team-member" ? (

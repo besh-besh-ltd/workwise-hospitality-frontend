@@ -167,32 +167,7 @@ const ManageAccountsPage = () => {
         status: updatedAccount.status === "active" ? 1 : 0
       };
       
-      if (updatedAccount.role) {
-        payload.role = Number(updatedAccount.role);
-      }
-      
       const res = await updateUserAccount(updatedAccount.id, payload);
-
-      if (updatedAccount.role !== 7 && res?.status === 1 && updatedAccount.projects) {
-        try {
-          const currentProjects = await getUserProjectsByUserId(updatedAccount.id);
-          const currentIds = currentProjects?.data?.data?.map(p => p.id) || [];
-          const newIds = updatedAccount.projects || [];
-          
-          for (const id of newIds.filter(id => !currentIds.includes(id))) {
-            await addTeamMember(id, {
-              user_id: updatedAccount.id,
-              role: updatedAccount.role
-            });
-          }
-          
-          for (const id of currentIds.filter(id => !newIds.includes(id))) {
-            await removeTeamMember(id, updatedAccount.id);
-          }
-        } catch (err) {
-          console.error("Error updating projects:", err);
-        }
-      }
 
       await fetchUsers();
       toast.success("User updated successfully");
