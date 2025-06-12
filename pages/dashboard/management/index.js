@@ -7,7 +7,7 @@ const TopManagement = () => {
     return (
         <>
             <Head>
-                <title>Top Management Dashboard | Workwise</title>
+                <title>Management Dashboard | Workwise</title>
             </Head>
             <TopManagementGuard>
                 <TopManagementPage />

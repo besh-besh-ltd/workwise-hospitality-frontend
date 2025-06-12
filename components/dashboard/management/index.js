@@ -46,11 +46,11 @@ const TopManagementPage = () => {
   return (
     <>
       <Head>
-        <title>Dashboard | Top Management</title>
+        <title>Dashboard | Management</title>
       </Head>
       <section className="buyer-common-header sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">Top Management Dashboard</h1>
+          <h1 className="heading">Management Dashboard</h1>
         </div>
       </section>
 
