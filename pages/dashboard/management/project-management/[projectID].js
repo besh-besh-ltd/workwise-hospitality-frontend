@@ -2,6 +2,7 @@ import React from "react";
 import Head from "next/head";
 import ProjectManagement from "@/components/dashboard/buyer/project-management/project-management";
 import ProjectDetails from "@/components/dashboard/buyer/project-management/project-details";
+import { TopManagementGuard } from "@/utils/authGuard";
 
 const ProjectDetailsPage = () => {
     return (
@@ -9,7 +10,9 @@ const ProjectDetailsPage = () => {
             <Head>
                 <title>Workwise | Project Details</title>
             </Head>
-            <ProjectDetails />
+            <TopManagementGuard>
+                <ProjectDetails />
+            </TopManagementGuard>
         </>
     )
 }

@@ -89,7 +89,7 @@ const roleMenus = {
     },
 
   ],
-  "top-management":  [ // procurment person 
+  "management": [ // procurment person 
     { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
     { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
     {
@@ -323,7 +323,7 @@ const Header = () => {
                       ? "/dashboard/vendor"
                       : currentUserType === "admin"
                       ? "/dashboard/admin"
-                      : currentUserType === "top-management"
+                      : currentUserType === "management"
                       ? "/dashboard/management"
                       : currentUserType === "engineering"
                       ? "/dashboard/engineering"

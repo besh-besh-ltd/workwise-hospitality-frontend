@@ -1,5 +1,5 @@
 import React from "react";
-import TopManagementPage from "@/components/dashboard/top-management";
+import TopManagementPage from "@/components/dashboard/management";
 import { TopManagementGuard } from "@/utils/authGuard";
 import Head from "next/head";
 
