@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Formik, Form, Field } from "formik";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
-import Link from "next/link";
 import { toast } from "react-toastify";
 import { useRouter } from "next/router";
 import FullLoader from "@/components/shared/FullLoader";
@@ -12,7 +9,6 @@ import { createAccountSchema } from "@/utils/schema";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 
 const roleOptions = [
-  { value: 7, label: "Admin", color: "#007bff" },
   { value: 8, label: "Management", color: "#2E5BA8" },
   { value: 2, label: "Procurement", color: "#428B41" },
   { value: 9, label: "Engineering", color: "#FFE600" },
@@ -56,12 +52,13 @@ const CreateAccountPage = () => {
         router.push(
           "/dashboard/admin/account-management/manage-accounts?refresh=true"
         );
-      } else {
-        toast.error(response.message || "Failed to create account");
       }
     } catch (error) {
-      console.error("Error creating account:", error);
-      toast.error("Failed to create account. Please try again.");
+
+      const apiError = error?.response?.data;
+     const message = apiError?.errors || apiError?.message || "Failed to create account. Please try again.";
+     toast.error(message);
+
     } finally {
       setAppState((prev) => ({ ...prev, loading: false }));
       setSubmitting(false);
