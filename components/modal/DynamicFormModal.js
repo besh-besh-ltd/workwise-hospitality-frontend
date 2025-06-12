@@ -324,9 +324,6 @@ const DynamicFormModal = ({
                 mobile: formattedMobile,
                 status: statusValue // Send as number directly
             };
-            
-            console.log("Submitting account data:", accountData);
-            
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
             closeModal();
