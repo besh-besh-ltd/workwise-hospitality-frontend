@@ -324,7 +324,7 @@ const Header = () => {
                       : currentUserType === "admin"
                       ? "/dashboard/admin"
                       : currentUserType === "top-management"
-                      ? "/dashboard/top-management"
+                      ? "/dashboard/management"
                       : currentUserType === "engineering"
                       ? "/dashboard/engineering"
                       : currentUserType === "finance"

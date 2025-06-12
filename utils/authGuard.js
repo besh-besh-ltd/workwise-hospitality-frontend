@@ -97,7 +97,7 @@ export function AdminGuard({ children }) {
 			} else if (userType === "vendor") {
 				router.push("/dashboard/vendor");
 			} else if (userType === "top-management") {
-				router.push("/dashboard/top-management");
+				router.push("/dashboard/management");
 			} else if (userType === "engineering") {
 				router.push("/dashboard/engineering");
 			} else if (userType === "finance") {
@@ -217,7 +217,7 @@ export function EngineeringGuard({ children }) {
 			} else if (userType === "admin") {
 				router.push("/dashboard/admin");
 			} else if (userType === "top-management") {
-				router.push("/dashboard/top-management");
+				router.push("/dashboard/management");
 			} else if (userType === "finance") {
 				router.push("/dashboard/finance");
 			} else {
@@ -276,7 +276,7 @@ export function FinanceGuard({ children }) {
 			} else if (userType === "admin") {
 				router.push("/dashboard/admin");
 			} else if (userType === "top-management") {
-				router.push("/dashboard/top-management");
+				router.push("/dashboard/management");
 			} else if (userType === "engineering") {
 				router.push("/dashboard/engineering");
 			} else {
