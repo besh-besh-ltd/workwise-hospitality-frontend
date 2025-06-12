@@ -54,13 +54,43 @@ const roleMenus = {
     },
     // { href: "/dashboard/admin/account-management/create-account", label: "RFQ management" },
   ],
-  buyer: [
+  buyer: [ // procurment person 
+    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "nav" },
+    { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
+    {
+      href: "/dashboard/buyer/rfq-management",
+      label: "RFQ management",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/technical-evaluation",
+      label: "Technical Evaluation",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/quote-compare",
+      label: "Quote Comparison",
+      targetMenu: "nav",
+    },
     {
       href: "/dashboard/buyer/editprofile",
       label: "Profile",
       targetMenu: "popup",
     },
-    { href: "/dashboard/buyer", label: "Dashboard", targetMenu: "popup" },
+   {
+      href: "/dashboard/buyer/project-management",
+      label: "Project Management",
+      targetMenu: "popup",
+    },
+    {
+      href: "/dashboard/buyer/vendor-management",
+      label: "Vendor Management",
+      targetMenu: "popup",
+    },
+
+  ],
+  "top-management":  [ // procurment person 
+    { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
     { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
     {
       href: "/dashboard/buyer/rfq-management",
@@ -77,43 +107,20 @@ const roleMenus = {
       label: "Quote Comparison",
       targetMenu: "nav",
     },
-    {
-      href: "/dashboard/buyer/vendor-management",
-      label: "Vendor Management",
-      targetMenu: "nav",
-    },
-  ],
-  "top-management": [
-    {
+        {
       href: "/dashboard/management/editprofile",
       label: "Profile",
       targetMenu: "popup",
     },
-    {
-      href: "/dashboard/management",
-      label: "Dashboard",
+      {
+      href: "/dashboard/management/project-management",
+      label: "Project Management",
       targetMenu: "popup",
-    },
-    { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
-    {
-      href: "/dashboard/buyer/rfq-management",
-      label: "RFQ management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/technical-evaluation",
-      label: "Technical Evaluation",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/quote-compare",
-      label: "Quote Comparison",
-      targetMenu: "nav",
     },
     {
       href: "/dashboard/buyer/vendor-management",
       label: "Vendor Management",
-      targetMenu: "nav",
+      targetMenu: "popup",
     },
   ],
   finance: [

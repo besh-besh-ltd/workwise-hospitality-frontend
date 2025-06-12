@@ -37,12 +37,13 @@ const ProjectManagement = () => {
     }
 
     const handleCreateProject = (values, resetForm) => {
+
         setCreateLoading(true);
         let payload = {
-            name: values.projectName,
-            description: values.projectDescription,
+            name: values.name,
+            description: values.description,
             location: values.location,
-            ended_at: values.ended_at ? values.ended_at: null,
+            ended_at: values?.ended_at || null,
             rfq_type: values.rfq_type,
             reverse_auction: values.reverse_auction
         };
