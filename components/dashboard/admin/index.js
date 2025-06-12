@@ -16,7 +16,7 @@ import FullLoader from "@/components/shared/FullLoader";
 
 const accountCards = [
   {
-    label: "Top Management",
+    label: "Management",
     icon: faUserTie,
     keyUsed: "used_top_management",
     keyMax: "max_top_management",
