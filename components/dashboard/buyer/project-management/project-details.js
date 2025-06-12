@@ -46,15 +46,24 @@ const ProjectDetails = () => {
 
         getProjectById(projectIdRef.current, payload)
             .then((res) => {
-                setProjectDetails(res.data[0])
-                setTotalData(res.data[0]?.rfqs?.length)
-                setFiles(res.data[0].files)
+                // Extract project data with fallbacks for different response formats
+                const projectData = res?.data?.data?.[0] || 
+                                   (Array.isArray(res?.data) ? res.data[0] : res?.data?.data || res?.data);
+                
+                if (projectData) {
+                    setProjectDetails(projectData);
+                    setTotalData(projectData.rfqs?.length || 0);
+                    setFiles(projectData.files || {});
+                } else {
+                    toast.error("Could not retrieve project details");
+                }
             })
             .catch((error) => {
-                console.log(error)
+                console.error("Error fetching project details:", error);
+                toast.error("Failed to load project details");
             })
             .finally(() => {
-                setLoading(false)
+                setLoading(false);
             });
     }
 
@@ -142,7 +151,8 @@ const ProjectDetails = () => {
         updateProject(projectIdRef.current, payload)
             .then((res) => {
                 toast.success(res.message, { position: "top-right", });
-                getProjects();
+                // Call getProjectDetails instead of getProjects which doesn't exist
+                getProjectDetails();
             })
             .catch((error) => {
                 toast.error(error.message?.response?.data?.message, { position: "top-right", });
@@ -151,7 +161,6 @@ const ProjectDetails = () => {
             .finally(() => {
                 resetForm();                
                 setEditLoading(false);
-                getProjectDetails();
             })
     }
 
@@ -433,7 +442,6 @@ const ProjectDetails = () => {
                                                 }
                                                 {!loading && projectDetails && projectDetails?.rfqs?.length > 0
                                                     && projectDetails?.rfqs?.map((rfqItem, index) => {
-                                                        {/* console.log(rfqItem) */}
                                                         return (
                                                             <tr key={`rfq_item_${rfqItem.id}`} >
                                                                 <td>{index + 1}</td>
@@ -446,7 +454,7 @@ const ProjectDetails = () => {
                                                                 <td>{rfqItem.rfq_details?.bid_end_date || "---"}</td>
                                                                 <td>
                                                                     <Link
-                                                                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
+                                                                        href={`/dashboard/management/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
                                                                         className="page-link"
                                                                     >
                                                                         View

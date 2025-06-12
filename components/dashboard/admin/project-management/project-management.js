@@ -145,6 +145,7 @@ const ProjectManagementPage = () => {
                             <th>Open RFQs</th>
                             <th>Closed RFQs</th>
                             <th>Created Date</th>
+                            <th>Created By</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -166,6 +167,7 @@ const ProjectManagementPage = () => {
                               <td>{project.open_rfqs || "0"}</td>
                               <td>{project.closed_rfqs || "0"}</td>
                               <td>{formatDate(project.created_at)}</td>
+                              <td>{project.created_by_name || ''}</td>
                               <td>
                                 <SmartButton
                                   href={`/dashboard/admin/project-management/${project.id}`}

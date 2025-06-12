@@ -96,8 +96,8 @@ export function AdminGuard({ children }) {
 				router.push("/dashboard/buyer");
 			} else if (userType === "vendor") {
 				router.push("/dashboard/vendor");
-			} else if (userType === "top-management") {
-				router.push("/dashboard/top-management");
+			} else if (userType === "management") {
+				router.push("/dashboard/management");
 			} else if (userType === "engineering") {
 				router.push("/dashboard/engineering");
 			} else if (userType === "finance") {
@@ -148,7 +148,7 @@ export function TopManagementGuard({ children }) {
 				pathname: "/",
 				query: { returnUrl: router.asPath },
 			});
-		} else if (userType !== "top-management") {
+		} else if (userType !== "management") {
 			setAuthorized(false);
 			// Redirect to their appropriate dashboard based on user type
 			if (userType === "buyer") {
@@ -216,8 +216,8 @@ export function EngineeringGuard({ children }) {
 				router.push("/dashboard/vendor");
 			} else if (userType === "admin") {
 				router.push("/dashboard/admin");
-			} else if (userType === "top-management") {
-				router.push("/dashboard/top-management");
+			} else if (userType === "management") {
+				router.push("/dashboard/management");
 			} else if (userType === "finance") {
 				router.push("/dashboard/finance");
 			} else {
@@ -275,8 +275,8 @@ export function FinanceGuard({ children }) {
 				router.push("/dashboard/vendor");
 			} else if (userType === "admin") {
 				router.push("/dashboard/admin");
-			} else if (userType === "top-management") {
-				router.push("/dashboard/top-management");
+			} else if (userType === "management") {
+				router.push("/dashboard/management");
 			} else if (userType === "engineering") {
 				router.push("/dashboard/engineering");
 			} else {
