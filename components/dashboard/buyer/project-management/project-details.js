@@ -454,7 +454,7 @@ const ProjectDetails = () => {
                                                                 <td>{rfqItem.rfq_details?.bid_end_date || "---"}</td>
                                                                 <td>
                                                                     <Link
-                                                                        href={`/dashboard/management/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
+                                                                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
                                                                         className="page-link"
                                                                     >
                                                                         View
