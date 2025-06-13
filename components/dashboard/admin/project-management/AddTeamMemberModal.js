@@ -5,7 +5,6 @@ import Select from 'react-select';
 import FullLoader from '@/components/shared/FullLoader';
 import { addTeamMemberSchema } from '@/utils/schema';
 import { toast } from 'react-toastify';
-import axiosInstance from '@/lib/axios';
 import { getCompanyUsers } from '@/services/Auth';
 
 const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
@@ -18,7 +17,6 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
         const fetchUsers = async () => {
             try {
                 setLoadingUsers(true);
-                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Fetching company users`);
                 // Using the actual API instead of mock data
                 const response = await getCompanyUsers();
                 
@@ -33,7 +31,6 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
                     
                     // Only show active users
                     const activeUsers = formattedUsers.filter(user => user.status === 'active');
-                    console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Fetched ${formattedUsers.length} users, ${activeUsers.length} are active`);
                     setUsers(activeUsers);
                 } else {
                     console.error(`[${new Date().toISOString()}] AddTeamMemberModal: Failed to fetch users - API returned error status`);
@@ -71,7 +68,6 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
     // Handle form submission
     const handleSubmit = (values, { setSubmitting, resetForm }) => {
         setLoading(true);
-        console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Submitting form to add user ${values.user.value} with role ${values.user.role}`);
 
         // Format the data for the API
         const teamMember = {
@@ -79,13 +75,10 @@ const AddTeamMemberModal = ({ isOpen, closeModal, onSave, roleOptions }) => {
             role: parseInt(values.user.role) // Ensure role is a number
         };
 
-        console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Sending formatted data:`, JSON.stringify(teamMember));
 
         // Call the actual API through the parent component
         onSave(teamMember)
             .then((response) => {
-                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Response from adding team member:`, response?.data);
-                console.log(`[${new Date().toISOString()}] AddTeamMemberModal: Successfully added team member ${teamMember.user_id}`);
                 resetForm();
                 setLoading(false);
                 setSubmitting(false);

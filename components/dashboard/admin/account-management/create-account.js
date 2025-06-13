@@ -159,7 +159,7 @@ const CreateAccountPage = () => {
                                 type="select"
                                 options={roleOptions}
                                 values={values.role}
-                                setFieldValue={setFieldValue}
+                                onChange={setFieldValue}
                                 touched={touched}
                                 errors={errors}
                               />

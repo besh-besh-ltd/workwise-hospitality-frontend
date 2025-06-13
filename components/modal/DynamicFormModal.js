@@ -652,7 +652,7 @@ Example:
                                   touched={touched}
                                   errors={errors}
                                   values={values.name}
-                                  setFieldValue={setFieldValue}
+                                  onChange={setFieldValue}
                                   required={true}
                                 />
                                 
@@ -664,7 +664,7 @@ Example:
                                   touched={touched}
                                   errors={errors}
                                   values={values.email}
-                                  setFieldValue={setFieldValue}
+                                  onChange={setFieldValue}
                                   required={true}
                                 />
                                 
@@ -675,7 +675,7 @@ Example:
                                   touched={touched}
                                   errors={errors}
                                   values={values.mobile}
-                                  setFieldValue={setFieldValue}
+                                  onChange={setFieldValue}
                                   required={true}
                                 />
                               </>
@@ -932,7 +932,7 @@ Example:
                                     touched={touched}
                                     errors={errors}
                                     values={values.status}
-                                    setFieldValue={setFieldValue}
+                                    onChange={setFieldValue}
                                     required={true}
                                   />
                                 )}
@@ -986,20 +986,7 @@ Example:
                                     )}
                                 </div>
                                 
-                                {type === "edit-project" && (
-                                  <div className="form-group">
-                                    <label htmlFor="status">Status</label>
-                                    <Field
-                                      as="select"
-                                      id="status"
-                                      name="status"
-                                      className="form-control"
-                                    >
-                                      <option value={1}>Active</option>
-                                      <option value={0}>Inactive</option>
-                                    </Field>
-                                  </div>
-                                )}
+
                               </>
                             )}
                           </div>
