@@ -367,12 +367,23 @@ export const getBuyerAccountLimits = () => {
 export const updateUserAccount = (userId, accountData) => {
     return new Promise(async (resolve, reject) => {
         try {
+            // Make sure status is sent as a number
+            let statusValue;
+            if (typeof accountData.status === 'number') {
+                statusValue = accountData.status;
+            } else if (typeof accountData.status === 'string') {
+                statusValue = accountData.status === "active" ? 1 : 0;
+            } else {
+                // Handle object format from the form
+                statusValue = accountData.status?.value === "active" ? 1 : 0;
+            }
+            
             const payload = {
                 user_id: userId,
                 name: accountData.name,
                 email: accountData.email,
                 mobile: accountData.mobile,
-                status: accountData.status === "active" ? 1 : 0
+                status: statusValue
             };
             
             let response = await axiosInstance.put(`users/update-user-detail`, payload);

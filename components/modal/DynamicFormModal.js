@@ -97,6 +97,16 @@ const DynamicFormModal = ({
         ? parseMobile(accountData.mobile) 
         : { countryCode: "+91", mobileNumber: "" };
 
+    let statusValue;
+    const statusIsActive = 
+        accountData?.status === "active";
+        
+    if (statusIsActive) {
+        statusValue = { value: "active", label: "Active" };
+    } else {
+        statusValue = { value: "inactive", label: "Inactive" };
+    }
+    
     const initialAccountValues = {
         id: accountData?.id || "",
         name: accountData?.name || "",
@@ -104,7 +114,7 @@ const DynamicFormModal = ({
         mobile: mobileNumber || "",
         countryCode: countryCode || "+91",
         role: accountData?.role ? roleOptions?.find(r => r.value === accountData.role) : null,
-        status: accountData?.status === 1 || accountData?.status === "1" ? "active" : "inactive"
+        status: statusValue
     };
 
     const initialTeamMemberValues = {
@@ -296,15 +306,24 @@ const DynamicFormModal = ({
             // Format mobile with country code
             const formattedMobile = `${values.countryCode}-${values.mobile}`;
             
-            // Create account data object - removed role and projects
+            // Determine status value - handle all possible formats
+            let statusValue;
+            if (typeof values.status === 'object' && values.status !== null) {
+                statusValue = values.status.value === "active" ? 1 : 0;
+            } else if (typeof values.status === 'string') {
+                statusValue = values.status === "active" ? 1 : 0;
+            } else {
+                statusValue = 1; // Default fallback
+            }
+            
+            // Create account data object
             const accountData = {
                 id: values.id,
                 name: values.name,
                 email: values.email,
                 mobile: formattedMobile,
-                status: typeof values.status === 'object' ? values.status.value : values.status
+                status: statusValue // Send as number directly
             };
-            
             // Call the parent function to save the data
             handleEditAccount(accountData, resetForm);
             closeModal();

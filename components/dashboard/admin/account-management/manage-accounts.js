@@ -160,14 +160,7 @@ const ManageAccountsPage = () => {
   const updateUserData = async (updatedAccount) => {
     setUiState((prev) => ({ ...prev, loading: true }));
     try {
-      const payload = {
-        name: updatedAccount.name,
-        email: updatedAccount.email,
-        mobile: updatedAccount.mobile,
-        status: updatedAccount.status === "active" ? 1 : 0
-      };
-      
-      const res = await updateUserAccount(updatedAccount.id, payload);
+      await updateUserAccount(updatedAccount.id, updatedAccount);
 
       await fetchUsers();
       toast.success("User updated successfully");
