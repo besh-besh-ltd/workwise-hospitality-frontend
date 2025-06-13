@@ -652,7 +652,7 @@ Example:
                                   touched={touched}
                                   errors={errors}
                                   values={values.name}
-                                  setFieldValue={setFieldValue}
+                                  onChange={setFieldValue}
                                   required={true}
                                 />
                                 
@@ -664,7 +664,7 @@ Example:
                                   touched={touched}
                                   errors={errors}
                                   values={values.email}
-                                  setFieldValue={setFieldValue}
+                                  onChange={setFieldValue}
                                   required={true}
                                 />
                                 
@@ -675,7 +675,7 @@ Example:
                                   touched={touched}
                                   errors={errors}
                                   values={values.mobile}
-                                  setFieldValue={setFieldValue}
+                                  onChange={setFieldValue}
                                   required={true}
                                 />
                               </>
@@ -932,7 +932,7 @@ Example:
                                     touched={touched}
                                     errors={errors}
                                     values={values.status}
-                                    setFieldValue={setFieldValue}
+                                    onChange={setFieldValue}
                                     required={true}
                                   />
                                 )}

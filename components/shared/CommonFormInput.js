@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import { Field, ErrorMessage } from "formik";
 import Select from "react-select";
@@ -21,7 +22,7 @@ import { getCountryCodes } from "@/services/cms";
 const CommonFormInput = ({
   name,
   label,
-  labelBold,
+  labelBold, // no need to pass this prop, it is used to make the label bold if required use lable csss so that if needed we can apply other css as well
   type = "text", // text, email, password, select, multiselect, mobile, textarea
   options = [],
   isMulti = false,
@@ -30,11 +31,11 @@ const CommonFormInput = ({
   touched,
   errors,
   values,
-  defaultValue,
-  setFieldValue,
+  // defaultValue, // no need to pass this value as values is the default value only
+  // setFieldValue,
   onChange,
   className = "",
-  style,
+  // style,
   placeholder = "",
    required = false, 
    disabled = false
@@ -56,12 +57,7 @@ const CommonFormInput = ({
           name={name}
           options={options}
           value={values}
-          onChange={(option, action) => {
-              console.log(name, option)
-              setFieldValue && setFieldValue(name, option) 
-              onChange && onChange(option, action)
-            }
-          }
+          onChange={onChange}
           isMulti={isMulti}
           placeholder={placeholder || `Select ${label}`}
           className={isInvalid ? "is-invalid" : ""}
@@ -88,11 +84,11 @@ const CommonFormInput = ({
         name={name}
         className={`placeholder-muted form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
         placeholder={placeholder || `Enter ${label}`}
-        defaultValue={defaultValue}
+        // defaultValue={defaultValue}
         value={values}
         onChange={(e) => setFieldValue(name, e.target.value)}
         rows={4}
-        style={style ?? {}}
+        // style={style ?? {}}
       />
       {isInvalid && (
         <div className="invalid-feedback">{errors?.[name]}</div>
