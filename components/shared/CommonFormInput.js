@@ -18,8 +18,8 @@ import { getCountryCodes } from "@/services/cms";
 
  */
 
-
-{/*
+{
+  /*
  best way to use select using this component
 
   <CommonFormInput
@@ -28,8 +28,8 @@ import { getCountryCodes } from "@/services/cms";
   type="select"
   required={true}
   options={roleOptions}
-/>; */}
-
+/>; */
+}
 
 //  do not make any change in this component as it is used in many places and it is a reusable component
 const CommonFormInput = ({
@@ -55,11 +55,20 @@ const CommonFormInput = ({
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [countryCodes, setCountryCodes] = useState([]);
-  const [field, meta, helpers] = useField(name);
 
   const isInvalid = touched?.[name] && errors?.[name];
 
   if (type === "select" || type === "multiselect") {
+    const safeUseField = (name) => {
+      try {
+        return useField(name);
+      } catch {
+        return [undefined, {}, { setValue: () => {} }];
+      }
+    };
+
+    const [field, meta, helpers] = safeUseField(name);
+
     return (
       <div className="form-group mb-3">
         <label

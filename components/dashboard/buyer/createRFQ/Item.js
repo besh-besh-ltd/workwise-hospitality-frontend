@@ -328,6 +328,7 @@ const Item = ({
             <div style={{ width: "100%" }}>
               <CommonFormInput
                 type="textarea"
+                name={"product_size"}
                 label={"Product Size"}
                 defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Size")
@@ -525,6 +526,7 @@ const Item = ({
             <div style={{ width: "100%" }} className="mb-2">
               <CommonFormInput
                 type="textarea"
+                name={"product_specification"}
                 label={"Product Specification"}
                 defaultValue={
                   rfqProduct?.spec?.find((item) => item.title === "Spec")
