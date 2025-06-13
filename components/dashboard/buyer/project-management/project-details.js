@@ -140,7 +140,7 @@ const ProjectDetails = () => {
         setEditLoading(true);
         let payload = {
             status: 1,
-            description: values.projectDescription,
+            description: values.description,
             location: values.location,
             ended_at: values.ended_at ? values.ended_at: null,
             rfq_type: values.rfq_type,
