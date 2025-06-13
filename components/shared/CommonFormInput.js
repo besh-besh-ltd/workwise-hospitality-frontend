@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Field, ErrorMessage } from "formik";
+import { Field, ErrorMessage, useField } from "formik";
 import Select from "react-select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
@@ -19,6 +19,19 @@ import { getCountryCodes } from "@/services/cms";
  */
 
 
+{/*
+ best way to use select using this component
+
+  <CommonFormInput
+  name="role"
+  label="Role"
+  type="select"
+  required={true}
+  options={roleOptions}
+/>; */}
+
+
+//  do not make any change in this component as it is used in many places and it is a reusable component
 const CommonFormInput = ({
   name,
   label,
@@ -37,19 +50,25 @@ const CommonFormInput = ({
   className = "",
   // style,
   placeholder = "",
-   required = false, 
-   disabled = false
+  required = false,
+  disabled = false,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const isInvalid = touched?.[name] && errors?.[name];
   const [countryCodes, setCountryCodes] = useState([]);
+  const [field, meta, helpers] = useField(name);
+
+  const isInvalid = touched?.[name] && errors?.[name];
 
   if (type === "select" || type === "multiselect") {
     return (
       <div className="form-group mb-3">
-        <label htmlFor={name} className="form-label" style={{
-          fontWeight: labelBold ? '500' : '300'
-        }}>
+        <label
+          htmlFor={name}
+          className="form-label"
+          style={{
+            fontWeight: labelBold ? "500" : "300",
+          }}
+        >
           {label} {required && <span className="text-danger">*</span>}
         </label>
         <Select
@@ -57,7 +76,10 @@ const CommonFormInput = ({
           name={name}
           options={options}
           value={values}
-          onChange={onChange}
+          onChange={(val, actionMeta) => {
+            helpers.setValue(val); // update Formik
+            onChange && onChange(val, actionMeta); // fire external callback
+          }}
           isMulti={isMulti}
           placeholder={placeholder || `Select ${label}`}
           className={isInvalid ? "is-invalid" : ""}
@@ -73,30 +95,29 @@ const CommonFormInput = ({
   }
 
   if (type === "textarea") {
-  return (
-    <div className="form-group mb-3">
-      <label htmlFor={name} className="form-label">
-        {label} {required && <span className="text-danger">*</span>}
-      </label>
-      <textarea
-        id={name}
-        disabled={disabled}
-        name={name}
-        className={`placeholder-muted form-control ${isInvalid ? "is-invalid" : ""} ${className}`}
-        placeholder={placeholder || `Enter ${label}`}
-        // defaultValue={defaultValue}
-        value={values}
-        onChange={(e) => setFieldValue(name, e.target.value)}
-        rows={4}
-        // style={style ?? {}}
-      />
-      {isInvalid && (
-        <div className="invalid-feedback">{errors?.[name]}</div>
-      )}
-    </div>
-  );
-}
-
+    return (
+      <div className="form-group mb-3">
+        <label htmlFor={name} className="form-label">
+          {label} {required && <span className="text-danger">*</span>}
+        </label>
+        <textarea
+          id={name}
+          disabled={disabled}
+          name={name}
+          className={`placeholder-muted form-control ${
+            isInvalid ? "is-invalid" : ""
+          } ${className}`}
+          placeholder={placeholder || `Enter ${label}`}
+          // defaultValue={defaultValue}
+          value={values}
+          onChange={(e) => setFieldValue(name, e.target.value)}
+          rows={4}
+          // style={style ?? {}}
+        />
+        {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}
+      </div>
+    );
+  }
 
   if (type === "mobile") {
     const fetchData = async () => {
@@ -123,7 +144,7 @@ const CommonFormInput = ({
           {label} {required && <span className="text-danger">*</span>}
         </label>
         <div className="d-flex">
-          <Field name="countryCode" className="placeholder-muted" >
+          <Field name="countryCode" className="placeholder-muted">
             {({ field, form }) => (
               <select
                 {...field}
@@ -132,7 +153,7 @@ const CommonFormInput = ({
                 onChange={(e) => {
                   form.setFieldValue("countryCode", e.target.value);
                 }}
-              disabled={disabled}
+                disabled={disabled}
               >
                 {countryCodes.map((country) => (
                   <option key={country.id} value={country.phone_code}>

@@ -35,6 +35,7 @@ const CreateAccountPage = () => {
   });
 
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
+
     setAppState((prev) => ({ ...prev, loading: true }));
     try {
       const formattedMobile = `${values.countryCode}-${values.mobile}`;
@@ -55,8 +56,8 @@ const CreateAccountPage = () => {
       }
     } catch (error) {
 
-      const apiError = error?.response?.data;
-     const message = apiError?.errors || apiError?.message || "Failed to create account. Please try again.";
+      const apiError = error?.message?.response;
+     const message = apiError?.errors || apiError?.data?.message || "Failed to create account. Please try again.";
      toast.error(message);
 
     } finally {
@@ -127,6 +128,7 @@ const CreateAccountPage = () => {
                                 label="Name"
                                 touched={touched}
                                 errors={errors}
+                                 required= {true}
                               />
                             </div>
                             <div className="col-md-6">
@@ -136,6 +138,7 @@ const CreateAccountPage = () => {
                                 type="email"
                                 touched={touched}
                                 errors={errors}
+                                 required= {true}
                               />
                             </div>
                           </div>
@@ -149,7 +152,7 @@ const CreateAccountPage = () => {
                                 touched={touched}
                                 errors={errors}
                                 values={values}
-                                countryCodes={appState.countryCodes}
+                                 required= {true}
                               />
                             </div>
                             <div className="col-md-6">
@@ -157,12 +160,10 @@ const CreateAccountPage = () => {
                                 name="role"
                                 label="Role"
                                 type="select"
+                                required= {true}
                                 options={roleOptions}
-                                values={values.role}
-                                onChange={setFieldValue}
-                                touched={touched}
-                                errors={errors}
                               />
+
                             </div>
                           </div>
 
@@ -174,6 +175,7 @@ const CreateAccountPage = () => {
                                 type="password"
                                 touched={touched}
                                 errors={errors}
+                                 required= {true}
                               />
                             </div>
                             <div className="col-md-6">
@@ -183,6 +185,7 @@ const CreateAccountPage = () => {
                                 type="password"
                                 touched={touched}
                                 errors={errors}
+                                 required= {true}
                               />
                             </div>
                           </div>
