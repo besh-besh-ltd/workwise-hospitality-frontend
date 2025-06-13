@@ -649,8 +649,8 @@ const Item = ({
                     </button>
                   )
                 }
-                {type == 'edit' && (
-                  <button onClick={handleAddVendorInEdit ?? null} style={{ height: "40px" }} className="upload btn btn-success text-white pt-2 btn-sm">
+                {handleAddVendorInEdit && (
+                  <button onClick={handleAddVendorInEdit} style={{ height: "40px" }} className="upload btn btn-success text-white pt-2 btn-sm">
                     Add Vendors
                   </button>
                 )}
