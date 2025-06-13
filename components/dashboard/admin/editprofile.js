@@ -16,6 +16,7 @@ import {
 } from "@/services/Auth";
 import { getCities, getCountries, getStates } from "@/services/cms";
 import { EditOnlyProfileSchema } from "@/utils/schema";
+import { faCommentsDollar } from "@fortawesome/free-solid-svg-icons";
 
 const initialUserDetails = {
   name: "",
@@ -73,6 +74,17 @@ const EditProfile = () => {
 
       const data = profileRes.data;
 
+      const [statesRes, citiesRes] = await Promise.all([
+        getStates(data?.country),
+        getCities(data?.state),
+      ]);
+
+      setLocationOptions({
+        countries: countriesRes.data,
+        states: statesRes.data,
+        cities: citiesRes.data,
+      });
+
       // splica mobile no and code
       const [countryCode = "+91", mobileNumber = ""] = (
         data?.mobile || "+91-"
@@ -81,10 +93,6 @@ const EditProfile = () => {
       //  company is editable only if user type is 3 or 7 ( company admin )
       isCompanyEditableForUserRef.current =
         data?.user_type === 3 || data?.user_type === 7;
-      console.log(
-        isCompanyEditableForUserRef.current,
-        "isCompanyEditableForUserRef.current"
-      );
 
       // user profile logo
       setUserProfileLogo(data?.logo);
@@ -106,21 +114,11 @@ const EditProfile = () => {
         established_year: data?.established_year || "",
         gstin: data?.gstin || "",
         website: data?.website || "",
-        country: data?.location?.country || null,
-        state: data?.location?.state || null,
-        city: data?.location?.city || null,
+        country:  { value: data?.country || null, label: data?.country_name || "India" }, // hardcoded india as default country
+        state:  { value: data?.state || null, label: data?.state_name || "" },
+        city:  { value: data?.city || null, label: data?.city_name || "" }
       });
 
-      const [statesRes, citiesRes] = await Promise.all([
-        getStates(data?.location?.country),
-        getCities(data?.location?.state),
-      ]);
-
-      setLocationOptions({
-        countries: countriesRes.data,
-        states: statesRes.data,
-        cities: citiesRes.data,
-      });
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -138,6 +136,8 @@ const EditProfile = () => {
         .trim()
         .replace(/^0+/, "")}`,
     };
+
+
     updateProfile(payload)
       .then((res) => {
         toast(res.message);
@@ -178,6 +178,39 @@ const EditProfile = () => {
     fetchInitialData();
     setProfileImageLoading(false);
   };
+
+
+  const handleLocationChange = async (field, option, setFieldValue) => {
+  const value = option?.value || null;
+  setFieldValue(field, option);
+
+  console.log(" field, option, setFieldValue ", field, option, setFieldValue)
+
+
+  if (field === "country") {
+    // Fetch states on country change
+    const res = await getStates(value);
+    setLocationOptions((prev) => ({
+      ...prev,
+      states: res.data || [],
+      cities: [],
+    }));
+    setFieldValue("state", null); // Reset state and city
+    setFieldValue("city", null);
+  }
+
+  if (field === "state") {
+    // Fetch cities on state change
+    const res = await getCities(value);
+    setLocationOptions((prev) => ({
+      ...prev,
+      cities: res.data || [],
+    }));
+    setFieldValue("city", null); // Reset city
+  }
+
+};
+
 
   // fetch initial data
   useEffect(() => {
@@ -246,7 +279,7 @@ const EditProfile = () => {
                       label="Mobile"
                       values={userDetails?.mobile}
                       errors={errors}
-                      setFieldValue={setFieldValue}
+                      onChange={setFieldValue}
                       required
                     />
                     <div className="text-end">
@@ -299,7 +332,7 @@ const EditProfile = () => {
                           label="About"
                           touched={touched}
                           errors={errors}
-                          setFieldValue={setFieldValue}
+                          onChange={setFieldValue}
                           placeholder="Brief description about your company"
                           disabled={!isCompanyEditableForUserRef.current}
                         />
@@ -352,25 +385,14 @@ const EditProfile = () => {
                           name="country"
                           label="Country"
                           type="select"
+                          isClearable={false}
                           isMulti={false}
                           options={locationOptions.countries.map((c) => ({
                             label: c.country_name,
                             value: c.id,
                           }))}
-                          values={locationOptions.countries.find(
-                            (c) => c.id === values.country
-                          )}
-                          setFieldValue={setFieldValue}
-                          onChange={(option) => {
-                            setFieldValue("country", option.value);
-                            getStates(option.value).then((res) =>
-                              setLocationOptions((prev) => ({
-                                ...prev,
-                                states: res.data,
-                                cities: [],
-                              }))
-                            );
-                          }}
+                          values={values.country}
+                            onChange={(option) => handleLocationChange("country", option, setFieldValue)}
                           disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
@@ -379,25 +401,14 @@ const EditProfile = () => {
                           name="state"
                           label="State"
                           type="select"
+                          isClearable={false}
                           isMulti={false}
                           options={locationOptions.states.map((s) => ({
                             label: s.state_name,
                             value: s.id,
                           }))}
-                          values={locationOptions.states.find(
-                            (s) => s.id === values.state
-                          )}
-                          setFieldValue={setFieldValue}
-                          onChange={(option) => {
-                            setFieldValue("state", option.value);
-                            getCities(option.value).then((res) =>
-                              setLocationOptions((prev) => ({
-                                ...prev,
-                                cities: res.data,
-                              }))
-                            );
-                            setFieldValue("city", null); // reset city on state change
-                          }}
+                          values={ values.state }
+                          onChange={(option) => handleLocationChange("state", option, setFieldValue)}
                           disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
@@ -406,18 +417,14 @@ const EditProfile = () => {
                           name="city"
                           label="City"
                           type="select"
+                          isClearable={false}
                           isMulti={false}
                           options={locationOptions.cities.map((c) => ({
                             label: c.city_name,
                             value: c.id,
                           }))}
-                          values={locationOptions.cities.find(
-                            (c) => c.id === values.city
-                          )}
-                          setFieldValue={setFieldValue}
-                          onChange={(option) => {
-                            setFieldValue("city", option.value);
-                          }}
+                          values={values.city}
+                          onChange={(option) => handleLocationChange("city", option, setFieldValue)}
                           disabled={!isCompanyEditableForUserRef.current}
                         />
                       </div>
