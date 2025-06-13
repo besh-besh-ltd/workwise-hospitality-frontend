@@ -59,7 +59,6 @@ const AdminDashboard = () => {
         }
       } catch (err) {
         console.error("Error fetching account limits:", err);
-        setError("Failed to load account limits");
       } finally {
         setLoading(false);
       }
