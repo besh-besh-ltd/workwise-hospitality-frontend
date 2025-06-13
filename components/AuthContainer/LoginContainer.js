@@ -86,8 +86,9 @@ const LoginContainer = (props) => {
                         console.log("Push Sent")
                     } else if (userType == "admin") {
                         router.push(`/dashboard/admin`);
-                    }    
-                    else {
+                    } else if (userType == "finance" || userType == "engineering") {
+                        router.push(`/dashboard/${userType}/editprofile`);
+                    } else {
                         router.push(`/dashboard/${userType}`);
                     }
                 }
@@ -167,6 +168,8 @@ const LoginContainer = (props) => {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "admin") {
                         router.push(`/dashboard/admin`);
+                    } else if (userType == "finance" || userType == "engineering") {
+                        router.push(`/dashboard/${userType}/editprofile`);
                     } else {
                         router.push(`/dashboard/${userType}`);
                     }
