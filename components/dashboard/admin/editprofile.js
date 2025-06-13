@@ -184,7 +184,6 @@ const EditProfile = () => {
   const value = option?.value || null;
   setFieldValue(field, option);
 
-  console.log(" field, option, setFieldValue ", field, option, setFieldValue)
 
 
   if (field === "country") {
