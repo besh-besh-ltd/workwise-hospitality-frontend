@@ -195,7 +195,7 @@ const Item = ({
         rfq_id,
         sheet_id: selectedSheet?.value,
         variant_id: data.product_id,
-        vendors: data.vendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
+        vendors: vendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
         })),
       };
@@ -624,10 +624,7 @@ const Item = ({
                   {" "}
                   Selected Vendors - <strong>
                     {" "}
-                    {vendors ? vendors.length == 0 ? '-' : vendors.length : data.vendors?.length}
-                    {(updatableData.vendors?.[data.id]?.deletable ?? []).length > 0 ? (
-                      <span style={{ color: 'red' }}> - {updatableData.vendors[data.id].deletable.length}</span>
-                    ) : null}
+                    {vendors ? vendors.length == 0 ? '0' : vendors.length : data.vendors?.length}
                   </strong>{" "}
                 </span>
                 {
@@ -651,8 +648,8 @@ const Item = ({
                     </button>
                   )
                 }
-                {type == 'edit' && (
-                  <button onClick={handleAddVendorInEdit ?? null} style={{ height: "40px" }} className="upload btn btn-success text-white pt-2 btn-sm">
+                {handleAddVendorInEdit && (
+                  <button onClick={handleAddVendorInEdit} style={{ height: "40px" }} className="upload btn btn-success text-white pt-2 btn-sm">
                     Add Vendors
                   </button>
                 )}
