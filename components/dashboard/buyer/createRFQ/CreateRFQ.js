@@ -1172,7 +1172,7 @@ const CreateRFQ = () => {
             <div className="row g-3" style={{ width: "100%" }}>
               <div className="col-md-3">
                 <CommonFormInput
-                  isMulti
+                  isMulti = {true} 
                   type="multiselect"
                   options={initialFilterOptions.countries.map((item) => ({
                     label: item.country_name,
@@ -1194,7 +1194,7 @@ const CreateRFQ = () => {
                     !getFilterValue("country") ||
                     getFilterValue("country").length <= 0
                   }
-                  isMulti
+                  isMulti = {true} 
                   type="multiselect"
                   options={getFilteredStates().map((item) => ({
                     label: item.state_name,
@@ -1216,7 +1216,7 @@ const CreateRFQ = () => {
                     !getFilterValue("country") ||
                     getFilterValue("country").length <= 0
                   }
-                  isMulti
+                   isMulti = {true} 
                   type="multiselect"
                   options={getFilteredCities().map((item) => ({
                     label: item.city_name,
@@ -1252,7 +1252,7 @@ const CreateRFQ = () => {
             <div className="row g-3" style={{ width: "100%" }}>
               <div className="col-md-3">
                 <CommonFormInput
-                  isMulti
+                  isMulti = {true} 
                   type="multiselect"
                   options={initialFilterOptions.vendorTypes}
                   name="vendor_type"
@@ -1281,7 +1281,7 @@ const CreateRFQ = () => {
               </div>
               <div className="col-md-3">
                 <CommonFormInput
-                  isMulti
+                   isMulti = {true} 
                   type="multiselect"
                   options={initialFilterOptions.approvedBy.map((item) => ({
                     label: item.vendor_approve,
@@ -1300,7 +1300,7 @@ const CreateRFQ = () => {
               {!isGlobalFilter && (
                 <div className="col-md-3">
                   <CommonFormInput
-                    isMulti
+                     isMulti = {true} 
                     type="multiselect"
                     options={
                       initialFilterOptions.productMakes?.[product.id]
