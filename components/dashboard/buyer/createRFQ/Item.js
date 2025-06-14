@@ -330,7 +330,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                defaultValue={
+                values={
                   rfqProduct?.spec?.find((item) => item.title === "Size")
                     ?.value || ""
                 }
@@ -528,7 +528,7 @@ const Item = ({
                 type="textarea"
                 name={"product_specification"}
                 label={"Product Specification"}
-                defaultValue={
+                values={
                   rfqProduct?.spec?.find((item) => item.title === "Spec")
                     ?.value || ""
                 }
