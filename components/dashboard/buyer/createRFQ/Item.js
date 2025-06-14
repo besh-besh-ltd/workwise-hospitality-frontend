@@ -334,7 +334,7 @@ const Item = ({
                   rfqProduct?.spec?.find((item) => item.title === "Size")
                     ?.value || ""
                 }
-                onChange={(_, value) => handleSpecValue("size", value)}
+                onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
                 style={{ height: "40px" }}
@@ -532,7 +532,7 @@ const Item = ({
                   rfqProduct?.spec?.find((item) => item.title === "Spec")
                     ?.value || ""
                 }
-                onChange={(_, value) => handleSpecValue("spec", value)}
+                onChange={(e) => handleSpecValue("spec", e.target.value)}
                 placeholder="Grade, Material and other Specs"
                 className=" form-control"
                 style={{ height: "100px" }}
