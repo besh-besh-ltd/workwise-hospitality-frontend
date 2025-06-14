@@ -119,7 +119,7 @@ const CommonFormInput = ({
           placeholder={placeholder || `Enter ${label}`}
           // defaultValue={defaultValue}
           value={values}
-          onChange={(e) => setFieldValue(name, e.target.value)}
+          onChange={onChange}
           rows={4}
           // style={style ?? {}}
         />
