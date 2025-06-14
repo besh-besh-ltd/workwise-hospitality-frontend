@@ -78,7 +78,7 @@ const LoginContainer = (props) => {
                     let prod_name = storageInstance.getStorage('product_name');
                     if (pathname.includes("/dashboard/buyer/rfq-management-vendor/vendor-profile")) {
                         router.reload();
-                    } else if (prod_name != "" && prod_name != "all" && userType != "vendor") {
+                    } else if (prod_name != "" && prod_name != "all" && userType != "vendor" && userType != "admin") {
                         router.push(`/vendor/${prod_name}`);
                     } else if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
