@@ -475,7 +475,7 @@ const EditRFQ = () => {
                 product_id: product.product_id,
                 variant: product.variant,
               }),
-              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+              [change.type]: change?.value.length > 0 ? change.value : "rm",
             },
           },
         },
@@ -1228,6 +1228,7 @@ const EditRFQ = () => {
                   return (
                     <Item
                       // vendorApprovedList={vendorApprovedList}
+                      vendors={product.vendor_details}
                       activeKey={activeKey}
                       data={(() => {
                         const productObj = product;
@@ -1327,7 +1328,7 @@ const EditRFQ = () => {
                                     product_id: product.product_id,
                                     variant: product.variant,
                                   }),
-                                  [change.type]: change?.value.length > 0 ? change.value[0] : 'rm',
+                                  [change.type]: change?.value.length > 0 ? change.value : 'rm',
                                 }
                               }
                             }
