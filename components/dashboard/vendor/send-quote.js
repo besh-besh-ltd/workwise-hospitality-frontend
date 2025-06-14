@@ -346,7 +346,7 @@ const SendQuotePageComp = () => {
       payload = { ...payload, products: updatedProducts };
 
       setsubmitLoading(true);
-      updateQuotation(quote_id, payload)
+      updateQuotation(quote_id, payload, token)
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote updated Successfully...!");
