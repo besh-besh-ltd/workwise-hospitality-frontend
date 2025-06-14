@@ -1228,6 +1228,7 @@ const EditRFQ = () => {
                   return (
                     <Item
                       // vendorApprovedList={vendorApprovedList}
+                      vendors={product.vendor_details}
                       activeKey={activeKey}
                       data={(() => {
                         const productObj = product;
