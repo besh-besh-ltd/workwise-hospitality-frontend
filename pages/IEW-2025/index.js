@@ -107,7 +107,7 @@ const InterestForm = () => {
             contactPoint: {
               "@type": "ContactPoint",
               contactType: "Customer Support",
-              email: "support@letsworkwise.com",
+              email: "hello@letsworkwise.com",
               telephone: "9930787798",
               hoursAvailable: {
                 "@type": "OpeningHoursSpecification",

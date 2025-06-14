@@ -167,8 +167,6 @@ const EditRFQ = () => {
       toast.error(error.message)
     }
   }
-
-  useEffect(() => console.log("RFQ DATA -> ", rfqData), [rfqData]);
   
   useEffect(() => {
     // Clear Redux store first
@@ -477,7 +475,7 @@ const EditRFQ = () => {
                 product_id: product.product_id,
                 variant: product.variant,
               }),
-              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+              [change.type]: change?.value.length > 0 ? change.value : "rm",
             },
           },
         },
@@ -1230,6 +1228,7 @@ const EditRFQ = () => {
                   return (
                     <Item
                       // vendorApprovedList={vendorApprovedList}
+                      vendors={product.vendor_details}
                       activeKey={activeKey}
                       data={(() => {
                         const productObj = product;
@@ -1246,7 +1245,7 @@ const EditRFQ = () => {
                       rfq_id={rfqData.id}
                       setHasUnsavedChanges={setHasUnsavedChanges}
                       getDraftInitialData={fetchInitialData}
-                      saveDraft={() => console.log("SAVINGGG")}
+                      saveDraft={() => {}}
                       onSpecValueChange={(change) => {
                         setRfqData((prev) => ({
                           ...prev,
@@ -1329,7 +1328,7 @@ const EditRFQ = () => {
                                     product_id: product.product_id,
                                     variant: product.variant,
                                   }),
-                                  [change.type]: change?.value.length > 0 ? change.value[0] : 'rm',
+                                  [change.type]: change?.value.length > 0 ? change.value : 'rm',
                                 }
                               }
                             }

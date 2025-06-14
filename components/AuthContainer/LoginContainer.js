@@ -60,6 +60,14 @@ const LoginContainer = (props) => {
                     userType = "vendor";
                 } else if (response.user_detail[0].user_type == 4) {
                     userType = "other";
+                } else if (response.user_detail[0].user_type == 7) {
+                    userType = "admin";
+                } else if (response.user_detail[0].user_type == 8) {
+                    userType = "management";
+                } else if (response.user_detail[0].user_type == 9) {
+                    userType = "engineering";
+                } else if (response.user_detail[0].user_type == 10) {
+                    userType = "finance";
                 }
                 storageInstance.setStorage("current-user-type", userType);
 
@@ -70,14 +78,17 @@ const LoginContainer = (props) => {
                     let prod_name = storageInstance.getStorage('product_name');
                     if (pathname.includes("/dashboard/buyer/rfq-management-vendor/vendor-profile")) {
                         router.reload();
-                    } else if (prod_name != "" && prod_name != "all" && userType != "vendor") {
+                    } else if (prod_name != "" && prod_name != "all" && userType != "vendor" && userType != "admin") {
                         router.push(`/vendor/${prod_name}`);
                     } else if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
                     } else if (userType == "vendor" && pathname.includes("/dashboard/vendor/inquiries-details")) {
                         console.log("Push Sent")
-                    }    
-                    else {
+                    } else if (userType == "admin") {
+                        router.push(`/dashboard/admin`);
+                    } else if (userType == "finance" || userType == "engineering") {
+                        router.push(`/dashboard/${userType}/editprofile`);
+                    } else {
                         router.push(`/dashboard/${userType}`);
                     }
                 }
@@ -143,10 +154,22 @@ const LoginContainer = (props) => {
                         userType = "buyer";
                     } else if (response?.profile?.user_type == 3) {
                         userType = "vendor";
+                    } else if (response?.profile?.user_type == 7) {
+                        userType = "admin";
+                    } else if (response?.profile?.user_type == 8) {
+                        userType = "management";
+                    } else if (response?.profile?.user_type == 9) {
+                        userType = "engineering";
+                    } else if (response?.profile?.user_type == 10) {
+                        userType = "finance";
                     }
                     storageInstance.setStorage("current-user-type", userType);
                     if (userType == "buyer") {
                         router.push(`/vendor/all?loggedin=true`);
+                    } else if (userType == "admin") {
+                        router.push(`/dashboard/admin`);
+                    } else if (userType == "finance" || userType == "engineering") {
+                        router.push(`/dashboard/${userType}/editprofile`);
                     } else {
                         router.push(`/dashboard/${userType}`);
                     }

@@ -21,6 +21,10 @@ import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 
 
+// mukul 05-06-2025
+// no need of this component
+
+
 // Modified Select Component to show category along with Product Name
 const CustomSelectOption = (props) => (
   <components.Option {...props}>

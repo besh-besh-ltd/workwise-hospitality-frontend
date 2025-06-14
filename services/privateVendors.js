@@ -1,6 +1,29 @@
 import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
 
+export const registerVendorUnified = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let mobile = payload.mobile;
+            if (payload.mobile) {
+                const cleanMobile = payload.mobile.replace(/^\+\d+\-\+\d+/, '+91').trim();
+                mobile = cleanMobile.substring(0, 15);
+            }
+            
+            const requestData = {
+                ...payload,
+                mobile: mobile,
+                user_type: 3, // Vendor type
+                organization_name: payload.organization_name || payload.company_name
+            };
+            let response = await axiosFormData.post(`users/company-registration`, requestData);
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+};
+
 export const addPrivateVendor = (payload) => {
     return new Promise(async (resolve, reject) => {
         try {

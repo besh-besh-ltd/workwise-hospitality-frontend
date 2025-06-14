@@ -40,6 +40,17 @@ export const vendorApproveList = (values) => {
   });
 };
 
+export const vendorTypes = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/vendor-types/`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const categoryList = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -103,6 +114,21 @@ export const getDraftById = (id, sheet_id) => {
       resolve(response);
     } catch (error) {
       console.error(`[getDraftById] Error fetching draft RFQ with ID ${id}:`, error);
+      reject({ 
+        message: error?.response?.data?.message || 'Error loading draft RFQ',
+        status: error?.response?.data?.status || 3
+      });
+    }
+  });
+};
+
+export const getVendorsForRFQProduct = (draftId, rfqProductId, filters) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-draft-vendors/${draftId}`, { ...filters }, { params: { rfqProductId } });
+      resolve(response);
+    } catch (error) {
+      console.error(`[getVendorsForRFQProduct] Error fetching Vendors for RFQ Product with ID ${draftId}:`, error);
       reject({ 
         message: error?.response?.data?.message || 'Error loading draft RFQ',
         status: error?.response?.data?.status || 3
@@ -242,10 +268,10 @@ export const sendQuotation = (payload, token) => {
   });
 };
 
-export const updateQuotation = (quote_id, payload) => {
+export const updateQuotation = (quote_id, payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}`, payload);
+      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });

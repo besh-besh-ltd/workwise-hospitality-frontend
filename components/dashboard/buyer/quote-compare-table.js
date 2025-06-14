@@ -313,6 +313,7 @@ const QuoteCompareTable = ({
         <div className="quote-sec-bottom">
           {lowestQuote && (
             <div className="quote-sec-bottom-con">
+            <div>
               <span>
                 <b>Lowest Bid</b> :{" "}
                 {
@@ -342,7 +343,7 @@ const QuoteCompareTable = ({
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
               </span>
-
+</div>
               {isRfqClosed ?
                 <button
                   type="submit"
@@ -368,35 +369,64 @@ const QuoteCompareTable = ({
       ) : (
         <div className="quote-sec-bottom">
           <div className="quote-sec-bottom-con">
-            <span>
-              <b>Finalized vendor</b> :{" "}
-              {
-                (alreadyFinalized[0]?.finalization?.winning_vendor
-                  ?.organization_name ?? alreadyFinalized[0]?.finalization?.winning_vendor
-                  ?.company_name)
-              }
-            </span>
-            <span>
-              <Link
-                href={
-                  "mailto:" +
-                  alreadyFinalized[0]?.finalization?.winning_vendor?.email
-                }
-              >
-                <FontAwesomeIcon icon={faEnvelope} />
-              </Link>
-            </span>
+            <div>
+              {" "}
+              <span>
+                <b>Finalized vendor</b> :{" "}
+                {alreadyFinalized[0]?.finalization?.winning_vendor
+                  ?.organization_name ??
+                  alreadyFinalized[0]?.finalization?.winning_vendor
+                    ?.company_name}
+              </span>
+              <span>
+                <Link
+                  href={
+                    "mailto:" +
+                    alreadyFinalized[0]?.finalization?.winning_vendor?.email
+                  }
+                >
+                  <FontAwesomeIcon icon={faEnvelope} />
+                </Link>
+              </span>
+              <span>
+                <Link
+                  href={
+                    "tel: " +
+                    alreadyFinalized[0]?.finalization?.winning_vendor?.mobile
+                  }
+                >
+                  <FontAwesomeIcon icon={faPhone} />
+                </Link>
+              </span>
+            </div>
 
-            <span>
-              <Link
-                href={
-                  "tel: " +
-                  alreadyFinalized[0]?.finalization?.winning_vendor?.mobile
-                }
-              >
-                <FontAwesomeIcon icon={faPhone} />
-              </Link>
-            </span>
+            <div>
+              {" "}
+              <span>
+                <b>Finalized By</b> :{" "}
+                {alreadyFinalized[0]?.finalization?.finilized_by?.name}
+              </span>
+              <span>
+                <Link
+                  href={
+                    "mailto:" +
+                    alreadyFinalized[0]?.finalization?.finilized_by?.email
+                  }
+                >
+                  <FontAwesomeIcon icon={faEnvelope} />
+                </Link>
+              </span>
+              <span>
+                <Link
+                  href={
+                    "tel: " +
+                    alreadyFinalized[0]?.finalization?.finilized_by?.mobile
+                  }
+                >
+                  <FontAwesomeIcon icon={faPhone} />
+                </Link>
+              </span>
+            </div>
           </div>
         </div>
       )}

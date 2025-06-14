@@ -25,8 +25,8 @@ const ProjectManagement = () => {
         setLoading(true)
         getAllProjects()
             .then((res) => {
-                setAllProjects(res.data)
-                setTotalData(res.data.length)
+                setAllProjects(res?.data?.data)
+                setTotalData(res?.data?.data?.length)
             })
             .catch((error) => {
                 console.log(error)
@@ -37,12 +37,13 @@ const ProjectManagement = () => {
     }
 
     const handleCreateProject = (values, resetForm) => {
+
         setCreateLoading(true);
         let payload = {
-            name: values.projectName,
-            description: values.projectDescription,
+            name: values.name,
+            description: values.description,
             location: values.location,
-            ended_at: values.ended_at ? values.ended_at: null,
+            ended_at: values?.ended_at || null,
             rfq_type: values.rfq_type,
             reverse_auction: values.reverse_auction
         };
@@ -105,12 +106,14 @@ const ProjectManagement = () => {
                                                     <th scope="col">Total RFQs</th>
                                                     <th scope="col">Open RFQs</th>
                                                     <th scope="col">Closed RFQs</th>
+                                                    <th scope="col">Created By</th>
                                                     <th scope="col">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {loading &&
                                                     <tr>
+                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
@@ -135,6 +138,7 @@ const ProjectManagement = () => {
                                                                 <td>{projectItem.total_rfqs || "---"}</td>
                                                                 <td>{projectItem.open_rfqs || "---"}</td>
                                                                 <td>{projectItem.closed_rfqs || "---"}</td>
+                                                                <td>{projectItem.created_by_name || "---"}</td>
                                                                 <td>
                                                                     <Link
                                                                         href={`./project-management/${projectItem.id}`}
