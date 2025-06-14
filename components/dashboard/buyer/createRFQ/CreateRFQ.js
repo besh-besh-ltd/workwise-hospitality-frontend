@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import Item from "./Item";
 import Select from 'react-select';
-import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes } from "@/services/rfq";
+import { createRfq, saveDraft, getTerms, vendorApproveList, getDraftData, getDraftById, getDraftRfqSheets, getDraftRfqSheetWise, processMagicSearchDraft, getVendorsForRFQProduct, vendorTypes, getVendorsForProduct } from "@/services/rfq";
 import { Form, Formik, Field } from "formik";
 import { CreateRFQSchema } from "@/utils/schema";
 import FormikField from "@/components/shared/FormikField";
@@ -31,6 +31,7 @@ import ViewVendorModal from "../editRFQ/ViewVendorModal";
 import { vendorConditions } from "../../vendor/search";
 import { getProductMakeList } from "@/services/products";
 import CommonFormInput from "@/components/shared/CommonFormInput";
+import AddVendorModal from "../editRFQ/AddVendorModal";
 
 const myVendorOptions = [
   { label: "All Vendors", value: null },
@@ -89,11 +90,13 @@ const CreateRFQ = () => {
     vendors: {},
   })
   const [vendors, setVendors] = useState({});
+  const [addableVendors, setAddableVendors] = useState([]);
   const [termsChanged, setTermsChanged] = useState(false);
   const [termFilesChanged, setTermFilesChanged] = useState(false);
   const [activeKey, setActiveKey] = useState(null);
   const [showModal, setShowModal] = useState({
     vendorModal: false,
+    addVendorModal: false
   })
   const [selectedProduct, setSelectedProduct] = useState({});
   const [vendorFilters, setVendorFilters] = useState({
@@ -1035,6 +1038,18 @@ const CreateRFQ = () => {
     }
   };
 
+  const handleShowModalWithProduct = (modalKey, product) => {
+    const key = `${product.id}`;
+    setShowModal((prev) => ({
+      ...prev,
+      [modalKey]: true,
+    }));
+    setSelectedProduct({
+      product,
+      vendors: vendors[key],
+    });
+  };
+
   const handleRouteChange = async (url) => {
     if (hasUnsavedChanges) {
       const confirmLeave = window.confirm(
@@ -1074,6 +1089,13 @@ const CreateRFQ = () => {
 
     setVendorFilters((prev) => {
       let updatedFilters = { ...prev };
+
+      const dataKeys = Object.keys(data)
+
+      if(dataKeys.includes('country') && data['country'].length == 0) {
+        data.state = [];
+        data.city = [];
+      }
 
       if (isGlobal) {
         // Update global
@@ -1116,6 +1138,23 @@ const CreateRFQ = () => {
     });
   };
 
+  const fetchAvailableVendorsForProduct = async () => {
+      if(!selectedProduct || !selectedProduct.product) return;
+
+      const key = `${selectedProduct.product.id}`;
+  
+      try {
+        const body = {
+          productId: selectedProduct.product.product_id,
+          excludeIds: vendors?.[key]?.map(vendor => vendor.user_id) ?? []
+        }
+        const response = await getVendorsForProduct(body)
+        setAddableVendors(response.data)
+      } catch (error) {
+        toast.error(error.message)
+      }
+    }
+
   useEffect(() => {
     if(activeKey) {
       activeKey?.forEach((key) => {
@@ -1124,6 +1163,10 @@ const CreateRFQ = () => {
       });
     }
   }, [vendorFilters.local])
+
+  useEffect(() => {
+      fetchAvailableVendorsForProduct();
+    }, [selectedProduct])
 
   // Dynamic filters inside Single RFQ Product Item
   const generateDynamicFilter = (product = null) => {
@@ -1588,7 +1631,7 @@ const CreateRFQ = () => {
                         isClearable
                       />
                     </div>
-                    
+
                     {/* Changes by Agnij 2025-08-08 [Simplified sheet selector UI] */}
                     {isMagicRfq && sheetNameList.length > 0 && (
                       <div className="col-md-3">
@@ -1625,54 +1668,62 @@ const CreateRFQ = () => {
                     }}
                   >
                     <Accordion flush alwaysOpen activeKey={activeKey} onSelect={(k) => {
-                      setActiveKey(k);
+                        setActiveKey(k);
                       k?.forEach(key => {
-                        const rfqProductId = key;
-                        fetchVendorsForProduct(rfqProductId);
+                          const rfqProductId = key;
+                          fetchVendorsForProduct(rfqProductId);
 
                         const rfqProduct = rfqProducts.find(product => product.id == rfqProductId)
                         if(rfqProduct) {
-                          getMakesProductWise(rfqProduct.product_id);
-                        }
+                            getMakesProductWise(rfqProduct.product_id);
+                          }
                       })
                     }}>
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
                         rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map(product => {
-                          return (
-                            <Item
-                              activeKey={activeKey}
-                              vendors={vendors?.[product.id] ?? []}
-                              updatableData={updatableData}
-                              vendorApprovedList={vendorApprovedList}
-                              data={product}
-                              rfq_id={rfqDetails}
-                              setHasUnsavedChanges={setHasUnsavedChanges}
-                              getDraftInitialData={getDraftInitialData}
-                              saveDraft={handleSaveDraft}
-                              selectedSheet={selectedSheet}
-                              onSpecValueChange={(change) => handleSpecChange(product, change)}
-                              onFilesChange={(change) => handleFilesChange(product, change)}
-                              onCommentChange={(change) => handleCommentChange(product, change)}
-                              onClauseChange={(change) => handleClauseChange(product, change)}
-                              handleViewVendorInEdit={() => {
-                                const key = `${product.id}`
-                                setShowModal(prev => ({
-                                  ...prev,
-                                  vendorModal: true
-                                }));
-                                setSelectedProduct({
-                                  product,
-                                  vendors: vendors[key],
-                                });
-                              }}
-                              handleRemoveProductInEdit={() => handleRemoveProduct(product)}
-
-                              // Header
-                              header={generateDynamicFilter}
-                            />
-                          );
-                        })}
+                            return (
+                              <Item
+                                activeKey={activeKey}
+                                vendors={vendors?.[product.id] ?? []}
+                                updatableData={updatableData}
+                                vendorApprovedList={vendorApprovedList}
+                                data={product}
+                                rfq_id={rfqDetails}
+                                setHasUnsavedChanges={setHasUnsavedChanges}
+                                getDraftInitialData={getDraftInitialData}
+                                saveDraft={handleSaveDraft}
+                                selectedSheet={selectedSheet}
+                                onSpecValueChange={(change) =>
+                                  handleSpecChange(product, change)
+                                }
+                                onFilesChange={(change) =>
+                                  handleFilesChange(product, change)
+                                }
+                                onCommentChange={(change) =>
+                                  handleCommentChange(product, change)
+                                }
+                                onClauseChange={(change) =>
+                                  handleClauseChange(product, change)
+                                }
+                                handleViewVendorInEdit={() =>
+                                  handleShowModalWithProduct(
+                                    "vendorModal",
+                                    product
+                                  )
+                                }
+                                handleRemoveProductInEdit={() =>
+                                  handleRemoveProduct(product)
+                                }
+                                handleAddVendorInEdit={() => handleShowModalWithProduct(
+                                  "addVendorModal",
+                                  product
+                                )}
+                                // Header
+                                header={generateDynamicFilter}
+                              />
+                            );
+                          })}
                     </Accordion>
                   </div>
 
@@ -1697,8 +1748,8 @@ const CreateRFQ = () => {
                           <ol className="custom-ol">
                             {allTerms.map((item) => {
                               // Use consistent term content extraction
-                              const termContent = 
-                                item.term_content || 
+                              const termContent =
+                                item.term_content ||
                                 item.name ||
                                 item.term_text ||
                                 (item.content && Array.isArray(item.content) && item.content[0]?.title) ||
@@ -1913,21 +1964,21 @@ const CreateRFQ = () => {
 
                                 <div className="col-md-6">
                                   {/* Company Name - Read Only */}
-                                <div className="mb-3">
+                                  <div className="mb-3">
                                   <label className="form-label fw-medium">Company Name</label>
-                                  <input
-                                    type="text"
-                                    className="form-control bg-light"
+                                    <input
+                                      type="text"
+                                      className="form-control bg-light"
                                     value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
-                                    disabled
-                                  />
-                                  <input
-                                    type="hidden"
-                                    name="company_name"
+                                      disabled
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="company_name"
                                     value={rfqFormDataFromStore.company_name || userProfile?.company_name || ""}
-                                  />
+                                    />
+                                  </div>
                                 </div>
-                              </div>
                               </div>
 
                               <div className="row mb-2">
@@ -1966,7 +2017,7 @@ const CreateRFQ = () => {
                                     errors={errors}
                                   />
                                 </div>
-                                
+
                                 <div className="col-md-4">
                                   <FormikField
                                     label="Reverse Auction"
@@ -2001,33 +2052,33 @@ const CreateRFQ = () => {
                                         min={rfqFormDataFromStore.bid_end_date
                                                ? formatISOToDateTimeLocal(rfqFormDataFromStore.bid_end_date)
                                                : new Date().toISOString().slice(0, 16)
-                                           }
+                                        }
                                       />
                                       {validationErrors.ra_start_date && (
                                           <div className="text-danger">{validationErrors.ra_start_date}</div>
                                       )}
                                     </div>
                                     <div className="col-md-6">
-                                       <label className="form-label">
+                                      <label className="form-label">
                                          Auction End Date & Time <span className="text-danger">*</span>
-                                       </label>
-                                       <input
-                                         type="datetime-local"
-                                         name="ra_end_date"
-                                         className="form-control"
+                                      </label>
+                                      <input
+                                        type="datetime-local"
+                                        name="ra_end_date"
+                                        className="form-control"
                                          value={formatISOToDateTimeLocal(rfqFormDataFromStore.ra_end_date)}
-                                         onChange={handleFormFieldChange}
-                                         min={
-                                           rfqFormDataFromStore.ra_start_date
+                                        onChange={handleFormFieldChange}
+                                        min={
+                                          rfqFormDataFromStore.ra_start_date
                                              ? formatISOToDateTimeLocal(rfqFormDataFromStore.ra_start_date)
-                                             : ""
-                                         }
+                                            : ""
+                                        }
                                          disabled={!rfqFormDataFromStore.ra_start_date}
-                                       />
-                                       {validationErrors.ra_end_date && (
+                                      />
+                                      {validationErrors.ra_end_date && (
                                          <div className="text-danger">{validationErrors.ra_end_date}</div>
-                                       )}
-                                     </div>
+                                      )}
+                                    </div>
                                   </>
                                 )}
 
@@ -2082,72 +2133,135 @@ const CreateRFQ = () => {
 
       {/* Modals */}
       <ViewVendorModal
-          productData={selectedProduct}
-          updatableData={updatableData}
-          isOpen={showModal.vendorModal}
+        productData={selectedProduct}
+        updatableData={updatableData}
+        isOpen={showModal.vendorModal}
           onClose={() => setShowModal(prev => ({
             ...prev,
             vendorModal: false,
           }))}
-          onAdd={(item) => {
-            if (
-              (
-                updatableData.vendors?.[selectedProduct.product.id]
-                  ?.deletable ?? []
-              ).length +
-                1 +
-                (
-                  updatableData.vendors?.[selectedProduct.product.id]
-                    ?.addable ?? []
-                ).length <
-              1
-            ) {
-              toast.error(
-                "At least one vendor is required for the product"
-              );
-              return;
-            }
-            setUpdatableData((prev) => ({
-              ...prev,
-              vendors: {
-                ...prev.vendors,
-                [selectedProduct.product.id]: {
-                  ...(prev.vendors?.[selectedProduct.product.id] ?? {
-                    product_id: selectedProduct.product.product_id,
-                    variant: selectedProduct.product.variant,
-                  }),
-                  deletable: [
+        onAdd={(item) => {
+          const key = `${selectedProduct.product.id}`;
+          const totalVendors = vendors?.[key]?.length ?? 0;
+          
+          const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+          const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+          
+          if (
+            totalVendors + addableVendors - deletableVendors <= 0
+          ) {
+            toast.error(
+              "At least one vendor is required for the product"
+            );
+            return;
+          }
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: [
                     ...(prev.vendors?.[selectedProduct.product.id]
                       ?.deletable ?? []),
-                    item.user_id,
-                  ],
-                },
+                  item.user_id,
+                ],
               },
+            },
             }))
           }
           }
-          onRemove={(item) => {
-            setUpdatableData((prev) => ({
-              ...prev,
-              vendors: {
-                ...prev.vendors,
-                [selectedProduct.product.id]: {
-                  ...(prev.vendors?.[selectedProduct.product.id] ?? {
-                    product_id: selectedProduct.product.product_id,
-                    variant: selectedProduct.product.variant,
-                  }),
-                  deletable: (
+        onRemove={(item) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: (
                     prev.vendors?.[selectedProduct.product.id]?.deletable ??
                     []
-                  ).filter(
-                    (deletableVendorId) => deletableVendorId != item.user_id
-                  ),
-                },
+                ).filter(
+                  (deletableVendorId) => deletableVendorId != item.user_id
+                ),
               },
-            }))
+            },
+          }));
+        }}
+      />
+
+      <AddVendorModal
+        headerTitle={`Add Vendor in ${selectedProduct?.product?.name}`}
+        vendors={addableVendors}
+        productData={selectedProduct}
+        updatableData={updatableData}
+        isOpen={showModal.addVendorModal}
+        onClose={() => {
+          setShowModal(prev => ({...prev, addVendorModal: false}))
+          setAddableVendors([]);
+        }}
+        addedVendorsList={(updatableData?.vendors?.[
+          selectedProduct?.product?.id
+        ]?.addable) ?? []}
+        onAdd={(item) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: [
+                  ...(prev.vendors?.[selectedProduct.product.id]?.addable ??
+                    []),
+                  item.id,
+                ],
+              },
+            },
+          }))
+        }
+        }
+        onRemove={(item) => {
+          const key = `${selectedProduct.product.id}`;
+          const totalVendors = vendors?.[key]?.length ?? 0;
+          
+          const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length;
+          const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length - 1;
+          
+          if (
+            totalVendors + addableVendors - deletableVendors <= 0
+          ) {
+            toast.error(
+              "At least one vendor is required for the product"
+            );
+            return;
           }
-          }
-        />
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: (
+                  prev.vendors?.[selectedProduct.product.id]?.addable ?? []
+                ).filter((deletableVendorId) => deletableVendorId != item.id),
+              },
+            },
+          }))
+        }
+        }
+      />
     </>
   );
 };

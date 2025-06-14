@@ -167,8 +167,6 @@ const EditRFQ = () => {
       toast.error(error.message)
     }
   }
-
-  useEffect(() => console.log("RFQ DATA -> ", rfqData), [rfqData]);
   
   useEffect(() => {
     // Clear Redux store first
