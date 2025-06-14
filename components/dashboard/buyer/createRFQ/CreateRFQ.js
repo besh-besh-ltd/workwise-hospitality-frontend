@@ -961,7 +961,7 @@ const CreateRFQ = () => {
                 product_id: product.product_id,
                 variant: product.variant,
               }),
-              [change.type]: change?.value.length > 0 ? change.value[0] : "rm",
+              [change.type]: change?.value.length > 0 ? change.value : "rm",
             },
           },
         },
