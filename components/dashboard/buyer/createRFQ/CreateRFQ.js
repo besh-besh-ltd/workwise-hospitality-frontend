@@ -1692,7 +1692,9 @@ const CreateRFQ = () => {
                               <Item
                                 activeKey={activeKey}
                                 vendors={vendors?.[product.id] ?? []}
-                                fetchVendors={async () => await fetchVendorsForProduct(product.id)}
+                                fetchVendors={async () =>
+                                  await fetchVendorsForProduct(product.id)
+                                }
                                 updatableData={updatableData}
                                 vendorApprovedList={vendorApprovedList}
                                 data={product}
@@ -1722,10 +1724,23 @@ const CreateRFQ = () => {
                                 handleRemoveProductInEdit={() =>
                                   handleRemoveProduct(product)
                                 }
-                                handleAddVendorInEdit={() => handleShowModalWithProduct(
-                                  "addVendorModal",
-                                  product
-                                )}
+                                handleAddVendorInEdit={
+                                  Object.keys(
+                                    vendorFilters.local?.[product.id] ?? []
+                                  ).some((key) => {
+                                    const value =
+                                      vendorFilters.local?.[product.id][key];
+                                    return (
+                                      Array.isArray(value) && value.length > 0
+                                    );
+                                  })
+                                    ? null
+                                    : () =>
+                                        handleShowModalWithProduct(
+                                          "addVendorModal",
+                                          product
+                                        )
+                                }
                                 // Header
                                 header={generateDynamicFilter}
                               />
