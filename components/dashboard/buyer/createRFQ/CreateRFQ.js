@@ -2141,21 +2141,18 @@ const CreateRFQ = () => {
             vendorModal: false,
           }))}
         onAdd={(item) => {
+          const key = `${selectedProduct.product.id}`;
+          const totalVendors = vendors?.[key]?.length ?? 0;
+          
+          const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length + 1;
+          const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length;
+          
           if (
-            (
-                updatableData.vendors?.[selectedProduct.product.id]
-                  ?.deletable ?? []
-            ).length +
-              1 +
-              (
-                  updatableData.vendors?.[selectedProduct.product.id]
-                    ?.addable ?? []
-              ).length <
-            1
+            totalVendors + addableVendors - deletableVendors <= 0
           ) {
-              toast.error(
-                "At least one vendor is required for the product"
-              );
+            toast.error(
+              "At least one vendor is required for the product"
+            );
             return;
           }
           setUpdatableData((prev) => ({
@@ -2209,7 +2206,10 @@ const CreateRFQ = () => {
           setShowModal(prev => ({...prev, addVendorModal: false}))
           setAddableVendors([]);
         }}
-        onAdd={(item) =>
+        addedVendorsList={(updatableData?.vendors?.[
+          selectedProduct?.product?.id
+        ]?.addable) ?? []}
+        onAdd={(item) => {
           setUpdatableData((prev) => ({
             ...prev,
             vendors: {
@@ -2228,7 +2228,22 @@ const CreateRFQ = () => {
             },
           }))
         }
-        onRemove={(item) =>
+        }
+        onRemove={(item) => {
+          const key = `${selectedProduct.product.id}`;
+          const totalVendors = vendors?.[key]?.length ?? 0;
+          
+          const deletableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.deletable ?? []).length;
+          const addableVendors = (updatableData.vendors?.[selectedProduct.product.id]?.addable ?? []).length - 1;
+          
+          if (
+            totalVendors + addableVendors - deletableVendors <= 0
+          ) {
+            toast.error(
+              "At least one vendor is required for the product"
+            );
+            return;
+          }
           setUpdatableData((prev) => ({
             ...prev,
             vendors: {
@@ -2244,6 +2259,7 @@ const CreateRFQ = () => {
               },
             },
           }))
+        }
         }
       />
     </>
