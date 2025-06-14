@@ -36,6 +36,7 @@ const Item = ({
   selectedSheet,
   activeKey,
   vendors,
+  fetchVendors,
   updatableData,
 
   // Behavioural Html injection props
@@ -187,6 +188,11 @@ const Item = ({
   const handleAddVarient = async () => {
     try {
       setHasUnsavedChanges(true);
+      let variantVendors = vendors ?? [];
+
+      if(variantVendors.length <= 0 && fetchVendors) {
+        variantVendors = await fetchVendors();
+      }
 
       await saveDraft();
       setLoading(true);
@@ -195,7 +201,7 @@ const Item = ({
         rfq_id,
         sheet_id: selectedSheet?.value,
         variant_id: data.product_id,
-        vendors: vendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
+        vendors: variantVendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
         })),
       };

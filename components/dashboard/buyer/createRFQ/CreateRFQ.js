@@ -149,6 +149,8 @@ const CreateRFQ = () => {
         ...prev,
         [key]: vendorsData
       }))
+
+      return vendorsData
     } catch (error) {
       console.error("ERROR IN `fetchVendorsForProduct` => ", error);
       toast.error(error.message);
@@ -1690,6 +1692,7 @@ const CreateRFQ = () => {
                               <Item
                                 activeKey={activeKey}
                                 vendors={vendors?.[product.id] ?? []}
+                                fetchVendors={async () => await fetchVendorsForProduct(product.id)}
                                 updatableData={updatableData}
                                 vendorApprovedList={vendorApprovedList}
                                 data={product}
