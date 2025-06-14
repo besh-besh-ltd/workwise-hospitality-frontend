@@ -268,10 +268,10 @@ export const sendQuotation = (payload, token) => {
   });
 };
 
-export const updateQuotation = (quote_id, payload) => {
+export const updateQuotation = (quote_id, payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}`, payload);
+      let response = await axiosInstance.put(`/rfq/quote/update/${quote_id}${token !== undefined ? `?token=${token}` : ''}`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
