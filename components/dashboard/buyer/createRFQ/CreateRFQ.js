@@ -595,6 +595,14 @@ const CreateRFQ = () => {
           </h6>,
           { position: "top-right" }
         );
+        setUpdatableData({
+          products: {
+            addable: [],
+            deletable: [],
+            updatable: {},
+          },
+          vendors: {},
+        })
         setHasUnsavedChanges(false);
         rfqProductsRef.current = [];
         rfqFormDataRef.current = {};
@@ -691,6 +699,15 @@ const CreateRFQ = () => {
     try {
       const res = await saveDraft(payload);
       setMainLoading(false);
+      await getDraftInitialData();
+      setUpdatableData({
+        products: {
+          addable: [],
+          deletable: [],
+          updatable: {},
+        },
+        vendors: {},
+      })
       toast.success(
         <h6>
           <b>RFQ Draft #{res.message?.rfq?.rfq_no}:</b> Changes saved successfully!
