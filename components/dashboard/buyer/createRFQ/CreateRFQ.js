@@ -1092,8 +1092,12 @@ const CreateRFQ = () => {
 
       const dataKeys = Object.keys(data)
 
-      if(dataKeys.includes('country') && data['country'].length == 0) {
+      if(dataKeys.includes('country')) {
         data.state = [];
+        data.city = [];
+      }
+
+      if(dataKeys.includes('state')) {
         data.city = [];
       }
 
