@@ -74,22 +74,23 @@ const ManageAccountsPage = () => {
     try {
       const response = await getCompanyUsers();
       if (!response.status) return toast.error("Failed to fetch users");
+      const users = response.data
 
-      const users = await Promise.all(
-        response.data.map(async (user) => {
-          try {
-            const res = await getUserProjectsByUserId(user.id);
-            const projects = res?.data?.data || [];
-            return {
-              ...user,
-              projects: projects.map((p) => p.id),
-              projectsData: projects,
-            };
-          } catch {
-            return { ...user, projects: [], projectsData: [] };
-          }
-        })
-      );
+      // const users = await Promise.all(
+      //   response.data.map(async (user) => {
+      //     try {
+      //       const res = await getUserProjectsByUserId(user.id);
+      //       const projects = res?.data?.data || [];
+      //       return {
+      //         ...user,
+      //         projects: projects.map((p) => p.id),
+      //         projectsData: projects,
+      //       };
+      //     } catch {
+      //       return { ...user, projects: [], projectsData: [] };
+      //     }
+      //   })
+      // );
 
       setData((prev) => ({
         ...prev,
@@ -187,7 +188,7 @@ const ManageAccountsPage = () => {
         fetchUsers();
       }
     }
-    fetchProjects();
+    // fetchProjects();
     fetchUsers();
     fetchCountryCodes();
   }, []);
@@ -250,7 +251,7 @@ const ManageAccountsPage = () => {
                       />
                     </div>
 
-                    <div className="col-md-3">
+                    {/* <div className="col-md-3">
                       <label>Filter by Project</label>
                       <Select
                         options={data.projects.options}
@@ -266,9 +267,9 @@ const ManageAccountsPage = () => {
                         }
                         isLoading={data.projects.loading}
                       />
-                    </div>
+                    </div> */}
 
-                    <div className="col-md-3 d-flex align-items-end justify-content-end">
+                    <div className="col-md-6 d-flex align-items-end justify-content-end">
                       <SmartButton
                         href="/dashboard/admin/account-management/create-account"
                         label=" Create New Account"
