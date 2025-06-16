@@ -630,10 +630,8 @@ const CreateRFQ = () => {
     };
 
     if (filters) {
-      Object.keys(filters.global).forEach((filterKey) => {
-        const filter = filters.global[filterKey];
-
-        updatedFilters.global[filterKey] = filter?.value ?? null;
+      Object.entries(filters.global).forEach(([filterKey, filter]) => {
+        updatedFilters.global[filterKey] = Array.isArray(filter) ? filter.map(value => value.value) : filter;
       });
 
       Object.keys(filters.local).forEach((id) => {
