@@ -132,7 +132,7 @@ const EditProfile = () => {
     const payload = {
       name: values.name,
       email: values.email,
-      mobile: `${values.countryCode}-${values.mobile
+      mobile: `${values.countryCode}-${String(values.mobile || "")
         .trim()
         .replace(/^0+/, "")}`,
     };
