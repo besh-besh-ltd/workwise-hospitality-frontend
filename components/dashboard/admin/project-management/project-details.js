@@ -525,6 +525,7 @@ const ProjectDetailsPage = () => {
         <DynamicFormModal
           type="add-team-member"
           teamMemberUsers={teamMemberUsers}
+          currentTeamMembers={teamMembers}
           openModal={showAddTeamModal}
           closeModal={() => setShowAddTeamModal(false)}
           handleAddTeamMember={handleAddTeamMember}
