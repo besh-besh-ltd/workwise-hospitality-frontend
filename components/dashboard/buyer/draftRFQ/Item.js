@@ -66,8 +66,8 @@ const DraftRFQItem = ({ data }) => {
         <td>
             <Link
               href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data?.id}`}
-              className="btn btn-primary"
-              style={{ width: "100px" }}
+              className="btn btn-sm btn-primary"
+              style={{ width: "100px", padding: '9px 0' }}
             >
               Edit
             </Link>
