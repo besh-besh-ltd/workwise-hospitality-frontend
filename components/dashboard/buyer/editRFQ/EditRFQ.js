@@ -758,7 +758,7 @@ const EditRFQ = () => {
   }
 
   const handleAddProduct = async () => {
-    if(!rfqData || !rfqData.id) return;
+    if(!rfqData || !rfqData.id || productAddData.vendors.length <= 0) return;
 
     const payload = {
       rfqId: rfqData.id,
@@ -2004,7 +2004,7 @@ const EditRFQ = () => {
           ...prev,
           vendors: prev.vendors.filter(vendorId => vendorId != item.id)
         }))}
-        onSubmit={handleAddProduct}
+        onSubmit={productAddData.vendors.length > 0 ? handleAddProduct : null}
         addedVendorsList={productAddData?.vendors ?? []}
         submitText={"Add Product"}
       />

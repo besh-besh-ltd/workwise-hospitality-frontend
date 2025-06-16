@@ -210,14 +210,14 @@ const CreateRFQ = () => {
     }
   };
 
-  const getMakesProductWise = async (product_id) => {
+  const getMakesProductWise = async (rfqProductId, product_id) => {
     try {
-      if(initialFilterOptions.productMakes?.[product_id]) return;
+      if(initialFilterOptions.productMakes?.[rfqProductId]) return;
 
       const productMakes = await getProductMakeList(product_id);
       setInitialFilterOptions(prev => ({
         ...prev,
-        productMakes: { ...prev.productMakes, [product_id]: productMakes?.data ?? [] }
+        productMakes: { ...prev.productMakes, [rfqProductId]: productMakes ?? [] }
       }))
     } catch (error) {
       throw error;
@@ -1370,7 +1370,7 @@ const CreateRFQ = () => {
                       initialFilterOptions.productMakes?.[product.id]
                         ? initialFilterOptions.productMakes[product.id].map(
                             (item) => ({
-                              label: item.vendor_approve,
+                              label: item.make_name,
                               value: item.id,
                             })
                           )
@@ -1696,7 +1696,7 @@ const CreateRFQ = () => {
 
                         const rfqProduct = rfqProducts.find(product => product.id == rfqProductId)
                         if(rfqProduct) {
-                            getMakesProductWise(rfqProduct.product_id);
+                            getMakesProductWise(rfqProductId, rfqProduct.product_id);
                           }
                       })
                     }}>
