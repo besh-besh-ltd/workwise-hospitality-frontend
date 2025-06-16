@@ -123,7 +123,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent,vendorwithoutlo
                 </div>
               )}
               <small className="text-muted d-block mt-1">
-                {message.direction != "received" || message?.sender_name + " -  "}
+                { message?.sender_name + " -  "}
                 {formatDate(message.created_at)}
               </small>
             </div>
