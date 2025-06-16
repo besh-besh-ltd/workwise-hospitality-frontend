@@ -93,14 +93,14 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent,vendorwithoutlo
           <div
             key={message.message_id}
             ref={index === messages.length - 1 ? latestMessageRef : null}
-            className={`d-flex ${message.sender_id === vendor.user_id ? "" : "justify-content-end"
+            className={`d-flex ${message.direction == "received" ? "" : "justify-content-end"
               } mb-2`}
           >
             <div
-              className={`p-3 me-2 bg-light text-dark rounded shadow-sm`}
+              className={`px-3 py-2 me-2 bg-light text-dark rounded shadow-sm`}
               style={{ maxWidth: "70%" }}
             >
-              <p className="mb-0">{message.message_text}</p>
+              <p className="mb-0">{message.message_text} </p>
               {message.files && message.files.length > 0 && (
                 <div className="mt-2">
                   {message.files.map((file, idx) => (
@@ -122,7 +122,8 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent,vendorwithoutlo
                   ))}
                 </div>
               )}
-              <small className="text-muted d-block">
+              <small className="text-muted d-block mt-1">
+                {message.direction != "received" || message?.sender_name + " -  "}
                 {formatDate(message.created_at)}
               </small>
             </div>
