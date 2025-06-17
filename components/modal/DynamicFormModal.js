@@ -45,6 +45,7 @@ const DynamicFormModal = ({
     projectData,
     accountData,
     teamMemberUsers,
+    currentTeamMembers,
     openModal,
     closeModal,
     handleAddVendor,
@@ -386,13 +387,21 @@ Example:
             closeModal();
         };
 
-        const userOptions = teamMemberUsers?.map(user => ({
+        // Filter out users who are already team members
+        const availableUsers = teamMemberUsers?.filter(user => {
+            // Get array of user IDs who are already team members
+            const currentTeamMemberIds = currentTeamMembers?.map(member => member.user_id) || [];
+            // Return only users who are not already in the team
+            return !currentTeamMemberIds.includes(user.id);
+        }) || [];
+
+        const userOptions = availableUsers.map(user => ({
             value: user.id,
             label: `${user.name} (${user.email})`,
             email: user.email,
             role: user.role,
             name: user.name
-        })) || [];
+        }));
 
         // Get role label and color
         const getRoleInfo = (roleId) => {

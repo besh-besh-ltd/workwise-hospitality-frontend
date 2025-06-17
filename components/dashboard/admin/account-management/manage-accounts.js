@@ -7,7 +7,6 @@ import FullLoader from "@/components/shared/FullLoader";
 import Select from "react-select";
 import DynamicFormModal from "@/components/modal/DynamicFormModal";
 import { getCompanyUsers, updateUserAccount } from "@/services/Auth";
-import { getAllProjects, getUserProjectsByUserId, addTeamMember, removeTeamMember } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
 import { toast } from "react-toastify";
 import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
@@ -26,8 +25,6 @@ const statusOptions = [
   { value: "inactive", label: "Inactive" },
 ];
 
-// here in this comonent we are fetching all projects and then applying paganition etc, no to remove this ASAP
-
 const ManageAccountsPage = () => {
   const [uiState, setUiState] = useState({
     loading: false,
@@ -38,36 +35,13 @@ const ManageAccountsPage = () => {
   const [filters, setFilters] = useState({
     role: null,
     status: null,
-    project: [],
   });
 
   const [data, setData] = useState({
     accounts: [],
     filteredAccounts: [],
-    projects: { options: [], loading: false },
     countryCodes: [],
   });
-
-  const fetchProjects = async () => {
-    setData((prev) => ({
-      ...prev,
-      projects: { ...prev.projects, loading: true },
-    }));
-    try {
-      const response = await getAllProjects();
-      const options = (response?.data?.data || []).map((project) => ({
-        value: project.id,
-        label: project.name || project.project_name,
-      }));
-      setData((prev) => ({ ...prev, projects: { loading: false, options } }));
-    } catch {
-      toast.error("Failed to fetch projects");
-      setData((prev) => ({
-        ...prev,
-        projects: { loading: false, options: [] },
-      }));
-    }
-  };
 
   const fetchUsers = async () => {
     setUiState((prev) => ({ ...prev, loading: true }));
@@ -75,22 +49,6 @@ const ManageAccountsPage = () => {
       const response = await getCompanyUsers();
       if (!response.status) return toast.error("Failed to fetch users");
       const users = response.data
-
-      // const users = await Promise.all(
-      //   response.data.map(async (user) => {
-      //     try {
-      //       const res = await getUserProjectsByUserId(user.id);
-      //       const projects = res?.data?.data || [];
-      //       return {
-      //         ...user,
-      //         projects: projects.map((p) => p.id),
-      //         projectsData: projects,
-      //       };
-      //     } catch {
-      //       return { ...user, projects: [], projectsData: [] };
-      //     }
-      //   })
-      // );
 
       setData((prev) => ({
         ...prev,
@@ -127,20 +85,6 @@ const ManageAccountsPage = () => {
       label: "Unknown",
       color: "#000000",
     };
-
-  const getProjectNames = (account) => {
-    if (account.projectsData?.length)
-      return account.projectsData.map((p) => p.name).join(", ");
-    return account.projects?.length
-      ? account.projects
-          .map(
-            (id) =>
-              data.projects.options.find((p) => p.value === id)?.label ||
-              `Project ${id}`
-          )
-          .join(", ")
-      : "None";
-  };
 
   const formatDate = (d) =>
     d
@@ -188,7 +132,6 @@ const ManageAccountsPage = () => {
         fetchUsers();
       }
     }
-    // fetchProjects();
     fetchUsers();
     fetchCountryCodes();
   }, []);
@@ -199,10 +142,6 @@ const ManageAccountsPage = () => {
       filtered = filtered.filter((u) => u.role === filters.role.value);
     if (filters.status)
       filtered = filtered.filter((u) => u.status === filters.status.value);
-    if (filters.project.length)
-      filtered = filtered.filter((u) =>
-        filters.project.some((f) => u.projects.includes(f.value))
-      );
 
     setData((prev) => ({ ...prev, filteredAccounts: filtered }));
     setUiState((prev) => ({
@@ -251,24 +190,6 @@ const ManageAccountsPage = () => {
                       />
                     </div>
 
-                    {/* <div className="col-md-3">
-                      <label>Filter by Project</label>
-                      <Select
-                        options={data.projects.options}
-                        value={filters.project}
-                        isMulti
-                        onChange={(project) =>
-                          setFilters((prev) => ({ ...prev, project }))
-                        }
-                        placeholder={
-                          data.projects.loading
-                            ? "Loading..."
-                            : "Select Project(s)"
-                        }
-                        isLoading={data.projects.loading}
-                      />
-                    </div> */}
-
                     <div className="col-md-6 d-flex align-items-end justify-content-end">
                       <SmartButton
                         href="/dashboard/admin/account-management/create-account"
@@ -297,7 +218,6 @@ const ManageAccountsPage = () => {
                             <th>Email</th>
                             <th>Mobile</th>
                             <th>Role</th>
-                            <th>Projects</th>
                             <th>Created</th>
                             <th>Actions</th>
                           </tr>
@@ -324,7 +244,6 @@ const ManageAccountsPage = () => {
                                     {roleInfo.label}
                                   </span>
                                 </td>
-                                <td>{getProjectNames(account)}</td>
                                 <td>{formatDate(account.created_at)}</td>
                                 <td>
                                   <SmartButton
@@ -384,7 +303,6 @@ const ManageAccountsPage = () => {
           handleEditAccount={updateUserData}
           countryCodes={data.countryCodes}
           roleOptions={roleOptions}
-          projectOptions={data.projects.options}
         />
       )}
     </>
