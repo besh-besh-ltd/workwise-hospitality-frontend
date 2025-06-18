@@ -15,6 +15,10 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "test-workwise-bucket.s3.ap-south-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
         hostname: "workwise-static-s3.s3.ap-south-1.amazonaws.com",
       },
       {
