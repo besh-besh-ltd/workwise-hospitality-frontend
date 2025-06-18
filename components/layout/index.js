@@ -56,9 +56,10 @@ const Layout = (props) => {
     }
   }, []);
 
-  useEffect(() => {
-    getCmsSections();
-  }, []);
+  /* REMOVED UN-USED CALL TO CMS DATA API */
+  // useEffect(() => {
+  //   getCmsSections();
+  // }, []);
 
   const getCmsSections = () => {
     getCmsData(0)
