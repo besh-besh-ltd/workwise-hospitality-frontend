@@ -275,6 +275,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   };
 
   const calculateTotal = (item, quantity) => {
+    console.log(`ITEM => ${item}, QUANTITY => ${quantity}`)
     let total_qty = parseInt(quantity) || 0;
     let unit_price = item.unit_price || 0;
     
@@ -571,7 +572,19 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                           )}
 
                           {item.quotations.length > 0 &&
-                            item.quotations.map((quote_item) => {
+                            (freightInfo == "all"
+                              ? item.quotations
+                              : freightInfo == "with"
+                              ? item.quotations.filter(
+                                  (quote_item) =>
+                                    !!quote_item?.quote_details[0]
+                                      ?.freight_price
+                                )
+                              : item.quotations.filter(
+                                  (quote_item) =>
+                                    !quote_item?.quote_details[0]?.freight_price
+                                )
+                            ).map((quote_item) => {
                               const isSomeoneFinalized =
                                 item?.all_vendors?.find(
                                   (vendor) => vendor.is_finalized
