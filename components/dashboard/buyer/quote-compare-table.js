@@ -91,8 +91,11 @@ const QuoteCompareTable = ({
                     className="table-col"
                     key={`tab_qq_${item.quote_id}_${index}`}
                   >
-                    <div className="table-si-row table-dark-row">
-                      <span>
+                    <div
+                      className="table-si-row table-dark-row "
+                      style={{ overflow: "visible" }}
+                    >
+                      <span className="d-block text-center fw-bold fs-5" style={{"width" : "100%"}}>
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||
                           item?.quote_details?.vendor_details?.name}
@@ -289,19 +292,26 @@ const QuoteCompareTable = ({
                     </div>
                     <div className="table-si-row table-grey-row">
                       {item.global_document_files ? (
-                        <>{renderFileLink(item.global_document_files,"view file")}</>
+                        <>
+                          {renderFileLink(
+                            item.global_document_files,
+                            "view file"
+                          )}
+                        </>
                       ) : (
                         <span>N/A</span>
                       )}
                     </div>
                     <div className="table-si-row">
-                      {
-                      item?.global_payment_term ? (
-                        <ReadMore content = {item?.global_payment_term} maxLines={2}/> )
-                       : "NA"
-                       }
-                      
-                      </div>
+                      {item?.global_payment_term ? (
+                        <ReadMore
+                          content={item?.global_payment_term}
+                          maxLines={2}
+                        />
+                      ) : (
+                        "NA"
+                      )}
+                    </div>
                   </div>
                 );
               })}

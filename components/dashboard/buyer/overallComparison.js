@@ -18,12 +18,18 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [finalised , setFinalised] = useState(null);
-  const [showBreakup, setShowBreakup] = useState(false);
+  const [breakupStates, setBreakupStates] = useState({});
 
   useEffect(() => {
     handleDownloadQuote();
   }, [rfq_id, TA_Filter]);
 
+  const toggleBreakup = (id) => {
+  setBreakupStates(prev => ({
+    ...prev,
+    [id]: !prev[id]
+  }));
+};
   const handleDownloadQuote = () => {
     setloading(true);
     downloadQuotesDetails(rfq_id, TA_Filter)
@@ -518,6 +524,12 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               }
 
                               if (quote_item.is_regret == 1) {
+                                const quoteDetails = quote_item.quote_details?.[0]
+                                const [productId, variant] = [quoteDetails.product_id, quoteDetails.variant]
+                                
+                                const key = `${productId}_${variant}`
+
+                                const showBreakup = breakupStates[key] || false;
                                 return (
                                   <td
                                     className={`total_amt_field text-center align-middle ${
@@ -525,7 +537,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         ? "bg-white"
                                         : "is_regret text-white"
                                     }`}
-                                    key={`quote_item_${quote_item.created_by}`}
+                                    key={`quote_item_${key}`}
                                   >
                                     {!showBreakup && (
                                       <p className="m-0">REGRET</p>
@@ -540,7 +552,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         type="checkbox"
                                         checked={showBreakup}
                                         onChange={() =>
-                                          setShowBreakup((prev) => !prev)
+                                          toggleBreakup(key)
                                         }
                                         style={{
                                           backgroundColor: showBreakup
