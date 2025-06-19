@@ -636,7 +636,7 @@ const Item = ({
                 {
                   !handleViewVendorInEdit ? (
                     <Link
-                      href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
+                      href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}`}
                       className="btn btn-primary "
                       // style={{ height: "40px" }}
                     >

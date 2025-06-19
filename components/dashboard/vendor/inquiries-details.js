@@ -967,7 +967,7 @@ const RfqManagementPreview = () => {
                                             )
                                             .join(",")}&productid=${
                                             item.product_id
-                                          }&variant=${item.variant}`}
+                                          }&variant=${item.variant}&id=${id}`}
                                           className="page-link"
                                         >
                                           View selected vendors (
