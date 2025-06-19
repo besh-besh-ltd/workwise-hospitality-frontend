@@ -1,4 +1,4 @@
-import CommentModal from "@/components/modal/CommentModal";
+import Select from "react-select";
 import FullLoader from "@/components/shared/FullLoader";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
@@ -17,7 +17,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
-  const [finalised , setFinalised] = useState(null);
+  const [freightInfo, setFreightInfo] = useState("all");
   const [showBreakup, setShowBreakup] = useState(false);
 
   useEffect(() => {
@@ -85,17 +85,42 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
         // Handle single-element case
         if (array[0].quote_details[0].total_price > 0) {
           lowest = array[0];
-        } else {
-          lowest = null;
         }
       } else {
         // Reduce logic for multiple elements
         lowest = array.reduce((lowest, currentItem) => {
-          if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price <
-              lowest.quote_details[0].total_price
-              ? currentItem
-              : lowest;
+          const curItemQuoteDetails = currentItem.quote_details[0];
+          const curItemVendorDetails = currentItem.vendor_details[0];
+
+          const lowestQuoteDetails = lowest.quote_details[0];
+          const lowestVendorDetails = lowest.vendor_details[0];
+
+          if (curItemQuoteDetails.total_price > 0) {
+            let curLowest = lowest;
+            if (
+              curItemQuoteDetails.total_price <
+              lowestQuoteDetails.total_price
+            )
+              curLowest = currentItem;
+            else if (
+              curItemQuoteDetails.total_price ==
+              lowestQuoteDetails.total_price
+            ) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1
+
+              if(curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+              else {
+                const curTimestamp = new Date(currentItem.timestamp.slice(0, 23));
+                const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
+
+                if(curTimestamp < lowestTimestamp) curLowest = currentItem;
+                else curLowest = lowest;
+              }
+            }
+
+            return curLowest;
           }
           return lowest;
         }, array[0]);
@@ -215,6 +240,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   };
 
   const calculateTotal = (item, quantity) => {
+    console.log(`ITEM => ${item}, QUANTITY => ${quantity}`)
     let total_qty = parseInt(quantity) || 0;
     let unit_price = item.unit_price || 0;
     
@@ -269,15 +295,19 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       OVERALL COMPARISON CHART
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
-                      {/* <div className="d-flex">
-                        <div className="ms-auto d-flex gap-2">
-                          <span className="badge bg-success">Lowest</span>
-                          <span className="badge bg-warning text-dark">
-                            Finalized
-                          </span>
-                          <span className="badge bg-danger">Regret</span>
+                      <div className="d-flex">
+                        <div className="ms-auto d-flex flex-column gap-2">
+                          <Select
+                            defaultValue={{ label: "all", value: "all" }}
+                            options={[
+                              { label: "all", value: "all" },
+                              { label: "with", value: "with" },
+                              { label: "without", value: "without" },
+                            ]}
+                            onChange={(change) => setFreightInfo(change.value)}
+                          />
                         </div>
-                      </div> */}
+                      </div>
                     </th>
                   </tr>
                   <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
@@ -406,14 +436,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   <tr>
                                     <th>Total Rate</th>
                                     <td>
-                                      {item.last_purchase_rate?.total_price
+                                      {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
-                                            item.last_purchase_rate
-                                              ?.unit_price *
-                                              parseInt(
-                                                item.quotations[0]
-                                                  ?.quote_details[0]?.quantity
-                                              )
+                                            item.last_purchase_rate.unit_price *
+                                              parseInt(quantity.value)
                                           )
                                         : "0"}
                                     </td>
@@ -459,8 +485,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         ? addCommasToNumber(
                                             calculateTotal(
                                               item.last_purchase_rate,
-                                              item.quotations[0]
-                                                ?.quote_details[0]?.quantity
+                                              quantity.value
                                             )
                                           )
                                         : "0"}
@@ -468,12 +493,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   </tr>
                                 </table>
                                 <p>
-                                  {item.last_purchase_rate?.total_price !== null
+                                  {item.last_purchase_rate?.unit_price
                                     ? addCommasToNumber(
                                         calculateTotal(
                                           item.last_purchase_rate,
-                                          item.quotations[0]?.quote_details[0]
-                                            ?.quantity
+                                          quantity.value
                                         )
                                       )
                                     : "0"}
@@ -491,7 +515,19 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                           )}
 
                           {item.quotations.length > 0 &&
-                            item.quotations.map((quote_item) => {
+                            (freightInfo == "all"
+                              ? item.quotations
+                              : freightInfo == "with"
+                              ? item.quotations.filter(
+                                  (quote_item) =>
+                                    !!quote_item?.quote_details[0]
+                                      ?.freight_price
+                                )
+                              : item.quotations.filter(
+                                  (quote_item) =>
+                                    !quote_item?.quote_details[0]?.freight_price
+                                )
+                            ).map((quote_item) => {
                               const isSomeoneFinalized =
                                 item?.all_vendors?.find(
                                   (vendor) => vendor.is_finalized
