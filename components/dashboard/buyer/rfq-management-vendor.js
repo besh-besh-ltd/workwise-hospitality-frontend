@@ -20,7 +20,7 @@ const RfqManagementVendorPage = () => {
   const { productid, variant, type, vendors, rfq_id: urlRfqId } = router.query;
 
   const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
-  const rfq_id = useSelector((data) => data.rfq_id) || urlRfqId;
+  const rfq_id = urlRfqId;
 
   const [loading, setloading] = useState(false);
   const [vendorList, setVendorList] = useState([]);
@@ -190,8 +190,8 @@ const RfqManagementVendorPage = () => {
                                     </p>
                                   </td>
                                     <td>
-                                      <span className={`badge ${item.is_rfq_viewed ? 'bg-success' : 'bg-warning'}`}>
-                                        {item.is_rfq_viewed ? 'Viewed' : 'Not Viewed'}
+                                      <span className={`badge ${parseInt(item.is_rfq_viewed) === 1 ? 'bg-success' : 'bg-warning'}`}>
+                                        {parseInt(item.is_rfq_viewed) === 1 ? 'Viewed' : 'Not Viewed'}
                                       </span>
                                     </td>
                                   <td>
