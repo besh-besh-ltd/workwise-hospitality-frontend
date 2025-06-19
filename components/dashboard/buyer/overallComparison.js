@@ -1,4 +1,5 @@
 import Select from "react-select";
+import Select from "react-select";
 import FullLoader from "@/components/shared/FullLoader";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
@@ -17,8 +18,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
-  const [freightInfo, setFreightInfo] = useState("all");
   const [breakupStates, setBreakupStates] = useState({});
+  const [freightInfo, setFreightInfo] = useState("all");
 
   useEffect(() => {
     handleDownloadQuote();
