@@ -16,10 +16,10 @@ import Loader from "@/components/shared/Loader";
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { productid, variant, type, vendors } = router.query;
+  const { productid, variant, type, vendors, id: urlRfqId } = router.query;
 
   const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
-  const rfq_id = useSelector((data) => data.rfq_id);
+  const rfq_id = urlRfqId;
 
   const [loading, setloading] = useState(false);
   const [vendorList, setVendorList] = useState([]);
@@ -43,7 +43,7 @@ const RfqManagementVendorPage = () => {
 
     if (vendorIds) {
       setloading(true);
-      getVendorsByID({ vendors: vendorIds })
+      getVendorsByID({ vendors: vendorIds, rfq_id })
         .then((res) => {
           setloading(false);
           setVendorList(res.data);
@@ -165,6 +165,7 @@ const RfqManagementVendorPage = () => {
                             <th>Mobile No.</th>
                             {/* <th>Industry</th> */}
                             <th>Products</th>
+                            <th>View Status</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -187,6 +188,11 @@ const RfqManagementVendorPage = () => {
                                       {item.products?.map((product) => product.name).join(",")}
                                     </p>
                                   </td>
+                                    <td>
+                                      <span className={`badge ${parseInt(item.is_rfq_viewed) === 1 ? 'bg-success' : 'bg-warning'}`}>
+                                        {parseInt(item.is_rfq_viewed) === 1 ? 'Viewed' : 'Not Viewed'}
+                                      </span>
+                                    </td>
                                   <td>
                                     <span>
                                       <Link
