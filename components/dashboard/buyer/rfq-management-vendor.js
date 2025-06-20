@@ -17,7 +17,7 @@ const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
 
-  const { productid, variant, type, vendors, rfq_id: urlRfqId } = router.query;
+  const { productid, variant, type, vendors, id: urlRfqId } = router.query;
 
   const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
   const rfq_id = urlRfqId;
