@@ -1,5 +1,6 @@
 import Select from "react-select";
 import FullLoader from "@/components/shared/FullLoader";
+import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
@@ -7,6 +8,7 @@ import { extractfileName } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
+import { Button } from "react-bootstrap";
 import "react-tooltip/dist/react-tooltip.css";
 
 
@@ -19,6 +21,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [freightInfo, setFreightInfo] = useState("all");
+  const [showLPRModal, setShowLPRModal] = useState(false);
 
   useEffect(() => {
     handleDownloadQuote();
@@ -526,7 +529,25 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         : "0"}
                                     </td>
                                   </tr>
+                                  
+                                  <Button
+                                        variant="link"
+                                        size="sm"
+                                        onClick={() => {
+                                          // or item.userId
+                                          setShowLPRModal(true);
+                                        }}
+                                      >
+                                        View LPR
+                                  </Button>
                                 </table>
+                                <LPRModal
+                                  show={showLPRModal}
+                                  onHide={() => setShowLPRModal(false)}
+                                  variantId={item.product_variant_id}
+                                  
+                                />
+
                                 <p>
                                   {item.last_purchase_rate?.unit_price
                                     ? addCommasToNumber(
@@ -609,9 +630,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                       <input
                                         type="checkbox"
                                         checked={showBreakup}
-                                        onChange={() =>
-                                          toggleBreakup(key)
-                                        }
+                                        onChange={() => toggleBreakup(key)}
                                         style={{
                                           backgroundColor: showBreakup
                                             ? "white"
