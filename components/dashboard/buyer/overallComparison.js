@@ -1,4 +1,4 @@
-import CommentModal from "@/components/modal/CommentModal";
+import Select from "react-select";
 import FullLoader from "@/components/shared/FullLoader";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
@@ -19,8 +19,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
-  const [finalised , setFinalised] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
+  const [freightInfo, setFreightInfo] = useState("all");
   const [showLPRModal, setShowLPRModal] = useState(false);
 
   useEffect(() => {
@@ -84,9 +84,17 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     let edited_data = all_data.map((item) => {
       totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
 
-      const array = item.quotations.filter(
-        (Q_item) => Q_item.id != null && Q_item.is_regret != 1
-      );
+      const array = (
+        freightInfo == "all"
+          ? item.quotations
+          : freightInfo == "with"
+          ? item.quotations.filter(
+              (quoteItem) => !!quoteItem.quote_details[0]?.freight_price
+            )
+          : item.quotations.filter(
+              (quoteItem) => (!quoteItem.quote_details[0]?.freight_price || quoteItem.quote_details[0]?.freight_price == 0) 
+            )
+      ).filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
 
       let lowest = null;
 
@@ -94,17 +102,42 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
         // Handle single-element case
         if (array[0].quote_details[0].total_price > 0) {
           lowest = array[0];
-        } else {
-          lowest = null;
         }
       } else {
         // Reduce logic for multiple elements
         lowest = array.reduce((lowest, currentItem) => {
-          if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price <
-              lowest.quote_details[0].total_price
-              ? currentItem
-              : lowest;
+          const curItemQuoteDetails = currentItem.quote_details[0];
+          const curItemVendorDetails = currentItem.vendor_details[0];
+
+          const lowestQuoteDetails = lowest.quote_details[0];
+          const lowestVendorDetails = lowest.vendor_details[0];
+
+          if (curItemQuoteDetails.total_price > 0) {
+            let curLowest = lowest;
+            if (
+              curItemQuoteDetails.total_price <
+              lowestQuoteDetails.total_price
+            )
+              curLowest = currentItem;
+            else if (
+              curItemQuoteDetails.total_price ==
+              lowestQuoteDetails.total_price
+            ) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1
+
+              if(curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+              else {
+                const curTimestamp = new Date(currentItem.timestamp.slice(0, 23));
+                const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
+
+                if(curTimestamp < lowestTimestamp) curLowest = currentItem;
+                else curLowest = lowest;
+              }
+            }
+
+            return curLowest;
           }
           return lowest;
         }, array[0]);
@@ -133,18 +166,32 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     if (!allvendors) return;
 
     let updated_vendors = allvendors.map((vendor) => {
-      let total = 0;
+      let priceInfo = {
+        total: 0,
+        packaging: 0,
+        tax: 0,
+        freight: 0,
+        totalWithFreight: 0,
+        totalWithoutFreight: 0,
+      };
       data.map((item) => {
         let q_item = item.quotations.filter(
           (q) => q.created_by == vendor.id && q.id != null && q.is_regret != 1
         );
 
         if (q_item.length > 0) {
-          total = total + parseInt(q_item[0]?.quote_details[0]?.total_price);
+          const quoteDetails = q_item[0]?.quote_details[0]
+          priceInfo.total = priceInfo.total + parseInt(quoteDetails?.total_price);
+          priceInfo.packaging = priceInfo.packaging + parseInt(quoteDetails?.package_price);
+          priceInfo.tax = priceInfo.tax + parseInt(quoteDetails?.tax);
+          priceInfo.freight = priceInfo.freight + parseInt(quoteDetails?.freight_price);
+
+          priceInfo.totalWithFreight = priceInfo.totalWithFreight + parseInt(quoteDetails?.freight_price ? quoteDetails?.total_price : 0)
+          priceInfo.totalWithoutFreight = priceInfo.totalWithoutFreight + parseInt(!quoteDetails?.freight_price ? quoteDetails?.total_price : 0);
         }
       });
 
-      vendor.total = total;
+      Object.assign(vendor, priceInfo);
       return vendor;
     });
 
@@ -157,6 +204,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
       getDeliveryDetails();
     }
   }, [data]);
+
+  useEffect(() => {
+    getLowestBidAmount(data);
+  }, [freightInfo])
 
   const addCommasToNumber = (number) => {
 
@@ -278,15 +329,23 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       OVERALL COMPARISON CHART
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
-                      {/* <div className="d-flex">
-                        <div className="ms-auto d-flex gap-2">
-                          <span className="badge bg-success">Lowest</span>
-                          <span className="badge bg-warning text-dark">
-                            Finalized
-                          </span>
-                          <span className="badge bg-danger">Regret</span>
+                      <div className="d-flex">
+                        <div className="ms-auto d-flex flex-column gap-2">
+                          <Select
+                            className="fw-normal fs-6 text-left"
+                            defaultValue={{ label: "All Quotes", value: "all" }}
+                            options={[
+                              { label: "All Quotes", value: "all" },
+                              { label: "Quotes with Freight", value: "with" },
+                              {
+                                label: "Quotes without Freight",
+                                value: "without",
+                              },
+                            ]}
+                            onChange={(change) => setFreightInfo(change.value)}
+                          />
                         </div>
-                      </div> */}
+                      </div>
                     </th>
                   </tr>
                   <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
@@ -415,14 +474,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   <tr>
                                     <th>Total Rate</th>
                                     <td>
-                                      {item.last_purchase_rate?.total_price
+                                      {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
-                                            item.last_purchase_rate
-                                              ?.unit_price *
-                                              parseInt(
-                                                item.quotations[0]
-                                                  ?.quote_details[0]?.quantity
-                                              )
+                                            item.last_purchase_rate.unit_price *
+                                              parseInt(quantity.value)
                                           )
                                         : "0"}
                                     </td>
@@ -468,8 +523,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         ? addCommasToNumber(
                                             calculateTotal(
                                               item.last_purchase_rate,
-                                              item.quotations[0]
-                                                ?.quote_details[0]?.quantity
+                                              quantity.value
                                             )
                                           )
                                         : "0"}
@@ -495,12 +549,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                 />
 
                                 <p>
-                                  {item.last_purchase_rate?.total_price !== null
+                                  {item.last_purchase_rate?.unit_price
                                     ? addCommasToNumber(
                                         calculateTotal(
                                           item.last_purchase_rate,
-                                          item.quotations[0]?.quote_details[0]
-                                            ?.quantity
+                                          quantity.value
                                         )
                                       )
                                     : "0"}
@@ -525,6 +578,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                 );
 
                               let finalizedClass = "";
+                              let showQuote = true;
+
+                              if(freightInfo == 'with' && !quote_item?.quote_details[0]?.freight_price) showQuote = false;
+                              if(freightInfo == 'without' && quote_item?.quote_details[0]?.freight_price) showQuote = false;
+
                               if (
                                 isSomeoneFinalized &&
                                 isSomeoneFinalized?.id == quote_item?.created_by
@@ -545,14 +603,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               }
 
                               if (quote_item.is_regret == 1) {
-                                const quoteDetails =
-                                  quote_item.quote_details?.[0];
-                                const [productId, variant] = [
-                                  quoteDetails.product_id,
-                                  quoteDetails.variant,
-                                ];
+                                const quoteDetails = quote_item.quote_details?.[0]
+                                const [productId, variant] = [quoteDetails.product_id, quoteDetails.variant]
 
-                                const key = `${productId}_${variant}`;
+                                const key = `${productId}_${variant}`
 
                                 const showBreakup = breakupStates[key] || false;
                                 return (
@@ -600,10 +654,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               } else {
                                 return (
                                   <td
-                                    className={`${finalizedClass} total_amt_field`}
+                                    className={`${showQuote && finalizedClass} total_amt_field`}
                                     key={`quote_item_${quote_item?.created_by}`}
                                   >
-                                    {quote_item?.quote_details?.length > 0 &&
+                                    {showQuote && quote_item?.quote_details?.length > 0 &&
                                     quote_item?.quote_details[0]
                                       ?.total_price ? (
                                       <label className="view_breakup">
@@ -804,7 +858,12 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       allvendors.map((item) => {
                         return (
                           <th key={`tp_${item.id}_total`}>
-                            {item.total ? addCommasToNumber(item.total) : "-"}
+                            {/* {item.total ? addCommasToNumber(item.total) : "-"} */}
+                            {addCommasToNumber(freightInfo == "all"
+                              ? item.total
+                              : freightInfo == "with"
+                              ? item.totalWithFreight
+                              : item.totalWithoutFreight) ?? "-"}
                           </th>
                         );
                       })}
