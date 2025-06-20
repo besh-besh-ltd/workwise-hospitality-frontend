@@ -16,7 +16,6 @@ import Loader from "@/components/shared/Loader";
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-
   const { productid, variant, type, vendors, id: urlRfqId } = router.query;
 
   const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
