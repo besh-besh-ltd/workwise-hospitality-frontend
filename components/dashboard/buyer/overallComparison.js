@@ -1,5 +1,4 @@
 import Select from "react-select";
-import Select from "react-select";
 import FullLoader from "@/components/shared/FullLoader";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
@@ -82,9 +81,17 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     let edited_data = all_data.map((item) => {
       totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
 
-      const array = item.quotations.filter(
-        (Q_item) => Q_item.id != null && Q_item.is_regret != 1
-      );
+      const array = (
+        freightInfo == "all"
+          ? item.quotations
+          : freightInfo == "with"
+          ? item.quotations.filter(
+              (quoteItem) => !!quoteItem.quote_details[0]?.freight_price
+            )
+          : item.quotations.filter(
+              (quoteItem) => (!quoteItem.quote_details[0]?.freight_price || quoteItem.quote_details[0]?.freight_price == 0) 
+            )
+      ).filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
 
       let lowest = null;
 
@@ -156,18 +163,32 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     if (!allvendors) return;
 
     let updated_vendors = allvendors.map((vendor) => {
-      let total = 0;
+      let priceInfo = {
+        total: 0,
+        packaging: 0,
+        tax: 0,
+        freight: 0,
+        totalWithFreight: 0,
+        totalWithoutFreight: 0,
+      };
       data.map((item) => {
         let q_item = item.quotations.filter(
           (q) => q.created_by == vendor.id && q.id != null && q.is_regret != 1
         );
 
         if (q_item.length > 0) {
-          total = total + parseInt(q_item[0]?.quote_details[0]?.total_price);
+          const quoteDetails = q_item[0]?.quote_details[0]
+          priceInfo.total = priceInfo.total + parseInt(quoteDetails?.total_price);
+          priceInfo.packaging = priceInfo.packaging + parseInt(quoteDetails?.package_price);
+          priceInfo.tax = priceInfo.tax + parseInt(quoteDetails?.tax);
+          priceInfo.freight = priceInfo.freight + parseInt(quoteDetails?.freight_price);
+
+          priceInfo.totalWithFreight = priceInfo.totalWithFreight + parseInt(quoteDetails?.freight_price ? quoteDetails?.total_price : 0)
+          priceInfo.totalWithoutFreight = priceInfo.totalWithoutFreight + parseInt(!quoteDetails?.freight_price ? quoteDetails?.total_price : 0);
         }
       });
 
-      vendor.total = total;
+      Object.assign(vendor, priceInfo);
       return vendor;
     });
 
@@ -180,6 +201,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
       getDeliveryDetails();
     }
   }, [data]);
+
+  useEffect(() => {
+    getLowestBidAmount(data);
+  }, [freightInfo])
 
   const addCommasToNumber = (number) => {
 
@@ -247,7 +272,6 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   };
 
   const calculateTotal = (item, quantity) => {
-    console.log(`ITEM => ${item}, QUANTITY => ${quantity}`)
     let total_qty = parseInt(quantity) || 0;
     let unit_price = item.unit_price || 0;
     
@@ -305,11 +329,15 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       <div className="d-flex">
                         <div className="ms-auto d-flex flex-column gap-2">
                           <Select
-                            defaultValue={{ label: "all", value: "all" }}
+                            className="fw-normal fs-6 text-left"
+                            defaultValue={{ label: "All Quotes", value: "all" }}
                             options={[
-                              { label: "all", value: "all" },
-                              { label: "with", value: "with" },
-                              { label: "without", value: "without" },
+                              { label: "All Quotes", value: "all" },
+                              { label: "Quotes with Freight", value: "with" },
+                              {
+                                label: "Quotes without Freight",
+                                value: "without",
+                              },
                             ]}
                             onChange={(change) => setFreightInfo(change.value)}
                           />
@@ -522,25 +550,18 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                           )}
 
                           {item.quotations.length > 0 &&
-                            (freightInfo == "all"
-                              ? item.quotations
-                              : freightInfo == "with"
-                              ? item.quotations.filter(
-                                  (quote_item) =>
-                                    !!quote_item?.quote_details[0]
-                                      ?.freight_price
-                                )
-                              : item.quotations.filter(
-                                  (quote_item) =>
-                                    !quote_item?.quote_details[0]?.freight_price
-                                )
-                            ).map((quote_item) => {
+                            item.quotations.map((quote_item) => {
                               const isSomeoneFinalized =
                                 item?.all_vendors?.find(
                                   (vendor) => vendor.is_finalized
                                 );
 
                               let finalizedClass = "";
+                              let showQuote = true;
+
+                              if(freightInfo == 'with' && !quote_item?.quote_details[0]?.freight_price) showQuote = false;
+                              if(freightInfo == 'without' && quote_item?.quote_details[0]?.freight_price) showQuote = false;
+
                               if (
                                 isSomeoneFinalized &&
                                 isSomeoneFinalized?.id == quote_item?.created_by
@@ -561,10 +582,14 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               }
 
                               if (quote_item.is_regret == 1) {
-                                const quoteDetails = quote_item.quote_details?.[0]
-                                const [productId, variant] = [quoteDetails.product_id, quoteDetails.variant]
-                                
-                                const key = `${productId}_${variant}`
+                                const quoteDetails =
+                                  quote_item.quote_details?.[0];
+                                const [productId, variant] = [
+                                  quoteDetails.product_id,
+                                  quoteDetails.variant,
+                                ];
+
+                                const key = `${productId}_${variant}`;
 
                                 const showBreakup = breakupStates[key] || false;
                                 return (
@@ -588,9 +613,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                       <input
                                         type="checkbox"
                                         checked={showBreakup}
-                                        onChange={() =>
-                                          toggleBreakup(key)
-                                        }
+                                        onChange={() => toggleBreakup(key)}
                                         style={{
                                           backgroundColor: showBreakup
                                             ? "white"
@@ -614,10 +637,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               } else {
                                 return (
                                   <td
-                                    className={`${finalizedClass} total_amt_field`}
+                                    className={`${showQuote && finalizedClass} total_amt_field`}
                                     key={`quote_item_${quote_item?.created_by}`}
                                   >
-                                    {quote_item?.quote_details?.length > 0 &&
+                                    {showQuote && quote_item?.quote_details?.length > 0 &&
                                     quote_item?.quote_details[0]
                                       ?.total_price ? (
                                       <label className="view_breakup">
@@ -818,7 +841,12 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       allvendors.map((item) => {
                         return (
                           <th key={`tp_${item.id}_total`}>
-                            {item.total ? addCommasToNumber(item.total) : "-"}
+                            {/* {item.total ? addCommasToNumber(item.total) : "-"} */}
+                            {addCommasToNumber(freightInfo == "all"
+                              ? item.total
+                              : freightInfo == "with"
+                              ? item.totalWithFreight
+                              : item.totalWithoutFreight) ?? "-"}
                           </th>
                         );
                       })}
