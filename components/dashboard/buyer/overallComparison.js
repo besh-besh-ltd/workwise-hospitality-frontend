@@ -1,5 +1,4 @@
 import Select from "react-select";
-import Select from "react-select";
 import FullLoader from "@/components/shared/FullLoader";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
@@ -23,7 +22,6 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   const [breakupStates, setBreakupStates] = useState({});
   const [freightInfo, setFreightInfo] = useState("all");
   const [showLPRModal, setShowLPRModal] = useState(false);
-  const [freightInfo, setFreightInfo] = useState("all");
 
   useEffect(() => {
     handleDownloadQuote();
@@ -277,7 +275,6 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
   };
 
   const calculateTotal = (item, quantity) => {
-    console.log(`ITEM => ${item}, QUANTITY => ${quantity}`)
     let total_qty = parseInt(quantity) || 0;
     let unit_price = item.unit_price || 0;
     
@@ -574,19 +571,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                           )}
 
                           {item.quotations.length > 0 &&
-                            (freightInfo == "all"
-                              ? item.quotations
-                              : freightInfo == "with"
-                              ? item.quotations.filter(
-                                  (quote_item) =>
-                                    !!quote_item?.quote_details[0]
-                                      ?.freight_price
-                                )
-                              : item.quotations.filter(
-                                  (quote_item) =>
-                                    !quote_item?.quote_details[0]?.freight_price
-                                )
-                            ).map((quote_item) => {
+                            item.quotations.map((quote_item) => {
                               const isSomeoneFinalized =
                                 item?.all_vendors?.find(
                                   (vendor) => vendor.is_finalized
