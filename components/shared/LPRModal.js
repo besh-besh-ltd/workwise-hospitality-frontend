@@ -1,0 +1,198 @@
+import { getLastPurchaseDetails } from '@/services/rfq';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Table } from 'react-bootstrap';
+
+const LPRModal = ({ show, onHide, variantId }) => {
+  const [activeTab, setActiveTab] = useState('lpr');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lprData, setLprData] = useState([]);
+  const [allQuotesData, setAllQuotesData] = useState([]);
+
+  // Format currency values
+  const formatCurrency = (value) => {
+  if (value === null || value === undefined) return '-';
+  return `₹${parseFloat(value).toFixed(2)}`;
+};
+
+
+  // Format date string
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Fetch data when modal is shown or tab changes
+  useEffect(() => {
+    if (!show) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const payload = {
+          variant_id: variantId,
+          type: activeTab  // 'lpr' or 'lqr'
+        };
+        
+        const res = await getLastPurchaseDetails(payload);
+        
+        // Assuming res.data contains the array of records
+        if (activeTab === 'lpr') {
+          setLprData(res || []);
+        } else {
+          setAllQuotesData(res || []);
+        }
+      } catch (err) {
+        setError('Failed to load purchase history data');
+        console.error('Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [show, activeTab, variantId]);
+
+  // Determine which data to display
+  const displayData = activeTab === 'lpr' ? lprData : allQuotesData;
+
+  return (
+    <Modal 
+  show={show} 
+  onHide={onHide}
+  size="xl"
+  centered
+  backdrop="static"
+  className="purchase-history-modal"
+>
+  <Modal.Header closeButton className="py-2 px-3 d-flex justify-content-between align-items-center">
+    <Modal.Title className="mb-0">Purchase History</Modal.Title>
+    <div className="btn-group " style = {{"width" : "480px"}}>
+      <Button 
+        variant={activeTab === 'lpr' ? 'primary' : 'outline-secondary'}
+        onClick={() => setActiveTab('lpr')}
+        size="sm"
+        disabled={loading}
+        className="px-3"
+      >
+        LPR (Last Purchase)
+      </Button>
+      <Button 
+        variant={activeTab === 'lqr' ? 'primary' : 'outline-secondary'}
+        onClick={() => setActiveTab('lqr')}
+        size="sm"
+        disabled={loading}
+        className="px-3"
+      >
+        LQR (Quote History)
+      </Button>
+    </div>
+  </Modal.Header>
+  
+  <Modal.Body className="p-0">
+    {error && (
+      <div className="alert alert-danger m-3 d-flex justify-content-between align-items-center">
+        <span>{error}</span>
+        <Button 
+          variant="outline-danger" 
+          size="sm" 
+          onClick={() => setRetryCount(prev => prev + 1)}
+        >
+          Retry
+        </Button>
+      </div>
+    )}
+    
+    {loading ? (
+      <div className="text-center py-5">
+        <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="mt-3">Loading purchase history...</p>
+      </div>
+    ) : (
+      <div className="table-container">
+        {displayData.length > 0 ? (
+          <Table striped hover className="mb-0">
+            <thead className="sticky-top bg-white">
+              <tr>
+                <th className="bg-light">Vendor Details</th>
+                <th className="bg-light">Date</th>
+                <th className="bg-light text-end">Qty</th>
+                <th className="bg-light text-end">Freight</th>
+                <th className="bg-light text-end">GST</th>
+                <th className="bg-light text-end">Packaging</th>
+                <th className="bg-light text-end">Unit Price</th>
+                <th className="bg-light text-end">Total Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayData.map((item, index) => (
+                <tr key={index}>
+                  <td>
+                    <div className="fw-medium">{item.vendor_name}</div>
+                    <div className="small text-muted text-truncate" style={{ maxWidth: '200px' }}>
+                      {item.vendor_email}
+                    </div>
+                  </td>
+                  <td className="text-nowrap">{formatDate(item.quote_date)}</td>
+                  <td className="text-end">{item.quantity}</td>
+                  <td className="text-end">{formatCurrency(item.freight_price)}</td>
+                  <td className="text-end">{formatCurrency(item.tax)}</td>
+                  <td className="text-end">{formatCurrency(item.package_price)}</td>
+                  <td className="text-end fw-medium">{formatCurrency(item.unit_price)}</td>
+                  <td className="text-end fw-bold text-primary">{formatCurrency(item.total_price)}</td>
+                </tr>
+              ))}
+            </tbody>
+            {displayData.length > 5 && (
+              <tfoot className="sticky-bottom bg-light">
+                <tr>
+                  <td colSpan="8" className="text-center small py-1">
+                    Showing {displayData.length} records
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </Table>
+        ) : (
+          <div className="text-center py-5">
+            <div className="py-3">
+              <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
+              <h5>No {activeTab === 'lpr' ? 'Last Purchase' : 'Quote'} Records Found</h5>
+              <p className="text-muted">
+                No purchase history available for this product
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+  </Modal.Body>
+  
+  <Modal.Footer className="py-2 px-3">
+    <div className="d-flex justify-content-between w-100 small">
+      <div className="text-muted">
+        {displayData.length > 0 && (
+          <>
+            Showing {displayData.length} records • 
+            Last updated: {new Date().toLocaleTimeString()}
+          </>
+        )}
+      </div>
+      <Button variant="secondary" size="sm" onClick={onHide}>
+        Close
+      </Button>
+    </div>
+  </Modal.Footer>
+</Modal>
+  );
+};
+
+export default LPRModal;

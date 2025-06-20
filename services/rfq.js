@@ -301,6 +301,20 @@ export const downloadQuotesDetails = (id, TA_Filter) => {
   });
 };
 
+export const getLastPurchaseDetails = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get('/rfq/get-lpr-lqr', {
+        params: payload, // ✅ This is the correct way to pass query params
+      });
+      resolve(response.data);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
 export const closeRFQ = (id) => {
   return new Promise(async (resolve, reject) => {
     try {
