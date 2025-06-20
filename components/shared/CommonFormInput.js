@@ -44,7 +44,7 @@ const CommonFormInput = ({
   touched,
   errors,
   values,
-  defaultValue, // no need to pass this value as values is the default value only
+  defaultValue, // This is used when we dont want to enforce any value, basically making the input free to any value
   // setFieldValue,
   onChange,
   className = "",
