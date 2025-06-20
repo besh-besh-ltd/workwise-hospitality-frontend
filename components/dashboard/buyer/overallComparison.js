@@ -582,14 +582,10 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               }
 
                               if (quote_item.is_regret == 1) {
-                                const quoteDetails =
-                                  quote_item.quote_details?.[0];
-                                const [productId, variant] = [
-                                  quoteDetails.product_id,
-                                  quoteDetails.variant,
-                                ];
+                                const quoteDetails = quote_item.quote_details?.[0]
+                                const [productId, variant] = [quoteDetails.product_id, quoteDetails.variant]
 
-                                const key = `${productId}_${variant}`;
+                                const key = `${productId}_${variant}`
 
                                 const showBreakup = breakupStates[key] || false;
                                 return (
@@ -613,7 +609,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                       <input
                                         type="checkbox"
                                         checked={showBreakup}
-                                        onChange={() => toggleBreakup(key)}
+                                        onChange={() =>
+                                          toggleBreakup(key)
+                                        }
                                         style={{
                                           backgroundColor: showBreakup
                                             ? "white"
