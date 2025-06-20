@@ -44,7 +44,7 @@ const CommonFormInput = ({
   touched,
   errors,
   values,
-  // defaultValue, // no need to pass this value as values is the default value only
+  defaultValue, // This is used when we dont want to enforce any value, basically making the input free to any value
   // setFieldValue,
   onChange,
   className = "",
@@ -85,6 +85,7 @@ const CommonFormInput = ({
           name={name}
           options={options}
           value={values}
+          defaultValue={defaultValue}
           onChange={(val, actionMeta) => {
             helpers.setValue(val); // update Formik
             onChange && onChange(val, actionMeta); // fire external callback
@@ -117,7 +118,7 @@ const CommonFormInput = ({
             isInvalid ? "is-invalid" : ""
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
-          // defaultValue={defaultValue}
+          defaultValue={defaultValue}
           value={values}
           onChange={onChange}
           rows={4}

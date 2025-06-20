@@ -38,8 +38,41 @@ const QuoteCompareTable = ({
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
     if (removeRegretQuotes.length > 0) {
-      const quoteWithLowestPrice = removeRegretQuotes?.reduce((lowest, quote) => {
-        return (lowest.total_price < quote.total_price) ? lowest : quote;
+      const quoteWithLowestPrice = removeRegretQuotes?.reduce((lowest, currentItem) => {
+        const curItemQuoteDetails = currentItem;
+          const curItemVendorDetails = curItemQuoteDetails.quote_details.vendor_details;
+
+          const lowestQuoteDetails = lowest;
+          const lowestVendorDetails = lowestQuoteDetails.quote_details.vendor_details;
+
+          if (curItemQuoteDetails.total_price > 0) {
+            let curLowest = lowest;
+            if (
+              curItemQuoteDetails.total_price <
+              lowestQuoteDetails.total_price
+            )
+              curLowest = currentItem;
+            else if (
+              curItemQuoteDetails.total_price ==
+              lowestQuoteDetails.total_price
+            ) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1
+
+              if(curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+              else {
+                const curTimestamp = new Date(currentItem.quote_details.timestamp.slice(0, 23));
+                const lowestTimestamp = new Date(lowest.quote_details.timestamp.slice(0, 23));
+
+                if(curTimestamp < lowestTimestamp) curLowest = currentItem;
+                else curLowest = lowest;
+              }
+            }
+
+            return curLowest;
+          }
+          return lowest;
       });
       setLowestQuote(quoteWithLowestPrice);
     }
