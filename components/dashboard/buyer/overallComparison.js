@@ -332,7 +332,18 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       <div className="d-flex">
                         <div className="ms-auto d-flex flex-column gap-2">
                           <Select
-                            className="fw-normal fs-6 text-left"
+                            className="fw-normal fs-6 text-left min-w-100"
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minWidth: '210px',
+                                width: 'auto',
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                width: 'auto',
+                              }),
+                            }}
                             defaultValue={{ label: "All Quotes", value: "all" }}
                             options={[
                               { label: "All Quotes", value: "all" },
