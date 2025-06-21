@@ -20,6 +20,7 @@ import { toast } from "react-toastify";
 import { getProjectList } from '@/services/project';
 import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
+import { Button } from "react-bootstrap";
 
 const QuoteCompare = () => {
   const router = useRouter();
@@ -1014,6 +1015,9 @@ const QuoteCompare = () => {
     getAllRFQs();
   }, [page]);
 
+
+  console.log("checking current RFQ", currentRFQ?.rfq_no);
+
   return (
     <>
       {finalizeLoading && <Loader />}
@@ -1126,7 +1130,7 @@ const QuoteCompare = () => {
                 {!quotesLoading && currentRFQ &&
                   <div className="mb-3">
                     <h3 className="fs-5 mb-1">
-                      <span className="fw-semibold">RFQ No : </span>{currentRFQ.rfq_no}
+                      <span className="fw-semibold">RFQ No : </span>{currentRFQ?.rfq_no}
                     </h3>
                     {currentRFQ.project_name && currentRFQ.project_name != "" &&
                       <p className="sub-heading fs-6 mb-2">
@@ -1255,7 +1259,8 @@ const QuoteCompare = () => {
                       </div>
                     )}
                     {showOverallComparison && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} RFQ_no = {currentRFQ?.rfq_no} />
+                    
                     )}
                     {quotes &&
                       quotes.length > 0 &&
@@ -1280,14 +1285,25 @@ const QuoteCompare = () => {
                                       ?.value}
                                 </p>
                               </div>
-                              
-                              
 
                               {item?.last_purchase_rate != null && (
-                                <button className="col-12 bg-transparent border-0" onClick={()=>setShowLPRModal(true)}>
-                                  <p className="sub-heading mb-0">
-                                    <b>Last Purchase Details :</b>
-                                  </p>
+                                <div className="col-12 bg-transparent border-0  m">
+                                  <div className="d-flex justify-content-between align-items-center px-2 mb-2">
+                                    <div className="flex-grow-1 text-center">
+                                      <p className="sub-heading mb-0">
+                                        <b>Last Purchase Details :</b>
+                                      </p>
+                                    </div>
+                                    <Button
+                                      variant="outline-primary"
+                                      size="sm"
+                                      className="position-relative p-2 px-2"
+                                      onClick={() => setShowLPRModal(true)}
+                                    >
+                                      View LPR
+                                    </Button>
+                                  </div>
+
                                   <div className="sub-heading border rounded-3 p-2">
                                     <div className="row fw-medium mx-2">
                                       <div className="col-md-3 col-lg-2">
@@ -1404,21 +1420,25 @@ const QuoteCompare = () => {
                                       </div>
                                     </div>
                                   </div>
-                                </button>
-                                
+                                </div>
                               )}
                               <LPRModal
-                               show={showLPRModal}
-                                  onHide={() => setShowLPRModal(false)}
-                                  variantId={item.product_variant_id}/>
+                                show={showLPRModal}
+                                onHide={() => setShowLPRModal(false)}
+                                variantId={item.product_variant_id}
+                              />
                             </div>
-                            <span className="sub-heading">
-                              {/*  <b>Requested Quantity </b>:{" "}
-                              {calculateTotalQuantity(
-                                item?.product_details[0]?.rfq_details
-                              )} */}
-                              {/* {item?.product_details[0]?.rfq_details[2]?.value} */}
-                            </span>
+                            <div className="d-flex justify-content-end">
+                              <Button
+                              variant="outline-primary"
+                              size="sm"
+                              className="position-relative p-2 px-2"
+                              onClick={() => setShowLPRModal(true)}
+                            >
+                              View LPR
+                            </Button>
+                            </div>
+                            
 
                             {item?.quotations &&
                               item?.quotations.length == 0 && (
