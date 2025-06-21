@@ -698,6 +698,12 @@ const CreateRFQ = () => {
       const res = await saveDraft(payload);
       setMainLoading(false);
       await getDraftInitialData();
+      if(activeKey) {
+        for(const key of activeKey) {
+          const rfqProductId = key;
+          await fetchVendorsForProduct(rfqProductId, true);
+        }
+      }
       setUpdatableData({
         products: {
           addable: [],

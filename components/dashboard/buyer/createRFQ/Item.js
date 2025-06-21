@@ -267,16 +267,19 @@ const Item = ({
     const updatable = {};
 
     // Only update if incoming value is different
-    if (initial !== undefined) {
-      if(size !== undefined && size !== specs.size) updatable.size = size;
-      if(spec !== undefined && spec !== specs.spec) updatable.spec = spec;
-      if(quantity !== undefined && quantity !== specs.quantity) updatable.quantity = quantity;
-      if(unit !== undefined && unit !== specs.unit) updatable.unit = unit;
+    if (initial) {
+      if(size && size !== specs.size) updatable.size = size;
+      if(spec && spec !== specs.spec) updatable.spec = spec;
+      if(quantity && quantity !== specs.quantity) updatable.quantity = quantity;
+      if(unit && unit !== specs.unit) updatable.unit = unit;
     }
     if(Object.keys(updatable).length > 0) {
-      setSpecs(updatable);
+      setSpecs(prev => ({
+        ...prev,
+        ...updatable
+      }));
     }
-  }, [rfqProduct]);
+  }, [rfqProduct.spec]);
 
   useEffect(() => {
     if (isActive && buyerClauses == null) {
@@ -364,7 +367,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                value={specs.size}
+                defaultValue={specs.size}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
