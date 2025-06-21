@@ -463,9 +463,9 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
                                 <span></span>
                                 <input type="checkbox" />
                                 <table className="table has_inner_border_table">
-                                  <tr>
+                                  <tr >  
                                     <th>Base Price</th>
-                                    <td>
+                                    <td style={{ width: "50%" }}>
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
                                             item.last_purchase_rate?.unit_price
@@ -475,7 +475,7 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
                                   </tr>
                                   <tr>
                                     <th>Total Rate</th>
-                                    <td>
+                                    <td style={{ width: "50%" }}> 
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
                                             item.last_purchase_rate.unit_price *

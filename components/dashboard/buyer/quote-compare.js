@@ -1428,13 +1428,17 @@ const QuoteCompare = () => {
                                 variantId={item.product_variant_id}
                               />
                             </div>
-                            <span className="sub-heading">
-                              {/*  <b>Requested Quantity </b>:{" "}
-                              {calculateTotalQuantity(
-                                item?.product_details[0]?.rfq_details
-                              )} */}
-                              {/* {item?.product_details[0]?.rfq_details[2]?.value} */}
-                            </span>
+                            <div className="d-flex justify-content-end">
+                              <Button
+                              variant="outline-primary"
+                              size="sm"
+                              className="position-relative p-2 px-2"
+                              onClick={() => setShowLPRModal(true)}
+                            >
+                              View LPR
+                            </Button>
+                            </div>
+                            
 
                             {item?.quotations &&
                               item?.quotations.length == 0 && (
