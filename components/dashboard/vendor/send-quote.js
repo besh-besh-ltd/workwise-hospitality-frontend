@@ -341,6 +341,11 @@ const SendQuotePageComp = () => {
           product.total_price = 0;
         }
 
+        product.freight_price = parseFloat(product.freight_price) || 0;
+        product.tax = parseFloat(product.tax) || 0;
+        product.package_price = parseFloat(product.package_price) || 0;
+        product.total_price = parseFloat(product.total_price) || 0;
+
         return product;
       })
       payload = { ...payload, products: updatedProducts };
@@ -378,6 +383,11 @@ const SendQuotePageComp = () => {
           product.package_price = 0;
           product.total_price = 0;
         }
+
+        product.freight_price = parseFloat(product.freight_price) || 0;
+        product.tax = parseFloat(product.tax) || 0;
+        product.package_price = parseFloat(product.package_price) || 0;
+        product.total_price = parseFloat(product.total_price) || 0;
 
         return product;
       })
