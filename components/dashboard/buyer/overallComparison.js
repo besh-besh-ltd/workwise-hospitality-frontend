@@ -12,7 +12,7 @@ import { Button } from "react-bootstrap";
 import "react-tooltip/dist/react-tooltip.css";
 
 
-const OverallComparison = ({ rfq_id, TA_Filter }) => {
+const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -294,6 +294,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     return Math.round(TotalPrice);
   }
 
+  console.log("checking rfq number in over all", RFQ_no);
+
   return (
     <>
       {loading ? (
@@ -545,7 +547,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   show={showLPRModal}
                                   onHide={() => setShowLPRModal(false)}
                                   variantId={item.product_variant_id}
-                                  
+                                  RFQ_no={-1}
                                 />
 
                                 <p>
@@ -565,9 +567,26 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               <label className="view_breakup">
                                 <span></span>
                                 <input type="checkbox" />
-                                <p>-</p>
+                                <Button
+                                        variant="link"
+                                        size="sm"
+                                        onClick={() => {
+                                          // or item.userId
+                                          setShowLPRModal(true);
+                                        }}
+                                      >
+                                        View LPR
+                                  </Button>
                               </label>
+                              <LPRModal
+                                  show={showLPRModal}
+                                  onHide={() => setShowLPRModal(false)}
+                                  variantId={item.product_variant_id}
+                                  RFQ_no={RFQ_no}
+                                  
+                                />
                             </td>
+                            
                           )}
 
                           {item.quotations.length > 0 &&
