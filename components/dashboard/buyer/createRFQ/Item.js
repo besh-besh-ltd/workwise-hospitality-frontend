@@ -54,14 +54,18 @@ const Item = ({
   const [isModelOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
+  const [specs, setSpecs] = useState({
+    size: '',
+    spec: '',
+    quantity: '',
+    unit: ''
+  })
 
   const eventKey = `${rfqProduct.id}`;
   const isActive = activeKey?.includes(eventKey);
 
   const handleSpecValue = (type, value) => {
     value = type == 'quantity' ? parseInt(value ?? "") : value
-
-    if(type == 'quantity' && (isNaN(parseInt(value) || parseInt(value) < 0) && value.trim() != '')) return;
 
     // if (rfqProduct.spec) {
     //   setRfqProduct((prev) => ({
@@ -245,6 +249,36 @@ const Item = ({
   };
 
   useEffect(() => {
+    const initial = rfqProduct?.spec
+    
+    const size = initial?.find(
+      (item) => item.title === "Size"
+    )?.value;
+    const spec = initial?.find(
+      (item) => item.title === "Spec"
+    )?.value;
+    const quantity = initial?.find(
+      (item) => item.title === "Quantity"
+    )?.value;
+    const unit = initial?.find(
+      (item) => item.title === "Unit"
+    )?.value;
+
+    const updatable = {};
+
+    // Only update if incoming value is different
+    if (initial !== undefined) {
+      if(size !== undefined && size !== specs.size) updatable.size = size;
+      if(spec !== undefined && spec !== specs.spec) updatable.spec = spec;
+      if(quantity !== undefined && quantity !== specs.quantity) updatable.quantity = quantity;
+      if(unit !== undefined && unit !== specs.unit) updatable.unit = unit;
+    }
+    if(Object.keys(updatable).length > 0) {
+      setSpecs(updatable);
+    }
+  }, [rfqProduct]);
+
+  useEffect(() => {
     if (isActive && buyerClauses == null) {
       // This runs when this specific item is expanded and we dont have any buyer clause fetched
       getProductClauses();
@@ -330,10 +364,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                defaultValue={
-                  rfqProduct?.spec?.find((item) => item.title === "Size")
-                    ?.value || ""
-                }
+                value={specs.size}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
@@ -528,10 +559,7 @@ const Item = ({
                 type="textarea"
                 name={"product_specification"}
                 label={"Product Specification"}
-                defaultValue={
-                  rfqProduct?.spec?.find((item) => item.title === "Spec")
-                    ?.value || ""
-                }
+                defaultValue={specs.spec}
                 onChange={(e) => handleSpecValue("spec", e.target.value)}
                 placeholder="Grade, Material and other Specs"
                 className=" form-control"
@@ -545,17 +573,19 @@ const Item = ({
               <div className="" style={{ width: "200px" }}>
                 <label> Quantity * </label>
                 <input
-                  type="number"
-                  value={
-                    parseInt(rfqProduct?.spec?.find((item) => item.title === "Quantity")
-                      ?.value || "")
-                  }
-                  onChange={(e) => handleSpecValue("quantity", e.target.value)}
-                  min={0}
+                  type="text"
+                  inputMode="numeric"
+                  defaultValue={specs.quantity}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    const cleaned = val.replace(/\D+/g, '').replace(/^0+/, '');
+                    if (cleaned === "" || /^\d+$/.test(cleaned)) {
+                      handleSpecValue("quantity", cleaned);
+                    }
+                  }}
                   placeholder="Quantity"
                   className="form-control me-0 mb-3"
                   aria-label="Quantity input with dropdown button"
-                  onWheel={(e) => e.target.blur()}
                 />
               </div>
 
@@ -563,10 +593,7 @@ const Item = ({
                 <label> Unit * </label>
                 <input
                   type="text"
-                  defaultValue={
-                    rfqProduct?.spec?.find((item) => item.title === "Unit")
-                      ?.value || ""
-                  }
+                  value={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
                   className="form-control me-0 mb-2"
@@ -635,23 +662,23 @@ const Item = ({
                 </span>
                 {
                   !handleViewVendorInEdit ? (
-                    <Link
-                      href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}`}
-                      className="btn btn-primary "
-                      // style={{ height: "40px" }}
-                    >
-                      {/* <FontAwesomeIcon icon={faEye} />{" "} */}
-                      View vendors
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={handleViewVendorInEdit}
-                      className="btn btn-primary "
-                      // style={{ height: "40px" }}
-                    >
-                      {/* <FontAwesomeIcon icon={faEye} />{" "} */}
-                      View vendors
-                    </button>
+                  <Link
+                    href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}`}
+                    className="btn btn-primary "
+                    // style={{ height: "40px" }}
+                  >
+                    {/* <FontAwesomeIcon icon={faEye} />{" "} */}
+                    View vendors
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleViewVendorInEdit}
+                    className="btn btn-primary "
+                    // style={{ height: "40px" }}
+                  >
+                    {/* <FontAwesomeIcon icon={faEye} />{" "} */}
+                    View vendors
+                  </button>
                   )
                 }
                 {handleAddVendorInEdit && (
