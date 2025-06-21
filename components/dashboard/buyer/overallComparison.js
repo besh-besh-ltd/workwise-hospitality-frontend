@@ -12,7 +12,7 @@ import { Button } from "react-bootstrap";
 import "react-tooltip/dist/react-tooltip.css";
 
 
-const OverallComparison = ({ rfq_id, TA_Filter }) => {
+const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -294,6 +294,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     return Math.round(TotalPrice);
   }
 
+  console.log("checking rfq number in over all", RFQ_no);
+
   return (
     <>
       {loading ? (
@@ -332,7 +334,18 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       <div className="d-flex">
                         <div className="ms-auto d-flex flex-column gap-2">
                           <Select
-                            className="fw-normal fs-6 text-left"
+                            className="fw-normal fs-6 text-left min-w-100"
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minWidth: '210px',
+                                width: 'auto',
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                width: 'auto',
+                              }),
+                            }}
                             defaultValue={{ label: "All Quotes", value: "all" }}
                             options={[
                               { label: "All Quotes", value: "all" },
@@ -461,9 +474,9 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                 <span></span>
                                 <input type="checkbox" />
                                 <table className="table has_inner_border_table">
-                                  <tr>
+                                  <tr >  
                                     <th>Base Price</th>
-                                    <td>
+                                    <td style={{ width: "50%" }}>
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
                                             item.last_purchase_rate?.unit_price
@@ -473,7 +486,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   </tr>
                                   <tr>
                                     <th>Total Rate</th>
-                                    <td>
+                                    <td style={{ width: "50%" }}> 
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
                                             item.last_purchase_rate.unit_price *
@@ -545,7 +558,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   show={showLPRModal}
                                   onHide={() => setShowLPRModal(false)}
                                   variantId={item.product_variant_id}
-                                  
+                                  RFQ_no={-1}
                                 />
 
                                 <p>
@@ -565,9 +578,26 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               <label className="view_breakup">
                                 <span></span>
                                 <input type="checkbox" />
-                                <p>-</p>
+                                <Button
+                                        variant="link"
+                                        size="sm"
+                                        onClick={() => {
+                                          // or item.userId
+                                          setShowLPRModal(true);
+                                        }}
+                                      >
+                                        View LPR
+                                  </Button>
                               </label>
+                              <LPRModal
+                                  show={showLPRModal}
+                                  onHide={() => setShowLPRModal(false)}
+                                  variantId={item.product_variant_id}
+                                  RFQ_no={RFQ_no}
+                                  
+                                />
                             </td>
+                            
                           )}
 
                           {item.quotations.length > 0 &&
