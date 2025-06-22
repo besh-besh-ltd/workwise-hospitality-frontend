@@ -596,7 +596,7 @@ const Item = ({
                 <label> Unit * </label>
                 <input
                   type="text"
-                  value={specs.unit}
+                  defaultValue={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
                   className="form-control me-0 mb-2"

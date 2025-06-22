@@ -1708,7 +1708,10 @@ const CreateRFQ = () => {
                     }}>
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
-                        rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map(product => {
+                        rfqProducts.map(product => {
+                            if(updatableData.products.deletable.includes(product.id)) {
+                              return null;
+                            }
                             return (
                               <Item
                                 activeKey={activeKey}
