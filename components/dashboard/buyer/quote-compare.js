@@ -22,6 +22,12 @@ import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
 import { Button } from "react-bootstrap";
 
+/**
+ * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
+ * @Updated Ayush Singh 22 JUNE 2025
+ */
+
+
 const QuoteCompare = () => {
   const router = useRouter();
   const { rfq } = router.query;
@@ -44,6 +50,7 @@ const QuoteCompare = () => {
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
   const [ showLPRModal, setShowLPRModal] = useState(false);
+  const [openModals, setOpenModals] = useState({});
 
   useEffect(() => {
     if (rfq) {
@@ -70,6 +77,14 @@ const QuoteCompare = () => {
     };
   }, [rfqNo,selectedproject]);
 
+
+  const closeModalForVariant = (variantId) => {
+  setOpenModals(prev => ({ ...prev, [variantId]: false }));
+};
+
+const openModalForVariant = (variantId) => {
+  setOpenModals(prev => ({ ...prev, [variantId]: true }));
+};
   const getAllProjects = () => {
     getProjectList()
         .then((res) => {
@@ -1016,8 +1031,6 @@ const QuoteCompare = () => {
   }, [page]);
 
 
-  console.log("checking current RFQ", currentRFQ?.rfq_no);
-
   return (
     <>
       {finalizeLoading && <Loader />}
@@ -1266,6 +1279,7 @@ const QuoteCompare = () => {
                       quotes.length > 0 &&
                       !showOverallComparison &&
                       quotes.map((item, index) => {
+                       const key = `${item.product_variant_id}_${item.variant}`;
                        
                         return (
                           <div
@@ -1273,7 +1287,8 @@ const QuoteCompare = () => {
                             key={`qq_${index}`}
                           >
                             <div className="row">
-                              <div className="class">
+                              <div className="d-flex justify-content-between">
+                                <div>
                                 <p className="sub-heading mb-0">
                                   <b>Product</b> :{" "}
                                   {item?.product_details[0]?.product_name}
@@ -1285,7 +1300,19 @@ const QuoteCompare = () => {
                                       ?.value}
                                 </p>
                               </div>
-
+                              <div>
+                              <Button
+                              variant="outline-primary"
+                              size="sm"
+                              className="position-relative p-2 px-2"
+                              onClick={() => openModalForVariant(key)}
+                            >
+                             View LPR
+                            </Button>
+                            </div>
+                              </div>
+                              
+                              
                               {item?.last_purchase_rate != null && (
                                 <div className="col-12 bg-transparent border-0  m">
                                   <div className="d-flex justify-content-between align-items-center px-2 mb-2">
@@ -1294,14 +1321,6 @@ const QuoteCompare = () => {
                                         <b>Last Purchase Details :</b>
                                       </p>
                                     </div>
-                                    <Button
-                                      variant="outline-primary"
-                                      size="sm"
-                                      className="position-relative p-2 px-2"
-                                      onClick={() => setShowLPRModal(true)}
-                                    >
-                                      View LPR
-                                    </Button>
                                   </div>
 
                                   <div className="sub-heading border rounded-3 p-2">
@@ -1423,20 +1442,10 @@ const QuoteCompare = () => {
                                 </div>
                               )}
                               <LPRModal
-                                show={showLPRModal}
-                                onHide={() => setShowLPRModal(false)}
+                                show={openModals[key] || false}
+                                onHide={() => closeModalForVariant(key)}
                                 variantId={item.product_variant_id}
                               />
-                            </div>
-                            <div className="d-flex justify-content-end">
-                              <Button
-                              variant="outline-primary"
-                              size="sm"
-                              className="position-relative p-2 px-2"
-                              onClick={() => setShowLPRModal(true)}
-                            >
-                              View LPR
-                            </Button>
                             </div>
                             
 
