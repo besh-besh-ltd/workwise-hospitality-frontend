@@ -1224,7 +1224,10 @@ const EditRFQ = () => {
             <Accordion alwaysOpen flush defaultActiveKey="" activeKey={activeKey} onSelect={(k) => setActiveKey(k)}>
               {rfqData.products &&
                 rfqData.products.length > 0 &&
-                rfqData.products.filter(product => !updatableData.products?.deletable?.includes(product.id)).map((product) => {
+                rfqData.products.map((product) => {
+                  if (updatableData.products.deletable.includes(product.id)) {
+                    return null;
+                  }
                   return (
                     <Item
                       // vendorApprovedList={vendorApprovedList}
