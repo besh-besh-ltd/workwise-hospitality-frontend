@@ -11,7 +11,10 @@ import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
 import "react-tooltip/dist/react-tooltip.css";
 
-
+/**
+ * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
+ * @Updated Ayush Singh 22 JUNE 2025
+ */
 const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
@@ -21,8 +24,9 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [freightInfo, setFreightInfo] = useState("all");
-  const [showLPRModal, setShowLPRModal] = useState(false);
-
+  const [openModals, setOpenModals] = useState({});
+ 
+  
   useEffect(() => {
     handleDownloadQuote();
   }, [rfq_id, TA_Filter]);
@@ -32,6 +36,14 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
     ...prev,
     [id]: !prev[id]
   }));
+};
+
+const closeModalForVariant = (variantId) => {
+  setOpenModals(prev => ({ ...prev, [variantId]: false }));
+};
+
+const openModalForVariant = (variantId) => {
+  setOpenModals(prev => ({ ...prev, [variantId]: true }));
 };
   const handleDownloadQuote = () => {
     setloading(true);
@@ -417,6 +429,7 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
+                      const key = item.product_variant_id+item.variant;
                       const size = item.product_specs.find(
                         (spec) => spec.title === "Size"
                       );
@@ -464,8 +477,9 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
                           <td>{`${quantity?.value ?? "NA"}-${
                             unit?.value ?? "NA"
                           }`}</td>
-
-                          {item.last_purchase_rate ? (
+                          
+                          {
+                          item.last_purchase_rate ? (
                             <td className="total_amt_field">
                               <label className="view_breakup">
                                 <div className="tooltip_custom">
@@ -546,17 +560,14 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
                                   <Button
                                         variant="link"
                                         size="sm"
-                                        onClick={() => {
-                                          // or item.userId
-                                          setShowLPRModal(true);
-                                        }}
+                                        onClick={() => openModalForVariant(key)}
                                       >
                                         View LPR
                                   </Button>
                                 </table>
                                 <LPRModal
-                                  show={showLPRModal}
-                                  onHide={() => setShowLPRModal(false)}
+                                  show={openModals[key] || false}
+                                  onHide={() => closeModalForVariant(key)}
                                   variantId={item.product_variant_id}
                                   RFQ_no={-1}
                                 />
@@ -581,17 +592,14 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
                                 <Button
                                         variant="link"
                                         size="sm"
-                                        onClick={() => {
-                                          // or item.userId
-                                          setShowLPRModal(true);
-                                        }}
+                                       onClick={() => openModalForVariant(key)}
                                       >
                                         View LPR
                                   </Button>
                               </label>
                               <LPRModal
-                                  show={showLPRModal}
-                                  onHide={() => setShowLPRModal(false)}
+                                  show={openModals[key] || false}
+                                  onHide={() => closeModalForVariant(key)}
                                   variantId={item.product_variant_id}
                                   RFQ_no={RFQ_no}
                                   
