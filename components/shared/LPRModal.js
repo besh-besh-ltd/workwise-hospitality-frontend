@@ -2,6 +2,12 @@ import { getLastPurchaseDetails } from '@/services/rfq';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Table } from 'react-bootstrap';
 
+
+
+/**
+ * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
+ * @Updated Ayush Singh 22 JUNE 2025
+ */
 const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
   const [activeTab, setActiveTab] = useState('lpr');
   const [loading, setLoading] = useState(false);
@@ -102,7 +108,7 @@ console.log("chekcng the RFQ number hre", RFQ_no);
               disabled={loading}
               className="px-3"
             >
-             Quote History
+             All Previous Quotes
             </Button>
           </div>
         </Modal.Header>
