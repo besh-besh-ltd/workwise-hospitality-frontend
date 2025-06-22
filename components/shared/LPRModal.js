@@ -10,10 +10,10 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
   const [allQuotesData, setAllQuotesData] = useState([]);
 
   // Format currency values
-  const formatCurrency = (value) => {
-  if (value === null || value === undefined) return '-';
-  return `₹${parseFloat(value).toFixed(2)}`;
-};
+//   const formatCurrency = (value) => {
+//   if (value === null || value === undefined) return '-';
+//   return `₹${parseFloat(value).toFixed(2)}`;
+// };
 
 
   // Format date string
@@ -142,11 +142,11 @@ console.log("chekcng the RFQ number hre", RFQ_no);
                       <th className="bg-light">Vendor Details</th>
                       <th className="bg-light">Date</th>
                       <th className="bg-light text-end">Qty</th>
-                      <th className="bg-light text-end">Freight</th>
-                      <th className="bg-light text-end">GST</th>
-                      <th className="bg-light text-end">Packaging</th>
-                      <th className="bg-light text-end">Unit Price</th>
-                      <th className="bg-light text-end">Total Price</th>
+                      <th className="bg-light text-end">Freight (%)</th>
+                      <th className="bg-light text-end">GST  (%)</th>
+                      <th className="bg-light text-end">Packaging  (%)</th>
+                      <th className="bg-light text-end">Unit Price  (₹)</th>
+                      <th className="bg-light text-end">Total Price (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -158,8 +158,8 @@ console.log("chekcng the RFQ number hre", RFQ_no);
                         <td>
                           <div className="fw-medium">{item.vendor_name}</div>
                           <div
-                            className="small text-muted text-truncate"
-                            style={{ maxWidth: "200px" }}
+                            className="small text-muted"
+                            style={{ maxWidth: "300px" }}
                           >
                             {item.vendor_email}
                           </div>
@@ -169,17 +169,17 @@ console.log("chekcng the RFQ number hre", RFQ_no);
                         </td>
                         <td className="text-end">{item.quantity}</td>
                         <td className="text-end">
-                          {formatCurrency(item.freight_price)}
+                          {item?.freight_price || '-'}
                         </td>
-                        <td className="text-end">{formatCurrency(item.tax)}</td>
+                        <td className="text-end">{item?.tax || '-'}</td>
                         <td className="text-end">
-                          {formatCurrency(item.package_price)}
+                          {item?.package_price || '-'}
                         </td>
                         <td className="text-end fw-medium">
-                          {formatCurrency(item.unit_price)}
+                          {item?.unit_price || '-'}
                         </td>
                         <td className="text-end fw-bold text-primary">
-                          {formatCurrency(item.total_price)}
+                          {item?.total_price || '-'}
                         </td>
                       </tr>
                     ))}
