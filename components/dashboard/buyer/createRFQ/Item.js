@@ -213,6 +213,7 @@ const Item = ({
         await addProductToExistingRfq(payload);
       else
         await addProductToDraft(payload);
+      
       getDraftInitialData();
     } catch (error) {
       toast.error(<h6>Failed to add vendors to RFQ. Please try again.</h6>, {

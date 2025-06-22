@@ -610,7 +610,6 @@ const EditRFQ = () => {
       }
 
       if(dataToSend.reverse_auction && (!formValues.ra_start_date || !formValues.ra_end_date)) {
-        console.log("REVERSE AUCTION: ", dataToSend.reverse_auction, " RE_START_DATE: ", formValues.ra_start_date, " RE_END_DATE: ", formValues.ra_end_date)
         toast.error("Auction start and end date is required")
         return;
       }
@@ -696,10 +695,7 @@ const EditRFQ = () => {
             }
             
             // Navigate after success (without refetch to avoid race conditions)
-            // setTimeout(() => {
-            //   router.push("/dashboard/buyer/rfq-management");
-            // }, 500);
-            fetchInitialData();
+            // fetchInitialData();
             setUpdatableData({
               products: {
                 addable: [],
@@ -708,6 +704,9 @@ const EditRFQ = () => {
               },
               vendors: {},
             });
+            setTimeout(() => {
+              router.push("/dashboard/buyer/rfq-management");
+            }, 100);
 
           } else {
             console.error("Update failed:", response);
@@ -1247,7 +1246,7 @@ const EditRFQ = () => {
                       updatableData={updatableData}
                       rfq_id={rfqData.id}
                       setHasUnsavedChanges={setHasUnsavedChanges}
-                      getDraftInitialData={fetchInitialData}
+                      getDraftInitialData={() => router.reload()}
                       saveDraft={() => {}}
                       onSpecValueChange={(change) => {
                         setRfqData((prev) => ({
