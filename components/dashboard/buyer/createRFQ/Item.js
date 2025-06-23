@@ -375,7 +375,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                defaultValue={specs.size}
+                values={specs.size}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
@@ -570,7 +570,7 @@ const Item = ({
                 type="textarea"
                 name={"product_specification"}
                 label={"Product Specification"}
-                defaultValue={specs.spec}
+                values={specs.spec}
                 onChange={(e) => handleSpecValue("spec", e.target.value)}
                 placeholder="Grade, Material and other Specs"
                 className=" form-control"
@@ -604,7 +604,7 @@ const Item = ({
                 <label> Unit * </label>
                 <input
                   type="text"
-                  defaultValue={specs.unit}
+                  value={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
                   className="form-control me-0 mb-2"
