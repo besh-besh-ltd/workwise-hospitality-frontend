@@ -94,7 +94,7 @@ useEffect(() => {
   const listProducts = async () => {
     try {
       const res = await getAllClauses(rfq_id);
-      setClauseInfo(res?.data?.[0] ?? null);
+      setClauseInfo(res?.data ?? null);
 
       const selectedRfq = rfqList.find((rfqItem) => rfqItem.id === parseInt(rfq_id));
       const vMap = new Map();
@@ -301,14 +301,16 @@ useEffect(() => {
                       </>}
 
                     {currentRfq && clauseInfo &&
-                      currentRfq.products.map((product) => {
-                        if (clauseMap.get(product.id)) {
+                      clauseInfo.map((rfqProduct) => {
+                        if (clauseMap.get(rfqProduct.rfq_product_id)) {
+                          const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
+                          if(!product) return null;
                           return (
                             <div className="quote-sec-table-sub pt-0" key={`product_${product.id}`}>
                               <div className="row">
                                 <div className="col-12">
 
-                                  <div className="d-flex justify-content-between">
+                                  <div className="d-flex justify-content-between gap-2">
                                     {/* Product Details */}
                                     <div className="d-flex-flex-column mt-3">
                                       <p className="sub-heading mb-0">
@@ -319,6 +321,24 @@ useEffect(() => {
                                         {product.product_specs?.find((spec) => spec.title === "Spec" && spec.value)?.value || "N/A"}
                                       </p>
                                     </div>
+
+                                    {/* Vendor Selection */}
+                                    <div className="col-md-3 col-lg-3 text-sm mb-2">
+                                      <label>Select Vendor</label>
+                                      <AsyncSelect
+                                        cacheOptions
+                                        loadOptions={() => getVendorSelectionOption(product.id)}
+                                        defaultOptions
+                                        placeholder="Select"
+                                        isClearable
+                                        onChange={(selectedOption) => {
+                                          const updatedVendorMap = new Map(vendorMap);
+                                          updatedVendorMap.set(product.id, selectedOption ? selectedOption : null);
+                                          setVendorMap(updatedVendorMap);
+                                        }}
+                                        noOptionsMessage={() => "No vendors responded"}
+                                      />
+                                    </div>
                                   </div>
 
                                   <ClauseProductItem
@@ -328,9 +348,10 @@ useEffect(() => {
                                     currentUserProfile={currentUserProfile}
                                     currentRfq={currentRfq}
                                     getVendors={async () => await getVendorSelectionOption(product.id)}
-                                    clauseInfo={clauseInfo?.clauses ?? []}
-                                    vendors={clauseInfo?.vendors ?? []}
+                                    clauseInfo={rfqProduct?.clauses ?? []}
+                                    vendors={rfqProduct?.vendors ?? []}
                                     refetch={listProducts}
+                                    selectedVendor={vendorMap.get(product.id)}
                                   />
 
                                 </div>
