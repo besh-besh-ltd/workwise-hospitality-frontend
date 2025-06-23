@@ -15,7 +15,7 @@ import "react-tooltip/dist/react-tooltip.css";
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
  * @Updated Ayush Singh 22 JUNE 2025
  */
-const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -29,7 +29,7 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
   
   useEffect(() => {
     handleDownloadQuote();
-  }, [rfq_id, TA_Filter]);
+  }, [rfq_id, TA_Filter, freightFilter]);
 
   const toggleBreakup = (id) => {
   setBreakupStates(prev => ({
@@ -47,7 +47,7 @@ const openModalForVariant = (variantId) => {
 };
   const handleDownloadQuote = () => {
     setloading(true);
-    downloadQuotesDetails(rfq_id, TA_Filter)
+    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
         setdata(res.data);
 
