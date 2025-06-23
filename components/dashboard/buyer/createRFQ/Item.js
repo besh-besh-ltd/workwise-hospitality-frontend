@@ -65,7 +65,7 @@ const Item = ({
   const isActive = activeKey?.includes(eventKey);
 
   const handleSpecValue = (type, value) => {
-    value = type == 'quantity' ? parseInt(value ?? "") : value
+    value = type == 'quantity' ? parseInt(value) || '' : value
 
     // if (rfqProduct.spec) {
     //   setRfqProduct((prev) => ({
@@ -267,12 +267,19 @@ const Item = ({
 
     const updatable = {};
 
-    // Only update if incoming value is different
     if (initial) {
-      if(size && size !== specs.size) updatable.size = size;
-      if(spec && spec !== specs.spec) updatable.spec = spec;
-      if(quantity && quantity !== specs.quantity) updatable.quantity = quantity;
-      if(unit && unit !== specs.unit) updatable.unit = unit;
+      if(size !== undefined && size !== specs.size) {
+        updatable.size = size;
+      } 
+      if(spec !== undefined && spec !== specs.spec) {
+        updatable.spec = spec;
+      };
+      if(quantity !== undefined && quantity !== specs.quantity) {
+        updatable.quantity = quantity
+      };
+      if(unit !== undefined && unit !== specs.unit) {
+        updatable.unit = unit;
+      };
     }
     if(Object.keys(updatable).length > 0) {
       setSpecs(prev => ({
