@@ -1,4 +1,4 @@
-import Select from "react-select";
+
 import FullLoader from "@/components/shared/FullLoader";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
@@ -15,7 +15,7 @@ import "react-tooltip/dist/react-tooltip.css";
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
  * @Updated Ayush Singh 22 JUNE 2025
  */
-const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -23,13 +23,12 @@ const OverallComparison = ({ rfq_id, TA_Filter , RFQ_no }) => {
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
-  const [freightInfo, setFreightInfo] = useState("all");
   const [openModals, setOpenModals] = useState({});
  
   
   useEffect(() => {
     handleDownloadQuote();
-  }, [rfq_id, TA_Filter]);
+  }, [rfq_id, TA_Filter, freightFilter]);
 
   const toggleBreakup = (id) => {
   setBreakupStates(prev => ({
@@ -47,7 +46,7 @@ const openModalForVariant = (variantId) => {
 };
   const handleDownloadQuote = () => {
     setloading(true);
-    downloadQuotesDetails(rfq_id, TA_Filter)
+    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
         setdata(res.data);
 
@@ -96,17 +95,7 @@ const openModalForVariant = (variantId) => {
     let edited_data = all_data.map((item) => {
       totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
 
-      const array = (
-        freightInfo == "all"
-          ? item.quotations
-          : freightInfo == "with"
-          ? item.quotations.filter(
-              (quoteItem) => !!quoteItem.quote_details[0]?.freight_price
-            )
-          : item.quotations.filter(
-              (quoteItem) => (!quoteItem.quote_details[0]?.freight_price || quoteItem.quote_details[0]?.freight_price == 0) 
-            )
-      ).filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
+      const array = item.quotations.filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
 
       let lowest = null;
 
@@ -183,8 +172,6 @@ const openModalForVariant = (variantId) => {
         packaging: 0,
         tax: 0,
         freight: 0,
-        totalWithFreight: 0,
-        totalWithoutFreight: 0,
       };
       data.map((item) => {
         let q_item = item.quotations.filter(
@@ -197,9 +184,6 @@ const openModalForVariant = (variantId) => {
           priceInfo.packaging = priceInfo.packaging + parseInt(quoteDetails?.package_price);
           priceInfo.tax = priceInfo.tax + parseInt(quoteDetails?.tax);
           priceInfo.freight = priceInfo.freight + parseInt(quoteDetails?.freight_price);
-
-          priceInfo.totalWithFreight = priceInfo.totalWithFreight + parseInt(quoteDetails?.freight_price ? quoteDetails?.total_price : 0)
-          priceInfo.totalWithoutFreight = priceInfo.totalWithoutFreight + parseInt(!quoteDetails?.freight_price ? quoteDetails?.total_price : 0);
         }
       });
 
@@ -217,9 +201,6 @@ const openModalForVariant = (variantId) => {
     }
   }, [data]);
 
-  useEffect(() => {
-    getLowestBidAmount(data);
-  }, [freightInfo])
 
   const addCommasToNumber = (number) => {
 
@@ -343,34 +324,6 @@ const openModalForVariant = (variantId) => {
                       OVERALL COMPARISON CHART
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
-                      <div className="d-flex">
-                        <div className="ms-auto d-flex flex-column gap-2">
-                          <Select
-                            className="fw-normal fs-6 text-left min-w-100"
-                            styles={{
-                              control: (base) => ({
-                                ...base,
-                                minWidth: '210px',
-                                width: 'auto',
-                              }),
-                              menu: (base) => ({
-                                ...base,
-                                width: 'auto',
-                              }),
-                            }}
-                            defaultValue={{ label: "All Quotes", value: "all" }}
-                            options={[
-                              { label: "All Quotes", value: "all" },
-                              { label: "Quotes with Freight", value: "with" },
-                              {
-                                label: "Quotes without Freight",
-                                value: "without",
-                              },
-                            ]}
-                            onChange={(change) => setFreightInfo(change.value)}
-                          />
-                        </div>
-                      </div>
                     </th>
                   </tr>
                   <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
@@ -616,10 +569,7 @@ const openModalForVariant = (variantId) => {
                                 );
 
                               let finalizedClass = "";
-                              let showQuote = true;
 
-                              if(freightInfo == 'with' && !quote_item?.quote_details[0]?.freight_price) showQuote = false;
-                              if(freightInfo == 'without' && quote_item?.quote_details[0]?.freight_price) showQuote = false;
 
                               if (
                                 isSomeoneFinalized &&
@@ -692,10 +642,10 @@ const openModalForVariant = (variantId) => {
                               } else {
                                 return (
                                   <td
-                                    className={`${showQuote && finalizedClass} total_amt_field`}
+                                    className={`${finalizedClass} total_amt_field`}
                                     key={`quote_item_${quote_item?.created_by}`}
                                   >
-                                    {showQuote && quote_item?.quote_details?.length > 0 &&
+                                    {quote_item?.quote_details?.length > 0 &&
                                     quote_item?.quote_details[0]
                                       ?.total_price ? (
                                       <label className="view_breakup">
@@ -896,12 +846,7 @@ const openModalForVariant = (variantId) => {
                       allvendors.map((item) => {
                         return (
                           <th key={`tp_${item.id}_total`}>
-                            {/* {item.total ? addCommasToNumber(item.total) : "-"} */}
-                            {addCommasToNumber(freightInfo == "all"
-                              ? item.total
-                              : freightInfo == "with"
-                              ? item.totalWithFreight
-                              : item.totalWithoutFreight) ?? "-"}
+                            {addCommasToNumber(item.total) ?? "-"}
                           </th>
                         );
                       })}
