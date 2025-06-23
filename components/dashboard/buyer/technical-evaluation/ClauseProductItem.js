@@ -11,7 +11,7 @@ import ReadMore from '@/components/shared/ReadMore';
 import { Dropdown } from 'react-bootstrap';
 import Image from 'next/image';
 
-const ClauseProductItem = ({ rfq_id, product, currentUserProfile, getVendors, clauseInfo, vendors : _vendors, refetch }) => {
+const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, vendors : _vendors, refetch, selectedVendor : _selectedVendor = null }) => {
 
     const [buyerClauses, setBuyerClauses] = useState(clauseInfo);
     const [vendorResponse, setVendorResponse] = useState(null);
@@ -39,7 +39,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, getVendors, cl
             if (res.status == 1) {
                 console.log("successfully added to TA");
             }
-            // getTechEvalResult();
+            selectedVendor && getTechEvalResult();
             refetch && refetch();
             toast.success("Congratulations, this Vendor is technically Accepted!!")
 
@@ -68,11 +68,91 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, getVendors, cl
         });
     };
 
+    const getBuyerClauses = async () => {
+        const payload = {
+            rfq_product_id: product.id,
+            vendor_id: _selectedVendor?.value || null
+        }
+        try {
+            setLoading(true);
+            const res = await getClausesByRfqProductId(payload);
+            setBuyerClauses(res.data);
+        } catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false);
+        }
+    }
+    
+    const getVendorResponse = async () => {
+        const payload = {
+            rfq_id: rfq_id,
+            rfq_product_id: product.id,
+            vendor_id: _selectedVendor.value
+        }
+
+        try {
+            setResponseLoading(true);
+            const res = await fetchVendorAgreement(payload);
+            if (!res.status) {
+                toast.warning(res.message);
+                return;
+            }
+
+            let cMap = new Map();
+            res.data.map((resItem) => {
+                cMap.set(resItem.clause_id, false);
+            })
+            setChatMap(cMap);
+            setVendorResponse(res.data);
+
+        } catch (error) {
+            console.error("Error fetching response:", error);
+        } finally {
+            setResponseLoading(false);
+        }
+    };
+
+    const getTechEvalResult = async () => {
+        const payload = {
+            rfq_id: parseInt(rfq_id),
+            rfq_product_id: product.id,
+            vendor_id: _selectedVendor.value,
+        };
+        try {
+            const res = await getTechClearedVendorsResult(payload);
+            if (res.status === 1) {
+                setTechEvalStatus(1)
+            } else {
+                setTechEvalStatus(0)
+            }
+            setTechEvalCleared(res.data)
+        } catch (error) {
+            console.error("Error fetching tech evaluation data", error);
+        }
+    };
+
+    const fetchVendorResults = async () => {
+      await getTechEvalResult();
+      await getVendorResponse();
+      await getBuyerClauses();
+    }
+
     useEffect(() => {
         if(_vendors) {
             setVendors(_vendors);
         }
     }, [_vendors])
+    
+    useEffect(() => {
+      if(_selectedVendor) {
+        fetchVendorResults();
+      } else {
+        setVendorResponse(null);
+        setChatMap(null);
+        setBuyerClauses(clauseInfo);
+      }
+    }, [_selectedVendor])
 
 
     return (
@@ -283,13 +363,141 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, getVendors, cl
           </>
         )}
 
+        {responseLoading ?
+                <FullLoader />
+                :
+                vendorResponse && vendorResponse.length > 0 &&
+                <>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h3 className="fs-5 mb-0">
+                            <span className="fw-semibold">{selectedVendor?.label}</span>
+                        </h3>
+
+                        {/* START: review status with evaluated by */}
+                        <div className="">
+                        
+                        {/* start : status tag */}
+                        <div>
+                            {techEvalStatus == 1 ?
+                                techEvalCleared.status == 1
+                                    ? <span
+                                        className="fw-medium text-bg-success px-3 py-2"
+                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
+                                    >
+                                        Vendor is Technically Accepted
+                                    </span>
+                                    : <span
+                                        className="fw-medium text-bg-danger px-3 py-2"
+                                        style={{ borderRadius: "18px 0 0 18px", fontSize: "16px" }}
+                                    >
+                                        Vendor is Not Technically Accepted
+                                    </span>
+                                :
+                                <>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary border-0 p-2"
+                                        style={{ width: "220px" }}
+                                        onClick={addToTechnicallyAccepted}
+                                    >
+                                        Technically Accepted
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-danger border-0 p-2"
+                                        style={{ width: "255px" }}
+                                        onClick={() => setOpenModal(true)}
+                                    >
+                                        Technically Not Accepted
+                                    </button>
+                                </>
+                            }
+                            </div>
+                        {/* end : status tag */}
+
+
+                          {/* Display evaluated_by only when available */}
+                          {techEvalStatus == 1 && techEvalCleared?.evaluated_by && (
+                            <div className="text-muted mt-2 ">
+                              <strong>Evaluated by: </strong> {techEvalCleared.evaluated_by}
+                            </div>
+                          )}
+                        </div>
+                      {/* END: review status with evaluated by */}
+
+
+                    </div>
+
+                    <div className="table-responsive w-100">
+                        <table className="table table-bordered table-striped" ref={tableRef} style={{ tableLayout: "fixed" }}>
+                            <colgroup>
+                                <col style={{ width: "600px" }} />
+                                <col style={{ width: "140px" }} />
+                                <col style={{ width: "230px" }} />
+                                <col style={{ width: "125px" }} />
+                            </colgroup>
+                            <thead>
+                                <tr className="table-dark text-nowrap" style={{ backgroundColor: "var(--primary-color) !important" }}>
+                                    <th scope="col" >Clause Terms</th>
+                                    <th scope="col" >Vendor Response</th>
+                                    <th scope="col" >Cross Reference Documents</th>
+                                    <th scope="col" >Comment</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {vendorResponse.map((clauseItem, index) => (
+                                    <>
+                                        <tr key={`ven_res_clause_${clauseItem.clause_id}`}>
+                                            <td>
+                                                <ReadMore content={`${index + 1}. ${clauseItem.clause_text}`} maxLines={4} />
+                                            </td>
+                                            <td>
+                                                <span className={`badge rounded-pill py-1 px-2 ${clauseItem.vendor_response == "I Agree" ? 'text-bg-success' : 'text-bg-danger'}`}>{clauseItem.vendor_response}</span>
+                                            </td>
+                                            <td style={{ maxWidth: "260px" }}>
+                                                {clauseItem.vendor_response_files && clauseItem.vendor_response_files.length > 0
+                                                    ? <FileLink key={clauseItem.clause_id} Files={clauseItem.vendor_response_files} />
+                                                    : "N/A"
+                                                }
+                                            </td>
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
+                                                    style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
+                                                    onClick={() => toggleChat(clauseItem.clause_id)}
+                                                >
+                                                    Explanation / Deviation
+                                                </button>
+                                            </td>
+
+                                        </tr>
+                                        {chatMap.get(clauseItem.clause_id) &&
+                                            <BuyerVendorChat
+                                                showChat={chatMap.get(clauseItem.clause_id)}
+                                                closeChat={() => toggleChat(clauseItem.clause_id)}
+                                                type="Buyer"
+                                                data={clauseItem}
+                                                userData={currentUserProfile}
+                                                otherUser={_selectedVendor ? _selectedVendor.value : selectedVendor.value}
+                                                token='' // only for vendor so that they fetch data when they are not login
+                                            />
+                                        }
+                                    </>)
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </>}
+
         {openModal && (
           <TE_Modal
             openModal={openModal}
             closeModal={() => setOpenModal(false)}
             data={product}
-            vendor_id={selectedVendor.value}
-            getTechEvalResult={refetch}
+            vendor_id={_selectedVendor ? _selectedVendor.value : selectedVendor.value}
+            getTechEvalResult={_selectedVendor ? getTechEvalResult : refetch}
           />
         )}
 
