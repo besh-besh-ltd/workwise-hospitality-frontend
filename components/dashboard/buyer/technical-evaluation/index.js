@@ -322,24 +322,6 @@ useEffect(() => {
                                     </div>
                                   </div>
 
-                                  {/* Vendor Selection */}
-                                  <div className="col-md-3 col-lg-3 text-sm">
-                                    <label>Select Vendor</label>
-                                    <AsyncSelect
-                                      cacheOptions
-                                      loadOptions={() => getVendorSelectionOption(product.id)}
-                                      defaultOptions
-                                      placeholder="Select"
-                                      isClearable
-                                      onChange={(selectedOption) => {
-                                        const updatedVendorMap = new Map(vendorMap);
-                                        updatedVendorMap.set(product.id, selectedOption ? selectedOption : null);
-                                        setVendorMap(updatedVendorMap);
-                                      }}
-                                      noOptionsMessage={() => "No vendors responded"}
-                                    />
-                                  </div>
-
                                   <ClauseProductItem
                                     type={"buyer"}
                                     rfq_id={rfq_id}
