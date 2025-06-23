@@ -570,7 +570,7 @@ const Item = ({
                 type="textarea"
                 name={"product_specification"}
                 label={"Product Specification"}
-                values={specs.spec}
+                values={specs.spec || ""}
                 onChange={(e) => handleSpecValue("spec", e.target.value)}
                 placeholder="Grade, Material and other Specs"
                 className=" form-control"
@@ -584,17 +584,17 @@ const Item = ({
               <div className="" style={{ width: "200px" }}>
                 <label> Quantity * </label>
                 <input
-                  type="text"
-                  inputMode="numeric"
+                  type="number"
                   defaultValue={specs.quantity}
                   onChange={(e) => {
-                    let val = e.target.value;
+                    const val = e.target.value;
                     const cleaned = val.replace(/\D+/g, '').replace(/^0+/, '');
                     if (cleaned === "" || /^\d+$/.test(cleaned)) {
                       handleSpecValue("quantity", cleaned);
                     }
                   }}
                   placeholder="Quantity"
+                  min={0}
                   className="form-control me-0 mb-3"
                   aria-label="Quantity input with dropdown button"
                 />
@@ -604,7 +604,7 @@ const Item = ({
                 <label> Unit * </label>
                 <input
                   type="text"
-                  value={specs.unit}
+                  defaultValue={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
                   className="form-control me-0 mb-2"
@@ -706,10 +706,10 @@ const Item = ({
                 // style={{ height: "170px" }}
                 className="form-control me-0 mb-3"
                 type="text"
-                value={comment}
+                defaultValue={comment}
                 placeholder="Add Comments..."
                 // className="item_comment"
-                onChange={handleaddProductComment}
+                onChange={(e)=>{handleaddProductComment(e)}}
               />
             </div>
 
