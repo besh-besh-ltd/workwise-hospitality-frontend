@@ -72,17 +72,7 @@ export const getProjectTableDataById = (projectId)=> {
       try {
         // Add timestamp to prevent caching
         const timestamp = new Date().getTime();
-        let response = await axiosInstance.get(`project/${projectId}?t=${timestamp}`);        
-        // Ensure response format is consistent
-        if (response.data) {
-          if (!response.data.status && !response.data.message) {
-            // This might be a direct data array without status wrapper
-            response.data = {
-              status: true,
-              data: response.data
-            };
-          }
-        }
+        let response = await axiosInstance.get(`project/${projectId}?t=${timestamp}`);
         resolve(response);
       } catch (error) {
         reject({ message: error });
