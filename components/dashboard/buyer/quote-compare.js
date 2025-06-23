@@ -46,6 +46,7 @@ const QuoteCompare = () => {
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
+  const [freightFilter, setFreightFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
@@ -56,7 +57,7 @@ const QuoteCompare = () => {
     if (rfq) {
       getRespectiveQuotes();
     }
-  }, [router, TA_Filter]);
+  }, [router, TA_Filter, freightFilter]);
 
   useEffect(() => {
     getAllRFQs();
@@ -103,6 +104,10 @@ const openModalForVariant = (variantId) => {
     setTA_Filter(e.target.checked);
   }
 
+  const handleFreightFilterChange = (e) => {
+    setFreightFilter(e.target.checked);
+  }
+
   const loadMoreRFQs = (e) => {
     e.preventDefault();
     if (hasMoreQuotes) {
@@ -143,15 +148,15 @@ const openModalForVariant = (variantId) => {
     setquotes([]);
     setTEavailable(false);
 
-    getQuotes(rfq, TA_Filter)
+    getQuotes(rfq, TA_Filter, freightFilter)
       .then((res) => {
         setquotes(res.data);
-        getRFQClauses();
       })
       .catch((err) => {
       })
       .finally(() => {
         setquotesLoading(false);
+        getRFQClauses();
       })
   };
 
@@ -194,7 +199,7 @@ const openModalForVariant = (variantId) => {
     setDownloadLoading(true);
 
     try {
-      const res = await downloadQuotesDetails(rfq, TA_Filter);
+      const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
       generateExcelFile(res.data);
     } catch (error) {
       console.log(error);
@@ -1231,20 +1236,35 @@ const openModalForVariant = (variantId) => {
                       Overall Comparison
                     </Link>
 
-                    {TEavailable &&
-                      <div className="form-check form-switch ms-auto page-link fs-6">
+                    <div className="d-flex flex-column gap-2 ms-auto">
+                      {TEavailable &&
+                        <div className="form-check form-switch page-link fs-6">
+                          <input
+                            className="form-check-input border-dark-subtle"
+                            type="checkbox"
+                            role="switch"
+                            checked={TA_Filter}
+                            id="TA_check"
+                            onChange={handleTAFilterChange}
+                          />
+                          <label className="form-check-label" for="TA_check">
+                            View Technically Accepted Vendors
+                          </label>
+                        </div>}
+                      <div className="form-check form-switch page-link fs-6">
                         <input
                           className="form-check-input border-dark-subtle"
                           type="checkbox"
                           role="switch"
-                          checked={TA_Filter}
-                          id="TA_check"
-                          onChange={handleTAFilterChange}
+                          checked={freightFilter}
+                          id="freight_check"
+                          onChange={handleFreightFilterChange}
                         />
-                        <label className="form-check-label" for="TA_check">
-                          View Technically Accepted Vendors
+                        <label className="form-check-label" for="freight_check">
+                          View quotes without freight
                         </label>
-                      </div>}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1272,7 +1292,7 @@ const openModalForVariant = (variantId) => {
                       </div>
                     )}
                     {showOverallComparison && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} RFQ_no = {currentRFQ?.rfq_no} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no = {currentRFQ?.rfq_no} />
                     
                     )}
                     {quotes &&

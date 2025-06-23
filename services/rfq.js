@@ -279,10 +279,10 @@ export const updateQuotation = (quote_id, payload, token) => {
   });
 };
 
-export const getQuotes = (id, TA_Filter) => {
+export const getQuotes = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter ? '?TA_Vendors=TA': ''}`);
+      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter || freightFilter ? '?' : ''}${TA_Filter ? 'TA_Vendors=TA' : ''}${TA_Filter && freightFilter ? '&' : ''}${freightFilter ? 'no_freight=true' : ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -290,10 +290,10 @@ export const getQuotes = (id, TA_Filter) => {
   });
 };
 
-export const downloadQuotesDetails = (id, TA_Filter) => {
+export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}${TA_Filter ? '?TA_Vendors=TA' : ''}`);
+      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}${TA_Filter || freightFilter ? '?' : ''}${TA_Filter ? 'TA_Vendors=TA' : ''}${TA_Filter && freightFilter ? '&' : ''}${freightFilter ? 'no_freight=true' : ''}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
