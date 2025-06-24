@@ -28,6 +28,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Accordion } from "react-bootstrap";
 import Item from "../createRFQ/Item";
 import { editRfqSchema } from "@/utils/schema";
+import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -575,8 +576,10 @@ const EditRFQ = () => {
       //  return;
       // }
 
+      const cleanedUpdatableData = cleanUpdatableData(updatableData);
+
       const dataToSend = {
-        updatableData,
+        updatableData: cleanedUpdatableData,
         rfq_id: rfqData.id,
         contact_name: formValues.contact_name || rfqData.contact_name,
         contact_number: formValues.contact_number,
@@ -1246,7 +1249,7 @@ const EditRFQ = () => {
                       updatableData={updatableData}
                       rfq_id={rfqData.id}
                       setHasUnsavedChanges={setHasUnsavedChanges}
-                      getDraftInitialData={() => router.reload()}
+                      getDraftInitialData={fetchInitialData}
                       saveDraft={() => {}}
                       onSpecValueChange={(change) => {
                         setRfqData((prev) => ({
