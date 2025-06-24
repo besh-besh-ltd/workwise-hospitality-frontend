@@ -201,6 +201,17 @@ const Item = ({
       await saveDraft();
       setLoading(true);
 
+      let addablePayload = {};
+
+      if(type == 'edit') {
+        addablePayload = {
+          specs: {
+            Quantity: specs.quantity,
+            Unit: specs.unit,
+          }
+        }
+      }
+
       const payload = {
         rfq_id,
         sheet_id: selectedSheet?.value,
@@ -208,6 +219,7 @@ const Item = ({
         vendors: variantVendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
         })),
+        ...addablePayload,
       };
       if(type == 'edit')
         await addProductToExistingRfq(payload);

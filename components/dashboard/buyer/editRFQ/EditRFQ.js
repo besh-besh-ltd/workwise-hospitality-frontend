@@ -29,6 +29,7 @@ import { Accordion } from "react-bootstrap";
 import Item from "../createRFQ/Item";
 import { editRfqSchema } from "@/utils/schema";
 import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
+import AddSpecModal from "./AddSpecModal";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -117,6 +118,7 @@ const EditRFQ = () => {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddVendorForProductModal, setShowAddVendorForProductModal] = useState(false);
+  const [showAddSpecModal, setShowAddSpecModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState([]);
   const [activeKey, setActiveKey] = useState(null);
 
@@ -130,6 +132,10 @@ const EditRFQ = () => {
   })
   const [productAddData, setProductAddData] = useState({
     variant_id: -1,
+    specs: {
+      quantity: 1,
+      unit: 'nos',
+    },
     vendors: [],
   })
   const [vendors, setVendors] = useState([]);
@@ -571,10 +577,23 @@ const EditRFQ = () => {
         return;
       }
 
-      // if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
-      //  toast.error("You cannot delete all products from RFQ, at least one product is required");
-      //  return;
-      // }
+      if (
+        rfqData.products.filter(product => !updatableData.products.deletable.includes(product.id)).some(
+          (product) =>
+            !product.product_specs ||
+            product.product_specs.some(
+              (spec) =>
+                !spec.value ||
+                String(spec.value).trim().length <= 0 ||
+                (spec.title == "Quantity" && !parseInt(spec.value))
+            )
+        )
+      ) {
+        toast.error(
+          "Some products may be missing Quantity or Unit or mapped incorrectly, recheck and update again!"
+        );
+        return;
+      }
 
       const cleanedUpdatableData = cleanUpdatableData(updatableData);
 
@@ -743,13 +762,35 @@ const EditRFQ = () => {
       ...prev,
       variant_id: product.variant_id,
     }))
-    setSelectedProduct({
+    setSelectedProduct(prev => ({
       product,
       vendors: [],
-    })
+    }))
     setShowAddProductModal(false);
-    setShowAddVendorForProductModal(true);
+    setShowAddSpecModal(true);
   }
+
+  const handleAddSpec = (specData) => {
+    if (
+      Object.entries(specData).some(
+        ([key, value]) =>
+          !value ||
+          String(value).trim().length <= 0 ||
+          (key == "Quantity" && !parseInt(value))
+      )
+    )
+      return toast.error("Invalid Quantity or Unit!");
+
+    setProductAddData((prev) => ({
+      ...prev,
+      specs: {
+        ...prev.specs,
+        ...specData,
+      },
+    }));
+    setShowAddSpecModal(false);
+    setShowAddVendorForProductModal(true);
+  };
 
   const handleAddVendorForProduct = (vendor) => {
     console.log(vendor)
@@ -2019,6 +2060,14 @@ const EditRFQ = () => {
         isOpen={showAddProductModal}
         onClose={() => setShowAddProductModal(false)}
         onAdd={handleSelectProduct}
+        updatableData={updatableData}
+      />
+      <AddSpecModal
+        headerTitle={`Add Mandatory Specs for Product`}
+        rfqData={rfqData}
+        isOpen={showAddSpecModal}
+        onClose={() => setShowAddSpecModal(false)}
+        onEntry={handleAddSpec}
         updatableData={updatableData}
       />
     </>
