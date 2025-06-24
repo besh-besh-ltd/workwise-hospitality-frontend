@@ -360,8 +360,14 @@ const openModalForVariant = (variantId) => {
                       Quantity
                     </th>
                     <th scope="col" className="all_vendors" rowSpan={2}>
-                      Last Purchase Details
+                      <div>
+                        Last Purchase Rate
+                        <div className=" text-gray-500" style = {{"font-size" : "12px"}}>
+                          (Please Review Freight)
+                        </div>
+                      </div>
                     </th>
+
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
@@ -382,7 +388,7 @@ const openModalForVariant = (variantId) => {
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
-                      const key = item.product_variant_id+item.variant;
+                      const key = item.product_variant_id + item.variant;
                       const size = item.product_specs.find(
                         (spec) => spec.title === "Size"
                       );
@@ -430,9 +436,8 @@ const openModalForVariant = (variantId) => {
                           <td>{`${quantity?.value ?? "NA"}-${
                             unit?.value ?? "NA"
                           }`}</td>
-                          
-                          {
-                          item.last_purchase_rate ? (
+
+                          {item.last_purchase_rate ? (
                             <td className="total_amt_field">
                               <label className="view_breakup">
                                 <div className="tooltip_custom">
@@ -441,7 +446,7 @@ const openModalForVariant = (variantId) => {
                                 <span></span>
                                 <input type="checkbox" />
                                 <table className="table has_inner_border_table">
-                                  <tr >  
+                                  <tr>
                                     <th>Base Price</th>
                                     <td style={{ width: "50%" }}>
                                       {item.last_purchase_rate?.unit_price
@@ -453,7 +458,7 @@ const openModalForVariant = (variantId) => {
                                   </tr>
                                   <tr>
                                     <th>Total Rate</th>
-                                    <td style={{ width: "50%" }}> 
+                                    <td style={{ width: "50%" }}>
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
                                             item.last_purchase_rate.unit_price *
@@ -509,14 +514,8 @@ const openModalForVariant = (variantId) => {
                                         : "0"}
                                     </td>
                                   </tr>
+
                                   
-                                  <Button
-                                        variant="link"
-                                        size="sm"
-                                        onClick={() => openModalForVariant(key)}
-                                      >
-                                        View LPR
-                                  </Button>
                                 </table>
                                 <LPRModal
                                   show={openModals[key] || false}
@@ -535,6 +534,13 @@ const openModalForVariant = (variantId) => {
                                       )
                                     : "0"}
                                 </p>
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    onClick={() => openModalForVariant(key)}
+                                  >
+                                    View LPR History
+                                  </Button>
                               </label>
                             </td>
                           ) : (
@@ -543,22 +549,20 @@ const openModalForVariant = (variantId) => {
                                 <span></span>
                                 <input type="checkbox" />
                                 <Button
-                                        variant="link"
-                                        size="sm"
-                                       onClick={() => openModalForVariant(key)}
-                                      >
-                                        View LPR
-                                  </Button>
+                                  variant="link"
+                                  size="sm"
+                                  onClick={() => openModalForVariant(key)}
+                                >
+                                  View LPR History
+                                </Button>
                               </label>
                               <LPRModal
-                                  show={openModals[key] || false}
-                                  onHide={() => closeModalForVariant(key)}
-                                  variantId={item.product_variant_id}
-                                  RFQ_no={RFQ_no}
-                                  
-                                />
+                                show={openModals[key] || false}
+                                onHide={() => closeModalForVariant(key)}
+                                variantId={item.product_variant_id}
+                                RFQ_no={RFQ_no}
+                              />
                             </td>
-                            
                           )}
 
                           {item.quotations.length > 0 &&
@@ -569,7 +573,6 @@ const openModalForVariant = (variantId) => {
                                 );
 
                               let finalizedClass = "";
-
 
                               if (
                                 isSomeoneFinalized &&
@@ -591,10 +594,14 @@ const openModalForVariant = (variantId) => {
                               }
 
                               if (quote_item.is_regret == 1) {
-                                const quoteDetails = quote_item.quote_details?.[0]
-                                const [productId, variant] = [quoteDetails.product_id, quoteDetails.variant]
+                                const quoteDetails =
+                                  quote_item.quote_details?.[0];
+                                const [productId, variant] = [
+                                  quoteDetails.product_id,
+                                  quoteDetails.variant,
+                                ];
 
-                                const key = `${productId}_${variant}`
+                                const key = `${productId}_${variant}`;
 
                                 const showBreakup = breakupStates[key] || false;
                                 return (

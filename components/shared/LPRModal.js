@@ -99,7 +99,7 @@ console.log("chekcng the RFQ number hre", RFQ_no);
               disabled={loading}
               className="px-3"
             >
-              LPR (Last Purchase)
+              LPR (Last Purchase Rate)
             </Button>
             <Button
               variant={activeTab === "lqr" ? "primary" : "outline-secondary"}
