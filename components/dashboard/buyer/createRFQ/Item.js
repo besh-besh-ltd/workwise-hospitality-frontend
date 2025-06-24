@@ -375,7 +375,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                values={specs.size}
+                values={specs?.size || ''}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
@@ -582,10 +582,12 @@ const Item = ({
             {/* start: qty and unit ocntainer */}
             <div className="d-flex  justify-content-start align-items-start gap-2">
               <div className="" style={{ width: "200px" }}>
-                <label> Quantity * </label>
-                <input
-                  type="number"
-                  defaultValue={specs.quantity}
+                <CommonFormInput
+                  required
+                  type="simple-text"
+                  name={"quantity"}
+                  label={"Quantity"}
+                  values={specs.quantity}
                   onChange={(e) => {
                     const val = e.target.value;
                     const cleaned = val.replace(/\D+/g, '').replace(/^0+/, '');
@@ -594,21 +596,19 @@ const Item = ({
                     }
                   }}
                   placeholder="Quantity"
-                  min={0}
-                  className="form-control me-0 mb-3"
-                  aria-label="Quantity input with dropdown button"
+                  className=" form-control"
                 />
               </div>
 
               <div style={{ width: "210px" }}>
-                <label> Unit * </label>
-                <input
-                  type="text"
-                  defaultValue={specs.unit}
+                <CommonFormInput
+                  type="simple-text"
+                  name={"unit"}
+                  label={"Unit"}
+                  values={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
-                  className="form-control me-0 mb-2"
-                  aria-label="Unit Details"
+                  className=" form-control"
                 />
               </div>
             </div>
@@ -700,16 +700,15 @@ const Item = ({
               </div>
             </div>
 
-            <div className=" mt-1">
-              <span>Add comments</span>
-              <input
-                // style={{ height: "170px" }}
-                className="form-control me-0 mb-3"
-                type="text"
-                defaultValue={comment}
+            <div className="mt-4">
+              <CommonFormInput
+                type="simple-text"
+                name={"comment"}
+                label={"Add Comments"}
+                values={comment}
+                onChange={handleaddProductComment}
                 placeholder="Add Comments..."
-                // className="item_comment"
-                onChange={(e)=>{handleaddProductComment(e)}}
+                className="form-control me-0 mb-3"
               />
             </div>
 

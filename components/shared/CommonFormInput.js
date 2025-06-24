@@ -36,7 +36,7 @@ const CommonFormInput = ({
   name,
   label,
   labelBold, // no need to pass this prop, it is used to make the label bold if required use lable csss so that if needed we can apply other css as well
-  type = "text", // text, email, password, select, multiselect, mobile, textarea
+  type = "text", // text, email, password, select, multiselect, mobile, textarea, simple-text
   options = [],
   isMulti = false,
   isClearable = true,
@@ -105,10 +105,11 @@ const CommonFormInput = ({
   }
 
   if (type === "textarea") {
-    const [inputValue, setInputValue] = useState('');
+    //  this block state is used to handle the value of the textarea, this will fix the issue "user not able to edit the ionput from middle"
+    const [value, setValue] = useState('');
 
     const handelOnChahnge = (e) => {
-      setInputValue(e.target.value); 
+      setValue(e.target.value); 
       onChange && onChange(e);
     }
     return (
@@ -124,9 +125,41 @@ const CommonFormInput = ({
             isInvalid ? "is-invalid" : ""
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
-          value={inputValue || values }
-          onChange={(event)=>{ handelOnChahnge(event)}}
+          // defaultValue={defaultValue}
+          value={value || values}
+          onChange={handelOnChahnge}
           rows={4}
+          // style={style ?? {}}
+        />
+        {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}
+      </div>
+    );
+  }
+
+  if (type === "simple-text") {
+    //  this block state is used to handle the value of the textarea, this will fix the issue "user not able to edit the ionput from middle"
+    const [value, setValue] = useState('');
+    const handelOnChahnge = (e) => {
+      setValue(e.target.value);
+      onChange && onChange(e);
+    };
+
+    return (
+      <div className="form-group mb-3">
+        <label htmlFor={name} className="form-label">
+          {label} {required && <span className="text-danger">*</span>}
+        </label>
+        <input
+          id={name}
+          disabled={disabled}
+          name={name}
+          className={`placeholder-muted form-control ${
+            isInvalid ? "is-invalid" : ""
+          } ${className}`}
+          placeholder={placeholder || `Enter ${label}`}
+          // defaultValue={defaultValue}
+          value={value || values}
+          onChange={handelOnChahnge}
           // style={style ?? {}}
         />
         {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}

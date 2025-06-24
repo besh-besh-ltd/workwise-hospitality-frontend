@@ -27,7 +27,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
 
     const addToTechnicallyAccepted = async (vendor = null) => {
         const payload = {
-            vendor_id: vendor ? vendor.vendor_id : selectedVendor.vendor_id,
+            vendor_id: vendor ? vendor.vendor_id : selectedVendor ? selectedVendor.vendor_id : _selectedVendor.value,
             rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
             status: 1,
             reject_message: null
@@ -202,6 +202,11 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                           : "Technically Not Accepted"
                                         : ""}
                                     </p>
+                                    {isCleared == 1 && vendor?.evaluated_by && (
+                                      <div className="text-light mt-2 fw-normal">
+                                        <strong>Evaluated by: </strong> {vendor?.evaluated_by}
+                                      </div>
+                                    )}
                                   </div>
                                   <Dropdown className="dots-nav-anchor">
                                     <Dropdown.Toggle
@@ -397,8 +402,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                     <button
                                         type="button"
                                         className="btn btn-secondary border-0 p-2"
-                                        style={{ width: "220px" }}
-                                        onClick={addToTechnicallyAccepted}
+                                        style={{ width: "220px", marginRight: 10 }}
+                                        onClick={() => addToTechnicallyAccepted()}
                                     >
                                         Technically Accepted
                                     </button>
