@@ -54,14 +54,18 @@ const Item = ({
   const [isModelOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
+  const [specs, setSpecs] = useState({
+    size: '',
+    spec: '',
+    quantity: '',
+    unit: ''
+  })
 
   const eventKey = `${rfqProduct.id}`;
   const isActive = activeKey?.includes(eventKey);
 
   const handleSpecValue = (type, value) => {
-    value = type == 'quantity' ? parseInt(value ?? "") : value
-
-    if(type == 'quantity' && (isNaN(parseInt(value) || parseInt(value) < 0) && value.trim() != '')) return;
+    value = type == 'quantity' ? parseInt(value) || '' : value
 
     // if (rfqProduct.spec) {
     //   setRfqProduct((prev) => ({
@@ -197,6 +201,17 @@ const Item = ({
       await saveDraft();
       setLoading(true);
 
+      let addablePayload = {};
+
+      if(type == 'edit') {
+        addablePayload = {
+          specs: {
+            Quantity: specs.quantity,
+            Unit: specs.unit,
+          }
+        }
+      }
+
       const payload = {
         rfq_id,
         sheet_id: selectedSheet?.value,
@@ -204,11 +219,13 @@ const Item = ({
         vendors: variantVendors.map((vendor) => type == 'edit' ? vendor.user_id : ({
           vendor_id: vendor.user_id,
         })),
+        ...addablePayload,
       };
       if(type == 'edit')
         await addProductToExistingRfq(payload);
       else
         await addProductToDraft(payload);
+      
       getDraftInitialData();
     } catch (error) {
       toast.error(<h6>Failed to add vendors to RFQ. Please try again.</h6>, {
@@ -243,6 +260,46 @@ const Item = ({
     setIsModalOpen(false);
     getProductClauses();
   };
+
+  useEffect(() => {
+    const initial = rfqProduct?.spec
+    
+    const size = initial?.find(
+      (item) => item.title === "Size"
+    )?.value;
+    const spec = initial?.find(
+      (item) => item.title === "Spec"
+    )?.value;
+    const quantity = initial?.find(
+      (item) => item.title === "Quantity"
+    )?.value;
+    const unit = initial?.find(
+      (item) => item.title === "Unit"
+    )?.value;
+
+    const updatable = {};
+
+    if (initial) {
+      if(size !== undefined && size !== specs.size) {
+        updatable.size = size;
+      } 
+      if(spec !== undefined && spec !== specs.spec) {
+        updatable.spec = spec;
+      };
+      if(quantity !== undefined && quantity !== specs.quantity) {
+        updatable.quantity = quantity
+      };
+      if(unit !== undefined && unit !== specs.unit) {
+        updatable.unit = unit;
+      };
+    }
+    if(Object.keys(updatable).length > 0) {
+      setSpecs(prev => ({
+        ...prev,
+        ...updatable
+      }));
+    }
+  }, [rfqProduct.spec]);
 
   useEffect(() => {
     if (isActive && buyerClauses == null) {
@@ -330,10 +387,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                values={
-                  rfqProduct?.spec?.find((item) => item.title === "Size")
-                    ?.value || ""
-                }
+                values={specs?.size || ''}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
@@ -528,10 +582,7 @@ const Item = ({
                 type="textarea"
                 name={"product_specification"}
                 label={"Product Specification"}
-                values={
-                  rfqProduct?.spec?.find((item) => item.title === "Spec")
-                    ?.value || ""
-                }
+                values={specs.spec || ""}
                 onChange={(e) => handleSpecValue("spec", e.target.value)}
                 placeholder="Grade, Material and other Specs"
                 className=" form-control"
@@ -543,34 +594,33 @@ const Item = ({
             {/* start: qty and unit ocntainer */}
             <div className="d-flex  justify-content-start align-items-start gap-2">
               <div className="" style={{ width: "200px" }}>
-                <label> Quantity * </label>
-                <input
-                  type="number"
-                  value={
-                    parseInt(rfqProduct?.spec?.find((item) => item.title === "Quantity")
-                      ?.value || "")
-                  }
-                  onChange={(e) => handleSpecValue("quantity", e.target.value)}
-                  min={0}
+                <CommonFormInput
+                  required
+                  type="simple-text"
+                  name={"quantity"}
+                  label={"Quantity"}
+                  values={specs.quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const cleaned = val.replace(/\D+/g, '').replace(/^0+/, '');
+                    if (cleaned === "" || /^\d+$/.test(cleaned)) {
+                      handleSpecValue("quantity", cleaned);
+                    }
+                  }}
                   placeholder="Quantity"
-                  className="form-control me-0 mb-3"
-                  aria-label="Quantity input with dropdown button"
-                  onWheel={(e) => e.target.blur()}
+                  className=" form-control"
                 />
               </div>
 
               <div style={{ width: "210px" }}>
-                <label> Unit * </label>
-                <input
-                  type="text"
-                  defaultValue={
-                    rfqProduct?.spec?.find((item) => item.title === "Unit")
-                      ?.value || ""
-                  }
+                <CommonFormInput
+                  type="simple-text"
+                  name={"unit"}
+                  label={"Unit"}
+                  values={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
-                  className="form-control me-0 mb-2"
-                  aria-label="Unit Details"
+                  className=" form-control"
                 />
               </div>
             </div>
@@ -635,23 +685,23 @@ const Item = ({
                 </span>
                 {
                   !handleViewVendorInEdit ? (
-                    <Link
-                      href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}`}
-                      className="btn btn-primary "
-                      // style={{ height: "40px" }}
-                    >
-                      {/* <FontAwesomeIcon icon={faEye} />{" "} */}
-                      View vendors
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={handleViewVendorInEdit}
-                      className="btn btn-primary "
-                      // style={{ height: "40px" }}
-                    >
-                      {/* <FontAwesomeIcon icon={faEye} />{" "} */}
-                      View vendors
-                    </button>
+                  <Link
+                    href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}`}
+                    className="btn btn-primary "
+                    // style={{ height: "40px" }}
+                  >
+                    {/* <FontAwesomeIcon icon={faEye} />{" "} */}
+                    View vendors
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleViewVendorInEdit}
+                    className="btn btn-primary "
+                    // style={{ height: "40px" }}
+                  >
+                    {/* <FontAwesomeIcon icon={faEye} />{" "} */}
+                    View vendors
+                  </button>
                   )
                 }
                 {handleAddVendorInEdit && (
@@ -662,16 +712,15 @@ const Item = ({
               </div>
             </div>
 
-            <div className=" mt-1">
-              <span>Add comments</span>
-              <input
-                // style={{ height: "170px" }}
-                className="form-control me-0 mb-3"
-                type="text"
-                value={comment}
-                placeholder="Add Comments..."
-                // className="item_comment"
+            <div className="mt-4">
+              <CommonFormInput
+                type="simple-text"
+                name={"comment"}
+                label={"Add Comments"}
+                values={comment}
                 onChange={handleaddProductComment}
+                placeholder="Add Comments..."
+                className="form-control me-0 mb-3"
               />
             </div>
 

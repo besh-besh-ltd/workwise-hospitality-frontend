@@ -1,5 +1,6 @@
-import CommentModal from "@/components/modal/CommentModal";
+
 import FullLoader from "@/components/shared/FullLoader";
+import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
@@ -7,26 +8,45 @@ import { extractfileName } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
+import { Button } from "react-bootstrap";
 import "react-tooltip/dist/react-tooltip.css";
 
-
-const OverallComparison = ({ rfq_id, TA_Filter }) => {
+/**
+ * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
+ * @Updated Ayush Singh 22 JUNE 2025
+ */
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
-  const [finalised , setFinalised] = useState(null);
-  const [showBreakup, setShowBreakup] = useState(false);
-
+  const [breakupStates, setBreakupStates] = useState({});
+  const [openModals, setOpenModals] = useState({});
+ 
+  
   useEffect(() => {
     handleDownloadQuote();
-  }, [rfq_id, TA_Filter]);
+  }, [rfq_id, TA_Filter, freightFilter]);
 
+  const toggleBreakup = (id) => {
+  setBreakupStates(prev => ({
+    ...prev,
+    [id]: !prev[id]
+  }));
+};
+
+const closeModalForVariant = (variantId) => {
+  setOpenModals(prev => ({ ...prev, [variantId]: false }));
+};
+
+const openModalForVariant = (variantId) => {
+  setOpenModals(prev => ({ ...prev, [variantId]: true }));
+};
   const handleDownloadQuote = () => {
     setloading(true);
-    downloadQuotesDetails(rfq_id, TA_Filter)
+    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
         setdata(res.data);
 
@@ -75,9 +95,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     let edited_data = all_data.map((item) => {
       totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
 
-      const array = item.quotations.filter(
-        (Q_item) => Q_item.id != null && Q_item.is_regret != 1
-      );
+      const array = item.quotations.filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
 
       let lowest = null;
 
@@ -85,17 +103,42 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
         // Handle single-element case
         if (array[0].quote_details[0].total_price > 0) {
           lowest = array[0];
-        } else {
-          lowest = null;
         }
       } else {
         // Reduce logic for multiple elements
         lowest = array.reduce((lowest, currentItem) => {
-          if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price <
-              lowest.quote_details[0].total_price
-              ? currentItem
-              : lowest;
+          const curItemQuoteDetails = currentItem.quote_details[0];
+          const curItemVendorDetails = currentItem.vendor_details[0];
+
+          const lowestQuoteDetails = lowest.quote_details[0];
+          const lowestVendorDetails = lowest.vendor_details[0];
+
+          if (curItemQuoteDetails.total_price > 0) {
+            let curLowest = lowest;
+            if (
+              curItemQuoteDetails.total_price <
+              lowestQuoteDetails.total_price
+            )
+              curLowest = currentItem;
+            else if (
+              curItemQuoteDetails.total_price ==
+              lowestQuoteDetails.total_price
+            ) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1
+
+              if(curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+              else {
+                const curTimestamp = new Date(currentItem.timestamp.slice(0, 23));
+                const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
+
+                if(curTimestamp < lowestTimestamp) curLowest = currentItem;
+                else curLowest = lowest;
+              }
+            }
+
+            return curLowest;
           }
           return lowest;
         }, array[0]);
@@ -124,18 +167,27 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     if (!allvendors) return;
 
     let updated_vendors = allvendors.map((vendor) => {
-      let total = 0;
+      let priceInfo = {
+        total: 0,
+        packaging: 0,
+        tax: 0,
+        freight: 0,
+      };
       data.map((item) => {
         let q_item = item.quotations.filter(
           (q) => q.created_by == vendor.id && q.id != null && q.is_regret != 1
         );
 
         if (q_item.length > 0) {
-          total = total + parseInt(q_item[0]?.quote_details[0]?.total_price);
+          const quoteDetails = q_item[0]?.quote_details[0]
+          priceInfo.total = priceInfo.total + parseInt(quoteDetails?.total_price);
+          priceInfo.packaging = priceInfo.packaging + parseInt(quoteDetails?.package_price);
+          priceInfo.tax = priceInfo.tax + parseInt(quoteDetails?.tax);
+          priceInfo.freight = priceInfo.freight + parseInt(quoteDetails?.freight_price);
         }
       });
 
-      vendor.total = total;
+      Object.assign(vendor, priceInfo);
       return vendor;
     });
 
@@ -148,6 +200,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
       getDeliveryDetails();
     }
   }, [data]);
+
 
   const addCommasToNumber = (number) => {
 
@@ -234,6 +287,8 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
     return Math.round(TotalPrice);
   }
 
+  console.log("checking rfq number in over all", RFQ_no);
+
   return (
     <>
       {loading ? (
@@ -269,15 +324,6 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       OVERALL COMPARISON CHART
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
-                      {/* <div className="d-flex">
-                        <div className="ms-auto d-flex gap-2">
-                          <span className="badge bg-success">Lowest</span>
-                          <span className="badge bg-warning text-dark">
-                            Finalized
-                          </span>
-                          <span className="badge bg-danger">Regret</span>
-                        </div>
-                      </div> */}
                     </th>
                   </tr>
                   <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
@@ -314,8 +360,14 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       Quantity
                     </th>
                     <th scope="col" className="all_vendors" rowSpan={2}>
-                      Last Purchase Details
+                      <div>
+                        Last Purchase Rate
+                        <div className=" text-gray-500" style = {{"font-size" : "12px"}}>
+                          (Please Review Freight)
+                        </div>
+                      </div>
                     </th>
+
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
@@ -336,6 +388,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
+                      const key = item.product_variant_id + item.variant;
                       const size = item.product_specs.find(
                         (spec) => spec.title === "Size"
                       );
@@ -395,7 +448,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                 <table className="table has_inner_border_table">
                                   <tr>
                                     <th>Base Price</th>
-                                    <td>
+                                    <td style={{ width: "50%" }}>
                                       {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
                                             item.last_purchase_rate?.unit_price
@@ -405,15 +458,11 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                   </tr>
                                   <tr>
                                     <th>Total Rate</th>
-                                    <td>
-                                      {item.last_purchase_rate?.total_price
+                                    <td style={{ width: "50%" }}>
+                                      {item.last_purchase_rate?.unit_price
                                         ? addCommasToNumber(
-                                            item.last_purchase_rate
-                                              ?.unit_price *
-                                              parseInt(
-                                                item.quotations[0]
-                                                  ?.quote_details[0]?.quantity
-                                              )
+                                            item.last_purchase_rate.unit_price *
+                                              parseInt(quantity.value)
                                           )
                                         : "0"}
                                     </td>
@@ -459,25 +508,39 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         ? addCommasToNumber(
                                             calculateTotal(
                                               item.last_purchase_rate,
-                                              item.quotations[0]
-                                                ?.quote_details[0]?.quantity
+                                              quantity.value
                                             )
                                           )
                                         : "0"}
                                     </td>
                                   </tr>
+
+                                  
                                 </table>
+                                <LPRModal
+                                  show={openModals[key] || false}
+                                  onHide={() => closeModalForVariant(key)}
+                                  variantId={item.product_variant_id}
+                                  RFQ_no={-1}
+                                />
+
                                 <p>
-                                  {item.last_purchase_rate?.total_price !== null
+                                  {item.last_purchase_rate?.unit_price
                                     ? addCommasToNumber(
                                         calculateTotal(
                                           item.last_purchase_rate,
-                                          item.quotations[0]?.quote_details[0]
-                                            ?.quantity
+                                          quantity.value
                                         )
                                       )
                                     : "0"}
                                 </p>
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    onClick={() => openModalForVariant(key)}
+                                  >
+                                    View LPR History
+                                  </Button>
                               </label>
                             </td>
                           ) : (
@@ -485,8 +548,20 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               <label className="view_breakup">
                                 <span></span>
                                 <input type="checkbox" />
-                                <p>-</p>
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  onClick={() => openModalForVariant(key)}
+                                >
+                                  View LPR History
+                                </Button>
                               </label>
+                              <LPRModal
+                                show={openModals[key] || false}
+                                onHide={() => closeModalForVariant(key)}
+                                variantId={item.product_variant_id}
+                                RFQ_no={RFQ_no}
+                              />
                             </td>
                           )}
 
@@ -498,6 +573,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                 );
 
                               let finalizedClass = "";
+
                               if (
                                 isSomeoneFinalized &&
                                 isSomeoneFinalized?.id == quote_item?.created_by
@@ -518,6 +594,16 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                               }
 
                               if (quote_item.is_regret == 1) {
+                                const quoteDetails =
+                                  quote_item.quote_details?.[0];
+                                const [productId, variant] = [
+                                  quoteDetails.product_id,
+                                  quoteDetails.variant,
+                                ];
+
+                                const key = `${productId}_${variant}`;
+
+                                const showBreakup = breakupStates[key] || false;
                                 return (
                                   <td
                                     className={`total_amt_field text-center align-middle ${
@@ -525,7 +611,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                         ? "bg-white"
                                         : "is_regret text-white"
                                     }`}
-                                    key={`quote_item_${quote_item.created_by}`}
+                                    key={`quote_item_${key}`}
                                   >
                                     {!showBreakup && (
                                       <p className="m-0">REGRET</p>
@@ -539,9 +625,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                                       <input
                                         type="checkbox"
                                         checked={showBreakup}
-                                        onChange={() =>
-                                          setShowBreakup((prev) => !prev)
-                                        }
+                                        onChange={() => toggleBreakup(key)}
                                         style={{
                                           backgroundColor: showBreakup
                                             ? "white"
@@ -769,7 +853,7 @@ const OverallComparison = ({ rfq_id, TA_Filter }) => {
                       allvendors.map((item) => {
                         return (
                           <th key={`tp_${item.id}_total`}>
-                            {item.total ? addCommasToNumber(item.total) : "-"}
+                            {addCommasToNumber(item.total) ?? "-"}
                           </th>
                         );
                       })}

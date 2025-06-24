@@ -108,7 +108,7 @@ const EditProfile = () => {
       // update company details state
       setCompanyDetails({
         company_name: data?.company_name || "",
-        about_company: data?.about || "",
+        about_company: data?.profile || "",
         street_address: data?.address || "",
         postal_code: data?.postal_code || "",
         established_year: data?.established_year || "",
@@ -328,10 +328,11 @@ const EditProfile = () => {
                         <CommonFormInput
                           name="about_company"
                           type="textarea"
-                          label="About"
+                          label="About Company"
                           touched={touched}
                           errors={errors}
-                          onChange={setFieldValue}
+                          values={companyDetails?.about_company}
+                          onChange={(e) => { setCompanyDetails({ ...companyDetails, about_company: e.target.value }); }}
                           placeholder="Brief description about your company"
                           disabled={!isCompanyEditableForUserRef.current}
                         />

@@ -28,6 +28,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Accordion } from "react-bootstrap";
 import Item from "../createRFQ/Item";
 import { editRfqSchema } from "@/utils/schema";
+import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
+import AddSpecModal from "./AddSpecModal";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -116,6 +118,7 @@ const EditRFQ = () => {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showAddVendorForProductModal, setShowAddVendorForProductModal] = useState(false);
+  const [showAddSpecModal, setShowAddSpecModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState([]);
   const [activeKey, setActiveKey] = useState(null);
 
@@ -129,6 +132,10 @@ const EditRFQ = () => {
   })
   const [productAddData, setProductAddData] = useState({
     variant_id: -1,
+    specs: {
+      quantity: 1,
+      unit: 'nos',
+    },
     vendors: [],
   })
   const [vendors, setVendors] = useState([]);
@@ -570,13 +577,28 @@ const EditRFQ = () => {
         return;
       }
 
-      // if(totalProductsInrfq >= updatableData.products?.deletable?.length + updatableData.products?.addable?.length) {  
-      //  toast.error("You cannot delete all products from RFQ, at least one product is required");
-      //  return;
-      // }
+      if (
+        rfqData.products.filter(product => !updatableData.products.deletable.includes(product.id)).some(
+          (product) =>
+            !product.product_specs ||
+            product.product_specs.some(
+              (spec) =>
+                !spec.value ||
+                String(spec.value).trim().length <= 0 ||
+                (spec.title == "Quantity" && !parseInt(spec.value))
+            )
+        )
+      ) {
+        toast.error(
+          "Some products may be missing Quantity or Unit or mapped incorrectly, recheck and update again!"
+        );
+        return;
+      }
+
+      const cleanedUpdatableData = cleanUpdatableData(updatableData);
 
       const dataToSend = {
-        updatableData,
+        updatableData: cleanedUpdatableData,
         rfq_id: rfqData.id,
         contact_name: formValues.contact_name || rfqData.contact_name,
         contact_number: formValues.contact_number,
@@ -610,7 +632,6 @@ const EditRFQ = () => {
       }
 
       if(dataToSend.reverse_auction && (!formValues.ra_start_date || !formValues.ra_end_date)) {
-        console.log("REVERSE AUCTION: ", dataToSend.reverse_auction, " RE_START_DATE: ", formValues.ra_start_date, " RE_END_DATE: ", formValues.ra_end_date)
         toast.error("Auction start and end date is required")
         return;
       }
@@ -696,10 +717,7 @@ const EditRFQ = () => {
             }
             
             // Navigate after success (without refetch to avoid race conditions)
-            // setTimeout(() => {
-            //   router.push("/dashboard/buyer/rfq-management");
-            // }, 500);
-            fetchInitialData();
+            // fetchInitialData();
             setUpdatableData({
               products: {
                 addable: [],
@@ -708,6 +726,9 @@ const EditRFQ = () => {
               },
               vendors: {},
             });
+            setTimeout(() => {
+              router.push("/dashboard/buyer/rfq-management");
+            }, 100);
 
           } else {
             console.error("Update failed:", response);
@@ -741,13 +762,35 @@ const EditRFQ = () => {
       ...prev,
       variant_id: product.variant_id,
     }))
-    setSelectedProduct({
+    setSelectedProduct(prev => ({
       product,
       vendors: [],
-    })
+    }))
     setShowAddProductModal(false);
-    setShowAddVendorForProductModal(true);
+    setShowAddSpecModal(true);
   }
+
+  const handleAddSpec = (specData) => {
+    if (
+      Object.entries(specData).some(
+        ([key, value]) =>
+          !value ||
+          String(value).trim().length <= 0 ||
+          (key == "Quantity" && !parseInt(value))
+      )
+    )
+      return toast.error("Invalid Quantity or Unit!");
+
+    setProductAddData((prev) => ({
+      ...prev,
+      specs: {
+        ...prev.specs,
+        ...specData,
+      },
+    }));
+    setShowAddSpecModal(false);
+    setShowAddVendorForProductModal(true);
+  };
 
   const handleAddVendorForProduct = (vendor) => {
     console.log(vendor)
@@ -1224,7 +1267,10 @@ const EditRFQ = () => {
             <Accordion alwaysOpen flush defaultActiveKey="" activeKey={activeKey} onSelect={(k) => setActiveKey(k)}>
               {rfqData.products &&
                 rfqData.products.length > 0 &&
-                rfqData.products.filter(product => !updatableData.products?.deletable?.includes(product.id)).map((product) => {
+                rfqData.products.map((product) => {
+                  if (updatableData.products.deletable.includes(product.id)) {
+                    return null;
+                  }
                   return (
                     <Item
                       // vendorApprovedList={vendorApprovedList}
@@ -2014,6 +2060,14 @@ const EditRFQ = () => {
         isOpen={showAddProductModal}
         onClose={() => setShowAddProductModal(false)}
         onAdd={handleSelectProduct}
+        updatableData={updatableData}
+      />
+      <AddSpecModal
+        headerTitle={`Add Mandatory Specs for Product`}
+        rfqData={rfqData}
+        isOpen={showAddSpecModal}
+        onClose={() => setShowAddSpecModal(false)}
+        onEntry={handleAddSpec}
         updatableData={updatableData}
       />
     </>

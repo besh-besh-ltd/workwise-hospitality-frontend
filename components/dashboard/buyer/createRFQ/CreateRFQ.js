@@ -49,6 +49,43 @@ const myVendorOptions = [
   },
 ];
 
+export function cleanUpdatableData(updatableData) {
+    const deletableIds = updatableData.products.deletable.map(String); // convert to strings for matching
+
+    const cleanedUpdatable = {};
+    let cleanVendors = {};
+
+    // Iterate over each section inside updatable (e.g., specs, comment, files, etc.)
+    for (const sectionKey in updatableData.products.updatable) {
+      const section = updatableData.products.updatable[sectionKey];
+
+      // Filter out entries whose keys are in the deletable list
+      const filteredSection = Object.fromEntries(
+        Object.entries(section).filter(([id]) => !deletableIds.includes(id))
+      );
+
+      cleanedUpdatable[sectionKey] = filteredSection;
+    }
+
+    const filteredVendors = Object.fromEntries(
+      Object.entries(updatableData.vendors).filter(
+        ([id]) => !deletableIds.includes(id)
+      )
+    );
+
+    cleanVendors = filteredVendors;
+
+    // Return a new object with cleaned updatable section
+    return {
+      ...updatableData,
+      products: {
+        ...updatableData.products,
+        updatable: cleanedUpdatable,
+      },
+      vendors: cleanVendors,
+    };
+  }
+
 const CreateRFQ = () => {
   const router = useRouter();
   const { draft_id } = router.query;
@@ -565,13 +602,14 @@ const CreateRFQ = () => {
     }
 
     const filters = getRefinedFilters();
+    const cleanedUpdatableData = cleanUpdatableData(updatableData);
     
     let payload = {
       rfq_id: rfqDetails,
       ...formDataCopy,
       project_id: formDataCopy.project_id || -1,
       contact_number: fullMobile,
-      updatableData,
+      updatableData: cleanedUpdatableData,
       filters,
       termsChanged,
       termFilesChanged,
@@ -683,13 +721,14 @@ const CreateRFQ = () => {
     }
 
     const filters = getRefinedFilters();
+    const cleanedUpdatableData = cleanUpdatableData(updatableData);
 
     const payload = {
       ...formDataCopy, // Use the filtered copy
       rfq_id: rfqDetails,
       contact_number: fullMobile,
       sheet_id: selectedSheet?.value,
-      updatableData,
+      updatableData: cleanedUpdatableData,
       filters,
       termsChanged,
       termFilesChanged,
@@ -698,6 +737,12 @@ const CreateRFQ = () => {
       const res = await saveDraft(payload);
       setMainLoading(false);
       await getDraftInitialData();
+      if(activeKey) {
+        for(const key of activeKey) {
+          const rfqProductId = key;
+          await fetchVendorsForProduct(rfqProductId, true);
+        }
+      }
       setUpdatableData({
         products: {
           addable: [],
@@ -1702,7 +1747,10 @@ const CreateRFQ = () => {
                     }}>
                       {rfqProducts &&
                         rfqProducts.length > 0 &&
-                        rfqProducts.filter(product => !updatableData.products.deletable.includes(product.id)).map(product => {
+                        rfqProducts.map(product => {
+                            if(updatableData.products.deletable.includes(product.id)) {
+                              return null;
+                            }
                             return (
                               <Item
                                 activeKey={activeKey}

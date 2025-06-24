@@ -36,7 +36,7 @@ const CommonFormInput = ({
   name,
   label,
   labelBold, // no need to pass this prop, it is used to make the label bold if required use lable csss so that if needed we can apply other css as well
-  type = "text", // text, email, password, select, multiselect, mobile, textarea
+  type = "text", // text, email, password, select, multiselect, mobile, textarea, simple-text
   options = [],
   isMulti = false,
   isClearable = true,
@@ -44,7 +44,7 @@ const CommonFormInput = ({
   touched,
   errors,
   values,
-  // defaultValue, // no need to pass this value as values is the default value only
+  defaultValue, // This is used when we dont want to enforce any value, basically making the input free to any value
   // setFieldValue,
   onChange,
   className = "",
@@ -85,6 +85,7 @@ const CommonFormInput = ({
           name={name}
           options={options}
           value={values}
+          defaultValue={defaultValue}
           onChange={(val, actionMeta) => {
             helpers.setValue(val); // update Formik
             onChange && onChange(val, actionMeta); // fire external callback
@@ -104,6 +105,13 @@ const CommonFormInput = ({
   }
 
   if (type === "textarea") {
+    //  this block state is used to handle the value of the textarea, this will fix the issue "user not able to edit the ionput from middle"
+    const [value, setValue] = useState('');
+
+    const handelOnChahnge = (e) => {
+      setValue(e.target.value); 
+      onChange && onChange(e);
+    }
     return (
       <div className="form-group mb-3">
         <label htmlFor={name} className="form-label">
@@ -118,9 +126,40 @@ const CommonFormInput = ({
           } ${className}`}
           placeholder={placeholder || `Enter ${label}`}
           // defaultValue={defaultValue}
-          value={values}
-          onChange={onChange}
+          value={value || values}
+          onChange={handelOnChahnge}
           rows={4}
+          // style={style ?? {}}
+        />
+        {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}
+      </div>
+    );
+  }
+
+  if (type === "simple-text") {
+    //  this block state is used to handle the value of the textarea, this will fix the issue "user not able to edit the ionput from middle"
+    const [value, setValue] = useState('');
+    const handelOnChahnge = (e) => {
+      setValue(e.target.value);
+      onChange && onChange(e);
+    };
+
+    return (
+      <div className="form-group mb-3">
+        <label htmlFor={name} className="form-label">
+          {label} {required && <span className="text-danger">*</span>}
+        </label>
+        <input
+          id={name}
+          disabled={disabled}
+          name={name}
+          className={`placeholder-muted form-control ${
+            isInvalid ? "is-invalid" : ""
+          } ${className}`}
+          placeholder={placeholder || `Enter ${label}`}
+          // defaultValue={defaultValue}
+          value={value || values}
+          onChange={handelOnChahnge}
           // style={style ?? {}}
         />
         {isInvalid && <div className="invalid-feedback">{errors?.[name]}</div>}

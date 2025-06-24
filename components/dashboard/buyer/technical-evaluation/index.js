@@ -24,6 +24,7 @@ const BuyerTechnicalEvaluation = () => {
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
+  const [clauseInfo, setClauseInfo] = useState(null);
 
   const getAllProjects = () => {
     getProjectList()
@@ -93,6 +94,7 @@ useEffect(() => {
   const listProducts = async () => {
     try {
       const res = await getAllClauses(rfq_id);
+      setClauseInfo(res?.data ?? null);
 
       const selectedRfq = rfqList.find((rfqItem) => rfqItem.id === parseInt(rfq_id));
       const vMap = new Map();
@@ -298,15 +300,17 @@ useEffect(() => {
                         <hr />
                       </>}
 
-                    {currentRfq &&
-                      currentRfq.products.map((product) => {
-                        if (clauseMap.get(product.id)) {
+                    {currentRfq && clauseInfo &&
+                      clauseInfo.map((rfqProduct) => {
+                        if (clauseMap.get(rfqProduct.rfq_product_id)) {
+                          const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
+                          if(!product) return null;
                           return (
                             <div className="quote-sec-table-sub pt-0" key={`product_${product.id}`}>
                               <div className="row">
                                 <div className="col-12">
 
-                                  <div className="d-flex justify-content-between">
+                                  <div className="d-flex justify-content-between gap-2">
                                     {/* Product Details */}
                                     <div className="d-flex-flex-column mt-3">
                                       <p className="sub-heading mb-0">
@@ -319,7 +323,7 @@ useEffect(() => {
                                     </div>
 
                                     {/* Vendor Selection */}
-                                    <div className="col-md-3 col-lg-3 text-sm">
+                                    <div className="col-md-3 col-lg-3 text-sm mb-2">
                                       <label>Select Vendor</label>
                                       <AsyncSelect
                                         cacheOptions
@@ -342,8 +346,12 @@ useEffect(() => {
                                     rfq_id={rfq_id}
                                     product={product}
                                     currentUserProfile={currentUserProfile}
-                                    selectedVendor={vendorMap.get(product.id)}
                                     currentRfq={currentRfq}
+                                    getVendors={async () => await getVendorSelectionOption(product.id)}
+                                    clauseInfo={rfqProduct?.clauses ?? []}
+                                    vendors={rfqProduct?.vendors ?? []}
+                                    refetch={listProducts}
+                                    selectedVendor={vendorMap.get(product.id)}
                                   />
 
                                 </div>
