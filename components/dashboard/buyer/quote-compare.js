@@ -1327,7 +1327,7 @@ const openModalForVariant = (variantId) => {
                               className="position-relative p-2 px-2"
                               onClick={() => openModalForVariant(key)}
                             >
-                             View LPR
+                             View LPR History
                             </Button>
                             </div>
                               </div>
