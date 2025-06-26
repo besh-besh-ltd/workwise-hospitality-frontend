@@ -639,6 +639,9 @@ const EditRFQ = () => {
 
       if (rfqData.ra_start_date != formValues.ra_start_date)
         dataToSend.ra_start_date = formValues.ra_start_date;
+      
+      if (rfqData.ra_end_date != formValues.ra_end_date)
+        dataToSend.ra_end_date = formValues.ra_end_date;
 
   //  try {
      
@@ -690,6 +693,10 @@ const EditRFQ = () => {
               response_email: formValues.response_email,
               bid_end_date: formValues.bid_end_date,
               project_id: formValues.project_id,
+              // Update auction dates if they were changed
+              ra_start_date: formValues.ra_start_date || prevData.ra_start_date,
+              ra_end_date: formValues.ra_end_date || prevData.ra_end_date,
+              reverse_auction: formValues.reverse_auction || prevData.reverse_auction,
               // Keep original values
               // Preserve original terms
             }));
@@ -707,7 +714,11 @@ const EditRFQ = () => {
                 location: rfqData.location || '',
                 bid_end_date: formValues.bid_end_date,
                 comment: rfqData.comment, // Keep original comment
-                project_id: formValues.project_id
+                project_id: formValues.project_id,
+                // Update auction dates in Redux store
+                ra_start_date: formValues.ra_start_date || rfqData.ra_start_date,
+                ra_end_date: formValues.ra_end_date || rfqData.ra_end_date,
+                reverse_auction: formValues.reverse_auction || rfqData.reverse_auction
               })
             );
             
