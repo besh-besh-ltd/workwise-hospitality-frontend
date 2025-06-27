@@ -962,17 +962,13 @@ const openModalForVariant = (variantId) => {
   const FilterOutGlobalTermsFiles = (all_data) => {
     let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
 
-    all_data.forEach((prodItem) => {
-      if (
-        prodItem.quotations &&
-        prodItem.quotations.length > 0
-      ) {
-        prodItem.quotations.forEach((quoteItem, index) => {
-          if (fileArr[index].length == 0)
-            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
-        })
-      }
-    });
+    // Get global document files from all_vendors instead of product-specific files
+    if (all_data[0]?.all_vendors) {
+      all_data[0].all_vendors.forEach((vendor, index) => {
+        fileArr[index] = vendor.global_document_files ? vendor.global_document_files : [];
+      });
+    }
+    
     return fileArr;
   }
 
