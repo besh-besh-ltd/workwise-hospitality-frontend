@@ -1275,11 +1275,9 @@ const RfqManagementPreview = () => {
                                                             );
                                                           }
 
-                                                          return `${
-                                                            dateObj
-                                                              .toISOString()
-                                                              .split("T")[0]
-                                                          }, ${dateObj.toLocaleTimeString(
+                                                          // Use local date to avoid timezone issues
+                                                          const localDateString = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                                                          return `${localDateString}, ${dateObj.toLocaleTimeString(
                                                             [],
                                                             {
                                                               hour: "numeric",
@@ -1348,11 +1346,9 @@ const RfqManagementPreview = () => {
                                                             );
                                                           }
 
-                                                          return `${
-                                                            dateObj
-                                                              .toISOString()
-                                                              .split("T")[0]
-                                                          }, ${dateObj.toLocaleTimeString(
+                                                          // Use local date to avoid timezone issues
+                                                          const localDateString = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                                                          return `${localDateString}, ${dateObj.toLocaleTimeString(
                                                             [],
                                                             {
                                                               hour: "numeric",
