@@ -6,6 +6,7 @@ import {
   proceedToSubscription,
   applyCoupon,
   loadScript,
+  testRazorPayEndpoint,
 } from "@/services/subscription";
 import { useRouter } from "next/router";
 import { toast, ToastContainer } from "react-toastify";
@@ -16,7 +17,11 @@ import moment from "moment";
 const Subscription = () => {
   const navigate = useRouter();
   const [subscriptionListData, setSubscriptionListData] = useState([]);
-  const [selectedSubscription, setSelectedSubscription] = useState([]);
+  const [selectedSubscription, setSelectedSubscription] = useState({
+    plan: null,
+    billingCycle: null
+  });
+  const [selectedBillingCycles, setSelectedBillingCycles] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [appliedCouponData, setAppliedCouponData] = useState([]);
   const [couponCode, setCouponCode] = useState("");
@@ -40,8 +45,15 @@ const Subscription = () => {
       description: "Workwise Subscription",
       image: "/assets/images/logo.png",
       handler: function (response) {
-        // console.log("response", response);
-        navigate.push(`/dashboard/buyer/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff
+        const payload = {
+          order_id: orderId
+        };
+        testRazorPayEndpoint(payload).then(res => {
+          if(res.data) {
+            console.log("RES DATA => ", res.data);
+            navigate.push(`/dashboard/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff
+          }
+        })
       },
       prefill: {
         name: "Workwise",
@@ -61,13 +73,15 @@ const Subscription = () => {
   };
 
   const handleClose = () => {
-    setSelectedSubscription([]);
     setAppliedCouponData([]);
     setCouponCode("");
     setShowModal(false);
   };
-  const handleShowModal = (data) => {
-    setSelectedSubscription(data);
+  const handleShowModal = (item, cycle) => {
+    setSelectedSubscription({
+      plan: item,
+      billingCycle: cycle
+    });
     setShowModal(true);
   };
 
@@ -81,7 +95,7 @@ const Subscription = () => {
       return;
     }
     const payload = {
-      sub_id: selectedSubscription?.id,
+      sub_id: selectedSubscription.billingCycle?.id,
       coupon_code: couponCode,
     };
     applyCoupon(payload)
@@ -136,7 +150,7 @@ const Subscription = () => {
 
   const proceedToBuy = () => {
     const payload = {
-      sub_id: (selectedSubscription?.id).toString(),
+      sub_id: (selectedSubscription.billingCycle?.id).toString(),
       coupon_code: couponCode,
     };
     proceedToSubscription(payload)
@@ -184,16 +198,74 @@ const Subscription = () => {
       });
   };
 
+  const groupSubscriptionData = (plans) => {
+    const groupedPlans = Object.values(
+      plans.reduce((acc, plan) => {
+        const { plan_name, duration } = plan;
+
+        if (!acc[plan_name]) {
+          // First time, clone base plan
+          acc[plan_name] = {
+            ...plan,
+            billing_cycle: [],
+          };
+        }
+
+        // Push to billing_cycle
+        acc[plan_name].billing_cycle.push({
+          id: plan.id,
+          duration: plan.duration,
+          label: getSubscriptionDuration[plan.duration] || `${plan.duration} months`,
+          price: plan.price,
+          currency: plan.currency,
+          discount_price: plan.discount_price,
+          feature: plan.feature,
+          Offers: plan.Offers,
+          active: plan.active,
+          start_date: plan.start_date,
+          end_date: plan.end_date,
+        });
+
+        // If current duration is monthly (1), overwrite base fields
+        if (duration === 1) {
+          Object.assign(acc[plan_name], {
+            ...plan,
+          });
+        }
+
+        return acc;
+      }, {})
+    );
+
+    return groupedPlans;
+  }
+
+  const handleBillingCycleChange = (item, cycle) => {
+    setSelectedBillingCycles((prev) => ({
+      ...prev,
+      [item.plan_name]: cycle.label,
+    }));
+  };
+
   const subscriptionList = () => {
     getSubscriptionList()
       .then((res) => {
-        setSubscriptionListData(res.data);
+        const grouppedSubscriptionData = groupSubscriptionData(res.data);
+        grouppedSubscriptionData.map(subscription => {
+          setSelectedBillingCycles(prev => ({
+            ...prev,
+            [subscription.plan_name]: subscription.duration == -1 ? 'Lifetime' : 'Monthly'
+          }))
+        })
+        setSubscriptionListData(grouppedSubscriptionData);
       })
       .catch((err) => {
+        console.log("ERROR => ", err)
         toast.error("Internal server error");
       });
   };
   let getSubscriptionDuration = {
+    "-1": "Lifetime",
     1: "Monthly",
     3: "Quarterly",
     12: "Yearly",
@@ -217,6 +289,10 @@ const Subscription = () => {
         <div className="container-fluid">
           <div className="subscription-sec-row row">
             {subscriptionListData?.map((item, index) => {
+              console.log(item)
+              const activeItem = item.billing_cycle.find(cycle => selectedBillingCycles[item.plan_name] == cycle.label);
+              if(!activeItem) return null;
+
               return (
                 <div
                   className={`col-lg-3 col-md-6 col-sm-12 card-price-management`}
@@ -225,13 +301,13 @@ const Subscription = () => {
                   <div class="subscription-sec-main">
                     <div className="card-header-top-ini">
                       <h5>{capitalize(item.plan_name)}</h5>
-                      {item?.active && (
+                      {activeItem?.active && (
                         <>
                           <span className="badge bg-success">Active</span>
                           <div className="text-light p-1 d-flex justify-content-center align-items-center">
                             <span>Ends On</span>
                             <span className="badge bg-success ms-2">
-                              {moment(item?.end_date).format("LL")}
+                              {moment(activeItem?.end_date).format("LL")}
                             </span>
                           </div>
                         </>
@@ -241,22 +317,31 @@ const Subscription = () => {
                       <h2>
                         {item.plan_type == "f"
                           ? "FREE"
-                          : `₹ ${item.price}  
+                          : `${activeItem.currency} ${activeItem.price}  
                           `}
-                        {item.plan_type == "f" ? (
+                        {activeItem.plan_type == "f" ? (
                           ""
                         ) : (
                           <span>
-                            / {getSubscriptionDuration[item.duration]}
+                            / {getSubscriptionDuration[activeItem.duration]}
                           </span>
                         )}
                       </h2>
+                      {item.billing_cycle && item.billing_cycle?.length > 1 && (
+                        <div className="d-flex gap-2 mt-4 px-3">
+                        {item.billing_cycle.map(cycle => (
+                          <button onClick={() => handleBillingCycleChange(item, cycle)} className={`btn btn-outline-secondary btn-sm ${selectedBillingCycles[item.plan_name] == cycle.label ? 'active' : null}`} style={{
+                            padding: 8
+                          }}>{cycle.label}</button>
+                        ))}
+                        </div>
+                      )}
                       <h4 className="offers">
-                        {capitalize(item?.Offers && item?.Offers[0]?.text)}
-                        {item?.Offers && item?.Offers?.length > 0 && (
+                        {capitalize(activeItem?.Offers && activeItem?.Offers[0]?.text)}
+                        {activeItem?.Offers && activeItem?.Offers?.length > 0 && (
                           <span className="badge">
                             {" "}
-                            {`₹ ${parseInt(item?.discount_price).toFixed(2)}`}
+                            {`₹ ${parseInt(activeItem?.discount_price).toFixed(2)}`}
                           </span>
                         )}
                       </h4>
@@ -270,12 +355,12 @@ const Subscription = () => {
                           })}
                         </ul>
                       </div>
-                      {item?.active === true ||
-                      item?.plan_type === "f" ? null : (
+                      {activeItem?.active === true ||
+                      activeItem?.plan_type === "f" ? null : (
                         <div className="btn-holder">
                           <button
                             className="btn btn-primary"
-                            onClick={() => handleShowModal(item)}
+                            onClick={() => handleShowModal(item, activeItem)}
                           >
                             Buy
                           </button>

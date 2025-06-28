@@ -1,5 +1,5 @@
 import React from 'react'
-import SubscriptionPage from "@/components/dashboard/buyer/subscription";
+import SubscriptionPage from "@/components/dashboard/subscription";
 
 const Subscription = () => {
   return (

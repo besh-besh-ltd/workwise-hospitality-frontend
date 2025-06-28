@@ -1,5 +1,5 @@
 import React from 'react'
-import ThankYouPage from "@/components/dashboard/buyer/subscription/thank-you-page";
+import ThankYouPage from "@/components/dashboard/subscription/thank-you-page";
 
 const Confirmation = () => {
   return (
