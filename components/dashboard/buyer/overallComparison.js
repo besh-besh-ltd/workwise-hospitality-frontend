@@ -89,7 +89,7 @@ const openModalForVariant = (variantId) => {
     let totalRFQItems = 0;
 
     let edited_data = all_data.map((item) => {
-      totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
+      totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || 0);
 
       const array = item.quotations.filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
 
@@ -455,7 +455,8 @@ const openModalForVariant = (variantId) => {
                                   <tr>
                                     <th>Total Rate</th>
                                     <td style={{ width: "50%" }}>
-                                      {item.last_purchase_rate?.unit_price
+                                      {item.last_purchase_rate?.unit_price &&
+                                      quantity?.value
                                         ? addCommasToNumber(
                                             item.last_purchase_rate.unit_price *
                                               parseInt(quantity.value)
@@ -500,7 +501,8 @@ const openModalForVariant = (variantId) => {
                                   <tr className="is_lowest ">
                                     <th>Sub Total</th>
                                     <td>
-                                      {item.last_purchase_rate
+                                      {item.last_purchase_rate &&
+                                      quantity?.value
                                         ? addCommasToNumber(
                                             calculateTotal(
                                               item.last_purchase_rate,
@@ -521,7 +523,8 @@ const openModalForVariant = (variantId) => {
                                 />
 
                                 <p>
-                                  {item.last_purchase_rate?.unit_price
+                                  {item.last_purchase_rate?.unit_price &&
+                                  quantity?.value
                                     ? addCommasToNumber(
                                         calculateTotal(
                                           item.last_purchase_rate,
@@ -674,11 +677,14 @@ const openModalForVariant = (variantId) => {
                                             <th>Total Rate</th>
                                             <td>
                                               {quote_item?.quote_details
-                                                ?.length > 0
+                                                ?.length > 0 &&
+                                              quote_item?.quote_details[0]
+                                                ?.unit_price &&
+                                              quantity?.value
                                                 ? addCommasToNumber(
                                                     quote_item?.quote_details[0]
                                                       ?.unit_price *
-                                                      getQty(item)
+                                                      parseInt(quantity.value)
                                                   )
                                                 : "-"}
                                             </td>
