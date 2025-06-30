@@ -524,6 +524,13 @@ const addRfqIdParam = (rfq_id) => {
     getProducts();
   };
   const handleBulkAllSelect = (e, items) => {
+    if (
+      !vendorMetaData ||
+      !vendorMetaData.logged_In ||
+      !vendorMetaData.subscription
+    )
+      return setOpenAuthModal(true);
+
     if (e.target.checked) {
       let d = items.map((item) => {
         item.selected = true;
@@ -691,7 +698,6 @@ const addRfqIdParam = (rfq_id) => {
                         value={search_key}
                         // onClick={handleSearchClick}
                       />
-             
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
@@ -829,7 +835,6 @@ const addRfqIdParam = (rfq_id) => {
                         />
                       )}
                     </div>
-
                   </div>
                 </form>
               </div>
@@ -934,7 +939,6 @@ const addRfqIdParam = (rfq_id) => {
 
           {/* vendor List Section */}
           <div className="row" id="vendors_area" ref={vendor_area_ref}>
-      
             {/* START : Filter side bar */}
             {currentSelectedProduct && (
               <div className="col-md-3">
@@ -958,72 +962,91 @@ const addRfqIdParam = (rfq_id) => {
                   )}
                   {/* END: Vender search by name */}
 
-                   {/* START: product make filter */}
-                   {makeList?.length > 0 && (
-                  <div className="search-con-right-1">
-                   <p className="fw-semibold mb-2 mt-3">Product Make</p>
-                   <div>
-                  <select
-                    name="product_make"
-                    id="product_make"
-                    value={selectedMakes.length > 0 ? selectedMakes[0].id : ""}
-                     onChange={(e) => {
-                          if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
-                            setOpenAuthModal(true);
-                       } else {
-                         const selectedId = e.target.value; // Get selected id from option
-                         const selected = makeList.find((option) => option.id == selectedId);
-                         if (selected) {
-                           // Check if already selected to avoid duplicates
-                           if (!selectedMakes.some((item) => item.id === selected.id)) {
-                             setSelectedMakes((prev) => [...prev, selected]);
-                           }
-                         }
-                       }
-                     }}
-                   >
-                    <option value="">Select Product Makes</option>
-                    {makeList &&
-                      makeList.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.make_name}
-                        </option>
-                      ))}
-                  </select>
-                
-                  {/* Display clear link if any filter is active */}
-                  {selectedMakes.length > 0 && (
-                    <Link
-                      href="#"
-                      className="clearFilter"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setSelectedMakes([]);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faTimesCircle} /> clear
-                    </Link>
-                  )}
-                   </div>
-
-                  <div className="d-flex gap-2 flex-wrap mt-2">
-                    {selectedMakes.map((item) => (
-                      <div className="selected-country" key={item.make_name}>
-                        {item.make_name}
-                        <button
-                          onClick={() =>
-                            setSelectedMakes((prev) =>
-                              prev.filter((_item) => _item.make_name !== item.make_name)
-                            )
+                  {/* START: product make filter */}
+                  {makeList?.length > 0 && (
+                    <div className="search-con-right-1">
+                      <p className="fw-semibold mb-2 mt-3">Product Make</p>
+                      <div>
+                        <select
+                          name="product_make"
+                          id="product_make"
+                          value={
+                            selectedMakes.length > 0 ? selectedMakes[0].id : ""
                           }
+                          onChange={(e) => {
+                            if (
+                              !vendorMetaData.logged_In ||
+                              !vendorMetaData.subscription
+                            ) {
+                              setOpenAuthModal(true);
+                            } else {
+                              const selectedId = e.target.value; // Get selected id from option
+                              const selected = makeList.find(
+                                (option) => option.id == selectedId
+                              );
+                              if (selected) {
+                                // Check if already selected to avoid duplicates
+                                if (
+                                  !selectedMakes.some(
+                                    (item) => item.id === selected.id
+                                  )
+                                ) {
+                                  setSelectedMakes((prev) => [
+                                    ...prev,
+                                    selected,
+                                  ]);
+                                }
+                              }
+                            }
+                          }}
                         >
-                          X
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                          <option value="">Select Product Makes</option>
+                          {makeList &&
+                            makeList.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.make_name}
+                              </option>
+                            ))}
+                        </select>
 
-                  </div>
+                        {/* Display clear link if any filter is active */}
+                        {selectedMakes.length > 0 && (
+                          <Link
+                            href="#"
+                            className="clearFilter"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSelectedMakes([]);
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faTimesCircle} /> clear
+                          </Link>
+                        )}
+                      </div>
+
+                      <div className="d-flex gap-2 flex-wrap mt-2">
+                        {selectedMakes.map((item) => (
+                          <div
+                            className="selected-country"
+                            key={item.make_name}
+                          >
+                            {item.make_name}
+                            <button
+                              onClick={() =>
+                                setSelectedMakes((prev) =>
+                                  prev.filter(
+                                    (_item) =>
+                                      _item.make_name !== item.make_name
+                                  )
+                                )
+                              }
+                            >
+                              X
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {/* END: product make filter */}
 
@@ -1037,6 +1060,7 @@ const addRfqIdParam = (rfq_id) => {
                         value={myVendorType ? myVendorType.value : ""}
                         onChange={(e) => {
                           if (
+                            !vendorMetaData ||
                             !vendorMetaData.logged_In ||
                             !vendorMetaData.subscription
                           )
@@ -1129,13 +1153,20 @@ const addRfqIdParam = (rfq_id) => {
                           <div className="selected-country">
                             {type.label}
                             <button
-                              onClick={() =>
+                              onClick={() => {
+                                if (
+                                  !vendorMetaData ||
+                                  !vendorMetaData.logged_In ||
+                                  !vendorMetaData.subscription
+                                )
+                                  return setOpenAuthModal(true);
+
                                 setSelectedVendorTypes((prev) =>
                                   prev.filter(
                                     (_type) => !(_type.value == type.value)
                                   )
-                                )
-                              }
+                                );
+                              }}
                             >
                               X
                             </button>
@@ -1155,6 +1186,13 @@ const addRfqIdParam = (rfq_id) => {
                               <li
                                 key={type.value}
                                 onClick={() => {
+                                  if (
+                                    !vendorMetaData ||
+                                    !vendorMetaData.logged_In ||
+                                    !vendorMetaData.subscription
+                                  )
+                                    return setOpenAuthModal(true);
+
                                   setSelectedVendorTypes((prev) => [
                                     ...prev,
                                     type,
@@ -1175,7 +1213,7 @@ const addRfqIdParam = (rfq_id) => {
                   </div>
                   {/* END: Vendor Type */}
 
-                 {/* START:  Previously Worked With */}
+                  {/* START:  Previously Worked With */}
                   <div className="search-con-right-1">
                     <p className="fw-semibold  mb-2">Previously Worked With</p>
                     <div>
@@ -1303,14 +1341,12 @@ const addRfqIdParam = (rfq_id) => {
                     </div>
                   </div>
                   {/* END: Vendor Approved By */}
-
                 </aside>
               </div>
             )}
             {/* END: Filter side bar */}
 
-           
-           {/* START:  vendor list*/}
+            {/* START:  vendor list*/}
             <div className={currentSelectedProduct ? `col-md-9` : `col-md-12`}>
               <div className="row">
                 {currentSelectedProduct && (
@@ -1356,28 +1392,32 @@ const addRfqIdParam = (rfq_id) => {
                           )}
 
                           {/* View Current RFQ Button (Always Renders) */}
-                          <Link
-                            href={
-                              !!queryMeta.rfq_id && queryMeta.rfq_id != null
-                                ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
-                                    queryMeta.rfq_id
-                                  }${
-                                    queryMeta.sheet_id
-                                      ? `&sheet_id=${queryMeta.sheet_id}`
-                                      : ""
-                                  }`
-                                : "/dashboard/buyer/rfq-management?tab=draft-rfq"
-                            }
-                            className={`btn btn-primary ${
-                              isLoading ? "disabled" : ""
-                            }`}
-                            role="button"
-                            aria-disabled={isLoading}
-                          >
-                            {!!queryMeta.rfq_id && queryMeta.rfq_id != null
-                              ? `View Current Draft`
-                              : "View My Drafts"}
-                          </Link>
+                          {!!vendorMetaData &&
+                            vendorMetaData.logged_In &&
+                            vendorMetaData.subscription && (
+                              <Link
+                                href={
+                                  !!queryMeta.rfq_id && queryMeta.rfq_id != null
+                                    ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
+                                        queryMeta.rfq_id
+                                      }${
+                                        queryMeta.sheet_id
+                                          ? `&sheet_id=${queryMeta.sheet_id}`
+                                          : ""
+                                      }`
+                                    : "/dashboard/buyer/rfq-management?tab=draft-rfq"
+                                }
+                                className={`btn btn-primary ${
+                                  isLoading ? "disabled" : ""
+                                }`}
+                                role="button"
+                                aria-disabled={isLoading}
+                              >
+                                {!!queryMeta.rfq_id && queryMeta.rfq_id != null
+                                  ? `View Current Draft`
+                                  : "View My Drafts"}
+                              </Link>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -1455,8 +1495,7 @@ const addRfqIdParam = (rfq_id) => {
                 )}
               </div>
             </div>
-           {/* END:  vendor list*/}
-
+            {/* END:  vendor list*/}
           </div>
         </div>
 
