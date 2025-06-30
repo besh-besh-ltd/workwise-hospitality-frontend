@@ -10,13 +10,13 @@ import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { useDispatch, useSelector } from "react-redux";
 import { removeVendor } from "@/redux/slice";
 import { toast } from "react-toastify";
-import { getVendorsByID, removeVendorFromDraft } from "@/services/rfq";
+import { getVendorsByRfqProduct, removeVendorFromDraft } from "@/services/rfq";
 import Loader from "@/components/shared/Loader";
 
 const RfqManagementVendorPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { productid, variant, type, vendors, id: urlRfqId } = router.query;
+  const { productid, variant, type, id: urlRfqId, rfq_product_id } = router.query;
 
   const productItem = useSelector((data) => data.rfqProducts.find((prodItem) => prodItem.product_id == productid && prodItem.variant == variant))
   const rfq_id = urlRfqId;
@@ -39,18 +39,16 @@ const RfqManagementVendorPage = () => {
   }
 
   const getVendors = () => {
-    const vendorIds = productItem ? productItem.vendors?.map((venItem) => venItem.user_id) : vendors?.split(",");
-
-    if (vendorIds) {
+    if (rfq_product_id) {
       setloading(true);
-      getVendorsByID({ vendors: vendorIds, rfq_id })
+      getVendorsByRfqProduct(rfq_product_id)
         .then((res) => {
           setloading(false);
           setVendorList(res.data);
         })
         .catch((err) => {
           setloading(false);
-          console.error(err);
+          console.error("API error:", err);
         });
     }
   };
@@ -95,7 +93,7 @@ const RfqManagementVendorPage = () => {
 
   useEffect(() => {
     getVendors();
-  }, [router, vendors]);
+  }, [rfq_product_id]);
 
 
   useEffect(() => {
@@ -163,8 +161,6 @@ const RfqManagementVendorPage = () => {
                             <th>Region</th>
                             <th>Email</th>
                             <th>Mobile No.</th>
-                            {/* <th>Industry</th> */}
-                            <th>Products</th>
                             <th>View Status</th>
                             <th>Action</th>
                           </tr>
@@ -178,21 +174,11 @@ const RfqManagementVendorPage = () => {
                                   <td>{item.address}</td>
                                   <td>{item.email}</td>
                                   <td>{item.mobile}</td>
-                                  {/* <td>
-                                    {item.organization_name
-                                      ? item.organization_name
-                                      : "N/A"}
-                                  </td> */}
                                   <td>
-                                    <p className="has_eclipes">
-                                      {item.products?.map((product) => product.name).join(",")}
-                                    </p>
+                                    <span className={`badge ${parseInt(item.is_rfq_viewed) === 1 ? 'bg-success' : 'bg-warning'}`}>
+                                      {parseInt(item.is_rfq_viewed) === 1 ? 'Viewed' : 'Not Viewed'}
+                                    </span>
                                   </td>
-                                    <td>
-                                      <span className={`badge ${parseInt(item.is_rfq_viewed) === 1 ? 'bg-success' : 'bg-warning'}`}>
-                                        {parseInt(item.is_rfq_viewed) === 1 ? 'Viewed' : 'Not Viewed'}
-                                      </span>
-                                    </td>
                                   <td>
                                     <span>
                                       <Link
