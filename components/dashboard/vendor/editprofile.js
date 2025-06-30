@@ -23,6 +23,7 @@ import { faEdit, faFolderPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/f
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
 import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
+import CommonFormInput from "@/components/shared/CommonFormInput";
 
 const EditProfile = () => {
   // handling state for spoc
@@ -103,6 +104,35 @@ const EditProfile = () => {
     { label: "501-1000", value: "1000" },
     { label: "10001-2000", value: "2000" },
   ];
+
+    	const businessOptions = [
+        { label: "Select Nature of Business", value: "", disabled: true },
+        { value: "Authorised Distributor", label: "Authorised Distributor" },
+        { value: "Authorised Dealer", label: "Authorised Dealer" },
+        { value: "Branch", label: "Branch" },
+        { value: "Channel Partner", label: "Channel Partner" },
+        { value: "Distributor", label: "Distributor" },
+        { value: "Constructor", label: "Constructor" },
+        { value: "Contractor", label: "Contractor" },
+        { value: "Dealer", label: "Dealer" },
+        { value: "Designer", label: "Designer" },
+        { value: "Exporter", label: "Exporter" },
+        { value: "Importer", label: "Importer" },
+        { value: "Manufacturer", label: "Manufacturer" },
+        {
+          value: "OEM (Original EquipmentManufacturer)",
+          label: "OEM (Original EquipmentManufacturer)",
+        },
+        { value: "Official Distributor", label: "Official Distributor" },
+        { Value: "Partner", label: "Partner" },
+        { value: "Retailer", label: "Retailer" },
+        { value: "Service Provider", label: "Service Provider" },
+        { value: "Supplier", label: "Supplier" },
+        { value: "Subsidiary", label: "Subsidiary" },
+        { value: "Stockist", label: "Stockist" },
+        { value: "Trader", label: "Trader" },
+        { value: "Wholesaler", label: "Wholesaler" },
+      ];
   const customSelectStyles = {
     control: (base) => ({
       ...base,
@@ -582,7 +612,12 @@ const EditProfile = () => {
                                       setonecountrycode(e.target.value)
                                     }
                                   >
-                                    <option value={selectedCountryCode?.phone_code}>{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                    <option
+                                      value={selectedCountryCode?.phone_code}
+                                    >
+                                      {selectedCountryCode?.country_code} (
+                                      {selectedCountryCode?.phone_code})
+                                    </option>
                                     {countryCode.map((country) => (
                                       <option
                                         key={country.id}
@@ -710,23 +745,30 @@ const EditProfile = () => {
                         <div className="row">
                           <div className="col-md-12">
                             <div className="form-group">
-                              <FormikField
-                                label="Nature of Business"
-                                placeholder="Ex. Manufacturer, Dealer, Trader"
+                              <CommonFormInput
                                 name="nature_of_business"
+                                label="Nature of Business"
+                                type="multiselect"
+                                options={businessOptions}
+                                isMulti={true}
+                                placeholder="Ex. Manufacturer, Dealer, Trader"
                                 touched={touched}
                                 errors={errors}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="Type of Business"
-                                name="type_of_business"
-                                touched={touched}
-                                errors={errors}
+                                values={
+                                  values?.nature_of_business
+                                    ? businessOptions.filter((opt) =>
+                                        values.nature_of_business
+                                          .split(",")
+                                          .includes(opt.value)
+                                      )
+                                    : []
+                                }
+                                onChange={(selected) => {
+                                  const value = selected
+                                    .map((opt) => opt.value)
+                                    .join(",");
+                                  setFieldValue("nature_of_business", value);
+                                }}
                               />
                             </div>
                           </div>

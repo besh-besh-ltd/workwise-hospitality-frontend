@@ -24,6 +24,7 @@ import Head from "next/head";
 import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
+import { BusinessTypes } from "@/utils/constants";
 
 
 export const vendorConditions = [
@@ -52,7 +53,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [vendorTypeOpen, setVendorTypeOpen] = useState(false);
   const [approvedByOpen, setApprovedByOpen] = useState(false);
-  const [internalVendorTypes, setInternalVendorTypes] = useState([])
+  const [internalVendorTypes, setInternalVendorTypes] = useState(BusinessTypes)
   const [internalApprovedBy, setInternalApprovedBy] = useState([])
   const searchRef = useRef(null);
   const searchLabelRef = useRef(null);
@@ -70,7 +71,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [currentSelectedProduct, setcurrentSelectedProduct] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [vendorMetaData, setVendorMetaData] = useState({});
-  const [vendorTypes, setVendorTypes] = useState([]);
+  const [vendorTypes, setVendorTypes] = useState(BusinessTypes);
 
   const [selectedCountry, setselectedCountry] = useState([]);
   const [selectedState, setselectedState] = useState([]);
@@ -170,13 +171,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
       }
     };
 
-    axiosInstance.get('/rfq/vendor-types/').then(res => {
-      const {data} = res;
-      setVendorTypes(data)
-      setInternalVendorTypes(data)
-    }).catch((e) => {
-      console.error(e)
-    })
+    // axiosInstance.get('/rfq/vendor-types/').then(res => {
+    //   const {data} = res;
+    //   setVendorTypes(data)
+    //   setInternalVendorTypes(data)
+    // }).catch((e) => {
+    //   console.error(e)
+    // })
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {

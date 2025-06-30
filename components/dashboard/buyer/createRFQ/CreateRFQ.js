@@ -32,6 +32,7 @@ import { vendorConditions } from "../../vendor/search";
 import { getProductMakeList } from "@/services/products";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import AddVendorModal from "../editRFQ/AddVendorModal";
+import { BusinessTypes } from "@/utils/constants";
 
 const myVendorOptions = [
   { label: "All Vendors", value: null },
@@ -144,7 +145,7 @@ const CreateRFQ = () => {
     countries: [],
     states: [],
     cities: [],
-    vendorTypes: [],
+    vendorTypes: BusinessTypes,
     approvedBy: [],
     productMakes: {},
   })
@@ -235,17 +236,7 @@ const CreateRFQ = () => {
     }
   };
 
-  const getVendorTypes = async () => {
-    try {
-      const approvedBy = await getDataWithLoading(vendorTypes, setLoading);
-      setInitialFilterOptions(prev => ({
-        ...prev,
-        vendorTypes: approvedBy.data,
-      }))
-    } catch (error) {
-      throw error;
-    }
-  };
+ 
 
   const getMakesProductWise = async (rfqProductId, product_id) => {
     try {
@@ -1451,7 +1442,6 @@ const CreateRFQ = () => {
     try {
       getProfileDetails();
       getVendorApproveList();
-      getVendorTypes();
       getAllCountries();
       getAllStates();
       getAllCities();
