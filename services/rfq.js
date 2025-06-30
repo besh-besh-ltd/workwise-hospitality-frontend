@@ -227,6 +227,17 @@ export const getVendorsByID = (values) => {
   });
 };
 
+export const getVendorsByRfqProduct = (rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-vendors-by-rfq-product?rfq_product_id=${rfq_product_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getVendorsForProduct = async (values) => {
   try {
     return await axiosInstance.post(`/rfq/get-vendors-for-product`, values);
