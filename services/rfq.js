@@ -383,47 +383,32 @@ export const pollBOQResult = async (taskId, maxAttempts = 30, interval = 30000) 
       if (response.data.status === 'success' || response.data.status === 'partial_success') {
         return response.data; // Final result
       } else if (response.data.status === 'error') {
-        throw new Error(response.data.message || 'Server returned error');
+        return response.data.message || 'Server returned error' 
       }
 
       // Wait before next poll
       await new Promise((resolve) => setTimeout(resolve, interval));
     } catch (err) {
       console.error("Polling error:", err);
-      throw err;
+      return err
     }
   }
 
-  throw new Error("Timeout: Task did not complete in expected time.");
+  return {message: "Timeout: Task did not complete in expected time."};
 };
-
-
-
 
 
 //  accept a unstructure boq excel and return a structure boq excel url
 export const getSImplifiedVersionOfBOQ = (file) => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);  
+  formData.append("file", file);
 
-
-    return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axios.post(
-        `${aiServerBaseURL}/boq_to_structured_boq`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",  
-          },
-        }
-      );
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
+  return axios.post(`${aiServerBaseURL}/boq_to_structured_boq`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
   });
 };
 
