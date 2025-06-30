@@ -317,18 +317,18 @@ const EditProfile = () => {
       company_name: values.organization_name,
       about_company: values.profile,
       street_address: values.address,
-      postal_code: String(values.postal_code || ""),
-      established_year: Number(values.established_year) || null,
-      gstin: values.gstin,
-      website: values.website,
-      nature_of_business: values.nature_of_business,
-      turnover: values.turnover,
-      no_of_employess: String(values.no_of_employess || ""),
-      import_export_code: values.import_export_code,
-      cin: values.cin,
-      country: Number(selectedCountry) || null,
-      state: Number(selectedState) || null,
-      city: Number(selectedCity) || null,
+      postal_code: values.postal_code ? String(values.postal_code) : null,
+      established_year: values.established_year ? Number(values.established_year) : null,
+      gstin: values.gstin || null,
+      website: values.website || null,
+      nature_of_business: values.nature_of_business || null,
+      turnover: values.turnover ? values.turnover : null,
+      no_of_employess: values.no_of_employess ? String(values.no_of_employess) : null,
+      import_export_code: values.import_export_code || null,
+      cin: values.cin || null,
+      country: selectedCountry ? Number(selectedCountry) : null,
+      state: selectedState ? Number(selectedState) : null,
+      city: selectedCity ? Number(selectedCity) : null,
     };
 
     // Execute both API calls sequentially to better handle errors
@@ -342,7 +342,7 @@ const EditProfile = () => {
         setMainLoading(false);
         // Add a small delay before refreshing profile to ensure backend has processed
         setTimeout(() => {
-          getProfileDetails();
+        getProfileDetails();
         }, 500);
         toast("Profile updated successfully");
       })
@@ -550,84 +550,84 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <label>Mobile</label>
-                              <div className="d-flex align-items-center">
-                                {/* Country Code Dropdown */}
-                                <Field
-                                  as="select"
-                                  name="countryCode"
-                                  className="form-control me-2 p-2"
-                                  style={{
-                                    width: "30%",
-                                    minHeight: "54px",
-                                    borderTopRightRadius: "0",
-                                    borderBottomRightRadius: "0",
-                                  }}
-                                  value={onecountrycode}
-                                  onChange={(e) =>
-                                    setonecountrycode(e.target.value)
-                                  }
-                                >
-                                  <option value={selectedCountryCode?.phone_code}>{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
-                                  {countryCode.map((country) => (
-                                    <option
-                                      key={country.id}
-                                      value={country.phone_code}
-                                    >
-                                      {country.country_code} (
-                                      {country.phone_code})
-                                    </option>
-                                  ))}
-                                </Field>
-
-                                {/* Mobile Number Input */}
-                                <div style={{ flexGrow: 1 }}>
+                            <div className="col-md-6">
+                              <div className="form-group">
+                                <label>Mobile</label>
+                                <div className="d-flex align-items-center">
+                                  {/* Country Code Dropdown */}
                                   <Field
-                                    type="text"
-                                    name="mobile"
-                                    className={`form-control ${
-                                      touched.mobile && errors.mobile
-                                        ? "is-invalid"
-                                        : ""
-                                    }`}
-                                    placeholder="Ex. 9123456789"
+                                    as="select"
+                                    name="countryCode"
+                                    className="form-control me-2 p-2"
                                     style={{
-                                      width: "100%",
+                                      width: "30%",
                                       minHeight: "54px",
-                                      borderTopLeftRadius: "0",
-                                      borderBottomLeftRadius: "0",
+                                      borderTopRightRadius: "0",
+                                      borderBottomRightRadius: "0",
                                     }}
-                                  />
-                                  {touched.mobile && errors.mobile && (
-                                    <div className="invalid-feedback">
-                                      {errors.mobile}
-                                    </div>
-                                  )}
+                                    value={onecountrycode}
+                                    onChange={(e) =>
+                                      setonecountrycode(e.target.value)
+                                    }
+                                  >
+                                    <option value={selectedCountryCode?.phone_code}>{selectedCountryCode?.country_code} ({selectedCountryCode?.phone_code})</option>
+                                    {countryCode.map((country) => (
+                                      <option
+                                        key={country.id}
+                                        value={country.phone_code}
+                                      >
+                                        {country.country_code} (
+                                        {country.phone_code})
+                                      </option>
+                                    ))}
+                                  </Field>
+
+                                  {/* Mobile Number Input */}
+                                  <div style={{ flexGrow: 1 }}>
+                                    <Field
+                                      type="text"
+                                      name="mobile"
+                                      className={`form-control ${
+                                        touched.mobile && errors.mobile
+                                          ? "is-invalid"
+                                          : ""
+                                      }`}
+                                      placeholder="Ex. 9123456789"
+                                      style={{
+                                        width: "100%",
+                                        minHeight: "54px",
+                                        borderTopLeftRadius: "0",
+                                        borderBottomLeftRadius: "0",
+                                      }}
+                                    />
+                                    {touched.mobile && errors.mobile && (
+                                      <div className="invalid-feedback">
+                                        {errors.mobile}
+                                      </div>
+                                    )}
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
 
                     <div className="vendor-edit-sec-form">
                       <span className="title">Company information</span>
                       <div className="contact-form">
                         <div className="row">
-                          <div className="col-md-6">
+                            <div className="col-md-6">
                             <div className="form-group">
-                              <FormikField
+                                <FormikField
                                 label="Organization Name"
                                 placeholder="Ex. ABC Company Ltd"
-                                isRequired={true}
+                                  isRequired={true}
                                 name="organization_name"
-                                touched={touched}
-                                errors={errors}
-                              />
-                            </div>
+                                  touched={touched}
+                                  errors={errors}
+                                />
+                              </div>
                           </div>
 
                           <div className="col-md-6">
@@ -698,9 +698,9 @@ const EditProfile = () => {
                                 <option value={0}>Select State</option>
                                 {states &&
                                   states.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.state_name}
-                                    </option>
+                                      <option key={item.id} value={item.id}>
+                                        {item.state_name}
+                                      </option>
                                   ))}
                               </select>
                             </div>
@@ -719,14 +719,14 @@ const EditProfile = () => {
                                   <option value={0}>Select City</option>
                                   {cities &&
                                     cities.map((item) => (
-                                      <option key={item.id} value={item.id}>
-                                        {item.city_name}
-                                      </option>
+                                        <option key={item.id} value={item.id}>
+                                          {item.city_name}
+                                        </option>
                                     ))}
                                 </select>
-                              </div>
-                            </div>
-                          </div>
+                        </div>
+                      </div>
+                    </div>
 
                           <div className="col-md-6">
                             <div className="form-group">
