@@ -960,16 +960,10 @@ const RfqManagementPreview = () => {
                                   {type == "buyer-view" && (
                                     <td>
                                       <span>
-                                        <Link
-                                          href={`rfq-management-vendor?type=buyer-view&vendors=${item.vendor_details
-                                            ?.map(
-                                              (ven_item) => ven_item.user_id
-                                            )
-                                            .join(",")}&productid=${
-                                            item.product_id
-                                          }&variant=${item.variant}&id=${id}`}
-                                          className="page-link"
-                                        >
+                                                                <Link
+                          href={`rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
+                          className="page-link"
+                        >
                                           View selected vendors (
                                           {item.vendor_details?.length})
                                         </Link>
