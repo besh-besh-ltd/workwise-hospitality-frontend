@@ -7,8 +7,8 @@ const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))
 const mobileRegex = /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/im;
 
 export const EditCompanyDetails = yup.object().shape({
-  company_name: yup.string().required("Company name is required"),
-  name: yup.string().required("Company name is required"),
+  organization_name: yup.string().required("Organization name is required"),
+  name: yup.string().required("Vendor name is required"),
   email: yup
     .string()
     .email()
