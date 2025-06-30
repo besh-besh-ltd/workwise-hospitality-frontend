@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
 import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI } from "@/services/rfq";
 import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 
 const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
   const router = useRouter()
@@ -21,20 +22,42 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
     setFileName(selectedFile?.name || "");
   };
 
-  const handleUpload = async () => {
-    if (!file) return;
-    setUploading(true);
 
-    try {
-      const response = await getSImplifiedVersionOfBOQ(file);
-      setFileUrl(response?.data?.download_excel_url);
-      setJsonData(response?.data?.download_url);
-    } catch (error) {
-      console.error("Upload failed:", error);
-    } finally {
-      setUploading(false);
+  const handleUpload = async () => {
+  if (!file) return;
+  setUploading(true);
+
+  try {
+    const startResponse = await getSImplifiedVersionOfBOQ(file);
+
+    // check if already processed
+    if (
+      startResponse?.data?.status === "success" ||
+      startResponse?.data?.status === "partial_success"
+    ) {
+      setFileUrl(startResponse?.data?.download_excel_url);
+      setJsonData(startResponse?.data?.download_url);
+      return;
     }
-  };
+
+    const taskId = startResponse?.data?.task_id;
+    if (!taskId) {
+      toast.error("Server did not return task ID.");
+      return;
+    }
+
+    // poll for final result
+    const finalResponse = await pollBOQResult(taskId);
+    setFileUrl(finalResponse?.download_excel_url);
+    setJsonData(finalResponse?.download_url);
+  } catch (error) {
+          console.error("Upload failed:", error?.response);
+          toast.error(error?.response?.data?.detail || "Simplified BOQ creation failed. Please try again.");
+
+  } finally {
+    setUploading(false);
+  }
+};
 
 const handleDownload = async () => {
   if (!fileUrl) return;
