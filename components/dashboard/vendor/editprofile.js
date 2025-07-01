@@ -8,12 +8,13 @@ import {
   handleChangeProfilePicture,
   handleUploadFiles,
   updateProfile,
+  updatecompany,
 } from "@/services/Auth";
 import { Field, Form, Formik } from "formik";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import * as yup from "yup";
+import { EditCompanyDetails } from "@/utils/schema";
 import { components } from "react-select";
 import UploadFiles from "@/components/shared/ImagesUpload";
 import FullLoader from "@/components/shared/FullLoader";
@@ -23,7 +24,8 @@ import { faEdit, faFolderPlus, faTrash, faTrashCanArrowUp } from "@fortawesome/f
 import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
 import { addSpoc, editSpoc } from "@/services/Auth";
 import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
-import CommonFormInput from "@/components/shared/CommonFormInput";
+import Select from "react-select";
+
 
 const EditProfile = () => {
   // handling state for spoc
@@ -74,65 +76,32 @@ const EditProfile = () => {
   const [onecountrycode , setonecountrycode] = useState("");
   const [extractedCountryCode , setextractedCountryCode] = useState("");
 
-  const validationSchema = yup.object().shape({
-    name: yup.string().required("Vendor name is required"),
-    address: yup.string(),
-    mobile: yup.string().required("Mobile is required"),
-    email: yup
-      .string()
-      .email()
-      .matches(
-        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-        "please enter valid email address"
-      )
-      .required("Email is required"),
-    nature_of_business: yup.string(),
-    type_of_business: yup.string(),
-    turnover: yup.number(),
-    no_of_employess: yup.string(),
-    gstin: yup.string(),
-    import_export_code: yup.string(),
-    certifications: yup.string(),
-    cin: yup.string().optional(""),
-    profile: yup.string(),
-    vendor_approve: yup.array().optional(""),
-  });
-
-  const employeeNumberOption = [
-    { label: "Select Number of Employees", value: "", disabled: true },
-    { label: "101-500", value: "500" },
-    { label: "501-1000", value: "1000" },
-    { label: "10001-2000", value: "2000" },
+  // Nature of business options - hardcoded from admin panel
+  const businessOptions = [
+    {value : "Authorised Distributor", label : "Authorised Distributor"},
+    {value : "Authorised Dealer", label : "Authorised Dealer"},
+    {value : "Branch", label : "Branch"},
+    {value : "Channel Partner", label : "Channel Partner"},
+    {value : "Distributor", label : "Distributor"},
+    {value : "Constructor", label : "Constructor"},
+    {value : "Contractor", label : "Contractor"},
+    {value : "Dealer", label: "Dealer" },
+    {value : "Designer", label : "Designer"},
+    {value : "Exporter", label : "Exporter"},
+    {value : "Importer", label : "Importer"},
+    {value : 'Manufacturer', label: 'Manufacturer' },
+    {value : "OEM (Original EquipmentManufacturer)", label : "OEM (Original EquipmentManufacturer)"},
+    {value : "Official Distributor", label : "Official Distributor"},
+    {value : "Partner", label : "Partner"},
+    {value : "Retailer", label : "Retailer"},
+    {value : "Service Provider", label : "Service Provider"},
+    {value : "Supplier", label : "Supplier"},
+    {value : "Subsidiary" , label : 'Subsidiary'},
+    {value : "Stockist", label : "Stockist"},
+    {value : "Trader", label : "Trader"},
+    { value: 'Wholesaler', label: 'Wholesaler' } 
   ];
 
-    	const businessOptions = [
-        { label: "Select Nature of Business", value: "", disabled: true },
-        { value: "Authorised Distributor", label: "Authorised Distributor" },
-        { value: "Authorised Dealer", label: "Authorised Dealer" },
-        { value: "Branch", label: "Branch" },
-        { value: "Channel Partner", label: "Channel Partner" },
-        { value: "Distributor", label: "Distributor" },
-        { value: "Constructor", label: "Constructor" },
-        { value: "Contractor", label: "Contractor" },
-        { value: "Dealer", label: "Dealer" },
-        { value: "Designer", label: "Designer" },
-        { value: "Exporter", label: "Exporter" },
-        { value: "Importer", label: "Importer" },
-        { value: "Manufacturer", label: "Manufacturer" },
-        {
-          value: "OEM (Original EquipmentManufacturer)",
-          label: "OEM (Original EquipmentManufacturer)",
-        },
-        { value: "Official Distributor", label: "Official Distributor" },
-        { Value: "Partner", label: "Partner" },
-        { value: "Retailer", label: "Retailer" },
-        { value: "Service Provider", label: "Service Provider" },
-        { value: "Supplier", label: "Supplier" },
-        { value: "Subsidiary", label: "Subsidiary" },
-        { value: "Stockist", label: "Stockist" },
-        { value: "Trader", label: "Trader" },
-        { value: "Wholesaler", label: "Wholesaler" },
-      ];
   const customSelectStyles = {
     control: (base) => ({
       ...base,
@@ -239,60 +208,52 @@ const EditProfile = () => {
      });
    };
 
-
- 
-  useEffect(() => {
-    if (userDetails && vendorApproveList) {
-      let intersection = vendorApproveList.filter(function (e) {
-        return userDetails.vendor_approve.indexOf(e.value) > -1;
-      });
-      setSelectedVendorApproveList(intersection);
-    }
-  }, [vendorApproveList, userDetails]);
-
   const getProfileDetails = async () => {
     try {
       setMainLoading(true);
       const res = await getProfile();
       setMainLoading(false);
       
-      setextractedCountryCode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "" : "");
-      let locationData = { country: "", state: "", city: "" };
-      if (res.data?.location) {
-        try {
-          locationData = JSON.parse(res.data.location);
-          setselectedCity(locationData.city);
-          setselectedCountry(locationData.country);
-          setselectedState(locationData.state);
-        } catch (error) {
-          console.error("Error parsing location data:", error);
-        }
-      }
+      console.log("Profile API Response:", res.data); // Debug log
+      
+      setextractedCountryCode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "+91" : "+91");
+      setonecountrycode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "+91" : "+91");
 
       setUserDetails({
         name: res.data.name || "",
         address: res.data.address || "",
         mobile: res.data.mobile ? res.data.mobile.replace(/^\+\d{1,4}-/, '') : "",
         email: res.data.email || "",
+        organization_name: res.data.company_name || res.data.organization_name || "",
         nature_of_business: res.data.nature_of_business || "",
-        type_of_business: res.data.type_of_business || "",
         turnover: res.data.turnover || "",
         no_of_employess: res.data.no_of_employess || "",
         gstin: res.data.gstin || "",
-        certifications: res.data.certifications || "",
         cin: res.data.cin || "",
         profile: res.data.profile || "",
         import_export_code: res.data.import_export_code || "",
         profile_image: res.data.profile_image || "",
-        vendor_approve: res.data.vendor_approve || "",
-        location: locationData || "",
+        established_year: res.data.established_year || "",
+        website: res.data.website || "",
+        postal_code: res.data.postal_code || "",
+        company_mobile: res.data.company_mobile || "",
       });
-      setVendorSpoc(res.data.spoc);
+      
+      console.log("Mapped User Details:", {
+        nature_of_business: res.data.nature_of_business,
+        cin: res.data.cin,
+        turnover: res.data.turnover,
+        import_export_code: res.data.import_export_code,
+        no_of_employess: res.data.no_of_employess
+      }); // Debug specific fields
+      
+      setVendorSpoc(res.data.spoc || []);
       setselectedCountry(res.data?.country || "");
       setselectedState(res.data?.state || "");
       setselectedCity(res.data?.city || "");
     } catch (error) {
       setMainLoading(false);
+      console.error("Error fetching profile:", error);
     }
   };
 
@@ -317,36 +278,6 @@ const EditProfile = () => {
     });
   };
 
-  const removeSelectedVendor = (ele, setFieldValue) => {
-    const filteredData = selectedVendorApproveList.filter(
-      (item) => item.value != ele.value
-    );
-    setSelectedVendorApproveList(filteredData);
-    const vendorApprove = filteredData.map((item) => item.value);
-    setFieldValue("vendor_approve", vendorApprove);
-  };
-
-  const addSelectedVendor = (ele, setFieldValue) => {
-    if (ele && ele.value) {
-      const index = selectedVendorApproveList.findIndex(
-        (item) => item.value == ele.value
-      );
-      const selectedVendorApproveMap = selectedVendorApproveList.map(
-        (item) => item.value
-      );
-
-      if (index == -1) {
-        setSelectedVendorApproveList((prev) => [...prev, ele]);
-        setFieldValue("vendor_approve", [
-          ...selectedVendorApproveMap,
-          ele.value,
-        ]);
-      }
-    } else {
-      // console.log(e);
-    }
-  };
-
   const uploadToClient = (event) => {
     if (event.target.files && event.target.files[0]) {
       const i = event.target.files[0];
@@ -367,38 +298,67 @@ const EditProfile = () => {
       .catch((err) => setProfileImageLoading(false));
   };
 
-  const submitHandler = (values) => {
+  const submitHandler = (values, resetForm) => {
     setMainLoading(true);
     delete values.profile_image;
     
-
-    // Transform the values to include the location object
+    // Transform mobile with country code
     const fullmobile = `${onecountrycode}-${values.mobile
       .trim()
       .replace(/^0+/, "")}`;
-    const updatedValues = {
-      ...values,
-      location: {
-        country: String(selectedCountry || ""), 
-        state: String(selectedState || ""), 
-        city: String(selectedCity || "")
-      }
-      , mobile:fullmobile
-      
-    };
-   
-   
 
-    updateProfile(updatedValues, userDetails.id)
-      .then((res) => {
+    // Split data into user profile and company profile
+    const userProfileData = {
+      name: values.name,
+      email: values.email,
+      mobile: values.company_mobile || fullmobile, // Use company mobile if provided, otherwise personal mobile
+    };
+
+    const companyProfileData = {
+      company_name: values.organization_name,
+      about_company: values.profile,
+      street_address: values.address,
+      postal_code: values.postal_code ? String(values.postal_code) : null,
+      established_year: values.established_year ? Number(values.established_year) : null,
+      gstin: values.gstin || null,
+      website: values.website || null,
+      nature_of_business: values.nature_of_business || null,
+      turnover: values.turnover ? values.turnover : null,
+      no_of_employess: values.no_of_employess ? String(values.no_of_employess) : null,
+      import_export_code: values.import_export_code || null,
+      cin: values.cin || null,
+      country: selectedCountry ? Number(selectedCountry) : null,
+      state: selectedState ? Number(selectedState) : null,
+      city: selectedCity ? Number(selectedCity) : null,
+    };
+
+    // Execute both API calls sequentially to better handle errors
+    updateProfile(userProfileData)
+      .then((userResponse) => {
+        console.log("User profile updated:", userResponse);
+        return updatecompany(companyProfileData);
+      })
+      .then((companyResponse) => {
+        console.log("Company profile updated:", companyResponse);
         setMainLoading(false);
+        // Add a small delay before refreshing profile to ensure backend has processed
+        setTimeout(() => {
         getProfileDetails();
-        toast(res.message);
+        }, 500);
+        toast("Profile updated successfully");
       })
       .catch((error) => {
         setMainLoading(false);
+        console.error("Error updating profile:", error);
+        // Show more specific error message
+        if (error?.response?.data?.message) {
+          toast(error.response.data.message);
+        } else {
+          toast("Error updating profile");
+        }
       });
   };
+  
   const handleUploadFile = (file, type) => {
     setMainLoading(true);
     handleUploadFiles(file, type)
@@ -493,7 +453,6 @@ const EditProfile = () => {
   const selectedCountryCode = countryCode.find(
     (item) => item.phone_code === extractedCountryCode
   );
-  
 
   return (
     <>
@@ -551,7 +510,7 @@ const EditProfile = () => {
               <Formik
                 enableReinitialize={true}
                 initialValues={userDetails}
-                validationSchema={validationSchema}
+                validationSchema={EditCompanyDetails}
                 onSubmit={(values, { resetForm }) => {
                   values.country = selectedCountry?.toString() || "";
                   values.state = selectedState?.toString() || "";
@@ -565,7 +524,7 @@ const EditProfile = () => {
                       <span className="title">Basic information</span>
                       <div className="contact-form">
                         <div className="row">
-                          <div className="col-md-12">
+                          <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
                                 label="Vendor Name"
@@ -578,20 +537,20 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-12">
+                          <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
-                                label="Registered Address"
-                                placeholder="Ex. SaltLake, Sector 5, Kolkata, West Bangal, India"
-                                name="address"
+                                label="Email"
+                                placeholder="@example.com"
+                                isRequired={true}
+                                name="email"
+                                type="email"
                                 touched={touched}
                                 errors={errors}
                               />
                             </div>
                           </div>
 
-                          <div className="row">
-                            {/* Mobile Number Field (Country Code + Input) */}
                             <div className="col-md-6">
                               <div className="form-group">
                                 <label>Mobile</label>
@@ -652,33 +611,74 @@ const EditProfile = () => {
                                         {errors.mobile}
                                       </div>
                                     )}
+                                </div>
+                              </div>
+                            </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Email Field */}
+                    <div className="vendor-edit-sec-form">
+                      <span className="title">Company information</span>
+                      <div className="contact-form">
+                        <div className="row">
                             <div className="col-md-6">
-                              <div className="form-group ">
+                            <div className="form-group">
                                 <FormikField
-                                  label="Email"
-                                  placeholder="@example.com"
+                                label="Organization Name"
+                                placeholder="Ex. ABC Company Ltd"
                                   isRequired={true}
-                                  name="email"
-                                  type="email"
+                                name="organization_name"
                                   touched={touched}
                                   errors={errors}
                                 />
                               </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <FormikField
+                                label="Established Year"
+                                placeholder="Ex. 1990"
+                                name="established_year"
+                                type="number"
+                                touched={touched}
+                                errors={errors}
+                              />
                             </div>
                           </div>
 
-                          <div className="col-md-4">
+                          <div className="col-md-12">
                             <div className="form-group">
-                              <label htmlFor="city">Country</label>
+                              <FormikField
+                                label="Registered Address"
+                                placeholder="Ex. SaltLake, Sector 5, Kolkata, West Bengal, India"
+                                name="address"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <FormikField
+                                label="Postal Code"
+                                placeholder="Ex. 700001"
+                                name="postal_code"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label htmlFor="country">Country</label>
                               <Field
                                 as="select"
-                                className="form-control mt-2" // Matching class for consistency
+                                className="form-control mt-2"
                                 name="country"
                                 onChange={handleCountryChange}
                                 value={selectedCountry}
@@ -692,27 +692,27 @@ const EditProfile = () => {
                               </Field>
                             </div>
                           </div>
-                          <div className="col-md-4">
+
+                          <div className="col-md-6">
                             <div className="form-group">
                               <label>State</label>
-
                               <select
                                 onChange={(e) => handleStateChange(e)}
                                 value={selectedState}
+                                className="form-control mt-2"
                               >
                                 <option value={0}>Select State</option>
                                 {states &&
-                                  states.map((item) => {
-                                    return (
+                                  states.map((item) => (
                                       <option key={item.id} value={item.id}>
                                         {item.state_name}
                                       </option>
-                                    );
-                                  })}
+                                  ))}
                               </select>
                             </div>
                           </div>
-                          <div className="col-md-4">
+
+                          <div className="col-md-6">
                             <div className="form-group">
                               <label>City</label>
                               <div className="hasFullLoader">
@@ -720,54 +720,59 @@ const EditProfile = () => {
                                 <select
                                   onChange={(e) => handleCityChange(e)}
                                   value={selectedCity}
-                                  className="mt-2"
+                                  className="form-control mt-2"
                                 >
                                   <option value={0}>Select City</option>
                                   {cities &&
-                                    cities.map((item) => {
-                                      return (
+                                    cities.map((item) => (
                                         <option key={item.id} value={item.id}>
                                           {item.city_name}
                                         </option>
-                                      );
-                                    })}
+                                    ))}
                                 </select>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="vendor-edit-sec-form">
-                      <span className="title">Company information</span>
-                      <div className="contact-form">
-                        <div className="row">
-                          <div className="col-md-12">
+                          <div className="col-md-6">
                             <div className="form-group">
-                              <CommonFormInput
-                                name="nature_of_business"
-                                label="Nature of Business"
-                                type="multiselect"
-                                options={businessOptions}
-                                isMulti={true}
-                                placeholder="Ex. Manufacturer, Dealer, Trader"
+
+                              <FormikField
+                                label="Website"
+                                placeholder="Ex. https://www.example.com"
+                                name="website"
+                                type="url"
                                 touched={touched}
                                 errors={errors}
-                                values={
-                                  values?.nature_of_business
-                                    ? businessOptions.filter((opt) =>
-                                        values.nature_of_business
-                                          .split(",")
-                                          .includes(opt.value)
-                                      )
-                                    : []
-                                }
-                                onChange={(selected) => {
-                                  const value = selected
-                                    .map((opt) => opt.value)
-                                    .join(",");
-                                  setFieldValue("nature_of_business", value);
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label>Nature of Business</label>
+                              <Select
+                                className="mt-2"
+                                isMulti
+                                name="nature_of_business"
+                                options={businessOptions}
+                                value={businessOptions.filter(option => 
+                                  values?.nature_of_business?.split(',').includes(option.value)
+                                )}
+                                onChange={(selectedOptions) => {
+                                  const selectedValues = selectedOptions 
+                                    ? selectedOptions.map(option => option.value).join(',')
+                                    : '';
+                                  setFieldValue('nature_of_business', selectedValues);
+                                }}
+                                components={{ DropdownIndicator }}
+                                placeholder="Select Nature of Business"
+                                styles={{
+                                  control: (provided) => ({
+                                    ...provided,
+                                    minHeight: '54px',
+                                  }),
+
                                 }}
                               />
                             </div>
@@ -776,7 +781,43 @@ const EditProfile = () => {
                           <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
-                                label="Turnover"
+                                label="GSTIN"
+                                placeholder="Ex. 22AAAAA0000A1Z5"
+                                name="gstin"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <FormikField
+                                label="CIN"
+                                placeholder="Ex. L99999MH1982PLC028758"
+                                name="cin"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <FormikField
+                                label="Import Export Code"
+                                placeholder="Ex. 1234567890"
+                                name="import_export_code"
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <FormikField
+                                label="Turn Over"
                                 placeholder="Ex. 50 cr"
                                 name="turnover"
                                 touched={touched}
@@ -788,10 +829,10 @@ const EditProfile = () => {
                           <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
-                                label="Number of Employees"
-                                type="select"
+                                label="Total Employees"
+                                placeholder="Ex. 50"
                                 name="no_of_employess"
-                                selectOptions={employeeNumberOption}
+                                type="number"
                                 touched={touched}
                                 errors={errors}
                               />
@@ -801,42 +842,9 @@ const EditProfile = () => {
                           <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
-                                label="GSTin"
-                                placeholder="GST Number"
-                                name="gstin"
-                                touched={touched}
-                                errors={errors}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="Import Export Code"
-                                name="import_export_code"
-                                touched={touched}
-                                errors={errors}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="Certifications"
-                                name="certifications"
-                                touched={touched}
-                                errors={errors}
-                              />
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="form-group">
-                              <FormikField
-                                label="CIN"
-                                placeholder="Enter CIN Number"
-                                name="cin"
+                                label="Company Mobile"
+                                placeholder="Ex. +91-9123456789"
+                                name="company_mobile"
                                 touched={touched}
                                 errors={errors}
                               />
@@ -854,7 +862,7 @@ const EditProfile = () => {
                             <div className="form-group">
                               <FormikField
                                 nolabel="true"
-                                placeholder="Write somthing about the company "
+                                placeholder="Write something about the company "
                                 type="textarea"
                                 name="profile"
                                 touched={touched}
@@ -900,37 +908,6 @@ const EditProfile = () => {
                         )}
                       </div>
                     </div>
-
-                    {/*  <div className="vendor-edit-sec-form">
-                      <span className="title">Vendor Approved By</span>
-
-                      <div className="vendor-approved-by mb-3">
-                        {selectedVendorApproveList.map((item) => {
-                          return (
-                            <span
-                              key={item.value}
-                              onClick={() =>
-                                removeSelectedVendor(item, setFieldValue)
-                              }
-                            >
-                              {item.label}
-                            </span>
-                          );
-                        })}
-                      </div>
-                      <Select
-                        id={id}
-                        options={vendorApproveList}
-                        placeholder="Search here"
-                        isClearable={true}
-                        // id="long-value-select"
-                        instanceId="long-value-select"
-                        styles={customSelectStyles}
-                        components={{ DropdownIndicator }}
-                        value={selectedVendorApprove}
-                        onChange={(e) => addSelectedVendor(e, setFieldValue)}
-                      />
-                    </div> */}
 
                     <div className="vendor-edit-sec-form">
                       <span className="title">Documents</span>
