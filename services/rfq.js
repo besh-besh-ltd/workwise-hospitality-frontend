@@ -227,6 +227,17 @@ export const getVendorsByID = (values) => {
   });
 };
 
+export const getVendorsByRfqProduct = (rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-vendors-by-rfq-product?rfq_product_id=${rfq_product_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const getVendorsForProduct = async (values) => {
   try {
     return await axiosInstance.post(`/rfq/get-vendors-for-product`, values);
@@ -354,55 +365,61 @@ START :: AI server functions
 */
 
 // mart of magic serach boq to rfq, accept boq excel and return a json file url
+// Send file to /boq_to_structured_boq_and_match and get task_id
 export const getBOQexcelToJsonAI = (file) => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
   formData.append("file", file);  
 
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axios.post(
-        `${aiServerBaseURL}/boq_to_structured_boq_and_match`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data", 
-          },
-        }
-      );
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
+  return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
   });
 };
 
+
+export const pollBOQResult = async (taskId, maxAttempts = 30, interval = 30000) => {
+  const token = localStorage.getItem("token");
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await axios.get(`${aiServerBaseURL}/boq_result/${taskId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.status === 'success' || response.data.status === 'partial_success') {
+        return response.data; // Final result
+      } else if (response.data.status === 'error') {
+        return response.data.message || 'Server returned error' 
+      }
+
+      // Wait before next poll
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    } catch (err) {
+      console.error("Polling error:", err);
+      return err
+    }
+  }
+
+  return {message: "Timeout: Task did not complete in expected time."};
+};
 
 
 //  accept a unstructure boq excel and return a structure boq excel url
 export const getSImplifiedVersionOfBOQ = (file) => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);  
+  formData.append("file", file);
 
-
-    return new Promise(async (resolve, reject) => {
-    try {
-      const response = await axios.post(
-        `${aiServerBaseURL}/boq_to_structured_boq`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",  
-          },
-        }
-      );
-      resolve(response);
-    } catch (error) {
-      reject({ message: error });
-    }
+  return axios.post(`${aiServerBaseURL}/boq_to_structured_boq`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
   });
 };
 
