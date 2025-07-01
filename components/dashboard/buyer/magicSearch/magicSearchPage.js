@@ -36,6 +36,7 @@ const initialFormData = {
     contact_name: '',
     contact_number: '',
     company_name: '',
+    custom_instructions: '',
 }
 
 
@@ -62,6 +63,7 @@ const MagicSearchPage = () => {
     const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
     const [formData, setFormData] = useState(initialFormData);
+    const [customInstructions, setCustomInstructions] = useState('');
 
     const [projects, setProjects] = useState([]);
     const [termList, setTermList] = useState(null);
@@ -198,7 +200,7 @@ const uploadToServer = async () => {
     }
 
     // Step 3: Use the result to continue with your existing flow
-    const response = await getMagicRFQPreview(downloadUrl, availableSheets);
+    const response = await getMagicRFQPreview(downloadUrl, availableSheets, customInstructions);
     if (response.validation_errors && response.validation_errors.length > 0) {
       setApiData(response);
       setTimeout(() => {
@@ -218,6 +220,7 @@ const uploadToServer = async () => {
     setLoading(false);
     setFile(null);
     setFileName('');
+    setCustomInstructions(''); // Reset custom instructions
   }
 };
 
@@ -690,6 +693,24 @@ const uploadToServer = async () => {
                       style={{ display: 'none' }}
                       onChange={handleMagicFileUpload}
                     />
+
+                    {/* Custom Instructions Input */}
+                    <div className="mt-3">
+                      <label htmlFor="customInstructions" className="form-label">
+                        <strong>Custom Instructions (Optional)</strong>
+                      </label>
+                      <textarea
+                        id="customInstructions"
+                        className="form-control"
+                        rows="3"
+                        placeholder="Add any specific instructions or requirements for the AI when preparing the RFQ..."
+                        value={customInstructions}
+                        onChange={(e) => setCustomInstructions(e.target.value)}
+                      />
+                      <small className="form-text text-muted">
+                        These instructions will be considered by the AI when processing your BOQ and preparing the RFQ.
+                      </small>
+                    </div>
                   </div>
                 </>
               ) : null}
