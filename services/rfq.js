@@ -365,10 +365,15 @@ START :: AI server functions
 */
 
 // mart of magic serach boq to rfq, accept boq excel and return a json file url
-export const getBOQexcelToJsonAI = (file) => {
+export const getBOQexcelToJsonAI = (file, custom_instructions = '') => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
   formData.append("file", file);  
+  
+  // Add custom instructions if provided
+  if (custom_instructions) {
+    formData.append("custom_instructions", custom_instructions);
+  }
 
   return new Promise(async (resolve, reject) => {
     try {
@@ -422,11 +427,15 @@ export const getSImplifiedVersionOfBOQ = (file) => {
  END :: AI server functions 
 */
 
-export const getMagicRFQPreview = (jsonFileUrl, availableSheets) => {
+export const getMagicRFQPreview = (jsonFileUrl, availableSheets, custom_instructions = '') => {
 
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, { jsonFileUrl, availableSheets });
+      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, { 
+        jsonFileUrl, 
+        availableSheets,
+        custom_instructions
+      });
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -864,6 +873,21 @@ export const processMagicSearchDraft = (rfqId, sheetId) => {
           error: error?.message || 'Unknown error'
         }
       });
+    }
+  });
+};
+
+// Function to send email notification for products not found
+export const sendProductNotFoundEmail = (notFoundProducts) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/send-product-not-found-email`, {
+        products: notFoundProducts,
+        email: 'sayankaworkwise@gmail.com'
+      });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
     }
   });
 };

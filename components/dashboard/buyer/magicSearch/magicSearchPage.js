@@ -1,13 +1,13 @@
 import { faCloudArrowUp, faClose } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useRef, useState } from 'react';
-import { Button } from 'react-bootstrap';
+import { Button, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, formatISOToDateTimeLocal, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData } from "@/services/rfq";
+import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, sendProductNotFoundEmail } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -36,6 +36,7 @@ const initialFormData = {
     contact_name: '',
     contact_number: '',
     company_name: '',
+    custom_instructions: '',
 }
 
 
@@ -139,9 +140,8 @@ const MagicSearchPage = () => {
 
         try {
             setLoading(true);
-            
-            //  upload boq file to ai server
-            const aiResponse = await getBOQexcelToJsonAI(file);
+            const customInstructions = formData.custom_instructions;
+            const aiResponse = await getBOQexcelToJsonAI(file, customInstructions);
 
             const downloadUrl = aiResponse?.data?.download_url;
             const availableSheets = aiResponse?.data?.sheetwise_downloads;
@@ -171,22 +171,39 @@ const MagicSearchPage = () => {
                 return;
               }
 
-            // further process json data get from ai server, to fetch vendor list and display data on ui
-            const response = await getMagicRFQPreview(downloadUrl, availableSheets);
+            // Process json data from AI server
+            const response = await getMagicRFQPreview(downloadUrl, availableSheets, customInstructions);
+            
+            // Check for products not found
+            const notFoundProducts = response.data?.filter(product => product.fetched_product_name === "Product not found")
+                .map(product => ({
+                    summary: product.summary_of_product_description,
+                    full_description: product.full_product_description,
+                    core_name: product.core_product_name,
+                    size: product.size,
+                    quantity: product.quantity,
+                    unit: product.unit
+                }));
+            
+            if (notFoundProducts?.length > 0) {
+                try {
+                    await sendProductNotFoundEmail(notFoundProducts);
+                    toast.info(`Notification sent for ${notFoundProducts.length} products not found`);
+                } catch (emailError) {
+                    console.error("Failed to send product not found email:", emailError);
+                }
+            }
+            
             if(response.validation_errors && Array.isArray(response.validation_errors) && response.validation_errors.length > 0) {
               setApiData(response)
   
-              // Delay the state update until all messages are shown
               setTimeout(() => {
                   setLoading(false);
                   setFileName('');
               }, 2000 * (fileUploadMessage.length - fileUploadMessageIndex));
             } else {
               const extractedId = response.savedRfq;
-                    
-              // Valid ID found, redirect to edit page
-              const numericId = parseInt(extractedId);
-              return router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${numericId}`);
+              return router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${parseInt(extractedId)}`);
             }
         } catch (error) {
             console.error(error)
@@ -554,6 +571,27 @@ const MagicSearchPage = () => {
   try {
     setLoading(true);
     const response = await getMagicRFQPreview(jsonUrl);
+    
+    // Check for products not found
+    const notFoundProducts = response.data?.filter(product => product.fetched_product_name === "Product not found")
+        .map(product => ({
+            summary: product.summary_of_product_description,
+            full_description: product.full_product_description,
+            core_name: product.core_product_name,
+            size: product.size,
+            quantity: product.quantity,
+            unit: product.unit
+        }));
+    
+    if (notFoundProducts?.length > 0) {
+        try {
+            await sendProductNotFoundEmail(notFoundProducts);
+            toast.info(`Notification sent for ${notFoundProducts.length} products not found`);
+        } catch (emailError) {
+            console.error("Failed to send product not found email:", emailError);
+        }
+    }
+    
     setApiData(response);
   } catch (error) {
     console.error("RFQ Preview fetch failed:", error);
@@ -758,19 +796,19 @@ const MagicSearchPage = () => {
 
                   </div>
                   <div className="col-md-8 mx-auto">
-                                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
+                    <h2 className="title fs-6 mb-2">Step 2: Upload Your File and other details.</h2>
                     <div
                       className="file-drop-area text-center rounded py-4"
                       style={{
-                                            border: '2px dashed grey',
-                                            cursor: 'pointer',
-                                            backgroundColor: '#fff',
-                                            color: 'green',
+                        border: '2px dashed grey',
+                        cursor: 'pointer',
+                        backgroundColor: '#fff',
+                        color: 'green',
                       }}
-                                        onClick={() => document.getElementById('fileInput').click()}
+                      onClick={() => document.getElementById('fileInput').click()}
                     >
-                                        <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
-                                        <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
+                      <FontAwesomeIcon icon={fileName ? faFileExcel : faCloudArrowUp} style={{ fontSize: "45px" }} />
+                      <p className="fw-semibold ">{fileName || 'Upload / Drag and drop your excel file here'}</p>
                     </div>
 
                     {/* //{ Hidden File Input } */}
@@ -781,14 +819,36 @@ const MagicSearchPage = () => {
                       style={{ display: 'none' }}
                       onChange={handleMagicFileUpload}
                     />
+                    
+                    {/* Custom Instructions Field */}
+                    <div className="mt-3">
+                      <h2 className="title fs-6 mb-2">Special Instructions for AI (Optional)</h2>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        placeholder="Add any specific instructions for the AI when preparing your RFQ..."
+                        name="custom_instructions"
+                        value={formData.custom_instructions}
+                        onChange={handleFormChange}
+                        style={{ resize: 'vertical' }}
+                      />
+                    </div>
                   </div>
                 </>
               ) : null}
 
               <div className="mx-auto">
-                <div className="row">
-                  <div className="col-7"></div>
-                  <div className="col-5 d-flex">
+                <div className="row align-items-center mt-4">
+                  {!reviewData && (
+                    <div className="col-md-7 d-flex align-items-center">
+                      <div className="custom-instructions-info">
+                        <small className="text-muted">
+                          If products aren't found, they'll be sent to sayankaworkwise@gmail.com
+                        </small>
+                      </div>
+                    </div>
+                  )}
+                  <div className={`col-md-${reviewData ? '12' : '5'} d-flex`}>
                     {reviewData ? (
                       <Button
                         variant="secondary"
@@ -801,7 +861,7 @@ const MagicSearchPage = () => {
                     ) : (
                       <Button
                         variant="secondary"
-                        className="ms-auto border-0 mt-4"
+                        className="ms-auto border-0"
                         style={{ width: "280px" }}
                         onClick={uploadToServer}
                       >
