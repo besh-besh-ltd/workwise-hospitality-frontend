@@ -171,11 +171,6 @@ const roleMenus = {
       label: "Reviews & Ratings",
       targetMenu: "nav",
     },
-    {
-      href: "/dashboard/vendor/communication-setting",
-      label: "Communication Settings",
-      targetMenu: "nav",
-    },
   ],
 };
 

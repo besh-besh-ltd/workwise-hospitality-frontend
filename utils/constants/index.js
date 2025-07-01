@@ -85,3 +85,28 @@ export const blogData = [
       { id: 'databases', name: 'Databases', image: 'https://picsum.photos/200/300' },
     ],
   };
+
+  export const BusinessTypes = [
+      {value : "Authorised Distributor", label : "Authorised Distributor"},
+      {value : "Authorised Dealer", label : "Authorised Dealer"},
+      {value : "Branch", label : "Branch"},
+      {value : "Channel Partner", label : "Channel Partner"},
+      {value : "Distributor", label : "Distributor"},
+      {value : "Constructor", label : "Constructor"},
+      {value : "Contractor", label : "Contractor"},
+      {value : "Dealer", label: "Dealer" },
+      {value : "Designer", label : "Designer"},
+      {value : "Exporter", label : "Exporter"},
+      {value : "Importer", label : "Importer"},
+      {value : 'Manufacturer', label: 'Manufacturer' },
+      {value : "OEM (Original EquipmentManufacturer)", label : "OEM (Original EquipmentManufacturer)"},
+      {value : "Official Distributor", label : "Official Distributor"},
+      {Value : "Partner", label : "Partner"},
+      {value : "Retailer", label : "Retailer"},
+      {value : "Service Provider", label : "Service Provider"},
+      {value : "Supplier", label : "Supplier"},
+      {value : "Subsidiary" , label : 'Subsidiary'},
+      {value : "Stockist", label : "Stockist"},
+      {value : "Trader", label : "Trader"},
+      { value: 'Wholesaler', label: 'Wholesaler' } 
+];
