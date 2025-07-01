@@ -617,6 +617,7 @@ const Item = ({
                   type="simple-text"
                   name={"unit"}
                   label={"Unit"}
+                  required = {true}
                   values={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
