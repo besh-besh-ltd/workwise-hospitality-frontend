@@ -188,7 +188,6 @@ const MagicSearchPage = () => {
             if (notFoundProducts?.length > 0) {
                 try {
                     await sendProductNotFoundEmail(notFoundProducts);
-                    toast.info(`Notification sent for ${notFoundProducts.length} products not found`);
                 } catch (emailError) {
                     console.error("Failed to send product not found email:", emailError);
                 }
