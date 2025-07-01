@@ -26,6 +26,7 @@ import { addSpoc, editSpoc } from "@/services/Auth";
 import { faTrashAlt, faTrashCan } from "@fortawesome/free-regular-svg-icons";
 import Select from "react-select";
 
+
 const EditProfile = () => {
   // handling state for spoc
   const [vendorSpoc, setVendorSpoc] = useState([]);
@@ -735,6 +736,7 @@ const EditProfile = () => {
 
                           <div className="col-md-6">
                             <div className="form-group">
+
                               <FormikField
                                 label="Website"
                                 placeholder="Ex. https://www.example.com"
@@ -770,6 +772,7 @@ const EditProfile = () => {
                                     ...provided,
                                     minHeight: '54px',
                                   }),
+
                                 }}
                               />
                             </div>

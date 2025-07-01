@@ -32,8 +32,11 @@ import { vendorConditions } from "../../vendor/search";
 import { getProductMakeList } from "@/services/products";
 import CommonFormInput from "@/components/shared/CommonFormInput";
 import AddVendorModal from "../editRFQ/AddVendorModal";
+
 import { BusinessTypes } from "@/utils/constants";
+
 import CreateRFQModal from "./CreateRFQModal";
+
 
 const myVendorOptions = [
   { label: "All Vendors", value: null },
