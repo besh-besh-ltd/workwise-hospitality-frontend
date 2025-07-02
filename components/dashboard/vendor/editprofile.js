@@ -839,7 +839,7 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
+                          {/* <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
                                 label="Company Mobile"
@@ -849,7 +849,7 @@ const EditProfile = () => {
                                 errors={errors}
                               />
                             </div>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </div>
