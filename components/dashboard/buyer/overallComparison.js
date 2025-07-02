@@ -109,27 +109,28 @@ const openModalForVariant = (variantId) => {
           const lowestQuoteDetails = lowest.quote_details[0];
           const lowestVendorDetails = lowest.vendor_details[0];
 
-          if (curItemQuoteDetails.total_price > 0) {
-            let curLowest = lowest;
-            if (
-              curItemQuoteDetails.total_price <
-              lowestQuoteDetails.total_price
-            )
-              curLowest = currentItem;
-            else if (
-              curItemQuoteDetails.total_price ==
-              lowestQuoteDetails.total_price
-            ) {
-              const curPrevWorked = curItemVendorDetails.prev_worked == 1
-              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1
+          const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
+          const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
-              if(curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+
+          if (curItemQuoteDetails.unit_price > 0) {
+            let curLowest = lowest;
+            if (currentTotal < lowestTotal) curLowest = currentItem;
+            else if (currentTotal == lowestTotal) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1;
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1;
+
+              if (curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
               else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
               else {
-                const curTimestamp = new Date(currentItem.timestamp.slice(0, 23));
+                const curTimestamp = new Date(
+                  currentItem.timestamp.slice(0, 23)
+                );
                 const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
 
-                if(curTimestamp < lowestTimestamp) curLowest = currentItem;
+                if (curTimestamp < lowestTimestamp) curLowest = currentItem;
                 else curLowest = lowest;
               }
             }
@@ -141,7 +142,10 @@ const openModalForVariant = (variantId) => {
       }
 
       if (lowest) {
-        l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
+        const lowestQuoteDetails = lowest.quote_details[0];
+        const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+
+        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
         item.quotations.map((q) => {
           if (q.id == lowest.id) {
             q.is_lowest = true;
@@ -169,6 +173,7 @@ const openModalForVariant = (variantId) => {
         tax: 0,
         freight: 0,
       };
+
       data.map((item) => {
         let q_item = item.quotations.filter(
           (q) => q.created_by == vendor.id && q.id != null && q.is_regret != 1
@@ -176,7 +181,9 @@ const openModalForVariant = (variantId) => {
 
         if (q_item.length > 0) {
           const quoteDetails = q_item[0]?.quote_details[0]
-          priceInfo.total = priceInfo.total + parseInt(quoteDetails?.total_price);
+          const quantity = quoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || quoteDetails.quantity
+          
+          priceInfo.total = priceInfo.total + parseInt(calculateTotal(quoteDetails, quantity));
           priceInfo.packaging = priceInfo.packaging + parseInt(quoteDetails?.package_price);
           priceInfo.tax = priceInfo.tax + parseInt(quoteDetails?.tax);
           priceInfo.freight = priceInfo.freight + parseInt(quoteDetails?.freight_price);
@@ -277,13 +284,11 @@ const openModalForVariant = (variantId) => {
     let PP = (total_without_fpt * package_price) / 100;
 
     let total_with_fpt = total_without_fpt + FP + PP;
-    let T = (total_without_fpt * tax) / 100;
+    let T = (total_with_fpt * tax) / 100;
 
     let TotalPrice = total_with_fpt + T;
     return Math.round(TotalPrice);
   }
-
-  console.log("checking rfq number in over all", RFQ_no);
 
   return (
     <>
@@ -652,8 +657,9 @@ const openModalForVariant = (variantId) => {
                                     key={`quote_item_${quote_item?.created_by}`}
                                   >
                                     {quote_item?.quote_details?.length > 0 &&
-                                    quote_item?.quote_details[0]
-                                      ?.total_price ? (
+                                    (parseInt(
+                                      quote_item.quote_details[0]?.unit_price
+                                    ) || 0) > 0 ? (
                                       <label className="view_breakup">
                                         <div className="tooltip_custom">
                                           Show/hide Breakup
@@ -765,12 +771,14 @@ const openModalForVariant = (variantId) => {
                                             <td>
                                               {quote_item?.quote_details
                                                 .length > 0 &&
-                                              quote_item.quote_details[0]
-                                                ?.total_price
-                                                ? addCommasToNumber(
-                                                    quote_item.quote_details[0]
-                                                      ?.total_price
-                                                  )
+                                              (parseInt(
+                                                quote_item.quote_details[0]
+                                                  ?.unit_price
+                                              ) || 0) > 0
+                                                ? addCommasToNumber(calculateTotal(
+                                                    quote_item.quote_details[0],
+                                                    quantity.value
+                                                  ))
                                                 : "-"}
                                             </td>
                                           </tr>
@@ -778,12 +786,14 @@ const openModalForVariant = (variantId) => {
                                         <p>
                                           {quote_item?.quote_details?.length >
                                             0 &&
-                                          quote_item.quote_details[0]
-                                            ?.total_price
-                                            ? addCommasToNumber(
-                                                quote_item?.quote_details[0]
-                                                  ?.total_price
-                                              )
+                                          (parseInt(
+                                            quote_item.quote_details[0]
+                                              ?.unit_price
+                                          ) || 0) > 0
+                                            ? addCommasToNumber(calculateTotal(
+                                                quote_item.quote_details[0],
+                                                quantity.value
+                                              ))
                                             : "-"}
                                         </p>
                                       </label>
