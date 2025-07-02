@@ -65,8 +65,8 @@ const QuoteCompareTable = ({
           const lowestQuoteDetails = lowest;
           const lowestVendorDetails = lowestQuoteDetails.quote_details.vendor_details;
 
-          const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
-          const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
+          const curQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
+          const lowQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
           const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
           const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
