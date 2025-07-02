@@ -101,12 +101,12 @@ export const blogData = [
       {value : 'manufacturer', label: 'Manufacturer' },
       {value : "oem (original equipment manufacturer)", label : "OEM (Original Equipment Manufacturer)"},
       {value : "official distributor", label : "Official Distributor"},
-      {Value : "partner", label : "Partner"},
+      {value : "partner", label : "Partner"},
       {value : "retailer", label : "Retailer"},
       {value : "service Provider", label : "Service Provider"},
       {value : "supplier", label : "Supplier"},
       {value : "subsidiary" , label : 'Subsidiary'},
       {value : "stockist", label : "Stockist"},
       {value : "trader", label : "Trader"},
-      { value: 'wholesaler', label: 'Wholesaler' } 
+      {value: 'wholesaler', label: 'Wholesaler' } 
 ];

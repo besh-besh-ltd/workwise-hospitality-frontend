@@ -1,8 +1,30 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import moment from "moment";
+import { Button } from "react-bootstrap";
+import { deleteDraft } from "@/services/rfq";
+import { toast } from "react-toastify";
 
-const DraftRFQItem = ({ data }) => {
+const DraftRFQItem = ({ data , refetch }) => {
+   
+  const handleDeleteDarft = async (draft_id) => {
+    try { 
+      // Call the deleteDraft service function
+      const response = await deleteDraft(draft_id);
+      if (response && response.status === 1) {
+        toast.success("Draft RFQ deleted successfully");
+        // Refetch the draft RFQs after successful deletion
+        if (refetch && typeof refetch === "function") {
+          refetch();
+        }
+      } else {
+        toast.error("Failed to delete draft RFQ");  
+      }
+    } catch (error) {
+
+      toast.error("Error deleting draft RFQ");
+    }
+  };
 
   const textCapitalize = (text) => {
     if (!text) return "";
@@ -53,24 +75,42 @@ const DraftRFQItem = ({ data }) => {
           </span>
           <span className="d-flex justify-content-between">
             <b className="fw-semibold">End Date: </b>
-            {data.bid_end_date ? moment(data.bid_end_date).format("DD/MM/YYYY") : "---"}
+            {data.bid_end_date
+              ? moment(data.bid_end_date).format("DD/MM/YYYY")
+              : "---"}
           </span>
           <span>
             <b className="fw-semibold ">Status: </b>
-            <span className="badge rounded-pill text-bg-warning ms-5">Draft</span>
+            <span className="badge rounded-pill text-bg-warning ms-5">
+              Draft
+            </span>
           </span>
         </td>
 
-        <td>{(data.rfq_type == "" || data.rfq_type == null) ? "---" : textCapitalize(data.rfq_type)}</td>
+        <td>
+          {data.rfq_type == "" || data.rfq_type == null
+            ? "---"
+            : textCapitalize(data.rfq_type)}
+        </td>
         <td>{data.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
         <td>
+          <div className="d-flex gap-3">
             <Link
               href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data?.id}`}
               className="btn btn-sm btn-primary"
-              style={{ width: "100px", padding: '9px 0' }}
+              style={{ width: "100px", padding: "9px 0" }}
             >
               Edit
             </Link>
+
+            <Button
+              className="btn btn-sm bg-danger border-0 text-white"
+              style={{ width: "100px", padding: "9px 0" }}
+              onClick={() => handleDeleteDarft(data?.id)}
+            >
+              Delete
+            </Button>
+          </div>
         </td>
       </tr>
     </>
