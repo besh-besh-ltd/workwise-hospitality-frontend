@@ -35,6 +35,26 @@ const QuoteCompareTable = ({
     calculateLowestQuote();
   }, []);
 
+  const calculateTotal = (item, quantity) => {
+    let total_qty = parseInt(quantity) || 0;
+    let unit_price = item.unit_price || 0;
+    
+    // Handle null values by defaulting to 0
+    let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
+    let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
+    let tax = item.tax !== null ? parseFloat(item.tax) : 0;
+
+    let total_without_fpt = unit_price * total_qty;
+    let FP = (total_without_fpt * freight_price) / 100;
+    let PP = (total_without_fpt * package_price) / 100;
+
+    let total_with_fpt = total_without_fpt + FP + PP;
+    let T = (total_with_fpt * tax) / 100;
+
+    let TotalPrice = total_with_fpt + T;
+    return Math.round(TotalPrice);
+  }
+
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
     if (removeRegretQuotes.length > 0) {
@@ -45,27 +65,30 @@ const QuoteCompareTable = ({
           const lowestQuoteDetails = lowest;
           const lowestVendorDetails = lowestQuoteDetails.quote_details.vendor_details;
 
-          if (curItemQuoteDetails.total_price > 0) {
-            let curLowest = lowest;
-            if (
-              curItemQuoteDetails.total_price <
-              lowestQuoteDetails.total_price
-            )
-              curLowest = currentItem;
-            else if (
-              curItemQuoteDetails.total_price ==
-              lowestQuoteDetails.total_price
-            ) {
-              const curPrevWorked = curItemVendorDetails.prev_worked == 1
-              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1
+          const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
+          const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
-              if(curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+
+          if (curItemQuoteDetails.unit_price > 0) {
+            let curLowest = lowest;
+            if (currentTotal < lowestTotal) curLowest = currentItem;
+            else if (currentTotal == lowestTotal) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1;
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1;
+
+              if (curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
               else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
               else {
-                const curTimestamp = new Date(currentItem.quote_details.timestamp.slice(0, 23));
-                const lowestTimestamp = new Date(lowest.quote_details.timestamp.slice(0, 23));
+                const curTimestamp = new Date(
+                  currentItem.quote_details.timestamp.slice(0, 23)
+                );
+                const lowestTimestamp = new Date(
+                  lowest.quote_details.timestamp.slice(0, 23)
+                );
 
-                if(curTimestamp < lowestTimestamp) curLowest = currentItem;
+                if (curTimestamp < lowestTimestamp) curLowest = currentItem;
                 else curLowest = lowest;
               }
             }
@@ -118,6 +141,9 @@ const QuoteCompareTable = ({
 
                 // Check if the quote is updated
                 let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
+
+                const rfqDetails = proditem?.product_details[0]
+                const quantity = rfqDetails?.rfq_details.find(spec => spec.title == 'Quantity')?.value || item.quantity
 
                 return (
                   <div
@@ -211,7 +237,7 @@ const QuoteCompareTable = ({
                       </Dropdown>
                     </div>
                     <div className="table-si-row table-grey-row">
-                      {item.quantity}
+                      {quantity}
                     </div>
                     <div className="table-si-row">
                       {item.unit_price}
@@ -223,12 +249,12 @@ const QuoteCompareTable = ({
                         )}
                     </div>
                     <div className="table-si-row table-grey-row fw-semibold">
-                      {item.quantity * item.unit_price}
+                      {quantity * item.unit_price}
                       {itemUpdated &&
-                        (itemUpdated.quantity != item.quantity ||
+                        (itemUpdated.quantity != quantity ||
                           itemUpdated.unit_price != item.unit_price) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
-                            {itemUpdated?.quantity * itemUpdated?.unit_price}
+                            {quantity * itemUpdated?.unit_price}
                           </span>
                         )}
                     </div>
@@ -275,11 +301,11 @@ const QuoteCompareTable = ({
                           : "table-grey-row"
                       }`}
                     >
-                      {item.total_price}
+                      {calculateTotal(item, quantity)}
                       {itemUpdated &&
-                        itemUpdated.total_price != item.total_price && (
+                        calculateTotal(itemUpdated, quantity) != calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
-                            {itemUpdated?.total_price}
+                            {calculateTotal(itemUpdated, quantity)}
                           </span>
                         )}
                       {item.is_lowest && (
