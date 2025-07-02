@@ -202,7 +202,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                           : "Technically Not Accepted"
                                         : ""}
                                     </p>
-                                    {isCleared == 1 && vendor?.evaluated_by && (
+                                    {isCleared != null && vendor?.evaluated_by && (
                                       <div className="text-light mt-2 fw-normal">
                                         <strong>Evaluated by: </strong> {vendor?.evaluated_by}
                                       </div>

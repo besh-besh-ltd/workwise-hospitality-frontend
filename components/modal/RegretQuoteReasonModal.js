@@ -17,10 +17,10 @@ const RegretQuoteReasonModal = (props) => {
   }, [props.openModal]);
 
   const initialValues = {
-    reqret_reason: ""   
+    regret_reason: ""   
   };
   const validateSchema = yup.object().shape({
-        reqret_reason: yup
+        regret_reason: yup
         .string()
         .required("Reason is required")   
     })
@@ -79,12 +79,12 @@ const RegretQuoteReasonModal = (props) => {
                             <Field
                             as="textarea"
                             rows="5"
-                            id="reqret_reason"
-                            name="reqret_reason"
+                            id="regret_reason"
+                            name="regret_reason"
                             placeholder=""
                             />
-                            {touched.reqret_reason && errors.reqret_reason && (
-                            <div className="form-error">{errors.reqret_reason}</div>
+                            {touched.regret_reason && errors.regret_reason && (
+                            <div className="form-error">{errors.regret_reason}</div>
                             )}
                         </div>
                         </div>

@@ -54,7 +54,7 @@ const SendQuotePageComp = () => {
           product.package_price > 0 || 
           product.tax > 0 || 
           product.comment.trim() !== "" || 
-          product.delivery_period.toString().trim() !== "" || 
+          (product.delivery_period.toString().trim() !== "" && !isNaN(parseInt(product.delivery_period)) && parseInt(product.delivery_period) > 0) || 
           (product.document_files && product.document_files.length > 0)) {
         return true;
       }
@@ -392,17 +392,16 @@ const SendQuotePageComp = () => {
         return product;
       })
 
-      // filteredquoteProducts.map((item) => {
-      //   if (item.total_price <= 0) {
-      //     isEmpty = true;
-      //   }
-      // });
-
-      // if (isEmpty) {
-      //   toast.error("One or more product's total amount is 0");
-      //   return;
-      // }
-
+      if (
+        updatedProducts.some(
+          (product) =>
+            (!!product.unit_price && (parseInt(product.unit_price) || 0) <= 0) ||
+            (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
+        )
+      ) {
+        return toast.error("Some required fields may be missing or in negative")
+      }
+        
       payload = { ...payload, products: updatedProducts };
 
       setsubmitLoading(true);
@@ -1166,7 +1165,7 @@ const SendQuotePageComp = () => {
                                         type="number"
                                         placeholder="E.g. 7"
                                         value={quoteProducts[index].delivery_period}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
                                           handleUpdateData(
                                             item.id,
                                             e,
@@ -1176,6 +1175,7 @@ const SendQuotePageComp = () => {
                                             "string",
                                             getProductSpecValueByTitle(item?.product_specs, "Quantity")
                                           )
+                                        }
                                         }
                                         onWheel={(e) => e.target.blur()}
                                         disabled={isTechEvalPendingOrRejected}

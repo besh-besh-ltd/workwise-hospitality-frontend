@@ -762,91 +762,13 @@ const openModalForVariant = (variantId) => {
     }
 
 
-    // FORMULA
-    // for (let row = 2; row < 2 + api_data.length; row++) {
-    //   let row_numb = row + 1;
-
-    //   for (let col = 5; col <= range.e.c; col += 5) {
-    //     let qty_cell = `${excelColumnName(4)}${row_numb}`;
-    //     let unit_price_cell = `${excelColumnName(col)}${row_numb}`;
-    //     let freight_cell = `${excelColumnName(col + 1)}${row_numb}`;
-    //     let packaging_cell = `${excelColumnName(col + 2)}${row_numb}`;
-    //     let gst_cell = `${excelColumnName(col + 3)}${row_numb}`;
-
-    //     const total_cellAddress = XLSX.utils.encode_cell({
-    //       r: row_numb - 1,
-    //       c: col + 3,
-    //     }); // First row, current column
-    //     let total_cell = ws[total_cellAddress];
-
-    //     const formula = `TRUNC((${qty_cell} * ${unit_price_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${freight_cell})+ ((${qty_cell} * ${unit_price_cell}) * ${packaging_cell}) + ((${qty_cell} * ${unit_price_cell}) * ${gst_cell}),0)`;
-    //     total_cell.f = formula;
-    //   }
-    // }
-
-    // Total Formula
-    // {
-    //   let total_row = 2 + api_data.length + 4 + 1;
-    //   for (let col = 4; col <= range.e.c + 1; col += 5) {
-    //     let col_n = excelColumnName(col);
-    //     let col_formula = "";
-    //     for (let row = 3; row <= 2 + api_data.length; row++) {
-    //       if (col_formula != "") {
-    //         col_formula = `${col_formula}+${col_n}${row}`;
-    //       } else {
-    //         col_formula = `${col_n}${row}`;
-    //       }
-    //     }
-    //     const total_cellAddress = XLSX.utils.encode_cell({
-    //       r: total_row - 1,
-    //       c: col - 1,
-    //     });
-    //     let total_cell = ws[total_cellAddress];
-    //     total_cell.f = `TRUNC(${col_formula},0)`;
-    //   }
-    // }
-
-    // Lowest formula
-    // {
-    //   for (let row = 2; row < 2 + api_data.length; row++) {
-    //     let row_numb = row + 1;
-    //     let row_cols = [];
-    //     for (let col = 9; col <= range.e.c + 1; col += 5) {
-    //       let cellAddressTemp = XLSX.utils.encode_cell({ r: row, c: col - 1 });
-
-    //       const cellValue = ws[cellAddressTemp] ? ws[cellAddressTemp].v : 0; // Cell value
-
-    //       if (parseInt(cellValue) > 0) {
-    //         let total_cell = `${excelColumnName(col)}${row_numb}`;
-    //         row_cols.push(total_cell);
-    //       }
-    //     }
-
-    //     let low_cell = XLSX.utils.encode_cell({
-    //       r: row_numb - 1,
-    //       c: range.e.c,
-    //     });
-    //     let low_cell_address = ws[low_cell];
-    //     let d = `MIN(${row_cols.join(",")})`;
-
-    //     low_cell_address.f = `${d}`;
-    //   }
-    // }
-
-    // L1 total Formula
-    // {
-    //   const l1value = XLSX.utils.encode_cell({ r: api_data.length + 7, c: 4 }); // First row, current column
-    //   const l1valuecell = ws[l1value];
-    //   let start_col = `${excelColumnName(range.e.c + 1)}3`;
-    //   let end_col = `${excelColumnName(range.e.c + 1)}${api_data.length + 2}`;
-    //   l1valuecell.f = `SUM(${start_col}:${end_col})`;
-    // }
+   
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
 
     try {
-      const filename = `${Date.now()}.xlsx`;
+      const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
       XLSX.writeFile(wb, filename);
       setDownloadLoading(false);
     } catch (error) {
@@ -962,17 +884,13 @@ const openModalForVariant = (variantId) => {
   const FilterOutGlobalTermsFiles = (all_data) => {
     let fileArr = Array.from({ length: all_data[0]?.all_vendors.length || 0 }, () => []);
 
-    all_data.forEach((prodItem) => {
-      if (
-        prodItem.quotations &&
-        prodItem.quotations.length > 0
-      ) {
-        prodItem.quotations.forEach((quoteItem, index) => {
-          if (fileArr[index].length == 0)
-            fileArr[index] = quoteItem.quote_details[0]?.document_files ? quoteItem.quote_details[0]?.document_files : [];
-        })
-      }
-    });
+    // Get global document files from all_vendors instead of product-specific files
+    if (all_data[0]?.all_vendors) {
+      all_data[0].all_vendors.forEach((vendor, index) => {
+        fileArr[index] = vendor.global_document_files ? vendor.global_document_files : [];
+      });
+    }
+    
     return fileArr;
   }
 

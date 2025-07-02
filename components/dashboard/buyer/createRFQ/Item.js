@@ -617,6 +617,7 @@ const Item = ({
                   type="simple-text"
                   name={"unit"}
                   label={"Unit"}
+                  required = {true}
                   values={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
@@ -686,7 +687,7 @@ const Item = ({
                 {
                   !handleViewVendorInEdit ? (
                   <Link
-                    href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}`}
+                    href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}&rfq_product_id=${data.id}`}
                     className="btn btn-primary "
                     // style={{ height: "40px" }}
                   >
