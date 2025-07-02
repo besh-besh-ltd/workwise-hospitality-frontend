@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
-import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI } from "@/services/rfq";
+import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI, pollBOQResult } from "@/services/rfq";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
@@ -96,27 +96,54 @@ const handleDownload = async () => {
 };
 
 
-  const handleCreateRFQ = async () => {
-    if (!file) {
-      console.error("Original file not found for RFQ creation.");
-      return;
-    }
-    setCreatingRFQ(true);
-    try {
-      const response = await getBOQexcelToJsonAI(file); // Get jsonUrl
+const handleCreateRFQ = async () => {
+  if (!file) {
+    console.error("Original file not found for RFQ creation.");
+    return;
+  }
+  setCreatingRFQ(true);
+  try {
+    const response = await getBOQexcelToJsonAI(file);
+
+    // If immediate success
+    if (
+      response?.data?.status === "success" ||
+      response?.data?.status === "partial_success"
+    ) {
       const jsonUrl = response?.data?.download_url;
       if (jsonUrl) {
-        onUploadForRFQ(jsonUrl); // Call MagicSearchPage to proceed
+        onUploadForRFQ(jsonUrl);
         setShow(false);
       } else {
-        console.error("No JSON URL received from getBOQexcelToJsonAI.");
+        console.error("No JSON URL returned on success status.");
       }
-    } catch (error) {
-      console.error("Error creating RFQ:", error);
-    } finally {
-      setCreatingRFQ(false);
+      return;
     }
-  };
+
+    // If task_id returned, need to poll
+    const taskId = response?.data?.task_id;
+    if (!taskId) {
+      toast.error("Server did not return task ID for RFQ creation.");
+      return;
+    }
+
+    const finalResponse = await pollBOQResult(taskId);
+
+    const jsonUrl = finalResponse?.download_url;
+    if (jsonUrl) {
+      onUploadForRFQ(jsonUrl);
+      setShow(false);
+    } else {
+      console.error("No JSON URL received after polling.");
+    }
+  } catch (error) {
+    console.error("Error creating RFQ:", error?.response);
+    toast.error(error?.response?.data?.detail || "RFQ creation failed. Please try again.");
+  } finally {
+    setCreatingRFQ(false);
+  }
+};
+
 
   const handleClose = () => {
     setShow(false);
