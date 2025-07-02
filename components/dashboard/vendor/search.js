@@ -290,6 +290,13 @@ const addRfqIdParam = (rfq_id) => {
       return;
     }
 
+    if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
+      toast.error("You need to purchase subscription to perform this action.",
+        { position: "top-right" }
+      );
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -526,8 +533,7 @@ const addRfqIdParam = (rfq_id) => {
   const handleBulkAllSelect = (e, items) => {
     if (
       !vendorMetaData ||
-      !vendorMetaData.logged_In ||
-      !vendorMetaData.subscription
+      !vendorMetaData.logged_In
     )
       return setOpenAuthModal(true);
 
@@ -975,8 +981,7 @@ const addRfqIdParam = (rfq_id) => {
                           }
                           onChange={(e) => {
                             if (
-                              !vendorMetaData.logged_In ||
-                              !vendorMetaData.subscription
+                              !vendorMetaData || !vendorMetaData.logged_In
                             ) {
                               setOpenAuthModal(true);
                             } else {
@@ -1061,8 +1066,7 @@ const addRfqIdParam = (rfq_id) => {
                         onChange={(e) => {
                           if (
                             !vendorMetaData ||
-                            !vendorMetaData.logged_In ||
-                            !vendorMetaData.subscription
+                            !vendorMetaData.logged_In 
                           )
                             setOpenAuthModal(true);
                           else {
@@ -1138,7 +1142,7 @@ const addRfqIdParam = (rfq_id) => {
                         type="text"
                         onChange={(e) => {
                           setInternalVendorTypes(
-                            vendorTypes.filter((type) =>
+                            vendorTypes.filter((type) => 
                               type.value
                                 .toLowerCase()
                                 .includes(e.target.value.toLowerCase())
@@ -1156,8 +1160,7 @@ const addRfqIdParam = (rfq_id) => {
                               onClick={() => {
                                 if (
                                   !vendorMetaData ||
-                                  !vendorMetaData.logged_In ||
-                                  !vendorMetaData.subscription
+                                  !vendorMetaData.logged_In
                                 )
                                   return setOpenAuthModal(true);
 
@@ -1188,8 +1191,7 @@ const addRfqIdParam = (rfq_id) => {
                                 onClick={() => {
                                   if (
                                     !vendorMetaData ||
-                                    !vendorMetaData.logged_In ||
-                                    !vendorMetaData.subscription
+                                    !vendorMetaData.logged_In
                                   )
                                     return setOpenAuthModal(true);
 
@@ -1223,8 +1225,7 @@ const addRfqIdParam = (rfq_id) => {
                         value={prevWorkedWith}
                         onChange={(e) => {
                           if (
-                            !vendorMetaData.logged_In ||
-                            !vendorMetaData.subscription
+                            !vendorMetaData || !vendorMetaData.logged_In 
                           )
                             setOpenAuthModal(true);
                           else {
@@ -1318,8 +1319,7 @@ const addRfqIdParam = (rfq_id) => {
                                   key={approveBy.id}
                                   onClick={() => {
                                     if (
-                                      !vendorMetaData.logged_In ||
-                                      !vendorMetaData.subscription
+                                      !vendorMetaData || !vendorMetaData.logged_In
                                     )
                                       return setOpenAuthModal(true);
                                     setSelectedApprovedBy((prev) => [
