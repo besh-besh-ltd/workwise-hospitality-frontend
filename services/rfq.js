@@ -380,7 +380,7 @@ export const getBOQexcelToJsonAI = (file) => {
 };
 
 
-export const pollBOQResult = async (taskId, maxAttempts = 30, interval = 30000) => {
+export const pollBOQResult = async (taskId, maxAttempts = 240, interval = 30000) => {
   const token = localStorage.getItem("token");
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
