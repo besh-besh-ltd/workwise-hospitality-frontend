@@ -99,14 +99,12 @@ const RFQItem = ({ data }) => {
             >
               View
             </Link>
-            {data.status === 1 && (
-              <Link
-                href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
-                className="page-link"
-              >
-                Edit
-              </Link>
-            )}
+            <Link
+              href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
+              className="page-link"
+            >
+              Edit
+            </Link>
           </div>
         </td>
         <td>
