@@ -90,6 +90,17 @@ const binaryType = [
   }
 ]
 
+const statusType = [
+  {
+    label: "Open",
+    value: 1,
+  }, 
+  {
+    label: "Closed",
+    value: 2,
+  }
+]
+
 const EditRFQ = () => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -604,6 +615,7 @@ const EditRFQ = () => {
         contact_number: formValues.contact_number,
         response_email: formValues.response_email || rfqData.response_email,
         bid_end_date: formValues.bid_end_date || rfqData.bid_end_date || "",
+        status: formValues.status || rfqData.status || "",
        };
 
       // Only include project_id if it exists and is a valid number
@@ -1788,7 +1800,7 @@ const EditRFQ = () => {
                       }
 
                       {/* Delivery Location - Full Width - Now Read Only */}
-                      <div className="col-12">
+                      <div className="col-6">
                         <div className="mb-3">
                           <label className="form-label fw-medium">Delivery Location  </label>
                           <input
@@ -1797,6 +1809,28 @@ const EditRFQ = () => {
                             className="form-control"
                             value={rfqFormDataFromStore.location}
                             onChange={handleFormFieldChange}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-6">
+                        <div className="mb-3">
+                          <label className="form-label fw-medium">RFQ Status  </label>
+                          <Select
+                            options={statusType}
+                            value={(() => {
+                              const rfqStatus = parseInt(rfqFormDataFromStore.status);
+                              const match = statusType.find(p => p.value == rfqStatus);
+                              return match ?? null;
+                            })()}
+                            onChange={(selectedOption) => {
+                              const rfqStatus = selectedOption ? parseInt(selectedOption.value) : null;
+                              dispatch(setOtherFormFields({ status: rfqStatus }));
+                              setHasUnsavedChanges(true);
+                            }}
+                            placeholder="Select RFQ Status"
+                            className="basic-select"
+                            classNamePrefix="select"
+                            isClearable={true}
                           />
                         </div>
                       </div>
