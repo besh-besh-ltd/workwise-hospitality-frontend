@@ -6,7 +6,7 @@ const ThankYouPage = () => {
     const navigate = useRouter();
 
     const handleGoToHomePage = () => {
-        // navigate.push('/');
+        navigate.push('/dashboard/buyer');
     };
 
     return (
