@@ -506,48 +506,34 @@ const uploadToServer = async () => {
     useEffect(() => {
         let fileMessageInterval;
         const fileMessageDisplayTime = 2000; // 2 seconds per message
-        let fileMessageCount = 0;
 
-        if (loading && !fileUploadMessagesDisplayed) {
+        if (loading) {
             fileMessageInterval = setInterval(() => {
                 setFileUploadMessageIndex((prevIndex) => (prevIndex + 1) % fileUploadMessage.length);
-                if (fileMessageCount < fileUploadMessage.length) {
-                    fileMessageCount++;
-                } else {
-                    setFileUploadMessagesDisplayed(true);
-                    clearInterval(fileMessageInterval);
-                }
             }, fileMessageDisplayTime);
         }
 
         return () => {
             clearInterval(fileMessageInterval);
         };
-    }, [loading, fileUploadMessagesDisplayed]);
+    }, [loading]);
 
 
     // Display submitMessages in a rotating fashion
     useEffect(() => {
         let submitMessageInterval;
         const submitMessageDisplayTime = 2000; // 2 seconds per message
-        let submitMessageCount = 0;
 
-        if (submitLoading && !submitMessagesDisplayed) {
+        if (submitLoading) {
             submitMessageInterval = setInterval(() => {
                 setSubmitMessageIndex((prevIndex) => (prevIndex + 1) % submitMessage.length);
-                if (submitMessageCount < submitMessage.length) {
-                    submitMessageCount++;
-                } else {
-                    setSubmitMessagesDisplayed(true);
-                    clearInterval(submitMessageInterval);
-                }
             }, submitMessageDisplayTime);
         }
 
         return () => {
             clearInterval(submitMessageInterval);
         };
-    }, [submitLoading, submitMessagesDisplayed]);
+    }, [submitLoading]);
 
     // Handle API response and state update after all messages are shown
     useEffect(() => {
