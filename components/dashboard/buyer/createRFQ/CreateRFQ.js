@@ -859,6 +859,7 @@ const CreateRFQ = () => {
         console.error("No data found in draft response");
         toast.error("Failed to load draft RFQ data");
       }
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Error loading draft by ID:", error);
       // Changes by Agnij 2025-06-17 [Improved error message with specific details]
@@ -980,6 +981,7 @@ const CreateRFQ = () => {
     setSelectedSheet(selectedOption);
     setMainLoading(true);
     dispatch(setStoreLoading(true));
+
     if(hasUnsavedChanges) {
       await handleSaveDraft();
       resetUpdatableData();
@@ -1209,6 +1211,7 @@ const CreateRFQ = () => {
 
       return updatedFilters;
     });
+    setHasUnsavedChanges(true);
   };
 
   const fetchAvailableVendorsForProduct = async () => {

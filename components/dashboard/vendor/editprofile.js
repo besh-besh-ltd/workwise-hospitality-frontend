@@ -99,7 +99,7 @@ const EditProfile = () => {
     {value : "Subsidiary" , label : 'Subsidiary'},
     {value : "Stockist", label : "Stockist"},
     {value : "Trader", label : "Trader"},
-    { value: 'Wholesaler', label: 'Wholesaler' } 
+    {value: 'Wholesaler', label: 'Wholesaler' } 
   ];
 
   const customSelectStyles = {
@@ -150,7 +150,7 @@ const EditProfile = () => {
         }
       })
       .catch((error) => {
-        console.log("Error fetching countries:", error);
+       
         setCountryCode([]);
       });
   };
@@ -311,9 +311,9 @@ const EditProfile = () => {
     const userProfileData = {
       name: values.name,
       email: values.email,
-      mobile: values.company_mobile || fullmobile, // Use company mobile if provided, otherwise personal mobile
+      mobile: fullmobile, // Use company mobile if provided, otherwise personal mobile
     };
-
+    
     const companyProfileData = {
       company_name: values.organization_name,
       about_company: values.profile,
@@ -331,15 +331,15 @@ const EditProfile = () => {
       state: selectedState ? Number(selectedState) : null,
       city: selectedCity ? Number(selectedCity) : null,
     };
-
+  
     // Execute both API calls sequentially to better handle errors
     updateProfile(userProfileData)
       .then((userResponse) => {
-        console.log("User profile updated:", userResponse);
+       
         return updatecompany(companyProfileData);
       })
       .then((companyResponse) => {
-        console.log("Company profile updated:", companyResponse);
+        
         setMainLoading(false);
         // Add a small delay before refreshing profile to ensure backend has processed
         setTimeout(() => {
@@ -349,7 +349,7 @@ const EditProfile = () => {
       })
       .catch((error) => {
         setMainLoading(false);
-        console.error("Error updating profile:", error);
+        
         // Show more specific error message
         if (error?.response?.data?.message) {
           toast(error.response.data.message);
@@ -401,7 +401,7 @@ const EditProfile = () => {
         toast.error(error.message?.response?.data?.message, {
           position: "top-right",
         });
-        console.log(error);
+        
       })
       .finally(() => {
         resetForm();
@@ -421,7 +421,7 @@ const EditProfile = () => {
         toast.error(error.message?.response?.data?.message, {
           position: "top-right",
         });
-        console.log(error);
+       
       })
       .finally(() => {
         setCreateLoading(false);
@@ -441,7 +441,7 @@ const EditProfile = () => {
         toast.error(error.message?.response?.data?.message, {
           position: "top-right",
         });
-        console.log(error);
+   
       })
       .finally(() => {
         resetForm();
@@ -839,7 +839,7 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                          <div className="col-md-6">
+                          {/* <div className="col-md-6">
                             <div className="form-group">
                               <FormikField
                                 label="Company Mobile"
@@ -849,7 +849,7 @@ const EditProfile = () => {
                                 errors={errors}
                               />
                             </div>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </div>

@@ -205,7 +205,7 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
 
     // Handle state selection
     const handleStateOptionClick = (state) => {
-        if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
+        if (!vendorMetaData.logged_In) {
             setOpenAuthModal(true);
         } else {
             setInputStateValue(state.state_name);
@@ -224,7 +224,7 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
 
     // Handle city selection
     const handleCityOptionClick = (city) => {
-        if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
+        if (!vendorMetaData.logged_In) {
             setOpenAuthModal(true);
         } else {
             const stateItem = states.find((item) => item.id === city.state_id);
@@ -243,7 +243,7 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
 
     // Handle country selection
     const handleCountryOptionClick = (country) => {
-        if (!vendorMetaData.logged_In || !vendorMetaData.subscription) {
+        if (!vendorMetaData.logged_In) {
             setOpenAuthModal(true);
         } else {
             setInputCountryValue(country.country_name);
@@ -267,6 +267,15 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         setSelectedStates(selectedState)
         setSelectedCities(selectedCity)
     }, [selectedCountry, selectedState, selectedCity])
+
+    useEffect(() => {
+        setselectedState([]);
+        setselectedCity([]);
+    }, [selectedCountries]);
+
+    useEffect(() => {
+        setselectedCity([]);
+    }, [selectedStates]);
 
     return (
         <div className="autocomplete">
