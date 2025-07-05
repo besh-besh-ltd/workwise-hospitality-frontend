@@ -77,7 +77,7 @@ const DraftRFQ = () => {
                 </thead>
                 <tbody>
                   {myDraftRFQs.map((item) => {
-                    return <DraftRFQItem key={`draft_rfq_item_${item.id}`} data={item} />;
+                    return <DraftRFQItem key={`draft_rfq_item_${item.id}`} data={item} refetch = {getAllDraftRFQs} />;
                   })}
                 </tbody>
               </table>

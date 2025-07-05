@@ -108,5 +108,5 @@ export const blogData = [
       {value : "subsidiary" , label : 'Subsidiary'},
       {value : "stockist", label : "Stockist"},
       {value : "trader", label : "Trader"},
-      { value: 'wholesaler', label: 'Wholesaler' } 
+      {value: 'wholesaler', label: 'Wholesaler' } 
 ];
