@@ -2321,6 +2321,23 @@ const CreateRFQ = () => {
             vendorModal: false,
           }))
         }
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: [
+                  ...(isChecked ? selectedProduct.vendors.map(vendor => vendor.user_id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onAdd={(item) => {
           const key = `${selectedProduct.product.id}`;
           const totalVendors = vendors?.[key]?.length ?? 0;
