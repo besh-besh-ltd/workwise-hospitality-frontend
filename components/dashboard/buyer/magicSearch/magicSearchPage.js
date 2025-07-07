@@ -652,7 +652,7 @@ const uploadToServer = async () => {
                 <>
                   <div className="col-md-8 mx-auto mt-2">
         
-        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ}  />
+        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ} customInstructions={customInstructions} />
 
                   </div>
                   <div className="col-md-8 mx-auto">
