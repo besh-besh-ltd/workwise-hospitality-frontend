@@ -200,7 +200,7 @@ const uploadToServer = async () => {
     }
 
     // Step 3: Use the result to continue with your existing flow
-    const response = await getMagicRFQPreview(downloadUrl, availableSheets, customInstructions);
+    const response = await getMagicRFQPreview(downloadUrl, availableSheets);
     if (response.validation_errors && response.validation_errors.length > 0) {
       setApiData(response);
       setTimeout(() => {
