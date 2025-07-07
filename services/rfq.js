@@ -159,7 +159,16 @@ export const saveDraft = (values) => {
     }
   });
 };
-
+export const deleteDraft = (draft_id) => {
+return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.delete(`/rfq/delete-draft/${draft_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+}
 export const addProductToDraft = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
