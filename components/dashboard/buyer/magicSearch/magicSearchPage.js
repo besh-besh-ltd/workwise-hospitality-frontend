@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, formatISOToDateTimeLocal, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, pollBOQResult } from "@/services/rfq";
+import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, pollBOQResult, persistMagicSearchJob } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -143,36 +143,42 @@ const uploadToServer = async () => {
     setLoading(true);
 
     // Step 1: Start async task and get task_id
-    const startResponse = await getBOQexcelToJsonAI(file);
+    const persistJob = await persistMagicSearchJob(fileName);
+    const webhook = persistJob.webhook;
 
+    const startResponse = await getBOQexcelToJsonAI(file, webhook);
+
+    const response = startResponse.data;
+    toast.success(response.message);
+    return router.push(`/dashboard/buyer/rfq-management?tab=processing-rfq`);
 
     const aiServerStatus = startResponse?.data?.status 
     let downloadUrl = null
     let availableSheets = null
 
         // check if already processed
-    if (
-      aiServerStatus== "success" || aiServerStatus == "partial_success"
-    ) {
-      downloadUrl = startResponse?.data?.download_url;
-      availableSheets = startResponse?.data?.sheetwise_downloads;
+    // if (
+    //   aiServerStatus== "success" || aiServerStatus == "partial_success"
+    // ) {
+    //   downloadUrl = startResponse?.data?.download_url;
+    //   availableSheets = startResponse?.data?.sheetwise_downloads;
 
-      // return;
-    }
-    else{
-    const taskId = startResponse?.data?.task_id;
+    //   // return;
+    // }
+    // else{
+    // const taskId = startResponse?.data?.task_id;
 
-    if (!taskId) {
-      toast.error("Server did not return task ID.");
-      return;
-    }
+    // if (!taskId) {
+    //   toast.error("Server did not return task ID.");
+    //   return;
+    // }
 
-    // Step 2: Poll for result
-    const aiResponse = await pollBOQResult(taskId);
+    // // Step 2: Poll for result
+    // const aiResponse = await pollBOQResult(taskId);
 
-    downloadUrl = aiResponse?.download_url;
-    availableSheets = aiResponse?.sheetwise_downloads;
-    }
+    // downloadUrl = aiResponse?.download_url;
+    // availableSheets = aiResponse?.sheetwise_downloads;
+    // }
 
 
             // const downloadUrl = "http://13.204.45.37:8000/download/json?file_hash=bd52a6dd0a11b7d8db438b1d77897f15d0c3b5764333337f6ed1b876d49086b4&stage=matched"
@@ -194,26 +200,27 @@ const uploadToServer = async () => {
             //   },
             // ];
 
-    if (!downloadUrl) {
-      toast.error("Failed to create RFQ: Please try after few minutes.");
-      return;
-    }
+    // if (!downloadUrl) {
+    //   toast.error("Failed to create RFQ: Please try after few minutes.");
+    //   return;
+    // }
 
     // Step 3: Use the result to continue with your existing flow
-    const response = await getMagicRFQPreview(downloadUrl, availableSheets);
-    if (response.validation_errors && response.validation_errors.length > 0) {
-      setApiData(response);
-      setTimeout(() => {
-        setLoading(false);
-        setFileName('');
-      }, 2000 * (fileUploadMessage.length - fileUploadMessageIndex));
-    } else {
-      const extractedId = response.savedRfq;
-      const numericId = parseInt(extractedId);
-      return router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${numericId}`);
-    }
+    // const response = await getMagicRFQPreview(downloadUrl, availableSheets);
+    // if (response.validation_errors && response.validation_errors.length > 0) {
+    //   setApiData(response);
+    //   setTimeout(() => {
+    //     setLoading(false);
+    //     setFileName('');
+    //   }, 2000 * (fileUploadMessage.length - fileUploadMessageIndex));
+    // } else {
+    //   const extractedId = response.savedRfq;
+    //   const numericId = parseInt(extractedId);
+    //   return router.push(`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${numericId}`);
+    // }
 
   } catch (error) {
+    console.log(error);
     console.error(error?.response?.data?.detail);
     toast.error(error?.response?.data?.detail || "RFQ creation failed. Please try again later.");
   } finally {

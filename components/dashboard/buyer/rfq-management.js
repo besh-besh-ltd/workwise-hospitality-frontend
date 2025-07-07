@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import CreateRFQ from "./createRFQ/CreateRFQ";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
+import ProcessingRFQ from "./processingRFQ/ProcessingRFQ";
 
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("manageRFQs");
@@ -24,17 +25,17 @@ const RfqManagement = () => {
     };
   }, []);
 
- useEffect(() => {
-  if (tab === 'create-rfq') {
-    setActiveTab('createRFQs');
-  } else if (tab === 'draft-rfq') {
-    setActiveTab('draftRFQs');
-  } else {
-    // Default to manageRFQs
-    setActiveTab('manageRFQs');
-  }
-}, [tab]);
-
+  useEffect(() => {
+    if(tab && tab == 'create-rfq'){
+      setActiveTab('createRFQs')
+    } else if(tab && tab == 'draft-rfq'){
+      setActiveTab('draftRFQs')
+    } else if (tab && tab == 'processing-rfq') {
+      setActiveTab('processingRFQs')
+    } else{
+      setActiveTab('manageRFQs')
+    }
+  }, [router])
   
 
 
@@ -102,6 +103,14 @@ const handleTabChange = (tabKey) => {
                 >
                   Draft RFQs
                 </button>
+                <button
+                  className={`tab ${
+                    activeTab === "processingRFQs" ? "active" : ""
+                  }`}
+                  onClick={() => handleTabChange("processingRFQs")}
+                >
+                  Processing RFQs
+                </button>
               </div>
 
               {activeTab === "manageRFQs" && (
@@ -112,6 +121,9 @@ const handleTabChange = (tabKey) => {
               )}
               {activeTab === "draftRFQs" && (
                 <DraftRFQ/>
+              )}
+              {activeTab === "processingRFQs" && (
+                <ProcessingRFQ />
               )}
             </div>
           </div>

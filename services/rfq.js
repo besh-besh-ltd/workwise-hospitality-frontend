@@ -150,6 +150,18 @@ export const getDraftRFQs = (payload) => {
   });
 };
 
+export const getProcessingRFQs = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Changes by Agnij 2025-05-24 [Updated to use real API instead of mock data]
+      let response = await axiosInstance.post(`/rfq/get-processing-rfqs`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const saveDraft = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -391,6 +403,19 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+/* 
+START :: Initiate magic search
+*/
+export const persistMagicSearchJob = async (file_name) => {
+  const token = localStorage.getItem("token");
+
+  const payload = {
+    file_name
+  }
+  let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
+  return response;
+};
+
 
 /* 
 START :: AI server functions 
@@ -398,13 +423,16 @@ START :: AI server functions
 
 // mart of magic serach boq to rfq, accept boq excel and return a json file url
 // Send file to /boq_to_structured_boq_and_match and get task_id
-export const getBOQexcelToJsonAI = (file, customInstructions = "") => {
+export const getBOQexcelToJsonAI = (file, webhook, customInstructions = "") => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", file);  
   if (customInstructions) {
     formData.append("custom_instructions", customInstructions);
   }
+  if(webhook)
+    formData.append("webhook", webhook);
+
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
