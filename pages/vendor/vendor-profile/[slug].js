@@ -17,7 +17,7 @@ const DynamicVendorProfilePage = ({ pageTitle }) => {
       <Head>
         <title>Workwise | {pageTitle}</title>
       </Head>
-      <VendorProfileComp />
+      <VendorProfileComp vendorId={slug} />
     </>
   );
 };

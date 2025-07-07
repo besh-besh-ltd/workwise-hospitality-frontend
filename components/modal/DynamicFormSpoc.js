@@ -13,7 +13,7 @@ const DynamicFormSpoc = ({
     countryCode
 }) => {
 
-   
+    const codeList = Array.isArray(countryCode) ? countryCode : [];
 
     const initialSpocValue = {
         spoc_name: type === "create-spoc" ? "" : spocData?.spoc_name,
@@ -41,7 +41,7 @@ const DynamicFormSpoc = ({
     const defaultCountryCode = spocData?.spoc_mobile?.trim().match(/^\+\d+(?=-)/)?.[0] || "";
 
     // Find the matched country object
-    const matchedCountry = countryCode.find(country => country.phone_code === defaultCountryCode) || null;
+    const matchedCountry = codeList.find(country => country.phone_code === defaultCountryCode) || null;
 
     const [selectedPhoneCode, setSelectedPhoneCode] = useState(matchedCountry?.phone_code || "+91");
 
@@ -176,7 +176,7 @@ const DynamicFormSpoc = ({
                                       {matchedCountry.phone_code})
                                     </option>
                                   )}
-                                  {countryCode.map((country) => (
+                                  {codeList.map((country) => (
                                     <option
                                       key={country.id}
                                       value={country.phone_code}
