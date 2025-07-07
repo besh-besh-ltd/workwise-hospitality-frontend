@@ -1214,7 +1214,7 @@ const CreateRFQ = () => {
     setHasUnsavedChanges(true);
   };
 
-  const fetchAvailableVendorsForProduct = async () => {
+  const fetchAvailableVendorsForProduct = async (searchTerm = null) => {
       if(!selectedProduct || !selectedProduct.product) return;
 
       const key = `${selectedProduct.product.id}`;
@@ -1222,7 +1222,8 @@ const CreateRFQ = () => {
       try {
         const body = {
           productId: selectedProduct.product.product_id,
-          excludeIds: vendors?.[key]?.map(vendor => vendor.user_id) ?? []
+          excludeIds: vendors?.[key]?.map(vendor => vendor.user_id) ?? [],
+          searchTerm,
         }
         const response = await getVendorsForProduct(body)
         setAddableVendors(response.data)
@@ -2407,6 +2408,24 @@ const CreateRFQ = () => {
         addedVendorsList={
           updatableData?.vendors?.[selectedProduct?.product?.id]?.addable ?? []
         }
+        fetchVendors={fetchAvailableVendorsForProduct}
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: [
+                  ...(isChecked ? addableVendors.map(vendor => vendor.id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onAdd={(item) => {
           setUpdatableData((prev) => ({
             ...prev,

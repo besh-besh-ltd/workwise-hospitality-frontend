@@ -93,7 +93,9 @@ const ViewVendorModal = ({
                     justifyContent: "space-between",
                   }}
                 >
-                  <h5 className="modal-title">RFQ Product #{productData.product?.id} Vendors List</h5>
+                  <h5 className="modal-title">
+                    RFQ Product #{productData.product?.id} Vendors List
+                  </h5>
                   <button
                     type="button"
                     aria-label="Close"
@@ -137,10 +139,22 @@ const ViewVendorModal = ({
                             <th>Email</th>
                             <th>Mobile No.</th>
                             {/* <th>Industry</th> */}
-                            <th>
+                            <th style={{ minWidth: 150 }}>
                               <div className="d-flex flex-column gap-2">
                                 <span>Action</span>
-                                <span>Select All </span><input type="checkbox" checked={updatableData.vendors?.[productData.product.id]?.deletable?.length == vendors.length} onChange={handleSelectAll}/>
+                                <div className="d-flex align-items-center gap-2">
+                                  <input
+                                    name="select-all"
+                                    type="checkbox"
+                                    checked={
+                                      updatableData.vendors?.[
+                                        productData.product.id
+                                      ]?.deletable?.length == vendors.length
+                                    }
+                                    onChange={handleSelectAll}
+                                  />
+                                  <label htmlFor="select-all">Select All</label>
+                                </div>
                               </div>
                             </th>
                           </tr>
@@ -186,9 +200,8 @@ const ViewVendorModal = ({
                                         }}
                                         onClick={(e) => {
                                           // handleRemoveVendorFromStore(e, item)
-                                          onAdd(item)
-                                        }
-                                        }
+                                          onAdd(item);
+                                        }}
                                       >
                                         <FontAwesomeIcon icon={faTrash} />
                                         Remove
@@ -204,9 +217,8 @@ const ViewVendorModal = ({
                                         }}
                                         onClick={(e) => {
                                           // handleRemoveVendorFromStore(e, item)
-                                          onRemove(item)
-                                        }
-                                        }
+                                          onRemove(item);
+                                        }}
                                       >
                                         <FontAwesomeIcon
                                           icon={faTrashRestore}
