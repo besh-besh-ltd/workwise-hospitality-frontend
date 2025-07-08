@@ -939,7 +939,6 @@ const openModalForVariant = (variantId) => {
     if (rfq) {
       setTA_Filter(false);
       setFreightFilter(false);
-      getRespectiveQuotes();
     }
   }, [rfq]);
 
