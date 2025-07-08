@@ -1232,6 +1232,76 @@ const CreateRFQ = () => {
       }
     }
 
+  const handleDeleteApplyToOtherVariants = () => {
+    const rfqProductId = selectedProduct.product.id;
+    if (!rfqProductId) return;
+
+    const sourceVendorData = updatableData.vendors?.[rfqProductId];
+    if (!sourceVendorData) return;
+
+    const deletableVendors = sourceVendorData.deletable || [];
+    const productId = sourceVendorData.product_id;
+
+    // Loop all RFQ products
+    rfqProducts.forEach((rfqProduct) => {
+      if (
+        rfqProduct.product_id === productId &&
+        rfqProduct.id !== parseInt(rfqProductId)
+      ) {
+        const otherRfqProductId = rfqProduct.id.toString();
+
+        if (!updatableData.vendors[otherRfqProductId]) {
+          // create a new object for this variant
+          updatableData.vendors[otherRfqProductId] = {
+            product_id: rfqProduct.product_id,
+            variant: rfqProduct.variant,
+            deletable: [...deletableVendors],
+            addable: [],
+          };
+        } else {
+          // update only deletable array
+          updatableData.vendors[otherRfqProductId].deletable = [
+            ...deletableVendors,
+          ];
+        }
+      }
+    });
+  };
+
+  const handleAddApplyToOtherVariants = () => {
+    const rfqProductId = selectedProduct.product.id;
+    if (!rfqProductId) return;
+
+    const sourceVendorData = updatableData.vendors?.[rfqProductId];
+    if (!sourceVendorData) return;
+
+    const addableVendors = sourceVendorData.addable || [];
+    const productId = sourceVendorData.product_id;
+
+    rfqProducts.forEach((rfqProduct) => {
+      if (
+        rfqProduct.product_id === productId &&
+        rfqProduct.id !== parseInt(rfqProductId)
+      ) {
+        const otherRfqProductId = rfqProduct.id.toString();
+
+        if (!updatableData.vendors[otherRfqProductId]) {
+          updatableData.vendors[otherRfqProductId] = {
+            product_id: rfqProduct.product_id,
+            variant: rfqProduct.variant,
+            deletable: [],
+            addable: [...addableVendors],
+          };
+        } else {
+          updatableData.vendors[otherRfqProductId].addable = [
+            ...addableVendors,
+          ];
+        }
+      }
+    });
+  };
+
+
   useEffect(() => {
     if(activeKey) {
       activeKey?.forEach((key) => {
@@ -2316,6 +2386,7 @@ const CreateRFQ = () => {
         productData={selectedProduct}
         updatableData={updatableData}
         isOpen={showModal.vendorModal}
+        applyToOtherVariants={handleDeleteApplyToOtherVariants}
         onClose={() =>
           setShowModal((prev) => ({
             ...prev,
@@ -2400,6 +2471,7 @@ const CreateRFQ = () => {
         vendors={addableVendors}
         productData={selectedProduct}
         updatableData={updatableData}
+        applyToOtherVariants={handleAddApplyToOtherVariants}
         isOpen={showModal.addVendorModal}
         onClose={() => {
           setShowModal((prev) => ({ ...prev, addVendorModal: false }));

@@ -13,6 +13,7 @@ const ViewVendorModal = ({
   onRemove,
   onSelectAll,
   updatableData,
+  applyToOtherVariants,
 }) => {
   const [initialVendors, setInitialVendors] = useState([]);
   const [vendors, setVendors] = useState(initialVendors);
@@ -96,19 +97,32 @@ const ViewVendorModal = ({
                   <h5 className="modal-title">
                     RFQ Product #{productData.product?.id} Vendors List
                   </h5>
-                  <button
-                    type="button"
-                    aria-label="Close"
-                    onClick={onClose}
-                    style={{
-                      fontSize: 24,
-                      padding: 0,
-                      border: "none",
-                      background: "transparent",
-                    }}
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
+                  <div className="d-flex align-items-center gap-3">
+                    {applyToOtherVariants && (
+                      <button
+                        onClick={applyToOtherVariants}
+                        className="btn btn-sm btn-primary"
+                        style={{
+                          padding: '0.7rem'
+                        }}
+                      >
+                        Apply to all
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Close"
+                      onClick={onClose}
+                      style={{
+                        fontSize: 24,
+                        padding: 0,
+                        border: "none",
+                        background: "transparent",
+                      }}
+                    >
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
                 </div>
                 <div
                   style={{

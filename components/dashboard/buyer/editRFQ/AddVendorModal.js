@@ -24,6 +24,7 @@ const AddVendorModal = ({
   updatableData,
   onSelectAll,
   setUpdatableData,
+  applyToOtherVariants,
 }) => {
   const [vendorSearchTerm, setVendorSearchTerm] = useState("");
 
@@ -87,19 +88,32 @@ const AddVendorModal = ({
                             {submitText}
                         </button>
                     )}
-                    <button
-                        type="button"
-                        aria-label="Close"
-                        onClick={onClose}
-                        style={{
-                        fontSize: 24,
-                        padding: 0,
-                        border: "none",
-                        background: "transparent",
-                        }}
-                    >
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <div className="d-flex align-items-center gap-3">
+                      {applyToOtherVariants && (
+                        <button
+                          onClick={applyToOtherVariants}
+                          className="btn btn-sm btn-primary"
+                          style={{
+                            padding: '0.7rem'
+                          }}
+                        >
+                          Apply to all
+                        </button>
+                      )}
+                      <button
+                          type="button"
+                          aria-label="Close"
+                          onClick={onClose}
+                          style={{
+                          fontSize: 24,
+                          padding: 0,
+                          border: "none",
+                          background: "transparent",
+                          }}
+                      >
+                          <span aria-hidden="true">&times;</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div
