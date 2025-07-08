@@ -439,11 +439,11 @@ export const getSImplifiedVersionOfBOQ = (file) => {
  END :: AI server functions 
 */
 
-export const getMagicRFQPreview = (jsonFileUrl, availableSheets, customInstructions = '') => {
+export const getMagicRFQPreview = (jsonFileUrl, availableSheets) => {
 
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, { jsonFileUrl, availableSheets, customInstructions });
+      let response = await axiosInstance.post(`/rfq/magic-search-rfq-preview`, { jsonFileUrl, availableSheets });
       resolve(response);
     } catch (error) {
       reject({ message: error });
