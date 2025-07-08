@@ -36,7 +36,7 @@ const initialFormData = {
     contact_name: '',
     contact_number: '',
     company_name: '',
-    custom_instructions: '',
+    // custom_instructions: '', // Commented out custom instruction flow
 }
 
 
@@ -63,7 +63,7 @@ const MagicSearchPage = () => {
     const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
     const [formData, setFormData] = useState(initialFormData);
-    const [customInstructions, setCustomInstructions] = useState('');
+    // const [customInstructions, setCustomInstructions] = useState(''); // Commented out custom instruction flow
 
     const [projects, setProjects] = useState([]);
     const [termList, setTermList] = useState(null);
@@ -220,7 +220,7 @@ const uploadToServer = async () => {
     setLoading(false);
     setFile(null);
     setFileName('');
-    setCustomInstructions(''); // Reset custom instructions
+    // setCustomInstructions(''); // Reset custom instructions
   }
 };
 
@@ -652,7 +652,7 @@ const uploadToServer = async () => {
                 <>
                   <div className="col-md-8 mx-auto mt-2">
         
-        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ} customInstructions={customInstructions} />
+        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ} />
 
                   </div>
                   <div className="col-md-8 mx-auto">
@@ -681,7 +681,7 @@ const uploadToServer = async () => {
                     />
 
                     {/* Custom Instructions Input */}
-                    <div className="mt-3">
+                    {/* <div className="mt-3">
                       <label htmlFor="customInstructions" className="form-label">
                         <strong>Custom Instructions (Optional)</strong>
                       </label>
@@ -696,7 +696,7 @@ const uploadToServer = async () => {
                       <small className="form-text text-muted">
                         These instructions will be considered by the AI when processing your BOQ and preparing the RFQ.
                       </small>
-                    </div>
+                    </div> */}
                   </div>
                 </>
               ) : null}
