@@ -36,6 +36,7 @@ const initialFormData = {
     contact_name: '',
     contact_number: '',
     company_name: '',
+    // custom_instructions: '', // Commented out custom instruction flow
 }
 
 
@@ -62,6 +63,7 @@ const MagicSearchPage = () => {
     const [reviewData, setReviewData] = useState(null);
     const [validationErrors, setValidationErrors] = useState(null);
     const [formData, setFormData] = useState(initialFormData);
+    // const [customInstructions, setCustomInstructions] = useState(''); // Commented out custom instruction flow
 
     const [projects, setProjects] = useState([]);
     const [termList, setTermList] = useState(null);
@@ -218,6 +220,7 @@ const uploadToServer = async () => {
     setLoading(false);
     setFile(null);
     setFileName('');
+    // setCustomInstructions(''); // Reset custom instructions
   }
 };
 
@@ -503,48 +506,34 @@ const uploadToServer = async () => {
     useEffect(() => {
         let fileMessageInterval;
         const fileMessageDisplayTime = 2000; // 2 seconds per message
-        let fileMessageCount = 0;
 
-        if (loading && !fileUploadMessagesDisplayed) {
+        if (loading) {
             fileMessageInterval = setInterval(() => {
                 setFileUploadMessageIndex((prevIndex) => (prevIndex + 1) % fileUploadMessage.length);
-                if (fileMessageCount < fileUploadMessage.length) {
-                    fileMessageCount++;
-                } else {
-                    setFileUploadMessagesDisplayed(true);
-                    clearInterval(fileMessageInterval);
-                }
             }, fileMessageDisplayTime);
         }
 
         return () => {
             clearInterval(fileMessageInterval);
         };
-    }, [loading, fileUploadMessagesDisplayed]);
+    }, [loading]);
 
 
     // Display submitMessages in a rotating fashion
     useEffect(() => {
         let submitMessageInterval;
         const submitMessageDisplayTime = 2000; // 2 seconds per message
-        let submitMessageCount = 0;
 
-        if (submitLoading && !submitMessagesDisplayed) {
+        if (submitLoading) {
             submitMessageInterval = setInterval(() => {
                 setSubmitMessageIndex((prevIndex) => (prevIndex + 1) % submitMessage.length);
-                if (submitMessageCount < submitMessage.length) {
-                    submitMessageCount++;
-                } else {
-                    setSubmitMessagesDisplayed(true);
-                    clearInterval(submitMessageInterval);
-                }
             }, submitMessageDisplayTime);
         }
 
         return () => {
             clearInterval(submitMessageInterval);
         };
-    }, [submitLoading, submitMessagesDisplayed]);
+    }, [submitLoading]);
 
     // Handle API response and state update after all messages are shown
     useEffect(() => {
@@ -663,7 +652,7 @@ const uploadToServer = async () => {
                 <>
                   <div className="col-md-8 mx-auto mt-2">
         
-        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ}  />
+        <MagicSearchDownloadModal onUploadForRFQ={handleUploadForRFQ} />
 
                   </div>
                   <div className="col-md-8 mx-auto">
@@ -690,6 +679,24 @@ const uploadToServer = async () => {
                       style={{ display: 'none' }}
                       onChange={handleMagicFileUpload}
                     />
+
+                    {/* Custom Instructions Input */}
+                    {/* <div className="mt-3">
+                      <label htmlFor="customInstructions" className="form-label">
+                        <strong>Custom Instructions (Optional)</strong>
+                      </label>
+                      <textarea
+                        id="customInstructions"
+                        className="form-control"
+                        rows="3"
+                        placeholder="Add any specific instructions or requirements for the AI when preparing the RFQ..."
+                        value={customInstructions}
+                        onChange={(e) => setCustomInstructions(e.target.value)}
+                      />
+                      <small className="form-text text-muted">
+                        These instructions will be considered by the AI when processing your BOQ and preparing the RFQ.
+                      </small>
+                    </div> */}
                   </div>
                 </>
               ) : null}
