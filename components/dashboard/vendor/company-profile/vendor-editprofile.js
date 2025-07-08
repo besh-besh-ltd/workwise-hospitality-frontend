@@ -179,11 +179,11 @@ const VendorProfile = () => {
     setCreateLoading(true);
     try {
       const res = await addSpoc({ ...values, vendor_id: id });
-      // Check for duplicate SPOC
-      if (res.data?.message === "spoc already exist") {
-        toast.error(res.data?.message || "SPOC already exists");
+      const msg = res.message?.toLowerCase?.() || "";
+      if (msg.includes("spoc already exist")) {
+        toast.error(res.message);
       } else {
-        toast.success(res.data?.message || "SPOC added successfully");
+        toast.success(res.message);
         resetForm();
         setOpenAddSpoc(false);
         getVendorProfile(); // Refresh the profile data
