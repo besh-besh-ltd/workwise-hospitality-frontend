@@ -179,10 +179,15 @@ const VendorProfile = () => {
     setCreateLoading(true);
     try {
       const res = await addSpoc({ ...values, vendor_id: id });
-      toast.success(res.data?.message || "SPOC added successfully");
-      resetForm();
-      setOpenAddSpoc(false);
-      getVendorProfile(); // Refresh the profile data
+      // Check for duplicate SPOC
+      if (res.data?.message === "spoc already exist") {
+        toast.error(res.data?.message || "SPOC already exists");
+      } else {
+        toast.success(res.data?.message || "SPOC added successfully");
+        resetForm();
+        setOpenAddSpoc(false);
+        getVendorProfile(); // Refresh the profile data
+      }
     } catch (error) {
       console.error('Error adding SPOC:', error);
       toast.error(error?.response?.data?.message || "Failed to add SPOC");
