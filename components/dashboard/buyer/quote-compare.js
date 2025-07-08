@@ -57,7 +57,7 @@ const QuoteCompare = () => {
     if (rfq) {
       getRespectiveQuotes();
     }
-  }, [router, TA_Filter, freightFilter]);
+  }, [rfq, TA_Filter, freightFilter]);
 
   useEffect(() => {
     getAllRFQs();
@@ -66,7 +66,6 @@ const QuoteCompare = () => {
   useEffect(() => {
     getAllProjects();
   }, []);
-
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -937,9 +936,10 @@ const openModalForVariant = (variantId) => {
   };
 
   useEffect(() => {
-    if (rfq)
-      getRespectiveQuotes();
-
+    if (rfq) {
+      setTA_Filter(false);
+      setFreightFilter(false);
+    }
   }, [rfq]);
 
   useEffect(() => {
