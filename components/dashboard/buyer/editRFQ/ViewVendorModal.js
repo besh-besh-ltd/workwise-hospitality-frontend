@@ -24,7 +24,7 @@ const ViewVendorModal = ({
       setVendors(
         initialVendors.filter(
           (vendor) =>
-            vendor.name.toLowerCase().includes(vendorSearchTerm) ||
+            (vendor?.name ?? vendor.user_details?.name ?? '').toLowerCase().includes(vendorSearchTerm) ||
             vendor.user_details.name.toLowerCase().includes(vendorSearchTerm) ||
             vendor.user_details.company_name.toLowerCase().includes(vendorSearchTerm)
         )
