@@ -7,6 +7,8 @@ import { toast } from "react-toastify";
 import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
 
 const RFQItem = ({ data }) => {
+  const [loading, setloading] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
@@ -42,32 +44,40 @@ const RFQItem = ({ data }) => {
   };
 
 
-  const openVendorModal = async (e) => {
+  const handleOpenVendorModal = async (e) => {
     e.preventDefault();
     setModalLoading(true);
     setShowVendorModal(true);
+    
     try {
-      const res = await getVendorsForReminder(data.id);
-      setVendors(res.data || []);
-    } catch {
-      toast.error("Failed to load vendors");
+      const response = await getVendorsForReminder(data.id);
+      setVendors(response.data || []);
+    } catch (err) {
+      console.error("Error fetching vendors:", err);
+      toast.error("Failed to load vendors. Please try again.");
       setShowVendorModal(false);
     } finally {
       setModalLoading(false);
     }
   };
 
-  const sendReminder = async (selectedVendorIds) => {
+  const handleSendSelectiveReminder = async (selectedVendorIds) => {
     try {
-      const res = await sendSelectiveReminder(data.id, selectedVendorIds);
-      if (res.message) toast.success(res.message);
+      const response = await sendSelectiveReminder(data.id, selectedVendorIds);
+      if (response.message && response.message !== "") {
+        toast.success(response.message);
+        }
       setShowVendorModal(false);
     } catch (err) {
-      toast.error(err?.message?.response?.data?.message || "Failed to send reminder");
+      if (err?.message?.response?.status === 403) {
+          toast.warning(err?.message?.response?.data?.message);
+      } else {
+        toast.error(err?.message?.response?.data?.message || "Failed to send reminder");
+      }
     }
   };
 
-  const closeModal = () => {
+  const handleCloseModal = () => {
     setShowVendorModal(false);
     setVendors([]);
   };
@@ -138,7 +148,7 @@ const RFQItem = ({ data }) => {
           {data.vendors.length > 0 && (
             <button
               type="button"
-              onClick={!isRecievedFromAll && openVendorModal}
+              onClick={!isRecievedFromAll && handleOpenVendorModal}
               className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2) ? "btn disabled" : ""}`}
               role="button"
               disabled={isRecievedFromAll || data.status == 2}
@@ -169,8 +179,8 @@ const RFQItem = ({ data }) => {
 
       <VendorSelectionModal
         isOpen={showVendorModal}
-        onClose={closeModal}
-        onSendReminder={sendReminder}
+        onClose={handleCloseModal}
+        onSendReminder={handleSendSelectiveReminder}
         vendors={vendors}
         loading={modalLoading}
       />
