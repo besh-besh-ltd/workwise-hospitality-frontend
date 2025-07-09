@@ -1,13 +1,15 @@
-import { sendReminder } from "@/services/rfq";
+import { getVendorsForReminder, sendSelectiveReminder } from "@/services/rfq";
 import { textCapitalize } from "@/utils/sharedFunctions";
 import moment from "moment";
 import Link from "next/link";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import VendorSelectionModal from "@/components/modal/VendorSelectionModal";
 
 const RFQItem = ({ data }) => {
-  const [loading, setloading] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [vendors, setVendors] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
 
   const list_products = () => {
@@ -40,24 +42,34 @@ const RFQItem = ({ data }) => {
   };
 
 
-  const handlereminder = (e) => {
+  const openVendorModal = async (e) => {
     e.preventDefault();
-    setloading(true);
-    sendReminder(data.id)
-      .then((res) => {
-        if (res.message && res.message != "") {
-          toast.success(res.message);
-        }
-      })
-      .catch((err) => {
-        if (err?.message?.response?.status === 403)
-          toast.warning(err?.message?.response?.data?.message);
-        else
-          toast.error(err?.message?.response?.data?.message);
-      })
-      .finally(() => {
-        setloading(false);
-      })
+    setModalLoading(true);
+    setShowVendorModal(true);
+    try {
+      const res = await getVendorsForReminder(data.id);
+      setVendors(res.data || []);
+    } catch {
+      toast.error("Failed to load vendors");
+      setShowVendorModal(false);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const sendReminder = async (selectedVendorIds) => {
+    try {
+      const res = await sendSelectiveReminder(data.id, selectedVendorIds);
+      if (res.message) toast.success(res.message);
+      setShowVendorModal(false);
+    } catch (err) {
+      toast.error(err?.message?.response?.data?.message || "Failed to send reminder");
+    }
+  };
+
+  const closeModal = () => {
+    setShowVendorModal(false);
+    setVendors([]);
   };
   const isRecievedFromAll = data.vendors[0]?.total_vendors == data.vendors[0]?.quote_received;
 
@@ -126,7 +138,7 @@ const RFQItem = ({ data }) => {
           {data.vendors.length > 0 && (
             <button
               type="button"
-              onClick={!isRecievedFromAll && handlereminder}
+              onClick={!isRecievedFromAll && openVendorModal}
               className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2) ? "btn disabled" : ""}`}
               role="button"
               disabled={isRecievedFromAll || data.status == 2}
@@ -154,6 +166,14 @@ const RFQItem = ({ data }) => {
 
         </td>
       </tr>
+
+      <VendorSelectionModal
+        isOpen={showVendorModal}
+        onClose={closeModal}
+        onSendReminder={sendReminder}
+        vendors={vendors}
+        loading={modalLoading}
+      />
     </>
   );
 };
