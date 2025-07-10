@@ -169,42 +169,30 @@ const openModalForVariant = (variantId) => {
     let l1totaltemp = 0;
     let totalRFQItems = 0;
 
-    all_data.filter(item => item.all_vendors && item.all_vendors.some(vendor => vendor.is_finalized)).map((item) => {
+    all_data.filter(item => item.all_vendors && item.all_vendors.some(vendor => vendor.is_finalized)).forEach((item) => {
       totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || 0);
 
-      const array = item.quotations.filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
-
-      let lowest = null;
+      const array = item.quotations.filter(item => item.vendor_details && item.vendor_details.some(vendor => vendor.is_finalized)).filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
 
       if (array.length === 1) {
-        // Handle single-element case
-        if (array[0].quote_details[0].total_price > 0) {
-          lowest = array[0];
+        if (array[0].quote_details[0].unit_price > 0) {
+          const lowestQuoteDetails = array[0].quote_details[0];
+          const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+          l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
         }
       } else {
-        // Reduce logic for multiple elements
-        lowest = array.reduce((lowest, currentItem) => {
-          const curItemQuoteDetails = currentItem.quote_details[0];
-          const curItemVendorDetails = currentItem.vendor_details[0];
+        const finalized = array.find(item => {
+          const curItemVendorDetails = item.vendor_details[0];
+          return curItemVendorDetails.is_finalized
+        })
 
-          if (curItemQuoteDetails.unit_price > 0) {
-            let curLowest = lowest;
-            if (curItemVendorDetails.is_finalized) curLowest = currentItem;
+        if(finalized) {
+          const curItemQuoteDetails = finalized.quote_details[0];
+          const lowestQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-            return curLowest;
-          }
-          return lowest;
-        }, array[0]);
+          l1totaltemp = l1totaltemp + calculateTotal(curItemQuoteDetails, lowestQuantity);
+        }
       }
-
-      if (lowest) {
-        const lowestQuoteDetails = lowest.quote_details[0];
-        const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
-
-        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
-      }
-
-      return item;
     });
 
     setFinalizedTotal(l1totaltemp);
