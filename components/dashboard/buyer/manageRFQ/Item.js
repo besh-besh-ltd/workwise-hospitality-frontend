@@ -127,11 +127,11 @@ const RFQItem = ({ data }) => {
             <button
               type="button"
               onClick={!isRecievedFromAll && handlereminder}
-              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2) ? "btn disabled" : ""}`}
+              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2 || data.is_finalized) ? "btn disabled" : ""}`}
               role="button"
               disabled={isRecievedFromAll || data.status == 2}
               aria-disabled={isRecievedFromAll}
-              style={{ width: "200px", backgroundColor: (isRecievedFromAll || isHovered) ? "var(--primary-color)" : data.status == 2 ? 'var(--red-color)' : "var(--secondary-color)" }}
+              style={{ width: "200px", backgroundColor: data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : data.status == 2 ? 'var(--red-color)' : "var(--secondary-color)" }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
@@ -143,7 +143,7 @@ const RFQItem = ({ data }) => {
                   ></span>{" "}
                   Processing request...
                 </>
-              ) : data.status == 2 ? 'RFQ has been closed' : (
+              ) : data.status == 2 ? 'RFQ has been closed' : data.is_finalized ? "All Products Finalized" : (
                 isRecievedFromAll
                   ? "All Quotes Received"
                   : `Send Reminder (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
