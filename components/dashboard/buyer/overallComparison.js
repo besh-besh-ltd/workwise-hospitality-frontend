@@ -169,7 +169,7 @@ const openModalForVariant = (variantId) => {
     let l1totaltemp = 0;
     let totalRFQItems = 0;
 
-    all_data.map((item) => {
+    all_data.filter(item => item.all_vendors && item.all_vendors.some(vendor => vendor.is_finalized)).map((item) => {
       totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || 0);
 
       const array = item.quotations.filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
