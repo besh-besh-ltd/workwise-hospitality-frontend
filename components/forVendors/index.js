@@ -34,23 +34,23 @@ const ForVendors = (props) => {
     setModal2IsOpen(false);
   };
 
-  const getTestimonialsList = () => {
-    getTestimonials(pageRef.current)
-      .then((response) => {
-        setTestimonials(response.data);
-      })
-      .catch((error) => {
-        if (error.message.response?.status === 400) {
-          toast.error(error.message.response.data.message, {
-            position: "top-center",
-          });
-        } else {
-          toast.error(error.message.message, {
-            position: "top-center",
-          });
-        }
-      });
-  };
+  // const getTestimonialsList = () => {
+  //   getTestimonials(pageRef.current)
+  //     .then((response) => {
+  //       setTestimonials(response.data);
+  //     })
+  //     .catch((error) => {
+  //       if (error.message.response?.status === 400) {
+  //         toast.error(error.message.response.data.message, {
+  //           position: "top-center",
+  //         });
+  //       } else {
+  //         toast.error(error.message.message, {
+  //           position: "top-center",
+  //         });
+  //       }
+  //     });
+  // };
 
   const getMedioVideo = () => {
     getHomeMediaVideo(pageRef.current)
@@ -73,7 +73,7 @@ const ForVendors = (props) => {
   useEffect(() => {
     getCmsSections();
     // getBanner();
-    getTestimonialsList();
+    // getTestimonialsList();
     getMedioVideo();
   }, []);
 
@@ -174,7 +174,7 @@ const ForVendors = (props) => {
         })}
 
       {/* Testimonials */}
-      {testimonials && (
+      {/* {testimonials && (
         <section
           className="home-sec-3 sc-pt-80 sc-pb-80 nobgimg"
           aria-label="vendor-testimonials"
@@ -250,7 +250,7 @@ const ForVendors = (props) => {
             </div>
           </div>
         </section>
-      )}
+      )} */}
       {/* Testimonials end*/}
 
       {/* video media start */}
