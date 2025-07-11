@@ -56,7 +56,7 @@ const CommonFormInput = ({
   const [showPassword, setShowPassword] = useState(false);
   const [countryCodes, setCountryCodes] = useState([]);
 
-  const isInvalid = touched?.[name] && errors?.[name];
+  const isInvalid = errors?.[name];
 
   if (type === "select" || type === "multiselect") {
     const safeUseField = (name) => {
@@ -266,7 +266,8 @@ const CommonFormInput = ({
           </p>
         )}
       </div>
-      <ErrorMessage name={name} component="div" className="invalid-feedback" />
+      {/* Error message always visible if error exists */}
+      {isInvalid && <div className="invalid-feedback d-block">{errors[name]}</div>}
     </div>
   );
 };
