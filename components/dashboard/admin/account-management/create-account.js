@@ -103,8 +103,6 @@ const CreateAccountPage = () => {
                       initialValues={initialValues}
                       validationSchema={createAccountSchema}
                       onSubmit={handleSubmit}
-                      // validateOnChange={true}
-                      // validateOnBlur={true}
                     >
                       {({
                         errors,
