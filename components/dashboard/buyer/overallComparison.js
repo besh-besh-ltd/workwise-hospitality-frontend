@@ -20,6 +20,7 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
   const [l1total, setl1total] = useState(0);
+  const [finalizedTotal, setFinalizedTotal] = useState(0);
   const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
@@ -55,6 +56,7 @@ const openModalForVariant = (variantId) => {
         let globalFiles = FilterOutGlobalTermsFiles(res.data);
         setAttachedFiles(globalFiles);
         getLowestBidAmount(res.data);
+        getFinalizedTotal(res.data);
         setloading(false);
       })
       .catch((err) => {
@@ -161,6 +163,39 @@ const openModalForVariant = (variantId) => {
     settotalRfqProducts(totalRFQItems);
     setdata(edited_data);
     setl1total(l1totaltemp);
+  };
+
+  const getFinalizedTotal = (all_data) => {
+    let l1totaltemp = 0;
+    let totalRFQItems = 0;
+
+    all_data.filter(item => item.all_vendors && item.all_vendors.some(vendor => vendor.is_finalized)).forEach((item) => {
+      totalRFQItems = totalRFQItems + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || 0);
+
+      const array = item.quotations.filter(item => item.vendor_details && item.vendor_details.some(vendor => vendor.is_finalized)).filter((Q_item) => Q_item.id != null && Q_item.is_regret != 1);
+
+      if (array.length === 1) {
+        if (array[0].quote_details[0].unit_price > 0) {
+          const lowestQuoteDetails = array[0].quote_details[0];
+          const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+          l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
+        }
+      } else {
+        const finalized = array.find(item => {
+          const curItemVendorDetails = item.vendor_details[0];
+          return curItemVendorDetails.is_finalized
+        })
+
+        if(finalized) {
+          const curItemQuoteDetails = finalized.quote_details[0];
+          const lowestQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+
+          l1totaltemp = l1totaltemp + calculateTotal(curItemQuoteDetails, lowestQuantity);
+        }
+      }
+    });
+
+    setFinalizedTotal(l1totaltemp);
   };
 
   let calculateVendorwiseTotalBid = () => {
@@ -875,21 +910,13 @@ const openModalForVariant = (variantId) => {
                       FINALIZED VENDOR
                     </th>
 
-                    {allvendors &&
-                      allvendors.length > 0 &&
-                      allvendors
-                        .filter((item) => item.is_finalized)
-                        ?.map((item) => {
-                          return (
-                            <th
-                              colSpan={allvendors.length}
-                              scope="col"
-                              className="l1total"
-                            >
-                              {item.total ? addCommasToNumber(item.total) : "-"}
-                            </th>
-                          );
-                        })}
+                    <th
+                      colSpan={allvendors.length}
+                      scope="col"
+                      className="l1total"
+                    >
+                      {finalizedTotal ? addCommasToNumber(finalizedTotal) : "-"}
+                    </th>
                   </tr>
 
                   <tr className="last_row">

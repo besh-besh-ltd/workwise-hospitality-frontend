@@ -159,7 +159,16 @@ export const saveDraft = (values) => {
     }
   });
 };
-
+export const deleteDraft = (draft_id) => {
+return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.delete(`/rfq/delete-draft/${draft_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+}
 export const addProductToDraft = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -366,11 +375,13 @@ START :: AI server functions
 
 // mart of magic serach boq to rfq, accept boq excel and return a json file url
 // Send file to /boq_to_structured_boq_and_match and get task_id
-export const getBOQexcelToJsonAI = (file) => {
+export const getBOQexcelToJsonAI = (file, customInstructions = "") => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);  
-
+  formData.append("file", file);
+  if (customInstructions) {
+    formData.append("custom_instructions", customInstructions);
+  }
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,

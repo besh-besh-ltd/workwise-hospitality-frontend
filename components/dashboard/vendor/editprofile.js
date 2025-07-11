@@ -1009,6 +1009,7 @@ const EditProfile = () => {
                               <th scope="col">Role</th>
                               <th scope="col">Email</th>
                               <th scope="col">Mobile</th>
+                              <th scope="col">Status</th>
                               <th scope="col">Actions</th>
                             </tr>
                           </thead>
@@ -1016,6 +1017,24 @@ const EditProfile = () => {
                             {vendorSpoc &&
                               vendorSpoc.length > 0 &&
                               vendorSpoc.map((spoc, index) => {
+                                const getStatusBadgeClass = (status) => {
+                                  switch (status) {
+                                    case 0: return 'badge bg-danger';
+                                    case 1: return 'badge bg-success';
+                                    case 2: return 'badge bg-warning';
+                                    default: return 'badge bg-secondary';
+                                  }
+                                };
+                                
+                                const getStatusText = (status) => {
+                                  switch (status) {
+                                    case 0: return 'Disapproved';
+                                    case 1: return 'Approved';
+                                    case 2: return 'Pending';
+                                    default: return 'Unknown';
+                                  }
+                                };
+
                                 return (
                                   <>
                                     <tr key={spoc.id}>
@@ -1024,6 +1043,11 @@ const EditProfile = () => {
                                       <td>{spoc.role}</td>
                                       <td>{spoc.email}</td>
                                       <td>{spoc.mobile}</td>
+                                      <td>
+                                        <span className={getStatusBadgeClass(spoc.status)}>
+                                          {getStatusText(spoc.status)}
+                                        </span>
+                                      </td>
                                       <td>
                                         {/* Edit Button */}
                                         <span

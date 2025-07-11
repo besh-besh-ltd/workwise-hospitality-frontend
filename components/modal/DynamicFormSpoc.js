@@ -13,7 +13,7 @@ const DynamicFormSpoc = ({
     countryCode
 }) => {
 
-   
+    const codeList = Array.isArray(countryCode) ? countryCode : [];
 
     const initialSpocValue = {
         spoc_name: type === "create-spoc" ? "" : spocData?.spoc_name,
@@ -26,22 +26,20 @@ const DynamicFormSpoc = ({
         spoc_name: yup.string().required("Spoc name is required")
             .min(2, "Name not less than 2 characters")
             .max(50, "Name not more than 50 characters"),
-        spoc_email: yup.string().required("Email is required").email()
-            .matches(
-                /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-                "Please enter a valid email address"
-            ),
-        spoc_mobile: yup.string()
-            .matches(
-                /^[0-9]{7,15}$/,
-                "Please enter a valid mobile number (7-15 digits)"
-            )
+        spoc_email: yup.string().required("Email is required").email("Please enter a valid email address"),
+        spoc_mobile: yup.string().test('is-valid-mobile', 'Invalid mobile number', function(value) {
+            const code = this.parent.selectedPhoneCode || '+91';
+            if (code === '+91') {
+                return /^[0-9]{10}$/.test(value || '');
+            }
+            return /^[0-9]{7,15}$/.test(value || '');
+        })
     });
   
     const defaultCountryCode = spocData?.spoc_mobile?.trim().match(/^\+\d+(?=-)/)?.[0] || "";
 
     // Find the matched country object
-    const matchedCountry = countryCode.find(country => country.phone_code === defaultCountryCode) || null;
+    const matchedCountry = codeList.find(country => country.phone_code === defaultCountryCode) || null;
 
     const [selectedPhoneCode, setSelectedPhoneCode] = useState(matchedCountry?.phone_code || "+91");
 
@@ -92,17 +90,17 @@ const DynamicFormSpoc = ({
                 </div>
 
                 <Formik
-                  initialValues={initialSpocValue}
+                  initialValues={{ ...initialSpocValue, selectedPhoneCode }}
                   validationSchema={validateSpocSchema}
                   onSubmit={(values, { resetForm }) => {
                     const formattedValues = {
                       ...values,
                       spoc_mobile:
-                        selectedPhoneCode +
+                        values.selectedPhoneCode +
                         "-" +
                         values.spoc_mobile.replace(/^0+/, ""),
                     };
-
+                    delete formattedValues.selectedPhoneCode;
                     type === "create-spoc"
                       ? handleSpoc(formattedValues, resetForm)
                       : handleEditSpoc(formattedValues, resetForm);
@@ -166,9 +164,9 @@ const DynamicFormSpoc = ({
                                     marginRight: "6px",
                                   }}
                                   value={selectedPhoneCode || ""}
-                                  onChange={(e) =>
-                                    setSelectedPhoneCode(e.target.value)
-                                  }
+                                  onChange={(e) => {
+                                    setSelectedPhoneCode(e.target.value);
+                                  }}
                                 >
                                   {matchedCountry && (
                                     <option value={matchedCountry.phone_code}>
@@ -176,7 +174,7 @@ const DynamicFormSpoc = ({
                                       {matchedCountry.phone_code})
                                     </option>
                                   )}
-                                  {countryCode.map((country) => (
+                                  {codeList.map((country) => (
                                     <option
                                       key={country.id}
                                       value={country.phone_code}

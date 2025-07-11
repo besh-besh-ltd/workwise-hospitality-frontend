@@ -19,6 +19,9 @@ import StarRating from "@/components/StarRating";
 import ProductCarousel from "./product-carousel";
 import moment from "moment";
 import { faFacebook, faLinkedin, faSkype, faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import DynamicFormSpoc from "@/components/modal/DynamicFormSpoc";
+import { addSpoc } from "@/services/Auth";
+import { getCountryCodes } from "@/services/cms";
 
 
 const VendorProfile = () => {
@@ -41,7 +44,12 @@ const VendorProfile = () => {
   const [isLoggedin, setIsLoggedIn] = useState(false);
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("login");
+  const [openAddSpoc, setOpenAddSpoc] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [countryCode, setCountryCode] = useState([]);
+  const [isBuyerUser, setIsBuyerUser] = useState(false);
 
+  const isBuyer = isBuyerUser;
 
   useEffect(() => {
     if (id != "") {
@@ -56,6 +64,14 @@ const VendorProfile = () => {
     }
   }, [vendorDetails]);
 
+  useEffect(() => {
+    // fetch country codes once
+    getCountryCodes()
+      .then((response) => {
+        setCountryCode(response?.data || []);
+      })
+      .catch(() => setCountryCode([]));
+  }, []);
 
   const getVendorPastRfq = () => {
     if (id) {
@@ -85,7 +101,7 @@ const VendorProfile = () => {
         })
         .catch((err) => {
           setloading(false);
-          console.error(err);
+          console.error('Error fetching vendor details:', err);
         });
     }
   };
@@ -135,6 +151,8 @@ const VendorProfile = () => {
 
   const getBuyerProfile = async () => {
     const res = await getProfile();
+    const userTypeVal = parseInt(res.data.user_type ?? res.data.register_as ?? 0, 10);
+    setIsBuyerUser(userTypeVal === 2);
     setcurrentUserProfile(res.data);
     calculateReviews();
     if (vendorDetails) {
@@ -154,6 +172,28 @@ const VendorProfile = () => {
     });
     let avgRating = parseFloat(totalRating) / vendorDetails?.reviews?.length;
     setavgRating(avgRating);
+  };
+
+  const handleBuyerAddSpoc = async (values, resetForm) => {
+    if (!id) return;
+    setCreateLoading(true);
+    try {
+      const res = await addSpoc({ ...values, vendor_id: id });
+      const msg = res.message?.toLowerCase?.() || "";
+      if (msg.includes("spoc already exist")) {
+        toast.error(res.message);
+      } else {
+        toast.success(res.message);
+        resetForm();
+        setOpenAddSpoc(false);
+        getVendorProfile(); // Refresh the profile data
+      }
+    } catch (error) {
+      console.error('Error adding SPOC:', error);
+      toast.error(error?.response?.data?.message || "Failed to add SPOC");
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   return (
@@ -207,7 +247,7 @@ const VendorProfile = () => {
 
       <section className="vendor-common-header sc-pt-80" aria-label="vendor-profile-page">
         <div className="container-fluid">
-          <h1 className="heading">Vendor’s profile</h1>
+          <h1 className="heading">Vendor's profile</h1>
         </div>
       </section>
 
@@ -456,7 +496,7 @@ const VendorProfile = () => {
                   vendorDetails.product_list.length > 0 && (
                     <div className="vendor-profile-sec-con-3 hasFullLoader">
                       {loading && <FullLoader />}
-                      <h2 className="title">Vendor’s Products</h2>
+                      <h2 className="title">Vendor's Products</h2>
 
                       {/* Product Carousel is ready whenever Product Image will be available uncomment this */}
                       {/* <ProductCarousel data={vendorDetails?.product_list} /> */}
@@ -490,32 +530,47 @@ const VendorProfile = () => {
                 {isLoggedin &&
                   <div className="vendor-profile-sec-con-5 hasFullLoader">
                     {loading && <FullLoader />}
-                    <h2 className="title">Vendor SPOC Details</h2>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <h2 className="title mb-0">Vendor SPOC Details</h2>
+                      {isBuyer && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => setOpenAddSpoc(true)}
+                          disabled={createLoading}
+                        >
+                          <i className="fas fa-plus me-2"></i>
+                          Add SPOC
+                        </button>
+                      )}
+                    </div>
                     {vendorDetails?.spoc_details && (
-                      vendorDetails.spoc_details.length == 0 ? <p>No SPOC Found!</p>
+                      vendorDetails.spoc_details.filter(spoc => spoc.status === 1).length === 0 ? 
+                        <p>No Approved SPOC Found!</p>
                         : <div className="row">
-                          {vendorDetails.spoc_details.map((spoc) => {
-                            return (
-                              <div className="col-md-4" key={`spoc_${spoc.id}_${spoc.user_id}`}>
-                                <div className="card">
-                                  <div className="card-body">
-                                    <div className="card-title fs-5 fw-semibold mb-1">{spoc.name}</div>
-                                    <div className="card-text">
-                                      <p className="fw-semibold mb-2" style={{ fontSize: "16px", color: "var(--primary-color)" }}>{spoc.role}</p>
-                                      <p className="d-flex align-items-center mb-1">
-                                        <FontAwesomeIcon icon={faEnvelope} className="me-2" />
-                                        <span className="text-sm">{spoc.email}</span>
-                                      </p>
-                                      <p className="d-flex align-items-center mb-2">
-                                        <FontAwesomeIcon icon={faPhone} fontSize={14} className="me-2" />
-                                        <span className="text-sm">{spoc.mobile}</span>
-                                      </p>
+                          {vendorDetails.spoc_details
+                            .filter(spoc => spoc.status === 1) // Only show approved SPOCs
+                            .map((spoc) => {
+                              return (
+                                <div className="col-md-4" key={`spoc_${spoc.id}_${spoc.user_id}`}>
+                                  <div className="card">
+                                    <div className="card-body">
+                                      <div className="card-title fs-5 fw-semibold mb-1">{spoc.name}</div>
+                                      <div className="card-text">
+                                        <p className="fw-semibold mb-2" style={{ fontSize: "16px", color: "var(--primary-color)" }}>{spoc.role}</p>
+                                        <p className="d-flex align-items-center mb-1">
+                                          <FontAwesomeIcon icon={faEnvelope} className="me-2" />
+                                          <span className="text-sm">{spoc.email}</span>
+                                        </p>
+                                        <p className="d-flex align-items-center mb-2">
+                                          <FontAwesomeIcon icon={faPhone} fontSize={14} className="me-2" />
+                                          <span className="text-sm">{spoc.mobile}</span>
+                                        </p>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            )
-                          })
+                              )
+                            })
                           }
                         </div>
                     )}
@@ -643,6 +698,17 @@ const VendorProfile = () => {
           activeAuthTab={activeAuthTab}
           setActiveAuthTab={setActiveAuthTab}
         />
+        {openAddSpoc && (
+          <DynamicFormSpoc
+            type="create-spoc"
+            spocData={{}}
+            openModal={openAddSpoc}
+            closeModal={() => setOpenAddSpoc(false)}
+            handleSpoc={handleBuyerAddSpoc}
+            handleEditSpoc={() => {}}
+            countryCode={countryCode}
+          />
+        )}
       </section>
     </>
   );
