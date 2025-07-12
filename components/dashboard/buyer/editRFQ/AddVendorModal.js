@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -20,9 +20,31 @@ const AddVendorModal = ({
   submitText,
   onSubmit,
   addedVendorsList,
+  fetchVendors,
   updatableData,
+  onSelectAll,
   setUpdatableData,
+  applyToOtherVariants,
 }) => {
+  const [vendorSearchTerm, setVendorSearchTerm] = useState("");
+
+  const handleSelectAll = (event) => {
+    const isChecked = event.target.checked;
+    onSelectAll(isChecked);
+  }
+
+  useEffect(() => {
+      if (vendorSearchTerm.length > 0 && vendorSearchTerm.length < 3) return;
+  
+      const handler = setTimeout(() => {
+        fetchVendors(vendorSearchTerm);
+      }, 800);
+  
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [vendorSearchTerm]);
+
   return (
     <>
       {isOpen && (
@@ -66,19 +88,32 @@ const AddVendorModal = ({
                             {submitText}
                         </button>
                     )}
-                    <button
-                        type="button"
-                        aria-label="Close"
-                        onClick={onClose}
-                        style={{
-                        fontSize: 24,
-                        padding: 0,
-                        border: "none",
-                        background: "transparent",
-                        }}
-                    >
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <div className="d-flex align-items-center gap-3">
+                      {applyToOtherVariants && (
+                        <button
+                          onClick={applyToOtherVariants}
+                          className="btn btn-sm btn-primary"
+                          style={{
+                            padding: '0.7rem'
+                          }}
+                        >
+                          Apply to all
+                        </button>
+                      )}
+                      <button
+                          type="button"
+                          aria-label="Close"
+                          onClick={onClose}
+                          style={{
+                          fontSize: 24,
+                          padding: 0,
+                          border: "none",
+                          background: "transparent",
+                          }}
+                      >
+                          <span aria-hidden="true">&times;</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div
@@ -87,6 +122,19 @@ const AddVendorModal = ({
                   }}
                   className="modal-body details-table"
                 >
+                  <div className="mb-3">
+                    <label className="form-label fw-medium">Vendor Name</label>
+                    <input
+                      type="text"
+                      name="product_name"
+                      className={`form-control`}
+                      value={vendorSearchTerm}
+                      placeholder="Please enter atleast 3 letters"
+                      onChange={(e) => {
+                        setVendorSearchTerm(e.target.value);
+                      }}
+                    />
+                  </div>
                   {vendors && vendors.length > 0 && (
                     <>
                       <table className="table table-striped">
@@ -97,7 +145,24 @@ const AddVendorModal = ({
                             <th>Email</th>
                             <th>Mobile No.</th>
                             {/* <th>Industry</th> */}
-                            <th>Action</th>
+                            <th style={{ minWidth: 150 }}>
+                              <div className="d-flex flex-column gap-2">
+                                <span>Action</span>
+                                <div className="d-flex align-items-center gap-2">
+                                  <input
+                                    name="select-all"
+                                    type="checkbox"
+                                    checked={
+                                      updatableData.vendors?.[
+                                        productData.product.id
+                                      ]?.addable?.length == vendors.length
+                                    }
+                                    onChange={handleSelectAll}
+                                  />
+                                  <label htmlFor="select-all">Select All</label>
+                                </div>
+                              </div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>

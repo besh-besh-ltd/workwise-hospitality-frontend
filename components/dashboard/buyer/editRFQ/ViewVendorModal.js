@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -11,9 +11,52 @@ const ViewVendorModal = ({
   onClose,
   onAdd,
   onRemove,
+  onSelectAll,
   updatableData,
+  applyToOtherVariants,
 }) => {
-  const vendors = productData.vendors;
+  const [initialVendors, setInitialVendors] = useState([]);
+  const [vendors, setVendors] = useState(initialVendors);
+
+  const [vendorSearchTerm, setVendorSearchTerm] = useState("");
+
+  const filterVendors = () => {
+    if(initialVendors) {
+      setVendors(
+        initialVendors.filter(
+          (vendor) =>
+            (vendor?.name ?? vendor.user_details?.name ?? '').toLowerCase().includes(vendorSearchTerm) ||
+            vendor.user_details.name.toLowerCase().includes(vendorSearchTerm) ||
+            vendor.user_details.company_name.toLowerCase().includes(vendorSearchTerm)
+        )
+      );
+    }
+  }
+
+  const handleSelectAll = (event) => {
+    const isChecked = event.target.checked;
+    onSelectAll(isChecked);
+  }
+
+  useEffect(() => {
+    if (vendorSearchTerm.length > 0 && vendorSearchTerm.length < 3) return;
+
+    const handler = setTimeout(() => {
+      filterVendors();
+    }, 800);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [vendorSearchTerm]);
+
+  useEffect(() => {
+    setVendors(initialVendors);
+  }, [initialVendors])
+
+  useEffect(() => {
+    setInitialVendors(productData.vendors);
+  }, [productData.vendors])
 
   return (
     <>
@@ -51,20 +94,35 @@ const ViewVendorModal = ({
                     justifyContent: "space-between",
                   }}
                 >
-                  <h5 className="modal-title">RFQ #10010 Vendor List</h5>
-                  <button
-                    type="button"
-                    aria-label="Close"
-                    onClick={onClose}
-                    style={{
-                      fontSize: 24,
-                      padding: 0,
-                      border: "none",
-                      background: "transparent",
-                    }}
-                  >
-                    <span aria-hidden="true">&times;</span>
-                  </button>
+                  <h5 className="modal-title">
+                    RFQ Product #{productData.product?.id} Vendors List
+                  </h5>
+                  <div className="d-flex align-items-center gap-3">
+                    {applyToOtherVariants && (
+                      <button
+                        onClick={applyToOtherVariants}
+                        className="btn btn-sm btn-primary"
+                        style={{
+                          padding: '0.7rem'
+                        }}
+                      >
+                        Apply to all
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Close"
+                      onClick={onClose}
+                      style={{
+                        fontSize: 24,
+                        padding: 0,
+                        border: "none",
+                        background: "transparent",
+                      }}
+                    >
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
                 </div>
                 <div
                   style={{
@@ -72,6 +130,19 @@ const ViewVendorModal = ({
                   }}
                   className="modal-body details-table"
                 >
+                  <div className="mb-3">
+                    <label className="form-label fw-medium">Vendor Name</label>
+                    <input
+                      type="text"
+                      name="product_name"
+                      className={`form-control`}
+                      value={vendorSearchTerm}
+                      placeholder="Please enter atleast 3 letters"
+                      onChange={(e) => {
+                        setVendorSearchTerm(e.target.value);
+                      }}
+                    />
+                  </div>
                   {vendors && vendors.length > 0 && (
                     <>
                       <table className="table table-striped">
@@ -82,7 +153,24 @@ const ViewVendorModal = ({
                             <th>Email</th>
                             <th>Mobile No.</th>
                             {/* <th>Industry</th> */}
-                            <th>Action</th>
+                            <th style={{ minWidth: 150 }}>
+                              <div className="d-flex flex-column gap-2">
+                                <span>Action</span>
+                                <div className="d-flex align-items-center gap-2">
+                                  <input
+                                    name="select-all"
+                                    type="checkbox"
+                                    checked={
+                                      updatableData.vendors?.[
+                                        productData.product.id
+                                      ]?.deletable?.length == vendors.length
+                                    }
+                                    onChange={handleSelectAll}
+                                  />
+                                  <label htmlFor="select-all">Select All</label>
+                                </div>
+                              </div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -126,9 +214,8 @@ const ViewVendorModal = ({
                                         }}
                                         onClick={(e) => {
                                           // handleRemoveVendorFromStore(e, item)
-                                          onAdd(item)
-                                        }
-                                        }
+                                          onAdd(item);
+                                        }}
                                       >
                                         <FontAwesomeIcon icon={faTrash} />
                                         Remove
@@ -144,9 +231,8 @@ const ViewVendorModal = ({
                                         }}
                                         onClick={(e) => {
                                           // handleRemoveVendorFromStore(e, item)
-                                          onRemove(item)
-                                        }
-                                        }
+                                          onRemove(item);
+                                        }}
                                       >
                                         <FontAwesomeIcon
                                           icon={faTrashRestore}
