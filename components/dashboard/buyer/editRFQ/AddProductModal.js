@@ -86,7 +86,7 @@ const AddProductModal = ({
                     justifyContent: "space-between",
                   }}
                 >
-                  <h5 className="modal-title">Add Products to RFQ #10010</h5>
+                  <h5 className="modal-title">Add Products to RFQ #{rfqData.rfq_no}</h5>
                   <button
                     type="button"
                     aria-label="Close"
