@@ -357,6 +357,28 @@ export const sendReminder = (id) => {
   });
 };
 
+export const getVendorsForReminder = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/vendors-for-reminder/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const sendSelectiveReminder = (id, vendor_ids) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/send-selective-reminder/${id}`, { vendor_ids });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const finalizeQuotation = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

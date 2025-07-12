@@ -387,7 +387,7 @@ const Item = ({
                 type="textarea"
                 name={"product_size"}
                 label={"Product Size"}
-                values={specs?.size || ''}
+                values={specs?.size || ""}
                 onChange={(e) => handleSpecValue("size", e.target.value)}
                 placeholder="Size"
                 className=" form-control"
@@ -602,7 +602,7 @@ const Item = ({
                   values={specs.quantity}
                   onChange={(e) => {
                     const val = e.target.value;
-                    const cleaned = val.replace(/\D+/g, '').replace(/^0+/, '');
+                    const cleaned = val.replace(/\D+/g, "").replace(/^0+/, "");
                     if (cleaned === "" || /^\d+$/.test(cleaned)) {
                       handleSpecValue("quantity", cleaned);
                     }
@@ -617,7 +617,7 @@ const Item = ({
                   type="simple-text"
                   name={"unit"}
                   label={"Unit"}
-                  required = {true}
+                  required={true}
                   values={specs.unit}
                   onChange={(e) => handleSpecValue("unit", e.target.value)}
                   placeholder="Unit"
@@ -679,13 +679,24 @@ const Item = ({
               >
                 <span style={{ marginBottom: "-8px" }}>
                   {" "}
-                  Selected Vendors - <strong>
+                  Selected Vendors -{" "}
+                  <strong>
                     {" "}
-                    {vendors ? vendors.length == 0 ? '0' : vendors.length : data.vendors?.length}
+                    {(vendors
+                      ? vendors.length == 0
+                        ? "0"
+                        : vendors.length
+                      : data.vendors?.length) +
+                      (updatableData
+                        ? updatableData.vendors?.[data.id]?.addable?.length ?? 0
+                        : 0) -
+                      (updatableData
+                        ? updatableData.vendors?.[data.id]?.deletable?.length ??
+                          0
+                        : 0)}
                   </strong>{" "}
                 </span>
-                {
-                  !handleViewVendorInEdit ? (
+                {!handleViewVendorInEdit ? (
                   <Link
                     href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}&rfq_product_id=${data.id}`}
                     className="btn btn-primary "
@@ -703,10 +714,13 @@ const Item = ({
                     {/* <FontAwesomeIcon icon={faEye} />{" "} */}
                     View vendors
                   </button>
-                  )
-                }
+                )}
                 {handleAddVendorInEdit && (
-                  <button onClick={handleAddVendorInEdit} style={{ height: "40px" }} className="upload btn btn-success text-white pt-2 btn-sm">
+                  <button
+                    onClick={handleAddVendorInEdit}
+                    style={{ height: "40px" }}
+                    className="upload btn btn-success text-white pt-2 btn-sm"
+                  >
                     Add Vendors
                   </button>
                 )}
