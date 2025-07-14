@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
-import { fetchTechEvaluationRfqList, fetchVendorSelectionOption, getAllClauses } from "@/services/rfq";
+import { getRfqs, fetchVendorSelectionOption, getAllClauses } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import ClauseProductItem from "./ClauseProductItem";
@@ -62,8 +62,15 @@ useEffect(() => {
   const getTechEvaluationRFQsByUser = async () => {
     try {
       setLoading(true);
-      const res = await fetchTechEvaluationRfqList({rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null ,project_id:selectedproject ? selectedproject : -1});
-      setRfqList(res.data);
+      const res = await getRfqs({
+        tech_eval: true,
+        page: 1,
+        limit: 100,
+        project_id: selectedproject ? selectedproject : -1,
+        rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
+        sort: 'DESC'
+      });
+      setRfqList(res.data || []);
     } catch (error) {
       console.error("Error fetching technical evaluation RFQs:", error);
     } finally {

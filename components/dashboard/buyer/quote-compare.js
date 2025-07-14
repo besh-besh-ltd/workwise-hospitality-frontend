@@ -7,7 +7,7 @@ import {
   finalizeQuotation,
   getAllClauses,
   getQuotes,
-  getRFQS,
+  getRfqs,
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
@@ -116,26 +116,34 @@ const openModalForVariant = (variantId) => {
 
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
-    getRFQS({ page, sort: "DESC", project_id: selectedproject ? selectedproject : -1, reverse_auction: '-1', rfq_type: "", limit,rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null})
+    getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC" })
       .then((res) => {
         setloading(false);
-        const newData = res.data?.filter((rItem) => rItem?.quotes?.length > 0);
-        
+        const newData = Array.isArray(res) ? res : [];
+
         if(rfqNumberChange){
           setpage(1);
           setlimit(100);
           setmyRFQs(newData);
           sethasMoreQuotes(true);  
         }else{
-          setmyRFQs((prevRFQs) => [...prevRFQs, ...newData]);
+          setmyRFQs((prevRFQs) => {
+            const all = [...prevRFQs, ...newData];
+            const unique = [];
+            const seen = new Set();
+            for (const rfq of all) {
+              if (!seen.has(rfq.id)) {
+                unique.push(rfq);
+                seen.add(rfq.id);
+              }
+            }
+            return unique;
+          });
         }
 
-        if (page >= Math.ceil(res.total_items / limit)) {
-          sethasMoreQuotes(false);
-        }
       })
       .catch((err) => {
-        console.log(err);
+        setloading(false);
       })
       .finally(() => {
         setloading(false);
@@ -952,6 +960,11 @@ const openModalForVariant = (variantId) => {
   useEffect(() => {
     getAllRFQs();
   }, [page]);
+  
+  // Debug useEffect to log myRFQs changes
+  useEffect(() => {
+    console.log('myRFQs state changed:', myRFQs, 'length:', myRFQs?.length);
+  }, [myRFQs]);
 
 
   return (
@@ -1016,13 +1029,13 @@ const openModalForVariant = (variantId) => {
                         isClearable
                     />
                 </div>
-                {!loading && myRFQs && myRFQs.length == 0
+                {!loading && myRFQs && myRFQs.length === 0
                   ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
-                  :
+                  : !loading && myRFQs && myRFQs.length > 0 ? (
                   <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
                       return (
-                        <li className={`${item.id == rfq ? "active" : ""}`}>
+                        <li key={item.id} className={`${item.id == rfq ? "active" : ""}`}>
                           <Link
                             href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
                             className={`${item.id == rfq ? "text-white" : "text-dark"}`}
@@ -1038,11 +1051,11 @@ const openModalForVariant = (variantId) => {
                     }
                     )}
 
-                    {hasMoreQuotes && !loading &&
+                    {hasMoreQuotes && !loading && myRFQs.length >= 10 && (
                       <Link href="#" className="d-flex justify-content-end px-3 pe-auto" onClick={loadMoreRFQs}>
                         <span className="link-primary">...Load More</span>
                       </Link>
-                    }
+                    )}
 
                     {hasMoreQuotes && loading && (
                       <div className="d-flex justify-content-center align-items-center" >
@@ -1053,7 +1066,7 @@ const openModalForVariant = (variantId) => {
                       </div>
                     )}
                   </ul>
-                }
+                ) : null}
               </div>
             </div>
 

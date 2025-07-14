@@ -673,6 +673,12 @@ export const fetchVendorSelectionOption = (payload) => {
   });
 };
 
+// New unified function for RFQs (GET, params in query)
+export const getRfqs = async (params) => {
+  const res = await axiosInstance.get(`/rfq/get-rfqs`, { params });
+  return res.data;
+};
+
 export const fetchTechEvaluationRfqList = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
