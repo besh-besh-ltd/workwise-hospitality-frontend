@@ -6,6 +6,7 @@ import { capitalize } from "../shared/TitleCase";
 const SubscriptionModal = (props) => {
     const { selectedSubscription, proceedToBuy, onHide, show, applyCouponToPlan, appliedCouponData, handleCpuponCode, couponCode } = props;
     let getSubscriptionDuration = {
+        "-1": "Lifetime",
         1: "Monthly",
         3: "Quarterly",
         12: "Yearly",
@@ -24,20 +25,20 @@ const SubscriptionModal = (props) => {
             <Modal.Body>
                 <div className="">
                     <div className="d-flex flex-row justify-content-between align-items-center g-6">
-                        <h5>{capitalize(selectedSubscription?.plan_name)}<span className="fs-6 text-muted mx-1">(plan)</span></h5>
+                        <h5>{capitalize(selectedSubscription.plan?.plan_name)}<span className="fs-6 text-muted mx-1">(plan)</span></h5>
                         <h3>
-                            {selectedSubscription?.plan_type == "f"
+                            {selectedSubscription.billingCycle?.plan_type == "f"
                                 ? "FREE"
-                                : `₹ ${selectedSubscription?.price} / ${getSubscriptionDuration[selectedSubscription?.duration]
+                                : `₹ ${selectedSubscription.billingCycle?.price} / ${getSubscriptionDuration[selectedSubscription.billingCycle?.duration]
                                 }`}
                         </h3>
                     </div>
 
-                    {selectedSubscription?.Offers?.length > 0 &&
+                    {selectedSubscription.billingCycle?.Offers?.length > 0 &&
                         <div className="d-flex flex-row justify-content-between align-items-center g-6">
-                            <h5>{capitalize(selectedSubscription?.Offers[0]?.text)}<span className="fs-6 text-muted mx-1">(offer)</span></h5>
+                            <h5>{capitalize(selectedSubscription.billingCycle?.Offers[0]?.text)}<span className="fs-6 text-muted mx-1">(offer)</span></h5>
                             <h3>
-                                {`₹ ${(parseInt(selectedSubscription?.discount_price)).toFixed(2)}`}
+                                {`₹ ${(parseInt(selectedSubscription.billingCycle?.discount_price)).toFixed(2)}`}
                             </h3>
                         </div>
                     }
