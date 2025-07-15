@@ -37,6 +37,7 @@ const AddVendorModal = ({
       if (vendorSearchTerm.length > 0 && vendorSearchTerm.length < 3) return;
   
       const handler = setTimeout(() => {
+        if(fetchVendors)
         fetchVendors(vendorSearchTerm);
       }, 800);
   
