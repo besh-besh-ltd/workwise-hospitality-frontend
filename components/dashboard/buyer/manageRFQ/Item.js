@@ -83,6 +83,17 @@ const RFQItem = ({ data }) => {
   };
   const isRecievedFromAll = data.vendors[0]?.total_vendors == data.vendors[0]?.quote_received;
 
+  // Utility function to check if all products are finalized
+  const areAllProductsFinalized = () => {
+    if (!data?.products || data.products.length === 0) return false;
+    // If every product has finalization_status as 'You are finalized' or 'Another vendor is finalized', consider all finalized
+    return data.products.every(
+      (prod) =>
+        prod.finalization_status === 'You are finalized' ||
+        prod.finalization_status === 'Another vendor is finalized'
+    );
+  };
+
   return (
     <>
       <tr>
@@ -148,12 +159,12 @@ const RFQItem = ({ data }) => {
           {data.vendors.length > 0 && (
             <button
               type="button"
-              onClick={!isRecievedFromAll && handleOpenVendorModal}
-              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2) ? "btn disabled" : ""}`}
+              onClick={!(isRecievedFromAll || areAllProductsFinalized() || data.status == 2) && handleOpenVendorModal}
+              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || areAllProductsFinalized() || data.status == 2) ? "btn disabled" : ""}`}
               role="button"
-              disabled={isRecievedFromAll || data.status == 2}
-              aria-disabled={isRecievedFromAll}
-              style={{ width: "200px", backgroundColor: data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : data.status == 2 ? 'var(--red-color)' : "var(--secondary-color)" }}
+              disabled={isRecievedFromAll || areAllProductsFinalized() || data.status == 2}
+              aria-disabled={isRecievedFromAll || areAllProductsFinalized()}
+              style={{ width: "200px", backgroundColor: areAllProductsFinalized() ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : data.status == 2 ? 'var(--red-color)' : "var(--secondary-color)" }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
@@ -165,7 +176,7 @@ const RFQItem = ({ data }) => {
                   ></span>{" "}
                   Processing request...
                 </>
-              ) : data.status == 2 ? 'RFQ has been closed' : data.is_finalized ? "All Products Finalized" : (
+              ) : data.status == 2 ? 'RFQ has been closed' : areAllProductsFinalized() ? "All Products Finalized" : (
                 isRecievedFromAll
                   ? "All Quotes Received"
                   : `Send Reminder (${data.vendors[0].total_vendors - data.vendors[0].quote_received}/${data.vendors[0].total_vendors})`
