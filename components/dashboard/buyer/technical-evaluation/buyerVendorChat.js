@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { addChatComment, fetchChatData } from '@/services/rfq';
+import { addChatComment, fetchChatData, getVendorDetailsByID } from '@/services/rfq';
+import { getProfileById } from '@/services/Auth';
 import { toast } from 'react-toastify';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperclip, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
@@ -17,6 +18,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
   const [loading, setLoading] = useState(false);
   const latestMessageRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [userMap, setUserMap] = useState({}); // userId -> {name, company_name, user_type}
 
 
   const handleFileClick = () => {
@@ -87,11 +89,55 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
     }
   }
 
+  // Fetch and cache sender info if needed
+  const fetchUserProfile = async (userId) => {
+    if (userMap[userId]) return;
+    let profile = null;
+    try {
+      if (userId === userData.id) {
+        profile = userData;
+      } else {
+        // Try vendor first
+        let res = await getVendorDetailsByID(userId);
+        if (res?.data && res.data.company_name) {
+          profile = {
+            user_type: 3,
+            name: res.data.company_name,
+            id: userId,
+          };
+        } else {
+          // Fallback to buyer/engineer/management
+          let res2 = await getProfileById(userId);
+          if (res2?.data) {
+            profile = {
+              user_type: res2.data.user_type,
+              name: res2.data.name,
+              id: userId,
+            };
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    if (profile) {
+      setUserMap((prev) => ({ ...prev, [userId]: profile }));
+    }
+  };
+
   useEffect(() => {
     if (data) {
       getChatData();
     }
   }, []);
+
+  // On messages load, fetch sender info for all unique senders
+  useEffect(() => {
+    if (messages) {
+      const uniqueIds = Array.from(new Set(messages.map((m) => m.created_by)));
+      uniqueIds.forEach((id) => fetchUserProfile(id));
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (latestMessageRef.current) {
@@ -118,7 +164,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
             overflow: 'hidden',
           }}
         >
-          <div className="modal-header" style={{ borderBottom: '1px solid #ddd' }}>
+          <div className="modal-header" sty le={{ borderBottom: '1px solid #ddd' }}>
             <h5 className="modal-title">Evaluation / Deviation</h5>
             <button
               type="button"
@@ -139,33 +185,40 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
           >
             {loading && <FullLoader />}
             {messages &&
-              messages.map((message, index) => (
-                <div
-                  key={`cmnt_${message.comment_id}`}
-                  ref={index === messages.length - 1 ? latestMessageRef : null}
-                  className={`d-flex ${message.created_by === userData.id ? "justify-content-end" : ""} mb-2`}
-                >
+              messages.map((msg, idx) => {
+                const sender = userMap[msg.created_by] || {};
+                const senderLabel = sender.name;
+                return (
                   <div
-                    className={`text-dark px-3 py-2 me-2 `}
-                    style={{
-                      maxWidth: "70%",
-                      backgroundColor: message.created_by === userData.id ? "#d1e7fd" : "#e0e0e0",
-                      borderRadius: message.created_by === userData.id ? "10px 0 0 10px" : "0 10px 10px 0"
-                    }}
+                    key={`cmnt_${msg.comment_id}`}
+                    ref={idx === messages.length - 1 ? latestMessageRef : null}
+                    className={`d-flex ${msg.created_by === userData.id ? "justify-content-end" : ""} mb-2`}
                   >
-                    <p className="mb-0">{message.comment_text}</p>
-                    {message.comment_files && message.comment_files.length > 0 && (
-                      <div className="mt-2">
-                        <FileLink
-                          Files={message.comment_files}
-                          Class="badge text-bg-secondary rounded-pill py-0"
-                          Style={{ fontSize: "10px" }}
-                        />
+                    <div
+                      className={`text-dark px-3 py-2 me-2 `}
+                      style={{
+                        maxWidth: "70%",
+                        backgroundColor: msg.created_by === userData.id ? "#d1e7fd" : "#e0e0e0",
+                        borderRadius: msg.created_by === userData.id ? "10px 0 0 10px" : "0 10px 10px 0"
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2 }}>
+                        {senderLabel}
                       </div>
-                    )}
+                      <p className="mb-0">{msg.comment_text}</p>
+                      {msg.comment_files && msg.comment_files.length > 0 && (
+                        <div className="mt-2">
+                          <FileLink
+                            Files={msg.comment_files}
+                            Class="badge text-bg-secondary rounded-pill py-0"
+                            Style={{ fontSize: "10px" }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
 
           <div
