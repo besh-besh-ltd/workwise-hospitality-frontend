@@ -123,6 +123,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                   </td>
                   {vendors.map((vendor) => {
                     const q = item.quotations.find(q => q.created_by === vendor.id);
+                    const isFinalized = item.all_vendors && item.all_vendors.find(v => v.id === vendor.id && v.is_finalized);
                     if (q && q.is_regret === 1) {
                       return (
                         <td key={vendor.id} style={{ background: '#d32f2f', color: '#fff', fontWeight: 600, textAlign: 'center', minWidth: 120, borderRadius: 8 }} title={q.regret_reason || 'Vendor Regretted'}>
@@ -136,8 +137,11 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       const cost = calculateTotal(details, quantity);
                       const key = `${idx}_${vendor.id}`;
                       const isOpen = breakupOpen[key];
+                      const delivery = details.delivery_period;
+                      const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
+                      const comment = details.comment;
                       return (
-                        <td key={vendor.id} style={{ minWidth: 160, background: q.is_lowest ? '#ffe082' : undefined, position: 'relative', borderRadius: 8 }}>
+                        <td key={vendor.id} style={{ minWidth: 160, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8 }}>
                           <div style={{ fontWeight: 600 }}>{cost} <span style={{ fontWeight: 400 }}>({vendor.organization_name || vendor.name})</span></div>
                           <div style={{ marginTop: 4 }}>
                             <button
@@ -148,32 +152,51 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                               {isOpen ? 'Hide Breakup' : 'Show Breakup'}
                             </button>
                             {isOpen && (
-                              <table className="table table-sm mb-0" style={{ background: '#f9f9f9', borderRadius: 8, marginTop: 6 }}>
-                                <tbody>
-                                  <tr>
-                                    <th style={{ textAlign: 'left', width: '50%' }}>Base Price</th>
-                                    <td style={{ textAlign: 'right', width: '50%' }}>{details.unit_price}</td>
-                                  </tr>
-                                  <tr>
-                                    <th style={{ textAlign: 'left' }}>Packaging (%)</th>
-                                    <td style={{ textAlign: 'right' }}>{details.package_price || 0}%</td>
-                                  </tr>
-                                  <tr>
-                                    <th style={{ textAlign: 'left' }}>Freight (%)</th>
-                                    <td style={{ textAlign: 'right' }}>{details.freight_price || 0}%</td>
-                                  </tr>
-                                  <tr>
-                                    <th style={{ textAlign: 'left' }}>GST (%)</th>
-                                    <td style={{ textAlign: 'right' }}>{details.tax || 0}%</td>
-                                  </tr>
-                                  <tr>
-                                    <th style={{ textAlign: 'left' }}>Total</th>
-                                    <td style={{ textAlign: 'right' }}>{cost}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
+                              <div style={{ marginTop: 6 }}>
+                                <table className="table table-sm mb-0" style={{ background: '#f9f9f9', borderRadius: 8 }}>
+                                  <tbody>
+                                    <tr>
+                                      <th style={{ textAlign: 'left', width: '50%' }}>Base Price</th>
+                                      <td style={{ textAlign: 'right', width: '50%' }}>{details.unit_price}</td>
+                                    </tr>
+                                    <tr>
+                                      <th style={{ textAlign: 'left' }}>Packaging (%)</th>
+                                      <td style={{ textAlign: 'right' }}>{details.package_price || 0}%</td>
+                                    </tr>
+                                    <tr>
+                                      <th style={{ textAlign: 'left' }}>Freight (%)</th>
+                                      <td style={{ textAlign: 'right' }}>{details.freight_price || 0}%</td>
+                                    </tr>
+                                    <tr>
+                                      <th style={{ textAlign: 'left' }}>GST (%)</th>
+                                      <td style={{ textAlign: 'right' }}>{details.tax || 0}%</td>
+                                    </tr>
+                                    <tr>
+                                      <th style={{ textAlign: 'left' }}>Total</th>
+                                      <td style={{ textAlign: 'right' }}>{cost}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                                {comment && (
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
+                                    <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Comment:</div>
+                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'right', whiteSpace: 'pre-line' }}><ReadMore content={comment} maxLength={60} /></div>
+                                  </div>
+                                )}
+                                {delivery && (
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
+                                    <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Delivery:</div>
+                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>{delivery} weeks</div>
+                                  </div>
+                                )}
+                                {docFile && (
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
+                                    <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Document:</div>
+                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}><a href={docFile} target="_blank" rel="noopener noreferrer" style={{ color: '#0046ad', textDecoration: 'underline' }}>View File</a></div>
+                                  </div>
+                                )}
+                              </div>
                             )}
-                            {isOpen && details.comment && <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>Comment: {details.comment}</div>}
                           </div>
                           {item.product_specs?.find(s => s.title === 'total_price')?.value && (
                             <div style={{ fontSize: '0.9em', color: '#0046ad', marginTop: 2 }}>Total: {item.product_specs.find(s => s.title === 'total_price').value}</div>
