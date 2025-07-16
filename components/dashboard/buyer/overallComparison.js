@@ -357,7 +357,7 @@ const openModalForVariant = (variantId) => {
                       className="sl_no heading"
                       colSpan={allvendors.length + 5}
                     >
-                      OVERALL COMPARISON CHART
+                      Category Wise Comparison
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
                     </th>
