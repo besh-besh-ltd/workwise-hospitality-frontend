@@ -406,11 +406,12 @@ export const finalizeQuotation = (payload) => {
 /* 
 START :: Initiate magic search
 */
-export const persistMagicSearchJob = async (file_name) => {
+export const persistMagicSearchJob = async (file_name, type = 'rfq') => {
   const token = localStorage.getItem("token");
 
   const payload = {
-    file_name
+    file_name,
+    type
   }
   let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
   return response;
@@ -472,10 +473,13 @@ export const pollBOQResult = async (taskId, maxAttempts = 240, interval = 30000)
 
 
 //  accept a unstructure boq excel and return a structure boq excel url
-export const getSImplifiedVersionOfBOQ = (file) => {
+export const getSImplifiedVersionOfBOQ = (file, webhook) => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
   formData.append("file", file);
+
+  if(webhook)
+    formData.append("webhook", webhook);
 
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq`, formData, {
     headers: {

@@ -5,6 +5,7 @@ import ProcessingRFQItem from "./Item";
 import Pagination from "@/components/shared/Pagination";
 import FilterSection from "@/components/shared/FilterSection";
 import { toast } from "react-toastify";
+import ProcessingErrorsModal from "./ProcessingErrorModal";
 
 const initialFilterData = {
   project_id: -1,
@@ -21,6 +22,8 @@ const ProcessingRFQ = () => {
   const [filterData, setFilterData] = useState(initialFilterData);
   const [myProcessingRFQs, setMyProcessingRFQs] = useState([]);
   const [totalProcessingRFQs, setTotalProcessingRFQs] = useState(0);
+  const [activeRFQ, setActiveRFQ] = useState(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   // Function to get all draft RFQs
   const getAllProcessingRFQs = () => {
@@ -61,7 +64,7 @@ const ProcessingRFQ = () => {
           )}
           {!loading && myProcessingRFQs && myProcessingRFQs.length > 0 && (
             <div className="table-responsive">
-              <table className="table table-striped ">
+              <table className="table align-middle">
                 <thead>
                   <tr>
                     <th>Persistence ID</th>
@@ -77,7 +80,16 @@ const ProcessingRFQ = () => {
                 </thead>
                 <tbody>
                   {myProcessingRFQs.map((item) => {
-                    return <ProcessingRFQItem key={`processing_rfq_item_${item.id}`} data={item} />;
+                    return (
+                      <ProcessingRFQItem
+                        key={`processing_rfq_item_${item.id}`}
+                        data={item}
+                        onViewErrors={() => {
+                          setActiveRFQ(item);
+                          setShowErrorModal(true);
+                        }}
+                      />
+                    );
                   })}
                 </tbody>
               </table>
@@ -93,6 +105,12 @@ const ProcessingRFQ = () => {
               totalData={totalProcessingRFQs}
             />
           )}
+
+          <ProcessingErrorsModal
+            show={showErrorModal}
+            errors={activeRFQ?.errors}
+            onClose={() => setShowErrorModal(false)}
+          />
         </div>
       </div>
     </>

@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 import CreateRFQ from "./createRFQ/CreateRFQ";
 import ManageRFQ from "./manageRFQ/ManageRFQ";
 import DraftRFQ from "./draftRFQ/DraftRFQ";
-import ProcessingRFQ from "./processingRFQ/ProcessingRFQ";
 
 const RfqManagement = () => {
   const [activeTab, setActiveTab] = useState("manageRFQs");
@@ -103,14 +102,6 @@ const handleTabChange = (tabKey) => {
                 >
                   Draft RFQs
                 </button>
-                <button
-                  className={`tab ${
-                    activeTab === "processingRFQs" ? "active" : ""
-                  }`}
-                  onClick={() => handleTabChange("processingRFQs")}
-                >
-                  Processing RFQs
-                </button>
               </div>
 
               {activeTab === "manageRFQs" && (
@@ -121,9 +112,6 @@ const handleTabChange = (tabKey) => {
               )}
               {activeTab === "draftRFQs" && (
                 <DraftRFQ/>
-              )}
-              {activeTab === "processingRFQs" && (
-                <ProcessingRFQ />
               )}
             </div>
           </div>
