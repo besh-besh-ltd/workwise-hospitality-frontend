@@ -148,10 +148,10 @@ const RFQItem = ({ data }) => {
           {data.vendors.length > 0 && (
             <button
               type="button"
-              onClick={!isRecievedFromAll && handleOpenVendorModal}
-              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2) ? "btn disabled" : ""}`}
+              onClick={!isRecievedFromAll && !data.is_finalized && handleOpenVendorModal}
+              className={`page-link-btn border-0 p-2 my-3 rounded-2 ${(isRecievedFromAll || data.status == 2 || data.is_finalized) ? "btn disabled" : ""}`}
               role="button"
-              disabled={isRecievedFromAll || data.status == 2}
+              disabled={isRecievedFromAll || data.status == 2 || data.is_finalized}
               aria-disabled={isRecievedFromAll}
               style={{ width: "200px", backgroundColor: data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : data.status == 2 ? 'var(--red-color)' : "var(--secondary-color)" }}
               onMouseEnter={() => setIsHovered(true)}
