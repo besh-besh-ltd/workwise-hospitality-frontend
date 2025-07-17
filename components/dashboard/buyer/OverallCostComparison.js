@@ -84,9 +84,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               <th style={{ background: '#2d5ba7', color: '#fff', maxWidth: 100, width: 100 }}>Quantity</th>
               {vendors.map((vendor, idx) => (
                 <th key={vendor.id} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === vendors.length - 1 ? 12 : 0 }}>
-                  {`L${idx + 1}`}
-                  <br />
-                  <span style={{ fontWeight: 400 }}>{vendor.organization_name || vendor.name}</span>
+                  {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
                 </th>
               ))}
             </tr>
