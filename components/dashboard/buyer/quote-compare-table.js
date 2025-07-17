@@ -95,35 +95,53 @@ const QuoteCompareTable = ({
     ));
   };
 
+  const handleSendPO = () => {
+    
+  }
+
   return (
     <>
-      <div className="table-content" key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}>
+      <div
+        className="table-content"
+        key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}
+      >
         <div className="table-elements">
           <div className="table-row">
             <div className="table-col">
               <div className="table-si-row "></div>
               <div className="table-si-row table-grey-row">Quantity</div>
               <div className="table-si-row">Base Price</div>
-              <div className="table-si-row fw-semibold table-grey-row">Sub Total Rate</div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Sub Total Rate
+              </div>
               <div className="table-si-row">Packaging (%)</div>
               <div className="table-si-row table-grey-row">Freight (%)</div>
               <div className="table-si-row">GST (%)</div>
-              <div className="table-si-row fw-semibold table-grey-row">Total Rate</div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Total Rate
+              </div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
-              <div className="table-si-row table-grey-row">Terms & Conditions</div>
+              <div className="table-si-row table-grey-row">
+                Terms & Conditions
+              </div>
               <div className="table-si-row">Payment Terms</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
-
                 // Check if the quote is updated
-                let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
+                let itemUpdated =
+                  item.previous_quotes?.length > 0
+                    ? item.previous_quotes[item.previous_quotes.length - 1]
+                    : null;
 
-                const rfqDetails = proditem?.product_details[0]
-                const quantity = rfqDetails?.rfq_details.find(spec => spec.title == 'Quantity')?.value || item.quantity
+                const rfqDetails = proditem?.product_details[0];
+                const quantity =
+                  rfqDetails?.rfq_details.find(
+                    (spec) => spec.title == "Quantity"
+                  )?.value || item.quantity;
 
                 return (
                   <div
@@ -134,7 +152,10 @@ const QuoteCompareTable = ({
                       className="table-si-row table-dark-row "
                       style={{ overflow: "visible" }}
                     >
-                      <span className="d-block text-center fw-bold fs-5" style={{"width" : "100%"}}>
+                      <span
+                        className="d-block text-center fw-bold fs-5"
+                        style={{ width: "100%" }}
+                      >
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||
                           item?.quote_details?.vendor_details?.name}
@@ -283,7 +304,8 @@ const QuoteCompareTable = ({
                     >
                       {calculateTotal(item, quantity)}
                       {itemUpdated &&
-                        calculateTotal(itemUpdated, quantity) != calculateTotal(item, quantity) && (
+                        calculateTotal(itemUpdated, quantity) !=
+                          calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {calculateTotal(itemUpdated, quantity)}
                           </span>
@@ -362,38 +384,36 @@ const QuoteCompareTable = ({
         <div className="quote-sec-bottom">
           {lowestQuote && (
             <div className="quote-sec-bottom-con">
-            <div>
-              <span>
-                <b>Lowest Bid</b> :{" "}
-                {
-                  lowestQuote?.quote_details?.vendor_details?.organization_name 
-               || lowestQuote?.quote_details?.vendor_details?.name
+              <div>
+                <span>
+                  <b>Lowest Bid</b> :{" "}
+                  {lowestQuote?.quote_details?.vendor_details
+                    ?.organization_name ||
+                    lowestQuote?.quote_details?.vendor_details?.name}
+                </span>
+                <span>
+                  <Link
+                    href={
+                      "mailto:" +
+                      lowestQuote?.quote_details?.vendor_details?.email
+                    }
+                  >
+                    <FontAwesomeIcon icon={faEnvelope} />
+                  </Link>
+                </span>
 
-                }
-              </span>
-              <span>
-                <Link
-                  href={
-                    "mailto:" +
-                    lowestQuote?.quote_details?.vendor_details?.email
-                  }
-                >
-                  <FontAwesomeIcon icon={faEnvelope} />
-                </Link>
-              </span>
-
-              <span>
-                <Link
-                  href={
-                    "tel: " +
-                    lowestQuote[0]?.quote_details?.vendor_details?.mobile
-                  }
-                >
-                  <FontAwesomeIcon icon={faPhone} />
-                </Link>
-              </span>
-</div>
-              {isRfqClosed ?
+                <span>
+                  <Link
+                    href={
+                      "tel: " +
+                      lowestQuote[0]?.quote_details?.vendor_details?.mobile
+                    }
+                  >
+                    <FontAwesomeIcon icon={faPhone} />
+                  </Link>
+                </span>
+              </div>
+              {isRfqClosed ? (
                 <button
                   type="submit"
                   className="btn btn-danger btn-outlined"
@@ -401,17 +421,15 @@ const QuoteCompareTable = ({
                 >
                   RFQ has been Closed
                 </button>
-                :
+              ) : (
                 <button
                   type="submit"
                   className="btn btn-secondary"
-                  onClick={(e) =>
-                    handleFinalize(e, lowestQuote, proditem)
-                  }
+                  onClick={(e) => handleFinalize(e, lowestQuote, proditem)}
                 >
                   Finalize
                 </button>
-              }
+              )}
             </div>
           )}
         </div>
@@ -447,6 +465,13 @@ const QuoteCompareTable = ({
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
               </span>
+              <button
+                className="btn btn-sm btn-success p-2"
+                style={{ minWidth: "230px", marginLeft: "10px" }}
+                onClick={handleSendPO}
+              >
+                Send for PO Approval
+              </button>
             </div>
 
             <div>
@@ -482,25 +507,26 @@ const QuoteCompareTable = ({
       {/* Lowest bid area end */}
 
       {/* ------------- Show Vendors contact info in Modal ------------- */}
-      {openCommonModal &&
+      {openCommonModal && (
         <CommonModal
           data={{
             title: "Contact Information",
             email: vendorData.email,
-            mobile: vendorData.mobile
+            mobile: vendorData.mobile,
           }}
           openCommonModal={openCommonModal}
           closeModal={() => setOpenCommonModal(false)}
         />
-      }
-      {quotehistorymodal && 
-      <QuoteHistoryModal
-        showModal = {quotehistorymodal}
-        closeModal ={() => {
-          setQuotehistorymodal(false);
-        }}
-        quotehistorydata = {quotehistorydata}
-      />}
+      )}
+      {quotehistorymodal && (
+        <QuoteHistoryModal
+          showModal={quotehistorymodal}
+          closeModal={() => {
+            setQuotehistorymodal(false);
+          }}
+          quotehistorydata={quotehistorydata}
+        />
+      )}
     </>
   );
 };

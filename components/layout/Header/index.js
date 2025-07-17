@@ -53,6 +53,11 @@ const roleMenus = {
       label: "User Management",
       targetMenu: "nav",
     },
+    {
+      href: "/dashboard/admin/approval-management",
+      label: "Approval Hierarchy",
+      targetMenu: "nav",
+    },
     // { href: "/dashboard/admin/account-management/create-account", label: "RFQ management" },
   ],
   buyer: [ // procurment person 
