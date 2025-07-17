@@ -394,4 +394,15 @@ export const updateUserAccount = (userId, accountData) => {
     });
 };
 
+export const getProfileById = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/users/get-profile-by-id/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 
