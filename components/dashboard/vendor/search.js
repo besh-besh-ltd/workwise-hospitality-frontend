@@ -203,7 +203,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     getProducts(slug);
     getCategories();
     getVendorApprovedby();
-  }, []);
+  }, [currentSelectedProduct?.variant_id]);
 
 
   useEffect(() => {
@@ -474,24 +474,27 @@ const addRfqIdParam = (rfq_id) => {
           }
         });
         setCategories(rsp.data);
-        setParentCategories(parentOptions);
+        // setParentCategories(parentOptions);
       })
       .catch((error) => {
         setcatloading(false);
       });
   };
 
-  const getVendorApprovedby = () => {
-    setvabloading(true);
-    vendorApproveList()
-      .then((rsp) => {
-        setvabloading(false);
-        setApproved_by(rsp.data);
-      })
-      .catch((error) => {
-        setvabloading(false);
-      });
-  };
+ const getVendorApprovedby = () => {
+  setvabloading(true);
+
+  vendorApproveList(currentSelectedProduct?.variant_id)
+    .then((rsp) => {
+      setvabloading(false);
+      setApproved_by(rsp.data);
+    })
+    .catch((error) => {
+      setvabloading(false);
+      // Optionally handle the error here (e.g., show a toast)
+    });
+};
+
 
   // get product make list for filters
   const getMakeList = (variant_id) => {

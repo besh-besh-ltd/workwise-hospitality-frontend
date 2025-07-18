@@ -1301,6 +1301,8 @@ const CreateRFQ = () => {
         otherVendorData.addable = syncAddable;
       }
     }
+    toast.info("Success! The change has been applied across all product variants.");
+
   };
 
 
