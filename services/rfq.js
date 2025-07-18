@@ -33,7 +33,7 @@ export const vendorApproveList = (values) => {
  
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/users/vendorapprove-list`);
+      let response = await axiosInstance.get(`/users/vendorapprove-list`, { params: {variant_id: values }});
       resolve(response);
     } catch (error) {
       reject({ message: error });
