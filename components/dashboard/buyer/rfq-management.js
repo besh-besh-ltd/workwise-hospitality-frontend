@@ -38,29 +38,28 @@ const RfqManagement = () => {
   
 
 
-const handleTabChange = (tab) => {
-  setActiveTab(tab);
-
-  // Determine tab for URL
-  let urlTab = '';
-  if (tab === 'manageRFQs') urlTab = 'manage-rfq';
-  else if (tab === 'createRFQs') urlTab = 'create-rfq';
-  else if (tab === 'draftRFQs') urlTab = 'draft-rfq';
-
-  // Start with the current query params
-  let newQuery = { ...router.query, tab: urlTab };
-
-  // Remove or reset draft_id when necessary
-  if (tab !== 'draftRFQs') {
-    delete newQuery.draft_id; // Optionally remove draft_id when not in Draft tab
+const handleTabChange = (tabKey) => {
+  let newQuery = { tab: '' };
+  
+  if (tabKey === 'manageRFQs') {
+    newQuery.tab = 'manage-rfq';
+  } else if (tabKey === 'createRFQs') {
+    newQuery.tab = 'create-rfq';
+  } else if (tabKey === 'draftRFQs') {
+    newQuery.tab = 'draft-rfq';
+    // Reset draft_id when switching to draft tab
+    newQuery = { tab: 'draft-rfq' };
   }
 
+  setActiveTab(tabKey);
   router.push(
     { pathname: router.pathname, query: newQuery },
     undefined,
     { shallow: true }
   );
 };
+
+
 
 
 
