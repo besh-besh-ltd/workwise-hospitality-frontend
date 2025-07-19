@@ -24,21 +24,45 @@ const RfqManagement = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if(tab && tab == 'create-rfq'){
-      setActiveTab('createRFQs')
-    } else if(tab && tab == 'draft-rfq'){
-      setActiveTab('draftRFQs')
-    } else{
-      setActiveTab('manageRFQs')
-    }
-  }, [router])
+ useEffect(() => {
+  if (tab === 'create-rfq') {
+    setActiveTab('createRFQs');
+  } else if (tab === 'draft-rfq') {
+    setActiveTab('draftRFQs');
+  } else {
+    // Default to manageRFQs
+    setActiveTab('manageRFQs');
+  }
+}, [tab]);
+
   
 
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  };
+const handleTabChange = (tab) => {
+  setActiveTab(tab);
+
+  // Determine tab for URL
+  let urlTab = '';
+  if (tab === 'manageRFQs') urlTab = 'manage-rfq';
+  else if (tab === 'createRFQs') urlTab = 'create-rfq';
+  else if (tab === 'draftRFQs') urlTab = 'draft-rfq';
+
+  // Start with the current query params
+  let newQuery = { ...router.query, tab: urlTab };
+
+  // Remove or reset draft_id when necessary
+  if (tab !== 'draftRFQs') {
+    delete newQuery.draft_id; // Optionally remove draft_id when not in Draft tab
+  }
+
+  router.push(
+    { pathname: router.pathname, query: newQuery },
+    undefined,
+    { shallow: true }
+  );
+};
+
+
 
  
 
