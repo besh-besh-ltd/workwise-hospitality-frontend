@@ -25,6 +25,7 @@ import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
 import { BusinessTypes } from "@/utils/constants";
+import { getCountries, getStates, getCities } from "@/services/cms";
 
 
 export const vendorConditions = [
@@ -356,14 +357,19 @@ const addRfqIdParam = (rfq_id) => {
     // changes by mukul jatav 29-08-2024 
     // setbulkRFQVendors([]);
     if (search_key != "") {
+      // Convert location filters to proper format for backend
+      const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
+      const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
+      const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
+      
       searchProductsV2(
         {
           cat_id,
           search_key,
           approved_by: selectedApprovedBy,
-          state: selectedState,
-          city: selectedCity,
-          country: selectedCountry,
+          state: stateFilter,
+          city: cityFilter,
+          country: countryFilter,
           turnOver,
           vendorType: selectedVendorTypes,
           prevWorkedWith,
@@ -398,6 +404,12 @@ const addRfqIdParam = (rfq_id) => {
   const getProducts = (s_key = search_key) => {
     setloading(true);
     categoryLvlRef.current = new Map();
+    
+    console.log('🔍 [getProducts] Starting with s_key:', s_key);
+    console.log('🔍 [getProducts] Current slug:', slug);
+    
+    // Backend will handle location parsing from the slug
+    // Just send the full slug to the backend
     searchProductsV2(
       {
         cat_id,
@@ -415,12 +427,28 @@ const addRfqIdParam = (rfq_id) => {
           item.selected = false;
           return item;
         });
-        if (slug && slug != "all" && firstVisit) {
-          handleAutocompleteClick(d[0])
+        
+        // Do not auto-select or redirect for /vendor/all
+        if (!slug && firstVisit && d.length > 0) {
+          handleAutocompleteClick(d[0]);
           setFirstVisit(false);
         } else {
           setProducts(d);
           setSearchCategories(rsp.categoryData);
+          // If slug is present, try to set currentSelectedProduct to matching product
+          if (slug && slug !== 'all' && d.length > 0) {
+            // Extract product name from slug (first segment)
+            const productSlug = slug.split('-')[0];
+            const found = d.find(
+              (item) =>
+                (item.slug && item.slug.toLowerCase() === productSlug.toLowerCase()) ||
+                (item.variant_name && cleanAndAddHyphen(item.variant_name) === productSlug) ||
+                (item.product_name && cleanAndAddHyphen(item.product_name) === productSlug)
+            );
+            if (found) {
+              setcurrentSelectedProduct(found);
+            }
+          }
         }
       })
       .catch((error) => {
@@ -575,65 +603,94 @@ const addRfqIdParam = (rfq_id) => {
     const { rfq_id, sheet_id } = router.query;
 
     // Update the URL to include the selected product's slug and preserve rfq_id if it exists
-    const productSlug = item.slug ?? item.variant_name.replace(' ', '_').toLowerCase();
+    const productSlug = item.slug || cleanAndAddHyphen(item.variant_name || item.product_name || '');
     const newUrl = rfq_id && sheet_id
       ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
       : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 
       : `/vendor/${productSlug}`;
 
     router.push(newUrl);
-    storageInstance.setStorage("product_name", slug);
+    storageInstance.setStorage("product_name", productSlug);
   };
 
 
+  // --- Location lists for dropdowns ---
+  const [countryList, setCountryList] = useState([]);
+  const [stateList, setStateList] = useState([]);
+  const [cityList, setCityList] = useState([]);
+
+  // Fetch country/state/city lists for dropdowns (unchanged)
+  useEffect(() => { getCountries().then(res => setCountryList(res.data || [])); }, []);
+  useEffect(() => { getStates().then(res => setStateList(res.data || [])); }, []);
+  useEffect(() => { getCities().then(res => setCityList(res.data || [])); }, []);
+
+  // --- Parse slug only ONCE when slug or lists are ready ---
+  useEffect(() => {
+    if (!slug || slug === 'all' || !stateList.length || !cityList.length) return;
+
+    const segments = slug.split('-');
+    let foundState = null, foundCity = null, productSegments = [];
+
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const segment = segments[i];
+      if (!foundState) {
+        const stateMatch = stateList.find(state => state.state_name.toLowerCase() === segment.toLowerCase());
+        if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
+      }
+      if (!foundCity) {
+        const cityMatch = cityList.find(city => city.city_name.toLowerCase() === segment.toLowerCase());
+        if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
+      }
+      productSegments.unshift(segment);
+    }
+    setSearch_key(productSegments.join('-'));
+  }, [slug, stateList, cityList]);
+
+  // --- Trigger product search automatically ---
+  useEffect(() => {
+    if (search_key && slug && slug !== 'all') {
+      getProducts(search_key);
+    }
+  }, [search_key, slug]);
+
+  // --- When filters are cleared, update the URL ---
   const clearLocationFilter = () => {
     setselectedState([]);
     setselectedCity([]);
     setselectedCountry([]);
+    router.replace(`/vendor/${search_key || 'all'}`);
+    getProducts(search_key);
   };
 
-  const mapEntries = Array.from(categoryLvlRef.current.entries());
-
-  // for clear the search from the input of search vendor
-  const clearProductSearch = () => {
-    setcurrentSelectedProduct(null);
-    setCat_id(null);
-    setSearch_key("");
-
-    // Get the rfq_id from the URL if it exists
-    const { rfq_id } = router.query;
-
-    // Preserve rfq_id when clearing search
-    const newUrl = rfq_id
-      ? `/vendor/all?rfq_id=${rfq_id}`
-      : `/vendor/all`;
-
-    router.push(newUrl);
-    storageInstance.setStorage("product_name", "all");
-  }
-
-  // Options for the dropdown
-  const optionVendors = [
-    { value: 'is_private', label: 'My Private Vendor' },
-    { value: 'is_public', label: 'My Public Vendor' },
-    { value: 'both', label: 'Both' },
-  ];
-
-  // Handle selection changes to ensure only one filter is active at a time
-
-  // Generalized clear filter function to reset both filters
-  const clearVendorFilters = () => {
-    setMyVendorType(null);
+  // --- Search bar: always editable ---
+  const getProductTitle = () => {
+    if (currentSelectedProduct) {
+      return (
+        currentSelectedProduct.variant_name ||
+        currentSelectedProduct.product_name ||
+        currentSelectedProduct.slug ||
+        ''
+      );
+    }
+    // fallback: try to get from slug (backend will handle location parsing)
+    if (slug && slug !== 'all') {
+      // For now, just show the first segment as product name
+      // Backend will handle the actual product extraction
+      const segments = slug.split('-');
+      return segments[0].replace(/-/g, ' ').toUpperCase();
+    }
+    return '';
   };
 
   return (
     <>
       <Head>
+        <title>{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</title>
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "http://schema.org",
             "@type": "Product",
-            name: currentSelectedProduct?.product_name,
+            name: getProductTitle(),
             image: currentSelectedProduct?.image_url || "",
             description: currentSelectedProduct?.description || "",
             sku: currentSelectedProduct?.slug,
@@ -652,7 +709,7 @@ const addRfqIdParam = (rfq_id) => {
 
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{title}</h1>
+          <h1 className="heading">{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/magic-search"
@@ -702,7 +759,12 @@ const addRfqIdParam = (rfq_id) => {
                         onFocus={handleSearchChange}
                         autoComplete="off"
                         value={search_key}
-                        // onClick={handleSearchClick}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            router.replace(`/vendor/${search_key}`);
+                            getProducts(search_key);
+                          }
+                        }}
                       />
 
                       {isOpen && (
