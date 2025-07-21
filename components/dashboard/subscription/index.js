@@ -289,7 +289,6 @@ const Subscription = () => {
         <div className="container-fluid">
           <div className="subscription-sec-row row">
             {subscriptionListData?.map((item, index) => {
-              console.log(item)
               const activeItem = item.billing_cycle.find(cycle => selectedBillingCycles[item.plan_name] == cycle.label);
               if(!activeItem) return null;
 
@@ -359,6 +358,7 @@ const Subscription = () => {
                       activeItem?.plan_type === "f" ? null : (
                         <div className="btn-holder">
                           <button
+                            disabled={subscriptionListData.some(subscription => subscription.active)}
                             className="btn btn-primary"
                             onClick={() => handleShowModal(item, activeItem)}
                           >
