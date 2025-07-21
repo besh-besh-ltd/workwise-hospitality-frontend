@@ -30,9 +30,10 @@ export const handleUploadFile = (file, token=null) => {
 };
 
 export const vendorApproveList = (values) => {
+ 
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/users/vendorapprove-list`);
+      let response = await axiosInstance.get(`/users/vendorapprove-list`, { params: {variant_id: values }});
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -357,6 +358,28 @@ export const sendReminder = (id) => {
   });
 };
 
+export const getVendorsForReminder = (id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/vendors-for-reminder/${id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const sendSelectiveReminder = (id, vendor_ids) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/send-selective-reminder/${id}`, { vendor_ids });
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const finalizeQuotation = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -649,6 +672,12 @@ export const fetchVendorSelectionOption = (payload) => {
       reject({ message: error });
     }
   });
+};
+
+// New unified function for RFQs (GET, params in query)
+export const getRfqs = async (params) => {
+  const res = await axiosInstance.get(`/rfq/get-rfqs`, { params });
+  return res.data;
 };
 
 export const fetchTechEvaluationRfqList = (payload) => {

@@ -150,6 +150,7 @@ const EditRFQ = () => {
     vendors: [],
   })
   const [vendors, setVendors] = useState([]);
+  const [termsChanged, setTermsChanged] = useState(false);
 
   // Promps a confirmation if any product is going to be deleted
   const [isUpdateConfirm, setIsUpdateConfirm] = useState(false);
@@ -171,13 +172,59 @@ const EditRFQ = () => {
       });
   };
 
-  const fetchAvailableVendorsForProduct = async () => {
+  const handleTermChange = (e, item) => {
+      try {
+        setTermsChanged(true);
+        const isChecked = e.target.checked;
+        // Always convert ID to string for consistent comparison
+        const termId = String(item.id || item.term_id);
+        
+        // Extract term content with fallbacks
+        const termName = item.term_content || item.name || item.term_text || 
+                       (item.content && item.content[0] ? item.content[0].title : null) ||
+                       `Term ${termId}`;
+        
+        // Clone the current terms array to avoid direct state mutation
+        let updatedTerms = [...(selectedTerms || [])];
+        
+        if (isChecked) {
+          // Make sure term isn't already selected (checking both id and term_id)
+          const existingTerm = updatedTerms.find(term => 
+            String(term.id) === termId || String(term.term_id) === termId
+          );
+          
+          if (!existingTerm) {
+            // IMPORTANT: Only store id and name as required by backend
+            updatedTerms.push({
+              id: Number(termId), // Convert to number as required by backend
+              name: termName
+            });
+          }
+        } else {
+          updatedTerms = updatedTerms.filter(term => {
+            const cond = term.id != termId
+            return cond
+          })
+        }
+        
+        // Update Redux with the new terms array
+        dispatch(setTermsData(updatedTerms));
+        setHasUnsavedChanges(true);
+        setTermsChanged(true);
+      } catch (error) {
+        console.error("Error handling term change:", error);
+        toast.error("An error occurred while updating terms. Please try again.");
+      }
+    };
+
+  const fetchAvailableVendorsForProduct = async (searchTerm = null) => {
     if(!selectedProduct || !selectedProduct.product) return;
 
     try {
       const body = {
         productId: selectedProduct.product.product_id,
-        excludeIds: selectedProduct?.vendors?.map(vendor => vendor.user_id) ?? []
+        excludeIds: selectedProduct?.vendors?.map(vendor => vendor.user_id) ?? [],
+        searchTerm
       }
       const response = await getVendorsForProduct(body)
       setVendors(response.data)
@@ -592,7 +639,7 @@ const EditRFQ = () => {
         rfqData.products.filter(product => !updatableData.products.deletable.includes(product.id)).some(
           (product) =>
             !product.product_specs ||
-            product.product_specs.some(
+            product.product_specs.filter((spec)=>!['Size', 'Spec'].includes(spec.title)).some(
               (spec) =>
                 !spec.value ||
                 String(spec.value).trim().length <= 0 ||
@@ -616,6 +663,8 @@ const EditRFQ = () => {
         response_email: formValues.response_email || rfqData.response_email,
         bid_end_date: formValues.bid_end_date || rfqData.bid_end_date || "",
         status: formValues.status || rfqData.status || "",
+        termsChanged,
+        selectedTerms,
        };
 
       // Only include project_id if it exists and is a valid number
@@ -1847,14 +1896,52 @@ const EditRFQ = () => {
                     {/* Selected Terms Display */}
                     <div className="mb-4">
                       <h6 className="mb-3 fw-medium">Selected Terms  </h6>
-                      <div className="terms-list border rounded p-3 bg-light">
+                      <div className="terms-list border rounded p-3">
                         {selectedTerms && selectedTerms.length > 0 ? (
-                          <ol className="mb-0 ps-3">
-                            {selectedTerms.map((term, index) => (
-                              <li key={`term-${term.id || index}`} className="mb-2">
-                                {term.term_content || term.name}
-                              </li>
-                            ))}
+                          <ol style={{
+                            listStyle: 'none',
+                            paddingLeft: 8,
+                          }}>
+                            {allTerms.map((item) => {
+                              // Use consistent term content extraction
+                              const termContent =
+                                item.term_content ||
+                                item.name ||
+                                item.term_text ||
+                                (item.content &&
+                                  Array.isArray(item.content) &&
+                                  item.content[0]?.title) ||
+                                `Term ${item.id}`;
+
+                              // Check if term is selected using consistent ID comparison
+                              const isSelected = selectedTerms?.some(
+                                (term) =>
+                                  String(term.id || term.term_id) ===
+                                  String(item.id || item.term_id)
+                              );
+
+                              return (
+                                <li key={`term-${item.id}`}>
+                                  <div className="form-check">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      id={`term-${item.id}`}
+                                      checked={isSelected}
+                                      onChange={(e) =>
+                                        handleTermChange(e, item)
+                                      }
+                                    />
+                                    <label
+                                      className="form-check-label"
+                                      htmlFor={`term-${item.id}`}
+                                    >
+                                      {termContent}
+                                    </label>
+                                  </div>
+                                </li>
+                              );
+                            })}
                           </ol>
                         ) : (
                           <p className="text-muted mb-0">No terms have been selected for this RFQ.</p>
@@ -1961,6 +2048,23 @@ const EditRFQ = () => {
         setUpdatableData={setUpdatableData}
         isOpen={showVendorModal}
         onClose={() => setShowVendorModal(false)}
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: [
+                  ...(isChecked ? selectedProduct.vendors.map(vendor => vendor.user_id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onAdd={(item) => {
           const totalVendors = rfqData.products?.find(
             (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
@@ -2042,6 +2146,24 @@ const EditRFQ = () => {
             },
           }))
         }
+        fetchVendors={fetchAvailableVendorsForProduct}
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: [
+                  ...(isChecked ? vendors.map(vendor => vendor.id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onRemove={(item) => {
           const totalVendors = rfqData.products?.find(
             (product) => product.id === selectedProduct.product.id)?.vendor_details?.length || 0;
@@ -2091,6 +2213,24 @@ const EditRFQ = () => {
         isOpen={showAddVendorForProductModal}
         onClose={() => setShowAddVendorForProductModal(false)}
         onAdd={handleAddVendorForProduct}
+        fetchVendors={fetchAvailableVendorsForProduct}
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: [
+                  ...(isChecked ? vendors.map(vendor => vendor.id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onRemove={(item) => setProductAddData(prev => ({
           ...prev,
           vendors: prev.vendors.filter(vendorId => vendorId != item.id)

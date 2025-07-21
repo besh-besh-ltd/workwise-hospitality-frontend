@@ -877,7 +877,7 @@ const CreateRFQ = () => {
       let draftRes;
       
       if (draftRfqId && draftRfqId !== -1) {
-        draftRes = await getDraftById(draftRfqId);
+        draftRes = await getDraftById(draftRfqId, selectedSheet?.value);
         document.title = `Edit Draft RFQ #${draftRfqId}`;
 
         const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
@@ -1214,7 +1214,7 @@ const CreateRFQ = () => {
     setHasUnsavedChanges(true);
   };
 
-  const fetchAvailableVendorsForProduct = async () => {
+  const fetchAvailableVendorsForProduct = async (searchTerm = null) => {
       if(!selectedProduct || !selectedProduct.product) return;
 
       const key = `${selectedProduct.product.id}`;
@@ -1222,7 +1222,8 @@ const CreateRFQ = () => {
       try {
         const body = {
           productId: selectedProduct.product.product_id,
-          excludeIds: vendors?.[key]?.map(vendor => vendor.user_id) ?? []
+          excludeIds: vendors?.[key]?.map(vendor => vendor.user_id) ?? [],
+          searchTerm,
         }
         const response = await getVendorsForProduct(body)
         setAddableVendors(response.data)
@@ -1230,6 +1231,80 @@ const CreateRFQ = () => {
         toast.error(error.message)
       }
     }
+
+  const handleSyncApplyToOtherVariants = async () => {
+    const sourceRfqProductId = selectedProduct.product.id?.toString();
+    if (!sourceRfqProductId) return;
+
+    const sourceVendorData = updatableData.vendors?.[sourceRfqProductId];
+
+    const sourceDeletable = sourceVendorData?.deletable || [];
+    const sourceAddable = sourceVendorData?.addable || [];
+    const productId = selectedProduct.product?.product_id;
+
+    // Ensure current vendors of source are loaded
+    let sourceCurrentVendors = vendors[sourceRfqProductId];
+    if (!sourceCurrentVendors) {
+      sourceCurrentVendors = await fetchVendorsForProduct(sourceRfqProductId);
+    }
+
+    // Simulate updated source vendor list
+    const updatedSourceVendors = [
+      ...sourceCurrentVendors
+        .filter(v => !sourceDeletable.includes(v.user_id)),
+      ...sourceAddable.map(id => ({ user_id: id }))
+    ];
+
+    const updatedSourceVendorIds = updatedSourceVendors.map(v => v.user_id);
+
+    for (const rfqProduct of rfqProducts) {
+      if (
+        rfqProduct.product_id === productId &&
+        rfqProduct.id.toString() !== sourceRfqProductId
+      ) {
+        const otherRfqProductId = rfqProduct.id.toString();
+
+        // Ensure current vendors of target loaded
+        let currentVendors = vendors[otherRfqProductId];
+        if (!currentVendors) {
+          currentVendors = await fetchVendorsForProduct(otherRfqProductId);
+        }
+
+        const currentVendorIds = currentVendors.map(v => v.user_id);
+
+        // Vendors that should be added to sync
+        const syncAddable = updatedSourceVendorIds.filter(
+          id => !currentVendorIds.includes(id)
+        );
+
+        // Vendors that should be removed to sync (those in current but not in updated source)
+        const syncDeletable = currentVendorIds.filter(
+          id => !updatedSourceVendorIds.includes(id)
+        );
+
+        // Ensure updatableData entry exists
+        if (!updatableData.vendors[otherRfqProductId]) {
+          updatableData.vendors[otherRfqProductId] = {
+            product_id: rfqProduct.product_id,
+            variant: rfqProduct.variant,
+            deletable: [],
+            addable: [],
+          };
+        }
+
+        const otherVendorData = updatableData.vendors[otherRfqProductId];
+
+        otherVendorData.deletable = [];
+        otherVendorData.addable = [];
+
+        otherVendorData.deletable = syncDeletable;
+        otherVendorData.addable = syncAddable;
+      }
+    }
+    toast.info("Success! The change has been applied across all product variants.");
+
+  };
+
 
   useEffect(() => {
     if(activeKey) {
@@ -2315,12 +2390,30 @@ const CreateRFQ = () => {
         productData={selectedProduct}
         updatableData={updatableData}
         isOpen={showModal.vendorModal}
+        applyToOtherVariants={handleSyncApplyToOtherVariants}
         onClose={() =>
           setShowModal((prev) => ({
             ...prev,
             vendorModal: false,
           }))
         }
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                deletable: [
+                  ...(isChecked ? selectedProduct.vendors.map(vendor => vendor.user_id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onAdd={(item) => {
           const key = `${selectedProduct.product.id}`;
           const totalVendors = vendors?.[key]?.length ?? 0;
@@ -2382,6 +2475,7 @@ const CreateRFQ = () => {
         vendors={addableVendors}
         productData={selectedProduct}
         updatableData={updatableData}
+        applyToOtherVariants={handleSyncApplyToOtherVariants}
         isOpen={showModal.addVendorModal}
         onClose={() => {
           setShowModal((prev) => ({ ...prev, addVendorModal: false }));
@@ -2390,6 +2484,24 @@ const CreateRFQ = () => {
         addedVendorsList={
           updatableData?.vendors?.[selectedProduct?.product?.id]?.addable ?? []
         }
+        fetchVendors={fetchAvailableVendorsForProduct}
+        onSelectAll={(isChecked) => {
+          setUpdatableData((prev) => ({
+            ...prev,
+            vendors: {
+              ...prev.vendors,
+              [selectedProduct.product.id]: {
+                ...(prev.vendors?.[selectedProduct.product.id] ?? {
+                  product_id: selectedProduct.product.product_id,
+                  variant: selectedProduct.product.variant,
+                }),
+                addable: [
+                  ...(isChecked ? addableVendors.map(vendor => vendor.id) : [])
+                ],
+              },
+            },
+          }));
+        }}
         onAdd={(item) => {
           setUpdatableData((prev) => ({
             ...prev,

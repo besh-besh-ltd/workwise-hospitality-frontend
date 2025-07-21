@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import AsyncSelect from "react-select/async";
 import { useRouter } from "next/router";
-import { fetchTechEvaluationRfqList, fetchVendorSelectionOption, getAllClauses } from "@/services/rfq";
+import { getRfqs, fetchVendorSelectionOption, getAllClauses, getRFQById } from "@/services/rfq";
 import { getProfile } from "@/services/Auth";
 import FullLoader from "@/components/shared/FullLoader";
 import ClauseProductItem from "./ClauseProductItem";
@@ -62,8 +62,16 @@ useEffect(() => {
   const getTechEvaluationRFQsByUser = async () => {
     try {
       setLoading(true);
-      const res = await fetchTechEvaluationRfqList({rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null ,project_id:selectedproject ? selectedproject : -1});
-      setRfqList(res.data);
+      const res = await getRfqs({
+        tech_eval: true,
+        page: 1,
+        limit: 100,
+        project_id: selectedproject ? selectedproject : -1,
+        rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null,
+        sort: 'DESC'
+      });
+      const newData = Array.isArray(res) ? res : [];
+      setRfqList(newData);
     } catch (error) {
       console.error("Error fetching technical evaluation RFQs:", error);
     } finally {
@@ -96,9 +104,16 @@ useEffect(() => {
       const res = await getAllClauses(rfq_id);
       setClauseInfo(res?.data ?? null);
 
-      const selectedRfq = rfqList.find((rfqItem) => rfqItem.id === parseInt(rfq_id));
+      // Get full RFQ details with products from the detailed API
+      const rfqDetailsRes = await getRFQById(rfq_id);
+      const selectedRfq = Array.isArray(rfqDetailsRes.data) ? rfqDetailsRes.data[0] : rfqDetailsRes.data;
+
+      if (!selectedRfq) {
+        console.error('No RFQ found for ID:', rfq_id);
+        return;
+      }
       const vMap = new Map();
-      selectedRfq.products.map((prodItem) => {
+      selectedRfq?.products?.map((prodItem) => {
         vMap.set(prodItem.id, null)
       })
 
@@ -344,7 +359,10 @@ useEffect(() => {
                                   <ClauseProductItem
                                     type={"buyer"}
                                     rfq_id={rfq_id}
-                                    product={product}
+                                    product={{
+                                      ...product,
+                                      tbl_rfq_product_tech_evaluation_id: rfqProduct.evaluation_id
+                                    }}
                                     currentUserProfile={currentUserProfile}
                                     currentRfq={currentRfq}
                                     getVendors={async () => await getVendorSelectionOption(product.id)}

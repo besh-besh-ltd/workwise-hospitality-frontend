@@ -24,21 +24,44 @@ const RfqManagement = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if(tab && tab == 'create-rfq'){
-      setActiveTab('createRFQs')
-    } else if(tab && tab == 'draft-rfq'){
-      setActiveTab('draftRFQs')
-    } else{
-      setActiveTab('manageRFQs')
-    }
-  }, [router])
+ useEffect(() => {
+  if (tab === 'create-rfq') {
+    setActiveTab('createRFQs');
+  } else if (tab === 'draft-rfq') {
+    setActiveTab('draftRFQs');
+  } else {
+    // Default to manageRFQs
+    setActiveTab('manageRFQs');
+  }
+}, [tab]);
+
   
 
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  };
+const handleTabChange = (tabKey) => {
+  let newQuery = { tab: '' };
+  
+  if (tabKey === 'manageRFQs') {
+    newQuery.tab = 'manage-rfq';
+  } else if (tabKey === 'createRFQs') {
+    newQuery.tab = 'create-rfq';
+  } else if (tabKey === 'draftRFQs') {
+    newQuery.tab = 'draft-rfq';
+    // Reset draft_id when switching to draft tab
+    newQuery = { tab: 'draft-rfq' };
+  }
+
+  setActiveTab(tabKey);
+  router.push(
+    { pathname: router.pathname, query: newQuery },
+    undefined,
+    { shallow: true }
+  );
+};
+
+
+
+
 
  
 

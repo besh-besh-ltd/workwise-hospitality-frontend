@@ -264,7 +264,7 @@ const Footer = () => {
           Terms Of Use
         </a>{' '}
         |<br />
-        workwise | All rights reserved
+        Besh Besh Info Tech | All rights reserved
       </small>
     </div>
   </div>

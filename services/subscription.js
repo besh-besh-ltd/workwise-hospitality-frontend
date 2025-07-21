@@ -30,7 +30,21 @@ export const proceedToSubscription = (payload) => {
     return new Promise(async (resolve, reject) => {
         try {
             let response = await axiosInstance.post(
-                `/users/buyer-subscription-payment`,
+                `/users/subscription-payment`,
+                payload
+            );
+            resolve(response);
+        } catch (error) {
+            reject({ message: error });
+        }
+    });
+}
+
+export const testRazorPayEndpoint = (payload) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            let response = await axiosInstance.post(
+                `/users/test-razorpay-webhook`,
                 payload
             );
             resolve(response);
@@ -44,7 +58,7 @@ export const applyCoupon = (payload) => {
     return new Promise(async (resolve, reject) => {
         try {
             let response = await axiosInstance.post(
-                `/users/buyer-coupon-check`,
+                `/users/coupon-check`,
                 payload
             );
             resolve(response);
