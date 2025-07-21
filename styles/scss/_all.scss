@@ -4030,6 +4030,12 @@ textarea {
       }
     }
 
+    .col {
+      background-color: var(--white-color);
+      border-radius: 20px;
+      height: fit-content;
+    }
+
     .table-elements {
       padding-left: 0;
       padding-right: 0;

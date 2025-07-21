@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import axiosInstance from "@/lib/axios";
 import { handleUploadFile } from "@/services/rfq";
 
@@ -156,6 +157,18 @@ export const formatISOToDateTimeLocal = (isoString) => {
     }
 };
 
+const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+export default useDebounce;
 
 // Calculate Total for Quote Comparison Pages
 export const calculateTotal = (item, quantity) => {

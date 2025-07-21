@@ -11,6 +11,8 @@ import ReadMore from "@/components/shared/ReadMore";
 import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
 import { useRouter } from "next/router";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
+import FinalizeVendorModal from "./FinalizeVendorModal";
+import FinalizeHistoryModal from "./FinalizeHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
@@ -20,13 +22,14 @@ const QuoteCompareTable = ({
   alreadyFinalized,
   isRfqClosed = false
 }) => {
+  // Common state to manage all the modals in the whole component
+  const [activeModal, setActiveModal] = useState(null);
 
+  const [currentItem, setCurrentItem] = useState(null);
   const router = useRouter();
   const { rfq } = router.query;
-  const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
   const [lowestQuote, setLowestQuote] = useState(null);
-  const [quotehistorymodal, setQuotehistorymodal] = useState(false);
   const [quotehistorydata, setQuotehistorydata] = useState({
     product_details:[],
     previous_quotes:[]
@@ -83,7 +86,7 @@ const QuoteCompareTable = ({
 
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
-    setOpenCommonModal(true);
+    setActiveModal('common');
   };
 
   const renderFileLink = (files,lable = "view file") => {
@@ -95,8 +98,8 @@ const QuoteCompareTable = ({
     ));
   };
 
-  const handleSendPO = () => {
-    
+  const handleViewFinalizationHistory = () => {
+    setActiveModal('finalize_history');
   }
 
   return (
@@ -204,26 +207,27 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {alreadyFinalized?.length == 0 &&
-                            !item.finalization &&
-                            !isRfqClosed &&
-                            item?.quote_details?.is_regret == 0 && (
-                              <Dropdown.Item
-                                href="#"
-                                onClick={(e) =>
-                                  handleFinalize(e, item, proditem)
-                                }
-                                className="finalize-link"
-                              >
-                                Finalize
-                              </Dropdown.Item>
-                            )}
+                          {(!item.finalization ||
+                            item.finalization.winning_vendor.id !=
+                              item?.quote_details?.created_by) && (
+                            <Dropdown.Item
+                              href="#"
+                              onClick={(e) => {
+                                setActiveModal('finalize')
+                                setCurrentItem(item);
+                                // handleFinalize(item, proditem);
+                              }}
+                              className="finalize-link"
+                            >
+                              Finalize
+                            </Dropdown.Item>
+                          )}
 
                           {item.previous_quotes?.length > 0 && (
                             <Dropdown.Item
                               href="#"
                               onClick={() => {
-                                setQuotehistorymodal(true);
+                                setActiveModal('quote_history');
                                 setQuotehistorydata({
                                   product_details: proditem.product_details,
                                   previous_quotes: item.previous_quotes,
@@ -425,7 +429,11 @@ const QuoteCompareTable = ({
                 <button
                   type="submit"
                   className="btn btn-secondary"
-                  onClick={(e) => handleFinalize(e, lowestQuote, proditem)}
+                  onClick={(e) => {
+                    setActiveModal('finalize')
+                    setCurrentItem(lowestQuote);
+                    // handleFinalize(lowestQuote, proditem)
+                  }}
                 >
                   Finalize
                 </button>
@@ -465,13 +473,15 @@ const QuoteCompareTable = ({
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
               </span>
-              <button
-                className="btn btn-sm btn-success p-2"
-                style={{ minWidth: "230px", marginLeft: "10px" }}
-                onClick={handleSendPO}
-              >
-                Send for PO Approval
-              </button>
+              {Array.isArray(proditem.finalization_history) && proditem.finalization_history.length > 0 && (
+                <button
+                  className="btn btn-sm btn-success p-2"
+                  style={{ minWidth: "230px", marginLeft: "10px" }}
+                  onClick={handleViewFinalizationHistory}
+                >
+                  Finalization History
+                </button>
+              )}
             </div>
 
             <div>
@@ -507,26 +517,48 @@ const QuoteCompareTable = ({
       {/* Lowest bid area end */}
 
       {/* ------------- Show Vendors contact info in Modal ------------- */}
-      {openCommonModal && (
+      {activeModal == 'common' && (
         <CommonModal
           data={{
             title: "Contact Information",
             email: vendorData.email,
             mobile: vendorData.mobile,
           }}
-          openCommonModal={openCommonModal}
-          closeModal={() => setOpenCommonModal(false)}
+          openCommonModal={activeModal == 'common'}
+          closeModal={() => setActiveModal(null)}
         />
       )}
-      {quotehistorymodal && (
+      {activeModal == 'quote_history' && (
         <QuoteHistoryModal
-          showModal={quotehistorymodal}
+          showModal={activeModal == 'quote_history'}
           closeModal={() => {
-            setQuotehistorymodal(false);
+            setActiveModal(null);
           }}
           quotehistorydata={quotehistorydata}
         />
       )}
+      <FinalizeVendorModal
+        show={activeModal == 'finalize'}
+        onHide={() => setActiveModal(null)}
+        onConfirm={() => {
+          handleFinalize(currentItem, proditem);
+          setActiveModal(null)
+        }}
+        vendorName={
+          currentItem?.quote_details?.vendor_details?.organization_name ||
+          currentItem?.quote_details?.vendor_details?.name
+        }
+        quotedPrice={currentItem?.total_price}
+        productName={proditem?.product_details?.[0].product_name}
+        alreadyFinalized={alreadyFinalized}
+      />
+      <FinalizeHistoryModal
+        show={proditem.finalization_history.length > 0 && activeModal == 'finalize_history'}
+        onHide={() => setActiveModal(null)}
+        history={proditem.finalization_history}
+        quantity={proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value}
+        calculateTotal={calculateTotal}
+      />
     </>
   );
 };

@@ -79,6 +79,11 @@ const roleMenus = {
       targetMenu: "nav",
     },
     {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
+      targetMenu: "nav",
+    },
+    {
       href: "/dashboard/buyer/editprofile",
       label: "Profile",
       targetMenu: "popup",
