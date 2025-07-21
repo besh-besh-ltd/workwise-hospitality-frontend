@@ -639,7 +639,7 @@ const EditRFQ = () => {
         rfqData.products.filter(product => !updatableData.products.deletable.includes(product.id)).some(
           (product) =>
             !product.product_specs ||
-            product.product_specs.some(
+            product.product_specs.filter((spec)=>!['Size', 'Spec'].includes(spec.title)).some(
               (spec) =>
                 !spec.value ||
                 String(spec.value).trim().length <= 0 ||

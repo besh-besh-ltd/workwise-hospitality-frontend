@@ -322,7 +322,7 @@ const RfqManagementPreview = () => {
           id: item.id,
           product_id: item.product_id,
           variant: item.variant,
-          quantity: item?.product_specs[2]?.value,
+          quantity: item?.product_specs?.find(spec => spec?.title === 'Quantity')?.value || 0,
           product_name: item.product_details
             ? item.product_details[0].name
             : "",
@@ -353,12 +353,14 @@ const RfqManagementPreview = () => {
       .then((res) => {
         setsubmitLoading(false);
         setregretModal(false);
-        toast.success("Quote regret submitted successfully!", {
-          onClose: () => {
-            // Reload the page after the toast is closed
-            window.location.href = `/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`;
-          }
-        });
+        toast.success("Quote regret submitted successfully!")
+        // toast.success("Quote regret submitted successfully!", {
+        //   onClose: () => {
+        //     // Reload the page after the toast is closed
+        //     window.location.href = `/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`;
+        //   }
+        // });
+        window.location.href = `/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`;
       })
       .catch((err) => {
         setsubmitLoading(false);
