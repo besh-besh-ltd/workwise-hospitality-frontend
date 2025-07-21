@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye } from "@fortawesome/free-regular-svg-icons";
 import { faTrash, faTrashRestore } from "@fortawesome/free-solid-svg-icons";
+import Fuse from "fuse.js";
 
 const ViewVendorModal = ({
   productData,
@@ -21,17 +22,21 @@ const ViewVendorModal = ({
   const [vendorSearchTerm, setVendorSearchTerm] = useState("");
 
   const filterVendors = () => {
-    if(initialVendors) {
-      setVendors(
-        initialVendors.filter(
-          (vendor) =>
-            (vendor?.name ?? vendor.user_details?.name ?? '').toLowerCase().includes(vendorSearchTerm) ||
-            vendor.user_details.name.toLowerCase().includes(vendorSearchTerm) ||
-            vendor.user_details.company_name.toLowerCase().includes(vendorSearchTerm)
-        )
-      );
-    }
-  }
+    if (!initialVendors) return;
+
+    // Define the keys you want to search
+    const options = {
+      keys: ["name", "user_details.name", "user_details.company_name"],
+      threshold: 0.4, // Lower means strict, higher means more fuzzy (0.0 - 1.0)
+    };
+
+    const fuse = new Fuse(initialVendors, options);
+    const result = vendorSearchTerm.trim()
+      ? fuse.search(vendorSearchTerm).map((res) => res.item)
+      : initialVendors;
+
+    setVendors(result);
+  };
 
   const handleSelectAll = (event) => {
     const isChecked = event.target.checked;

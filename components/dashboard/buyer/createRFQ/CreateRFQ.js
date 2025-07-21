@@ -877,7 +877,7 @@ const CreateRFQ = () => {
       let draftRes;
       
       if (draftRfqId && draftRfqId !== -1) {
-        draftRes = await getDraftById(draftRfqId);
+        draftRes = await getDraftById(draftRfqId, selectedSheet?.value);
         document.title = `Edit Draft RFQ #${draftRfqId}`;
 
         const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
