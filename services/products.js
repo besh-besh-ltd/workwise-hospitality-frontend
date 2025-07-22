@@ -53,6 +53,18 @@ export const searchProductsV2 = (values, type = "products") => {
     return new Promise(async (resolve, reject) => {
       try {
         let response = await axiosInstance.post(`/rfq/search-product`, payload);
+        // Prioritize exact matches at the top
+        if (response && response.data && Array.isArray(response.data)) {
+          const searchKeyLower = (values.search_key || '').toLowerCase();
+          response.data.sort((a, b) => {
+            const aName = (a.variant_name || a.product_name || '').toLowerCase();
+            const bName = (b.variant_name || b.product_name || '').toLowerCase();
+            const aExact = aName === searchKeyLower ? 1 : 0;
+            const bExact = bName === searchKeyLower ? 1 : 0;
+            if (aExact !== bExact) return bExact - aExact; // exact matches first
+            return 0;
+          });
+        }
         resolve(response);
       } catch (error) {
         reject({ message: error });

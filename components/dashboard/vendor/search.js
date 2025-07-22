@@ -200,14 +200,16 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   }, [selectedApprovedBy])
 
   useEffect(() => {
-    // getProfileDetails();
+    // Prevent search when slug is 'all'
+    if (slug === 'all') return;
     getProducts(slug);
     getCategories();
     getVendorApprovedby();
   }, [currentSelectedProduct?.variant_id]);
 
-
   useEffect(() => {
+    // Prevent vendor search when slug is 'all'
+    if (slug === 'all') return;
     getVendors();
   }, [
     currentSelectedProduct,
@@ -224,6 +226,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     myVendorType,
     selectedMakes
   ]);
+
+  // When a new product is selected, update the search bar value
+  useEffect(() => {
+    if (currentSelectedProduct) {
+      setSearch_key(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+    }
+  }, [currentSelectedProduct]);
 
   useEffect(() => {
     if (currentSelectedProduct) {
@@ -735,7 +744,7 @@ const addRfqIdParam = (rfq_id) => {
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
-                        value={getProductTitle() || search_key}
+                        value={search_key}
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
                             router.replace(`/vendor/${search_key}`);
