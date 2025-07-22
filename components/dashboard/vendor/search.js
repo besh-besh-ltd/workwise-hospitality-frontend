@@ -356,7 +356,12 @@ const addRfqIdParam = (rfq_id) => {
     setSearchSubCategories([]);
     // changes by mukul jatav 29-08-2024 
     // setbulkRFQVendors([]);
-    if (search_key != "") {
+    // Use the name of the product at index 0 as the search_key for vendor search
+    let canonicalSearchKey = search_key;
+    if (products && products.length > 0) {
+      canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
+    }
+    if (canonicalSearchKey != "") {
       // Convert location filters to proper format for backend
       const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
       const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
@@ -365,7 +370,7 @@ const addRfqIdParam = (rfq_id) => {
       searchProductsV2(
         {
           cat_id,
-          search_key,
+          search_key: canonicalSearchKey,
           approved_by: selectedApprovedBy,
           state: stateFilter,
           city: cityFilter,
@@ -405,11 +410,6 @@ const addRfqIdParam = (rfq_id) => {
     setloading(true);
     categoryLvlRef.current = new Map();
     
-    console.log('🔍 [getProducts] Starting with s_key:', s_key);
-    console.log('🔍 [getProducts] Current slug:', slug);
-    
-    // Backend will handle location parsing from the slug
-    // Just send the full slug to the backend
     searchProductsV2(
       {
         cat_id,
@@ -427,28 +427,13 @@ const addRfqIdParam = (rfq_id) => {
           item.selected = false;
           return item;
         });
-        
-        // Do not auto-select or redirect for /vendor/all
-        if (!slug && firstVisit && d.length > 0) {
-          handleAutocompleteClick(d[0]);
-          setFirstVisit(false);
+        setProducts(d);
+        setSearchCategories(rsp.categoryData);
+        // Always set currentSelectedProduct to index 0 and log it
+        if (d.length > 0) {
+          setcurrentSelectedProduct(d[0]);
         } else {
-          setProducts(d);
-          setSearchCategories(rsp.categoryData);
-          // If slug is present, try to set currentSelectedProduct to matching product
-          if (slug && slug !== 'all' && d.length > 0) {
-            // Extract product name from slug (first segment)
-            const productSlug = slug.split('-')[0];
-            const found = d.find(
-              (item) =>
-                (item.slug && item.slug.toLowerCase() === productSlug.toLowerCase()) ||
-                (item.variant_name && cleanAndAddHyphen(item.variant_name) === productSlug) ||
-                (item.product_name && cleanAndAddHyphen(item.product_name) === productSlug)
-            );
-            if (found) {
-              setcurrentSelectedProduct(found);
-            }
-          }
+          setcurrentSelectedProduct(null);
         }
       })
       .catch((error) => {
@@ -668,19 +653,8 @@ const addRfqIdParam = (rfq_id) => {
   // --- Search bar: always editable ---
   const getProductTitle = () => {
     if (currentSelectedProduct) {
-      return (
-        currentSelectedProduct.variant_name ||
-        currentSelectedProduct.product_name ||
-        currentSelectedProduct.slug ||
-        ''
-      );
-    }
-    // fallback: try to get from slug (backend will handle location parsing)
-    if (slug && slug !== 'all') {
-      // For now, just show the first segment as product name
-      // Backend will handle the actual product extraction
-      const segments = slug.split('-');
-      return segments[0].replace(/-/g, ' ').toUpperCase();
+      const title = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
+      return title;
     }
     return '';
   };
@@ -761,7 +735,7 @@ const addRfqIdParam = (rfq_id) => {
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
-                        value={search_key}
+                        value={getProductTitle() || search_key}
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
                             router.replace(`/vendor/${search_key}`);
@@ -1420,7 +1394,7 @@ const addRfqIdParam = (rfq_id) => {
                       <h2 className="fs-5">
                         Available Vendors for{" "}
                         <span style={{ fontWeight: "500" }}>
-                          {currentSelectedProduct.variant_name}
+                          {getProductTitle()}
                         </span>
                       </h2>
                     )}
