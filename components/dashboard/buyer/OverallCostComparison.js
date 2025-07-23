@@ -70,7 +70,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
         </div>
       </h3>
       <div className="table-responsive" style={{ overflowX: 'auto', minWidth: 0 }}>
-        <table className="table table-bordered overall-table mb-0" style={{ minWidth: 900, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <table className="table table-bordered overall-table mb-0" style={{ minWidth: 900, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', tableLayout: 'auto' }}>
           <thead style={{ position: 'sticky', top: 0, background: '#2d5ba7', color: 'white', zIndex: 2 }}>
             <tr>
               <th style={{ background: '#2d5ba7', color: '#fff', borderTopLeftRadius: 12, maxWidth: 100, width: 100 }}>Sl. No</th>
@@ -140,8 +140,13 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
                       return (
-                        <td key={q.created_by} style={{ minWidth: 160, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8 }}>
-                          <div style={{ fontWeight: 600 }}>{cost} <span style={{ fontWeight: 400 }}>({vendor?.organization_name || vendor?.name})</span></div>
+                        <td key={q.created_by} style={{ minWidth: 200, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                          <div style={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 }}>
+                            {cost}
+                            <div style={{ fontWeight: 400, fontSize: 13, marginTop: 2, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                              ({vendor?.organization_name || vendor?.name})
+                            </div>
+                          </div>
                           <div style={{ marginTop: 4 }}>
                             <button
                               type="button"
