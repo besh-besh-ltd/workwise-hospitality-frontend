@@ -69,7 +69,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
           (Incl. Packaging, Freight & GST)
         </div>
       </h3>
-      <div className="table-responsive overall-cost-scroll" style={{ overflowX: 'auto', minWidth: 0 }}>
+      <div className="table-responsive" style={{ overflowX: 'auto', minWidth: 0 }}>
         <table className="table table-bordered overall-table mb-0" style={{ minWidth: 900, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', tableLayout: 'auto' }}>
           <thead style={{ position: 'sticky', top: 0, background: '#2d5ba7', color: 'white', zIndex: 2 }}>
             <tr>
