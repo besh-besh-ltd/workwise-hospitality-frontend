@@ -668,6 +668,19 @@ const addRfqIdParam = (rfq_id) => {
     return '';
   };
 
+  useEffect(() => {
+    if (!currentSelectedProduct) return;
+    let url = `/vendor/${currentSelectedProduct.slug}`;
+    if (selectedCity && selectedCity[0]?.name) {
+      url += `-${encodeURIComponent(selectedCity[0].name)}`;
+    }
+    if (selectedState && selectedState[0]?.name) {
+      url += `-${encodeURIComponent(selectedState[0].name)}`;
+    }
+    router.replace(url, undefined, { shallow: true });
+    // eslint-disable-next-line
+  }, [selectedState, selectedCity]);
+
   return (
     <>
       <Head>
