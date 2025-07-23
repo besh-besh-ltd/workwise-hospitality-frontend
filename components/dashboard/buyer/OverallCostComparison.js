@@ -77,8 +77,8 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300 }}>Product Name</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 140, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350 }}>Product Details</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Quantity</th>
-              {[...Array(maxVendors)].map((_, idx) => (
-                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === maxVendors - 1 ? 12 : 0 }}>
+              {[...Array(3)].map((_, idx) => (
+                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === 2 ? 12 : 0 }}>
                   {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
                 </th>
               ))}
@@ -97,7 +97,8 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                   const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
                   return { ...q, cost: calculateTotal(details, quantity) };
                 })
-                .sort((a, b) => a.cost - b.cost);
+                .sort((a, b) => a.cost - b.cost)
+                .slice(0, 3); // Only keep L1, L2, L3
               // For regrets, keep them in a separate map by vendor id
               const regretMap = {};
               item.quotations.filter(q => q.is_regret === 1).forEach(q => { regretMap[q.created_by] = q; });
@@ -126,7 +127,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
-                  {[...Array(maxVendors)].map((_, vIdx) => {
+                  {[...Array(3)].map((_, vIdx) => {
                     const q = quotingVendors[vIdx];
                     if (q) {
                       const vendor = q.vendor_details ? q.vendor_details[0] : (item.all_vendors && item.all_vendors.find(v => v.id === q.created_by));
@@ -141,12 +142,12 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       const comment = details.comment;
                       return (
                         <td key={q.created_by} style={{ minWidth: 200, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                          <div style={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 }}>
-                            {cost}
-                            <div style={{ fontWeight: 400, fontSize: 13, marginTop: 2, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                              ({vendor?.organization_name || vendor?.name})
-                            </div>
+                        <div style={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 }}>
+                          {cost}
+                          <div style={{ fontWeight: 400, fontSize: 13, marginTop: 2, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                            ({vendor?.organization_name || vendor?.name})
                           </div>
+                        </div>
                           <div style={{ marginTop: 4 }}>
                             <button
                               type="button"
