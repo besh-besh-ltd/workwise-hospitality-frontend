@@ -28,6 +28,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
   const [vendors, setVendors] = useState([]);
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
+  const [maxVendors, setMaxVendors] = useState(0);
 
   const toggleBreakup = (productIdx, vendorId) => {
     setBreakupOpen(prev => ({
@@ -41,30 +42,24 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
         const data = res.data || [];
-        let allVendors = (data[0]?.all_vendors || []).map(v => ({ ...v }));
-        allVendors.forEach(vendor => {
-          let total = 0, hasQuote = false;
-          data.forEach(item => {
-            const q = item.quotations.find(q => q.created_by === vendor.id && q.id != null && q.is_regret !== 1);
-            if (q && q.quote_details && q.quote_details[0]) {
-              hasQuote = true;
-              const details = q.quote_details[0];
-              const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
-              total += calculateTotal(details, quantity);
-            }
-          });
-          vendor.total = hasQuote ? total : Infinity;
-        });
-        allVendors = allVendors.filter(v => v.total !== Infinity).sort((a, b) => a.total - b.total);
-        setVendors(allVendors);
         setProducts(data);
+        // Find max number of quoting vendors for any product
+        let maxV = 0;
+        data.forEach(item => {
+          const quoting = item.quotations.filter(q => q.id != null && q.is_regret !== 1 && q.quote_details && q.quote_details[0]);
+          if (quoting.length > maxV) maxV = quoting.length;
+        });
+        setMaxVendors(maxV);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [rfq_id, TA_Filter, freightFilter]);
 
   if (loading) return <FullLoader />;
-  if (!vendors.length || !products.length) return <h4 className="mt-4 text-center">No Quotes Yet!</h4>;
+  const hasAnyQuotes = products.some(
+    item => item.quotations && item.quotations.some(q => q.id != null && q.is_regret !== 1 && q.quote_details && q.quote_details[0])
+  );
+  if (!hasAnyQuotes) return <h4 className="mt-4 text-center">No Quotes Yet!</h4>;
 
   return (
     <div className="card card-body shadow-sm p-4" style={{ borderRadius: 18, marginTop: 16 }}>
@@ -74,16 +69,16 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
           (Incl. Packaging, Freight & GST)
         </div>
       </h3>
-      <div className="table-responsive">
+      <div className="table-responsive" style={{ overflowX: 'auto', minWidth: 0 }}>
         <table className="table table-bordered overall-table mb-0" style={{ minWidth: 900, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <thead style={{ position: 'sticky', top: 0, background: '#2d5ba7', color: 'white', zIndex: 2 }}>
             <tr>
               <th style={{ background: '#2d5ba7', color: '#fff', borderTopLeftRadius: 12, maxWidth: 100, width: 100 }}>Sl. No</th>
-              <th style={{ background: '#2d5ba7', color: '#fff', maxWidth: 300, width: 300 }}>Product Name</th>
-              <th style={{ background: '#2d5ba7', color: '#fff', maxWidth: 350, width: 350 }}>Product Details</th>
-              <th style={{ background: '#2d5ba7', color: '#fff', maxWidth: 100, width: 100 }}>Quantity</th>
-              {vendors.map((vendor, idx) => (
-                <th key={vendor.id} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === vendors.length - 1 ? 12 : 0 }}>
+              <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300 }}>Product Name</th>
+              <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 140, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350 }}>Product Details</th>
+              <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Quantity</th>
+              {[...Array(maxVendors)].map((_, idx) => (
+                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === maxVendors - 1 ? 12 : 0 }}>
                   {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
                 </th>
               ))}
@@ -94,13 +89,25 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               const productName = item.product_details?.[0]?.name || '-';
               const size = item.product_specs?.find(s => s.title === 'Size')?.value || '--';
               const spec = item.product_specs?.find(s => s.title === 'Spec')?.value || '--';
+              // Sort vendors for this product by cost (excluding regrets)
+              const quotingVendors = item.quotations
+                .filter(q => q.id != null && q.is_regret !== 1 && q.quote_details && q.quote_details[0])
+                .map(q => {
+                  const details = q.quote_details[0];
+                  const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
+                  return { ...q, cost: calculateTotal(details, quantity) };
+                })
+                .sort((a, b) => a.cost - b.cost);
+              // For regrets, keep them in a separate map by vendor id
+              const regretMap = {};
+              item.quotations.filter(q => q.is_regret === 1).forEach(q => { regretMap[q.created_by] = q; });
               return (
                 <tr key={item.product_id || idx} style={{ borderRadius: 8 }}>
                   <td style={{ borderRadius: 8, maxWidth: 100, width: 100 }}>{idx + 1}</td>
-                  <td style={{ maxWidth: 350, width: 350, wordBreak: 'break-word' }}>
+                  <td style={{ minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300, wordBreak: 'break-word' }}>
                     {productName.length > 30 ? <ReadMore content={productName} maxLength={30} /> : productName}
                   </td>
-                  <td style={{ maxWidth: 350, width: 350, wordBreak: 'break-word', background: '#f8fafc', borderRadius: 6, verticalAlign: 'middle' }}>
+                  <td style={{ minWidth: 140, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350, wordBreak: 'break-word', background: '#f8fafc', borderRadius: 6, verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%' }}>
                         <div style={{ fontWeight: 'bold', minWidth: 60, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Size:</div>
@@ -112,46 +119,40 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       </div>
                     </div>
                   </td>
-                  <td style={{ maxWidth: 100, width: 100 }}>
+                  <td style={{ minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>
                     {(() => {
                       const qty = item.product_specs?.find(s => s.title === 'Quantity')?.value || '-';
                       const unit = item.product_specs?.find(s => s.title === 'Unit')?.value || '';
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
-                  {vendors.map((vendor) => {
-                    const q = item.quotations.find(q => q.created_by === vendor.id);
-                    const isFinalized = item.all_vendors && item.all_vendors.find(v => v.id === vendor.id && v.is_finalized);
-                    if (q && q.is_regret === 1) {
-                      return (
-                        <td key={vendor.id} style={{ background: '#d32f2f', color: '#fff', fontWeight: 600, textAlign: 'center', minWidth: 120, borderRadius: 8 }} title={q.regret_reason || 'Vendor Regretted'}>
-                          REGRET
-                        </td>
-                      );
-                    }
-                    if (q && q.quote_details && q.quote_details[0]) {
+                  {[...Array(maxVendors)].map((_, vIdx) => {
+                    const q = quotingVendors[vIdx];
+                    if (q) {
+                      const vendor = q.vendor_details ? q.vendor_details[0] : (item.all_vendors && item.all_vendors.find(v => v.id === q.created_by));
+                      const isFinalized = item.all_vendors && item.all_vendors.find(v => v.id === q.created_by && v.is_finalized);
                       const details = q.quote_details[0];
                       const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
-                      const cost = calculateTotal(details, quantity);
-                      const key = `${idx}_${vendor.id}`;
+                      const cost = q.cost;
+                      const key = `${idx}_${q.created_by}`;
                       const isOpen = breakupOpen[key];
                       const delivery = details.delivery_period;
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
                       return (
-                        <td key={vendor.id} style={{ minWidth: 160, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8 }}>
-                          <div style={{ fontWeight: 600 }}>{cost} <span style={{ fontWeight: 400 }}>({vendor.organization_name || vendor.name})</span></div>
+                        <td key={q.created_by} style={{ minWidth: 160, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8 }}>
+                          <div style={{ fontWeight: 600 }}>{cost} <span style={{ fontWeight: 400 }}>({vendor?.organization_name || vendor?.name})</span></div>
                           <div style={{ marginTop: 4 }}>
                             <button
                               type="button"
-                              onClick={() => toggleBreakup(idx, vendor.id)}
+                              onClick={() => toggleBreakup(idx, q.created_by)}
                               style={{ cursor: 'pointer', fontSize: 13, color: '#0046ad', background: 'none', border: 'none', padding: 0, textDecoration: 'underline' }}
                             >
                               {isOpen ? 'Hide Breakup' : 'Show Breakup'}
                             </button>
                             {isOpen && (
-                              <div style={{ marginTop: 6 }}>
-                                <table className="table table-sm mb-0" style={{ background: '#f9f9f9', borderRadius: 8 }}>
+                              <div style={{ marginTop: 6, maxWidth: 320, minWidth: 180, width: '100%' }}>
+                                <table className="table table-sm mb-0" style={{ background: '#f9f9f9', borderRadius: 8, tableLayout: 'fixed', width: '100%' }}>
                                   <tbody>
                                     <tr>
                                       <th style={{ textAlign: 'left', width: '50%' }}>Base Price</th>
@@ -184,13 +185,12 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                                 {delivery && (
                                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
                                     <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Delivery:</div>
-                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>{delivery} weeks</div>
+                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'right', whiteSpace: 'pre-line' }}>{delivery} {typeof delivery === 'number' ? 'weeks' : ''}</div>
                                   </div>
                                 )}
                                 {docFile && (
-                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
-                                    <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Document:</div>
-                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}><a href={docFile} target="_blank" rel="noopener noreferrer" style={{ color: '#0046ad', textDecoration: 'underline' }}>View File</a></div>
+                                  <div style={{ marginTop: 8, fontSize: 13 }}>
+                                    <span style={{ fontWeight: 700 }}>Document:</span> <a href={docFile} target="_blank" rel="noopener noreferrer" style={{ color: '#0046ad', textDecoration: 'underline' }}>View File</a>
                                   </div>
                                 )}
                               </div>
@@ -201,10 +201,20 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                           )}
                         </td>
                       );
+                    } else {
+                      // If no vendor for this Lx, show regret if available, else dash
+                      const regretVendor = Object.values(regretMap)[vIdx];
+                      if (regretVendor) {
+                        return (
+                          <td key={regretVendor.created_by} style={{ background: '#d32f2f', color: '#fff', fontWeight: 600, textAlign: 'center', minWidth: 120, borderRadius: 8 }} title={regretVendor.regret_reason || 'Vendor Regretted'}>
+                            REGRET
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={vIdx} style={{ color: '#888', textAlign: 'center', minWidth: 120, borderRadius: 8 }}>-</td>
+                      );
                     }
-                    return (
-                      <td key={vendor.id} style={{ color: '#888', textAlign: 'center', minWidth: 120, borderRadius: 8 }}>-</td>
-                    );
                   })}
                 </tr>
               );
