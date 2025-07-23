@@ -140,8 +140,13 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
                       return (
-                        <td key={q.created_by} style={{ minWidth: 160, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8 }}>
-                          <div style={{ fontWeight: 600 }}>{cost} <span style={{ fontWeight: 400 }}>({vendor?.organization_name || vendor?.name})</span></div>
+                        <td key={q.created_by} style={{ minWidth: 200, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                          <div style={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 }}>
+                            {cost}
+                            <div style={{ fontWeight: 400, fontSize: 13, marginTop: 2, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                              ({vendor?.organization_name || vendor?.name})
+                            </div>
+                          </div>
                           <div style={{ marginTop: 4 }}>
                             <button
                               type="button"
