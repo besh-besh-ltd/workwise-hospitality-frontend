@@ -103,6 +103,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
+  const [inputValue, setInputValue] = useState(""); // For what user is typing
+  const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
+  const [suggestions, setSuggestions] = useState([]); // Product name suggestions
 
   const [queryMeta, setQueryMeta] = useState({
     rfq_id: null,
@@ -508,6 +511,16 @@ const addRfqIdParam = (rfq_id) => {
       // Optionally handle the error here (e.g., show a toast)
     });
 };
+const clearVendorFilters = () => {
+  setMyVendorType(null);
+  setPreferred_vendor(false);
+  setIs_private(false);
+  setVendorName('');
+  setSearch_key('');
+  setCat_id(null);
+  setcurrentSelectedProduct(null);
+};
+
 
 
   // get product make list for filters
@@ -521,10 +534,6 @@ const addRfqIdParam = (rfq_id) => {
       console.error("Error fetching make list:", error);
     });
 };
-
-  const [inputValue, setInputValue] = useState(""); // For what user is typing
-  const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
-  const [suggestions, setSuggestions] = useState([]); // Product name suggestions
 
   // Debounced suggestion fetcher
   const debouncedFetchSuggestions = useRef(
@@ -595,6 +604,7 @@ const addRfqIdParam = (rfq_id) => {
     setCat_id(item.category_id);
     setcurrentSelectedProduct(item);
     setbulkRFQVendors([]);
+    getVendorApprovedby();
 
     tempProdRef.current = null;
 
@@ -670,18 +680,6 @@ const addRfqIdParam = (rfq_id) => {
     return '';
   };
 
-  useEffect(() => {
-    if (!currentSelectedProduct) return;
-    let url = `/vendor/${currentSelectedProduct.slug}`;
-    if (selectedCity && selectedCity[0]?.name) {
-      url += `-${encodeURIComponent(selectedCity[0].name)}`;
-    }
-    if (selectedState && selectedState[0]?.name) {
-      url += `-${encodeURIComponent(selectedState[0].name)}`;
-    }
-    router.replace(url, undefined, { shallow: true });
-    // eslint-disable-next-line
-  }, [selectedState, selectedCity]);
 
   useEffect(() => {
     // Update inputValue when a product is selected (after fetch or navigation)
