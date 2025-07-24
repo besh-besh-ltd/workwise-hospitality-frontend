@@ -530,26 +530,37 @@ const addRfqIdParam = (rfq_id) => {
     });
 };
 
-  const handleSearchChange = (e) => {
-    const searchValue = e.target.value;
+  const [inputValue, setInputValue] = useState(""); // For what user is typing
+  const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
+  const [suggestions, setSuggestions] = useState([]); // Product name suggestions
 
-    if (searchValue.length > 0 && !isOpen) {
-      setIsOpen(true);
+  // Debounced suggestion fetcher
+  const debouncedFetchSuggestions = useRef(
+    debounce(async (val) => {
+      setSuggestionLoading(true);
+      // Lightweight API call for product name suggestions (not full search)
+      // You may want to replace this with a dedicated endpoint if available
+      try {
+        const rsp = await searchProductsV2({ search_key: val }, type);
+        setSuggestions(rsp.data || []);
+      } catch (e) {
+        setSuggestions([]);
+      } finally {
+        setSuggestionLoading(false);
+      }
+    }, 300)
+  ).current;
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    setIsOpen(!!val);
+    setSuggestions([]);
+    if (val.length > 2) {
+      debouncedFetchSuggestions(val);
+    } else {
+      debouncedFetchSuggestions.cancel();
     }
-    if (searchValue.length === 0) {
-      setIsOpen(false);
-    }
-    if (searchValue.length > 2) {
-      getProducts(e.target.value);
-    }
-    setSearch_key(e.target.value);
-    setProducts([]);
-    setProductsList([]);
-    setSearchCategories([]);
-    setCat_id(null);
-    setVendorName("");
-    setIs_private(false);
-    setPreferred_vendor(false);
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -681,6 +692,20 @@ const addRfqIdParam = (rfq_id) => {
     // eslint-disable-next-line
   }, [selectedState, selectedCity]);
 
+  useEffect(() => {
+    // Update inputValue when a product is selected (after fetch or navigation)
+    if (currentSelectedProduct) {
+      setInputValue(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || "");
+    }
+  }, [currentSelectedProduct]);
+
+  useEffect(() => {
+    // If no product is selected but search_key is set (e.g., from URL), update inputValue
+    if (!currentSelectedProduct && search_key) {
+      setInputValue(search_key);
+    }
+  }, [search_key, currentSelectedProduct]);
+
   return (
     <>
       <Head>
@@ -757,18 +782,22 @@ const addRfqIdParam = (rfq_id) => {
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
-                        value={search_key}
+                        value={inputValue}
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
-                            router.replace(`/vendor/${search_key}`);
-                            getProducts(search_key);
+                            if (suggestions.length > 0) {
+                              handleAutocompleteClick(suggestions[0]);
+                            } else {
+                              router.replace(`/vendor/${search_key}`);
+                              getProducts(search_key);
+                            }
                           }
                         }}
                       />
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
-                          {loading && (
+                          {suggestionLoading && (
                             <p>
                               {" "}
                               <div
@@ -778,27 +807,25 @@ const addRfqIdParam = (rfq_id) => {
                               Fetching..
                             </p>
                           )}
-                          {!loading && search_key === "" && (
+                          {!suggestionLoading && inputValue === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading &&
-                            search_key.length < 3 &&
-                            search_key.length > 0 && (
+                          {!suggestionLoading &&
+                            inputValue.length < 3 &&
+                            inputValue.length > 0 && (
                               <p className="mb-0">
                                 Please enter at least 3 characters...
                               </p>
                             )}
-                          {!loading &&
-                            search_key !== "" &&
-                            search_key.length > 2 &&
-                            products.length == 0 &&
-                            searchCategories.length == 0 && (
+                          {!suggestionLoading &&
+                            inputValue !== "" &&
+                            inputValue.length > 2 &&
+                            suggestions.length == 0 && (
                               <p className="mb-0">No Products found!</p>
                             )}
-                          {!loading &&
-                            search_key !== "" &&
-                            (products.length > 0 ||
-                              searchCategories.length > 0) && (
+                          {!suggestionLoading &&
+                            inputValue !== "" &&
+                            (suggestions.length > 0) && (
                               <>
                                 <p
                                   className="text-center fw-bold "
@@ -813,7 +840,7 @@ const addRfqIdParam = (rfq_id) => {
                                         Product List
                                       </h2>
                                       <ul>
-                                        {products.map((item, index) => {
+                                        {suggestions.map((item, index) => {
                                           return (
                                             <li
                                               key={`mp_${index}`}
