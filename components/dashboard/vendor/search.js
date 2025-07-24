@@ -200,14 +200,6 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   }, [selectedApprovedBy])
 
   useEffect(() => {
-    // Prevent search when slug is 'all'
-    if (slug === 'all') return;
-    getProducts(slug);
-    getCategories();
-    getVendorApprovedby();
-  }, [currentSelectedProduct?.variant_id]);
-
-  useEffect(() => {
     // Prevent vendor search when slug is 'all'
     if (slug === 'all') return;
     getVendors();
@@ -601,7 +593,6 @@ const addRfqIdParam = (rfq_id) => {
     getMakeList(item?.variant_id)
     setSearch_key(item.variant_name);
     setCat_id(item.category_id);
-    setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
     setbulkRFQVendors([]);
 
