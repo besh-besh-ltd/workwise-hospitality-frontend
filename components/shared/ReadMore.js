@@ -5,7 +5,8 @@ const ReadMore = ({
   maxLines = 2,
   fontSize,
   additionalClasses = '',
-  additionalStyles = {}
+  additionalStyles = {},
+  onClick,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -32,8 +33,12 @@ const ReadMore = ({
   };
 
   return (
-    <div style={{ cursor: "pointer" }} className="d-flex flex-column align-items-start">
+    <div
+      style={{ cursor: "pointer" }}
+      className="d-flex flex-column align-items-start"
+    >
       <p
+        onClick={onClick}
         ref={contentRef}
         className={`position-relative mb-0 ${additionalClasses}`}
         style={containerStyles}
@@ -42,10 +47,12 @@ const ReadMore = ({
       </p>
       {isOverflowing && (
         <span
-          onClick={handleToggle}
+          onClick={() => {
+            handleToggle();
+          }}
           className="btn-link p-0 text-primary text-sm cursor-pointer align-self-end"
         >
-          {isExpanded ? 'Read Less' : 'Read More'}
+          {isExpanded ? "Read Less" : "Read More"}
         </span>
       )}
     </div>
