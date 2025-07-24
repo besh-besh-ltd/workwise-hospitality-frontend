@@ -1,5 +1,5 @@
 import FileLink from '@/components/shared/FileLink';
-import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getTechClearedVendorsResult } from '@/services/rfq';
+import { addToTA, fetchVendorAgreement, getClausesByRfqProductId, getSummarisedDeviation, getTechClearedVendorsResult } from '@/services/rfq';
 import { faMessage } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import React, { useEffect, useRef, useState } from 'react'
@@ -11,7 +11,8 @@ import ReadMore from '@/components/shared/ReadMore';
 import { Dropdown } from 'react-bootstrap';
 import Image from 'next/image';
 
-const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, vendors : _vendors, refetch, selectedVendor : _selectedVendor = null }) => {
+
+const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
 
     const [buyerClauses, setBuyerClauses] = useState(clauseInfo);
     const [vendorResponse, setVendorResponse] = useState(null);
@@ -23,7 +24,11 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
     const [responseLoading, setResponseLoading] = useState(false);
     const [vendors, setVendors] = useState(null);
     const [selectedVendor, setSelectedVendor] = useState(null);
+    const [summarisedDeviation , setSummarisedDeviation] = useState();
+    const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
+    
+ 
 
     const addToTechnicallyAccepted = async (vendor = null) => {
         const payload = {
@@ -131,13 +136,65 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
             console.error("Error fetching tech evaluation data", error);
         }
     };
-
+  
     const fetchVendorResults = async () => {
       await getTechEvalResult();
       await getVendorResponse();
       await getBuyerClauses();
     }
 
+useEffect(() => {
+  console.log("summarisedDeviation", summarisedDeviation);
+
+  if (!summarisedDeviation) {
+    return; // ✅ just exit safely, don't return non-function
+  }
+
+  // Clone the original clauseInfo so we don't mutate state directly
+  const updatedClauseInfo = clauseInfo.map(clause => {
+    // Get all relevant messages for this clause_id
+    const matchingMessages = summarisedDeviation.filter(
+      msg => msg.clause_id === clause.clause_id
+    );
+
+    // Attach summarisedDeviation to each vendor_response if there's a matching message
+    const updatedVendorResponses = clause.vendor_responses?.map(vendorResp => {
+      const matchedMessage = matchingMessages.find(
+        msg => msg.sender_id === vendorResp.vendor_id || msg.receiver_id === vendorResp.vendor_id
+      );
+      return {
+        ...vendorResp,
+        summarisedDeviation: matchedMessage?.summarisedDeviation || null,
+      };
+    });
+
+    return {
+      ...clause,
+      vendor_responses: updatedVendorResponses,
+    };
+  });
+
+  setUpdatedClauseInfoSummary(updatedClauseInfo);
+
+  console.log("checking the latest info", updatedClauseInfoSummary);
+
+  console.log("checking the vendor response ", updatedClauseInfoSummary);
+
+
+
+}, [summarisedDeviation]);
+
+
+
+    const fetchSummarisedDeviation = async ()=>{
+      const deviation = await getSummarisedDeviation(rfq_id);
+     setSummarisedDeviation(deviation);
+      
+    }
+    useEffect(()=>{
+     fetchSummarisedDeviation();
+    },[])
+    console.log("gettig this dine ", summarisedDeviation);
     useEffect(() => {
         if(_vendors) {
             setVendors(_vendors);
@@ -150,11 +207,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
       } else {
         setVendorResponse(null);
         setChatMap(null);
-        setBuyerClauses(clauseInfo);
+        // setBuyerClauses(clauseInfo);
       }
     }, [_selectedVendor])
-
-
     return (
       <div
         className="col-12 text-sm mb-3 mt-2 hasFullLoader"
@@ -172,7 +227,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                     <tr className="table-dark">
                       <th className="col-4 align-middle">Clause And Files</th>
                       {vendors && vendors.length > 0 &&
-                        vendors.map((vendor) => {
+                        vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
                             const isCleared = vendor.is_cleared;
                             return (
                               <th
@@ -268,11 +323,12 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                   </thead>
 
                   <tbody style={{ overflowX: "auto" }}>
-                    {buyerClauses &&
-                      buyerClauses.length > 0 &&
-                      buyerClauses.map((clauseItem, index) => (
+                    {updatedClauseInfoSummary &&
+                      updatedClauseInfoSummary.length > 0 &&
+                      updatedClauseInfoSummary.map((clauseItem, index) => (
                         <>
                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
+                          {console.log("chcking th e clause id ", clauseItem.clause_id)}
                           <td className="col-4">
                             <ReadMore
                               content={`${index + 1}. ${
@@ -289,22 +345,19 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                             ) : null}
                           </td>
                           {vendors && vendors.length > 0 &&
-                            vendors.map((vendor) => {
+                            vendors.filter(vendor => selectedVendors.length <= 0 ? true : selectedVendors.includes(vendor.vendor_id)).map((vendor) => {
                               const response = clauseItem.vendor_responses.find(
                                 (response) =>
                                   vendor.vendor_id == response.vendor_id
                               );
 
                               return (
-                                <td
-                                  key={vendor.value}
-                                  className="col-3"
-                                >
+                                <td key={vendor.value} className="col-3">
                                   <div
                                     style={{
                                       display: "flex",
                                       flexDirection: "column",
-                                      gap: 2
+                                      gap: 2,
                                     }}
                                   >
                                     <span
@@ -318,16 +371,26 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                       }`}
                                       style={{ width: "fit-content" }}
                                     >
-                                      {response?.vendor_response || "No Response"}
+                                      {response?.vendor_response ||
+                                        "No Response"}
                                     </span>
                                     {response?.vendor_response_files && (
-                                        <FileLink
-                                            key={response.vendor_id}
-                                            Files={response.vendor_response_files}
-                                            ColumnClass="col-md-6"
-                                        />
+                                      <FileLink
+                                        key={response.vendor_id}
+                                        Files={response.vendor_response_files}
+                                        ColumnClass="col-md-6"
+                                      />
                                     )}
-                                    <button
+                                    
+                                    <ReadMore
+                                    onClick={() => {
+                                        toggleChat(clauseItem.clause_id);
+                                        setSelectedVendor(vendor);
+                                      }}
+                                     content={response?.summarisedDeviation ? response?.summarisedDeviation : ""}
+                                     maxLines={4}
+                                    />
+                                 {response?.summarisedDeviation &&   (<button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
@@ -341,8 +404,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                         setSelectedVendor(vendor);
                                       }}
                                     >
-                                      Deviation
-                                    </button>
+                                     Deviation
+                                    </button>)}
                                   </div>
                                 </td>
                               );

@@ -703,7 +703,7 @@ export const addVendorAgreement = (payload) => {
   });
 };
 
-export const fetchVendorAgreement = (payload) => {
+export const fetchVendorAgreement = (payload) => {  //Not being used anywhere  .
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/get-vendor-responses`, payload);
@@ -735,6 +735,17 @@ export const getTechClearedVendorsResult = (payload) => {
     }
   });
 };
+
+export const getSummarisedDeviation = (rfq_id) => {
+  return new Promise ( async (resolve , reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-summarised-deviation`,{ rfq_id })
+      resolve(response.data);
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 
 export const getRfqChartData = (filter, project_id) => {
   return new Promise(async (resolve, reject) => {
