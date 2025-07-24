@@ -70,15 +70,15 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
         </div>
       </h3>
       <div className="table-responsive" style={{ overflowX: 'auto', minWidth: 0 }}>
-        <table className="table table-bordered overall-table mb-0" style={{ minWidth: 900, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <table className="table table-bordered overall-table mb-0" style={{ minWidth: 900, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', tableLayout: 'auto' }}>
           <thead style={{ position: 'sticky', top: 0, background: '#2d5ba7', color: 'white', zIndex: 2 }}>
             <tr>
               <th style={{ background: '#2d5ba7', color: '#fff', borderTopLeftRadius: 12, maxWidth: 100, width: 100 }}>Sl. No</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300 }}>Product Name</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 140, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350 }}>Product Details</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Quantity</th>
-              {[...Array(maxVendors)].map((_, idx) => (
-                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === maxVendors - 1 ? 12 : 0 }}>
+              {[...Array(Math.min(maxVendors, 3))].map((_, idx) => (
+                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === Math.min(maxVendors, 3) - 1 ? 12 : 0 }}>
                   {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
                 </th>
               ))}
@@ -97,7 +97,8 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                   const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
                   return { ...q, cost: calculateTotal(details, quantity) };
                 })
-                .sort((a, b) => a.cost - b.cost);
+                .sort((a, b) => a.cost - b.cost)
+                .slice(0, 3); // Only take top 3 vendors
               // For regrets, keep them in a separate map by vendor id
               const regretMap = {};
               item.quotations.filter(q => q.is_regret === 1).forEach(q => { regretMap[q.created_by] = q; });
@@ -126,7 +127,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
-                  {[...Array(maxVendors)].map((_, vIdx) => {
+                  {[...Array(Math.min(maxVendors, 3))].map((_, vIdx) => {
                     const q = quotingVendors[vIdx];
                     if (q) {
                       const vendor = q.vendor_details ? q.vendor_details[0] : (item.all_vendors && item.all_vendors.find(v => v.id === q.created_by));
@@ -140,8 +141,13 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
                       return (
-                        <td key={q.created_by} style={{ minWidth: 160, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8 }}>
-                          <div style={{ fontWeight: 600 }}>{cost} <span style={{ fontWeight: 400 }}>({vendor?.organization_name || vendor?.name})</span></div>
+                        <td key={q.created_by} style={{ minWidth: 200, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                        <div style={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 }}>
+                          {cost}
+                          <div style={{ fontWeight: 400, fontSize: 13, marginTop: 2, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                            ({vendor?.organization_name || vendor?.name})
+                          </div>
+                        </div>
                           <div style={{ marginTop: 4 }}>
                             <button
                               type="button"
@@ -202,15 +208,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                         </td>
                       );
                     } else {
-                      // If no vendor for this Lx, show regret if available, else dash
-                      const regretVendor = Object.values(regretMap)[vIdx];
-                      if (regretVendor) {
-                        return (
-                          <td key={regretVendor.created_by} style={{ background: '#d32f2f', color: '#fff', fontWeight: 600, textAlign: 'center', minWidth: 120, borderRadius: 8 }} title={regretVendor.regret_reason || 'Vendor Regretted'}>
-                            REGRET
-                          </td>
-                        );
-                      }
+                      // If no vendor for this Lx, show hyphen (blank cell)
                       return (
                         <td key={vIdx} style={{ color: '#888', textAlign: 'center', minWidth: 120, borderRadius: 8 }}>-</td>
                       );
