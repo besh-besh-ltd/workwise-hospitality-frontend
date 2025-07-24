@@ -157,7 +157,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                               {isOpen ? 'Hide Breakup' : 'Show Breakup'}
                             </button>
                             {isOpen && (
-                              <div style={{ marginTop: 6, maxWidth: 320, minWidth: 180, width: '100%' }}>
+                              <div style={{ marginTop: 6, maxWidth: 420, minWidth: 260, width: '100%' }}>
                                 <table className="table table-sm mb-0" style={{ background: '#f9f9f9', borderRadius: 8, tableLayout: 'fixed', width: '100%' }}>
                                   <tbody>
                                     <tr>
@@ -180,25 +180,26 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                                       <th style={{ textAlign: 'left' }}>Total</th>
                                       <td style={{ textAlign: 'right' }}>{cost}</td>
                                     </tr>
+                                    {comment && (
+                                      <tr>
+                                        <th style={{ textAlign: 'left' }}>Comment</th>
+                                        <td style={{ textAlign: 'right' }}>{comment}</td>
+                                      </tr>
+                                    )}
+                                    {delivery && (
+                                      <tr>
+                                        <th style={{ textAlign: 'left' }}>Delivery</th>
+                                        <td style={{ textAlign: 'right' }}>{delivery} {typeof delivery === 'number' ? 'weeks' : ''}</td>
+                                      </tr>
+                                    )}
+                                    {docFile && (
+                                      <tr>
+                                        <th style={{ textAlign: 'left' }}>Document</th>
+                                        <td style={{ textAlign: 'right' }}><a href={docFile} target="_blank" rel="noopener noreferrer" style={{ color: '#0046ad', textDecoration: 'underline' }}>View File</a></td>
+                                      </tr>
+                                    )}
                                   </tbody>
                                 </table>
-                                {comment && (
-                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
-                                    <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Comment:</div>
-                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'right', whiteSpace: 'pre-line' }}><ReadMore content={comment} maxLength={60} /></div>
-                                  </div>
-                                )}
-                                {delivery && (
-                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%', marginTop: 8 }}>
-                                    <div style={{ fontWeight: 'bold', minWidth: 70, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Delivery:</div>
-                                    <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'right', whiteSpace: 'pre-line' }}>{delivery} {typeof delivery === 'number' ? 'weeks' : ''}</div>
-                                  </div>
-                                )}
-                                {docFile && (
-                                  <div style={{ marginTop: 8, fontSize: 13 }}>
-                                    <span style={{ fontWeight: 700 }}>Document:</span> <a href={docFile} target="_blank" rel="noopener noreferrer" style={{ color: '#0046ad', textDecoration: 'underline' }}>View File</a>
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
