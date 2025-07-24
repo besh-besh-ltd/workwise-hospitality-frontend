@@ -381,7 +381,16 @@ useEffect(() => {
                                         ColumnClass="col-md-6"
                                       />
                                     )}
-                                    {/* <button
+                                    
+                                    <ReadMore
+                                    onClick={() => {
+                                        toggleChat(clauseItem.clause_id);
+                                        setSelectedVendor(vendor);
+                                      }}
+                                     content={response?.summarisedDeviation ? response?.summarisedDeviation : ""}
+                                     maxLines={4}
+                                    />
+                                 {response?.summarisedDeviation &&   (<button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
@@ -395,16 +404,8 @@ useEffect(() => {
                                         setSelectedVendor(vendor);
                                       }}
                                     >
-                                     { Deviation}
-                                    </button> */}
-                                    <ReadMore
-                                    onClick={() => {
-                                        toggleChat(clauseItem.clause_id);
-                                        setSelectedVendor(vendor);
-                                      }}
-                                     content={response?.summarisedDeviation ? response?.summarisedDeviation : ""}
-                                     maxLines={4}
-                                    />
+                                     Deviation
+                                    </button>)}
                                   </div>
                                 </td>
                               );
