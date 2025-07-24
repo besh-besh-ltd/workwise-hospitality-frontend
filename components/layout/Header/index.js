@@ -10,6 +10,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
+import DropdownMenu from "@/components/shared/DropdownMenu";
 
 const initialMainNavs = [
   "/",
@@ -349,16 +350,28 @@ const Header = () => {
                   {/* START: website navbar - static pages content */}
                   <nav className="main-menu">
                     <ul>
-                      {websiteMenu.map((item) => (
-                        <li
-                          key={item.href}
-                          className={
-                            router.pathname === item.href ? "active" : ""
-                          }
-                        >
-                          <Link href={item.href}>{item.label}</Link>
-                        </li>
-                      ))}
+                    {websiteMenu.map((item) =>
+                        item.label === 'Our Solutions' ? (
+                          <DropdownMenu
+                            key={item.href}
+                            label="Our Solutions"
+                            options={[
+                              { label: 'Civil', href: '/solutions/civil' },
+                              { label: 'Mechanical', href: '/solutions/mechanical' },
+                              { label: 'Electrical', href: '/solutions/electrical' },
+                              { label: 'Chemical', href: '/solutions/chemical' },
+                              { label: 'Fire Engineering', href: '/solutions/fire-engineering' },
+                            ]}
+                          />
+                        ) : (
+                          <li
+                            key={item.href}
+                            className={router.pathname === item.href ? 'active' : ''}
+                          >
+                            <Link href={item.href}>{item.label}</Link>
+                          </li>
+                        )
+                      )}
                     </ul>
                   </nav>
                   {/* END: website navbar - static pages content */}
