@@ -205,6 +205,7 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   useEffect(() => {
     // Prevent vendor search when slug is 'all'
     if (slug === 'all') return;
+    getVendorApprovedby();
     getVendors();
   }, [
     currentSelectedProduct,
