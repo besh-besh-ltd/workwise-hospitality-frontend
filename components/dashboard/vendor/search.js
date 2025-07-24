@@ -498,27 +498,22 @@ const addRfqIdParam = (rfq_id) => {
       });
   };
 
- const getVendorApprovedby = () => {
-  setvabloading(true);
+  const getVendorApprovedby = () => {
+    setvabloading(true);
+  
+    vendorApproveList(currentSelectedProduct?.variant_id)
+      .then((rsp) => {
+        setvabloading(false);
+        setApproved_by(rsp.data);
+      })
+      .catch((error) => {
+        setvabloading(false);
+        // Optionally handle the error here (e.g., show a toast)
+      });
+  };
 
-  vendorApproveList(currentSelectedProduct?.variant_id)
-    .then((rsp) => {
-      setvabloading(false);
-      setApproved_by(rsp.data);
-    })
-    .catch((error) => {
-      setvabloading(false);
-      // Optionally handle the error here (e.g., show a toast)
-    });
-};
 const clearVendorFilters = () => {
   setMyVendorType(null);
-  setPreferred_vendor(false);
-  setIs_private(false);
-  setVendorName('');
-  setSearch_key('');
-  setCat_id(null);
-  setcurrentSelectedProduct(null);
 };
 
 
