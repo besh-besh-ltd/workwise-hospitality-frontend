@@ -22,6 +22,7 @@ import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
 import { Button } from "react-bootstrap";
 import OverallCostComparison from './OverallCostComparison';
+import ReadMore from "@/components/shared/ReadMore";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -1276,6 +1277,7 @@ const openModalForVariant = (variantId) => {
                         )}
                         {quotes && quotes.length > 0 && quotes.map((item, index) => {
                           const key = `${item.product_variant_id}_${item.variant}`;
+                          const spec = item?.product_details[0]?.rfq_details[3]?.value;
                           return (
                             <div className="quote-sec-table-sub" key={`qq_${index}`}> 
                               <div className="row">
@@ -1285,7 +1287,7 @@ const openModalForVariant = (variantId) => {
                                       <b>Product</b> : {item?.product_details[0]?.product_name}
                                     </p>
                                     <p className="sub-heading mb-0">
-                                      <b>Product Specification</b> : {item?.product_details[0]?.rfq_details && item?.product_details[0]?.rfq_details[1]?.value}
+                                      <b>Product Specification</b> : {spec ? <ReadMore content={spec} maxLength={30} maxLines={2} /> : "N/A"}
                                     </p>
                                   </div>
                                   <div>

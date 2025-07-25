@@ -448,25 +448,19 @@ const openModalForVariant = (variantId) => {
                               : "-"}
                           </td>
                           <td>
-                            <div className="row">
-                              {
-                                <p className="col-12 mb-1">
-                                  <strong>Size: </strong>
-                                  {size?.value ?? "--"}
-                                </p>
-                              }
-                              {
-                                <p
-                                  className="col-12 mb-1 truncate-text"
-                                  style={{
-                                    maxHeight: "100px",
-                                    WebkitLineClamp: 3,
-                                  }}
-                                >
-                                  <strong>Spec: </strong>
-                                  {spec?.value ?? "--"}
-                                </p>
-                              }
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                <span style={{ fontWeight: 'bold', minWidth: 40 }}>Size:</span>
+                                <span style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', flex: 1 }}>
+                                  {size?.value ? <ReadMore content={size.value} maxLength={1000} maxLines={3} /> : "--"}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                <span style={{ fontWeight: 'bold', minWidth: 40 }}>Spec:</span>
+                                <span style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', flex: 1 }}>
+                                  {spec?.value ? <ReadMore content={spec.value} maxLength={1000} maxLines={3} /> : "--"}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td>{`${quantity?.value ?? "NA"}-${
