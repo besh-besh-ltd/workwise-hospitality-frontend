@@ -179,7 +179,7 @@ const websiteMenu = [
   { href: "/", label: "Home" },
   { href: "/aboutus", label: "About Us" },
   { href: "/vendor/all", label: "Find a Vendor" },
-  { href: "/solutions", label: "Our Solutions" },
+  { href: "/solutions/*", label: "Our Solutions" },
   { href: "/for-vendors", label: "For Vendor" },
   { href: "/contactus", label: "Contact Us" },
 ];
@@ -368,7 +368,7 @@ const Header = () => {
                             key={item.href}
                             className={router.pathname === item.href ? 'active' : ''}
                           >
-                            <Link href={item.href}>{item.label}</Link>
+                             <Link href={item.href}>{item.label}</Link>
                           </li>
                         )
                       )}
