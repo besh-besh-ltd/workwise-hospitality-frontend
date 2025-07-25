@@ -1,5 +1,5 @@
 // This file could look similar to your current sitemap generator but only include static pages.
-const EXTERNAL_DATA_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://letsworkwise.com';
+const EXTERNAL_DATA_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
 
 const staticUrls = [
   { loc: '/', changefreq: 'daily', priority: 1.0 },
@@ -10,17 +10,27 @@ const staticUrls = [
   { loc: '/privacypolicy', changefreq: 'daily', priority: 0.7 },
 ];
 
-const createSitemap = (urls) => `<?xml version="1.0" encoding="UTF-8"?>
+const createSitemapIndex = (staticUrls, sitemaps) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    ${urls.map(url => `
-        <url>
-            <loc>${`${EXTERNAL_DATA_URL}${url.loc}`}</loc>
-            <changefreq>${url.changefreq}</changefreq>
-            <priority>${url.priority}</priority>
-        </url>`).join('')}
+  ${staticUrls.map(url => `
+    <url>
+      <loc>${EXTERNAL_DATA_URL}${url.loc}</loc>
+      <changefreq>${url.changefreq}</changefreq>
+      <priority>${url.priority}</priority>
+    </url>
+  `).join('')}
+  ${sitemaps.map(sm => `
+    <url>
+      <loc>${EXTERNAL_DATA_URL}${sm.loc}</loc>
+      <lastmod>${sm.lastmod}</lastmod>
+    </url>
+  `).join('')}
 </urlset>`;
 
-export default function sitemapStaticXml(req, res) {
+export default function handler(req, res) {
+  const sitemaps = [
+    { loc: '/api/vendor.xml', lastmod: new Date().toISOString().split('T')[0] }
+  ];
   res.setHeader('Content-Type', 'application/xml');
-  res.send(createSitemap(staticUrls));
+  res.send(createSitemapIndex(staticUrls, sitemaps));
 }

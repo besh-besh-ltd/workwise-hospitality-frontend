@@ -25,6 +25,7 @@ import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
 import { BusinessTypes } from "@/utils/constants";
+import { getCountries, getStates, getCities } from "@/services/cms";
 
 
 export const vendorConditions = [
@@ -102,6 +103,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   const [is_private, setIs_private] = useState(false);
   const [myVendorType, setMyVendorType] = useState(null);
   const [preferred_vendor, setPreferred_vendor] = useState(false);
+  const [inputValue, setInputValue] = useState(""); // For what user is typing
+  const [suggestionLoading, setSuggestionLoading] = useState(false); // For suggestion fetch
+  const [suggestions, setSuggestions] = useState([]); // Product name suggestions
 
   const [queryMeta, setQueryMeta] = useState({
     rfq_id: null,
@@ -199,14 +203,9 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   }, [selectedApprovedBy])
 
   useEffect(() => {
-    // getProfileDetails();
-    getProducts(slug);
-    getCategories();
+    // Prevent vendor search when slug is 'all'
+    if (slug === 'all') return;
     getVendorApprovedby();
-  }, [currentSelectedProduct?.variant_id]);
-
-
-  useEffect(() => {
     getVendors();
   }, [
     currentSelectedProduct,
@@ -223,6 +222,13 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     myVendorType,
     selectedMakes
   ]);
+
+  // When a new product is selected, update the search bar value
+  useEffect(() => {
+    if (currentSelectedProduct) {
+      setSearch_key(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+    }
+  }, [currentSelectedProduct]);
 
   useEffect(() => {
     if (currentSelectedProduct) {
@@ -355,15 +361,25 @@ const addRfqIdParam = (rfq_id) => {
     setSearchSubCategories([]);
     // changes by mukul jatav 29-08-2024 
     // setbulkRFQVendors([]);
-    if (search_key != "") {
+    // Use the name of the product at index 0 as the search_key for vendor search
+    let canonicalSearchKey = search_key;
+    if (products && products.length > 0) {
+      canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
+    }
+    if (canonicalSearchKey != "") {
+      // Convert location filters to proper format for backend
+      const stateFilter = selectedState && selectedState.length > 0 ? selectedState : [];
+      const cityFilter = selectedCity && selectedCity.length > 0 ? selectedCity : [];
+      const countryFilter = selectedCountry && selectedCountry.length > 0 ? selectedCountry : [];
+      
       searchProductsV2(
         {
           cat_id,
-          search_key,
+          search_key: canonicalSearchKey,
           approved_by: selectedApprovedBy,
-          state: selectedState,
-          city: selectedCity,
-          country: selectedCountry,
+          state: stateFilter,
+          city: cityFilter,
+          country: countryFilter,
           turnOver,
           vendorType: selectedVendorTypes,
           prevWorkedWith,
@@ -398,6 +414,7 @@ const addRfqIdParam = (rfq_id) => {
   const getProducts = (s_key = search_key) => {
     setloading(true);
     categoryLvlRef.current = new Map();
+    
     searchProductsV2(
       {
         cat_id,
@@ -415,12 +432,13 @@ const addRfqIdParam = (rfq_id) => {
           item.selected = false;
           return item;
         });
-        if (slug && slug != "all" && firstVisit) {
-          handleAutocompleteClick(d[0])
-          setFirstVisit(false);
+        setProducts(d);
+        setSearchCategories(rsp.categoryData);
+        // Always set currentSelectedProduct to index 0 and log it
+        if (d.length > 0) {
+          setcurrentSelectedProduct(d[0]);
         } else {
-          setProducts(d);
-          setSearchCategories(rsp.categoryData);
+          setcurrentSelectedProduct(null);
         }
       })
       .catch((error) => {
@@ -481,19 +499,24 @@ const addRfqIdParam = (rfq_id) => {
       });
   };
 
- const getVendorApprovedby = () => {
-  setvabloading(true);
+  const getVendorApprovedby = () => {
+    setvabloading(true);
+  
+    vendorApproveList(currentSelectedProduct?.variant_id)
+      .then((rsp) => {
+        setvabloading(false);
+        setApproved_by(rsp.data);
+      })
+      .catch((error) => {
+        setvabloading(false);
+        // Optionally handle the error here (e.g., show a toast)
+      });
+  };
 
-  vendorApproveList(currentSelectedProduct?.variant_id)
-    .then((rsp) => {
-      setvabloading(false);
-      setApproved_by(rsp.data);
-    })
-    .catch((error) => {
-      setvabloading(false);
-      // Optionally handle the error here (e.g., show a toast)
-    });
+const clearVendorFilters = () => {
+  setMyVendorType(null);
 };
+
 
 
   // get product make list for filters
@@ -508,26 +531,33 @@ const addRfqIdParam = (rfq_id) => {
     });
 };
 
-  const handleSearchChange = (e) => {
-    const searchValue = e.target.value;
+  // Debounced suggestion fetcher
+  const debouncedFetchSuggestions = useRef(
+    debounce(async (val) => {
+      setSuggestionLoading(true);
+      // Lightweight API call for product name suggestions (not full search)
+      // You may want to replace this with a dedicated endpoint if available
+      try {
+        const rsp = await searchProductsV2({ search_key: val }, type);
+        setSuggestions(rsp.data || []);
+      } catch (e) {
+        setSuggestions([]);
+      } finally {
+        setSuggestionLoading(false);
+      }
+    }, 300)
+  ).current;
 
-    if (searchValue.length > 0 && !isOpen) {
-      setIsOpen(true);
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    setIsOpen(!!val);
+    setSuggestions([]);
+    if (val.length > 2) {
+      debouncedFetchSuggestions(val);
+    } else {
+      debouncedFetchSuggestions.cancel();
     }
-    if (searchValue.length === 0) {
-      setIsOpen(false);
-    }
-    if (searchValue.length > 2) {
-      getProducts(e.target.value);
-    }
-    setSearch_key(e.target.value);
-    setProducts([]);
-    setProductsList([]);
-    setSearchCategories([]);
-    setCat_id(null);
-    setVendorName("");
-    setIs_private(false);
-    setPreferred_vendor(false);
   };
   const handleSearch = (e) => {
     e.preventDefault();
@@ -568,9 +598,9 @@ const addRfqIdParam = (rfq_id) => {
     getMakeList(item?.variant_id)
     setSearch_key(item.variant_name);
     setCat_id(item.category_id);
-    setcurrentSelectedProduct(null);
     setcurrentSelectedProduct(item);
     setbulkRFQVendors([]);
+    getVendorApprovedby();
 
     tempProdRef.current = null;
 
@@ -578,65 +608,98 @@ const addRfqIdParam = (rfq_id) => {
     const { rfq_id, sheet_id } = router.query;
 
     // Update the URL to include the selected product's slug and preserve rfq_id if it exists
-    const productSlug = item.slug ?? item.variant_name.replace(' ', '_').toLowerCase();
+    const productSlug = item.slug || cleanAndAddHyphen(item.variant_name || item.product_name || '');
     const newUrl = rfq_id && sheet_id
       ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
       : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 
       : `/vendor/${productSlug}`;
 
     router.push(newUrl);
-    storageInstance.setStorage("product_name", slug);
+    storageInstance.setStorage("product_name", productSlug);
   };
 
 
+  // --- Location lists for dropdowns ---
+  const [countryList, setCountryList] = useState([]);
+  const [stateList, setStateList] = useState([]);
+  const [cityList, setCityList] = useState([]);
+
+  // Fetch country/state/city lists for dropdowns (unchanged)
+  useEffect(() => { getCountries().then(res => setCountryList(res.data || [])); }, []);
+  useEffect(() => { getStates().then(res => setStateList(res.data || [])); }, []);
+  useEffect(() => { getCities().then(res => setCityList(res.data || [])); }, []);
+
+  // --- Parse slug only ONCE when slug or lists are ready ---
+  useEffect(() => {
+    if (!slug || slug === 'all' || !stateList.length || !cityList.length) return;
+
+    const segments = slug.split('-');
+    let foundState = null, foundCity = null, productSegments = [];
+
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const segment = segments[i];
+      if (!foundState) {
+        const stateMatch = stateList.find(state => state.state_name.toLowerCase() === segment.toLowerCase());
+        if (stateMatch) { foundState = stateMatch; setselectedState([{ id: stateMatch.id, name: stateMatch.state_name }]); continue; }
+      }
+      if (!foundCity) {
+        const cityMatch = cityList.find(city => city.city_name.toLowerCase() === segment.toLowerCase());
+        if (cityMatch) { foundCity = cityMatch; setselectedCity([{ id: cityMatch.id, name: cityMatch.city_name }]); continue; }
+      }
+      productSegments.unshift(segment);
+    }
+    setSearch_key(productSegments.join('-'));
+  }, [slug, stateList, cityList]);
+
+  // --- Trigger product search automatically ---
+  useEffect(() => {
+    if (search_key && slug && slug !== 'all') {
+      getProducts(search_key);
+    }
+  }, [search_key, slug]);
+
+  // --- When filters are cleared, update the URL ---
   const clearLocationFilter = () => {
     setselectedState([]);
     setselectedCity([]);
     setselectedCountry([]);
+    router.replace(`/vendor/${search_key || 'all'}`);
+    getProducts(search_key);
   };
 
-  const mapEntries = Array.from(categoryLvlRef.current.entries());
-
-  // for clear the search from the input of search vendor
-  const clearProductSearch = () => {
-    setcurrentSelectedProduct(null);
-    setCat_id(null);
-    setSearch_key("");
-
-    // Get the rfq_id from the URL if it exists
-    const { rfq_id } = router.query;
-
-    // Preserve rfq_id when clearing search
-    const newUrl = rfq_id
-      ? `/vendor/all?rfq_id=${rfq_id}`
-      : `/vendor/all`;
-
-    router.push(newUrl);
-    storageInstance.setStorage("product_name", "all");
-  }
-
-  // Options for the dropdown
-  const optionVendors = [
-    { value: 'is_private', label: 'My Private Vendor' },
-    { value: 'is_public', label: 'My Public Vendor' },
-    { value: 'both', label: 'Both' },
-  ];
-
-  // Handle selection changes to ensure only one filter is active at a time
-
-  // Generalized clear filter function to reset both filters
-  const clearVendorFilters = () => {
-    setMyVendorType(null);
+  // --- Search bar: always editable ---
+  const getProductTitle = () => {
+    if (currentSelectedProduct) {
+      const title = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
+      return title;
+    }
+    return '';
   };
+
+
+  useEffect(() => {
+    // Update inputValue when a product is selected (after fetch or navigation)
+    if (currentSelectedProduct) {
+      setInputValue(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || "");
+    }
+  }, [currentSelectedProduct]);
+
+  useEffect(() => {
+    // If no product is selected but search_key is set (e.g., from URL), update inputValue
+    if (!currentSelectedProduct && search_key) {
+      setInputValue(search_key);
+    }
+  }, [search_key, currentSelectedProduct]);
 
   return (
     <>
       <Head>
+        <title>{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</title>
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "http://schema.org",
             "@type": "Product",
-            name: currentSelectedProduct?.product_name,
+            name: getProductTitle(),
             image: currentSelectedProduct?.image_url || "",
             description: currentSelectedProduct?.description || "",
             sku: currentSelectedProduct?.slug,
@@ -655,7 +718,7 @@ const addRfqIdParam = (rfq_id) => {
 
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{title}</h1>
+          <h1 className="heading">{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/magic-search"
@@ -704,13 +767,22 @@ const addRfqIdParam = (rfq_id) => {
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
                         autoComplete="off"
-                        value={search_key}
-                        // onClick={handleSearchClick}
+                        value={inputValue}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            if (suggestions.length > 0) {
+                              handleAutocompleteClick(suggestions[0]);
+                            } else {
+                              router.replace(`/vendor/${search_key}`);
+                              getProducts(search_key);
+                            }
+                          }
+                        }}
                       />
 
                       {isOpen && (
                         <div className="search_results_autocomplete">
-                          {loading && (
+                          {suggestionLoading && (
                             <p>
                               {" "}
                               <div
@@ -720,27 +792,25 @@ const addRfqIdParam = (rfq_id) => {
                               Fetching..
                             </p>
                           )}
-                          {!loading && search_key === "" && (
+                          {!suggestionLoading && inputValue === "" && (
                             <p className="mb-0">Start Typing Product Name...</p>
                           )}
-                          {!loading &&
-                            search_key.length < 3 &&
-                            search_key.length > 0 && (
+                          {!suggestionLoading &&
+                            inputValue.length < 3 &&
+                            inputValue.length > 0 && (
                               <p className="mb-0">
                                 Please enter at least 3 characters...
                               </p>
                             )}
-                          {!loading &&
-                            search_key !== "" &&
-                            search_key.length > 2 &&
-                            products.length == 0 &&
-                            searchCategories.length == 0 && (
+                          {!suggestionLoading &&
+                            inputValue !== "" &&
+                            inputValue.length > 2 &&
+                            suggestions.length == 0 && (
                               <p className="mb-0">No Products found!</p>
                             )}
-                          {!loading &&
-                            search_key !== "" &&
-                            (products.length > 0 ||
-                              searchCategories.length > 0) && (
+                          {!suggestionLoading &&
+                            inputValue !== "" &&
+                            (suggestions.length > 0) && (
                               <>
                                 <p
                                   className="text-center fw-bold "
@@ -755,7 +825,7 @@ const addRfqIdParam = (rfq_id) => {
                                         Product List
                                       </h2>
                                       <ul>
-                                        {products.map((item, index) => {
+                                        {suggestions.map((item, index) => {
                                           return (
                                             <li
                                               key={`mp_${index}`}
@@ -1358,7 +1428,7 @@ const addRfqIdParam = (rfq_id) => {
                       <h2 className="fs-5">
                         Available Vendors for{" "}
                         <span style={{ fontWeight: "500" }}>
-                          {currentSelectedProduct.variant_name}
+                          {getProductTitle()}
                         </span>
                       </h2>
                     )}
