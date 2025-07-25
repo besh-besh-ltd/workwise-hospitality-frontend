@@ -47,18 +47,46 @@ const DropdownMenu = ({ label, options }) => {
         {options.map(opt => (
           <li key={opt.href} style={{ listStyle: 'none' }}>
             <Link href={opt.href} legacyBehavior>
-              <a className="navbar-dropdown-link" style={{
-                display: 'block',
-                padding: '10px 20px',
-                color: '#222',
-                padding: '10px 20px 6px 20px',
-                fontWeight: 600,
-                textDecoration: 'none',
-                borderBottom: '1px solid #f0f0f0',
-                transition: 'background 0.15s',
-                borderRadius: 0
-              }}>
-                {opt.label}
+              <a
+                className="navbar-dropdown-link"
+                style={{
+                  display: 'block',
+                  padding: '10px 20px 10px 20px', // more bottom padding for underline
+                  color: '#222',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #f0f0f0',
+                  transition: 'background 0.15s',
+                  borderRadius: 0,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.querySelector('.dropdown-underline').style.width = '100%';
+                  e.currentTarget.style.background = '#f5f7fa';
+                  e.currentTarget.style.color = 'var(--secondary-color)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.querySelector('.dropdown-underline').style.width = '0';
+                  e.currentTarget.style.background = '';
+                  e.currentTarget.style.color = '#222';
+                }}
+              >
+                <span style={{ position: 'relative', display: 'block', width: '100%' }}>
+                  {opt.label}
+                  <span
+                    className="dropdown-underline"
+                    style={{
+                      display: 'block',
+                      height: 5, // thicker underline
+                      background: 'var(--secondary-color)',
+                      width: 0,
+                      margin: '10px 0 0 0', // more space below text
+                      transition: 'width 0.18s cubic-bezier(.4,0,.2,1)',
+                      borderRadius: 3,
+                    }}
+                  />
+                </span>
               </a>
             </Link>
           </li>
