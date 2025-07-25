@@ -23,6 +23,18 @@ export const getDataWithLoading = async (fetchingFunc, loadingSetter) => {
   }
 };
 
+export const formatToINRShort = (amount) => {
+  if (amount >= 10000000) {
+    return `${(amount / 10000000).toFixed(amount % 10000000 === 0 ? 0 : 1)}Cr`;
+  } else if (amount >= 100000) {
+    return `${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
+  } else if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
+  } else {
+    return amount.toString();
+  }
+};
+
 export const textCapitalize = (str) => {
     if (!str) return str;
 

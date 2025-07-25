@@ -2,23 +2,28 @@ import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails } from "@/services/po";
+import { getPoData, getPoDetails, handlePOApproval } from "@/services/po";
 import { useRouter } from "next/router";
 import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
+import { toast } from "react-toastify";
+import { getCompanyUsers } from "@/services/Auth";
 
 const PurchaseOrders = () => {
   const router = useRouter();
 
   const { rfq, po } = router.query;
   const [loading, setloading] = useState(false);
+  const [rfqLoading, setRFQLoading] = useState(false);
   const [myRFQs, setmyRFQs] = useState([]);
   const [rfqNo, setRfqNo] = useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
   const [poData, setPOData] = useState(null);
+  const [totalData, setTotalData] = useState(0);
   const [poDetails, setPODetails] = useState(null);
+  const [companyUsers, setCompanyUsers] = useState([]);
 
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
@@ -28,10 +33,21 @@ const PurchaseOrders = () => {
     limit: 10,
   })
 
+  const fetchCompanyUsers = async () => {
+    try {
+      const res = await getCompanyUsers();
+      setCompanyUsers(res.data);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? 'Something went wrong while fetching company users!');
+    }
+  };
+
   const getAllRFQs = (rfqNumberChange = false) => {
-    setloading(true);
+    setRFQLoading(true);
     getRfqs({
       tech_eval: false,
+      po: true,
       page,
       limit,
       project_id: selectedproject ? selectedproject : -1,
@@ -39,7 +55,7 @@ const PurchaseOrders = () => {
       sort: "DESC",
     })
       .then((res) => {
-        setloading(false);
+        setRFQLoading(false);
         const newData = Array.isArray(res) ? res : [];
 
         if (rfqNumberChange) {
@@ -62,7 +78,7 @@ const PurchaseOrders = () => {
         }
       })
       .finally(() => {
-        setloading(false);
+        setRFQLoading(false);
       });
   };
 
@@ -71,9 +87,28 @@ const PurchaseOrders = () => {
 
     setloading(true);
     getPoData(rfq, { ...poMeta, ...filters }).then(value => {
-        if(value)
-            setPOData(value);
+        if(value) {
+          setPOData(value.data);
+          setTotalData(value.total);
+        }
     }).finally(() => setloading(false));
+  };
+
+  const handlePODecision = async (po_id, data) => {
+    try {
+      setloading(true);
+      const res = await handlePOApproval(po_id, data);
+      if(res) {
+        toast.success(res.message);
+      } else {
+        throw new Error("Something went wrong while making a decision, please try again!")
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
+    } finally {
+      setloading(false);
+    }
   }
 
   const getPODetails = () => {
@@ -107,6 +142,8 @@ const PurchaseOrders = () => {
   useEffect(() => {
     getPOData();
   }, [rfq]);
+
+  useEffect(() => { fetchCompanyUsers(); }, [])
   
   useEffect(() => {
     getPODetails();
@@ -176,9 +213,9 @@ const PurchaseOrders = () => {
                     isClearable
                   />
                 </div>
-                {!loading && myRFQs && myRFQs.length === 0 ? (
+                {!rfqLoading && myRFQs && myRFQs.length === 0 ? (
                   <p style={{ textAlign: "center" }}>No RFQs yet!</p>
-                ) : !loading && myRFQs && myRFQs.length > 0 ? (
+                ) : !rfqLoading && myRFQs && myRFQs.length > 0 ? (
                   <ul
                     className="overflow-y-auto mt-1"
                     style={{ maxHeight: "70vh" }}
@@ -211,7 +248,7 @@ const PurchaseOrders = () => {
                       );
                     })}
 
-                    {loading && (
+                    {rfqLoading && (
                       <div className="d-flex justify-content-center align-items-center">
                         Loading ...
                         <div
@@ -231,7 +268,7 @@ const PurchaseOrders = () => {
                 <div className="quote-sec-table quote-sec-tab mb-0">
                   <div className="quote-sec-table-sub">
                     <h4 className="text-center">
-                      Please select a RFQ to view its quotes!
+                      Please select a RFQ to view its purchase orders!
                     </h4>
                   </div>
                 </div>
@@ -239,17 +276,44 @@ const PurchaseOrders = () => {
               {rfq && !po && poData && (
                 <div className="quote-sec-table quote-sec-tab mb-0">
                   <div>
-                    <POListing poList={poData} rfq_id={rfq} refetchPOList={getPOData} onSelect={(po_id) => router.push(`/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`)} />
+                    <POListing
+                      poList={poData}
+                      totalData={totalData}
+                      rfq_id={rfq}
+                      refetchPOList={getPOData}
+                      handlePODecision={handlePODecision}
+                      onSelect={(po_id) =>
+                        router.push(
+                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`
+                        )
+                      }
+                      onEdit={(po_id) =>
+                        router.push(
+                          `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}&edit=true`
+                        )
+                      }
+                      companyUsers={companyUsers}
+                    />
                   </div>
                 </div>
               )}
               {po && poDetails && (
                 <div className="quote-sec-table quote-sec-tab mb-0">
                   <div>
-                    <PurchaseOrderDetails data={poDetails} handleBack={() => {
-                      setPODetails(null);
-                      router.push(`/dashboard/buyer/purchase-order/?rfq=${rfq}`, null, { shallow: true })
-                    }} />
+                    <PurchaseOrderDetails
+                      data={poDetails}
+                      handlePODecision={handlePODecision}
+                      refetchPODetails={getPODetails}
+                      handleBack={() => {
+                        setPODetails(null);
+                        router.push(
+                          `/dashboard/buyer/purchase-order/?rfq=${rfq}`,
+                          null,
+                          { shallow: true }
+                        );
+                      }}
+                      companyUsers={companyUsers}
+                    />
                   </div>
                 </div>
               )}

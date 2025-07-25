@@ -2,7 +2,7 @@ import axiosInstance from "@/lib/axios";
 
 export const getPoData = async (rfq_id, params) => {
   const res = await axiosInstance.get(`/po/rfq/${rfq_id}`, { params });
-  return res.data;
+  return res;
 };
 
 export const getPoDetails = async (po_id) => {
@@ -12,5 +12,20 @@ export const getPoDetails = async (po_id) => {
 
 export const handlePOApproval = async (po_id, data) => {
   const res = await axiosInstance.post(`/po/approve/${po_id}`, data);
-  return res.data;
+  return res;
+};
+
+export const handleCreateMilestone = async (payload) => {
+  const res = await axiosInstance.post('/po/milestones', payload);
+  return res;
+};
+
+export const handleEditMilestone = async (id, payload) => {
+  const res = await axiosInstance.put(`/po/milestones/${id}`, payload);
+  return res;
+};
+
+export const handleDeleteMilestone = async (id) => {
+  const res = await axiosInstance.delete(`/po/milestones/${id}`);
+  return res;
 };

@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge, Card } from 'react-bootstrap';
 import {
-  MdCancel,
-  MdCheckCircle,
   MdEventNote,
   MdOutlineBusinessCenter
 } from 'react-icons/md';
-import { BsBoxSeam } from 'react-icons/bs';
+import { BsBoxSeam, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
+import { FiPaperclip } from "react-icons/fi";
+import { HiOutlineTrash, HiPencil } from "react-icons/hi";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
+import CreateMilestoneModal from './CreateMilestoneModal';
+import { toast } from 'react-toastify';
+import { handleDeleteMilestone } from '@/services/po';
 
 const statusColors = {
   draft: 'secondary',
@@ -22,6 +25,13 @@ const statusColors = {
   cancelled: 'danger',
   rejected: 'danger',
 };
+
+const milestoneBadges = {
+  pending: 'warning',
+  achieved: 'success',
+  cancelled: 'dark',
+  deleted: 'danger'
+}
 
 const POStatusBadge = ({ status }) => (
   <Badge bg={statusColors[status] || 'secondary'} className="fs-6 px-3 py-2 float-end text-uppercase">
@@ -79,8 +89,14 @@ const renderDueDateCell = (dueDateStr) => {
 const formatIST = (dateStr) =>
   dateStr ? new Date(dateStr).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
 
-const PurchaseOrderDetails = ({ data, handleBack }) => {
+const elipsisToLimit = (text, limit = 45) => {
+  return text.length > limit ? text.slice(0, limit).concat('...') : text;
+}
+
+const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODetails, companyUsers }) => {
   const {
+    id,
+    rfq_id,
     po_number,
     status,
     quantity,
@@ -89,13 +105,42 @@ const PurchaseOrderDetails = ({ data, handleBack }) => {
     initiated_by_name,
     created_at,
     product_details,
+    is_approver,
+    logged_in_user,
+    approval_status,
     approval_history = [],
+    payment_milestones,
   } = data;
+
+  const [selectedMilestone, setSelectedMilestone] = useState(null);
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+
+  const handleMilestoneDeletion = async (id) => {
+    try {
+      const res = await handleDeleteMilestone(id);
+      if(res) {
+        toast.info("Milestone deleted successfully!")
+        await refetchPODetails();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? "Something went wrong while deleting the milestone!");
+    }
+  }
+
+  const handleMilestoneEdition = (milestone) => {
+    setSelectedMilestone(milestone);
+    setShowMilestoneModal(true);
+  }
 
   return (
     <div>
       {/* Header */}
-      <button onClick={handleBack} className="btn btn-primary p-2 mb-3 px-3" style={{width: 'fit-content'}}>
+      <button
+        onClick={handleBack}
+        className="btn btn-primary p-2 mb-3 px-3"
+        style={{ width: "fit-content" }}
+      >
         <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
         Back
       </button>
@@ -107,11 +152,39 @@ const PurchaseOrderDetails = ({ data, handleBack }) => {
             <strong>{formatIST(created_at)}</strong>
           </div>
         </div>
-        <POStatusBadge status={status} />
+        <div className="d-flex gap-2 flex-column">
+          <POStatusBadge status={status} />
+          {is_approver && (
+            <div className="d-flex gap-1 justify-content-between">
+              <Badge
+                onClick={async () => {
+                  await handlePODecision(id, { decision: "approved" });
+                  await refetchPODetails();
+                }}
+                bg={"success"}
+                className="fs-6 px-2 py-1 float-end text-uppercase"
+                style={{ cursor: "pointer" }}
+              >
+                Approve
+              </Badge>
+              <Badge
+                onClick={async () => {
+                  await handlePODecision(id, { decision: "rejected" });
+                  await refetchPODetails();
+                }}
+                bg={"danger"}
+                className="fs-6 px-3 py-1 float-end text-uppercase"
+                style={{ cursor: "pointer" }}
+              >
+                Reject
+              </Badge>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* PO Overview */}
-      <Card className="mb-4 shadow-sm">
+      <Card className="mb-3 shadow-sm">
         <Card.Body
           style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
         >
@@ -124,7 +197,10 @@ const PurchaseOrderDetails = ({ data, handleBack }) => {
             <div className="col-md-6">
               <PODetailItem label="Created At" value={formatIST(created_at)} />
               <PODetailItem label="Initiated By" value={initiated_by_name} />
-              <PODetailItem label="Status" value={status.toUpperCase()} />
+              <PODetailItem
+                label="Status"
+                value={status.replace("_", " ").toUpperCase()}
+              />
             </div>
           </div>
         </Card.Body>
@@ -149,50 +225,81 @@ const PurchaseOrderDetails = ({ data, handleBack }) => {
         Approval Timeline
       </h5>
       <Card className="mb-4">
-        <Card.Body className='d-flex gap-2'>
-          {approval_history.length === 0 ? (
-            <p className="text-muted mb-0">No approval history available.</p>
-          ) : (
-            approval_history.map((entry, index) => (
-              <TimelineItem
-                key={index}
-                title={
-                  entry.action === "approved"
-                    ? "Approved"
-                    : entry.action === "rejected"
-                    ? "Rejected"
-                    : "Action Taken"
-                }
-                name={entry.approved_by_name}
-                icon={
-                  entry.action === "approved" ? (
-                    <MdCheckCircle className="text-success" size={30} />
-                  ) : (
-                    <MdCancel className="text-danger" size={30} />
-                  )
-                }
-                time={formatIST(entry.created_at)}
-                remarks={entry.remarks}
-              />
-            ))
+        <Card.Body className="d-flex flex-column gap-3">
+          <TimelineItem
+            title={"Initiated"}
+            name={initiated_by_name}
+            icon={
+              <BsCheckCircleFill className="text-primary" size={25} />
+            }
+            time={formatIST(created_at)}
+          />
+          {approval_history.map((entry, index) => (
+            <TimelineItem
+              key={index}
+              title={
+                entry.action === "approved"
+                  ? "Approved"
+                  : entry.action === "rejected"
+                  ? "Rejected"
+                  : entry.action === "cancelled"
+                  ? "Cancelled"
+                  : "Action Taken"
+              }
+              name={entry.approved_by_name}
+              icon={
+                entry.action === "approved" ? (
+                  <BsCheckCircleFill className="text-success" size={25} />
+                ) : (
+                  <BsXCircleFill className="text-danger" size={25} />
+                )
+              }
+              time={formatIST(entry.created_at)}
+              remarks={entry.remarks}
+            />
+          ))}
+          {approval_status.status == "pending" && (
+            <TimelineItem
+              title={"Action Pending"}
+              name={approval_status.current_approver_name}
+              icon={
+                <BsExclamationCircleFill className="text-warning" size={25} />
+              }
+              time={formatIST(approval_status.created_at)}
+            />
           )}
         </Card.Body>
       </Card>
 
       {/* Payment Milestones */}
-      <h5 className="mb-3">
-        <MdOutlineBusinessCenter className="me-2" />
-        Payment Milestones
-      </h5>
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h5 className="mb-0">
+          <MdOutlineBusinessCenter className="me-2" />
+          Payment Milestones
+        </h5>
+
+        <button
+          disabled={logged_in_user.user_type != 8}
+          title={
+            logged_in_user.user_type != 8
+              ? "Only Top Management can add milestones"
+              : ""
+          }
+          className="minimal-btn"
+          onClick={() => setShowMilestoneModal(true)}
+        >
+          Add Milestone
+        </button>
+      </div>
 
       <Card className="overflow-hidden">
         <Card.Body className="table-responsive p-0">
           <table className="table table-stripped align-middle m-0 text-center">
             <thead className="table-light">
               <tr>
+                <th>Reminder</th>
                 <th>PO No</th>
-                <th>Vendor</th>
-                <th>Project</th>
+                <th>Name</th>
                 <th>Status</th>
                 <th>Milestone Summary</th>
                 <th>Due Date</th>
@@ -200,38 +307,101 @@ const PurchaseOrderDetails = ({ data, handleBack }) => {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>PO123</td>
-                <td>ABC Pvt Ltd</td>
-                <td>Green Hydrogen Plant</td>
-                <td>
-                  <Badge bg="warning">Pending</Badge>
-                </td>
-                <td>GRN Pending (PM)</td>
-                {renderDueDateCell("2025-07-14")}
-                <td>
-                  📥 Upload GRN <br />
-                  🔔 Remind PM
-                </td>
-              </tr>
-              <tr>
-                <td>PO124</td>
-                <td>XYZ Pumps</td>
-                <td>Bitumen Tank Yard</td>
-                <td>
-                  <Badge bg="success">Achieved</Badge>
-                </td>
-                <td>Raise Invoice to Client (Accounts)</td>
-                {renderDueDateCell("2025-07-21")}
-                <td>
-                  🧾 Raise Invoice <br />
-                  🔔 Remind Accounts
-                </td>
-              </tr>
+              {payment_milestones && payment_milestones.length > 0 ? (
+                payment_milestones.map((milestone) => (
+                  <tr key={milestone.id}>
+                    <td
+                      className={`fw-semibold ${
+                        milestone.is_reminded ? "text-success" : "text-warning"
+                      }`}
+                    >
+                      {milestone.is_reminded ? "Reminded" : "Pending"}
+                    </td>
+                    <td>
+                      #<strong>{po_number}</strong>
+                    </td>
+                    <td style={{ maxWidth: 140 }}>
+                      {milestone.milestone_name}
+                    </td>
+                    <td>
+                      <Badge
+                        bg={milestoneBadges[milestone.status]}
+                        className="text-capitalize"
+                      >
+                        {milestone.status}
+                      </Badge>
+                    </td>
+                    <td
+                      style={{ maxWidth: 200 }}
+                      title={milestone.milestone_description}
+                    >
+                      {elipsisToLimit(milestone.milestone_description, 45)}
+                    </td>
+                    {renderDueDateCell(
+                      new Date(milestone.due_date).toDateString()
+                    )}
+                    <td>
+                      {milestone.status != "deleted" &&
+                      logged_in_user.user_type == 8 ? (
+                        <>
+                          <button
+                            title="Edit this Milestone"
+                            className="minimal-btn"
+                            style={{
+                              backgroundColor: "#fdeceb",
+                              borderColor: "#f5b5b5",
+                              color: "#dc3545",
+                            }}
+                            onClick={() => handleMilestoneEdition(milestone)}
+                          >
+                            <HiPencil size={25} />
+                          </button>
+                          <button
+                            title="Delete this Milestone"
+                            className="minimal-btn ms-2"
+                            style={{
+                              backgroundColor: "#fdeceb",
+                              borderColor: "#f5b5b5",
+                              color: "#dc3545",
+                            }}
+                            onClick={() =>
+                              handleMilestoneDeletion(milestone.id)
+                            }
+                          >
+                            <HiOutlineTrash size={25} />
+                          </button>
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="11" className="text-center text-muted">
+                    No payment milestones found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </Card.Body>
       </Card>
+
+      <CreateMilestoneModal
+        show={showMilestoneModal}
+        selectedMilestone={selectedMilestone}
+        isEdit={selectedMilestone}
+        onClose={() => {
+          setShowMilestoneModal(false);
+          setSelectedMilestone(null);
+        }}
+        onSuccess={async () => await refetchPODetails()}
+        companyUsers={companyUsers}
+        rfqId={rfq_id}
+        poId={id}
+      />
     </div>
   );
 };

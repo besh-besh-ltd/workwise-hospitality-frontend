@@ -1,7 +1,6 @@
 import { getCompanyUsers } from '@/services/Auth';
 import { handlePOApproval } from '@/services/po';
 import useDebounce from '@/utils/sharedFunctions';
-import { trackAllowedDynamicAccess } from 'next/dist/server/app-render/dynamic-rendering';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import {
@@ -9,8 +8,10 @@ import {
   MdEdit,
   MdCheck,
 } from 'react-icons/md';
+import { IoMdEye } from "react-icons/io";
 import { RxCross2 } from 'react-icons/rx';
 import { toast } from 'react-toastify';
+import Pagination from '@/components/shared/Pagination';
 
 const statusVariants = {
   draft: 'secondary',
@@ -62,42 +63,18 @@ const formatISTDate = (utcString) => {
   return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 };
 
-const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
-  const [companyUsers, setCompanyUsers] = useState([]);
+const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePODecision, onSelect, onEdit, companyUsers }) => {
   const [filters, setFilters] = useState({
     poNumber: '',
     initiatedBy: '',
     status: '',
     dateFrom: '',
     dateTo: '',
+    page: 1,
+    limit: 10,
   });
 
   const debouncedPONumber = useDebounce(filters.poNumber, 700); // 👈 Debounced PO Number
-
-  const fetchCompanyUsers = async () => {
-    try {
-      const res = await getCompanyUsers();
-      setCompanyUsers(res.data);
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message ?? 'Something went wrong while fetching company users!');
-    }
-  };
-
-  const handlePODecision = async (po_id, data) => {
-    try {
-      const res = await handlePOApproval(po_id, data);
-      if(res) {
-        toast.success(res.message);
-        refetchPOList(filters);
-      } else {
-        throw new Error("Something went wrong while making a decision, please try again!")
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
-    }
-  }
 
   const resetFilters = () =>
     setFilters({
@@ -106,16 +83,14 @@ const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
       status: "",
       dateFrom: "",
       dateTo: "",
+      page: 1,
+      limit: 10,
     });
-
-  useEffect(() => {
-    fetchCompanyUsers();
-  }, []);
 
   useEffect(() => {
     refetchPOList({
       ...filters,
-      poNumber: debouncedPONumber, // 👈 Use debounced value
+      poNumber: debouncedPONumber,
     });
   }, [
     debouncedPONumber,
@@ -123,6 +98,8 @@ const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
     filters.status,
     filters.dateFrom,
     filters.dateTo,
+    filters.page,
+    filters.limit,
   ]);
 
   return (
@@ -150,6 +127,7 @@ const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
             <select
               className="form-select"
               value={filters.initiatedBy}
+              style={{maxWidth: 240}}
               onChange={(e) =>
                 setFilters({ ...filters, initiatedBy: e.target.value })
               }
@@ -241,44 +219,65 @@ const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
                 const isCancelled = (po.status === 'cancelled' || po.status === 'rejected');
 
                 return (
-                  <tr key={po.id} className="text-center" style={{cursor: 'pointer'}} onClick={() => onSelect(po.id)}>
+                  <tr
+                    key={po.id}
+                    className="text-center"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => onSelect(po.id)}
+                  >
                     <td className="fs-6">
                       # <strong>{po.po_number}</strong>
                     </td>
                     <td>
                       <span
                         className={`badge bg-${
-                          statusVariants[po.status] || 'secondary'
+                          statusVariants[po.status] || "secondary"
                         } text-capitalize`}
                       >
-                        {po.status.replace('_', ' ')}
+                        {po.status.replace("_", " ")}
                       </span>
                     </td>
                     <td>{po.product_details.name}</td>
                     <td>{po.quantity}</td>
                     <td>₹ {po.total_value}</td>
                     <td>{po.initiated_by}</td>
-                    <td>{formatISTDate(po.updated_at)}</td>
+                    <td>{formatISTDate(po.created_at)}</td>
                     <td>
                       {isPending && isCurrentApprover ? (
                         <div className="d-flex align-items-center justify-content-center">
                           <button
                             style={styles.approve}
                             title="Approve this PO"
-                            onClick={() => handlePODecision(po.id, { decision: 'approved' })}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await handlePODecision(po.id, {
+                                decision: "approved",
+                              });
+                              await getPOData(filters);
+                            }}
                           >
                             <MdCheck />
                           </button>
                           <button
                             style={styles.reject}
                             title="Reject this PO"
-                            onClick={() => handlePODecision(po.id, { decision: 'rejected' })}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await handlePODecision(po.id, {
+                                decision: "rejected",
+                              });
+                              await refetchPOList({
+                                ...filters,
+                                poNumber: debouncedPONumber,
+                              });
+                            }}
                           >
                             <RxCross2 />
                           </button>
                         </div>
                       ) : isCancelled ? (
                         <Link
+                          onClick={(e) => e.stopPropagation()}
                           href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
                           className="btn btn-outline-success btn-sm p-2"
                           style={{ width: 150 }}
@@ -289,20 +288,26 @@ const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
                         <div className="d-flex align-items-center justify-content-center">
                           <button
                             style={styles.primary}
-                            title="Notify members"
-                            onClick={() => console.log('Notify clicked')}
-                          >
-                            <MdNotificationsNone />
+                            title="View This PO"
+                            >
+                              <IoMdEye />
+                              <small className='ms-1 fw-medium'>View</small>
                           </button>
+                        </div>
+                      ) : (
+                        <div className="d-flex align-items-center justify-content-center">
                           <button
                             style={styles.primary}
                             title="Edit this PO"
-                            onClick={() => console.log('Edit clicked')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(po.id);
+                            }}
                           >
                             <MdEdit />
                           </button>
                         </div>
-                      ) : null}
+                      )}
                     </td>
                   </tr>
                 );
@@ -311,6 +316,16 @@ const POListing = ({ poList = [], refetchPOList, rfq_id, onSelect }) => {
           </tbody>
         </table>
       </div>
+
+      {poList.length > 0 && (
+            <Pagination
+              page={filters.page}
+              setPage={(page) => setFilters(prev => ({...prev, page}))}
+              limit={filters.limit}
+              setLimit={(limit) => setFilters(prev => ({...prev, limit}))}
+              totalData={totalData}
+            />
+          )}
     </div>
   );
 };

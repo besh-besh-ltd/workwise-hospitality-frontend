@@ -118,6 +118,11 @@ const roleMenus = {
       label: "Quote Comparison",
       targetMenu: "nav",
     },
+    {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
+      targetMenu: "nav",
+    },
         {
       href: "/dashboard/management/editprofile",
       label: "Profile",
@@ -144,6 +149,11 @@ const roleMenus = {
     {
       href: "/dashboard/buyer/quote-compare",
       label: "Quote Comparison",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
       targetMenu: "nav",
     },
   ],
