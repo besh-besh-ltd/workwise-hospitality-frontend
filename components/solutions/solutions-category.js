@@ -78,7 +78,10 @@ const SolutionsCategory = ({ pageTitle }) => {
         setProductsLoading(true);
         try {
             const res = await productListByCategory(activeTab.id);
-            setProducts(res.data);
+            let productsArr = Array.isArray(res.data)
+                ? res.data
+                : (Array.isArray(res.data?.data) ? res.data.data : []);
+            setProducts(productsArr);
         } catch (error) {
             toast.error(error.message)
         } finally {
@@ -87,10 +90,23 @@ const SolutionsCategory = ({ pageTitle }) => {
     }
 
     useEffect(() => {
-        if (!navTabs) {
-            getParentCategories();
+        if (!navTabs && router.isReady && router.query.slug) {
+            (async () => {
+                try {
+                    const { slug } = router.query;
+                    const res = await parentCategoryList(slug);
+                    let categories = Array.isArray(res.data)
+                        ? res.data
+                        : (Array.isArray(res.data?.parentCategories) ? res.data.parentCategories : []);
+                    setNavTabs(categories);
+                    const match = categories.find(cat => cat.slug === slug);
+                    setActiveTab(match || categories[0]);
+                } catch (error) {
+                    toast.error(error.message)
+                }
+            })();
         }
-    }, [])
+    }, [router.isReady, router.query.slug])
 
     useEffect(() => {
         if (activeTab) {
