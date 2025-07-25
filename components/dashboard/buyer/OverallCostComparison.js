@@ -112,11 +112,15 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%' }}>
                         <div style={{ fontWeight: 'bold', minWidth: 60, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Size:</div>
-                        <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>{size}</div>
+                        <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>
+                          {size && size.length > 30 ? <ReadMore content={size} maxLength={30} /> : size}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, width: '100%' }}>
                         <div style={{ fontWeight: 'bold', minWidth: 60, textAlign: 'left', paddingRight: 8, whiteSpace: 'nowrap' }}>Spec:</div>
-                        <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>{spec}</div>
+                        <div style={{ flex: 1, wordBreak: 'break-word', textAlign: 'left', whiteSpace: 'pre-line' }}>
+                          {spec && spec.length > 30 ? <ReadMore content={spec} maxLength={30} /> : spec}
+                        </div>
                       </div>
                     </div>
                   </td>
