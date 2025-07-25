@@ -2,12 +2,11 @@ import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileExcel, faDownload, faTimes, faUpload, faCloudArrowUp, faRocket } from "@fortawesome/free-solid-svg-icons";
-import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI, pollBOQResult } from "@/services/rfq";
+import { getSImplifiedVersionOfBOQ, getBOQexcelToJsonAI, pollBOQResult, persistMagicSearchJob } from "@/services/rfq";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
 const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
-  const router = useRouter()
   const [show, setShow] = useState(false);
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -28,119 +27,22 @@ const MagicSearchDownloadModal = ({ onUploadForRFQ }) => {
   setUploading(true);
 
   try {
-    const startResponse = await getSImplifiedVersionOfBOQ(file);
+    const persistJob = await persistMagicSearchJob(fileName, 'simplified');
+    const webhook = persistJob.webhook;
 
-    // check if already processed
-    if (
-      startResponse?.data?.status === "success" ||
-      startResponse?.data?.status === "partial_success"
-    ) {
-      setFileUrl(startResponse?.data?.download_excel_url);
-      setJsonData(startResponse?.data?.download_url);
-      return;
-    }
-
-    const taskId = startResponse?.data?.task_id;
-    if (!taskId) {
-      toast.error("Server did not return task ID.");
-      return;
-    }
-
-    // poll for final result
-    const finalResponse = await pollBOQResult(taskId);
-    setFileUrl(finalResponse?.download_excel_url);
-    setJsonData(finalResponse?.download_url);
+    const startResponse = await getSImplifiedVersionOfBOQ(file, webhook);
+    if(startResponse) {
+      const response = startResponse.data;
+      toast.success(response.message);
+      setShow(false);
+      onUploadForRFQ();
+    } else toast.error("Server is too busy to handle your request, please try again in some time...")
   } catch (error) {
-          console.error("Upload failed:", error?.response);
+          console.error("Upload failed:", error);
           toast.error(error?.response?.data?.detail || "Simplified BOQ creation failed. Please try again.");
 
   } finally {
     setUploading(false);
-  }
-};
-
-const handleDownload = async () => {
-  if (!fileUrl) return;
-
-  const originalUrl = fileUrl;
-  const replacedUrl = fileUrl.replace("http://", "https://");
-
-  const tryDownload = async (url) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = fileUrl.split("/").pop() || "processed-boq.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
-      console.log("Download successful from:", url);
-      return true;
-    } catch (err) {
-      console.error("Download failed from:", url, err);
-      return false;
-    }
-  };
-
-  // Try with replaced URL first
-  const success = await tryDownload(replacedUrl);
-
-  // Retry with original URL if the first fails
-  if (!success) {
-    await tryDownload(originalUrl);
-  }
-};
-
-
-const handleCreateRFQ = async () => {
-  if (!file) {
-    console.error("Original file not found for RFQ creation.");
-    return;
-  }
-  setCreatingRFQ(true);
-  try {
-    const response = await getBOQexcelToJsonAI(file);
-
-    // If immediate success
-    if (
-      response?.data?.status === "success" ||
-      response?.data?.status === "partial_success"
-    ) {
-      const jsonUrl = response?.data?.download_url;
-      if (jsonUrl) {
-        onUploadForRFQ(jsonUrl);
-        setShow(false);
-      } else {
-        console.error("No JSON URL returned on success status.");
-      }
-      return;
-    }
-
-    // If task_id returned, need to poll
-    const taskId = response?.data?.task_id;
-    if (!taskId) {
-      toast.error("Server did not return task ID for RFQ creation.");
-      return;
-    }
-
-    const finalResponse = await pollBOQResult(taskId);
-
-    const jsonUrl = finalResponse?.download_url;
-    if (jsonUrl) {
-      onUploadForRFQ(jsonUrl);
-      setShow(false);
-    } else {
-      console.error("No JSON URL received after polling.");
-    }
-  } catch (error) {
-    console.error("Error creating RFQ:", error?.response);
-    toast.error(error?.response?.data?.detail || "RFQ creation failed. Please try again.");
-  } finally {
-    setCreatingRFQ(false);
   }
 };
 
@@ -151,18 +53,6 @@ const handleCreateRFQ = async () => {
     setFileUrl(null);
     setFileName("");
   };
-
-  
-const handleViewBOQ = () => {
-  if (!jsonData) {
-    console.error("No JSON data available for viewing.");
-    return;
-  }
-  const viewUrl = `magic-search/view?jsonUrl=${encodeURIComponent(jsonData)}`;
-  window.open(viewUrl, '_blank'); // Open in a new tab
-};
-
-
 
   return (
     <>
@@ -204,8 +94,6 @@ const handleViewBOQ = () => {
 
 
         <Modal.Body>
-          {!fileUrl ? (
-            <>
               <p className="text-center mb-3">
                 Upload your complex BOQ file and Workwise AI will simplify it for you.
               </p>
@@ -238,28 +126,6 @@ const handleViewBOQ = () => {
                   {uploading ? "Uploading..." : "Upload"}
                 </Button>
               </div>
-            </>
-          ) : (
-            <>
-              <p className="text-center mb-3">
-                BOQ processed! Click below to download the simplified version.
-              </p>
-              <div className="text-center">
-                <Button variant="primary" onClick={handleDownload} className="me-2">
-                  <FontAwesomeIcon icon={faDownload} className="me-2" />
-                  Download BOQ
-                </Button>
-                <Button variant="primary"  onClick={handleViewBOQ} disabled={creatingRFQ}>
-                  <FontAwesomeIcon icon={faRocket} className="me-2" />
-                  View BOQ
-                </Button>
-                <Button variant="success" onClick={handleCreateRFQ} disabled={creatingRFQ} className="mt-3" >
-                  <FontAwesomeIcon icon={faRocket} className="me-2" />
-                  {creatingRFQ ? "Processing..." : "Create RFQ's"}
-                </Button>
-              </div>
-            </>
-          )}
         </Modal.Body>
 
       </Modal>

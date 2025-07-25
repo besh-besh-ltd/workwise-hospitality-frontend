@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import Select from 'react-select';
-import { updateRfq,  getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToDraft, addProductToExistingRfq } from "@/services/rfq";
+import { updateRfq,  getTerms, vendorApproveList, getRFQById, getVendorsForProduct, addProductToExistingRfq } from "@/services/rfq";
 import { Form, Formik } from "formik";
 import { getProfile } from "@/services/Auth";
 import Loader from "@/components/shared/Loader";

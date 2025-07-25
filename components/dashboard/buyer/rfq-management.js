@@ -24,17 +24,17 @@ const RfqManagement = () => {
     };
   }, []);
 
- useEffect(() => {
-  if (tab === 'create-rfq') {
-    setActiveTab('createRFQs');
-  } else if (tab === 'draft-rfq') {
-    setActiveTab('draftRFQs');
-  } else {
-    // Default to manageRFQs
-    setActiveTab('manageRFQs');
-  }
-}, [tab]);
-
+  useEffect(() => {
+    if(tab && tab == 'create-rfq'){
+      setActiveTab('createRFQs')
+    } else if(tab && tab == 'draft-rfq'){
+      setActiveTab('draftRFQs')
+    } else if (tab && tab == 'processing-rfq') {
+      setActiveTab('processingRFQs')
+    } else{
+      setActiveTab('manageRFQs')
+    }
+  }, [router])
   
 
 

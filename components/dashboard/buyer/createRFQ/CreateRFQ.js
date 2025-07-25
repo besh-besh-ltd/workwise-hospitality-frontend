@@ -36,6 +36,7 @@ import AddVendorModal from "../editRFQ/AddVendorModal";
 import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
+import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 
 
 const myVendorOptions = [
@@ -810,20 +811,19 @@ const CreateRFQ = () => {
           const sheetOptions = sheetData.map(sheet => ({
             label: sheet.sheet_name,
             value: sheet.id,
-            is_processed: sheet.is_processed
+            is_processed: sheet.is_processed,
+            validation_errors: sheet.validation_errors,
           }));
           setSheetNameList(sheetOptions);
           
           // Set default selected sheet
           if (sheetData.length > 0) {
-            const defaultSheet = {
-              label: sheetData[0].sheet_name,
-              value: sheetData[0].id
-            };
+            const defaultSheet = sheetOptions[0];
+
             if(queryMeta.sheet_id) {
               const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
               setSelectedSheet(sheet);
-            } else if(!selectedSheet)
+            } else
               setSelectedSheet(defaultSheet);
           }
         } else {
@@ -904,20 +904,20 @@ const CreateRFQ = () => {
           if (sheetData && sheetData.length > 0) {
             const sheetOptions = sheetData.map(sheet => ({
               label: sheet.sheet_name,
-              value: sheet.id
+              value: sheet.id,
+              is_processed: sheet.is_processed,
+              validation_errors: sheet.validation_errors,
             }));
             setSheetNameList(sheetOptions);
             
             // Set default selected sheet
             if (sheetData.length > 0) {
-              const defaultSheet = {
-                label: sheetData[0].sheet_name,
-                value: sheetData[0].id
-              };
+              const defaultSheet = sheetOptions[0];
+
               if(queryMeta.sheet_id) {
                 const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
                 setSelectedSheet(sheet);
-              } else if(!selectedSheet)
+              } else
                 setSelectedSheet(defaultSheet);
             }
           } else {
@@ -1935,11 +1935,15 @@ const CreateRFQ = () => {
 
                   {loading && <Loader />}
 
+                  {sheetNameList && sheetNameList.length > 0 && (
+                    <ValidationErrorsDisplay rfq_id={draft_id} selectedSheet={selectedSheet} refetchRFQ={getDraftInitialData} setLoading={(loading => dispatch(setStoreLoading(loading)))} />
+                  )}
+
                   {/* Terms Checkbox Section */}
-                  <div className="create-rfq-con-2 sc-pt-50">
+                  <div className="create-rfq-con-2 mt-4">
                     <div className="row">
                       {!loading && allTerms.length > 0 && (
-                        <div className="col-md-8 createR-ffq-1">
+                        <div className="col-md-8">
                           <h4>Suggested Terms</h4>
 
                           <ol className="custom-ol">
