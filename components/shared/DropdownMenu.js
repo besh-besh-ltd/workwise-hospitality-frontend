@@ -34,35 +34,17 @@ const DropdownMenu = ({ label, options }) => {
 
   return (
     <li
-      className="dropdown-custom  "
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{ position: isMobile ? 'static' : 'relative' }}
     >
-      <style>{`
-        .dropdown-custom a {
-          all: unset;
-          display: block;
-          padding: 8px 0;
-          font-weight: 600;
-          color: #222 !important;
-          cursor: pointer;
-          text-decoration: none !important;
-          background: transparent !important;
-          border: none !important;
-          transition: color 0.2s ease;
-        }
-        .dropdown-custom a:hover {
-          color: var(--secondary-color) !important;
-        }
-      `}</style>
-
       <span
         onClick={handleClick}
         style={{
           cursor: 'pointer',
           fontWeight: 600,
           color: isMobile ? '#fff' : '#222',
+          textDecoration: 'none !important',
         }}
         className="d-flex align-items-center"
       >
@@ -90,7 +72,6 @@ const DropdownMenu = ({ label, options }) => {
                 boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                 borderRadius: 8,
                 padding: 0,
-                paddingBottom:'10px',
                 margin: 0,
                 zIndex: 1000,
                 opacity: open ? 1 : 0,
@@ -105,12 +86,13 @@ const DropdownMenu = ({ label, options }) => {
         {options.map((opt) => (
           <li key={opt.href} style={{ listStyle: 'none' }}>
             <Link href={opt.href} legacyBehavior>
-                    <a
+ <a
                 className="navbar-dropdown-link"
                 style={{
                   display: 'block',
                   padding: '10px 0px 0px 0px', // more bottom padding for underline
                   fontWeight: 600,
+                  textDecoration: 'none',
                   borderBottom: '1px solid #f0f0f0',
                   transition: 'background 0.15s',
                   borderRadius: 0,
@@ -118,12 +100,30 @@ const DropdownMenu = ({ label, options }) => {
                   overflow: 'hidden',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = '#f5f7fa';
+                  // e.currentTarget.querySelector('.dropdown-underline').style.width = '100%';
+                  // e.currentTarget.style.background = '#f5f7fa';
                   e.currentTarget.style.color = 'var(--secondary-color)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.querySelector('.dropdown-underline').style.width = '0';
+                  e.currentTarget.style.background = '';
+                  e.currentTarget.style.color = '#222';
                 }}
               >
                 <span style={{ position: 'relative', display: 'block', width: '100%' }}>
                   {opt.label}
+                  <span
+                    className="dropdown-underline"
+                    style={{
+                      display: 'block',
+                      height: 5, // thicker underline
+                      background: 'var(--secondary-color)',
+                      width: 0,
+                      margin: '10px 0 0 0', // more space below text
+                      transition: 'width 0.18s cubic-bezier(.4,0,.2,1)',
+                      borderRadius: 3,
+                    }}
+                  />
                 </span>
               </a>
             </Link>
