@@ -67,7 +67,7 @@ const ProcessingRFQ = () => {
               <table className="table align-middle">
                 <thead>
                   <tr>
-                    <th>Persistence ID</th>
+                    <th>SR. No</th>
                     <th>File name</th>
                     <th>Status</th>
                     <th>Started At</th>

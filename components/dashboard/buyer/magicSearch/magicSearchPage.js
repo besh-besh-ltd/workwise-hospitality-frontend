@@ -29,7 +29,7 @@ const MagicSearchPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [apiData, setApiData] = useState(null);
-    const [tab, setTab] = useState('upload-file'); // upload-file, processing-files
+    const [tab, setTab] = useState(router.query?.tab ?? 'upload-file'); // upload-file, processing-files
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);

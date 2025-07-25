@@ -9,33 +9,63 @@ const ProcessingErrorsModal = ({
   if (!errors) return null;
 
   const renderAiErrors = () => {
-    return errors.actual.map((err, idx) => {
-      let message = "";
-      let variant = "secondary";
+    try {
+      if (errors?.actual) {
+        if (Array.isArray(errors.actual))
+          return errors.actual.map((err, idx) => {
+            let message = "";
+            let variant = "secondary";
 
-      // if it's an object with "errors" field
-      if (typeof err === "object" && err.errors) {
-        const errorMessages = Object.values(err.errors);
-        for (const msg of errorMessages) {
-          if (msg.toLowerCase().includes("product not found")) {
-            message = msg;
-            variant = "danger";
-          } else if (msg.toLowerCase().includes("no vendors found")) {
-            message = msg;
-            variant = "warning";
-          }
-        }
-      } else if (typeof err === "string") {
-        message = err;
-        variant = "danger";
+            // if it's an object with "errors" field
+            if (typeof err === "object" && err.errors) {
+              const errorMessages = Object.values(err.errors);
+              for (const msg of errorMessages) {
+                if (msg.toLowerCase().includes("product not found")) {
+                  message = msg;
+                  variant = "danger";
+                } else if (msg.toLowerCase().includes("no vendors found")) {
+                  message = msg;
+                  variant = "warning";
+                }
+              }
+            } else if (typeof err === "string") {
+              message = err;
+              variant = "danger";
+            }
+
+            return (
+              <Alert key={idx} variant={variant}>
+                {message || "Unknown AI Error"}
+              </Alert>
+            );
+          });
       }
-
       return (
-        <Alert key={idx} variant={variant}>
-          {message || "Unknown AI Error"}
-        </Alert>
+        <div className="d-flex flex-column">
+          <Alert className="mb-3" variant="danger">
+            Our system couldn't understand parts of your BOQ due to formatting or
+            content issues. Please review the file and try again. If the problem
+            persists, contact support or share the file with us for assistance.
+          </Alert>
+          <Alert variant="secondary">
+            <a className="text-black" href="mailto:hello@letsworkwise.com">Mail us at: <span style={{textDecoration: "underline"}} className="fw-medium text-primary">hello@letsworkwise</span></a>
+          </Alert>
+        </div>
       );
-    });
+    } catch (error) {
+      return (
+        <div className="d-flex flex-column">
+          <Alert className="mb-3" variant="danger">
+            Our system couldn't understand parts of your BOQ due to formatting or
+            content issues. Please review the file and try again. If the problem
+            persists, contact support or share the file with us for assistance.
+          </Alert>
+          <Alert variant="secondary">
+            <a className="text-black" href="mailto:hello@letsworkwise.com">Mail us at: <span style={{textDecoration: "underline"}} className="fw-medium text-primary">hello@letsworkwise</span></a>
+          </Alert>
+        </div>
+      );
+    }
   };
 
   const renderDbError = () => (

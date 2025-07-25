@@ -123,9 +123,11 @@ const DraftRFQItem = ({ data, onViewErrors }) => {
           <button className="bg-transparent border-0" onClick={onViewErrors}>
             <span style={{ cursor: data.errors ? "pointer" : "default" }}>
               {data.errors && typeof data.errors == "object"
-                ? `Contain ${data.errors?.actual?.length || 1} Error${
-                  (data.errors?.actual?.length || 1) > 1 ? "s" : ""
-                }`
+                ? data.errors?.actual && Array.isArray(data.errors?.actual)
+                  ? `Contain ${data.errors?.actual?.length || 1} Error${
+                      (data.errors?.actual?.length || 1) > 1 ? "s" : ""
+                    }`
+                  : "Contain Errors"
                 : "—"}
             </span>
           </button>
