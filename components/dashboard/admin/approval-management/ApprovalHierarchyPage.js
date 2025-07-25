@@ -149,9 +149,9 @@ const ApprovalHierarchyPage = () => {
 
   const shiftUser = (id, direction) => {
     const idx = hierarchy.findIndex((u) => u.id === id);
-    if (direction === "left" && hierarchy[idx].level - 1 < 0) return;
+    if (direction === "left" && !hierarchy.some(h => h.level == (hierarchy[idx].level + 1))) return;
 
-    const newLevel = hierarchy[idx].level + (direction === "left" ? -1 : 1);
+    const newLevel = hierarchy[idx].level + (direction === "left" ? 1 : -1);
     const existHierarcyWithLevel = hierarchy.find((u) => u.level === newLevel);
     if (existHierarcyWithLevel) {
       existHierarcyWithLevel.level = hierarchy[idx].level;

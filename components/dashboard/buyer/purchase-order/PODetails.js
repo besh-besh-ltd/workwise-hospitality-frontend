@@ -315,7 +315,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                         milestone.is_reminded ? "text-success" : "text-warning"
                       }`}
                     >
-                      {milestone.is_reminded ? "Reminded" : "Pending"}
+                      {milestone.status == "deleted" ? "Deleted" : milestone.is_reminded ? "Reminded" : "Pending"}
                     </td>
                     <td>
                       #<strong>{po_number}</strong>
