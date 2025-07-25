@@ -183,7 +183,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                                     {comment && (
                                       <tr>
                                         <th style={{ textAlign: 'left' }}>Comment</th>
-                                        <td style={{ textAlign: 'right' }}>{comment}</td>
+                                        <td style={{ textAlign: 'right' }}><ReadMore content={comment} maxLength={60} /></td>
                                       </tr>
                                     )}
                                     {delivery && (
