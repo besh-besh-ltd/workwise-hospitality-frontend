@@ -15,7 +15,7 @@ const initialFilterData = {
   rfq_no: null,
 }
 
-const ProcessingRFQ = () => {
+const ProcessingRFQ = ({ handleCreateRFQ }) => {
   const [loading, setloading] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(10);
@@ -67,7 +67,7 @@ const ProcessingRFQ = () => {
               <table className="table align-middle">
                 <thead>
                   <tr>
-                    <th>Persistence ID</th>
+                    <th>SR. No</th>
                     <th>File name</th>
                     <th>Status</th>
                     <th>Started At</th>
@@ -83,6 +83,10 @@ const ProcessingRFQ = () => {
                     return (
                       <ProcessingRFQItem
                         key={`processing_rfq_item_${item.id}`}
+                        handleCreateRFQ={async (excel_link, file_name) => {
+                          await handleCreateRFQ(excel_link, file_name);
+                          getAllProcessingRFQs();
+                        }}
                         data={item}
                         onViewErrors={() => {
                           setActiveRFQ(item);
