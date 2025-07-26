@@ -57,33 +57,43 @@ const MagicSearchPage = () => {
         event.target.value = null;
     };
 
-const uploadToServer = async () => {
-  if (!file) {
+const uploadToServer = async (processed_file) => {
+  if (!file && !processed_file) {
     toast.error("Please select a file!");
     return;
   }
+
+  if (!file && processed_file && !processed_file instanceof File) {
+    toast.error("Processed file is not an instance of File!");
+    return;
+  }
+
+  const curFile = file || processed_file;
+  const curFileName = fileName || processed_file.name;
 
   try {
     setLoading(true);
 
     // Step 1: Start async task and get task_id
-    const persistJob = await persistMagicSearchJob(fileName);
+    const persistJob = await persistMagicSearchJob(curFileName);
     const webhook = persistJob.webhook;
 
-    const startResponse = await getBOQexcelToJsonAI(file, webhook);
+    const startResponse = await getBOQexcelToJsonAI(curFile, webhook);
 
     const response = startResponse.data;
     toast.success(response.message);
-    setTab('processing-files');
-
+    setTab("processing-files");
   } catch (error) {
     console.log(error);
     console.error(error?.response?.data?.detail);
-    toast.error(error?.response?.data?.detail || "RFQ creation failed. Please try again later.");
+    toast.error(
+      error?.response?.data?.detail ||
+        "RFQ creation failed. Please try again later."
+    );
   } finally {
     setLoading(false);
     setFile(null);
-    setFileName('');
+    setFileName("");
     // setCustomInstructions(''); // Reset custom instructions
   }
 };
@@ -130,6 +140,26 @@ const uploadToServer = async () => {
     setLoading(false);
   }
 };
+
+    const handleRFQCreateFromProcessedFile = async (excel_link, file_name) => {
+      try {
+        const response = await fetch(excel_link);
+        const blob = await response.blob();
+
+        // Extract file name from URL or use fallback
+        const urlParts = excel_link.split("/");
+        const filename =
+          file_name ?? urlParts[urlParts.length - 1] ?? "downloaded.xlsx";
+
+        // Create a File instance
+        const file = new File([blob], filename, { type: blob.type });
+
+        await uploadToServer(file);
+      } catch (err) {
+        console.error("Download or upload failed:", err);
+        toast.error("Failed to download and upload file");
+      }
+    };
 
     return (
       <>
@@ -279,7 +309,7 @@ const uploadToServer = async () => {
                     </div>
                   </section>
                 )}
-                {tab === "processing-files" && <ProcessingRFQ />}
+                {tab === "processing-files" && <ProcessingRFQ handleCreateRFQ={handleRFQCreateFromProcessedFile} />}
               </div>
             </div>
           </div>
