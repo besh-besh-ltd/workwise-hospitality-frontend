@@ -19,7 +19,7 @@ const statusBadge = {
   },
 };
 
-const DraftRFQItem = ({ data, onViewErrors }) => {
+const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
   const calculateTimeTaken = (start, end) => {
     if (!start || !end) return "—";
 
@@ -123,9 +123,11 @@ const DraftRFQItem = ({ data, onViewErrors }) => {
           <button className="bg-transparent border-0" onClick={onViewErrors}>
             <span style={{ cursor: data.errors ? "pointer" : "default" }}>
               {data.errors && typeof data.errors == "object"
-                ? `Contain ${data.errors?.actual?.length || 1} Error${
-                  (data.errors?.actual?.length || 1) > 1 ? "s" : ""
-                }`
+                ? data.errors?.actual && Array.isArray(data.errors?.actual)
+                  ? `Contain ${data.errors?.actual?.length || 1} Error${
+                      (data.errors?.actual?.length || 1) > 1 ? "s" : ""
+                    }`
+                  : "Contain Errors"
                 : "—"}
             </span>
           </button>
@@ -135,41 +137,42 @@ const DraftRFQItem = ({ data, onViewErrors }) => {
         <td>
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
-            <div className="d-flex gap-2 justify-content-end">
-              <Button
-                variant="success"
-                size="sm"
-                style={{ padding: "8px 0", maxWidth: "120px" }}
-                onClick={() => handleDownload(data.download_url)}
-              >
-                Download
-              </Button>
-              <Link
-                href={`magic-search/view?jsonUrl=${encodeURIComponent(
-                  data.download_url
-                )}`}
-                passHref
-              >
+            <div className="d-flex flex-column gap-2">
+              <div className="d-flex gap-2 justify-content-between">
                 <Button
                   variant="success"
                   size="sm"
                   style={{ padding: "8px 0", maxWidth: "120px" }}
+                  onClick={() => handleDownload(data.download_url)}
                 >
-                  View
+                  Download
                 </Button>
-              </Link>
-              {/* <Link
-              href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
-              passHref
-            >
+                <Link
+                  href={`magic-search/view?jsonUrl=${encodeURIComponent(
+                    data.download_url
+                  )}`}
+                  passHref
+                >
+                  <Button
+                    variant="success"
+                    size="sm"
+                    style={{ padding: "8px 0", maxWidth: "120px" }}
+                  >
+                    View
+                  </Button>
+                </Link>
+              </div>
               <Button
-                variant="success"
+                onClick={async () => {
+                  console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
+                  await handleCreateRFQ(data.download_url, data.file_name)
+                }}
+                variant="primary"
                 size="sm"
-                style={{ padding: "8px 0", maxWidth: "140px" }}
+                style={{ padding: "8px 0", width: "100%" }}
               >
-                Create
+                Create RFQ using this
               </Button>
-            </Link> */}
             </div>
           ) : (
             "-"
