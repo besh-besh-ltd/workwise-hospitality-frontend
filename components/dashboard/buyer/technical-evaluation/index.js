@@ -25,6 +25,7 @@ const BuyerTechnicalEvaluation = () => {
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
   const [clauseInfo, setClauseInfo] = useState(null);
+  const [selectedVendors, setSelectedVendors] = useState([]);
 
   const getAllProjects = () => {
     getProjectList()
@@ -341,15 +342,15 @@ useEffect(() => {
                                     <div className="col-md-3 col-lg-3 text-sm mb-2">
                                       <label>Select Vendor</label>
                                       <AsyncSelect
+                                        isMulti
                                         cacheOptions
                                         loadOptions={() => getVendorSelectionOption(product.id)}
                                         defaultOptions
                                         placeholder="Select"
                                         isClearable
-                                        onChange={(selectedOption) => {
-                                          const updatedVendorMap = new Map(vendorMap);
-                                          updatedVendorMap.set(product.id, selectedOption ? selectedOption : null);
-                                          setVendorMap(updatedVendorMap);
+                                        value={selectedVendors}
+                                        onChange={(selectedOptions) => {
+                                          setSelectedVendors(selectedOptions);
                                         }}
                                         noOptionsMessage={() => "No vendors responded"}
                                       />
@@ -370,6 +371,7 @@ useEffect(() => {
                                     vendors={rfqProduct?.vendors ?? []}
                                     refetch={listProducts}
                                     selectedVendor={vendorMap.get(product.id)}
+                                    selectedVendors={selectedVendors.map(vendor => vendor.value)}
                                   />
 
                                 </div>

@@ -29,6 +29,23 @@ export const handleUploadFile = (file, token=null) => {
   });
 };
 
+export const handleUploadFileInFormData = (file, token = null) => {
+  const formData = new FormData();
+  
+  // 👇 Append file with filename
+  formData.append("file", file, `rfq-quote-${Date.now()}.xlsx`);
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosFormData.post(`/users/upload-file${token ? `?token=${token}` : ''}`, formData);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
 export const vendorApproveList = (values) => {
  
   return new Promise(async (resolve, reject) => {
@@ -143,6 +160,18 @@ export const getDraftRFQs = (payload) => {
     try {
       // Changes by Agnij 2025-05-24 [Updated to use real API instead of mock data]
       let response = await axiosInstance.post(`/rfq/get-draft-rfqs`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getProcessingRFQs = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Changes by Agnij 2025-05-24 [Updated to use real API instead of mock data]
+      let response = await axiosInstance.post(`/rfq/get-processing-rfqs`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -391,6 +420,20 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+/* 
+START :: Initiate magic search
+*/
+export const persistMagicSearchJob = async (file_name, type = 'rfq') => {
+  const token = localStorage.getItem("token");
+
+  const payload = {
+    file_name,
+    type
+  }
+  let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
+  return response;
+};
+
 
 /* 
 START :: AI server functions 
@@ -398,13 +441,16 @@ START :: AI server functions
 
 // mart of magic serach boq to rfq, accept boq excel and return a json file url
 // Send file to /boq_to_structured_boq_and_match and get task_id
-export const getBOQexcelToJsonAI = (file, customInstructions = "") => {
+export const getBOQexcelToJsonAI = (file, webhook, customInstructions = "") => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", file);  
   if (customInstructions) {
     formData.append("custom_instructions", customInstructions);
   }
+  if(webhook)
+    formData.append("webhook", webhook);
+
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -444,10 +490,13 @@ export const pollBOQResult = async (taskId, maxAttempts = 240, interval = 30000)
 
 
 //  accept a unstructure boq excel and return a structure boq excel url
-export const getSImplifiedVersionOfBOQ = (file) => {
+export const getSImplifiedVersionOfBOQ = (file, webhook) => {
   const token = localStorage.getItem("token");
   const formData = new FormData();
   formData.append("file", file);
+
+  if(webhook)
+    formData.append("webhook", webhook);
 
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq`, formData, {
     headers: {
@@ -703,7 +752,7 @@ export const addVendorAgreement = (payload) => {
   });
 };
 
-export const fetchVendorAgreement = (payload) => {
+export const fetchVendorAgreement = (payload) => {  //Not being used anywhere  .
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/get-vendor-responses`, payload);
@@ -735,6 +784,17 @@ export const getTechClearedVendorsResult = (payload) => {
     }
   });
 };
+
+export const getSummarisedDeviation = (rfq_id) => {
+  return new Promise ( async (resolve , reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/get-summarised-deviation`,{ rfq_id })
+      resolve(response.data);
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 
 export const getRfqChartData = (filter, project_id) => {
   return new Promise(async (resolve, reject) => {
@@ -910,6 +970,23 @@ export const processMagicSearchDraft = (rfqId, sheetId) => {
           error: error?.message || 'Unknown error'
         }
       });
+    }
+  });
+};
+
+// Handle excel saving in database
+export const saveExcelInDB = (rfq_id, file_path) => {
+  const payload = {
+    rfq_id,
+    file_path,
+  }
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/save-excel`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
     }
   });
 };

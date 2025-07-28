@@ -268,14 +268,15 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
         setSelectedCities(selectedCity)
     }, [selectedCountry, selectedState, selectedCity])
 
-    useEffect(() => {
-        setselectedState([]);
-        setselectedCity([]);
-    }, [selectedCountries]);
+    // REMOVED: These useEffects were clearing location filters when they shouldn't
+    // useEffect(() => {
+    //     setselectedState([]);
+    //     setselectedCity([]);
+    // }, [selectedCountries]);
 
-    useEffect(() => {
-        setselectedCity([]);
-    }, [selectedStates]);
+    // useEffect(() => {
+    //     setselectedCity([]);
+    // }, [selectedStates]);
 
     return (
         <div className="autocomplete">

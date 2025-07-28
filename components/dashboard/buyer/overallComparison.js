@@ -31,11 +31,11 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
     handleDownloadQuote();
   }, [rfq_id, TA_Filter, freightFilter]);
 
-  const toggleBreakup = (id) => {
-  setBreakupStates(prev => ({
-    ...prev,
-    [id]: !prev[id]
-  }));
+  const toggleBreakup = (key) => {
+    setBreakupStates(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
 };
 
 const closeModalForVariant = (variantId) => {
@@ -357,7 +357,7 @@ const openModalForVariant = (variantId) => {
                       className="sl_no heading"
                       colSpan={allvendors.length + 5}
                     >
-                      OVERALL COMPARISON CHART
+                      Category Wise Comparison
                       <br />
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
                     </th>
@@ -448,25 +448,19 @@ const openModalForVariant = (variantId) => {
                               : "-"}
                           </td>
                           <td>
-                            <div className="row">
-                              {
-                                <p className="col-12 mb-1">
-                                  <strong>Size: </strong>
-                                  {size?.value ?? "--"}
-                                </p>
-                              }
-                              {
-                                <p
-                                  className="col-12 mb-1 truncate-text"
-                                  style={{
-                                    maxHeight: "100px",
-                                    WebkitLineClamp: 3,
-                                  }}
-                                >
-                                  <strong>Spec: </strong>
-                                  {spec?.value ?? "--"}
-                                </p>
-                              }
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                <span style={{ fontWeight: 'bold', minWidth: 40 }}>Size:</span>
+                                <span style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', flex: 1 }}>
+                                  {size?.value ? <ReadMore content={size.value} maxLength={1000} maxLines={3} /> : "--"}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                <span style={{ fontWeight: 'bold', minWidth: 40 }}>Spec:</span>
+                                <span style={{ wordBreak: 'break-word', whiteSpace: 'pre-line', flex: 1 }}>
+                                  {spec?.value ? <ReadMore content={spec.value} maxLength={1000} maxLines={3} /> : "--"}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td>{`${quantity?.value ?? "NA"}-${
@@ -605,7 +599,7 @@ const openModalForVariant = (variantId) => {
                           )}
 
                           {item.quotations.length > 0 &&
-                            item.quotations.map((quote_item) => {
+                            item.quotations.map((quote_item, vIdx) => {
                               const isSomeoneFinalized =
                                 item?.all_vendors?.find(
                                   (vendor) => vendor.is_finalized
@@ -633,54 +627,31 @@ const openModalForVariant = (variantId) => {
                               }
 
                               if (quote_item.is_regret == 1) {
-                                const quoteDetails =
-                                  quote_item.quote_details?.[0];
-                                const [productId, variant] = [
-                                  quoteDetails.product_id,
-                                  quoteDetails.variant,
-                                ];
-
-                                const key = `${productId}_${variant}`;
-
+                                const quoteDetails = quote_item.quote_details?.[0];
+                                const [productId, variant] = [quoteDetails.product_id, quoteDetails.variant];
+                                const key = `${item.id}_${quote_item.created_by}`;
                                 const showBreakup = breakupStates[key] || false;
                                 return (
                                   <td
-                                    className={`total_amt_field text-center align-middle ${
-                                      showBreakup
-                                        ? "bg-white"
-                                        : "is_regret text-white"
-                                    }`}
+                                    className={`total_amt_field text-center align-middle ${showBreakup ? 'bg-white' : 'is_regret text-white'}`}
                                     key={`quote_item_${key}`}
                                   >
                                     {!showBreakup && (
                                       <p className="m-0">REGRET</p>
                                     )}
-
                                     <label className="view_breakup d-block mt-2">
-                                      <div className="tooltip_custom">
-                                        Show/hide Breakup
-                                      </div>
+                                      <div className="tooltip_custom">Show/hide Breakup</div>
                                       <span></span>
                                       <input
                                         type="checkbox"
                                         checked={showBreakup}
                                         onChange={() => toggleBreakup(key)}
-                                        style={{
-                                          backgroundColor: showBreakup
-                                            ? "white"
-                                            : undefined,
-                                        }}
+                                        style={{ backgroundColor: showBreakup ? "white" : undefined }}
                                       />
                                     </label>
-
                                     {showBreakup && (
                                       <div className="mt-2">
-                                        <ReadMore
-                                          content={
-                                            quote_item?.regret_reason ??
-                                            "Not Reason Provided"
-                                          }
-                                        />
+                                        <ReadMore content={quote_item?.regret_reason ?? "Not Reason Provided"} />
                                       </div>
                                     )}
                                   </td>
