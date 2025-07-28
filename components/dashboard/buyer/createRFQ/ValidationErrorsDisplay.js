@@ -39,7 +39,7 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
 
   return (
     <div style={{marginTop: '4rem'}}>
-      <h4 className="mb-3 fw-medium">Validation Errors</h4>
+      <h4 className="mb-3 fw-medium">Product Not Found – See Similar Matches</h4>
 
       {validationErrors.map((error, index) => {
         const errorMessages = Object.values(error.errors || {});
@@ -78,9 +78,9 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
                             <h6 className="card-title fw-medium mb-1">
                               {product.raw_product_name}
                             </h6>
-                            <p className="card-text text-sm mb-2">
+                            {/* <p className="card-text text-sm mb-2">
                               <p className="mb-0">Variant ID: {product.variant_id}</p>
-                            </p>
+                            </p> */}
                             <button
                               onClick={() =>
                                 handleSelectProduct(
