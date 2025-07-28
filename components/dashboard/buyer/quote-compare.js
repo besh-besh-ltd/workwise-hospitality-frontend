@@ -436,8 +436,9 @@ const openModalForVariant = (variantId) => {
         });
       }
 
-      item.quotations.map((q) => {
-        if (q.is_regret == 1) {
+      item?.quotations?.map((q) => {
+
+        if (q.is_regret == 1 || !q.quote_details || q?.quote_details?.length == 0) {
           temp_arr.push("0");
           temp_arr.push("0");
           temp_arr.push("0");
@@ -445,7 +446,7 @@ const openModalForVariant = (variantId) => {
           temp_arr.push("0");
         } else {
           const temp_quote_details = q.quote_details[0];
-          const temp_quantity = temp_quote_details.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+          const temp_quantity = temp_quote_details?.rfq_details?.find(spec => spec?.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
           temp_arr.push(
             q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
