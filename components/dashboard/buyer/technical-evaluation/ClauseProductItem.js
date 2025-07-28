@@ -144,11 +144,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
     }
 
 useEffect(() => {
-  console.log("summarisedDeviation", summarisedDeviation);
 
-  if (!summarisedDeviation) {
-    return; // ✅ just exit safely, don't return non-function
-  }
+
+  if (summarisedDeviation) {
 
   // Clone the original clauseInfo so we don't mutate state directly
   const updatedClauseInfo = clauseInfo.map(clause => {
@@ -175,12 +173,11 @@ useEffect(() => {
   });
 
   setUpdatedClauseInfoSummary(updatedClauseInfo);
+  }
+  else{
+    setUpdatedClauseInfoSummary(clauseInfo);
 
-  console.log("checking the latest info", updatedClauseInfoSummary);
-
-  console.log("checking the vendor response ", updatedClauseInfoSummary);
-
-
+  }
 
 }, [summarisedDeviation]);
 
