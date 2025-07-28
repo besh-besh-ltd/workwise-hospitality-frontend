@@ -29,3 +29,18 @@ export const handleDeleteMilestone = async (id) => {
   const res = await axiosInstance.delete(`/po/milestones/${id}`);
   return res;
 };
+
+export const handleCreateTask = async (payload) => {
+  const res = await axiosInstance.post('/po/tasks', payload);
+  return res;
+};
+
+export const handleEditTask = async (id, payload) => {
+  const res = await axiosInstance.put(`/po/tasks/${id}`, payload);
+  return res;
+};
+
+export const handleDeleteTask = async (id) => {
+  const res = await axiosInstance.delete(`/po/tasks/${id}`);
+  return res;
+};

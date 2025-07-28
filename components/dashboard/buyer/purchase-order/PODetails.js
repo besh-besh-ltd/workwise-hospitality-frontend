@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Badge, Card } from 'react-bootstrap';
 import {
   MdEventNote,
-  MdOutlineBusinessCenter
+  MdOutlineBusinessCenter,
+  MdTimeline
 } from 'react-icons/md';
 import { BsBoxSeam, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
 import { FiPaperclip } from "react-icons/fi";
@@ -13,7 +14,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import CreateMilestoneModal from './CreateMilestoneModal';
 import { toast } from 'react-toastify';
-import { handleDeleteMilestone } from '@/services/po';
+import { handleDeleteMilestone, handleDeleteTask } from '@/services/po';
+import CreateTaskModal from './CreateTaskModal';
 
 const statusColors = {
   draft: 'secondary',
@@ -110,10 +112,14 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     approval_status,
     approval_history = [],
     payment_milestones,
+    tasks,
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
 
   const handleMilestoneDeletion = async (id) => {
     try {
@@ -128,9 +134,27 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     }
   }
 
+  const handleTaskDeletion = async (id) => {
+    try {
+      const res = await handleDeleteTask(id);
+      if(res) {
+        toast.info("Milestone deleted successfully!")
+        await refetchPODetails();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? "Something went wrong while deleting the milestone!");
+    }
+  }
+
   const handleMilestoneEdition = (milestone) => {
     setSelectedMilestone(milestone);
     setShowMilestoneModal(true);
+  }
+
+  const handleTaskEdition = (task) => {
+    setSelectedTask(task);
+    setShowTaskModal(true);
   }
 
   return (
@@ -279,12 +303,6 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         </h5>
 
         <button
-          disabled={logged_in_user.user_type != 8}
-          title={
-            logged_in_user.user_type != 8
-              ? "Only Top Management can add milestones"
-              : ""
-          }
           className="minimal-btn"
           onClick={() => setShowMilestoneModal(true)}
         >
@@ -292,7 +310,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         </button>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden mb-3">
         <Card.Body className="table-responsive p-0">
           <table className="table table-stripped align-middle m-0 text-center">
             <thead className="table-light">
@@ -389,6 +407,103 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         </Card.Body>
       </Card>
 
+      {/* Task Timelines */}
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h5 className="mb-0">
+          <MdTimeline className="me-2" />
+          Status Timeline
+        </h5>
+
+        <button
+          className="minimal-btn"
+          onClick={() => setShowTaskModal(true)}
+        >
+          Add Task
+        </button>
+      </div>
+
+      <Card className="overflow-hidden">
+        <Card.Body className="table-responsive p-0">
+          <table className="table table-stripped align-middle m-0 text-center">
+            <thead className="table-light">
+              <tr>
+                <th>Completion Date</th>
+                <th>PO No</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Task Summary</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks && tasks.length > 0 ? (
+                tasks.map((task) => (
+                  <tr key={task.id}>
+                    {renderDueDateCell(
+                      new Date(task.completion_date).toDateString()
+                    )}
+                    <td>
+                      #<strong>{po_number}</strong>
+                    </td>
+                    <td style={{ maxWidth: 140 }}>
+                      {task.task_name}
+                    </td>
+                    <td>
+                      <Badge
+                        bg={milestoneBadges[task.status]}
+                        className="text-capitalize"
+                      >
+                        {task.status}
+                      </Badge>
+                    </td>
+                    <td
+                      style={{ maxWidth: 200 }}
+                      title={task.task_description}
+                    >
+                      {elipsisToLimit(task.task_description, 45)}
+                    </td>
+                    <td>
+                      <button
+                        title="Edit this Task"
+                        className="minimal-btn"
+                        style={{
+                          backgroundColor: "#fdeceb",
+                          borderColor: "#f5b5b5",
+                          color: "#dc3545",
+                        }}
+                        onClick={() => handleTaskEdition(task)}
+                      >
+                        <HiPencil size={25} />
+                      </button>
+                      <button
+                        title="Delete this Task"
+                        className="minimal-btn ms-2"
+                        style={{
+                          backgroundColor: "#fdeceb",
+                          borderColor: "#f5b5b5",
+                          color: "#dc3545",
+                        }}
+                        onClick={() =>
+                          handleTaskDeletion(task.id)
+                        }
+                      >
+                        <HiOutlineTrash size={25} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="11" className="text-center text-muted">
+                    No tasks found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Card.Body>
+      </Card>
+
       <CreateMilestoneModal
         show={showMilestoneModal}
         selectedMilestone={selectedMilestone}
@@ -399,6 +514,19 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         }}
         onSuccess={async () => await refetchPODetails()}
         companyUsers={companyUsers}
+        rfqId={rfq_id}
+        poId={id}
+      />
+
+      <CreateTaskModal
+        show={showTaskModal}
+        selectedTask={selectedTask}
+        isEdit={selectedTask}
+        onClose={() => {
+          setShowTaskModal(false);
+          setSelectedTask(null);
+        }}
+        onSuccess={async () => await refetchPODetails()}
         rfqId={rfq_id}
         poId={id}
       />
