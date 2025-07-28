@@ -823,7 +823,7 @@ const CreateRFQ = () => {
             if(queryMeta.sheet_id) {
               const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
               setSelectedSheet(sheet);
-            } else
+            } else if (!selectedSheet)
               setSelectedSheet(defaultSheet);
           }
         } else {

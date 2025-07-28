@@ -29,6 +29,23 @@ export const handleUploadFile = (file, token=null) => {
   });
 };
 
+export const handleUploadFileInFormData = (file, token = null) => {
+  const formData = new FormData();
+  
+  // 👇 Append file with filename
+  formData.append("file", file, `rfq-quote-${Date.now()}.xlsx`);
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosFormData.post(`/users/upload-file${token ? `?token=${token}` : ''}`, formData);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
 export const vendorApproveList = (values) => {
  
   return new Promise(async (resolve, reject) => {
@@ -953,6 +970,23 @@ export const processMagicSearchDraft = (rfqId, sheetId) => {
           error: error?.message || 'Unknown error'
         }
       });
+    }
+  });
+};
+
+// Handle excel saving in database
+export const saveExcelInDB = (rfq_id, file_path) => {
+  const payload = {
+    rfq_id,
+    file_path,
+  }
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post(`/rfq/save-excel`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
     }
   });
 };

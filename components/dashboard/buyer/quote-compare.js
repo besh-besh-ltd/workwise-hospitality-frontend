@@ -8,6 +8,9 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
+  handleUploadFile,
+  handleUploadFileInFormData,
+  saveExcelInDB,
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
@@ -204,6 +207,41 @@ const openModalForVariant = (variantId) => {
     }
   };
 
+  const handleExcelUpload = async (file) => {
+    try {
+      const res = await handleUploadFileInFormData(file);
+      const filePath = res.data[0]?.file_path;
+
+      if (filePath) {
+        return filePath; // Return the uploaded file object
+      } else {
+        throw new Error("File upload failed. No file path returned.");
+      }
+    } catch (error) {
+      throw new Error("File upload failed: " + error.message);
+    }
+  };
+
+  const calculateTotal = (item, quantity) => {
+    let total_qty = parseInt(quantity) || 0;
+    let unit_price = item.unit_price || 0;
+    
+    // Handle null values by defaulting to 0
+    let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
+    let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
+    let tax = item.tax !== null ? parseFloat(item.tax) : 0;
+
+    let total_without_fpt = unit_price * total_qty;
+    let FP = (total_without_fpt * freight_price) / 100;
+    let PP = (total_without_fpt * package_price) / 100;
+
+    let total_with_fpt = total_without_fpt + FP + PP;
+    let T = (total_with_fpt * tax) / 100;
+
+    let TotalPrice = total_with_fpt + T;
+    return Math.round(TotalPrice);
+  }
+
 
   const handleDownloadQuote = async (e) => {
     e.preventDefault();
@@ -211,7 +249,23 @@ const openModalForVariant = (variantId) => {
 
     try {
       const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
-      generateExcelFile(res.data);
+      const [excelBuffer, fileName] = generateExcelFile(res.data);
+
+      if (excelBuffer) {
+        const blob = new Blob([excelBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+
+        const file = new File([blob], fileName, { type: blob.type });
+
+        const filePath = await handleExcelUpload(file);
+        await saveExcelInDB(rfq, filePath);
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+      }
     } catch (error) {
       console.log(error);
       toast.error("Failed to download quotes. Please try again.")
@@ -276,6 +330,10 @@ const openModalForVariant = (variantId) => {
       let vq = [];
       let total = 0;
       api_data.map((product) => {
+        const quantity = product.product_specs.find(
+          (spec) => spec.title === "Quantity"
+        );
+
         let q = product.quotations.filter(
           (quotation) =>
             quotation.created_by == vendor.id &&
@@ -284,7 +342,7 @@ const openModalForVariant = (variantId) => {
         );
         if (q.length > 0) {
           vq.push(parseInt(q[0].quote_details[0].delivery_period));
-          total = total + parseInt(q[0].quote_details[0].total_price);
+          total = total + parseInt(q[0].quote_details[0]?.unit_price * parseInt(quantity.value));
         }
       });
       vendor.total = total;
@@ -324,18 +382,49 @@ const openModalForVariant = (variantId) => {
       } else {
         // Reduce logic for multiple elements
         lowest = array.reduce((lowest, currentItem) => {
-          if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price <
-              lowest.quote_details[0].total_price
-              ? currentItem
-              : lowest;
+          const curItemQuoteDetails = currentItem.quote_details[0];
+          const curItemVendorDetails = currentItem.vendor_details[0];
+
+          const lowestQuoteDetails = lowest.quote_details[0];
+          const lowestVendorDetails = lowest.vendor_details[0];
+
+          const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
+          const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
+
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+
+          if (curItemQuoteDetails.unit_price > 0) {
+            let curLowest = lowest;
+            if (currentTotal < lowestTotal) curLowest = currentItem;
+            else if (currentTotal == lowestTotal) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1;
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1;
+
+              if (curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+              else {
+                const curTimestamp = new Date(
+                  currentItem.timestamp.slice(0, 23)
+                );
+                const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
+
+                if (curTimestamp < lowestTimestamp) curLowest = currentItem;
+                else curLowest = lowest;
+              }
+            }
+
+            return curLowest;
           }
           return lowest;
         }, array[0]);
       }
 
       if (lowest) {
-        l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
+        const lowestQuoteDetails = lowest.quote_details[0];
+        const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+
+        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
         setl1total(l1totaltemp);
 
         item.quotations.map((q) => {
@@ -355,6 +444,9 @@ const openModalForVariant = (variantId) => {
           temp_arr.push("0");
           temp_arr.push("0");
         } else {
+          const temp_quote_details = q.quote_details[0];
+          const temp_quantity = temp_quote_details.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+
           temp_arr.push(
             q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
             ? q.quote_details[0].unit_price : "0"
@@ -375,13 +467,13 @@ const openModalForVariant = (variantId) => {
           );
           temp_arr.push(
             q.quote_details.length > 0
-              ? `${q.quote_details[0].total_price} ${q.is_lowest ? "(Lowest)" : ""
+              ? `${calculateTotal(temp_quote_details, temp_quantity)} ${q.is_lowest ? "(Lowest)" : ""
               }`
               : "-"
           );
         }
       });
-      temp_arr.push(lowest ? lowest.quote_details[0].total_price : "-");
+      temp_arr.push(lowest ? calculateTotal(lowest.quote_details[0], lowest.quote_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value) : "-");
       data.push(temp_arr);
     });
 
@@ -780,10 +872,15 @@ const openModalForVariant = (variantId) => {
 
     try {
       const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
-      XLSX.writeFile(wb, filename);
+      const excelBuffer = XLSX.write(wb, {
+        bookType: "xlsx",
+        type: "array", // Important: gives raw ArrayBuffer
+      });
       setDownloadLoading(false);
+      return [excelBuffer, filename];
     } catch (error) {
       console.error("Error generating Excel file:", error);
+      return null;
     }
   };
 

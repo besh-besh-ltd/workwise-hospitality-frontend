@@ -3,10 +3,9 @@ import React from "react";
 import { toast } from "react-toastify";
 
 const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading }) => {
-    console.log("SELECTED SHEET: ", selectedSheet);
-  const validationErrors = selectedSheet.validation_errors || [];
+  const validationErrors = selectedSheet.validation_errors ?? [];
 
-  if (validationErrors.length === 0) {
+  if (!validationErrors || !Array.isArray(validationErrors)) {
     return null;
   }
 
