@@ -1,18 +1,21 @@
 import DynamicFormModal from '@/components/modal/DynamicFormModal';
 import Loader from '@/components/shared/Loader';
 import Pagination from '@/components/shared/Pagination';
-import { getProjectById, updateProject, uploadProjectFile } from '@/services/project';
+import { getProjectBudget, getProjectById, updateProject, uploadProjectFile } from '@/services/project';
 import { faEdit } from '@fortawesome/free-regular-svg-icons';
 import { faCloudArrowUp, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { set } from 'lodash';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/router';
 import React, { useEffect, useRef, useState } from 'react'
 import PlaceholderLoading from 'react-placeholder-loading'
 import { toast } from 'react-toastify';
 
 const ProjectDetails = () => {
     const pathname = usePathname();
+    const router = useRouter();
 
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -26,6 +29,10 @@ const ProjectDetails = () => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [dropdownValue, setDropdownValue] = useState("");
     const [files, setFiles] = useState({});
+    const [projectBudget, setProjectBudget] = useState([]);
+    const [avlBudget , setAvlBudget] = useState(0);
+
+    const { projectID } = router.query;
 
     const projectIdRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -91,6 +98,51 @@ const ProjectDetails = () => {
         setSelectedFiles(validFiles);
     };
     
+ const getProjectBudgetData = async () => {
+        if (!projectID) return;
+        
+        setLoading(true);
+        try {
+            const res = await getProjectBudget(projectID);
+           let avlAmount = 0;
+           const processedData = (res || []).map((item) => {
+             avlAmount += parseFloat(item.total_value) || 0;
+             return {
+               ...item,
+               total_value: parseFloat(item.total_value) || 0,
+             };
+           });
+           setAvlBudget(avlAmount);
+
+        setProjectBudget(processedData);
+        // Handle different response structures
+            if (res) {
+                setProjectBudget(res);
+            
+            } else {
+                setProjectBudget([]);
+            }
+            
+        } catch (error) {
+            toast.error("Error fetching project budget");
+            setProjectBudget([]); // Reset to empty array on error
+        } finally {
+            setLoading(false);
+        }
+    };
+   useEffect(() => {
+        console.log("ProjectID changed:", projectID);
+        if (projectID && projectID !== 'undefined') {
+            getProjectBudgetData();
+        }
+    }, [projectID]);
+
+    // Debug state changes
+    useEffect(() => {
+        if(projectBudget)
+        console.log("Project Budget State Updated:", projectBudget);
+    }, [projectBudget]);  
+
 
     const handleDropdownChange = (e) => {
         setDropdownValue(e.target.value);
@@ -145,7 +197,8 @@ const ProjectDetails = () => {
             location: values.location,
             ended_at: values.ended_at ? values.ended_at: null,
             rfq_type: values.rfq_type,
-            reverse_auction: values.reverse_auction == "1" ? 1 : 0
+            reverse_auction: values.reverse_auction == "1" ? 1 : 0,
+            budget: values.budget || 0, // Ensure budget is always a number
         };
 
         setOpenEditProject(false);
@@ -179,324 +232,591 @@ const ProjectDetails = () => {
 
 
     return (
-        <>
-            {editLoading && <Loader />}
-            <section className="vendor-common-header sc-pt-80">
-                <div className="container-fluid">
-                    <h1 className="heading">Project Details</h1>
-                </div>
-            </section>
+      <>
+        {editLoading && <Loader />}
+        <section className="vendor-common-header sc-pt-80">
+          <div className="container-fluid d-flex align-items-center justify-content-between">
+            <h1 className="heading mb-0 fs-1">Project Details</h1>
+            <div>
+              <span className="badge badge-primary mr-2 fs-4">
+                Budget: ₹{projectDetails?.budget || 0}
+              </span>
+              <span className="badge badge-success fs-4">
+                Avl Budget: ₹{(projectDetails?.budget) - (avlBudget || 0)}
+              </span>
+            </div>
+          </div>
+        </section>
 
-            <section className="vendor-mngt-sec-1">
-                <div className="container-fluid">
-                    <div className="row">
-                        <div className="col-md-12">
-                            <div className="vendor-mngt-con">
-
-                                {/* Project Overview Section */}
-                                <div className="details-table p-4 mb-5">
-
-                                    <div className="d-flex justify-content-between">
-                                        <h3 className="title mb-0">{
-                                            loading
-                                                ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                : projectDetails?.name
-                                        }
-                                        </h3>
-                                        <button
-                                            type="button"
-                                            className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0 "
-                                            style={{ width: "100px", backgroundColor: "var(--primary-color)" }}
-                                            onClick={() => setOpenEditProject(true)}
-                                        >
-                                            <FontAwesomeIcon icon={faEdit} className="me-2" />
-                                            Edit
-                                        </button>
-                                    </div>
-                                    <hr />
-
-                                    <div className="row">
-                                        <div className="col-md-6">
-                                            <div className="mb-2">
-                                                <span className="fw-bold">Description </span>
-                                                {loading
-                                                    ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                    : <span className="d-block fw-medium text-muted px-2">{projectDetails?.description || "---"}</span>
-                                                }
-                                            </div>
-                                            <div className="mb-2">
-                                                <span className="fw-bold">Location </span>
-                                                {loading
-                                                    ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                    : <span className="d-block fw-medium text-muted px-2">{projectDetails?.location || "---"}</span>
-                                                }
-                                            </div>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <div className="row">
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">Total RFQs </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.total_rfqs || "---"}</span>
-                                                    }
-                                                </div>
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">Open RFQs </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.open_rfqs || "---"}</span>
-                                                    }
-                                                </div>
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">Closed RFQs </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.closed_rfqs || "---"}</span>
-                                                    }
-                                                </div>
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">Create Date </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.created_at?.slice(0, 10) || "---"}</span>
-                                                    }
-                                                </div>
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">End Date </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.ended_at?.slice(0, 10) || "---"}</span>
-                                                    }
-                                                </div>
-                                                <div className="col-md-4 mb-2" />
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">Project Stage </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.rfq_type == "firm" ? "Firm" : projectDetails?.rfq_type == "budgetary" ? "Budgetary" : "---"}</span>
-                                                    }
-                                                </div>
-                                                <div className="col-md-4 mb-2">
-                                                    <span className="fw-bold">Reverse Auction </span>
-                                                    {loading
-                                                        ? <span className="d-block mt-1"><PlaceholderLoading shape="rect" width={80} height={20} /></span>
-                                                        : <span className="d-block fw-medium text-muted px-2">{projectDetails?.reverse_auction ? "Enabled" : "Disabled"}</span>
-                                                    }
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="project-files filter mb-5">
-                                    <h3 className='title'>Project Files</h3>
-
-                                    <hr />
-
-                                    {fileTypeOrder.map((fileType) => (
-                                        files[fileType] && files[fileType].length > 0 && 
-                                        <div key={fileType} className="uploaded-files mt-4">
-                                            <h6 className='fw-bold'>{fileTypeDisplayNames[fileType]}</h6>
-                                            <div className="row mt-2">
-                                                {(
-                                                    files[fileType].map((file, idx) => (
-                                                        <div key={idx} className="col-md-2 px-2">
-                                                            <span
-                                                                className="badge bg-secondary d-inline-flex align-items-center justify-content-between w-100 my-1 py-2"
-                                                                style={{
-                                                                    overflow: "hidden",
-                                                                    textOverflow: "ellipsis",
-                                                                    whiteSpace: "nowrap",
-                                                                }}
-                                                            >
-                                                                <a
-                                                                    href={file.url}
-                                                                    className="text-white"
-                                                                    style={{
-                                                                        textDecoration: "none",
-                                                                        overflow: "hidden",
-                                                                        textOverflow: "ellipsis",
-                                                                        maxWidth: "90%",
-                                                                    }}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                >
-                                                                    {file.name}
-                                                                </a>
-                                                            </span>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {Object.keys(files).length === 0 && <div>No file uploaded for this project yet!</div>}
-
-                                    <hr />
-
-                                    <div className="container mt-4 p-0 m-0">
-                                        <form onSubmit={handleSubmit}>
-                                            <div className="row g-3 align-items-center justify-content-between">
-                                                {/* File Input */}
-                                                <div className="col-md-6">
-                                                <input
-                                                    type="file"
-                                                    className="form-control"
-                                                    multiple
-                                                    onChange={handleFileChange}
-                                                    disabled={uploading}
-                                                    ref={fileInputRef}
-                                                />
-                                                </div>
-
-                                                {/* Dropdown */}
-                                                <div className="col-md-4">
-                                                <select
-                                                    value={dropdownValue}
-                                                    onChange={handleDropdownChange}
-                                                    className="form-select col-md-2"
-                                                    style={{ minWidth: "150px" }}
-                                                    disabled={uploading}
-                                                >
-                                                    <option value="" disabled>
-                                                    Select Document Type
-                                                    </option>
-                                                    <option value="vendorList">Vendor List</option>
-                                                    <option value="tenderDocument">Tender Document</option>
-                                                    <option value="boq">BOQ</option>
-                                                    <option value="po">PO</option>
-                                                    <option value ="tc">T&C</option>
-                                                    <option value="otherDocuments">Other Documents</option>
-                                                </select>
-                                                </div>
-
-                                                <div className="col-md-2">
-                                                {/* Submit Button */}
-                                                <button
-                                                    type="submit"
-                                                    className="btn btn-secondary py-2"
-                                                    disabled={uploading || !selectedFiles.length || !dropdownValue}
-                                                >
-                                                    {uploading ? "Uploading..." : "Save Files"}
-                                                </button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-
-                                {/* RFQ Details Table */}
-                                <span className="title">RFQs for this Project</span>
-                                <div className="details-table p-4 ">
-
-                                    <div className="row">
-                                        <div className="col-sm-4 col-md-6"></div>
-                                        <div className="col-sm-8 col-md-6">
-                                            <div className="d-flex justify-content-end">
-                                            <Link
-                                                    href="/dashboard/buyer/vendor-management"
-                                                    className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
-                                                    style={{ flex: "0 0 250px" }}
-                                                >
-                                                    {" "}
-                                                    <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" /> Upload your Vendors
-                                                </Link>
-                                                <Link
-                                                    href="/dashboard/buyer/magic-search"
-                                                    className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
-                                                    style={{ flex: "0 0 250px" }}
-                                                >
-                                                    {" "}
-                                                    <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" /> Generate RFQ from BOQ
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="table-responsive">
-                                        <table className="table table-striped">
-                                            <thead>
-                                                <tr>
-                                                    <th scope='col'>Sl No.</th>
-                                                    <th scope="col">RFQ Number</th>
-                                                    <th scope="col">RFQ Type</th>
-                                                    <th scope="col">Reverse Auction</th>
-                                                    <th scope="col">Total Vendors</th>
-                                                    <th scope="col">Quotes Recieved</th>
-                                                    <th scope="col">Created Date</th>
-                                                    <th scope="col">End Date</th>
-                                                    <th scope="col">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {loading &&
-                                                    <tr>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                                                    </tr>
-                                                }
-                                                {!loading && projectDetails && projectDetails?.rfqs?.length > 0
-                                                    && projectDetails?.rfqs?.map((rfqItem, index) => {
-                                                        return (
-                                                            <tr key={`rfq_item_${rfqItem.id}`} >
-                                                                <td>{index + 1}</td>
-                                                                <td>{rfqItem.rfq_details?.rfq_no}</td>
-                                                                <td>{rfqItem.rfq_details?.rfq_type || "---"}</td>
-                                                                <td>{rfqItem.rfq_details?.reverse_auction == 1 ? "Enabled" : "Disabled"}</td>
-                                                                <td>{rfqItem.vendors?.total_vendors}</td>
-                                                                <td>{rfqItem.vendors?.quote_received}</td>
-                                                                <td>{rfqItem.rfq_details?.timestamp?.slice(0, 10) || "---"}</td>
-                                                                <td>{rfqItem.rfq_details?.bid_end_date || "---"}</td>
-                                                                <td>
-                                                                    <Link
-                                                                        href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
-                                                                        className="page-link"
-                                                                    >
-                                                                        View
-                                                                    </Link>
-                                                                </td>
-                                                            </tr>
-                                                        )
-                                                    })
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    <Pagination
-                                        page={page}
-                                        setPage={setPage}
-                                        limit={limit}
-                                        setLimit={setLimit}
-                                        totalData={totalData}
-                                    />
-                                </div>
-
-                            </div>
-                        </div>
+        <section className="vendor-mngt-sec-1">
+          <div className="container-fluid">
+            <div className="row">
+              <div className="col-md-12">
+                <div className="vendor-mngt-con">
+                  {/* Project Overview Section */}
+                  <div className="details-table p-4 mb-5">
+                    <div className="d-flex justify-content-between">
+                      <h3 className="title mb-0">
+                        {loading ? (
+                          <span className="d-block mt-1">
+                            <PlaceholderLoading
+                              shape="rect"
+                              width={80}
+                              height={20}
+                            />
+                          </span>
+                        ) : (
+                          projectDetails?.name
+                        )}
+                      </h3>
+                      <button
+                        type="button"
+                        className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0 "
+                        style={{
+                          width: "100px",
+                          backgroundColor: "var(--primary-color)",
+                        }}
+                        onClick={() => setOpenEditProject(true)}
+                      >
+                        <FontAwesomeIcon icon={faEdit} className="me-2" />
+                        Edit
+                      </button>
                     </div>
-                </div>
-            </section>
+                    <hr />
 
-            {/* Edit Project Modal Section */}
-            {openEditProject &&
-                <DynamicFormModal
-                    type={'edit-project'}
-                    projectData={projectDetails}
-                    openModal={openEditProject}
-                    closeModal={() => setOpenEditProject(false)}
-                    handleEditProject={handleEditProject}
-                />
-            }
-        </>
-    )
+                    <div className="row">
+                      <div className="col-md-6">
+                        <div className="mb-2">
+                          <span className="fw-bold">Description </span>
+                          {loading ? (
+                            <span className="d-block mt-1">
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={80}
+                                height={20}
+                              />
+                            </span>
+                          ) : (
+                            <span className="d-block fw-medium text-muted px-2">
+                              {projectDetails?.description || "---"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mb-2">
+                          <span className="fw-bold">Location </span>
+                          {loading ? (
+                            <span className="d-block mt-1">
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={80}
+                                height={20}
+                              />
+                            </span>
+                          ) : (
+                            <span className="d-block fw-medium text-muted px-2">
+                              {projectDetails?.location || "---"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-md-6">
+                        <div className="row">
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">Total RFQs </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.total_rfqs || "---"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">Open RFQs </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.open_rfqs || "---"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">Closed RFQs </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.closed_rfqs || "---"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">Create Date </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.created_at?.slice(0, 10) ||
+                                  "---"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">End Date </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.ended_at?.slice(0, 10) ||
+                                  "---"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="col-md-4 mb-2" />
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">Project Stage </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.rfq_type == "firm"
+                                  ? "Firm"
+                                  : projectDetails?.rfq_type == "budgetary"
+                                  ? "Budgetary"
+                                  : "---"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="col-md-4 mb-2">
+                            <span className="fw-bold">Reverse Auction </span>
+                            {loading ? (
+                              <span className="d-block mt-1">
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={80}
+                                  height={20}
+                                />
+                              </span>
+                            ) : (
+                              <span className="d-block fw-medium text-muted px-2">
+                                {projectDetails?.reverse_auction
+                                  ? "Enabled"
+                                  : "Disabled"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="row">
+                    {/* Project Files Column */}
+                    <div
+                      className="col-md-6 pe-3"
+                      style={{ maxHeight: "500px", overflowY: "auto" }}
+                    >
+                      <div className="project-files filter mb-5">
+                        <h3 className="title">Project Files</h3>
+                        <hr />
+
+                        {fileTypeOrder.map(
+                          (fileType) =>
+                            files[fileType] &&
+                            files[fileType].length > 0 && (
+                              <div
+                                key={fileType}
+                                className="uploaded-files mt-4"
+                              >
+                                <h6 className="fw-bold">
+                                  {fileTypeDisplayNames[fileType]}
+                                </h6>
+                                <div className="row mt-2">
+                                  {files[fileType].map((file, idx) => (
+                                    <div key={idx} className="col-md-2 px-2">
+                                      <span
+                                        className="badge bg-secondary d-inline-flex align-items-center justify-content-between w-100 my-1 py-2"
+                                        style={{
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <a
+                                          href={file.url}
+                                          className="text-white"
+                                          style={{
+                                            textDecoration: "none",
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            maxWidth: "90%",
+                                          }}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          {file.name}
+                                        </a>
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                        )}
+
+                        {Object.keys(files).length === 0 && (
+                          <div>No file uploaded for this project yet!</div>
+                        )}
+
+                        <hr />
+
+                        <div className="container mt-4 p-0 m-0">
+                          <form onSubmit={handleSubmit}>
+                            <div className="row g-3 align-items-center justify-content-between">
+                              {/* File Input */}
+                              <div className="col-md-6">
+                                <input
+                                  type="file"
+                                  className="form-control"
+                                  multiple
+                                  onChange={handleFileChange}
+                                  disabled={uploading}
+                                  ref={fileInputRef}
+                                />
+                              </div>
+
+                              {/* Dropdown */}
+                              <div className="col-md-4">
+                                <select
+                                  value={dropdownValue}
+                                  onChange={handleDropdownChange}
+                                  className="form-select col-md-2"
+                                  style={{ minWidth: "150px" }}
+                                  disabled={uploading}
+                                >
+                                  <option value="" disabled>
+                                    Select Document Type
+                                  </option>
+                                  <option value="vendorList">
+                                    Vendor List
+                                  </option>
+                                  <option value="tenderDocument">
+                                    Tender Document
+                                  </option>
+                                  <option value="boq">BOQ</option>
+                                  <option value="po">PO</option>
+                                  <option value="tc">T&C</option>
+                                  <option value="otherDocuments">
+                                    Other Documents
+                                  </option>
+                                </select>
+                              </div>
+
+                              <div className="col-md-2">
+                                {/* Submit Button */}
+                                <button
+                                  type="submit"
+                                  className="btn btn-secondary py-2"
+                                  disabled={
+                                    uploading ||
+                                    !selectedFiles.length ||
+                                    !dropdownValue
+                                  }
+                                >
+                                  {uploading ? "Uploading..." : "Save Files"}
+                                </button>
+                              </div>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Project Budget Column */}
+                    <div
+                      className="col-md-6 ps-3"
+                      style={{ maxHeight: "500px", overflowY: "auto" }}
+                    >
+                      <div className="project-budget mb-5">
+                        <h3 className="title">Project Budget</h3>
+                        <hr />
+
+                        {/* Budget Header */}
+                        <div className="budget-header d-flex justify-content-between mb-1 p-2 bg-light rounded fw-bold">
+                          <span>RFQ NO</span>
+                          <span style={{"width":"150px" ,"textAlign":"center"}}>Vendor</span>
+                          <span style={{"width":"150px" ,"textAlign":"center"}}>Date</span>
+                          <span className="text-end">Amount</span>
+                        </div>
+
+                        {/* Budget Items */}
+                        <div className="budget-items">
+                          {projectBudget?.length > 0 ? (
+                            projectBudget.map((item) => (
+                              <div
+                                key={item.id}
+                                className="budget-item d-flex justify-content-between align-items-center mb-3 p-2 border-bottom"
+                              >
+                                <span className="text-muted">
+                                  {item.rfq_no}
+                                </span>
+                                <span style = {{"width" : "150px"}}>{item.vendor_name}</span>
+                                <span style={{"width":"80px"}}>
+                                  {new Date(
+                                    item.updated_at
+                                  ).toLocaleDateString()}
+                                </span>
+                                <span className="text-danger fw-bold text-end">
+                                  ₹{parseFloat(item.total_value).toFixed(2)}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-3 text-muted">
+                              No budget data available
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Budget Summary */}
+                        {projectBudget?.length > 0 && (
+                          <div className="budget-summary mt-4 pt-3 border-top">
+                            <div className="d-flex justify-content-between">
+                              <span className="fw-bold">Total Items:</span>
+                              <span className="fw-bold">
+                                {projectBudget.length}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between mt-2">
+                              <span className="fw-bold">
+                                Total Expenditure:
+                              </span>
+                              <span className="text-danger fw-bold">
+                                ₹
+                                {projectBudget
+                                  .reduce(
+                                    (sum, item) =>
+                                      sum + parseFloat(item.total_value),
+                                    0
+                                  )
+                                  .toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RFQ Details Table */}
+                  <span className="title">RFQs for this Project</span>
+                  <div className="details-table p-4 ">
+                    <div className="row">
+                      <div className="col-sm-4 col-md-6"></div>
+                      <div className="col-sm-8 col-md-6">
+                        <div className="d-flex justify-content-end">
+                          <Link
+                            href="/dashboard/buyer/vendor-management"
+                            className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
+                            style={{ flex: "0 0 250px" }}
+                          >
+                            {" "}
+                            <FontAwesomeIcon
+                              icon={faCloudArrowUp}
+                              className="me-2"
+                            />{" "}
+                            Upload your Vendors
+                          </Link>
+                          <Link
+                            href="/dashboard/buyer/magic-search"
+                            className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
+                            style={{ flex: "0 0 250px" }}
+                          >
+                            {" "}
+                            <FontAwesomeIcon
+                              icon={faWandMagicSparkles}
+                              className="me-2"
+                            />{" "}
+                            Generate RFQ from BOQ
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="table table-striped">
+                        <thead>
+                          <tr>
+                            <th scope="col">Sl No.</th>
+                            <th scope="col">RFQ Number</th>
+                            <th scope="col">RFQ Type</th>
+                            <th scope="col">Reverse Auction</th>
+                            <th scope="col">Total Vendors</th>
+                            <th scope="col">Quotes Recieved</th>
+                            <th scope="col">Created Date</th>
+                            <th scope="col">End Date</th>
+                            <th scope="col">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loading && (
+                            <tr>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                              <td>
+                                <PlaceholderLoading
+                                  shape="rect"
+                                  width={100}
+                                  height={50}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                          {!loading &&
+                            projectDetails &&
+                            projectDetails?.rfqs?.length > 0 &&
+                            projectDetails?.rfqs?.map((rfqItem, index) => {
+                              return (
+                                <tr key={`rfq_item_${rfqItem.id}`}>
+                                  <td>{index + 1}</td>
+                                  <td>{rfqItem.rfq_details?.rfq_no}</td>
+                                  <td>
+                                    {rfqItem.rfq_details?.rfq_type || "---"}
+                                  </td>
+                                  <td>
+                                    {rfqItem.rfq_details?.reverse_auction == 1
+                                      ? "Enabled"
+                                      : "Disabled"}
+                                  </td>
+                                  <td>{rfqItem.vendors?.total_vendors}</td>
+                                  <td>{rfqItem.vendors?.quote_received}</td>
+                                  <td>
+                                    {rfqItem.rfq_details?.timestamp?.slice(
+                                      0,
+                                      10
+                                    ) || "---"}
+                                  </td>
+                                  <td>
+                                    {rfqItem.rfq_details?.bid_end_date || "---"}
+                                  </td>
+                                  <td>
+                                    <Link
+                                      href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
+                                      className="page-link"
+                                    >
+                                      View
+                                    </Link>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <Pagination
+                      page={page}
+                      setPage={setPage}
+                      limit={limit}
+                      setLimit={setLimit}
+                      totalData={totalData}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Edit Project Modal Section */}
+        {openEditProject && (
+          <DynamicFormModal
+            type={"edit-project"}
+            projectData={projectDetails}
+            openModal={openEditProject}
+            closeModal={() => setOpenEditProject(false)}
+            handleEditProject={handleEditProject}
+          />
+        )}
+      </>
+    );
 }
 
 export default ProjectDetails

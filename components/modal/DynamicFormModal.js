@@ -80,7 +80,8 @@ const DynamicFormModal = ({
         ended_at: projectData?.ended_at?.slice(0, 10) || defaultEndDate.toISOString().slice(0, 10),
         rfq_type: projectData?.rfq_type || "",
         reverse_auction: projectData?.reverse_auction ? 1 : 0,
-        ...(type === "edit-project" && { status: projectData?.status !== undefined ? projectData?.status : 1 })
+        ...(type === "edit-project" && { status: projectData?.status !== undefined ? projectData?.status : 1 }),
+        budget : projectData?.budget || 0 // Default budget to 0 if not provided
     }
 
     // For account edit form
@@ -363,7 +364,8 @@ Example:
                 location: values.location,
                 rfq_type: values.rfq_type,
                 reverse_auction: Number(values.reverse_auction),
-                ended_at: values.ended_at
+                ended_at: values.ended_at,
+                budget: values.budget || 0, // Default budget to 0 if not provided
             };
 
             // Call the parent function to save the data
@@ -379,7 +381,8 @@ Example:
                 rfq_type: values.rfq_type,
                 reverse_auction: Number(values.reverse_auction),
                 ended_at: values.ended_at,
-                status: values.status !== undefined ? Number(values.status) : 1
+                status: values.status !== undefined ? Number(values.status) : 1,
+                budget: Number(values.budget) || 0, // Default budget to 0 if not provided
             };
 
             // Call the parent function to save the data
@@ -572,10 +575,13 @@ Example:
                                         <select
                                           {...field}
                                           className="form-select border border-success"
-                                          style={{ width: "30%", height: "54px" }}
+                                          style={{
+                                            width: "30%",
+                                            height: "54px",
+                                          }}
                                           defaultValue={{
                                             key: "+91",
-                                            value: "+91"
+                                            value: "+91",
                                           }}
                                           onChange={(e) =>
                                             form.setFieldValue(
@@ -664,7 +670,7 @@ Example:
                                   onChange={setFieldValue}
                                   required={true}
                                 />
-                                
+
                                 <CommonFormInput
                                   name="email"
                                   label="Email"
@@ -676,7 +682,7 @@ Example:
                                   onChange={setFieldValue}
                                   required={true}
                                 />
-                                
+
                                 <CommonFormInput
                                   name="mobile"
                                   label="Mobile"
@@ -692,28 +698,46 @@ Example:
                               <>
                                 <div className="form-group">
                                   <label htmlFor="user" className="form-label">
-                                    Select User <span className="text-danger">*</span>
+                                    Select User{" "}
+                                    <span className="text-danger">*</span>
                                   </label>
                                   <Field name="user">
                                     {({ field, form }) => (
                                       <Select
                                         options={userOptions}
                                         value={field.value}
-                                        onChange={(option) => form.setFieldValue('user', option)}
-                                        className={`${touched.user && errors.user ? 'is-invalid' : ''}`}
+                                        onChange={(option) =>
+                                          form.setFieldValue("user", option)
+                                        }
+                                        className={`${
+                                          touched.user && errors.user
+                                            ? "is-invalid"
+                                            : ""
+                                        }`}
                                         placeholder="Select a user"
                                         styles={{
-                                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                          menu: (base) => ({ ...base, maxHeight: '200px' }),
-                                          menuList: (base) => ({ ...base, maxHeight: '200px' })
+                                          menuPortal: (base) => ({
+                                            ...base,
+                                            zIndex: 9999,
+                                          }),
+                                          menu: (base) => ({
+                                            ...base,
+                                            maxHeight: "200px",
+                                          }),
+                                          menuList: (base) => ({
+                                            ...base,
+                                            maxHeight: "200px",
+                                          }),
                                         }}
                                         menuPortalTarget={document.body}
-                                        menuPosition={'fixed'}
+                                        menuPosition={"fixed"}
                                       />
                                     )}
                                   </Field>
                                   {touched.user && errors.user && (
-                                    <div className="form-error">{errors.user}</div>
+                                    <div className="form-error">
+                                      {errors.user}
+                                    </div>
                                   )}
                                 </div>
 
@@ -721,7 +745,9 @@ Example:
                                   <div className="form-group">
                                     <div className="card bg-light">
                                       <div className="card-body">
-                                        <h5 className="card-title">User Details</h5>
+                                        <h5 className="card-title">
+                                          User Details
+                                        </h5>
                                         <div className="d-flex justify-content-between mb-2">
                                           <span>Name:</span>
                                           <strong>{values.user.name}</strong>
@@ -735,12 +761,21 @@ Example:
                                           <span
                                             className="badge"
                                             style={{
-                                              backgroundColor: getRoleInfo(values.user.role).color,
-                                              color: getRoleInfo(values.user.role).color === "#FFE600" ? "#000" : "#fff",
-                                              padding: "6px 10px"
+                                              backgroundColor: getRoleInfo(
+                                                values.user.role
+                                              ).color,
+                                              color:
+                                                getRoleInfo(values.user.role)
+                                                  .color === "#FFE600"
+                                                  ? "#000"
+                                                  : "#fff",
+                                              padding: "6px 10px",
                                             }}
                                           >
-                                            {getRoleInfo(values.user.role).label}
+                                            {
+                                              getRoleInfo(values.user.role)
+                                                .label
+                                            }
                                           </span>
                                         </div>
                                       </div>
@@ -761,7 +796,14 @@ Example:
                                     name="name"
                                     placeholder="Demo Project Name"
                                     disabled={type === "edit-project"}
-                                    style={type === "edit-project" ? { backgroundColor: '#f8f9fa', cursor: 'not-allowed' } : {}}
+                                    style={
+                                      type === "edit-project"
+                                        ? {
+                                            backgroundColor: "#f8f9fa",
+                                            cursor: "not-allowed",
+                                          }
+                                        : {}
+                                    }
                                   />
                                   {touched.name && errors.name && (
                                     <div className="form-error">
@@ -801,7 +843,9 @@ Example:
                                 </div>
 
                                 <div className="form-group">
-                                  <label htmlFor="rfq_type">Project Stage</label>
+                                  <label htmlFor="rfq_type">
+                                    Project Stage
+                                  </label>
                                   <Field
                                     as="select"
                                     id="rfq_type"
@@ -812,7 +856,9 @@ Example:
                                         : ""
                                     }`}
                                   >
-                                    <option value="">Select Project Stage</option>
+                                    <option value="">
+                                      Select Project Stage
+                                    </option>
                                     <option value="budgetary">Budgetary</option>
                                     <option value="firm">Firm</option>
                                   </Field>
@@ -837,15 +883,22 @@ Example:
                                       name="product"
                                       options={vendorProductsList}
                                       value={selectedProduct}
-                                      components={{ Option: CustomSelectOption }}
+                                      components={{
+                                        Option: CustomSelectOption,
+                                      }}
                                       styles={customStyles}
                                       isLoading={productLoading}
-                                      onInputChange={debounceGetVendorProductList}
+                                      onInputChange={
+                                        debounceGetVendorProductList
+                                      }
                                       onChange={(selectedOption) => {
                                         if (selectedOption) {
                                           const prodId = selectedOption.value;
                                           if (prodId) {
-                                            getProductDetails(selectedOption, prodId);
+                                            getProductDetails(
+                                              selectedOption,
+                                              prodId
+                                            );
                                           }
                                         } else {
                                           // Handle clearing of selection
@@ -881,7 +934,9 @@ Example:
                                         {currentProduct.name}
                                         <FontAwesomeIcon
                                           icon={faClose}
-                                          onClick={() => setCurrentProduct(null)}
+                                          onClick={() =>
+                                            setCurrentProduct(null)
+                                          }
                                           fontSize={14}
                                         />
                                       </span>
@@ -936,7 +991,7 @@ Example:
                                     type="select"
                                     options={[
                                       { value: "active", label: "Active" },
-                                      { value: "inactive", label: "Inactive" }
+                                      { value: "inactive", label: "Inactive" },
                                     ]}
                                     touched={touched}
                                     errors={errors}
@@ -976,6 +1031,29 @@ Example:
                                       </div>
                                     )}
                                 </div>
+                                <div className="form-group">
+                                  <label htmlFor="budget">Budget</label>
+                                  <Field
+                                    type="text"
+                                    id="budget"
+                                    name="budget"
+                                    placeholder="Enter Budget In INR"
+                                    className="form-control"
+                                    value={values.budget || ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      // Allow only integers (no decimals or leading zeros except for 0 alone)
+                                      if (/^(0|[1-9]\d*)?$/.test(value)) {
+                                        setFieldValue("budget", value);
+                                      }
+                                    }}
+                                  />
+                                  {touched.budget && errors.budget && (
+                                    <div className="form-error">
+                                      {errors.budget}
+                                    </div>
+                                  )}
+                                </div>
 
                                 <div className="form-group">
                                   <label htmlFor="description">
@@ -986,6 +1064,11 @@ Example:
                                     id="description"
                                     name="description"
                                     placeholder={placeholderText}
+                                    style={{
+                                      resize: "vertical", // Only allow vertical resize
+                                      minHeight: "40px",
+                                      maxHeight: "154px",
+                                    }}
                                   />
                                   {touched.description &&
                                     errors.description && (
@@ -994,8 +1077,6 @@ Example:
                                       </div>
                                     )}
                                 </div>
-                                
-
                               </>
                             )}
                           </div>

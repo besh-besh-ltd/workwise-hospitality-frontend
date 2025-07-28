@@ -65,7 +65,20 @@ export const getProjectById = (projectId, payload)=> {
         reject({ message: error });
       }
     });
+} 
+
+export const getProjectBudget = (projectId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`project/project-budget/${projectId}`);
+      resolve(response.data);
+    } catch (error) {
+
+      reject({ message: error });
+    }
+  });
 }
+
 
 export const getProjectTableDataById = (projectId)=> {
   return new Promise(async (resolve, reject) => {
