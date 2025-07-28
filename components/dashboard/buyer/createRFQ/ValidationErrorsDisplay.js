@@ -57,10 +57,6 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
             <div key={index} className="mb-2">
               <div className={`alert ${isProductNotFound ? 'alert-danger' : 'alert-warning'}`}>
                 <strong>Product:</strong> {error.name} <br />
-                <strong>Description:</strong> {error.description || "-"} <br />
-                <strong>Quantity:</strong> {error.quantity} {error.unit || ""}{" "}
-                <br />
-                <hr />
                 {errorMessages.map((msg, i) => (
                   <div key={i}>
                     <span className={`badge ${isProductNotFound ? 'bg-danger' : 'bg-warning'}`}>{msg}</span>
@@ -74,16 +70,16 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
                   <div className="row">
                     {error.similar_products.slice(0, 4).map((product) => (
                       <div
-                        className="col-12 col-sm-6 col-md-3 mb-3"
+                        className="col-12 col-sm-6 col-md-3 mb-2"
                         key={product.variant_id}
                       >
                         <div className="card h-100">
                           <div className="card-body">
-                            <h6 className="card-title">
+                            <h6 className="card-title fw-medium mb-1">
                               {product.raw_product_name}
                             </h6>
-                            <p className="card-text text-sm">
-                              <p>Variant ID: {product.variant_id}</p>
+                            <p className="card-text text-sm mb-2">
+                              <p className="mb-0">Variant ID: {product.variant_id}</p>
                             </p>
                             <button
                               onClick={() =>
