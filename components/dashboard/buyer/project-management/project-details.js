@@ -35,10 +35,11 @@ const ProjectDetails = () => {
         tenderDocument: "Tender Document",
         boq: "BOQ",
         po: "PO",
+        tc : "T&C",
         otherDocuments: "Other Documents",
     };
 
-    const fileTypeOrder = ["vendorList", "tenderDocument", "boq", "po", "otherDocuments"];
+    const fileTypeOrder = ["vendorList", "tenderDocument", "boq", "po","tc", "otherDocuments"];
 
     const getProjectDetails = () => {
         setLoading(true)
@@ -366,6 +367,7 @@ const ProjectDetails = () => {
                                                     <option value="tenderDocument">Tender Document</option>
                                                     <option value="boq">BOQ</option>
                                                     <option value="po">PO</option>
+                                                    <option value ="tc">T&C</option>
                                                     <option value="otherDocuments">Other Documents</option>
                                                 </select>
                                                 </div>
