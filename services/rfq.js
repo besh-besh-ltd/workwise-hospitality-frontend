@@ -785,6 +785,8 @@ export const getTechClearedVendorsResult = (payload) => {
   });
 };
 
+
+//  not in use anywhere, we can remove this from backend as well
 export const getSummarisedDeviation = (rfq_id) => {
   return new Promise ( async (resolve , reject) => {
     try {
