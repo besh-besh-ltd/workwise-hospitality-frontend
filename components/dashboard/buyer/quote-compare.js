@@ -322,7 +322,10 @@ const openModalForVariant = (variantId) => {
         );
         if (q.length > 0) {
           vq.push(parseFloat(q[0].quote_details[0].delivery_period));
-          total = total + parseFloat(q[0].quote_details[0]?.unit_price * parseFloat(quantity.value));
+          calculateTotal(q[0].quote_details[0], quantity.value)
+          total = total + calculateTotal(q[0].quote_details[0], quantity.value)
+          // Old way that calculated this based on only unit price and quantity not any taxes
+          // parseFloat(q[0].quote_details[0]?.unit_price * parseFloat(quantity.value));
         }
       });
       vendor.total = total;
