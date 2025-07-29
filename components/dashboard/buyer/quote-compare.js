@@ -999,27 +999,40 @@ const openModalForVariant = (variantId) => {
       });
   };
 
-  const handleFinalize = (e, item, proditem) => {
-    e.preventDefault();
+  const handleFinalize = (item, proditem) => {
     setfinalizeLoading(true);
+    const specs = proditem.product_details[0].rfq_details;
+
+    const poRequiredPayload = {
+      project_id: currentRFQ.project_id,
+      total_value: item.total_price,
+      product_info: {
+        rfq_product_id: proditem.id,
+        quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
+        unit_price: item.unit_price,
+        finalized_vendor_id: item.quote_details.created_by
+      },
+    }
+
     const payload = {
       rfq_id: proditem.rfq_id,
       rfq_no: proditem.rfq[0].rfq_no,
       product_variant_id: proditem.product_variant_id,
       vendor_id: item.quote_details.created_by,
       quote_id: item.quote_id,
-      variant: proditem.variant
+      variant: proditem.variant,
+      ...poRequiredPayload
     };
 
     finalizeQuotation(payload)
       .then((res) => {
         setfinalizeLoading(false);
-        //toast.success("You've finalized vendor for this product!")
+        toast.success(res.message ?? "You've finalized vendor for this product!")
         getRespectiveQuotes();
       })
       .catch((err) => {
         setfinalizeLoading(false);
-        console.log(err);
+        toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!")
       });
   };
 
@@ -1089,7 +1102,9 @@ const openModalForVariant = (variantId) => {
           <div className="row">
             <div className="col-md-2">
               <div className="hasFullLoader">
-                <h5 className="title">Quotes Received</h5>
+                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">
+                  Quotes Received
+                </p>
                 {loading && <FullLoader/>}
                 <div className="py-1">
                     <label>Search RFQ No.</label>
@@ -1117,10 +1132,10 @@ const openModalForVariant = (variantId) => {
                 {!loading && myRFQs && myRFQs.length === 0
                   ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
                   : !loading && myRFQs && myRFQs.length > 0 ? (
-                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
+                  <ul className="overflow-y-auto mt-1" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
                       return (
-                        <li key={item.id} className={`${item.id == rfq ? "active" : ""}`}>
+                        <li key={item.id} className={`${item.id == rfq ? "active rounded" : ""}`}>
                           <Link
                             href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
                             className={`${item.id == rfq ? "text-white" : "text-dark"}`}

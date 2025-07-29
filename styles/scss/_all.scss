@@ -4030,6 +4030,12 @@ textarea {
       }
     }
 
+    .col {
+      background-color: var(--white-color);
+      border-radius: 20px;
+      height: fit-content;
+    }
+
     .table-elements {
       padding-left: 0;
       padding-right: 0;
@@ -7669,4 +7675,18 @@ td:hover .tooltip_custom {
   font-size: 0.9rem;
   opacity: 0.7;
   color: #6c757d;
+}
+
+// Minimal buttons
+.minimal-btn {
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  outline: none;
+  border: 1px solid black;
+  border-radius: 10px;
+  font-size: 15px;
+
+  :disabled {
+    border: 1px solid #00000067 !important;
+  }
 }
