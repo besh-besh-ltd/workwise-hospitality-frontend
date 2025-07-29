@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Badge, Card } from 'react-bootstrap';
 import {
   MdEventNote,
@@ -14,8 +14,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import CreateMilestoneModal from './CreateMilestoneModal';
 import { toast } from 'react-toastify';
-import { handleDeleteMilestone, handleDeleteTask } from '@/services/po';
+import { handleDeleteMilestone, handleDeleteTask, handleGetTasks } from '@/services/po';
 import CreateTaskModal from './CreateTaskModal';
+import Pagination from '@/components/shared/Pagination';
 
 const statusColors = {
   draft: 'secondary',
@@ -112,12 +113,16 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     approval_status,
     approval_history = [],
     payment_milestones,
-    tasks,
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
 
+  const [tasks, setTasks] = useState(null);
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 10
+  });
   const [selectedTask, setSelectedTask] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
@@ -147,6 +152,18 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     }
   }
 
+  const handleFetchTasks = async () => {
+    try {
+      const res = await handleGetTasks(id, filters);
+      if(res) {
+        setTasks(res);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? "Something went wrong while deleting the milestone!");
+    }
+  }
+
   const handleMilestoneEdition = (milestone) => {
     setSelectedMilestone(milestone);
     setShowMilestoneModal(true);
@@ -156,6 +173,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     setSelectedTask(task);
     setShowTaskModal(true);
   }
+
+  useEffect(() => {
+    handleFetchTasks();
+  }, [filters])
 
   return (
     <div>
@@ -253,9 +274,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           <TimelineItem
             title={"Initiated"}
             name={initiated_by_name}
-            icon={
-              <BsCheckCircleFill className="text-primary" size={25} />
-            }
+            icon={<BsCheckCircleFill className="text-primary" size={25} />}
             time={formatIST(created_at)}
           />
           {approval_history.map((entry, index) => (
@@ -333,7 +352,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                         milestone.is_reminded ? "text-success" : "text-warning"
                       }`}
                     >
-                      {milestone.status == "deleted" ? "Deleted" : milestone.is_reminded ? "Reminded" : "Pending"}
+                      {milestone.status == "deleted"
+                        ? "Deleted"
+                        : milestone.is_reminded
+                        ? "Reminded"
+                        : "Pending"}
                     </td>
                     <td>
                       #<strong>{po_number}</strong>
@@ -414,10 +437,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           Status Timeline
         </h5>
 
-        <button
-          className="minimal-btn"
-          onClick={() => setShowTaskModal(true)}
-        >
+        <button className="minimal-btn" onClick={() => setShowTaskModal(true)}>
           Add Task
         </button>
       </div>
@@ -436,8 +456,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
               </tr>
             </thead>
             <tbody>
-              {tasks && tasks.length > 0 ? (
-                tasks.map((task) => (
+              {tasks?.data && tasks.data.length > 0 ? (
+                tasks.data.map((task) => (
                   <tr key={task.id}>
                     {renderDueDateCell(
                       new Date(task.completion_date).toDateString()
@@ -445,9 +465,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                     <td>
                       #<strong>{po_number}</strong>
                     </td>
-                    <td style={{ maxWidth: 140 }}>
-                      {task.task_name}
-                    </td>
+                    <td style={{ maxWidth: 140 }}>{task.task_name}</td>
                     <td>
                       <Badge
                         bg={milestoneBadges[task.status]}
@@ -456,10 +474,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                         {task.status}
                       </Badge>
                     </td>
-                    <td
-                      style={{ maxWidth: 200 }}
-                      title={task.task_description}
-                    >
+                    <td style={{ maxWidth: 200 }} title={task.task_description}>
                       {elipsisToLimit(task.task_description, 45)}
                     </td>
                     <td>
@@ -483,9 +498,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                           borderColor: "#f5b5b5",
                           color: "#dc3545",
                         }}
-                        onClick={() =>
-                          handleTaskDeletion(task.id)
-                        }
+                        onClick={() => handleTaskDeletion(task.id)}
                       >
                         <HiOutlineTrash size={25} />
                       </button>
@@ -502,6 +515,17 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
             </tbody>
           </table>
         </Card.Body>
+        <Card.Footer className='pt-3'>
+          {tasks?.data && (
+            <Pagination
+              page={filters.page}
+              setPage={(page) => setFilters((prev) => ({ ...prev, page }))}
+              limit={filters.limit}
+              setLimit={(limit) => setFilters((prev) => ({ ...prev, limit }))}
+              totalData={tasks.total}
+            />
+          )}
+          </Card.Footer>
       </Card>
 
       <CreateMilestoneModal
@@ -526,7 +550,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowTaskModal(false);
           setSelectedTask(null);
         }}
-        onSuccess={async () => await refetchPODetails()}
+        onSuccess={async () => await handleFetchTasks()}
         rfqId={rfq_id}
         poId={id}
       />

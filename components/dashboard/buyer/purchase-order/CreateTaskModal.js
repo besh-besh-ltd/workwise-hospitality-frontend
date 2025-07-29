@@ -7,7 +7,7 @@ import { handleCreateMilestone, handleCreateTask, handleEditMilestone, handleEdi
 const CreateTaskModal = ({ show, onClose, onSuccess, selectedTask, isEdit, rfqId, poId }) => {
   const [form, setForm] = useState({
     task_name: selectedTask?.task_name ?? '',
-    completion_date: selectedTask?.completion_date ?? '',
+    completion_date: selectedTask?.completion_date ? selectedTask?.completion_date.split('T')[0] : '',
     status: selectedTask?.status ?? '',
     task_description: selectedTask?.task_description ?? '',
   });
@@ -50,10 +50,17 @@ const CreateTaskModal = ({ show, onClose, onSuccess, selectedTask, isEdit, rfqId
     if(selectedTask) {
         setForm({
           task_name: selectedTask?.task_name ?? "",
-          completion_date: selectedTask?.completion_date ?? "",
+          completion_date: selectedTask?.completion_date ? selectedTask?.completion_date.split('T')[0] : "",
           status: selectedTask.status ?? "",
           task_description: selectedTask?.task_description ?? "",
         });
+    } else {
+      setForm({
+        task_name: "",
+        completion_date: "",
+        status: "",
+        task_description: "",
+      });
     }
   }, [selectedTask])
 

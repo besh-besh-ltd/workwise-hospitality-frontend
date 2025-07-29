@@ -30,6 +30,11 @@ export const handleDeleteMilestone = async (id) => {
   return res;
 };
 
+export const handleGetTasks = async (po_id, filters) => {
+  const res = await axiosInstance.get(`/po/${po_id}/tasks`, { params: filters });
+  return res;
+};
+
 export const handleCreateTask = async (payload) => {
   const res = await axiosInstance.post('/po/tasks', payload);
   return res;
