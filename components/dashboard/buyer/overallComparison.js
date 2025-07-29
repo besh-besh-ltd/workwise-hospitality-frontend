@@ -4,7 +4,7 @@ import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
-import { extractfileName } from "@/utils/sharedFunctions";
+import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
@@ -304,26 +304,6 @@ const openModalForVariant = (variantId) => {
       return "-";
     }
   };
-
-  const calculateTotal = (item, quantity) => {
-    let total_qty = parseInt(quantity) || 0;
-    let unit_price = item.unit_price || 0;
-    
-    // Handle null values by defaulting to 0
-    let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
-    let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
-    let tax = item.tax !== null ? parseFloat(item.tax) : 0;
-
-    let total_without_fpt = unit_price * total_qty;
-    let FP = (total_without_fpt * freight_price) / 100;
-    let PP = (total_without_fpt * package_price) / 100;
-
-    let total_with_fpt = total_without_fpt + FP + PP;
-    let T = (total_with_fpt * tax) / 100;
-
-    let TotalPrice = total_with_fpt + T;
-    return Math.round(TotalPrice);
-  }
 
   return (
     <>
@@ -696,7 +676,7 @@ const openModalForVariant = (variantId) => {
                                                 ? addCommasToNumber(
                                                     quote_item?.quote_details[0]
                                                       ?.unit_price *
-                                                      parseInt(quantity.value)
+                                                      parseFloat(quantity.value)
                                                   )
                                                 : "-"}
                                             </td>

@@ -3,26 +3,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
 import ReadMore from "@/components/shared/ReadMore";
 import { renderFileLink } from "@/utils/elementFunctions";
-
-const calculateTotal = (item, quantity) => {
-  let total_qty = parseInt(quantity) || 0;
-  let unit_price = item.unit_price || 0;
-  
-  // Handle null values by defaulting to 0
-  let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
-  let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
-  let tax = item.tax !== null ? parseFloat(item.tax) : 0;
-
-  let total_without_fpt = unit_price * total_qty;
-  let FP = (total_without_fpt * freight_price) / 100;
-  let PP = (total_without_fpt * package_price) / 100;
-
-  let total_with_fpt = total_without_fpt + FP + PP;
-  let T = (total_with_fpt * tax) / 100;
-
-  let TotalPrice = total_with_fpt + T;
-  return Math.round(TotalPrice);
-}
+import { calculateTotal } from "@/utils/sharedFunctions";
 
 const addCommasToNumber = (num) => {
   if (num === null || num === undefined) return '0';
