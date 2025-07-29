@@ -65,7 +65,7 @@ const Item = ({
   const isActive = activeKey?.includes(eventKey);
 
   const handleSpecValue = (type, value) => {
-    value = type == 'quantity' ? parseInt(value) || '' : value
+    value = type == 'quantity' ? parseFloat(value) || '' : value
 
     // if (rfqProduct.spec) {
     //   setRfqProduct((prev) => ({
@@ -260,6 +260,46 @@ const Item = ({
     setIsModalOpen(false);
     getProductClauses();
   };
+
+  const handleQuantityChange = (e) => {
+    let val = e.target.value;
+
+    // Remove all except digits and dots
+    val = val.replace(/[^0-9.]/g, "");
+
+    // Remove all dots except the first one
+    const firstDot = val.indexOf(".");
+    if (firstDot !== -1) {
+      val =
+        val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
+    }
+
+    // Remove dot if at the start or end
+    if (val.startsWith(".")) val = val.slice(1);
+    if (val.endsWith(".")) val = val.slice(0, -1);
+
+    // Prevent empty string
+    if (val === "") val = "0";
+
+    handleSpecValue("quantity", val);
+  };
+
+  function cleanNumberInput(val) {
+    // Step 1: Remove all except digits and dot
+    val = val.replace(/[^0-9.]/g, '');
+
+    // Step 2: Allow only the first dot
+    let parts = val.split('.');
+    val = parts.shift() + (parts.length ? '.' + parts.join('') : '');
+
+    // Step 3: Remove leading zeros before a digit (but keep "0." and "0")
+    if (val.startsWith("0") && val.length > 1 && val[1] !== ".") {
+        val = val.replace(/^0+/, "");
+    }
+    if (val.startsWith(".")) val = "0" + val; // Ensure leading zero for decimals
+
+    return val;
+  }
 
   useEffect(() => {
     const initial = rfqProduct?.spec
@@ -600,13 +640,7 @@ const Item = ({
                   name={"quantity"}
                   label={"Quantity"}
                   values={specs.quantity}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const cleaned = val.replace(/\D+/g, "").replace(/^0+/, "");
-                    if (cleaned === "" || /^\d+$/.test(cleaned)) {
-                      handleSpecValue("quantity", cleaned);
-                    }
-                  }}
+                  onChange={handleQuantityChange}
                   placeholder="Quantity"
                   className=" form-control"
                 />
