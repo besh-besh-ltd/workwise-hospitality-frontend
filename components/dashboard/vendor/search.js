@@ -540,8 +540,10 @@ const clearVendorFilters = () => {
       try {
         const rsp = await searchProductsV2({ search_key: val }, type);
         setSuggestions(rsp.data || []);
+        setSearchCategories(rsp.categoryData || []); // Also set category data
       } catch (e) {
         setSuggestions([]);
+        setSearchCategories([]); // Clear categories on error
       } finally {
         setSuggestionLoading(false);
       }
@@ -553,6 +555,7 @@ const clearVendorFilters = () => {
     setInputValue(val);
     setIsOpen(!!val);
     setSuggestions([]);
+    setSearchCategories([]); // Also clear category data
     if (val.length > 2) {
       debouncedFetchSuggestions(val);
     } else {
@@ -804,13 +807,7 @@ const clearVendorFilters = () => {
                             )}
                           {!suggestionLoading &&
                             inputValue !== "" &&
-                            inputValue.length > 2 &&
-                            suggestions.length == 0 && (
-                              <p className="mb-0">No Products found!</p>
-                            )}
-                          {!suggestionLoading &&
-                            inputValue !== "" &&
-                            (suggestions.length > 0) && (
+                            (suggestions.length > 0 || searchCategories.length > 0) && (
                               <>
                                 <p
                                   className="text-center fw-bold "
