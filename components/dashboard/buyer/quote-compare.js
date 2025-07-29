@@ -17,7 +17,7 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
-import { formatPrice } from "@/utils/sharedFunctions";
+import { calculateTotal, formatPrice } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectList } from '@/services/project';
@@ -222,26 +222,6 @@ const openModalForVariant = (variantId) => {
     }
   };
 
-  const calculateTotal = (item, quantity) => {
-    let total_qty = parseInt(quantity) || 0;
-    let unit_price = item.unit_price || 0;
-    
-    // Handle null values by defaulting to 0
-    let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
-    let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
-    let tax = item.tax !== null ? parseFloat(item.tax) : 0;
-
-    let total_without_fpt = unit_price * total_qty;
-    let FP = (total_without_fpt * freight_price) / 100;
-    let PP = (total_without_fpt * package_price) / 100;
-
-    let total_with_fpt = total_without_fpt + FP + PP;
-    let T = (total_with_fpt * tax) / 100;
-
-    let TotalPrice = total_with_fpt + T;
-    return Math.round(TotalPrice);
-  }
-
 
   const handleDownloadQuote = async (e) => {
     e.preventDefault();
@@ -341,8 +321,8 @@ const openModalForVariant = (variantId) => {
             quotation.is_regret != 1
         );
         if (q.length > 0) {
-          vq.push(parseInt(q[0].quote_details[0].delivery_period));
-          total = total + parseInt(q[0].quote_details[0]?.unit_price * parseInt(quantity.value));
+          vq.push(parseFloat(q[0].quote_details[0].delivery_period));
+          total = total + parseFloat(q[0].quote_details[0]?.unit_price * parseFloat(quantity.value));
         }
       });
       vendor.total = total;
@@ -358,7 +338,7 @@ const openModalForVariant = (variantId) => {
 
     api_data.map((item) => {
 
-      totalQty = totalQty + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
+      totalQty = totalQty + parseFloat(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
       let temp_arr = [
         item.product_details[0].name,
         item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
