@@ -146,6 +146,7 @@ console.log("chekcng the RFQ number hre", RFQ_no);
                     <tr>
                       <th className='"bg-light'>RFQ No.</th>
                       <th className="bg-light">Vendor Details</th>
+                      <th className="bg-light">Created By</th>
                       <th className="bg-light">Date</th>
                       <th className="bg-light text-end">Qty</th>
                       <th className="bg-light text-end">Freight (%)</th>
@@ -170,6 +171,7 @@ console.log("chekcng the RFQ number hre", RFQ_no);
                             {item.vendor_email}
                           </div>
                         </td>
+                        <td>{item.created_by || '-'}</td>
                         <td className="text-nowrap">
                           {formatDate(item.quote_date)}
                         </td>
