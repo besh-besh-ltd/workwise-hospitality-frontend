@@ -19,6 +19,18 @@ const statusBadge = {
   },
 };
 
+const getDownloadURL = (url, excelToJson = false) => {
+  if(process.env.NEXT_PUBLIC_ENV == "production" && !url.includes("https")) {
+    url = url.replace("http", "https");
+  }
+
+  if(excelToJson) {
+    url = url.replace("excel", "json");
+  }
+
+  return url;
+}
+
 const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
   const calculateTimeTaken = (start, end) => {
     if (!start || !end) return "—";
@@ -45,7 +57,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
     if (!fileUrl) return;
 
     const originalUrl = fileUrl;
-    const replacedUrl = fileUrl.replace("http://", "http://");
+    const replacedUrl = getDownloadURL(fileUrl);
 
     const tryDownload = async (url) => {
       try {
@@ -149,7 +161,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 </Button>
                 <Link
                   href={`magic-search/view?jsonUrl=${encodeURIComponent(
-                    data.download_url
+                    getDownloadURL(data.download_url, true)
                   )}`}
                   passHref
                 >
@@ -165,7 +177,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
               <Button
                 onClick={async () => {
                   console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
-                  await handleCreateRFQ(data.download_url, data.file_name)
+                  await handleCreateRFQ(getDownloadURL(data.download_url), data.file_name)
                 }}
                 variant="primary"
                 size="sm"
