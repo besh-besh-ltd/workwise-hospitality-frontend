@@ -103,6 +103,16 @@ export const getProjectList = ()=> {
       }
     });
 }
+export const getProjectAvailableBudget = (projectId) => {
+  return new Promise(async (resolve, reject) => {
+    try { 
+      let response = await axiosInstance.get(`project/available-budget/${projectId}`);
+      resolve(response.data);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+}
 
 export const createProject = (payload)=> {
     return new Promise(async (resolve, reject) => {

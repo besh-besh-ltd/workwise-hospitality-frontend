@@ -147,7 +147,6 @@ const ProjectDetails = () => {
     const handleDropdownChange = (e) => {
         setDropdownValue(e.target.value);
     };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!selectedFiles.length || !dropdownValue) {
@@ -637,6 +636,24 @@ const ProjectDetails = () => {
                                     0
                                   )
                                   .toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between mt-2">
+                              <span className="fw-bold">
+                                Budget: 
+                              </span>
+                              <span className="text-danger fw-bold">
+                                ₹{projectDetails?.budget || 0}
+                                
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between mt-2">
+                              <span className="fw-bold">
+                                Available Budget: 
+                              </span>
+                              <span className="text-danger fw-bold">
+                               ₹{(projectDetails?.budget) - (avlBudget || 0)}
+                                
                               </span>
                             </div>
                           </div>

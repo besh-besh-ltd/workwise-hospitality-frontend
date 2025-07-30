@@ -1,4 +1,5 @@
 // FinalizeVendorModal.tsx
+import { addCommasToNumber } from '@/utils/sharedFunctions';
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
 
@@ -9,7 +10,8 @@ const FinalizeVendorModal = ({
   vendorName,
   quotedPrice,
   productName,
-  alreadyFinalized
+  alreadyFinalized,
+  availableBudget
 }) => {
   const isFinalized = alreadyFinalized && alreadyFinalized.length > 0
 
@@ -47,7 +49,7 @@ const FinalizeVendorModal = ({
                 workflow for the newly selected vendor. This may go through
                 multiple approval stages depending on your company's approval
                 hierarchy. Please ensure the vendor and quote details are
-                correct, as changing the finalized vendor will restart the {" "}
+                correct, as changing the finalized vendor will restart the{" "}
                 <strong>Purchase Order</strong> and discard the current one.
               </>
             ) : (
@@ -62,16 +64,58 @@ const FinalizeVendorModal = ({
           </p>
         </div>
 
-        <div className="p-3 border rounded">
-          <h6 className="mb-2">Final Details</h6>
-          <div className="mb-1">
-            <strong>Vendor Name:</strong> {vendorName}
+        <div className="p-3 border rounded shadow-sm">
+          <h5 className="mb-3 fw-bold text-primary">Budget Summary</h5>
+
+          <div className="mb-3 p-3 bg-light rounded">
+            <h6 className="mb-2 text-muted">Budget Details</h6>
+            <div className="d-flex justify-content-between mb-2">
+              <span className="text-muted">Total Budget:</span>
+              <span className="fw-bold">₹{addCommasToNumber(availableBudget?.total_budget)}</span>
+            </div>
+            <div className="d-flex justify-content-between mb-2">
+              <span className="text-muted">Available Budget:</span>
+              <span className="fw-bold">
+                ₹{addCommasToNumber(availableBudget?.available_budget)}
+              </span>
+            </div>
+
+            <div className="d-flex justify-content-between mb-1">
+              <span className="text-muted">Quoted Price:</span>
+              <span className="fw-bold">₹{quotedPrice}</span>
+            </div>
+            <hr className="my-2" />
+            <div className="d-flex justify-content-between">
+              <span className="fw-semibold">Remaining Amount:</span>
+              {availableBudget?.available_budget - quotedPrice >= 0 ? (
+                <span className="fw-bold text-success">
+                  ₹{addCommasToNumber(availableBudget?.available_budget - quotedPrice)}
+                </span>
+              ) : (
+                <span className="fw-bold text-danger">
+                  ₹{addCommasToNumber(availableBudget?.available_budget - quotedPrice)} (Exceeds
+                  Budget!)
+                </span>
+              )}
+            </div>
+            {availableBudget?.available_budget - quotedPrice < 0 && (
+              <div className="mt-2 p-2 bg-danger bg-opacity-10 rounded text-danger">
+                <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                Warning: This purchase will exceed your available budget!
+              </div>
+            )}
           </div>
-          <div className="mb-1">
-            <strong>Quoted Price:</strong> ₹{quotedPrice}
-          </div>
-          <div>
-            <strong>Product:</strong> {productName}
+
+          <div className="mb-2">
+            <h6 className="mb-2 text-muted">Purchase Details</h6>
+            <div className="mb-2">
+              <span className="text-muted">Vendor Name:</span>
+              <span className="ms-2 fw-semibold">{vendorName}</span>
+            </div>
+            <div className="mb-2">
+              <span className="text-muted">Product:</span>
+              <span className="ms-2 fw-semibold">{productName}</span>
+            </div>
           </div>
         </div>
       </Modal.Body>
