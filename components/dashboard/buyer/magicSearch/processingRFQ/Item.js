@@ -149,7 +149,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 </Button>
                 <Link
                   href={`magic-search/view?jsonUrl=${encodeURIComponent(
-                    data.download_url
+                    data.download_url.replace("excel", "json")
                   )}`}
                   passHref
                 >
