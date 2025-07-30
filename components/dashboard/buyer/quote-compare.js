@@ -8,13 +8,16 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
+  handleUploadFile,
+  handleUploadFileInFormData,
+  saveExcelInDB,
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
-import { formatPrice } from "@/utils/sharedFunctions";
+import { calculateTotal, formatPrice } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectList } from '@/services/project';
@@ -204,6 +207,21 @@ const openModalForVariant = (variantId) => {
     }
   };
 
+  const handleExcelUpload = async (file) => {
+    try {
+      const res = await handleUploadFileInFormData(file);
+      const filePath = res.data[0]?.file_path;
+
+      if (filePath) {
+        return filePath; // Return the uploaded file object
+      } else {
+        throw new Error("File upload failed. No file path returned.");
+      }
+    } catch (error) {
+      throw new Error("File upload failed: " + error.message);
+    }
+  };
+
 
   const handleDownloadQuote = async (e) => {
     e.preventDefault();
@@ -211,7 +229,23 @@ const openModalForVariant = (variantId) => {
 
     try {
       const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
-      generateExcelFile(res.data);
+      const [excelBuffer, fileName] = generateExcelFile(res.data);
+
+      if (excelBuffer) {
+        const blob = new Blob([excelBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+
+        const file = new File([blob], fileName, { type: blob.type });
+
+        const filePath = await handleExcelUpload(file);
+        await saveExcelInDB(rfq, filePath);
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+      }
     } catch (error) {
       console.log(error);
       toast.error("Failed to download quotes. Please try again.")
@@ -276,6 +310,10 @@ const openModalForVariant = (variantId) => {
       let vq = [];
       let total = 0;
       api_data.map((product) => {
+        const quantity = product.product_specs.find(
+          (spec) => spec.title === "Quantity"
+        );
+
         let q = product.quotations.filter(
           (quotation) =>
             quotation.created_by == vendor.id &&
@@ -283,8 +321,11 @@ const openModalForVariant = (variantId) => {
             quotation.is_regret != 1
         );
         if (q.length > 0) {
-          vq.push(parseInt(q[0].quote_details[0].delivery_period));
-          total = total + parseInt(q[0].quote_details[0].total_price);
+          vq.push(parseFloat(q[0].quote_details[0].delivery_period));
+          calculateTotal(q[0].quote_details[0], quantity.value)
+          total = total + calculateTotal(q[0].quote_details[0], quantity.value)
+          // Old way that calculated this based on only unit price and quantity not any taxes
+          // parseFloat(q[0].quote_details[0]?.unit_price * parseFloat(quantity.value));
         }
       });
       vendor.total = total;
@@ -300,7 +341,7 @@ const openModalForVariant = (variantId) => {
 
     api_data.map((item) => {
 
-      totalQty = totalQty + parseInt(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
+      totalQty = totalQty + parseFloat(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
       let temp_arr = [
         item.product_details[0].name,
         item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
@@ -324,18 +365,49 @@ const openModalForVariant = (variantId) => {
       } else {
         // Reduce logic for multiple elements
         lowest = array.reduce((lowest, currentItem) => {
-          if (currentItem.quote_details[0].total_price > 0) {
-            return currentItem.quote_details[0].total_price <
-              lowest.quote_details[0].total_price
-              ? currentItem
-              : lowest;
+          const curItemQuoteDetails = currentItem.quote_details[0];
+          const curItemVendorDetails = currentItem.vendor_details[0];
+
+          const lowestQuoteDetails = lowest.quote_details[0];
+          const lowestVendorDetails = lowest.vendor_details[0];
+
+          const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
+          const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
+
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+
+          if (curItemQuoteDetails.unit_price > 0) {
+            let curLowest = lowest;
+            if (currentTotal < lowestTotal) curLowest = currentItem;
+            else if (currentTotal == lowestTotal) {
+              const curPrevWorked = curItemVendorDetails.prev_worked == 1;
+              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1;
+
+              if (curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+              else {
+                const curTimestamp = new Date(
+                  currentItem.timestamp.slice(0, 23)
+                );
+                const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
+
+                if (curTimestamp < lowestTimestamp) curLowest = currentItem;
+                else curLowest = lowest;
+              }
+            }
+
+            return curLowest;
           }
           return lowest;
         }, array[0]);
       }
 
       if (lowest) {
-        l1totaltemp = l1totaltemp + lowest.quote_details[0].total_price;
+        const lowestQuoteDetails = lowest.quote_details[0];
+        const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+
+        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
         setl1total(l1totaltemp);
 
         item.quotations.map((q) => {
@@ -347,14 +419,18 @@ const openModalForVariant = (variantId) => {
         });
       }
 
-      item.quotations.map((q) => {
-        if (q.is_regret == 1) {
+      item?.quotations?.map((q) => {
+
+        if (q.is_regret == 1 || !q.quote_details || q?.quote_details?.length == 0) {
           temp_arr.push("0");
           temp_arr.push("0");
           temp_arr.push("0");
           temp_arr.push("0");
           temp_arr.push("0");
         } else {
+          const temp_quote_details = q.quote_details[0];
+          const temp_quantity = temp_quote_details?.rfq_details?.find(spec => spec?.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+
           temp_arr.push(
             q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
             ? q.quote_details[0].unit_price : "0"
@@ -375,13 +451,13 @@ const openModalForVariant = (variantId) => {
           );
           temp_arr.push(
             q.quote_details.length > 0
-              ? `${q.quote_details[0].total_price} ${q.is_lowest ? "(Lowest)" : ""
+              ? `${calculateTotal(temp_quote_details, temp_quantity)} ${q.is_lowest ? "(Lowest)" : ""
               }`
               : "-"
           );
         }
       });
-      temp_arr.push(lowest ? lowest.quote_details[0].total_price : "-");
+      temp_arr.push(lowest ? calculateTotal(lowest.quote_details[0], lowest.quote_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value) : "-");
       data.push(temp_arr);
     });
 
@@ -780,10 +856,15 @@ const openModalForVariant = (variantId) => {
 
     try {
       const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
-      XLSX.writeFile(wb, filename);
+      const excelBuffer = XLSX.write(wb, {
+        bookType: "xlsx",
+        type: "array", // Important: gives raw ArrayBuffer
+      });
       setDownloadLoading(false);
+      return [excelBuffer, filename];
     } catch (error) {
       console.error("Error generating Excel file:", error);
+      return null;
     }
   };
 
@@ -918,27 +999,40 @@ const openModalForVariant = (variantId) => {
       });
   };
 
-  const handleFinalize = (e, item, proditem) => {
-    e.preventDefault();
+  const handleFinalize = (item, proditem) => {
     setfinalizeLoading(true);
+    const specs = proditem.product_details[0].rfq_details;
+
+    const poRequiredPayload = {
+      project_id: currentRFQ.project_id,
+      total_value: item.total_price,
+      product_info: {
+        rfq_product_id: proditem.id,
+        quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
+        unit_price: item.unit_price,
+        finalized_vendor_id: item.quote_details.created_by
+      },
+    }
+
     const payload = {
       rfq_id: proditem.rfq_id,
       rfq_no: proditem.rfq[0].rfq_no,
       product_variant_id: proditem.product_variant_id,
       vendor_id: item.quote_details.created_by,
       quote_id: item.quote_id,
-      variant: proditem.variant
+      variant: proditem.variant,
+      ...poRequiredPayload
     };
 
     finalizeQuotation(payload)
       .then((res) => {
         setfinalizeLoading(false);
-        //toast.success("You've finalized vendor for this product!")
+        toast.success(res.message ?? "You've finalized vendor for this product!")
         getRespectiveQuotes();
       })
       .catch((err) => {
         setfinalizeLoading(false);
-        console.log(err);
+        toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!")
       });
   };
 
@@ -1008,7 +1102,9 @@ const openModalForVariant = (variantId) => {
           <div className="row">
             <div className="col-md-2">
               <div className="hasFullLoader">
-                <h5 className="title">Quotes Received</h5>
+                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">
+                  Quotes Received
+                </p>
                 {loading && <FullLoader/>}
                 <div className="py-1">
                     <label>Search RFQ No.</label>
@@ -1036,10 +1132,10 @@ const openModalForVariant = (variantId) => {
                 {!loading && myRFQs && myRFQs.length === 0
                   ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
                   : !loading && myRFQs && myRFQs.length > 0 ? (
-                  <ul className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
+                  <ul className="overflow-y-auto mt-1" style={{ maxHeight: "70vh" }}>
                     {myRFQs.map((item) => {
                       return (
-                        <li key={item.id} className={`${item.id == rfq ? "active" : ""}`}>
+                        <li key={item.id} className={`${item.id == rfq ? "active rounded" : ""}`}>
                           <Link
                             href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
                             className={`${item.id == rfq ? "text-white" : "text-dark"}`}

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import axiosInstance from "@/lib/axios";
 import { handleUploadFile } from "@/services/rfq";
 
@@ -19,6 +20,18 @@ export const getDataWithLoading = async (fetchingFunc, loadingSetter) => {
     throw error;
   } finally {
     loadingSetter(false);
+  }
+};
+
+export const formatToINRShort = (amount) => {
+  if (amount >= 10000000) {
+    return `${(amount / 10000000).toFixed(amount % 10000000 === 0 ? 0 : 1)}Cr`;
+  } else if (amount >= 100000) {
+    return `${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
+  } else if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
+  } else {
+    return amount.toString();
   }
 };
 
@@ -156,4 +169,36 @@ export const formatISOToDateTimeLocal = (isoString) => {
     }
 };
 
+const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+export default useDebounce;
+
+// Calculate Total for Quote Comparison Pages
+export const calculateTotal = (item, quantity) => {
+  let total_qty = parseFloat(quantity) || 0;
+  let unit_price = item.unit_price || 0;
+  
+  // Handle null values by defaulting to 0
+  let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
+  let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
+  let tax = item.tax !== null ? parseFloat(item.tax) : 0;
+
+  let total_without_fpt = unit_price * total_qty;
+  let FP = (total_without_fpt * freight_price) / 100;
+  let PP = (total_without_fpt * package_price) / 100;
+
+  let total_with_fpt = total_without_fpt + FP + PP;
+  let T = (total_with_fpt * tax) / 100;
+
+  let TotalPrice = total_with_fpt + T;
+  return Math.round(TotalPrice);
+}

@@ -8,9 +8,11 @@ import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { extractfileName } from "@/utils/sharedFunctions";
+import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
 import { useRouter } from "next/router";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
+import FinalizeVendorModal from "./FinalizeVendorModal";
+import FinalizeHistoryModal from "./FinalizeHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
@@ -20,13 +22,14 @@ const QuoteCompareTable = ({
   alreadyFinalized,
   isRfqClosed = false
 }) => {
+  // Common state to manage all the modals in the whole component
+  const [activeModal, setActiveModal] = useState(null);
 
+  const [currentItem, setCurrentItem] = useState(null);
   const router = useRouter();
   const { rfq } = router.query;
-  const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
   const [lowestQuote, setLowestQuote] = useState(null);
-  const [quotehistorymodal, setQuotehistorymodal] = useState(false);
   const [quotehistorydata, setQuotehistorydata] = useState({
     product_details:[],
     previous_quotes:[]
@@ -34,26 +37,6 @@ const QuoteCompareTable = ({
   useEffect(() => {
     calculateLowestQuote();
   }, []);
-
-  const calculateTotal = (item, quantity) => {
-    let total_qty = parseInt(quantity) || 0;
-    let unit_price = item.unit_price || 0;
-    
-    // Handle null values by defaulting to 0
-    let freight_price = item.freight_price !== null ? parseFloat(item.freight_price) : 0;
-    let package_price = item.package_price !== null ? parseFloat(item.package_price) : 0;
-    let tax = item.tax !== null ? parseFloat(item.tax) : 0;
-
-    let total_without_fpt = unit_price * total_qty;
-    let FP = (total_without_fpt * freight_price) / 100;
-    let PP = (total_without_fpt * package_price) / 100;
-
-    let total_with_fpt = total_without_fpt + FP + PP;
-    let T = (total_with_fpt * tax) / 100;
-
-    let TotalPrice = total_with_fpt + T;
-    return Math.round(TotalPrice);
-  }
 
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
@@ -103,7 +86,7 @@ const QuoteCompareTable = ({
 
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
-    setOpenCommonModal(true);
+    setActiveModal('common');
   };
 
   const renderFileLink = (files,lable = "view file") => {
@@ -115,35 +98,53 @@ const QuoteCompareTable = ({
     ));
   };
 
+  const handleViewFinalizationHistory = () => {
+    setActiveModal('finalize_history');
+  }
+
   return (
     <>
-      <div className="table-content" key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}>
+      <div
+        className="table-content"
+        key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}
+      >
         <div className="table-elements">
           <div className="table-row">
             <div className="table-col">
               <div className="table-si-row "></div>
               <div className="table-si-row table-grey-row">Quantity</div>
               <div className="table-si-row">Base Price</div>
-              <div className="table-si-row fw-semibold table-grey-row">Sub Total Rate</div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Sub Total Rate
+              </div>
               <div className="table-si-row">Packaging (%)</div>
               <div className="table-si-row table-grey-row">Freight (%)</div>
               <div className="table-si-row">GST (%)</div>
-              <div className="table-si-row fw-semibold table-grey-row">Total Rate</div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Total Rate
+              </div>
               <div className="table-si-row">Delivery Period (In Weeks)</div>
               <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
-              <div className="table-si-row table-grey-row">Terms & Conditions</div>
+              <div className="table-si-row table-grey-row">
+                Terms & Conditions
+              </div>
               <div className="table-si-row">Payment Terms</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
-
                 // Check if the quote is updated
-                let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
+                let itemUpdated =
+                  item.previous_quotes?.length > 0
+                    ? item.previous_quotes[item.previous_quotes.length - 1]
+                    : null;
 
-                const rfqDetails = proditem?.product_details[0]
-                const quantity = rfqDetails?.rfq_details.find(spec => spec.title == 'Quantity')?.value || item.quantity
+                const rfqDetails = proditem?.product_details[0];
+                const quantity =
+                  rfqDetails?.rfq_details.find(
+                    (spec) => spec.title == "Quantity"
+                  )?.value || item.quantity;
 
                 return (
                   <div
@@ -154,7 +155,10 @@ const QuoteCompareTable = ({
                       className="table-si-row table-dark-row "
                       style={{ overflow: "visible" }}
                     >
-                      <span className="d-block text-center fw-bold fs-5" style={{"width" : "100%"}}>
+                      <span
+                        className="d-block text-center fw-bold fs-5"
+                        style={{ width: "100%" }}
+                      >
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||
                           item?.quote_details?.vendor_details?.name}
@@ -203,26 +207,27 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {alreadyFinalized?.length == 0 &&
-                            !item.finalization &&
-                            !isRfqClosed &&
-                            item?.quote_details?.is_regret == 0 && (
-                              <Dropdown.Item
-                                href="#"
-                                onClick={(e) =>
-                                  handleFinalize(e, item, proditem)
-                                }
-                                className="finalize-link"
-                              >
-                                Finalize
-                              </Dropdown.Item>
-                            )}
+                          {(!item.finalization ||
+                            item.finalization.winning_vendor.id !=
+                              item?.quote_details?.created_by) && (
+                            <Dropdown.Item
+                              href="#"
+                              onClick={(e) => {
+                                setActiveModal('finalize')
+                                setCurrentItem(item);
+                                // handleFinalize(item, proditem);
+                              }}
+                              className="finalize-link"
+                            >
+                              Finalize
+                            </Dropdown.Item>
+                          )}
 
                           {item.previous_quotes?.length > 0 && (
                             <Dropdown.Item
                               href="#"
                               onClick={() => {
-                                setQuotehistorymodal(true);
+                                setActiveModal('quote_history');
                                 setQuotehistorydata({
                                   product_details: proditem.product_details,
                                   previous_quotes: item.previous_quotes,
@@ -303,7 +308,8 @@ const QuoteCompareTable = ({
                     >
                       {calculateTotal(item, quantity)}
                       {itemUpdated &&
-                        calculateTotal(itemUpdated, quantity) != calculateTotal(item, quantity) && (
+                        calculateTotal(itemUpdated, quantity) !=
+                          calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {calculateTotal(itemUpdated, quantity)}
                           </span>
@@ -382,38 +388,36 @@ const QuoteCompareTable = ({
         <div className="quote-sec-bottom">
           {lowestQuote && (
             <div className="quote-sec-bottom-con">
-            <div>
-              <span>
-                <b>Lowest Bid</b> :{" "}
-                {
-                  lowestQuote?.quote_details?.vendor_details?.organization_name 
-               || lowestQuote?.quote_details?.vendor_details?.name
+              <div>
+                <span>
+                  <b>Lowest Bid</b> :{" "}
+                  {lowestQuote?.quote_details?.vendor_details
+                    ?.organization_name ||
+                    lowestQuote?.quote_details?.vendor_details?.name}
+                </span>
+                <span>
+                  <Link
+                    href={
+                      "mailto:" +
+                      lowestQuote?.quote_details?.vendor_details?.email
+                    }
+                  >
+                    <FontAwesomeIcon icon={faEnvelope} />
+                  </Link>
+                </span>
 
-                }
-              </span>
-              <span>
-                <Link
-                  href={
-                    "mailto:" +
-                    lowestQuote?.quote_details?.vendor_details?.email
-                  }
-                >
-                  <FontAwesomeIcon icon={faEnvelope} />
-                </Link>
-              </span>
-
-              <span>
-                <Link
-                  href={
-                    "tel: " +
-                    lowestQuote[0]?.quote_details?.vendor_details?.mobile
-                  }
-                >
-                  <FontAwesomeIcon icon={faPhone} />
-                </Link>
-              </span>
-</div>
-              {isRfqClosed ?
+                <span>
+                  <Link
+                    href={
+                      "tel: " +
+                      lowestQuote[0]?.quote_details?.vendor_details?.mobile
+                    }
+                  >
+                    <FontAwesomeIcon icon={faPhone} />
+                  </Link>
+                </span>
+              </div>
+              {isRfqClosed ? (
                 <button
                   type="submit"
                   className="btn btn-danger btn-outlined"
@@ -421,17 +425,19 @@ const QuoteCompareTable = ({
                 >
                   RFQ has been Closed
                 </button>
-                :
+              ) : (
                 <button
                   type="submit"
                   className="btn btn-secondary"
-                  onClick={(e) =>
-                    handleFinalize(e, lowestQuote, proditem)
-                  }
+                  onClick={(e) => {
+                    setActiveModal('finalize')
+                    setCurrentItem(lowestQuote);
+                    // handleFinalize(lowestQuote, proditem)
+                  }}
                 >
                   Finalize
                 </button>
-              }
+              )}
             </div>
           )}
         </div>
@@ -467,6 +473,15 @@ const QuoteCompareTable = ({
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
               </span>
+              {Array.isArray(proditem.finalization_history) && proditem.finalization_history.length > 0 && (
+                <button
+                  className="btn btn-sm btn-success p-2"
+                  style={{ minWidth: "230px", marginLeft: "10px" }}
+                  onClick={handleViewFinalizationHistory}
+                >
+                  Finalization History
+                </button>
+              )}
             </div>
 
             <div>
@@ -502,25 +517,48 @@ const QuoteCompareTable = ({
       {/* Lowest bid area end */}
 
       {/* ------------- Show Vendors contact info in Modal ------------- */}
-      {openCommonModal &&
+      {activeModal == 'common' && (
         <CommonModal
           data={{
             title: "Contact Information",
             email: vendorData.email,
-            mobile: vendorData.mobile
+            mobile: vendorData.mobile,
           }}
-          openCommonModal={openCommonModal}
-          closeModal={() => setOpenCommonModal(false)}
+          openCommonModal={activeModal == 'common'}
+          closeModal={() => setActiveModal(null)}
         />
-      }
-      {quotehistorymodal && 
-      <QuoteHistoryModal
-        showModal = {quotehistorymodal}
-        closeModal ={() => {
-          setQuotehistorymodal(false);
+      )}
+      {activeModal == 'quote_history' && (
+        <QuoteHistoryModal
+          showModal={activeModal == 'quote_history'}
+          closeModal={() => {
+            setActiveModal(null);
+          }}
+          quotehistorydata={quotehistorydata}
+        />
+      )}
+      <FinalizeVendorModal
+        show={activeModal == 'finalize'}
+        onHide={() => setActiveModal(null)}
+        onConfirm={() => {
+          handleFinalize(currentItem, proditem);
+          setActiveModal(null)
         }}
-        quotehistorydata = {quotehistorydata}
-      />}
+        vendorName={
+          currentItem?.quote_details?.vendor_details?.organization_name ||
+          currentItem?.quote_details?.vendor_details?.name
+        }
+        quotedPrice={currentItem?.total_price}
+        productName={proditem?.product_details?.[0].product_name}
+        alreadyFinalized={alreadyFinalized}
+      />
+      <FinalizeHistoryModal
+        show={proditem.finalization_history.length > 0 && activeModal == 'finalize_history'}
+        onHide={() => setActiveModal(null)}
+        history={proditem.finalization_history}
+        quantity={proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value}
+        calculateTotal={calculateTotal}
+      />
     </>
   );
 };
