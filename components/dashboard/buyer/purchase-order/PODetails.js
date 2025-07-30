@@ -17,6 +17,7 @@ import { toast } from 'react-toastify';
 import { handleDeleteMilestone, handleDeleteTask, handleGetTasks } from '@/services/po';
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
+import { getProjectAvailableBudget } from '@/services/project';
 
 const statusColors = {
   draft: 'secondary',
@@ -101,6 +102,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     id,
     rfq_id,
     po_number,
+    project_id,
     status,
     quantity,
     unit_price,
@@ -117,6 +119,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [availableBudget, setAvailableBudget] = useState(null);
 
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({
@@ -151,7 +154,35 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       toast.error(error.message ?? "Something went wrong while deleting the milestone!");
     }
   }
+ 
+  //  useEffect(() => {
+  //   const fetchAvailableBudget = async (projectId) => {
+  //     try {
+  //       const response = await getProjectAvailableBudget(projectId);
+  //       return response?.available_budget || null;
+  //     } catch (error) {
+  //       console.error("Error in fetchAvailableBudget:", error);
+  //       return null;
+  //     }
+  //   };
 
+  //   if (project_id) {
+  //     fetchAvailableBudget(project_id)
+  //       .then((budget) => {
+  //         setAvailableBudget(budget);
+  //       })
+  //       .catch((error) => {
+  //         console.error("Error fetching available budget:", error);
+  //         toast.error("Failed to fetch available budget.");
+  //       });
+  //   }
+  // }, [project_id]);
+
+  // useEffect(() => {
+  //   if (availableBudget !== null) {
+  //     console.log("Available Budget:", availableBudget);
+  //   }
+  // }, [availableBudget]);
   const handleFetchTasks = async () => {
     try {
       const res = await handleGetTasks(id, filters);
