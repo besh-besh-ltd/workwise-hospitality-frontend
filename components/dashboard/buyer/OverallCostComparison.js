@@ -12,7 +12,6 @@ const addCommasToNumber = (num) => {
 
 const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
   const [loading, setLoading] = useState(false);
-  const [vendors, setVendors] = useState([]);
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
@@ -64,8 +63,8 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300 }}>Product Name</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 300, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350 }}>Product Details</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Quantity</th>
-              {[...Array(Math.min(maxVendors, 3))].map((_, idx) => (
-                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === Math.min(maxVendors, 3) - 1 ? 12 : 0 }}>
+              {[...Array(maxVendors)].map((_, idx) => (
+                <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === maxVendors - 1 ? 12 : 0 }}>
                   {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
                 </th>
               ))}
@@ -84,8 +83,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                   const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
                   return { ...q, cost: calculateTotal(details, quantity) };
                 })
-                .sort((a, b) => a.cost - b.cost)
-                .slice(0, 3); // Only take top 3 vendors
+                .sort((a, b) => a.cost - b.cost);
               // For regrets, keep them in a separate map by vendor id
               const regretMap = {};
               item.quotations.filter(q => q.is_regret === 1).forEach(q => { regretMap[q.created_by] = q; });
@@ -118,7 +116,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
-                  {[...Array(Math.min(maxVendors, 3))].map((_, vIdx) => {
+                  {[...Array(maxVendors)].map((_, vIdx) => {
                     const q = quotingVendors[vIdx];
                     if (q) {
                       const vendor = q.vendor_details ? q.vendor_details[0] : (item.all_vendors && item.all_vendors.find(v => v.id === q.created_by));
