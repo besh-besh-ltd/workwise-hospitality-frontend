@@ -130,6 +130,7 @@ const QuoteCompareTable = ({
                 Terms & Conditions
               </div>
               <div className="table-si-row">Payment Terms</div>
+              <div className="table-si-row">Created By</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -377,6 +378,7 @@ const QuoteCompareTable = ({
                         "NA"
                       )}
                     </div>
+                    <div className="table-si-row">{item?.quote_details?.created_by || '-'}</div>
                   </div>
                 );
               })}
