@@ -148,7 +148,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                   Download
                 </Button>
                 <Link
-                  href={`magic-search/view?jsonUrl=${encodeURIComponent(
+                                                      href={`boq-automation/view?jsonUrl=${encodeURIComponent(
                     data.download_url
                   )}`}
                   passHref

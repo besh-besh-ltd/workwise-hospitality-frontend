@@ -28,10 +28,30 @@ const MagicSearchPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [apiData, setApiData] = useState(null);
-    const [tab, setTab] = useState(router.query?.tab ?? 'upload-file'); // upload-file, processing-files
+    const [tab, setTab] = useState('upload-file'); // upload-file, processing-files
+
+    // Update URL when tab changes
+    const handleTabChange = (newTab) => {
+        setTab(newTab);
+        router.push({
+            pathname: router.pathname,
+            query: { ...router.query, tab: newTab }
+        }, undefined, { shallow: true });
+    };
+
+    // Handle tab persistence on page load/refresh
+    useEffect(() => {
+        if (router.query?.tab) {
+            setTab(router.query.tab);
+        }
+    }, [router.query?.tab]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);
+    
+    // Confirmation modal states for file uploads
+    const [showSimplifyConfirmModal, setShowSimplifyConfirmModal] = useState(false);
+    const [showRFQConfirmModal, setShowRFQConfirmModal] = useState(false);
 
     // BOQ Simplification states
     const [simplifyFile, setSimplifyFile] = useState(null);
@@ -83,6 +103,11 @@ const MagicSearchPage = () => {
             return;
         }
 
+        // Show confirmation modal first
+        setShowSimplifyConfirmModal(true);
+    };
+
+    const confirmSimplifyUpload = async () => {
         try {
             setSimplifyUploading(true);
             const persistJob = await persistMagicSearchJob(simplifyFileName, 'simplified');
@@ -103,7 +128,12 @@ const MagicSearchPage = () => {
             toast.error(error?.response?.data?.detail || "Simplified BOQ creation failed. Please try again.");
         } finally {
             setSimplifyUploading(false);
+            setShowSimplifyConfirmModal(false);
         }
+    };
+
+    const closeSimplifyConfirmModal = () => {
+        setShowSimplifyConfirmModal(false);
     };
 
 const uploadToServer = async (processed_file) => {
@@ -117,6 +147,11 @@ const uploadToServer = async (processed_file) => {
     return;
   }
 
+  // Show confirmation modal first
+  setShowRFQConfirmModal(true);
+};
+
+const confirmRFQUpload = async (processed_file) => {
   const curFile = file || processed_file;
   const curFileName = fileName || processed_file.name;
 
@@ -143,8 +178,13 @@ const uploadToServer = async (processed_file) => {
     setLoading(false);
     setFile(null);
     setFileName("");
+    setShowRFQConfirmModal(false);
     // setCustomInstructions(''); // Reset custom instructions
   }
+};
+
+const closeRFQConfirmModal = () => {
+  setShowRFQConfirmModal(false);
 };
 
     // to handle the modal response
@@ -235,8 +275,8 @@ const uploadToServer = async (processed_file) => {
 
         {/* Header Section */}
         <section className="vendor-common-header sc-pt-80">
-          <div className="container-fluid text-center">
-            <h1 className="heading">Magic Search</h1>
+          <div className="container-fluid">
+            <h1 className="heading text-start">BOQ Automation</h1>
           </div>
         </section>
 
@@ -248,13 +288,13 @@ const uploadToServer = async (processed_file) => {
                 <div className="tabs-container">
                   <button
                     className={`tab ${tab === "upload-file" ? "active" : ""}`}
-                    onClick={() => setTab("upload-file")}
+                    onClick={() => handleTabChange("upload-file")}
                   >
                     Upload File
                   </button>
                   <button
                     className={`tab ${tab === "processing-files" ? "active" : ""}`}
-                    onClick={() => setTab("processing-files")}
+                    onClick={() => handleTabChange("processing-files")}
                   >
                     Processing Files
                   </button>
@@ -263,23 +303,25 @@ const uploadToServer = async (processed_file) => {
                 {tab === "upload-file" && (
                   <section className="">
                     <div className="product-search">
-                      <div className="container-lg bg-white rounded-4 p-5">
+                      <div className="container-lg bg-white rounded-4 p-5 shadow-sm" style={{ padding: '40px 60px' }}>
                         {!reviewData ? (
                           <>
                             {/* Side by side components */}
                             <div className="row">
                               {/* BOQ Simplification Component */}
                               <div className="col-md-6">
-                                <div className="h-100 p-4 border rounded-3" style={{ backgroundColor: '#f8f9fa' }}>
-                                  <div className="text-center mb-4">
-                                    <FontAwesomeIcon 
-                                      icon={faFileExcel} 
-                                      className="text-success mb-3" 
-                                      style={{ fontSize: "48px" }} 
-                                    />
-                                    <h3 className="h5 mb-2">Simplify Your BOQ</h3>
+                                <div className="h-100 p-4 border rounded-3 bg-white shadow" style={{ marginBottom: '20px' }}>
+                                  <div className="mb-4">
+                                    <div className="d-flex align-items-center mb-3">
+                                      <FontAwesomeIcon 
+                                        icon={faFileExcel} 
+                                        className="text-success me-3" 
+                                        style={{ fontSize: "48px" }} 
+                                      />
+                                      <h3 className="h5 mb-0">Simplify Your BOQ</h3>
+                                    </div>
                                     <p className="text-muted small">
-                                      Upload your complex BOQ file and Workwise AI will simplify it for you.
+                                      Transform messy BOQs into structured, organized data ready for RFQs in seconds.
                                     </p>
                                   </div>
 
@@ -307,7 +349,7 @@ const uploadToServer = async (processed_file) => {
                                       style={{ fontSize: "45px" }}
                                     />
                                     <p className="fw-semibold mb-0">
-                                      {simplifyFileName || "Upload / Drag and drop your excel file here"}
+                                      {simplifyFileName || "Upload/Drag & drop your Excel file here"}
                                     </p>
                                   </div>
 
@@ -319,15 +361,21 @@ const uploadToServer = async (processed_file) => {
                                     onChange={handleSimplifyFileUpload}
                                   />
 
+                                  <div className="mb-3">
+                                    <small className="text-muted">
+                                      Only Excel files supported
+                                    </small>
+                                  </div>
+
                                   <div className="text-center">
                                     <Button 
                                       variant="success" 
                                       onClick={handleSimplifyUpload} 
                                       disabled={simplifyUploading || !simplifyFile}
-                                      className="px-4"
+                                      className="px-4 w-100"
                                     >
                                       <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
-                                      {simplifyUploading ? "Simplifying..." : "Simplify BOQ"}
+                                      {simplifyUploading ? "Simplifying..." : "Simplify BOQ Now"}
                                     </Button>
                                   </div>
 
@@ -341,16 +389,18 @@ const uploadToServer = async (processed_file) => {
 
                               {/* BOQ to RFQ Component */}
                               <div className="col-md-6">
-                                <div className="h-100 p-4 border rounded-3" style={{ backgroundColor: '#f8f9fa' }}>
-                                  <div className="text-center mb-4">
-                                    <FontAwesomeIcon 
-                                      icon={faFileExcel} 
-                                      className="text-primary mb-3" 
-                                      style={{ fontSize: "48px" }} 
-                                    />
-                                    <h3 className="h5 mb-2">BOQ to RFQ with AI</h3>
+                                <div className="h-100 p-4 border rounded-3 bg-white shadow" style={{ marginBottom: '20px' }}>
+                                  <div className="mb-4">
+                                    <div className="d-flex align-items-center mb-3">
+                                      <FontAwesomeIcon 
+                                        icon={faFileExcel} 
+                                        className="text-primary me-3" 
+                                        style={{ fontSize: "48px" }} 
+                                      />
+                                      <h3 className="h5 mb-0">Create RFQ with AI</h3>
+                                    </div>
                                     <p className="text-muted small">
-                                      Upload your BOQ file and automatically generate comprehensive RFQs.
+                                      Generate comprehensive RFQs automatically with AI assistance for faster procurement.
                                     </p>
                                   </div>
 
@@ -378,7 +428,7 @@ const uploadToServer = async (processed_file) => {
                                       style={{ fontSize: "45px" }}
                                     />
                                     <p className="fw-semibold mb-0">
-                                      {fileName || "Upload / Drag and drop your excel file here"}
+                                      {fileName || "Upload/Drag & drop your Excel file here"}
                                     </p>
                                   </div>
 
@@ -390,15 +440,21 @@ const uploadToServer = async (processed_file) => {
                                     onChange={handleMagicFileUpload}
                                   />
 
+                                  <div className="mb-3">
+                                    <small className="text-muted">
+                                      Only Excel files supported
+                                    </small>
+                                  </div>
+
                                   <div className="text-center">
                                     <Button 
                                       variant="primary" 
                                       onClick={uploadToServer} 
                                       disabled={loading || !file}
-                                      className="px-4"
+                                      className="px-4 w-100"
                                     >
                                       <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
-                                      {loading ? "Generating RFQ..." : "Generate RFQ"}
+                                      {loading ? "Generating RFQ..." : "Generate RFQ Now"}
                                     </Button>
                                   </div>
 
@@ -444,9 +500,38 @@ const uploadToServer = async (processed_file) => {
           isOpen={isModalOpen}
           onClose={handleClose}
           onConfirm={handleConfirm}
-          message={
-            "This will remove all vendors for this product. Do you want to continue?"
-          }
+          title="Remove Vendors"
+          description="This will remove all vendors for this product. Do you want to continue?"
+          confirmButtonColor="danger"
+          confirmButtonText="Yes"
+          cancelButtonText="No"
+          showCloseButton={true}
+        />
+
+        {/* BOQ Simplification Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showSimplifyConfirmModal}
+          onClose={closeSimplifyConfirmModal}
+          onConfirm={confirmSimplifyUpload}
+          title="Confirm BOQ Simplification"
+          description={`Are you sure you want to simplify the BOQ file "${simplifyFileName}"? This will process your file and switch to the processing tab.`}
+          confirmButtonColor="success"
+          confirmButtonText="Simplify BOQ"
+          cancelButtonText="Cancel"
+          showCloseButton={false}
+        />
+
+        {/* RFQ Generation Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showRFQConfirmModal}
+          onClose={closeRFQConfirmModal}
+          onConfirm={() => confirmRFQUpload()}
+          title="Confirm RFQ Generation"
+          description={`Are you sure you want to generate RFQ from the file "${fileName}"? This will process your file and switch to the processing tab.`}
+          confirmButtonColor="primary"
+          confirmButtonText="Generate RFQ"
+          cancelButtonText="Cancel"
+          showCloseButton={false}
         />
       </>
     );

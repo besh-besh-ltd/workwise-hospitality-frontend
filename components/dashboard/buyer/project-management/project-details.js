@@ -402,7 +402,7 @@ const ProjectDetails = () => {
                                                     <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" /> Upload your Vendors
                                                 </Link>
                                                 <Link
-                                                    href="/dashboard/buyer/magic-search"
+                                                    href="/dashboard/buyer/boq-automation"
                                                     className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
                                                     style={{ flex: "0 0 250px" }}
                                                 >
