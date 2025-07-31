@@ -20,7 +20,8 @@ const QuoteCompareTable = ({
   handleFinalize,
   proditem,
   alreadyFinalized,
-  isRfqClosed = false
+  isRfqClosed = false,
+  availableBudget
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -130,6 +131,7 @@ const QuoteCompareTable = ({
                 Terms & Conditions
               </div>
               <div className="table-si-row">Payment Terms</div>
+              <div className="table-si-row">Created By</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -377,6 +379,7 @@ const QuoteCompareTable = ({
                         "NA"
                       )}
                     </div>
+                    <div className="table-si-row">{item?.quote_details?.created_by || '-'}</div>
                   </div>
                 );
               })}
@@ -551,6 +554,7 @@ const QuoteCompareTable = ({
         quotedPrice={currentItem?.total_price}
         productName={proditem?.product_details?.[0].product_name}
         alreadyFinalized={alreadyFinalized}
+        availableBudget={availableBudget}
       />
       <FinalizeHistoryModal
         show={proditem.finalization_history.length > 0 && activeModal == 'finalize_history'}

@@ -37,6 +37,8 @@ const ProjectManagement = () => {
     }
 
     const handleCreateProject = (values, resetForm) => {
+         
+        console.log("Creating project with values:", values);
 
         setCreateLoading(true);
         let payload = {
@@ -45,7 +47,8 @@ const ProjectManagement = () => {
             location: values.location,
             ended_at: values?.ended_at || null,
             rfq_type: values.rfq_type,
-            reverse_auction: values.reverse_auction
+            reverse_auction: values.reverse_auction,
+            budget : values.budget || 0
         };
 
         setOpenCreateProject(false);
@@ -107,12 +110,14 @@ const ProjectManagement = () => {
                                                     <th scope="col">Open RFQs</th>
                                                     <th scope="col">Closed RFQs</th>
                                                     <th scope="col">Created By</th>
+                                                    <th scope="col">Budget</th>
                                                     <th scope="col">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {loading &&
                                                     <tr>
+                                                        <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                                                         <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
@@ -139,6 +144,9 @@ const ProjectManagement = () => {
                                                                 <td>{projectItem.open_rfqs || "---"}</td>
                                                                 <td>{projectItem.closed_rfqs || "---"}</td>
                                                                 <td>{projectItem.created_by_name || "---"}</td>
+                                                                <td>
+                                                                    {projectItem.budget ? `₹ ${projectItem.budget}` : "Not Specified"}
+                                                                </td>
                                                                 <td>
                                                                     <Link
                                                                         href={`./project-management/${projectItem.id}`}
