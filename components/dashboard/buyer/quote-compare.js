@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import FullLoader from "@/components/shared/FullLoader";
 import {
@@ -20,7 +20,7 @@ import OverallComparison from "./overallComparison";
 import { calculateTotal, formatPrice } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
-import { getProjectList } from '@/services/project';
+import { getProjectAvailableBudget, getProjectList } from '@/services/project';
 import Select from 'react-select';
 import LPRModal from "@/components/shared/LPRModal";
 import { Button } from "react-bootstrap";
@@ -57,6 +57,7 @@ const QuoteCompare = () => {
   const [selectedproject, setSelectedproject] = useState(null);
   const [ showLPRModal, setShowLPRModal] = useState(false);
   const [openModals, setOpenModals] = useState({});
+  const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState('product');
 
@@ -75,6 +76,21 @@ const QuoteCompare = () => {
   }, []);
 
   useEffect(() => {
+    if(quotes && quotes.length > 0) {
+      const project_id = quotes[0].rfq[0].project_id;
+      if(project_id != -1 && project_id != null) {
+        getAvailableBudget(project_id)
+          .then((budget) => {
+            setAvailableBudget(budget);
+          })
+          .catch((error) => {
+            setAvailableBudget(null);
+          }); 
+      }
+    }
+  }, [quotes])
+
+  useEffect(() => {
     const handler = setTimeout(() => {
         getAllRFQs(true);
     }, 1000);
@@ -88,6 +104,21 @@ const QuoteCompare = () => {
   const closeModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
 };
+
+const getAvailableBudget = async (projectId) => {
+  try {
+    const response = await getProjectAvailableBudget(projectId);
+    return response
+  } catch (error) {
+    console.error("Error fetching available budget:", error);
+    return null; // or handle the error as needed
+  }
+};
+
+useEffect(() => {
+ if(availableBudget){
+ console.log("Available Budget:", availableBudget);
+  } }, [availableBudget]);
 
 const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
@@ -1059,10 +1090,10 @@ const openModalForVariant = (variantId) => {
     getAllRFQs();
   }, [page]);
   
-  // Debug useEffect to log myRFQs changes
-  useEffect(() => {
-    console.log('myRFQs state changed:', myRFQs, 'length:', myRFQs?.length);
-  }, [myRFQs]);
+  // // Debug useEffect to log myRFQs changes
+  // useEffect(() => {
+  //   console.log('myRFQs state changed:', myRFQs, 'length:', myRFQs?.length);
+  // }, [myRFQs]);
 
 
   return (
@@ -1502,6 +1533,7 @@ const openModalForVariant = (variantId) => {
                                     quantity={item?.product_details[0]?.rfq_details ? item?.product_details[0]?.rfq_details[2]?.value : "-"}
                                     alreadyFinalized={item?.quotations?.filter((item) => item.finalization != null)}
                                     isRfqClosed={Array.isArray(item.rfq) && item.rfq[0]?.status === 2}
+                                    availableBudget = {availableBudget}
                                   />
                                 </>
                               )}
