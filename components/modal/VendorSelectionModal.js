@@ -171,13 +171,10 @@ const VendorSelectionModal = ({
                       <div className="flex-grow-1">
                         <div className="d-flex justify-content-between align-items-center mb-2">
                           <div className="fw-bold text-primary">{vendor.vendor_name}</div>
-                          <span className="badge bg-warning text-dark">
-                            {vendor.totalVendorProducts} pending
-                          </span>
                         </div>
                         {vendor.remainingProducts && vendor.remainingProducts.length > 0 && (
                           <div className="mt-3">
-                            <small className="text-info fw-semibold d-block mb-2">
+                            <small className="text-muted fw-semibold d-block mb-2">
                               Pending Products ({vendor.totalVendorProducts}):
                             </small>
                             <div className="d-flex flex-wrap gap-1">
