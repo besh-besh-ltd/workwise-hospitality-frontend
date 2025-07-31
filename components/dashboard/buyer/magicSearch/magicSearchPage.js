@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, formatISOToDateTimeLocal, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, pollBOQResult, persistMagicSearchJob } from "@/services/rfq";
+import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, pollBOQResult, persistMagicSearchJob, getSImplifiedVersionOfBOQ } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -16,7 +16,6 @@ import { getCities, getCountries, getCountryCodes, getStates } from "@/services/
 import ProductSearchModal from "../../../modal/ProductSearchModal";
 import { vendorConditions } from "../../vendor/search";
 import axiosInstance from "@/lib/axios";
-import MagicSearchDownloadModal from "@/components/modal/MagicSearchDownloadModal";
 import { useRouter } from "next/router";
 import ProcessingRFQ from "./processingRFQ/ProcessingRFQ";
 
@@ -33,6 +32,11 @@ const MagicSearchPage = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pendingRemoval, setPendingRemoval] = useState(null);
+
+    // BOQ Simplification states
+    const [simplifyFile, setSimplifyFile] = useState(null);
+    const [simplifyFileName, setSimplifyFileName] = useState('');
+    const [simplifyUploading, setSimplifyUploading] = useState(false);
 
     const today = new Date();
     const tomorrow = new Date(today);
@@ -55,6 +59,51 @@ const MagicSearchPage = () => {
         }
         // when we upload the same file again.
         event.target.value = null;
+    };
+
+    const handleSimplifyFileUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const fileType = file.name.split('.').pop().toLowerCase();
+            const validTypes = ['xlsx', 'xls'];
+            if (!validTypes.includes(fileType)) {
+                toast.error('Please upload a valid Excel file (xlsx, xls)');
+            } else {
+                setSimplifyFileName(file.name);
+                setSimplifyFile(file);
+            }
+        }
+        // when we upload the same file again.
+        event.target.value = null;
+    };
+
+    const handleSimplifyUpload = async () => {
+        if (!simplifyFile) {
+            toast.error("Please select a file!");
+            return;
+        }
+
+        try {
+            setSimplifyUploading(true);
+            const persistJob = await persistMagicSearchJob(simplifyFileName, 'simplified');
+            const webhook = persistJob.webhook;
+
+            const startResponse = await getSImplifiedVersionOfBOQ(simplifyFile, webhook);
+            if (startResponse) {
+                const response = startResponse.data;
+                toast.success(response.message);
+                setSimplifyFile(null);
+                setSimplifyFileName('');
+                setTab('processing-files');
+            } else {
+                toast.error("Server is too busy to handle your request, please try again in some time...");
+            }
+        } catch (error) {
+            console.error("Upload failed:", error);
+            toast.error(error?.response?.data?.detail || "Simplified BOQ creation failed. Please try again.");
+        } finally {
+            setSimplifyUploading(false);
+        }
     };
 
 const uploadToServer = async (processed_file) => {
@@ -125,7 +174,6 @@ const uploadToServer = async (processed_file) => {
     '_blank'
   );
     };
-
 
     // once user created unstructure to structure excel fuile, and click on next button, we will call this function to create RFQ, by uploading the same file user uploaded to unstructure to structure
   const handleUploadForRFQ = async (webhook) => {
@@ -218,63 +266,149 @@ const uploadToServer = async (processed_file) => {
                       <div className="container-lg bg-white rounded-4 p-5">
                         {!reviewData ? (
                           <>
-                            <div className="col-md-8 mx-auto mt-2">
-                              <MagicSearchDownloadModal
-                                onUploadForRFQ={handleUploadForRFQ}
-                              />
-                            </div>
-                            <div className="col-md-8 mx-auto">
-                              <h2 className="title fs-6 mb-2">
-                                Step 2: Upload Your File and other details.
-                              </h2>
-                              <div
-                                className="file-drop-area text-center rounded py-4"
-                                style={{
-                                  border: "2px dashed grey",
-                                  cursor: "pointer",
-                                  backgroundColor: "#fff",
-                                  color: "green",
-                                }}
-                                onClick={() =>
-                                  document.getElementById("fileInput").click()
-                                }
-                              >
-                                <FontAwesomeIcon
-                                  icon={fileName ? faFileExcel : faCloudArrowUp}
-                                  style={{ fontSize: "45px" }}
-                                />
-                                <p className="fw-semibold ">
-                                  {fileName ||
-                                    "Upload / Drag and drop your excel file here"}
-                                </p>
+                            {/* Side by side components */}
+                            <div className="row">
+                              {/* BOQ Simplification Component */}
+                              <div className="col-md-6">
+                                <div className="h-100 p-4 border rounded-3" style={{ backgroundColor: '#f8f9fa' }}>
+                                  <div className="text-center mb-4">
+                                    <FontAwesomeIcon 
+                                      icon={faFileExcel} 
+                                      className="text-success mb-3" 
+                                      style={{ fontSize: "48px" }} 
+                                    />
+                                    <h3 className="h5 mb-2">Simplify Your BOQ</h3>
+                                    <p className="text-muted small">
+                                      Upload your complex BOQ file and Workwise AI will simplify it for you.
+                                    </p>
+                                  </div>
+
+                                  <div
+                                    className="file-drop-area text-center rounded py-4 mb-3"
+                                    style={{
+                                      border: "2px dashed #28a745",
+                                      cursor: "pointer",
+                                      backgroundColor: "#fff",
+                                      color: "#28a745",
+                                      transition: "all 0.3s ease"
+                                    }}
+                                    onClick={() => document.getElementById("simplifyFileInput").click()}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.borderColor = "#1e7e34";
+                                      e.target.style.backgroundColor = "#f8fff9";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.borderColor = "#28a745";
+                                      e.target.style.backgroundColor = "#fff";
+                                    }}
+                                  >
+                                    <FontAwesomeIcon
+                                      icon={simplifyFileName ? faFileExcel : faCloudArrowUp}
+                                      style={{ fontSize: "45px" }}
+                                    />
+                                    <p className="fw-semibold mb-0">
+                                      {simplifyFileName || "Upload / Drag and drop your excel file here"}
+                                    </p>
+                                  </div>
+
+                                  <input
+                                    id="simplifyFileInput"
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    style={{ display: "none" }}
+                                    onChange={handleSimplifyFileUpload}
+                                  />
+
+                                  <div className="text-center">
+                                    <Button 
+                                      variant="success" 
+                                      onClick={handleSimplifyUpload} 
+                                      disabled={simplifyUploading || !simplifyFile}
+                                      className="px-4"
+                                    >
+                                      <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
+                                      {simplifyUploading ? "Simplifying..." : "Simplify BOQ"}
+                                    </Button>
+                                  </div>
+
+                                  <div className="text-center mt-3">
+                                    <small className="text-muted">
+                                      AI will restructure and clean your BOQ for better processing
+                                    </small>
+                                  </div>
+                                </div>
                               </div>
 
-                              {/* //{ Hidden File Input } */}
-                              <input
-                                id="fileInput"
-                                type="file"
-                                accept=".xlsx, .xls"
-                                style={{ display: "none" }}
-                                onChange={handleMagicFileUpload}
-                              />
+                              {/* BOQ to RFQ Component */}
+                              <div className="col-md-6">
+                                <div className="h-100 p-4 border rounded-3" style={{ backgroundColor: '#f8f9fa' }}>
+                                  <div className="text-center mb-4">
+                                    <FontAwesomeIcon 
+                                      icon={faFileExcel} 
+                                      className="text-primary mb-3" 
+                                      style={{ fontSize: "48px" }} 
+                                    />
+                                    <h3 className="h5 mb-2">BOQ to RFQ with AI</h3>
+                                    <p className="text-muted small">
+                                      Upload your BOQ file and automatically generate comprehensive RFQs.
+                                    </p>
+                                  </div>
 
-                              {/* Custom Instructions Input */}
-                              {/* <div className="mt-3">
-                        <label htmlFor="customInstructions" className="form-label">
-                          <strong>Custom Instructions (Optional)</strong>
-                        </label>
-                        <textarea
-                          id="customInstructions"
-                          className="form-control"
-                          rows="3"
-                          placeholder="Add any specific instructions or requirements for the AI when preparing the RFQ..."
-                          value={customInstructions}
-                          onChange={(e) => setCustomInstructions(e.target.value)}
-                        />
-                        <small className="form-text text-muted">
-                          These instructions will be considered by the AI when processing your BOQ and preparing the RFQ.
-                        </small>
-                      </div> */}
+                                  <div
+                                    className="file-drop-area text-center rounded py-4 mb-3"
+                                    style={{
+                                      border: "2px dashed #007bff",
+                                      cursor: "pointer",
+                                      backgroundColor: "#fff",
+                                      color: "#007bff",
+                                      transition: "all 0.3s ease"
+                                    }}
+                                    onClick={() => document.getElementById("fileInput").click()}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.borderColor = "#0056b3";
+                                      e.target.style.backgroundColor = "#f8fbff";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.borderColor = "#007bff";
+                                      e.target.style.backgroundColor = "#fff";
+                                    }}
+                                  >
+                                    <FontAwesomeIcon
+                                      icon={fileName ? faFileExcel : faCloudArrowUp}
+                                      style={{ fontSize: "45px" }}
+                                    />
+                                    <p className="fw-semibold mb-0">
+                                      {fileName || "Upload / Drag and drop your excel file here"}
+                                    </p>
+                                  </div>
+
+                                  <input
+                                    id="fileInput"
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    style={{ display: "none" }}
+                                    onChange={handleMagicFileUpload}
+                                  />
+
+                                  <div className="text-center">
+                                    <Button 
+                                      variant="primary" 
+                                      onClick={uploadToServer} 
+                                      disabled={loading || !file}
+                                      className="px-4"
+                                    >
+                                      <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
+                                      {loading ? "Generating RFQ..." : "Generate RFQ"}
+                                    </Button>
+                                  </div>
+
+                                  <div className="text-center mt-3">
+                                    <small className="text-muted">
+                                      AI will analyze your BOQ and create detailed RFQs automatically
+                                    </small>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </>
                         ) : null}
@@ -292,16 +426,7 @@ const uploadToServer = async (processed_file) => {
                                 >
                                   Edit My RFQ
                                 </Button>
-                              ) : (
-                                <Button
-                                  variant="secondary"
-                                  className="ms-auto border-0 mt-4"
-                                  style={{ width: "280px" }}
-                                  onClick={uploadToServer}
-                                >
-                                  Automatically Generate RFQ's
-                                </Button>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
