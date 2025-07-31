@@ -25,7 +25,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
     const [vendors, setVendors] = useState(null);
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [summarisedDeviation , setSummarisedDeviation] = useState();
-    const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
+    // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
     
  
@@ -143,55 +143,56 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
       await getBuyerClauses();
     }
 
-useEffect(() => {
+// useEffect(() => {
+//     setUpdatedClauseInfoSummary(clauseInfo);
 
 
-  if (summarisedDeviation) {
+//   // if (summarisedDeviation) {
 
-  // Clone the original clauseInfo so we don't mutate state directly
-  const updatedClauseInfo = clauseInfo.map(clause => {
-    // Get all relevant messages for this clause_id
-    const matchingMessages = summarisedDeviation.filter(
-      msg => msg.clause_id === clause.clause_id
-    );
+//   // // Clone the original clauseInfo so we don't mutate state directly
+//   // const updatedClauseInfo = clauseInfo.map(clause => {
+//   //   // Get all relevant messages for this clause_id
+//   //   const matchingMessages = summarisedDeviation.filter(
+//   //     msg => msg.clause_id === clause.clause_id
+//   //   );
 
-    // Attach summarisedDeviation to each vendor_response if there's a matching message
-    const updatedVendorResponses = clause.vendor_responses?.map(vendorResp => {
-      const matchedMessage = matchingMessages.find(
-        msg => msg.sender_id === vendorResp.vendor_id || msg.receiver_id === vendorResp.vendor_id
-      );
-      return {
-        ...vendorResp,
-        summarisedDeviation: matchedMessage?.summarisedDeviation || null,
-      };
-    });
+//   //   // Attach summarisedDeviation to each vendor_response if there's a matching message
+//   //   const updatedVendorResponses = clause.vendor_responses?.map(vendorResp => {
+//   //     const matchedMessage = matchingMessages.find(
+//   //       msg => msg.sender_id === vendorResp.vendor_id || msg.receiver_id === vendorResp.vendor_id
+//   //     );
+//   //     return {
+//   //       ...vendorResp,
+//   //       summarisedDeviation: matchedMessage?.summarisedDeviation || null,
+//   //     };
+//   //   });
 
-    return {
-      ...clause,
-      vendor_responses: updatedVendorResponses,
-    };
-  });
+//   //   return {
+//   //     ...clause,
+//   //     vendor_responses: updatedVendorResponses,
+//   //   };
+//   // });
 
-  setUpdatedClauseInfoSummary(updatedClauseInfo);
-  }
-  else{
-    setUpdatedClauseInfoSummary(clauseInfo);
+//   // setUpdatedClauseInfoSummary(updatedClauseInfo);
+//   // }
+//   // else{
+//   //   setUpdatedClauseInfoSummary(clauseInfo);
 
-  }
+//   // }
 
-}, [summarisedDeviation]);
+// }, [summarisedDeviation]);
 
 
 
-    const fetchSummarisedDeviation = async ()=>{
-      const deviation = await getSummarisedDeviation(rfq_id);
-     setSummarisedDeviation(deviation);
+    // const fetchSummarisedDeviation = async ()=>{
+    //   const deviation = await getSummarisedDeviation(rfq_id);
+    //  setSummarisedDeviation(deviation);
       
-    }
-    useEffect(()=>{
-     fetchSummarisedDeviation();
-    },[])
-    console.log("gettig this dine ", summarisedDeviation);
+    // }
+    // useEffect(()=>{
+    //  fetchSummarisedDeviation();
+    // },[])
+    // console.log("gettig this dine ", summarisedDeviation);
     useEffect(() => {
         if(_vendors) {
             setVendors(_vendors);
@@ -320,9 +321,9 @@ useEffect(() => {
                   </thead>
 
                   <tbody style={{ overflowX: "auto" }}>
-                    {updatedClauseInfoSummary &&
-                      updatedClauseInfoSummary.length > 0 &&
-                      updatedClauseInfoSummary.map((clauseItem, index) => (
+                    {clauseInfo &&
+                      clauseInfo.length > 0 &&
+                      clauseInfo.map((clauseItem, index) => (
                         <>
                         <tr key={`rfq_prod_clause_${clauseItem.clause_id}`}>
                           {console.log("chcking th e clause id ", clauseItem.clause_id)}
@@ -379,15 +380,8 @@ useEffect(() => {
                                       />
                                     )}
                                     
-                                    <ReadMore
-                                    onClick={() => {
-                                        toggleChat(clauseItem.clause_id);
-                                        setSelectedVendor(vendor);
-                                      }}
-                                     content={response?.summarisedDeviation ? response?.summarisedDeviation : ""}
-                                     maxLines={4}
-                                    />
-                                 {response?.summarisedDeviation &&   (<button
+
+<button
                                       type="button"
                                       className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2 mt-1"
                                       style={{
@@ -402,7 +396,8 @@ useEffect(() => {
                                       }}
                                     >
                                      Deviation
-                                    </button>)}
+                                    </button>
+
                                   </div>
                                 </td>
                               );
