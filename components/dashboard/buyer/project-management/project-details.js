@@ -560,47 +560,55 @@ const ProjectDetails = () => {
                     </div>
 
                     {/* Project Budget Column */}
-                   <div
-  className="col-md-6 ps-3"
-  style={{ maxHeight: "500px", overflowY: "auto" }}
->
-  <div
-    className="project-budget mb-5"
-    style={{ display: "flex", flexDirection: "column" }}
-  >
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <h3 className="title">Project Budget</h3>
-      {!projectDetails?.budget ? (
-        <button
-          type="button"
-          className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0"
-          style={{
-            width: "100px",
-            backgroundColor: "var(--primary-color)",
-          }}
-          onClick={() => setOpenEditProject(true)}
-        >
-          <FontAwesomeIcon icon={faEdit} className="me-2" />
-          Add Budget
-        </button>
-      ) : (
-        <div style={{ textAlign: "right" }}>
-          <p style={{ margin: "0", fontWeight: "500" }}>
-            Budget: {projectDetails?.budget}
-          </p>
-          <p style={{ margin: "0", fontWeight: "500" }}>
-            Avail Budget: {projectDetails?.budget - avlBudget}
-          </p>
-        </div>
-      )}
-    </div>
-    <hr />
+                    <div
+                      className="col-md-6 ps-3"
+                      style={{
+                        maxHeight: "300px",
+                        overflowY: "auto",
+                        border: "1px solid #a5a5a5",
+                        borderRadius: "25px",
+                        padding: "20px",
+                      }}
+                    >
+                      <div
+                        className="project-budget mb-5"
+                        style={{ display: "flex", flexDirection: "column" }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <h3 className="title">Project Budget</h3>
+                          {!projectDetails?.budget ||
+                          projectDetails?.budget == 0 ? (
+                            <button
+                              type="button"
+                              className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0"
+                              style={{
+                                width: "180px",
+                                backgroundColor: "var(--primary-color)",
+                              }}
+                              onClick={() => setOpenEditProject(true)}
+                            >
+                              <FontAwesomeIcon icon={faEdit} className="me-2" />
+                              Add Budget
+                            </button>
+                          ) : (
+                            <div style={{ textAlign: "right" }}>
+                              <p style={{ margin: "0", fontWeight: "500" }}>
+                                Budget: {projectDetails?.budget}
+                              </p>
+                              <p style={{ margin: "0", fontWeight: "500" }}>
+                                Avail Budget:{" "}
+                                {projectDetails?.budget - avlBudget}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <hr />
 
                         {/* Budget Header */}
                         <div className="budget-header d-flex justify-content-between mb-1 p-2 bg-light rounded fw-bold">
