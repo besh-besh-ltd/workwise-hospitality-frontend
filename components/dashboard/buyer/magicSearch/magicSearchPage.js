@@ -147,11 +147,6 @@ const uploadToServer = async (processed_file) => {
     return;
   }
 
-  // Show confirmation modal first
-  setShowRFQConfirmModal(true);
-};
-
-const confirmRFQUpload = async (processed_file) => {
   const curFile = file || processed_file;
   const curFileName = fileName || processed_file.name;
 
@@ -164,9 +159,15 @@ const confirmRFQUpload = async (processed_file) => {
 
     const startResponse = await getBOQexcelToJsonAI(curFile, webhook);
 
-    const response = startResponse.data;
-    toast.success(response.message);
-    setTab("processing-files");
+    if (startResponse) {
+      const response = startResponse.data;
+      toast.success(response.message);
+      
+      // Show confirmation modal after successful API call
+      setShowRFQConfirmModal(true);
+    } else {
+      toast.error("Server is too busy to handle your request, please try again in some time...");
+    }
   } catch (error) {
     console.log(error);
     console.error(error?.response?.data?.detail);
@@ -176,10 +177,20 @@ const confirmRFQUpload = async (processed_file) => {
     );
   } finally {
     setLoading(false);
+  }
+};
+
+const confirmRFQUpload = async (processed_file) => {
+  try {
+    // Only switch tab on confirmation
+    setTab("processing-files");
+  } catch (error) {
+    console.error("Failed to switch tab:", error);
+    toast.error("Failed to switch to processing tab.");
+  } finally {
     setFile(null);
     setFileName("");
     setShowRFQConfirmModal(false);
-    // setCustomInstructions(''); // Reset custom instructions
   }
 };
 
@@ -531,9 +542,9 @@ const closeRFQConfirmModal = () => {
           onClose={closeRFQConfirmModal}
           onConfirm={() => confirmRFQUpload()}
           title="Confirm RFQ Generation"
-          description={`Are you sure you want to generate RFQ from the file "${fileName}"? This will process your file and switch to the processing tab.`}
+          description={`RFQ generation has been initiated for the file "${fileName}". Do you want to switch to the processing tab to monitor the progress?`}
           confirmButtonColor="primary"
-          confirmButtonText="Generate RFQ"
+          confirmButtonText="Switch to Processing"
           cancelButtonText="Cancel"
           showCloseButton={false}
         />

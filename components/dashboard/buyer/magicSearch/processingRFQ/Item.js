@@ -112,10 +112,16 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
     <tr key={data.id}>
       <td className="fw-semibold">{data.id}</td>
       <td className="fw-semibold">
-        {data.file_name}{" "}
-        {data.type == "simplified" && (
-          <span className="text-muted text-sm">(Simplified)</span>
-        )}
+        {data.file_name}
+      </td>
+      <td>
+        <Badge
+          bg={data.type === "simplified" ? "success" : "primary"}
+          className="px-3 py-2"
+          style={{ fontWeight: 600 }}
+        >
+          {data.type === "simplified" ? "BOQ Simplified" : "BOQ To RFQ"}
+        </Badge>
       </td>
       <td>
         <Badge
