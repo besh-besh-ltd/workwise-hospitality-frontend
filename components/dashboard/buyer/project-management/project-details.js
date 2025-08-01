@@ -124,7 +124,6 @@ const ProjectDetails = () => {
             }
             
         } catch (error) {
-            toast.error("Error fetching project budget");
             setProjectBudget([]); // Reset to empty array on error
         } finally {
             setLoading(false);
@@ -236,14 +235,6 @@ const ProjectDetails = () => {
         <section className="vendor-common-header sc-pt-80">
           <div className="container-fluid d-flex align-items-center justify-content-between">
             <h1 className="heading mb-0 fs-1">Project Details</h1>
-            <div>
-              <span className="badge badge-primary mr-2 fs-4">
-                Budget: ₹{projectDetails?.budget || 0}
-              </span>
-              <span className="badge badge-success fs-4">
-                Avl Budget: ₹{(projectDetails?.budget) - (avlBudget || 0)}
-              </span>
-            </div>
           </div>
         </section>
 
@@ -569,19 +560,57 @@ const ProjectDetails = () => {
                     </div>
 
                     {/* Project Budget Column */}
-                    <div
-                      className="col-md-6 ps-3"
-                      style={{ maxHeight: "500px", overflowY: "auto" }}
-                    >
-                      <div className="project-budget mb-5">
-                        <h3 className="title">Project Budget</h3>
-                        <hr />
+                   <div
+  className="col-md-6 ps-3"
+  style={{ maxHeight: "500px", overflowY: "auto" }}
+>
+  <div
+    className="project-budget mb-5"
+    style={{ display: "flex", flexDirection: "column" }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <h3 className="title">Project Budget</h3>
+      {!projectDetails?.budget ? (
+        <button
+          type="button"
+          className="page-link backBtn btn btn-primary text-sm text-white px-2 m-0"
+          style={{
+            width: "100px",
+            backgroundColor: "var(--primary-color)",
+          }}
+          onClick={() => setOpenEditProject(true)}
+        >
+          <FontAwesomeIcon icon={faEdit} className="me-2" />
+          Add Budget
+        </button>
+      ) : (
+        <div style={{ textAlign: "right" }}>
+          <p style={{ margin: "0", fontWeight: "500" }}>
+            Budget: {projectDetails?.budget}
+          </p>
+          <p style={{ margin: "0", fontWeight: "500" }}>
+            Avail Budget: {projectDetails?.budget - avlBudget}
+          </p>
+        </div>
+      )}
+    </div>
+    <hr />
 
                         {/* Budget Header */}
                         <div className="budget-header d-flex justify-content-between mb-1 p-2 bg-light rounded fw-bold">
                           <span>RFQ NO</span>
-                          <span style={{"width":"150px" ,"textAlign":"center"}}>Vendor</span>
-                          <span style={{"width":"150px" ,"textAlign":"center"}}>Date</span>
+                          <span style={{ width: "150px", textAlign: "center" }}>
+                            Vendor
+                          </span>
+                          <span style={{ width: "150px", textAlign: "center" }}>
+                            Date
+                          </span>
                           <span className="text-end">Amount</span>
                         </div>
 
@@ -596,8 +625,10 @@ const ProjectDetails = () => {
                                 <span className="text-muted">
                                   {item.rfq_no}
                                 </span>
-                                <span style = {{"width" : "150px"}}>{item.vendor_name}</span>
-                                <span style={{"width":"80px"}}>
+                                <span style={{ width: "150px" }}>
+                                  {item.vendor_name}
+                                </span>
+                                <span style={{ width: "80px" }}>
                                   {new Date(
                                     item.updated_at
                                   ).toLocaleDateString()}
@@ -639,21 +670,15 @@ const ProjectDetails = () => {
                               </span>
                             </div>
                             <div className="d-flex justify-content-between mt-2">
-                              <span className="fw-bold">
-                                Budget: 
-                              </span>
+                              <span className="fw-bold">Budget:</span>
                               <span className="text-danger fw-bold">
                                 ₹{projectDetails?.budget || 0}
-                                
                               </span>
                             </div>
                             <div className="d-flex justify-content-between mt-2">
-                              <span className="fw-bold">
-                                Available Budget: 
-                              </span>
+                              <span className="fw-bold">Available Budget:</span>
                               <span className="text-danger fw-bold">
-                               ₹{(projectDetails?.budget) - (avlBudget || 0)}
-                                
+                                ₹{projectDetails?.budget - (avlBudget || 0)}
                               </span>
                             </div>
                           </div>
