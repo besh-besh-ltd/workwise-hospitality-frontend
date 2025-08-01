@@ -202,3 +202,23 @@ export const calculateTotal = (item, quantity) => {
   let TotalPrice = total_with_fpt + T;
   return Math.round(TotalPrice);
 }
+
+export const  addCommasToNumber = (number) => {
+
+    if (number <= 0 || !number) {
+      return 0
+    }
+
+    // Convert number to string
+    let numberString = number.toString();
+
+    // Split the number string into parts
+    let parts = numberString.split(".");
+
+    // Add commas to the integer part
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    //parts[0] = parts[0].replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+
+    // Join the parts back together with decimal point if applicable
+    return parts.join(".");
+  };

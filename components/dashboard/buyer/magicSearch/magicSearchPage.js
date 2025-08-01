@@ -231,6 +231,10 @@ const closeRFQConfirmModal = () => {
 
     const handleRFQCreateFromProcessedFile = async (excel_link, file_name) => {
       try {
+        if(process.env.NEXT_PUBLIC_ENV == "production" && !excel_link.includes("https")) {
+          excel_link = excel_link.replace("http", "https")
+        }
+        
         const response = await fetch(excel_link);
         const blob = await response.blob();
 

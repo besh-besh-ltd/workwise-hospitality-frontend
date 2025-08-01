@@ -1,8 +1,72 @@
+import SmartButton from "@/components/shared/SmartButton";
 import { addProductToDraft } from "@/services/rfq";
-import React from "react";
+import React, { useState } from "react";
+import { Button, Modal } from "react-bootstrap";
 import { toast } from "react-toastify";
 
+const ProductDetailsModal = ({ show, onClose, error }) => {
+  if (!error) return null;
+
+  return (
+    <Modal show={show} onHide={onClose} centered>
+      <Modal.Header closeButton>
+        <Modal.Title className="mx-3 mt-3">Original Product Details</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <div className="row">
+          <div className="col-12 mb-3">
+            <strong>Product Name:</strong>
+            <p className="mb-0 fw-semibold text-muted">{error.name}</p>
+          </div>
+          <div className="col-6 mb-3">
+            <strong>Quantity:</strong>
+            <p className="mb-0 text-muted">
+              {error.quantity || "Not specified"}
+            </p>
+          </div>
+          <div className="col-6 mb-3">
+            <strong>Unit:</strong>
+            <p className="mb-0 text-muted">
+              {error.unit || "Not specified"}
+            </p>
+          </div>
+          {error.size && (
+            <div className="col-12 mb-3">
+              <strong>Size:</strong>
+              <p className="mb-0 text-muted">
+                {error.size}
+              </p>
+            </div>
+          )}
+          {error.description && (
+            <div className="col-12 mb-3">
+              <strong>Description / Specifications:</strong>
+              <p className="mb-0 text-muted">
+                {error.description}
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="alert alert-info">
+          <span>
+            When you select a similar product, these details will be
+            automatically copied to your new selection.
+          </span>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" className="p-2" onClick={onClose}>
+          Close
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+};
+
 const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading }) => {
+  const [selectedError, setSelectedError] = useState(null);
+  const [showProductDetails, setShowProductDetails] = useState(false);
+
   const validationErrors = selectedSheet.validation_errors ?? [];
 
   if (!validationErrors || !Array.isArray(validationErrors)) {
@@ -30,90 +94,219 @@ const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading
         toast.success('Product has been added with given specifications!');
         await refetchRFQ();
     } catch (error) {
-        console.error(error);
-        toast.error(error.message || 'Something went wrong while adding product!');
+        const responseError = error.message?.response?.data?.message;
+        toast.error(responseError || 'Something went wrong while adding product!');
     } finally {
         setLoading(false);
     }
   }
 
   return (
-    <div style={{marginTop: '4rem'}}>
-      <h4 className="mb-3 fw-medium">Product Not Found – See Similar Matches</h4>
+    <div style={{ marginTop: "4rem" }}>
+      {/* Product Not Found Section */}
+      {(() => {
+        const productNotFoundErrors = validationErrors.filter((error) => {
+          const errorMessages = Object.values(error.errors || {});
+          return (
+            errorMessages.length === 1 &&
+            errorMessages[0]?.toLowerCase().includes("product not found")
+          );
+        });
 
-      {validationErrors.map((error, index) => {
-        const errorMessages = Object.values(error.errors || {});
+        if (productNotFoundErrors.length === 0) return null;
 
-        const isProductNotFound =
-          errorMessages.length === 1 &&
-          errorMessages[0]?.toLowerCase().includes("product not found");
-
-        const isVendorNotFound =
-          errorMessages.length === 1 &&
-          errorMessages[0]?.toLowerCase().includes("no vendors found");
+        const productNotFoundCount = validationErrors.filter((error) => {
+          const errorMessages = Object.values(error.errors || {});
+          return (
+            errorMessages.length === 1 &&
+            errorMessages[0]?.toLowerCase().includes("product not found")
+          );
+        }).length;
 
         return (
-          <>
-            <div key={index} className="mb-2">
-              <div className={`alert ${isProductNotFound ? 'alert-danger' : 'alert-warning'}`}>
-                <strong>Product:</strong> {error.name} <br />
-                {errorMessages.map((msg, i) => (
-                  <div key={i}>
-                    <span className={`badge ${isProductNotFound ? 'bg-danger' : 'bg-warning'}`}>{msg}</span>
-                  </div>
-                ))}
-              </div>
-
-              {isProductNotFound && error.similar_products?.length > 0 && (
-                <div className="mb-2">
-                  <h5 className="text-black">🔎 Similar Products Found</h5>
-                  <div className="row">
-                    {error.similar_products.slice(0, 4).map((product) => (
-                      <div
-                        className="col-12 col-sm-6 col-md-3 mb-2"
-                        key={product.variant_id}
-                      >
-                        <div className="card h-100">
-                          <div className="card-body">
-                            <h6 className="card-title fw-medium mb-1">
-                              {product.raw_product_name}
-                            </h6>
-                            {/* <p className="card-text text-sm mb-2">
-                              <p className="mb-0">Variant ID: {product.variant_id}</p>
-                            </p> */}
-                            <button
-                              onClick={() =>
-                                handleSelectProduct(
-                                  error.name,
-                                  product.variant_id,
-                                  error.quantity,
-                                  error.unit,
-                                  error.unit,
-                                  error.description
-                                )
-                              }
-                              className="btn border-black btn-sm p-2"
-                            >
-                              Select Product
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {isVendorNotFound && (
-                <div className="alert alert-warning">
-                  ⚠️ No vendors found for this product.
-                </div>
-              )}
+          <div className="mb-5">
+            <h4 className="mb-3 fw-medium text-danger">
+              🚫 {productNotFoundCount} Products Not Found
+            </h4>
+            <div className="alert alert-info mb-3">
+              <i className="bi bi-info-circle me-2"></i>
+              <strong>Quick Add:</strong> Click any similar product to add it to
+              your RFQ with your original quantity, unit, size & specs
+              pre-filled.
             </div>
-            <hr className="mb-4" />
-          </>
+
+            <div className="table-responsive">
+              <table className="table table-bordered">
+                <thead className="table-light">
+                  <tr>
+                    <th className="fw-medium">Product Name & Details</th>
+                    <th className="text-center fw-medium">Similar Product 1</th>
+                    <th className="text-center fw-medium">Similar Product 2</th>
+                    <th className="text-center fw-medium">Similar Product 3</th>
+                    <th className="text-center fw-medium">Similar Product 4</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productNotFoundErrors.map((error, index) => (
+                    <tr key={index}>
+                      <td
+                        className="align-middle"
+                        style={{ minWidth: "250px" }}
+                      >
+                        <div>
+                          <strong className="fs-6 d-block">
+                            {error.name}
+                          </strong>
+                          <button
+                            onClick={() => { setShowProductDetails(true); setSelectedError(error) }}
+                            className="btn btn-outline-secondary btn-sm"
+                          >
+                            View Details
+                          </button>
+                        </div>
+                      </td>
+                      {[0, 1, 2, 3].map((i) => (
+                        <td
+                          key={i}
+                          className="text-center align-middle"
+                          style={{ minWidth: "200px" }}
+                        >
+                          {error.similar_products?.[i] ? (
+                            <div className="p-2">
+                              <SmartButton
+                                onClick={() =>
+                                  handleSelectProduct(
+                                    error.name,
+                                    error.similar_products[i].variant_id,
+                                    error.quantity,
+                                    error.unit,
+                                    error.size,
+                                    error.description
+                                  )
+                                }
+                                className="px-3"
+                                label={error.similar_products[i].raw_product_name}
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         );
-      })}
+      })()}
+
+      {/* Vendor Not Found Section - Similar structure */}
+      {(() => {
+        const vendorNotFoundErrors = validationErrors.filter((error) => {
+          const errorMessages = Object.values(error.errors || {});
+          return (
+            errorMessages.length === 1 &&
+            errorMessages[0]?.toLowerCase().includes("no vendors found")
+          );
+        });
+
+        if (vendorNotFoundErrors.length === 0) return null;
+
+        return (
+          <div className="mb-5">
+            <h4 className="mb-3 fw-medium text-warning">⚠️ No Vendors Found</h4>
+            <div className="alert alert-info mb-3">
+              <i className="bi bi-info-circle me-2"></i>
+              <strong>Quick Add:</strong> Click any similar product to add it to
+              your RFQ with your original quantity, unit, size & specs
+              pre-filled.
+            </div>
+
+            <div className="table-responsive">
+              <table className="table table-bordered">
+                <thead className="table-light">
+                  <tr>
+                    <th className="fw-medium">Product Name & Details</th>
+                    <th className="text-center fw-medium">Similar Product 1</th>
+                    <th className="text-center fw-medium">Similar Product 2</th>
+                    <th className="text-center fw-medium">Similar Product 3</th>
+                    <th className="text-center fw-medium">Similar Product 4</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendorNotFoundErrors.map((error, index) => (
+                    <tr key={index}>
+                      <td
+                        className="align-middle"
+                        style={{ minWidth: "250px" }}
+                      >
+                        <div>
+                          <strong className="fs-6 d-block">
+                            {error.name}
+                          </strong>
+                          <button
+                            onClick={() => { setShowProductDetails(true); setSelectedError(error) }}
+                            className="btn btn-outline-secondary btn-sm"
+                          >
+                            View Details
+                          </button>
+                        </div>
+                      </td>
+                      {[0, 1, 2, 3].map((i) => (
+                        <td
+                          key={i}
+                          className="text-center align-middle"
+                          style={{ minWidth: "200px" }}
+                        >
+                          {error.similar_products?.[i] ? (
+                            <div className="p-2">
+                              <SmartButton
+                                onClick={() =>
+                                  handleSelectProduct(
+                                    error.name,
+                                    error.similar_products[i].variant_id,
+                                    error.quantity,
+                                    error.unit,
+                                    error.size,
+                                    error.description
+                                  )
+                                }
+                                className="px-3"
+                                label={error.similar_products[i].raw_product_name}
+                              />
+                              {/* <button
+                                onClick={() =>
+                                  handleSelectProduct(
+                                    error.name,
+                                    error.similar_products[i].variant_id,
+                                    error.quantity,
+                                    error.unit,
+                                    "",
+                                    error.description
+                                  )
+                                }
+                                className="btn btn-primary btn-sm"
+                              >
+                                ✅ Add This Product
+                              </button> */}
+                            </div>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      <ProductDetailsModal show={showProductDetails} onClose={() => setShowProductDetails(false)} error={selectedError}/>
     </div>
   );
 };
