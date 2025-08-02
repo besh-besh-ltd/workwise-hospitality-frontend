@@ -125,7 +125,7 @@ const MagicSearchPage = () => {
             }
         } catch (error) {
             console.error("Upload failed:", error);
-            toast.error(error?.response?.data?.detail || "Simplified BOQ creation failed. Please try again.");
+            toast.error(error?.response?.data?.message || "Simplified BOQ creation failed. Please try again.");
         } finally {
             setSimplifyUploading(false);
             setShowSimplifyConfirmModal(false);
@@ -170,9 +170,9 @@ const uploadToServer = async (processed_file) => {
     }
   } catch (error) {
     console.log(error);
-    console.error(error?.response?.data?.detail);
+    console.error(error?.response?.data?.message);
     toast.error(
-      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
         "RFQ creation failed. Please try again later."
     );
   } finally {
