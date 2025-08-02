@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faMagnifyingGlass,
   faPlus,
+  faMinus,
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 import {  getProductMakeList, searchProductsV2 } from "@/services/products";
@@ -49,6 +50,11 @@ export const vendorConditions = [
 const Search = ({ title = "Preffered Vendors", type }) => {
   const router = useRouter();
   const { slug, s, loggedin } = router.query;
+  
+  // State for category expansion
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [categorySubcategories, setCategorySubcategories] = useState({});
+  const [expandingCategory, setExpandingCategory] = useState(null);
   const vendor_area_ref = useRef();
   const id = Date.now().toString();
   const [isOpen, setIsOpen] = useState(false);
@@ -166,6 +172,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setIsOpen(false);
+        // Reset expanded categories when modal closes
+        setExpandedCategories(new Set());
+        setCategorySubcategories({});
+        setExpandingCategory(null);
       }
       if(vendorTypeRef.current && !vendorTypeRef.current.contains(event.target)) {
         setVendorTypeOpen(false);
@@ -444,6 +454,48 @@ const addRfqIdParam = (rfq_id) => {
       .catch((error) => {
         setloading(false);
       });
+  };
+
+  const handleCategoryExpand = async (category_id, category_name) => {
+    // If already expanded, collapse it
+    if (expandedCategories.has(category_id)) {
+      setExpandedCategories(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(category_id);
+        return newSet;
+      });
+      return;
+    }
+
+    // If not expanded, fetch subcategories
+    setExpandingCategory(category_id);
+    try {
+      const res = await categoryListById({ category_id });
+      setCategorySubcategories(prev => ({
+        ...prev,
+        [category_id]: res.subCategoryList || []
+      }));
+      setExpandedCategories(prev => new Set([...prev, category_id]));
+    } catch (error) {
+      console.error("Error fetching subcategories:", error);
+      toast.error("Failed to load subcategories");
+    } finally {
+      setExpandingCategory(null);
+    }
+  };
+
+  const handleSubcategoryClick = (subcategory) => {
+    // Navigate to the subcategory page
+    const categorySlug = cleanAndAddHyphen(subcategory.title);
+    const { rfq_id, sheet_id } = router.query;
+    
+    const newUrl = rfq_id && sheet_id
+      ? `/vendor/${categorySlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}` 
+      : rfq_id && !sheet_id 
+      ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
+      : `/vendor/${categorySlug}`;
+
+    window.location.href = newUrl;
   };
 
   const getCategoriesById = (category_id, category_name) => {
@@ -863,35 +915,73 @@ const clearVendorFilters = () => {
                                       </h2>
                                       <ul>
                                         {searchCategories.map((item, index) => {
+                                          const isExpanded = expandedCategories.has(item.category_id);
+                                          const isExpanding = expandingCategory === item.category_id;
+                                          const subcategories = categorySubcategories[item.category_id] || [];
+                                          
                                           return (
-                                            <li
-                                              key={`search_cat_${index}`}
-                                              onClick={() =>
-                                                getCategoriesById(
-                                                  item.category_id,
-                                                  item.category_name
-                                                )
-                                              }
-                                              title={`${item.category_name}`}
-                                            >
-                                              <i>
-                                                <FontAwesomeIcon
-                                                  icon={faPlus}
-                                                />
-                                              </i>
-                                              <div>
-                                                <h3>{item.category_name}</h3>
-                                                <p>
-                                                  <small>
-                                                    <b>
-                                                      {
-                                                        item.parent_category_name
-                                                      }{" "}
-                                                    </b>
-                                                  </small>
-                                                </p>
-                                              </div>
-                                            </li>
+                                            <React.Fragment key={`search_cat_${index}`}>
+                                              <li
+                                                onClick={() =>
+                                                  handleCategoryExpand(
+                                                    item.category_id,
+                                                    item.category_name
+                                                  )
+                                                }
+                                                title={`${item.category_name}`}
+                                                style={{ cursor: 'pointer' }}
+                                              >
+                                                <i>
+                                                  {isExpanding ? (
+                                                    <div className="spinner-border spinner-border-sm" role="status">
+                                                      <span className="visually-hidden">Loading...</span>
+                                                    </div>
+                                                  ) : (
+                                                    <FontAwesomeIcon
+                                                      icon={isExpanded ? faMinus : faPlus}
+                                                      style={{ transition: 'transform 0.2s' }}
+                                                    />
+                                                  )}
+                                                </i>
+                                                <div>
+                                                  <h3>{item.category_name}</h3>
+                                                  <p>
+                                                    <small>
+                                                      <b>
+                                                        {
+                                                          item.parent_category_name
+                                                        }{" "}
+                                                      </b>
+                                                    </small>
+                                                  </p>
+                                                </div>
+                                              </li>
+                                              
+                                              {/* Subcategories */}
+                                              {isExpanded && subcategories.length > 0 && (
+                                                <div className="subcategories-container" style={{ marginLeft: '20px', borderLeft: '2px solid #e9ecef', paddingLeft: '10px' }}>
+                                                  {subcategories.map((subcategory, subIndex) => (
+                                                    <li
+                                                      key={`subcat_${item.category_id}_${subIndex}`}
+                                                      onClick={() => handleSubcategoryClick(subcategory)}
+                                                      title={`${subcategory.title}`}
+                                                      style={{ cursor: 'pointer', padding: '8px 12px', margin: '4px 0', backgroundColor: '#f8f9fa', borderRadius: '4px' }}
+                                                    >
+                                                      <div>
+                                                        <h4 style={{ fontSize: '14px', margin: '0', color: '#495057' }}>
+                                                          {subcategory.title}
+                                                        </h4>
+                                                        <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#6c757d' }}>
+                                                          <small>
+                                                            <b>Subcategory</b>
+                                                          </small>
+                                                        </p>
+                                                      </div>
+                                                    </li>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </React.Fragment>
                                           );
                                         })}
                                       </ul>
