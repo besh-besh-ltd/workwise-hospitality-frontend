@@ -65,46 +65,56 @@ const FinalizeVendorModal = ({
         </div>
 
         <div className="p-3 border rounded shadow-sm">
-          <h5 className="mb-3 fw-bold text-primary">Budget Summary</h5>
-
-          <div className="mb-3 p-3 bg-light rounded">
-            <h6 className="mb-2 text-muted">Budget Details</h6>
-            <div className="d-flex justify-content-between mb-2">
-              <span className="text-muted">Total Budget:</span>
-              <span className="fw-bold">₹{addCommasToNumber(availableBudget?.total_budget)}</span>
-            </div>
-            <div className="d-flex justify-content-between mb-2">
-              <span className="text-muted">Available Budget:</span>
-              <span className="fw-bold">
-                ₹{addCommasToNumber(availableBudget?.available_budget)}
-              </span>
-            </div>
-
-            <div className="d-flex justify-content-between mb-1">
-              <span className="text-muted">Quoted Price:</span>
-              <span className="fw-bold">₹{quotedPrice}</span>
-            </div>
-            <hr className="my-2" />
-            <div className="d-flex justify-content-between">
-              <span className="fw-semibold">Remaining Amount:</span>
-              {availableBudget?.available_budget - quotedPrice >= 0 ? (
-                <span className="fw-bold text-success">
-                  ₹{addCommasToNumber(availableBudget?.available_budget - quotedPrice)}
-                </span>
-              ) : (
-                <span className="fw-bold text-danger">
-                  ₹{addCommasToNumber(availableBudget?.available_budget - quotedPrice)} (Exceeds
-                  Budget!)
-                </span>
-              )}
-            </div>
-            {availableBudget?.available_budget - quotedPrice < 0 && (
-              <div className="mt-2 p-2 bg-danger bg-opacity-10 rounded text-danger">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                Warning: This purchase will exceed your available budget!
+          {availableBudget?.total_budget > 0 && (
+            <>
+              <h5 className="mb-3 fw-bold text-primary">Budget Summary</h5>
+              <div className="mb-3 p-3 bg-light rounded">
+                <h6 className="mb-2 text-muted">Budget Details</h6>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Total Budget:</span>
+                  <span className="fw-bold">
+                    ₹{addCommasToNumber(availableBudget?.total_budget)}
+                  </span>
+                </div>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Available Budget:</span>
+                  <span className="fw-bold">
+                    ₹{addCommasToNumber(availableBudget?.available_budget)}
+                  </span>
+                </div>
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-muted">Quoted Price:</span>
+                  <span className="fw-bold">₹{quotedPrice}</span>
+                </div>
+                <hr className="my-2" />
+                <div className="d-flex justify-content-between">
+                  <span className="fw-semibold">Remaining Amount:</span>
+                  {availableBudget?.available_budget - quotedPrice >= 0 ? (
+                    <span className="fw-bold text-success">
+                      ₹
+                      {addCommasToNumber(
+                        availableBudget?.available_budget - quotedPrice
+                      )}
+                    </span>
+                  ) : (
+                    <span className="fw-bold text-danger">
+                      ₹
+                      {addCommasToNumber(
+                        availableBudget?.available_budget - quotedPrice
+                      )}{" "}
+                      (Exceeds Budget!)
+                    </span>
+                  )}
+                </div>
+                {availableBudget?.available_budget - quotedPrice < 0 && (
+                  <div className="mt-2 p-2 bg-danger bg-opacity-10 rounded text-danger">
+                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                    Warning: This purchase will exceed your available budget!
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           <div className="mb-2">
             <h6 className="mb-2 text-muted">Purchase Details</h6>
