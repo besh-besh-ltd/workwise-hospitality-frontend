@@ -209,27 +209,28 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {(!item.finalization ||
-                            item.finalization.winning_vendor.id !=
-                              item?.quote_details?.created_by) && (
-                            <Dropdown.Item
-                              href="#"
-                              onClick={(e) => {
-                                setActiveModal('finalize')
-                                setCurrentItem(item);
-                                // handleFinalize(item, proditem);
-                              }}
-                              className="finalize-link"
-                            >
-                              Finalize
-                            </Dropdown.Item>
-                          )}
+                          {!item.quote_details.is_regret == 1 &&
+                            (!item.finalization ||
+                              item.finalization.winning_vendor.id !=
+                                item?.quote_details?.created_by) && (
+                              <Dropdown.Item
+                                href="#"
+                                onClick={(e) => {
+                                  setActiveModal("finalize");
+                                  setCurrentItem(item);
+                                  // handleFinalize(item, proditem);
+                                }}
+                                className="finalize-link"
+                              >
+                                Finalize
+                              </Dropdown.Item>
+                            )}
 
                           {item.previous_quotes?.length > 0 && (
                             <Dropdown.Item
                               href="#"
                               onClick={() => {
-                                setActiveModal('quote_history');
+                                setActiveModal("quote_history");
                                 setQuotehistorydata({
                                   product_details: proditem.product_details,
                                   previous_quotes: item.previous_quotes,
@@ -379,7 +380,9 @@ const QuoteCompareTable = ({
                         "NA"
                       )}
                     </div>
-                    <div className="table-si-row">{item?.quote_details?.created_by || '-'}</div>
+                    <div className="table-si-row">
+                      {item?.quote_details?.created_by || "-"}
+                    </div>
                   </div>
                 );
               })}
