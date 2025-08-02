@@ -724,15 +724,15 @@ const clearVendorFilters = () => {
           <h1 className="heading">{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</h1>
           <div className="d-flex justify-content-end">
             <Link
-              href="/dashboard/buyer/magic-search"
+              href="/dashboard/buyer/boq-automation"
               className="page-link backBtn btn btn-secondary text-white px-2 "
               style={{ minWidth: "280px" }}
               onClick={(e) => {
                 e.preventDefault();
                 if (!isLoggedIn) {
                   setOpenAuthModal(true);
-                  setRedirectAfterLogin("/dashboard/buyer/magic-search");
-                } else router.push("/dashboard/buyer/magic-search");
+                  setRedirectAfterLogin("/dashboard/buyer/boq-automation");
+                } else router.push("/dashboard/buyer/boq-automation");
               }}
             >
               {" "}

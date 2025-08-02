@@ -4,8 +4,11 @@ import moment from "moment";
 import { Button } from "react-bootstrap";
 import { deleteDraft } from "@/services/rfq";
 import { toast } from "react-toastify";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const DraftRFQItem = ({ data , refetch }) => {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingDraftId, setDeletingDraftId] = useState(null);
    
   const handleDeleteDarft = async (draft_id) => {
     try { 
@@ -21,8 +24,24 @@ const DraftRFQItem = ({ data , refetch }) => {
         toast.error("Failed to delete draft RFQ");  
       }
     } catch (error) {
-
       toast.error("Error deleting draft RFQ");
+    }
+  };
+
+  const openDeleteModal = (draftId) => {
+    setDeletingDraftId(draftId);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeletingDraftId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (deletingDraftId) {
+      await handleDeleteDarft(deletingDraftId);
+      closeDeleteModal();
     }
   };
 
@@ -106,13 +125,25 @@ const DraftRFQItem = ({ data , refetch }) => {
             <Button
               className="btn btn-sm bg-danger border-0 text-white"
               style={{ width: "100px", padding: "9px 0" }}
-              onClick={() => handleDeleteDarft(data?.id)}
+              onClick={() => openDeleteModal(data?.id)}
             >
               Delete
             </Button>
           </div>
         </td>
       </tr>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title="Delete Draft RFQ"
+        description={`Are you sure you want to delete draft RFQ #${data?.rfq_no || 'this draft'}?\nOnce deleted, you won't be able to recover it.`}
+        confirmButtonColor="danger"
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+      />
     </>
   );
 };
