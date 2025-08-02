@@ -112,7 +112,7 @@ export const finalCtaData = {
   },
   secondaryButton: {
     label: "Book a Call",
-    variant: "white",
+    variant: "outline",
     icon: "phone"
   }
 }; 

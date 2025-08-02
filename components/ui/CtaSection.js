@@ -1,58 +1,61 @@
 import React from 'react';
 import { Button } from './Button';
 
-const CtaSection = React.forwardRef(({ 
-  className, 
-  title,
-  icon: Icon,
-  primaryButton,
+const CtaSection = ({ 
+  title, 
+  description, 
+  primaryButton, 
   secondaryButton,
-  ...props 
-}, ref) => {
+  className = "" 
+}) => {
   return (
-    <section
-      className={`py-5 ${className || ''}`}
+    <section 
+      className={`py-5 ${className}`}
       style={{
-        background: 'linear-gradient(90deg, var(--primary-color) 0%, #428B41 50%, #20c997 100%)'
+        background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)'
       }}
-      ref={ref}
-      {...props}
     >
       <div className="container">
         <div className="row justify-content-center">
           <div className="col-lg-8 text-center">
-            {/* Icon */}
-            {Icon && (
-              <div className="text-white-50 mb-4">
-                <Icon size={48} />
-              </div>
+            {title && (
+              <h2 className="fs-3 fw-bold text-white mb-4">
+                {title}
+              </h2>
+            )}
+            
+            {description && (
+              <p className="text-white mb-5" style={{ fontSize: '1rem' }}>
+                {description}
+              </p>
             )}
 
-            {/* Title */}
-            <h2 className="display-5 fw-bold text-white mb-5">
-              {title}
-            </h2>
-
-            {/* CTA Buttons */}
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
               {primaryButton && (
                 <Button
                   label={primaryButton.label}
-                  variant={primaryButton.variant || "black"}
-                  icon={primaryButton.icon || "arrow"}
-                  size="lg"
+                  variant={primaryButton.variant}
+                  icon={primaryButton.icon}
                   onClick={primaryButton.onClick}
-                  className="w-auto"
+                  size="lg"
+                  className="px-5 py-2"
+                  style={{ minWidth: '330px' }}
                 />
               )}
+              
               {secondaryButton && (
                 <Button
                   label={secondaryButton.label}
-                  variant={secondaryButton.variant || "white"}
-                  icon={secondaryButton.icon || "phone"}
-                  size="lg"
+                  variant={secondaryButton.variant}
+                  icon={secondaryButton.icon}
                   onClick={secondaryButton.onClick}
-                  className="w-auto"
+                  size="lg"
+                  className="px-5 py-2 text-white border-white"
+                  style={{
+                    color: 'white',
+                    borderColor: 'white',
+                    minWidth: '330px'
+                  }}
                 />
               )}
             </div>
@@ -61,8 +64,6 @@ const CtaSection = React.forwardRef(({
       </div>
     </section>
   );
-});
-
-CtaSection.displayName = "CtaSection";
+};
 
 export { CtaSection }; 

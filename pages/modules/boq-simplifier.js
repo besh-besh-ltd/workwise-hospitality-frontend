@@ -107,7 +107,7 @@ const BoqSimplifierPage = () => {
       {/* Top Benefits Section */}
       <section className="py-5 bg-white">
         <div className="container">
-          <h2 className="display-5 fw-bold text-dark text-center mb-5">
+          <h2 className="fs-1 fw-bold text-dark text-center mb-5">
             {benefitsData.title}
           </h2>
           
@@ -132,7 +132,7 @@ const BoqSimplifierPage = () => {
         <div className="container">
           <div className="d-flex align-items-center justify-content-center mb-5">
             <TrendingUp className="me-2" size={24} style={{ color: 'var(--text-color)' }} />
-            <h2 className="display-5 fw-bold text-dark mb-0">
+            <h2 className="fs-1 fw-bold text-dark mb-0">
               {howItWorksData.title}
             </h2>
           </div>
@@ -160,7 +160,7 @@ const BoqSimplifierPage = () => {
         <div className="container">
           <div className="d-flex align-items-center justify-content-center mb-5">
             <TrendingUp className="me-2" size={24} style={{ color: 'var(--red-color)' }} />
-            <h2 className="display-5 fw-bold text-dark mb-0">
+            <h2 className="fs-1 fw-bold text-dark mb-0">
               {customerSayingsData.title}
             </h2>
           </div>
@@ -180,7 +180,7 @@ const BoqSimplifierPage = () => {
             <div className="col-lg-6">
               <div className="card h-100 shadow-sm border-0">
                 <div className="card-body p-4">
-                  <h3 className="h4 fw-bold text-dark mb-4">
+                  <h3 className="fs-3 fw-bold text-dark mb-4">
                     {customerSayingsData.realOutcomes.title}
                   </h3>
                   
@@ -204,7 +204,7 @@ const BoqSimplifierPage = () => {
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-lg-8">
-              <h2 className="display-5 fw-bold text-dark text-center mb-5">
+              <h2 className="fs-1 fw-bold text-dark text-center mb-5">
                 {faqData.title}
               </h2>
               
