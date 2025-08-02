@@ -14,6 +14,7 @@ import {
 // Import reusable components
 import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
+import { FeatureCard } from '@/components/ui/FeatureCard';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
 
 // Import data
@@ -56,7 +57,9 @@ const SuccessStoriesPage = () => {
       <section
         className="py-5"
         style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)'
+          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
+          paddingTop: '160px',
+          paddingBottom: '60px'
         }}
       >
         <div className="container">
@@ -77,19 +80,55 @@ const SuccessStoriesPage = () => {
                 <div className="col-md-4">
                   <div className="position-relative">
                     <label className="form-label text-white small mb-2">{successStoriesData.filters.stakeholderType.label}</label>
-                    <div className="custom-dropdown">
+                    <div className="custom-dropdown" style={{ position: 'relative', width: '100%' }}>
                       <div 
                         className="custom-dropdown-header"
                         onClick={() => setShowStakeholderDropdown(!showStakeholderDropdown)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          backgroundColor: '#f8f9fa',
+                          border: '1px solid #dee2e6',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          color: '#495057',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#e9ecef'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#f8f9fa'}
                       >
                         <span>{stakeholderType}</span>
                         <ChevronDown 
                           className={`dropdown-arrow ${showStakeholderDropdown ? 'rotated' : ''}`} 
                           size={14} 
+                          style={{
+                            transition: 'transform 0.2s ease',
+                            color: '#6c757d',
+                            transform: showStakeholderDropdown ? 'rotate(180deg)' : 'rotate(0deg)'
+                          }}
                         />
                       </div>
                       {showStakeholderDropdown && (
-                        <div className="custom-dropdown-menu">
+                        <div 
+                          className="custom-dropdown-menu"
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            backgroundColor: 'white',
+                            border: '1px solid #dee2e6',
+                            borderTop: 'none',
+                            borderRadius: '0 0 6px 6px',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                            zIndex: 1000,
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }}
+                        >
                           {successStoriesData.filters.stakeholderType.options.map((option) => (
                             <div
                               key={option}
@@ -97,6 +136,26 @@ const SuccessStoriesPage = () => {
                               onClick={() => {
                                 setStakeholderType(option);
                                 setShowStakeholderDropdown(false);
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                color: stakeholderType === option ? '#0d6efd' : '#495057',
+                                transition: 'background-color 0.2s ease',
+                                backgroundColor: stakeholderType === option ? '#e3f2fd' : 'transparent',
+                                fontWeight: stakeholderType === option ? '500' : 'normal',
+                                borderBottom: '1px solid #f1f3f4'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (stakeholderType !== option) {
+                                  e.target.style.backgroundColor = '#f8f9fa';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (stakeholderType !== option) {
+                                  e.target.style.backgroundColor = 'transparent';
+                                }
                               }}
                             >
                               {option}
@@ -110,19 +169,55 @@ const SuccessStoriesPage = () => {
                 <div className="col-md-4">
                   <div className="position-relative">
                     <label className="form-label text-white small mb-2">{successStoriesData.filters.projectValueRange.label}</label>
-                    <div className="custom-dropdown">
+                    <div className="custom-dropdown" style={{ position: 'relative', width: '100%' }}>
                       <div 
                         className="custom-dropdown-header"
                         onClick={() => setShowValueDropdown(!showValueDropdown)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          backgroundColor: '#f8f9fa',
+                          border: '1px solid #dee2e6',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          color: '#495057',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#e9ecef'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#f8f9fa'}
                       >
                         <span>{projectValueRange}</span>
                         <ChevronDown 
                           className={`dropdown-arrow ${showValueDropdown ? 'rotated' : ''}`} 
                           size={14} 
+                          style={{
+                            transition: 'transform 0.2s ease',
+                            color: '#6c757d',
+                            transform: showValueDropdown ? 'rotate(180deg)' : 'rotate(0deg)'
+                          }}
                         />
                       </div>
                       {showValueDropdown && (
-                        <div className="custom-dropdown-menu">
+                        <div 
+                          className="custom-dropdown-menu"
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            backgroundColor: 'white',
+                            border: '1px solid #dee2e6',
+                            borderTop: 'none',
+                            borderRadius: '0 0 6px 6px',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                            zIndex: 1000,
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }}
+                        >
                           {successStoriesData.filters.projectValueRange.options.map((option) => (
                             <div
                               key={option}
@@ -130,6 +225,26 @@ const SuccessStoriesPage = () => {
                               onClick={() => {
                                 setProjectValueRange(option);
                                 setShowValueDropdown(false);
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                color: projectValueRange === option ? '#0d6efd' : '#495057',
+                                transition: 'background-color 0.2s ease',
+                                backgroundColor: projectValueRange === option ? '#e3f2fd' : 'transparent',
+                                fontWeight: projectValueRange === option ? '500' : 'normal',
+                                borderBottom: '1px solid #f1f3f4'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (projectValueRange !== option) {
+                                  e.target.style.backgroundColor = '#f8f9fa';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (projectValueRange !== option) {
+                                  e.target.style.backgroundColor = 'transparent';
+                                }
                               }}
                             >
                               {option}
@@ -224,98 +339,43 @@ const SuccessStoriesPage = () => {
         story={selectedStory}
         onBookCall={handleBookCall}
       />
-
-      {/* Custom Dropdown Styles */}
-      <style jsx>{`
-        .custom-dropdown {
-          position: relative;
-          width: 100%;
-        }
-
-        .custom-dropdown-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 10px 12px;
-          background-color: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 0.9rem;
-          color: #495057;
-          transition: all 0.2s ease;
-        }
-
-        .custom-dropdown-header:hover {
-          background-color: #e9ecef;
-        }
-
-        .dropdown-arrow {
-          transition: transform 0.2s ease;
-          color: #6c757d;
-        }
-
-        .dropdown-arrow.rotated {
-          transform: rotate(180deg);
-        }
-
-        .custom-dropdown-menu {
-          position: absolute;
-          top: 100%;
-          left: 0;
-          right: 0;
-          background-color: white;
-          border: 1px solid #dee2e6;
-          border-top: none;
-          border-radius: 0 0 6px 6px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          z-index: 1000;
-          max-height: 200px;
-          overflow-y: auto;
-        }
-
-        .custom-dropdown-item {
-          padding: 8px 12px;
-          cursor: pointer;
-          font-size: 0.9rem;
-          color: #495057;
-          transition: background-color 0.2s ease;
-        }
-
-        .custom-dropdown-item:hover {
-          background-color: #f8f9fa;
-        }
-
-        .custom-dropdown-item.active {
-          background-color: #e3f2fd;
-          color: #0d6efd;
-          font-weight: 500;
-        }
-
-        .custom-dropdown-item:not(:last-child) {
-          border-bottom: 1px solid #f1f3f4;
-        }
-      `}</style>
     </div>
   );
 };
 
-// Success Story Card Component
+// Success Story Card Component using FeatureCard
 const SuccessStoryCard = ({ story, onReadMore }) => {
   const getIcon = () => {
     switch (story.icon) {
       case 'zap':
-        return <Zap className="text-warning" size={20} />;
+        return Zap;
       case 'building':
-        return <Building className="text-primary" size={20} />;
+        return Building;
       case 'wrench':
-        return <Wrench className="text-info" size={20} />;
+        return Wrench;
       case 'settings':
-        return <Settings className="text-secondary" size={20} />;
+        return Settings;
       case 'waves':
-        return <Waves className="text-info" size={20} />;
+        return Waves;
       default:
-        return <Target className="text-danger" size={20} />;
+        return Target;
+    }
+  };
+
+  const getIconColor = () => {
+    switch (story.icon) {
+      case 'zap':
+        return 'text-warning';
+      case 'building':
+        return 'text-primary';
+      case 'wrench':
+        return 'text-info';
+      case 'settings':
+        return 'text-secondary';
+      case 'waves':
+        return 'text-info';
+      default:
+        return 'text-danger';
     }
   };
 
@@ -334,53 +394,54 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
     }
   };
 
+  const IconComponent = getIcon();
+
   return (
-    <div className="card h-100 shadow-sm border-0">
-      <div className="card-body p-3">
-        {/* Icon and Industry */}
-        <div className="d-flex align-items-center mb-2">
-          {getIcon()}
-          <h6 className="card-title fw-bold text-dark mb-0 ms-2" style={{ fontSize: '0.95rem' }}>
-            {story.industry}
-          </h6>
+    <FeatureCard
+      icon={IconComponent}
+      iconBgColor="bg-light"
+      iconColor={getIconColor()}
+      title={story.industry}
+      description={
+        <div className="text-start">
+          {/* Achievement */}
+          <p className="text-muted mb-2" style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
+            {story.achievement}
+          </p>
+
+          {/* Stakeholder Type Tag */}
+          <div className="mb-2">
+            <span className={`badge ${getStakeholderColor()} text-white`} style={{ fontSize: '0.75rem' }}>
+              {story.stakeholderType}
+            </span>
+          </div>
+
+          {/* Location */}
+          <div className="d-flex align-items-center mb-3">
+            <MapPin className="text-muted me-1" size={12} />
+            <span className="text-muted small" style={{ fontSize: '0.8rem' }}>{story.location}</span>
+          </div>
+
+          {/* Read More Button - Non-animated */}
+          <button
+            className="btn btn-secondary w-100"
+            onClick={onReadMore}
+            style={{ 
+              backgroundColor: '#6c757d', 
+              borderColor: '#6c757d',
+              color: 'white',
+              transition: 'none',
+              fontSize: '0.85rem',
+              padding: '8px 12px',
+              borderRadius: '6px'
+            }}
+          >
+            Read More
+          </button>
         </div>
-
-        {/* Achievement */}
-        <p className="card-text text-muted mb-2" style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
-          {story.achievement}
-        </p>
-
-        {/* Stakeholder Type Tag */}
-        <div className="mb-2">
-          <span className={`badge ${getStakeholderColor()} text-white`} style={{ fontSize: '0.75rem' }}>
-            {story.stakeholderType}
-          </span>
-        </div>
-
-        {/* Location */}
-        <div className="d-flex align-items-center mb-3">
-          <MapPin className="text-muted me-1" size={12} />
-          <span className="text-muted small" style={{ fontSize: '0.8rem' }}>{story.location}</span>
-        </div>
-
-        {/* Read More Button - Non-animated */}
-        <button
-          className="btn btn-secondary w-100"
-          onClick={onReadMore}
-          style={{ 
-            backgroundColor: '#6c757d', 
-            borderColor: '#6c757d',
-            color: 'white',
-            transition: 'none',
-            fontSize: '0.85rem',
-            padding: '8px 12px',
-            borderRadius: '6px'
-          }}
-        >
-          Read More
-        </button>
-      </div>
-    </div>
+      }
+      className="text-start"
+    />
   );
 };
 
