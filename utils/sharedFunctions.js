@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import axiosInstance from "@/lib/axios";
 import { handleUploadFile } from "@/services/rfq";
 
@@ -19,6 +20,18 @@ export const getDataWithLoading = async (fetchingFunc, loadingSetter) => {
     throw error;
   } finally {
     loadingSetter(false);
+  }
+};
+
+export const formatToINRShort = (amount) => {
+  if (amount >= 10000000) {
+    return `${(amount / 10000000).toFixed(amount % 10000000 === 0 ? 0 : 1)}Cr`;
+  } else if (amount >= 100000) {
+    return `${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
+  } else if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}K`;
+  } else {
+    return amount.toString();
   }
 };
 
@@ -156,6 +169,18 @@ export const formatISOToDateTimeLocal = (isoString) => {
     }
 };
 
+const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+export default useDebounce;
 
 // Calculate Total for Quote Comparison Pages
 export const calculateTotal = (item, quantity) => {
@@ -177,3 +202,23 @@ export const calculateTotal = (item, quantity) => {
   let TotalPrice = total_with_fpt + T;
   return Math.round(TotalPrice);
 }
+
+export const  addCommasToNumber = (number) => {
+
+    if (number <= 0 || !number) {
+      return 0
+    }
+
+    // Convert number to string
+    let numberString = number.toString();
+
+    // Split the number string into parts
+    let parts = numberString.split(".");
+
+    // Add commas to the integer part
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    //parts[0] = parts[0].replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+
+    // Join the parts back together with decimal point if applicable
+    return parts.join(".");
+  };

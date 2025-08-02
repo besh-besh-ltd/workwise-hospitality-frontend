@@ -69,6 +69,7 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
                   <tr>
                     <th>SR. No</th>
                     <th>File name</th>
+                    <th>Action Performed</th>
                     <th>Status</th>
                     <th>Started At</th>
                     <th>Completed At</th>

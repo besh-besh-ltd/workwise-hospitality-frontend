@@ -36,7 +36,6 @@ import AddVendorModal from "../editRFQ/AddVendorModal";
 import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
-import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 
 
 const myVendorOptions = [
@@ -116,7 +115,7 @@ const CreateRFQ = () => {
   const rfqFormDataFromStore = useSelector((data) => data.rfqFormData);
   const allTerms = useSelector((data) => data.allTerms);
   const selectedTerms = useSelector((data) => data.rfqFormData.terms);
-  const termFiles = useSelector((data) => data.rfqFormData.term_and_condition_files);
+  const termFiles = useSelector((state) => state.rfqFormData.term_and_condition_files || []);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
@@ -132,6 +131,11 @@ const CreateRFQ = () => {
     },
     vendors: {},
   })
+
+
+  useEffect(()=>{
+    console.log("cheking the files here",termFiles );
+  },[termFiles])
   const [vendors, setVendors] = useState({});
   const [addableVendors, setAddableVendors] = useState([]);
   const [termsChanged, setTermsChanged] = useState(false);
@@ -512,6 +516,17 @@ const CreateRFQ = () => {
             })
           );
           dispatch(setOtherFormFields({ field_name: "location", value: projectData.location || "" }));
+          dispatch(
+            setOtherFormFields({
+              field_name: "term_and_condition_files",
+              value: projectData.files
+                ? projectData.files
+                    .filter((file) => file.file_type === "tc")
+                    .map((file) => (file.file_url))
+                : [],
+            })
+          );
+
         } else {
           console.error("Project data is empty or undefined.");
         }
@@ -811,15 +826,16 @@ const CreateRFQ = () => {
           const sheetOptions = sheetData.map(sheet => ({
             label: sheet.sheet_name,
             value: sheet.id,
-            is_processed: sheet.is_processed,
-            validation_errors: sheet.validation_errors,
+            is_processed: sheet.is_processed
           }));
           setSheetNameList(sheetOptions);
           
           // Set default selected sheet
           if (sheetData.length > 0) {
-            const defaultSheet = sheetOptions[0];
-
+            const defaultSheet = {
+              label: sheetData[0].sheet_name,
+              value: sheetData[0].id
+            };
             if(queryMeta.sheet_id) {
               const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
               setSelectedSheet(sheet);
@@ -904,16 +920,16 @@ const CreateRFQ = () => {
           if (sheetData && sheetData.length > 0) {
             const sheetOptions = sheetData.map(sheet => ({
               label: sheet.sheet_name,
-              value: sheet.id,
-              is_processed: sheet.is_processed,
-              validation_errors: sheet.validation_errors,
+              value: sheet.id
             }));
             setSheetNameList(sheetOptions);
             
             // Set default selected sheet
             if (sheetData.length > 0) {
-              const defaultSheet = sheetOptions[0];
-
+              const defaultSheet = {
+                label: sheetData[0].sheet_name,
+                value: sheetData[0].id
+              };
               if(queryMeta.sheet_id) {
                 const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
                 setSelectedSheet(sheet);
@@ -1935,15 +1951,11 @@ const CreateRFQ = () => {
 
                   {loading && <Loader />}
 
-                  {sheetNameList && sheetNameList.length > 0 && (
-                    <ValidationErrorsDisplay rfq_id={draft_id} selectedSheet={selectedSheet} refetchRFQ={getDraftInitialData} setLoading={(loading => dispatch(setStoreLoading(loading)))} />
-                  )}
-
                   {/* Terms Checkbox Section */}
-                  <div className="create-rfq-con-2 mt-4">
+                  <div className="create-rfq-con-2 sc-pt-50">
                     <div className="row">
                       {!loading && allTerms.length > 0 && (
-                        <div className="col-md-8">
+                        <div className="col-md-8 createR-ffq-1">
                           <h4>Suggested Terms</h4>
 
                           <ol className="custom-ol">
