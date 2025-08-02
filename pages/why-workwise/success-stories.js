@@ -7,7 +7,6 @@ import {
   Settings,
   Waves,
   MapPin,
-  ChevronDown,
   Phone
 } from 'lucide-react';
 
@@ -15,6 +14,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
+import { Dropdown } from '@/components/ui/Dropdown';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
 
 // Import data
@@ -26,8 +26,6 @@ const SuccessStoriesPage = () => {
   const [visibleStories, setVisibleStories] = useState(6);
   const [selectedStory, setSelectedStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [showStakeholderDropdown, setShowStakeholderDropdown] = useState(false);
-  const [showValueDropdown, setShowValueDropdown] = useState(false);
 
   const handleBookCall = () => {
     console.log('Book a Call clicked');
@@ -78,182 +76,20 @@ const SuccessStoriesPage = () => {
               {/* Filters */}
               <div className="row g-3">
                 <div className="col-md-4">
-                  <div className="position-relative">
-                    <label className="form-label text-white small mb-2">{successStoriesData.filters.stakeholderType.label}</label>
-                    <div className="custom-dropdown" style={{ position: 'relative', width: '100%' }}>
-                      <div 
-                        className="custom-dropdown-header"
-                        onClick={() => setShowStakeholderDropdown(!showStakeholderDropdown)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          backgroundColor: '#f8f9fa',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          color: '#495057',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#e9ecef'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                      >
-                        <span>{stakeholderType}</span>
-                        <ChevronDown 
-                          className={`dropdown-arrow ${showStakeholderDropdown ? 'rotated' : ''}`} 
-                          size={14} 
-                          style={{
-                            transition: 'transform 0.2s ease',
-                            color: '#6c757d',
-                            transform: showStakeholderDropdown ? 'rotate(180deg)' : 'rotate(0deg)'
-                          }}
-                        />
-                      </div>
-                      {showStakeholderDropdown && (
-                        <div 
-                          className="custom-dropdown-menu"
-                          style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            backgroundColor: 'white',
-                            border: '1px solid #dee2e6',
-                            borderTop: 'none',
-                            borderRadius: '0 0 6px 6px',
-                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                            zIndex: 1000,
-                            maxHeight: '200px',
-                            overflowY: 'auto'
-                          }}
-                        >
-                          {successStoriesData.filters.stakeholderType.options.map((option) => (
-                            <div
-                              key={option}
-                              className={`custom-dropdown-item ${stakeholderType === option ? 'active' : ''}`}
-                              onClick={() => {
-                                setStakeholderType(option);
-                                setShowStakeholderDropdown(false);
-                              }}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                color: stakeholderType === option ? '#0d6efd' : '#495057',
-                                transition: 'background-color 0.2s ease',
-                                backgroundColor: stakeholderType === option ? '#e3f2fd' : 'transparent',
-                                fontWeight: stakeholderType === option ? '500' : 'normal',
-                                borderBottom: '1px solid #f1f3f4'
-                              }}
-                              onMouseEnter={(e) => {
-                                if (stakeholderType !== option) {
-                                  e.target.style.backgroundColor = '#f8f9fa';
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (stakeholderType !== option) {
-                                  e.target.style.backgroundColor = 'transparent';
-                                }
-                              }}
-                            >
-                              {option}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <Dropdown
+                    label={successStoriesData.filters.stakeholderType.label}
+                    options={successStoriesData.filters.stakeholderType.options}
+                    value={stakeholderType}
+                    onChange={setStakeholderType}
+                  />
                 </div>
                 <div className="col-md-4">
-                  <div className="position-relative">
-                    <label className="form-label text-white small mb-2">{successStoriesData.filters.projectValueRange.label}</label>
-                    <div className="custom-dropdown" style={{ position: 'relative', width: '100%' }}>
-                      <div 
-                        className="custom-dropdown-header"
-                        onClick={() => setShowValueDropdown(!showValueDropdown)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          backgroundColor: '#f8f9fa',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          color: '#495057',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#e9ecef'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                      >
-                        <span>{projectValueRange}</span>
-                        <ChevronDown 
-                          className={`dropdown-arrow ${showValueDropdown ? 'rotated' : ''}`} 
-                          size={14} 
-                          style={{
-                            transition: 'transform 0.2s ease',
-                            color: '#6c757d',
-                            transform: showValueDropdown ? 'rotate(180deg)' : 'rotate(0deg)'
-                          }}
-                        />
-                      </div>
-                      {showValueDropdown && (
-                        <div 
-                          className="custom-dropdown-menu"
-                          style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            backgroundColor: 'white',
-                            border: '1px solid #dee2e6',
-                            borderTop: 'none',
-                            borderRadius: '0 0 6px 6px',
-                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                            zIndex: 1000,
-                            maxHeight: '200px',
-                            overflowY: 'auto'
-                          }}
-                        >
-                          {successStoriesData.filters.projectValueRange.options.map((option) => (
-                            <div
-                              key={option}
-                              className={`custom-dropdown-item ${projectValueRange === option ? 'active' : ''}`}
-                              onClick={() => {
-                                setProjectValueRange(option);
-                                setShowValueDropdown(false);
-                              }}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                color: projectValueRange === option ? '#0d6efd' : '#495057',
-                                transition: 'background-color 0.2s ease',
-                                backgroundColor: projectValueRange === option ? '#e3f2fd' : 'transparent',
-                                fontWeight: projectValueRange === option ? '500' : 'normal',
-                                borderBottom: '1px solid #f1f3f4'
-                              }}
-                              onMouseEnter={(e) => {
-                                if (projectValueRange !== option) {
-                                  e.target.style.backgroundColor = '#f8f9fa';
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (projectValueRange !== option) {
-                                  e.target.style.backgroundColor = 'transparent';
-                                }
-                              }}
-                            >
-                              {option}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <Dropdown
+                    label={successStoriesData.filters.projectValueRange.label}
+                    options={successStoriesData.filters.projectValueRange.options}
+                    value={projectValueRange}
+                    onChange={setProjectValueRange}
+                  />
                 </div>
                 <div className="col-md-4">
                   <div className="d-flex flex-column h-100 justify-content-end">
