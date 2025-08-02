@@ -88,64 +88,68 @@ const VendorSelectionModal = ({
       onRequestClose={onClose}
       ariaHideApp={false}
       contentLabel="Select Vendors for Reminder"
-      className="contact-modal contact-modal-new"
+      className="contact-modal contact-modal-new vendor-selection-modal"
       style={{
         overlay: {
           backgroundColor: "rgba(0, 0, 0, 0.75)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1rem",
         },
         content: {
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          maxWidth: "90vw",
+          position: "relative",
+          top: "auto",
+          left: "auto",
+          right: "auto",
+          bottom: "auto",
+          transform: "none",
+          maxWidth: "95vw",
           width: "600px",
-          border: "none",
-          background: "transparent",
-          overflow: "hidden",
-          padding: "30px",
           maxHeight: "90vh",
           height: "auto",
+          border: "none",
+          background: "white",
+          borderRadius: "8px",
+          overflow: "hidden",
+          padding: "0",
+          margin: "0",
         },
       }}
     >
-      <div className="modal-header">
-        <button
-          onClick={onClose}
-          className="btn-close"
-          aria-label="Close"
-        ></button>
+      <div className="modal-header border-bottom p-3">
+        <h4 className="mb-0 fw-bold">Select Vendors for Reminder</h4>
       </div>
 
-      <div className="modal-body">
-        <div className="p-4">
-          <h4 className="mb-4 text-center">Select Vendors for Reminder</h4>
-          
-          {loading ? (
-            <div className="text-center">
-              <div className="spinner-border" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <p className="mt-2">Loading vendors...</p>
+      <div className="modal-body p-0">
+        {loading ? (
+          <div className="text-center py-5">
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Loading...</span>
             </div>
-          ) : vendors.length === 0 ? (
-            <p className="text-center">No vendors need reminders for this RFQ.</p>
-          ) : (
-            <>
-              {/* Global Summary */}
-              <div className="alert alert-info mb-4" style={{ backgroundColor: '#e3f2fd', border: '1px solid #2196f3', borderRadius: '8px' }}>
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>Total Products Pending:</strong> {totalGlobalProducts}
-                  </div>
-                  <div>
-                    <strong>Total Vendors:</strong> {vendors.length}
-                  </div>
+            <p className="mt-2">Loading vendors...</p>
+          </div>
+        ) : vendors.length === 0 ? (
+          <div className="text-center py-4 px-3">
+            <p className="mb-0">No vendors need reminders for this RFQ.</p>
+          </div>
+        ) : (
+          <div className="vendor-modal-content">
+            {/* Global Summary */}
+            <div className="alert alert-info mx-3 mt-3 mb-3" style={{ backgroundColor: '#e3f2fd', border: '1px solid #2196f3', borderRadius: '8px' }}>
+              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                <div className="text-center text-sm-start">
+                  <strong>Total Products Pending:</strong> {totalGlobalProducts}
+                </div>
+                <div className="text-center text-sm-end">
+                  <strong>Total Vendors:</strong> {vendors.length}
                 </div>
               </div>
+            </div>
 
-              {/* Select All Checkbox */}
-              <div className="mb-3 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
+            {/* Select All Checkbox */}
+            <div className="px-3 mb-3">
+              <div className="p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
                 <label className="form-check-label d-flex align-items-center">
                   <input
                     type="checkbox"
@@ -156,75 +160,172 @@ const VendorSelectionModal = ({
                   <strong>Select All ({vendors.length} vendors)</strong>
                 </label>
               </div>
+            </div>
 
-              {/* Vendor List */}
-              <div className="vendor-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {/* Vendor List */}
+            <div className="vendor-list-container">
+              <div className="vendor-list">
                 {processedVendors.map((vendor) => (
-                  <div key={vendor.user_id} className="mb-3 p-3 border rounded shadow-sm" style={{ backgroundColor: 'white' }}>
-                    <label className="form-check-label d-flex align-items-start w-100">
-                      <input
-                        type="checkbox"
-                        className="form-check-input me-3 mt-1"
-                        checked={selectedVendors.includes(vendor.user_id)}
-                        onChange={() => handleVendorToggle(vendor.user_id)}
-                      />
-                      <div className="flex-grow-1">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <div className="fw-bold text-primary">{vendor.vendor_name}</div>
-                        </div>
-                        {vendor.remainingProducts && vendor.remainingProducts.length > 0 && (
-                          <div className="mt-3">
-                            <small className="text-muted fw-semibold d-block mb-2">
-                              Pending Products ({vendor.totalVendorProducts}):
-                            </small>
-                            <div className="d-flex flex-wrap gap-1">
-                              {vendor.remainingProducts.slice(0, 4).map((product, idx) => (
-                                <span key={idx} className="badge bg-light text-dark border me-1 mb-1">
-                                  {product.displayName}
-                                </span>
-                              ))}
-                              {vendor.remainingProducts.length > 4 && (
-                                <span className="badge bg-info text-white">
-                                  +{vendor.remainingProducts.length - 4} more
-                                </span>
-                              )}
-                            </div>
+                  <div key={vendor.user_id} className="vendor-card">
+                    <div className="p-3 border rounded shadow-sm" style={{ backgroundColor: 'white' }}>
+                      <label className="form-check-label d-flex align-items-start w-100 h-100">
+                        <input
+                          type="checkbox"
+                          className="form-check-input me-3 mt-1"
+                          checked={selectedVendors.includes(vendor.user_id)}
+                          onChange={() => handleVendorToggle(vendor.user_id)}
+                        />
+                        <div className="flex-grow-1 d-flex flex-column h-100">
+                          <div className="mb-2">
+                            <div className="fw-bold text-primary text-break">{vendor.vendor_name}</div>
                           </div>
-                        )}
-                      </div>
-                    </label>
+                          {vendor.remainingProducts && vendor.remainingProducts.length > 0 && (
+                            <div className="mt-auto">
+                              <small className="text-muted fw-semibold d-block mb-2">
+                                Pending Products ({vendor.totalVendorProducts}):
+                              </small>
+                              <div className="product-tags">
+                                {vendor.remainingProducts.slice(0, 3).map((product, idx) => (
+                                  <span key={idx} className="product-tag">
+                                    {product.displayName}
+                                  </span>
+                                ))}
+                                {vendor.remainingProducts.length > 3 && (
+                                  <span className="product-tag more-tag">
+                                    +{vendor.remainingProducts.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-              {/* Action Buttons */}
-              <div className="d-flex justify-content-between mt-4">
-                <button
-                  onClick={onClose}
-                  className="btn btn-secondary"
-                  disabled={sendLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSendReminder}
-                  className="btn btn-primary"
-                  disabled={selectedVendors.length === 0 || sendLoading}
-                >
-                  {sendLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      Sending...
-                    </>
-                  ) : (
-                    `Send Reminder (${selectedVendors.length})`
-                  )}
-                </button>
-              </div>
-            </>
-          )}
+      {/* Action Buttons */}
+      <div className="modal-footer border-top p-3">
+        <div className="d-flex flex-column flex-sm-row gap-2 w-100">
+          <button
+            onClick={onClose}
+            className="btn btn-secondary flex-fill"
+            disabled={sendLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSendReminder}
+            className="btn btn-primary flex-fill"
+            disabled={selectedVendors.length === 0 || sendLoading}
+          >
+            {sendLoading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                Sending...
+              </>
+            ) : (
+              `Send Reminder (${selectedVendors.length})`
+            )}
+          </button>
         </div>
       </div>
+
+      <style jsx>{`
+        .vendor-selection-modal {
+          max-width: 95vw;
+        }
+        
+        .vendor-modal-content {
+          max-height: 60vh;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .vendor-list-container {
+          flex: 1;
+          overflow: hidden;
+          padding: 0 1rem;
+        }
+        
+        .vendor-list {
+          max-height: 40vh;
+          overflow-y: auto;
+          padding-right: 0.5rem;
+        }
+        
+        .vendor-card {
+          margin-bottom: 1rem;
+        }
+        
+        .product-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        
+        .product-tag {
+          background-color: #f8f9fa;
+          border: 1px solid #dee2e6;
+          color: #495057;
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.375rem;
+          font-size: 0.75rem;
+          white-space: nowrap;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .more-tag {
+          background-color: #0dcaf0;
+          color: white;
+          border-color: #0dcaf0;
+        }
+        
+        @media (max-width: 768px) {
+          .vendor-selection-modal {
+            max-width: 100vw;
+          }
+          
+          .vendor-modal-content {
+            max-height: 70vh;
+          }
+          
+          .vendor-list {
+            max-height: 50vh;
+          }
+          
+          .product-tags {
+            gap: 0.25rem;
+          }
+          
+          .product-tag {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+          }
+        }
+        
+        @media (max-width: 576px) {
+          .vendor-selection-modal {
+            margin: 0.25rem;
+          }
+          
+          .vendor-modal-content {
+            max-height: 80vh;
+          }
+          
+          .vendor-list {
+            max-height: 60vh;
+          }
+        }
+      `}</style>
     </Modal>
   );
 };
