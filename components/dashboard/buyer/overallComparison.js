@@ -479,36 +479,36 @@ const openModalForVariant = (variantId) => {
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th>Packaging(%)</th>
+                                    <th>Packaging({item.last_purchase_rate?.package_mode == "absolute" ? "IN ₹" : "IN %"})</th>
                                     <td>
                                       {item.last_purchase_rate
                                         ?.package_price !== null
-                                        ? `${addCommasToNumber(
+                                        ? `${item.last_purchase_rate?.package_mode == "absolute" ? "₹" : ""}${addCommasToNumber(
                                             item.last_purchase_rate
                                               ?.package_price
-                                          )}%`
+                                          )}${item.last_purchase_rate?.freight_mode == "percentage" ? "%" : ""}`
                                         : "0%"}
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th>Freight(%)</th>
+                                    <th>Freight({item.last_purchase_rate?.freight_mode == "absolute" ? "IN ₹" : "IN %"})</th>
                                     <td>
                                       {item.last_purchase_rate
                                         ?.freight_price !== null
-                                        ? `${addCommasToNumber(
+                                        ? `${item.last_purchase_rate?.freight_mode == "absolute" ? "₹" : ""}${addCommasToNumber(
                                             item.last_purchase_rate
                                               ?.freight_price
-                                          )}%`
+                                          )}${item.last_purchase_rate?.freight_mode == "percentage" ? "%" : ""}`
                                         : "0%"}
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th>GST(%)</th>
+                                    <th>GST({item.last_purchase_rate?.tax_mode == "absolute" ? "IN ₹" : "IN %"})</th>
                                     <td>
                                       {item.last_purchase_rate?.tax !== null
-                                        ? `${addCommasToNumber(
+                                        ? `${item.last_purchase_rate?.tax_mode == "absolute" ? "₹" : ""}${addCommasToNumber(
                                             item.last_purchase_rate?.tax
-                                          )}%`
+                                          )} ${item.last_purchase_rate?.tax_mode == "percentage" ? "%" : ""}`
                                         : "0%"}
                                     </td>
                                   </tr>
@@ -637,6 +637,10 @@ const openModalForVariant = (variantId) => {
                                   </td>
                                 );
                               } else {
+                                const freight_mode = quote_item?.quote_details[0]?.freight_mode ?? "percentage"
+                                const package_mode = quote_item?.quote_details[0]?.package_mode ?? "percentage"
+                                const tax_mode = quote_item?.quote_details[0]?.tax_mode ?? "percentage"
+
                                 return (
                                   <td
                                     className={`${finalizedClass} total_amt_field`}
@@ -682,38 +686,74 @@ const openModalForVariant = (variantId) => {
                                             </td>
                                           </tr>
                                           <tr>
-                                            <th>Packaging(%)</th>
+                                            <th>
+                                              Packaging (
+                                              {package_mode == "percentage"
+                                                ? "%"
+                                                : "IN ₹"}
+                                              )
+                                            </th>
                                             <td>
                                               {quote_item?.quote_details
                                                 ?.length > 0
-                                                ? addCommasToNumber(
-                                                    quote_item?.quote_details[0]
-                                                      ?.package_price
-                                                  ) + "%"
+                                                ? package_mode == "percentage"
+                                                  ? addCommasToNumber(
+                                                      quote_item
+                                                        ?.quote_details[0]
+                                                        ?.package_price
+                                                    ) + "%"
+                                                  : "₹" +
+                                                    addCommasToNumber(
+                                                      quote_item
+                                                        ?.quote_details[0]
+                                                        ?.package_price
+                                                    )
                                                 : "-"}
                                             </td>
                                           </tr>
                                           <tr>
-                                            <th>Freight(%)</th>
+                                            <th>
+                                              Freight (
+                                              {freight_mode == "percentage"
+                                                ? "%"
+                                                : "IN ₹"}
+                                              )
+                                            </th>
                                             <td>
                                               {quote_item?.quote_details
                                                 ?.length > 0
-                                                ? addCommasToNumber(
-                                                    quote_item?.quote_details[0]
-                                                      ?.freight_price
-                                                  ) + "%"
+                                                ? freight_mode == "percentage"
+                                                  ? addCommasToNumber(
+                                                      quote_item
+                                                        ?.quote_details[0]
+                                                        ?.freight_price
+                                                    ) + "%"
+                                                  : "₹" +
+                                                    addCommasToNumber(
+                                                      quote_item
+                                                        ?.quote_details[0]
+                                                        ?.freight_price
+                                                    )
                                                 : "-"}
                                             </td>
                                           </tr>
                                           <tr>
-                                            <th>GST(%)</th>
+                                            <th>
+                                              GST ({tax_mode ? "%" : "IN ₹"})
+                                            </th>
                                             <td>
                                               {quote_item?.quote_details
                                                 ?.length > 0
-                                                ? addCommasToNumber(
-                                                    quote_item?.quote_details[0]
-                                                      ?.tax
-                                                  ) + "%"
+                                                ? tax_mode
+                                                  ? addCommasToNumber(
+                                                      quote_item
+                                                        ?.quote_details[0]?.tax
+                                                    ) + "%"
+                                                  : "₹" +
+                                                    addCommasToNumber(
+                                                      quote_item
+                                                        ?.quote_details[0]?.tax
+                                                    )
                                                 : "-"}
                                             </td>
                                           </tr>
@@ -724,7 +764,7 @@ const openModalForVariant = (variantId) => {
                                                 quote_item?.quote_details[0]
                                                   ?.delivery_period
                                               }{" "}
-                                              (in weeks)
+                                              (in days)
                                             </td>
                                           </tr>
                                           <tr>
@@ -761,10 +801,13 @@ const openModalForVariant = (variantId) => {
                                                 quote_item.quote_details[0]
                                                   ?.unit_price
                                               ) || 0) > 0
-                                                ? addCommasToNumber(calculateTotal(
-                                                    quote_item.quote_details[0],
-                                                    quantity.value
-                                                  ))
+                                                ? addCommasToNumber(
+                                                    calculateTotal(
+                                                      quote_item
+                                                        .quote_details[0],
+                                                      quantity.value
+                                                    )
+                                                  )
                                                 : "-"}
                                             </td>
                                           </tr>
@@ -776,10 +819,12 @@ const openModalForVariant = (variantId) => {
                                             quote_item.quote_details[0]
                                               ?.unit_price
                                           ) || 0) > 0
-                                            ? addCommasToNumber(calculateTotal(
-                                                quote_item.quote_details[0],
-                                                quantity.value
-                                              ))
+                                            ? addCommasToNumber(
+                                                calculateTotal(
+                                                  quote_item.quote_details[0],
+                                                  quantity.value
+                                                )
+                                              )
                                             : "-"}
                                         </p>
                                       </label>

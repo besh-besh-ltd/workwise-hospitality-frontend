@@ -118,13 +118,13 @@ const QuoteCompareTable = ({
               <div className="table-si-row fw-semibold table-grey-row">
                 Sub Total Rate
               </div>
-              <div className="table-si-row">Packaging (%)</div>
-              <div className="table-si-row table-grey-row">Freight (%)</div>
-              <div className="table-si-row">GST (%)</div>
+              <div className="table-si-row">Packaging (% / ₹)</div>
+              <div className="table-si-row table-grey-row">Freight (% / ₹)</div>
+              <div className="table-si-row">GST (% / ₹)</div>
               <div className="table-si-row fw-semibold table-grey-row">
                 Total Rate
               </div>
-              <div className="table-si-row">Delivery Period (In Weeks)</div>
+              <div className="table-si-row">Delivery Period (In Days)</div>
               <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
               <div className="table-si-row table-grey-row">
@@ -215,7 +215,7 @@ const QuoteCompareTable = ({
                             <Dropdown.Item
                               href="#"
                               onClick={(e) => {
-                                setActiveModal('finalize')
+                                setActiveModal("finalize");
                                 setCurrentItem(item);
                                 // handleFinalize(item, proditem);
                               }}
@@ -229,7 +229,7 @@ const QuoteCompareTable = ({
                             <Dropdown.Item
                               href="#"
                               onClick={() => {
-                                setActiveModal('quote_history');
+                                setActiveModal("quote_history");
                                 setQuotehistorydata({
                                   product_details: proditem.product_details,
                                   previous_quotes: item.previous_quotes,
@@ -267,36 +267,53 @@ const QuoteCompareTable = ({
                     </div>
                     <div className="table-si-row">
                       {item?.package_price !== null
-                        ? `${item?.package_price || 0} %`
+                        ? item.package_mode == "percentage"
+                          ? `${item?.package_price || 0} %`
+                          : `₹ ${item?.package_price || 0}`
                         : "0 %"}
+
                       {itemUpdated &&
                         itemUpdated.package_price != item.package_price && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {itemUpdated?.package_price !== null
-                              ? `${itemUpdated?.package_price || 0} %`
+                              ? itemUpdated.package_mode == "percentage"
+                                ? `${itemUpdated?.package_price || 0} %`
+                                : `₹ ${itemUpdated?.package_price || 0}`
                               : "0 %"}
                           </span>
                         )}
                     </div>
                     <div className="table-si-row table-grey-row">
                       {item?.freight_price !== null
-                        ? `${item?.freight_price || 0} %`
+                        ? item.freight_mode == "percentage"
+                          ? `${item?.freight_price || 0} %`
+                          : `₹ ${item?.freight_price || 0}`
                         : "0 %"}
+
                       {itemUpdated &&
                         itemUpdated.freight_price != item.freight_price && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {itemUpdated?.freight_price !== null
-                              ? `${itemUpdated?.freight_price || 0} %`
+                              ? itemUpdated.freight_mode == "percentage"
+                                ? `${itemUpdated?.freight_price || 0} %`
+                                : `₹ ${itemUpdated?.freight_price || 0}`
                               : "0 %"}
                           </span>
                         )}
                     </div>
                     <div className="table-si-row">
-                      {item.tax !== null ? `${item.tax || 0} %` : "0 %"}
+                      {item?.tax !== null
+                        ? item.tax_mode == "percentage"
+                          ? `${item?.tax || 0} %`
+                          : `₹ ${item?.tax || 0}`
+                        : "0 %"}
+
                       {itemUpdated && itemUpdated.tax != item.tax && (
                         <span className="d-block buyer-individual-quote-compare-text-strike ">
                           {itemUpdated?.tax !== null
-                            ? `${itemUpdated?.tax || 0} %`
+                            ? itemUpdated.tax_mode == "percentage"
+                              ? `${itemUpdated?.tax || 0} %`
+                              : `₹ ${itemUpdated?.tax || 0}`
                             : "0 %"}
                         </span>
                       )}
@@ -326,15 +343,15 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">
                       {item.delivery_period != ""
                         ? parseInt(item.delivery_period) <= 1
-                          ? `${item.delivery_period} Week`
-                          : `${item.delivery_period} Weeks`
+                          ? `${item.delivery_period} Day`
+                          : `${item.delivery_period} Days`
                         : "--"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {parseInt(itemUpdated.delivery_period) <= 1
-                              ? `${itemUpdated.delivery_period} Week`
-                              : `${itemUpdated.delivery_period} Weeks`}
+                              ? `${itemUpdated.delivery_period} Day`
+                              : `${itemUpdated.delivery_period} Days`}
                           </span>
                         )}
                     </div>
@@ -379,7 +396,9 @@ const QuoteCompareTable = ({
                         "NA"
                       )}
                     </div>
-                    <div className="table-si-row">{item?.quote_details?.created_by || '-'}</div>
+                    <div className="table-si-row">
+                      {item?.quote_details?.created_by || "-"}
+                    </div>
                   </div>
                 );
               })}

@@ -193,11 +193,11 @@ export const calculateTotal = (item, quantity) => {
   let tax = item.tax !== null ? parseFloat(item.tax) : 0;
 
   let total_without_fpt = unit_price * total_qty;
-  let FP = (total_without_fpt * freight_price) / 100;
-  let PP = (total_without_fpt * package_price) / 100;
+  let FP = (item.freight_mode ?? "percentage") == 'percentage' ? (total_without_fpt * freight_price) / 100 : freight_price;
+  let PP = (item.package_mode ?? "percentage") == 'percentage' ? (total_without_fpt * package_price) / 100 : package_price;
 
   let total_with_fpt = total_without_fpt + FP + PP;
-  let T = (total_with_fpt * tax) / 100;
+  let T = (item.tax_mode ?? "percentage") == 'percentage' ? (total_with_fpt * tax) / 100 : tax;
 
   let TotalPrice = total_with_fpt + T;
   return Math.round(TotalPrice);

@@ -130,72 +130,233 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
                       return (
-                        <td key={q.created_by} style={{ minWidth: 200, background: isFinalized ? '#d4edda' : (q.is_lowest ? '#ffe082' : undefined), color: isFinalized ? '#155724' : undefined, position: 'relative', borderRadius: 8, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                        <div style={{ fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 }}>
-                          {cost}
-                          <div style={{ fontWeight: 400, fontSize: 13, marginTop: 2, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                            ({vendor?.organization_name || vendor?.name})
+                        <td
+                          key={q.created_by}
+                          style={{
+                            minWidth: 200,
+                            background: isFinalized
+                              ? "#d4edda"
+                              : q.is_lowest
+                              ? "#ffe082"
+                              : undefined,
+                            color: isFinalized ? "#155724" : undefined,
+                            position: "relative",
+                            borderRadius: 8,
+                            wordBreak: "break-word",
+                            whiteSpace: "normal",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              wordBreak: "break-word",
+                              whiteSpace: "normal",
+                              textAlign: "center",
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {cost}
+                            <div
+                              style={{
+                                fontWeight: 400,
+                                fontSize: 13,
+                                marginTop: 2,
+                                wordBreak: "break-word",
+                                whiteSpace: "normal",
+                              }}
+                            >
+                              ({vendor?.organization_name || vendor?.name})
+                            </div>
                           </div>
-                        </div>
                           <div style={{ marginTop: 4 }}>
                             <button
                               type="button"
                               onClick={() => toggleBreakup(idx, q.created_by)}
-                              style={{ cursor: 'pointer', fontSize: 13, color: '#0046ad', background: 'none', border: 'none', padding: 0, textDecoration: 'underline' }}
+                              style={{
+                                cursor: "pointer",
+                                fontSize: 13,
+                                color: "#0046ad",
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                textDecoration: "underline",
+                              }}
                             >
-                              {isOpen ? 'Hide Breakup' : 'Show Breakup'}
+                              {isOpen ? "Hide Breakup" : "Show Breakup"}
                             </button>
                             {isOpen && (
-                              <div style={{ marginTop: 6, maxWidth: 420, minWidth: 260, width: '100%' }}>
-                                <table className="table has_inner_border_table table-sm mb-0" style={{ background: '#f9f9f9', borderRadius: 8, tableLayout: 'fixed', width: '100%' }}>
+                              <div
+                                style={{
+                                  marginTop: 6,
+                                  maxWidth: 420,
+                                  minWidth: 260,
+                                  width: "100%",
+                                }}
+                              >
+                                <table
+                                  className="table has_inner_border_table table-sm mb-0"
+                                  style={{
+                                    background: "#f9f9f9",
+                                    borderRadius: 8,
+                                    tableLayout: "fixed",
+                                    width: "100%",
+                                  }}
+                                >
                                   <tbody>
                                     <tr>
-                                      <th style={{ textAlign: 'left', width: '50%' }}>Base Price</th>
-                                      <td style={{ textAlign: 'right', width: '50%' }}>{addCommasToNumber(details.unit_price)}</td>
+                                      <th
+                                        style={{
+                                          textAlign: "left",
+                                          width: "50%",
+                                        }}
+                                      >
+                                        Base Price
+                                      </th>
+                                      <td
+                                        style={{
+                                          textAlign: "right",
+                                          width: "50%",
+                                        }}
+                                      >
+                                        {addCommasToNumber(details.unit_price)}
+                                      </td>
                                     </tr>
                                     <tr>
-                                      <th style={{ textAlign: 'left' }}>Total Rate</th>
-                                      <td style={{ textAlign: 'right' }}>{addCommasToNumber(details.unit_price * (quantity || 1))}</td>
+                                      <th style={{ textAlign: "left" }}>
+                                        Total Rate
+                                      </th>
+                                      <td style={{ textAlign: "right" }}>
+                                        {addCommasToNumber(
+                                          details.unit_price * (quantity || 1)
+                                        )}
+                                      </td>
                                     </tr>
                                     <tr>
-                                      <th style={{ textAlign: 'left' }}>Packaging(%)</th>
-                                      <td style={{ textAlign: 'right' }}>{addCommasToNumber(details.package_price) + '%'}</td>
+                                      <th style={{ textAlign: "left" }}>
+                                        Packaging(
+                                        {details.package_mode == "percentage"
+                                          ? "IN %"
+                                          : "IN ₹"}
+                                        )
+                                      </th>
+                                      <td style={{ textAlign: "right" }}>{`${
+                                        details.package_mode == "percentage"
+                                          ? ""
+                                          : "₹"
+                                      }${addCommasToNumber(
+                                        details.package_price
+                                      )}${
+                                        details.package_mode == "percentage"
+                                          ? "%"
+                                          : ""
+                                      }`}</td>
                                     </tr>
                                     <tr>
-                                      <th style={{ textAlign: 'left' }}>Freight(%)</th>
-                                      <td style={{ textAlign: 'right' }}>{addCommasToNumber(details.freight_price) + '%'}</td>
+                                      <th style={{ textAlign: "left" }}>
+                                        Freight(
+                                        {details.freight_mode == "percentage"
+                                          ? "IN %"
+                                          : "IN ₹"}
+                                        )
+                                      </th>
+                                      <td style={{ textAlign: "right" }}>
+                                        {`${
+                                        details.freight_mode == "percentage"
+                                          ? ""
+                                          : "₹"
+                                      }${addCommasToNumber(
+                                          details.freight_price
+                                        )}${
+                                        details.freight_mode == "percentage"
+                                          ? "%"
+                                          : ""
+                                      }`}
+                                      </td>
                                     </tr>
                                     <tr>
-                                      <th style={{ textAlign: 'left' }}>GST(%)</th>
-                                      <td style={{ textAlign: 'right' }}>{addCommasToNumber(details.tax) + '%'}</td>
+                                      <th style={{ textAlign: "left" }}>
+                                        GST(
+                                        {details.tax_mode == "percentage"
+                                          ? "IN %"
+                                          : "IN ₹"}
+                                        )
+                                      </th>
+                                      <td style={{ textAlign: "right" }}>
+                                        {`${
+                                        details.tax_mode == "percentage"
+                                          ? ""
+                                          : "₹"
+                                      }${addCommasToNumber(details.tax)}${
+                                        details.tax_mode == "percentage"
+                                          ? "%"
+                                          : ""
+                                      }`}
+                                      </td>
                                     </tr>
                                     <tr>
-                                      <th style={{ textAlign: 'left' }}>Delivery</th>
-                                      <td style={{ textAlign: 'right' }}>{details.delivery_period} {details.delivery_period ? '(in weeks)' : ''}</td>
+                                      <th style={{ textAlign: "left" }}>
+                                        Delivery
+                                      </th>
+                                      <td style={{ textAlign: "right" }}>
+                                        {details.delivery_period}{" "}
+                                        {details.delivery_period
+                                          ? "(in days)"
+                                          : "-"}
+                                      </td>
                                     </tr>
                                     {comment && (
                                       <tr>
-                                        <th style={{ textAlign: 'left' }}>Comments</th>
-                                        <td style={{ textAlign: 'right' }}><ReadMore content={comment} maxLength={60} /></td>
+                                        <th style={{ textAlign: "left" }}>
+                                          Comments
+                                        </th>
+                                        <td style={{ textAlign: "right" }}>
+                                          <ReadMore
+                                            content={comment}
+                                            maxLength={60}
+                                          />
+                                        </td>
                                       </tr>
                                     )}
                                     {docFile && (
                                       <tr>
-                                        <th style={{ textAlign: 'left' }}>Files</th>
-                                        <td style={{ textAlign: 'right' }}>{renderFileLink(docFile, 'View File')}</td>
+                                        <th style={{ textAlign: "left" }}>
+                                          Files
+                                        </th>
+                                        <td style={{ textAlign: "right" }}>
+                                          {renderFileLink(docFile, "View File")}
+                                        </td>
                                       </tr>
                                     )}
                                     <tr className="is_lowest">
-                                      <th style={{ textAlign: 'left' }}>Sub Total</th>
-                                      <td style={{ textAlign: 'right' }}>{addCommasToNumber(cost)}</td>
+                                      <th style={{ textAlign: "left" }}>
+                                        Sub Total
+                                      </th>
+                                      <td style={{ textAlign: "right" }}>
+                                        {addCommasToNumber(cost)}
+                                      </td>
                                     </tr>
                                   </tbody>
                                 </table>
                               </div>
                             )}
                           </div>
-                          {item.product_specs?.find(s => s.title === 'total_price')?.value && (
-                            <div style={{ fontSize: '0.9em', color: '#0046ad', marginTop: 2 }}>Total: {item.product_specs.find(s => s.title === 'total_price').value}</div>
+                          {item.product_specs?.find(
+                            (s) => s.title === "total_price"
+                          )?.value && (
+                            <div
+                              style={{
+                                fontSize: "0.9em",
+                                color: "#0046ad",
+                                marginTop: 2,
+                              }}
+                            >
+                              Total:{" "}
+                              {
+                                item.product_specs.find(
+                                  (s) => s.title === "total_price"
+                                ).value
+                              }
+                            </div>
                           )}
                         </td>
                       );
