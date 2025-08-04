@@ -929,17 +929,18 @@ const clearVendorFilters = () => {
                   <div className="container">
                     <h2 className="fs-3">Sub Categories List</h2>
                     <div className="parent-categories">
-                      {mapEntries?.map(
+                      {Array.from(categoryLvlRef.current.entries()).map(
                         ([category_id, category_name], index) => {
-                          const isLastItem = index === mapEntries?.size - 1;
+                          const isLastItem = index === categoryLvlRef.current.size - 1;
                           return (
                             <p
                               role="button"
                               key={category_id}
                               className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
                               onClick={() => {
+                                const entries = Array.from(categoryLvlRef.current.entries());
                                 categoryLvlRef.current = new Map(
-                                  mapEntries.slice(0, index + 1)
+                                  entries.slice(0, index + 1)
                                 );
                                 getCategoriesById(category_id, category_name);
                               }}
