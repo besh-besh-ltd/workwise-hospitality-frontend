@@ -114,22 +114,32 @@ const MagicSearchPage = () => {
             const webhook = persistJob.webhook;
 
             const startResponse = await getSImplifiedVersionOfBOQ(simplifyFile, webhook);
+            
+            // Show modal after API call regardless of response
+            setShowSimplifyConfirmModal(true);
+            
             if (startResponse) {
                 const response = startResponse.data;
                 toast.success(response.message);
-                setSimplifyFile(null);
-                setSimplifyFileName('');
-                setTab('processing-files');
             } else {
                 toast.error("Server is too busy to handle your request, please try again in some time...");
             }
         } catch (error) {
             console.error("Upload failed:", error);
             toast.error(error?.response?.data?.detail || "Simplified BOQ creation failed. Please try again.");
+            
+            // Show modal even on error
+            setShowSimplifyConfirmModal(true);
         } finally {
             setSimplifyUploading(false);
-            setShowSimplifyConfirmModal(false);
         }
+    };
+
+    const handleSimplifyConfirm = () => {
+        setSimplifyFile(null);
+        setSimplifyFileName('');
+        setTab('processing-files');
+        setShowSimplifyConfirmModal(false);
     };
 
     const closeSimplifyConfirmModal = () => {
@@ -159,28 +169,31 @@ const uploadToServer = async (processed_file) => {
 
     const startResponse = await getBOQexcelToJsonAI(curFile, webhook);
 
+    // Show modal after API call regardless of response
+    setShowRFQConfirmModal(true);
+
     if (startResponse) {
       const response = startResponse.data;
       toast.success(response.message);
-      
-      // Show confirmation modal after successful API call
-      setShowRFQConfirmModal(true);
     } else {
       toast.error("Server is too busy to handle your request, please try again in some time...");
     }
   } catch (error) {
     console.log(error);
-    console.error(error?.response?.data?.detail);
+    console.error(error?.response?.data?.message);
     toast.error(
-      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
         "RFQ creation failed. Please try again later."
     );
+    
+    // Show modal even on error
+    setShowRFQConfirmModal(true);
   } finally {
     setLoading(false);
   }
 };
 
-const confirmRFQUpload = async (processed_file) => {
+const confirmRFQUpload = async () => {
   try {
     // Only switch tab on confirmation
     setTab("processing-files");
@@ -527,11 +540,11 @@ const closeRFQConfirmModal = () => {
         <ConfirmationModal
           isOpen={showSimplifyConfirmModal}
           onClose={closeSimplifyConfirmModal}
-          onConfirm={confirmSimplifyUpload}
-          title="Confirm BOQ Simplification"
-          description={`Are you sure you want to simplify the BOQ file "${simplifyFileName}"? This will process your file and switch to the processing tab.`}
+          onConfirm={handleSimplifyConfirm}
+          title="BOQ Simplification Initiated"
+          description={`BOQ simplification has been initiated for the file "${simplifyFileName}". Do you want to switch to the processing tab to monitor the progress?`}
           confirmButtonColor="success"
-          confirmButtonText="Simplify BOQ"
+          confirmButtonText="Switch to Processing"
           cancelButtonText="Cancel"
           showCloseButton={false}
         />
@@ -540,8 +553,8 @@ const closeRFQConfirmModal = () => {
         <ConfirmationModal
           isOpen={showRFQConfirmModal}
           onClose={closeRFQConfirmModal}
-          onConfirm={() => confirmRFQUpload()}
-          title="Confirm RFQ Generation"
+          onConfirm={confirmRFQUpload}
+          title="RFQ Generation Initiated"
           description={`RFQ generation has been initiated for the file "${fileName}". Do you want to switch to the processing tab to monitor the progress?`}
           confirmButtonColor="primary"
           confirmButtonText="Switch to Processing"

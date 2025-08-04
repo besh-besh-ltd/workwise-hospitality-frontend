@@ -209,21 +209,22 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {(!item.finalization ||
-                            item.finalization.winning_vendor.id !=
-                              item?.quote_details?.created_by) && (
-                            <Dropdown.Item
-                              href="#"
-                              onClick={(e) => {
-                                setActiveModal("finalize");
-                                setCurrentItem(item);
-                                // handleFinalize(item, proditem);
-                              }}
-                              className="finalize-link"
-                            >
-                              Finalize
-                            </Dropdown.Item>
-                          )}
+                          {!item.quote_details.is_regret == 1 &&
+                            (!item.finalization ||
+                              item.finalization.winning_vendor.id !=
+                                item?.quote_details?.created_by) && (
+                              <Dropdown.Item
+                                href="#"
+                                onClick={(e) => {
+                                  setActiveModal("finalize");
+                                  setCurrentItem(item);
+                                  // handleFinalize(item, proditem);
+                                }}
+                                className="finalize-link"
+                              >
+                                Finalize
+                              </Dropdown.Item>
+                            )}
 
                           {item.previous_quotes?.length > 0 && (
                             <Dropdown.Item

@@ -1035,7 +1035,7 @@ const openModalForVariant = (variantId) => {
     const specs = proditem.product_details[0].rfq_details;
 
     const poRequiredPayload = {
-      project_id: currentRFQ.project_id,
+      project_id: availableBudget?.project_id,
       total_value: item.total_price,
       product_info: {
         rfq_product_id: proditem.id,

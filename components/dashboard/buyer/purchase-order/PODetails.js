@@ -5,7 +5,7 @@ import {
   MdOutlineBusinessCenter,
   MdTimeline
 } from 'react-icons/md';
-import { BsBoxSeam, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
+import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
 import { FiPaperclip } from "react-icons/fi";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -18,6 +18,7 @@ import { handleDeleteMilestone, handleDeleteTask, handleGetTasks } from '@/servi
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
+import { addCommasToNumber } from '@/utils/sharedFunctions';
 
 const statusColors = {
   draft: 'secondary',
@@ -102,7 +103,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     id,
     rfq_id,
     po_number,
-    project_id,
+    finalized_vendor_name,
+    finalized_vendor_email,
     status,
     quantity,
     unit_price,
@@ -267,8 +269,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           <div className="row">
             <div className="col-md-6">
               <PODetailItem label="Quantity" value={quantity} />
-              <PODetailItem label="Unit Price" value={`₹ ${unit_price}`} />
-              <PODetailItem label="Total Value" value={`₹ ${total_value}`} />
+              <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
+              <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
             </div>
             <div className="col-md-6">
               <PODetailItem label="Created At" value={formatIST(created_at)} />
@@ -283,17 +285,30 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       </Card>
 
       {/* Product Details */}
-      <Card className="mb-4 shadow-sm">
-        <Card.Body className="d-flex align-items-center">
-          <BsBoxSeam className="me-3 fs-2 text-primary" />
-          <div>
-            <strong>{product_details?.name}</strong>
-            <div className="text-muted">
-              Product ID: {product_details?.product_id}
+      <div className="mb-4 d-flex gap-3">
+        <Card className="shadow-sm w-100">
+          <Card.Body className="d-flex align-items-center">
+            <BsBoxSeam className="me-3 fs-2 text-primary" />
+            <div>
+              <strong>{product_details?.name}</strong>
+              <div className="text-muted">
+                Product ID: {product_details?.product_id}
+              </div>
             </div>
-          </div>
-        </Card.Body>
-      </Card>
+          </Card.Body>
+        </Card>
+        <Card className="shadow-sm w-100">
+          <Card.Body className="d-flex align-items-center">
+            <BsPerson className="me-3 fs-2 text-primary" />
+            <div>
+              <strong>{finalized_vendor_name}</strong> <small className='text-muted'>(Finalized Vendor)</small>
+              <div className="text-muted">
+                {finalized_vendor_email}
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+      </div>
 
       {/* Approval Timeline */}
       <h5 className="mb-3">
