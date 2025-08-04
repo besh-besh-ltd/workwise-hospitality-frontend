@@ -539,6 +539,14 @@ const CreateRFQ = () => {
     setHasUnsavedChanges(true);
   };
 
+
+//If the length of Term Files is greater than 0, set termFilesChanged to true or else false  
+useEffect(() => {
+  
+  setTermFilesChanged(termFiles.length > 0);
+}, [termFiles]);
+
+
   const handleTermFiles = async (type, dynamicParam) => {
     if (type === "add") {
       try {
