@@ -13,6 +13,7 @@ import { CtaSection } from '@/components/ui/CtaSection';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
+import { DynamicCard } from '@/components/ui/DynamicCard';
 
 // Import data
 import { eventsData } from '@/components/constants/eventsData';
@@ -75,20 +76,7 @@ const EventsPage = () => {
   const upcomingEvents = filteredEvents.filter(event => event.status === 'Upcoming');
   const pastEvents = filteredEvents.filter(event => event.status === 'Past');
 
-  const getParticipationTypeColor = (type) => {
-    switch (type) {
-      case 'Exhibitor':
-        return { bg: '#e3f2fd', text: '#1976d2' };
-      case 'Sponsor':
-        return { bg: '#e8f5e8', text: '#2e7d32' };
-      case 'Speaker':
-        return { bg: '#f3e5f5', text: '#7b1fa2' };
-      case 'Delegate':
-        return { bg: '#fff3e0', text: '#f57c00' };
-      default:
-        return { bg: '#f5f5f5', text: '#616161' };
-    }
-  };
+
 
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
@@ -174,11 +162,22 @@ const EventsPage = () => {
             <div className="row g-4">
               {upcomingEvents.map((event) => (
                 <div key={event.id} className="col-md-6 col-lg-4">
-                  <EventCard
-                    event={event}
-                    onRegisterInterest={() => handleRegisterInterest(event)}
-                    getParticipationTypeColor={getParticipationTypeColor}
-                    isUpcoming={true}
+                  <DynamicCard
+                    type="event"
+                    size="medium"
+                    title={event.name}
+                    description={event.description}
+                    date={event.date}
+                    location={event.location}
+                    venue={event.venue}
+                    status={event.status}
+                    participationTypes={event.participationTypes}
+                    image={event.image}
+                    primaryAction={{
+                      label: "Register Your Interest",
+                      variant: "default"
+                    }}
+                    onPrimaryAction={() => handleRegisterInterest(event)}
                   />
                 </div>
               ))}
@@ -209,11 +208,22 @@ const EventsPage = () => {
             <div className="row g-4">
               {pastEvents.map((event) => (
                 <div key={event.id} className="col-md-6 col-lg-4">
-                  <EventCard
-                    event={event}
-                    onViewHighlights={() => handleViewHighlights(event)}
-                    getParticipationTypeColor={getParticipationTypeColor}
-                    isUpcoming={false}
+                  <DynamicCard
+                    type="event"
+                    size="medium"
+                    title={event.name}
+                    description={event.description}
+                    date={event.date}
+                    location={event.location}
+                    venue={event.venue}
+                    status={event.status}
+                    participationTypes={event.participationTypes}
+                    image={event.image}
+                    primaryAction={{
+                      label: "View Event Highlights",
+                      variant: "outline"
+                    }}
+                    onPrimaryAction={() => handleViewHighlights(event)}
                   />
                 </div>
               ))}
@@ -315,131 +325,6 @@ const EventsPage = () => {
   );
 };
 
-// Event Card Component
-const EventCard = ({ event, onRegisterInterest, onViewHighlights, getParticipationTypeColor, isUpcoming }) => {
-  return (
-    <div className="card h-100 shadow-sm border-0" style={{ borderRadius: '8px', overflow: 'hidden' }}>
-      {/* Event Image */}
-      <div 
-        className="position-relative"
-        style={{
-          height: '200px',
-          backgroundColor: '#f8f9fa',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderBottom: '1px solid #dee2e6'
-        }}
-      >
-        <div className="text-center text-muted">
-          <Calendar size={48} />
-          <div className="small mt-2">Event Image</div>
-        </div>
-        
-        {/* Status Tag */}
-        <div 
-          className="position-absolute"
-          style={{
-            top: '12px',
-            right: '12px',
-            padding: '4px 12px',
-            borderRadius: '20px',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            backgroundColor: isUpcoming ? '#ff9800' : '#6c757d',
-            color: 'white'
-          }}
-        >
-          {isUpcoming ? 'Upcoming' : 'Past'}
-        </div>
-      </div>
 
-      <div className="card-body p-4">
-        {/* Event Name */}
-        <h5 className="card-title fw-bold text-dark mb-3" style={{ fontSize: '1.1rem', lineHeight: '1.3' }}>
-          {event.name}
-        </h5>
-
-        {/* Date */}
-        <div className="d-flex align-items-center mb-2">
-          <Calendar className="text-muted me-2" size={14} />
-          <span className="text-muted small" style={{ fontSize: '0.85rem' }}>
-            {event.date}
-          </span>
-        </div>
-
-        {/* Location */}
-        <div className="d-flex align-items-center mb-3">
-          <MapPin className="text-muted me-2" size={14} />
-          <span className="text-muted small" style={{ fontSize: '0.85rem' }}>
-            {event.venue}
-          </span>
-        </div>
-
-        {/* Participation Types */}
-        <div className="mb-3">
-          {event.participationTypes.map((type, index) => {
-            const colors = getParticipationTypeColor(type);
-            return (
-              <span
-                key={index}
-                className="badge me-2 mb-1"
-                style={{
-                  backgroundColor: colors.bg,
-                  color: colors.text,
-                  fontSize: '0.75rem',
-                  padding: '4px 8px',
-                  borderRadius: '12px',
-                  fontWeight: '500'
-                }}
-              >
-                {type}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Description */}
-        <p className="text-muted mb-4" style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
-          {event.description}
-        </p>
-
-        {/* Action Button */}
-        <button
-          className="btn w-100"
-          onClick={isUpcoming ? onRegisterInterest : onViewHighlights}
-          style={{
-            backgroundColor: isUpcoming ? '#0d6efd' : 'transparent',
-            border: isUpcoming ? '1px solid #0d6efd' : '1px solid #0d6efd',
-            color: isUpcoming ? 'white' : '#0d6efd',
-            transition: 'all 0.2s ease',
-            fontSize: '0.85rem',
-            padding: '10px 16px',
-            borderRadius: '6px',
-            fontWeight: '500'
-          }}
-          onMouseEnter={(e) => {
-            if (isUpcoming) {
-              e.target.style.backgroundColor = '#0b5ed7';
-            } else {
-              e.target.style.backgroundColor = '#0d6efd';
-              e.target.style.color = 'white';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (isUpcoming) {
-              e.target.style.backgroundColor = '#0d6efd';
-            } else {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.color = '#0d6efd';
-            }
-          }}
-        >
-          {isUpcoming ? 'Register Your Interest' : 'View Event Highlights'}
-        </button>
-      </div>
-    </div>
-  );
-};
 
 export default EventsPage; 
