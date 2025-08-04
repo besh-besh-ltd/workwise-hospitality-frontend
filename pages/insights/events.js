@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar,
   MapPin,
-  Users,
-  Mail
+  Search,
+  Clock,
+  Handshake
 } from 'lucide-react';
 
 // Import reusable components
 import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { Dropdown } from '@/components/ui/Dropdown';
+import { SearchBar } from '@/components/ui/SearchBar';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 
 // Import data
@@ -17,8 +19,9 @@ import { eventsData } from '@/components/constants/eventsData';
 
 const EventsPage = () => {
   const [eventType, setEventType] = useState('All Events');
-  const [status, setStatus] = useState('All Status');
   const [location, setLocation] = useState('All Locations');
+  const [participationType, setParticipationType] = useState('All Participation Type');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -27,51 +30,63 @@ const EventsPage = () => {
     setShowModal(true);
   };
 
+  const handleViewHighlights = (event) => {
+    console.log('View highlights for event:', event);
+    // Here you would typically navigate to event highlights page
+  };
+
   const handleFormSubmit = async (formData) => {
     console.log('Event registration form submitted:', { event: selectedEvent, formData });
     // Here you would typically send the data to your backend
-    // For now, we'll just log it
+    setShowModal(false);
   };
 
   const handleGetUpdates = () => {
-    console.log('Get Event Updates clicked');
+    setSelectedEvent(null);
+    setShowModal(true);
   };
 
-  // Filter events based on selected filters
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+  };
+
+  // Filter events based on selected filters and search term
   const filteredEvents = eventsData.events.filter(event => {
     const matchesType = eventType === 'All Events' || 
-      (eventType === 'Exhibitions' && event.role === 'Exhibitor') ||
-      (eventType === 'Conferences' && event.role === 'Speaker') ||
-      (eventType === 'Trade Shows' && event.role === 'Sponsor') ||
-      (eventType === 'Seminars' && event.role === 'Delegate');
-    const matchesStatus = status === 'All Status' || event.status === status;
+      (eventType === 'Exhibitions' && event.participationTypes.includes('Exhibitor')) ||
+      (eventType === 'Conferences' && event.participationTypes.includes('Speaker')) ||
+      (eventType === 'Trade Shows' && event.participationTypes.includes('Sponsor')) ||
+      (eventType === 'Seminars' && event.participationTypes.includes('Delegate'));
+    
     const matchesLocation = location === 'All Locations' || event.location === location;
-    return matchesType && matchesStatus && matchesLocation;
+    
+    const matchesParticipation = participationType === 'All Participation Type' || 
+      event.participationTypes.includes(participationType);
+    
+    const matchesSearch = searchTerm === '' || 
+      event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.location.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesType && matchesLocation && matchesParticipation && matchesSearch;
   });
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Upcoming':
-        return 'bg-success';
-      case 'Past':
-        return 'bg-secondary';
-      default:
-        return 'bg-primary';
-    }
-  };
+  // Separate upcoming and past events
+  const upcomingEvents = filteredEvents.filter(event => event.status === 'Upcoming');
+  const pastEvents = filteredEvents.filter(event => event.status === 'Past');
 
-  const getRoleIcon = (role) => {
-    switch (role) {
+  const getParticipationTypeColor = (type) => {
+    switch (type) {
       case 'Exhibitor':
-        return '🏢';
-      case 'Speaker':
-        return '🎤';
+        return { bg: '#e3f2fd', text: '#1976d2' };
       case 'Sponsor':
-        return '🏆';
+        return { bg: '#e8f5e8', text: '#2e7d32' };
+      case 'Speaker':
+        return { bg: '#f3e5f5', text: '#7b1fa2' };
       case 'Delegate':
-        return '👥';
+        return { bg: '#fff3e0', text: '#f57c00' };
       default:
-        return '📋';
+        return { bg: '#f5f5f5', text: '#616161' };
     }
   };
 
@@ -89,71 +104,126 @@ const EventsPage = () => {
         <div className="container">
           <div className="row">
             <div className="col-lg-10">
-              {/* Title */}
-              <h1 className="fs-2 fw-bold text-white mb-3 text-start">
-                {eventsData.hero.title}
-              </h1>
+              {/* Title with icon */}
+              <div className="d-flex align-items-center mb-3">
+                <h1 className="fs-2 fw-bold text-white mb-0">
+                  {eventsData.hero.title}
+                </h1>
+              </div>
 
               {/* Description */}
-              <p className="text-white mb-4 text-start" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
+              <p className="text-white mb-0" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
                 {eventsData.hero.subtitle}
               </p>
-
-              {/* Filters */}
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <Dropdown
-                    label={eventsData.filters.eventType.label}
-                    options={eventsData.filters.eventType.options}
-                    value={eventType}
-                    onChange={setEventType}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <Dropdown
-                    label={eventsData.filters.status.label}
-                    options={eventsData.filters.status.options}
-                    value={status}
-                    onChange={setStatus}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <Dropdown
-                    label={eventsData.filters.location.label}
-                    options={eventsData.filters.location.options}
-                    value={location}
-                    onChange={setLocation}
-                  />
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Events Grid */}
+      {/* Search and Filter Bar */}
+      <section className="py-4 bg-white">
+        <div className="container">
+          <div className="row g-3 align-items-end">
+            <div className="col-md-3">
+              <Dropdown
+                label=""
+                options={eventsData.filters.eventType.options}
+                value={eventType}
+                onChange={setEventType}
+                placeholder="All Events"
+              />
+            </div>
+            <div className="col-md-3">
+              <Dropdown
+                label=""
+                options={eventsData.filters.location.options}
+                value={location}
+                onChange={setLocation}
+                placeholder="All Locations"
+              />
+            </div>
+            <div className="col-md-3">
+              <Dropdown
+                label=""
+                options={eventsData.filters.participationType.options}
+                value={participationType}
+                onChange={setParticipationType}
+                placeholder="All Participation Type"
+              />
+            </div>
+            <div className="col-md-3">
+              <SearchBar
+                placeholder="Search events..."
+                onSearch={handleSearch}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Upcoming Events Section */}
       <section className="py-5 bg-white">
         <div className="container">
-          <div className="row g-4">
-            {filteredEvents.map((event) => (
-              <div key={event.id} className="col-md-6 col-lg-4">
-                <EventCard
-                  event={event}
-                  onRegisterInterest={() => handleRegisterInterest(event)}
-                  getStatusColor={getStatusColor}
-                  getRoleIcon={getRoleIcon}
-                />
-              </div>
-            ))}
+          {/* Section Header */}
+          <div className="d-flex align-items-center mb-4">
+            <h2 className="fs-3 fw-bold text-dark mb-0">Upcoming Events</h2>
           </div>
 
-          {/* No Events Message */}
-          {filteredEvents.length === 0 && (
+          {/* Events Grid */}
+          {upcomingEvents.length > 0 ? (
+            <div className="row g-4">
+              {upcomingEvents.map((event) => (
+                <div key={event.id} className="col-md-6 col-lg-4">
+                  <EventCard
+                    event={event}
+                    onRegisterInterest={() => handleRegisterInterest(event)}
+                    getParticipationTypeColor={getParticipationTypeColor}
+                    isUpcoming={true}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
             <div className="text-center py-5">
               <div className="mb-3">
                 <Calendar className="text-muted" size={48} />
               </div>
-              <h5 className="text-muted">No events found</h5>
+              <h5 className="text-muted">No upcoming events found</h5>
+              <p className="text-muted">Try adjusting your filters to see more events.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Past Events Section */}
+      <section className="py-5" style={{ backgroundColor: 'var(--light-grey-color)' }}>
+        <div className="container">
+          {/* Section Header */}
+          <div className="d-flex align-items-center mb-4">
+            
+            <h2 className="fs-3 fw-bold text-dark mb-0">Past Events</h2>
+          </div>
+
+          {/* Events Grid */}
+          {pastEvents.length > 0 ? (
+            <div className="row g-4">
+              {pastEvents.map((event) => (
+                <div key={event.id} className="col-md-6 col-lg-4">
+                  <EventCard
+                    event={event}
+                    onViewHighlights={() => handleViewHighlights(event)}
+                    getParticipationTypeColor={getParticipationTypeColor}
+                    isUpcoming={false}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-5">
+              <div className="mb-3">
+                <Clock className="text-muted" size={48} />
+              </div>
+              <h5 className="text-muted">No past events found</h5>
               <p className="text-muted">Try adjusting your filters to see more events.</p>
             </div>
           )}
@@ -161,19 +231,46 @@ const EventsPage = () => {
       </section>
 
       {/* Final CTA Section */}
-      <CtaSection
-        title={eventsData.finalCta.title}
-        primaryButton={{
-          ...eventsData.finalCta.button,
-          onClick: handleGetUpdates
+      <section
+        className="py-5"
+        style={{
+          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)'
         }}
-      />
+      >
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-lg-8 text-center">
+              <div className="d-flex align-items-center justify-content-center mb-3">
+                <h2 className="fs-3 fw-bold text-white mb-0">
+                  {eventsData.finalCta.title}
+                </h2>
+              </div>
+              <p className="text-white mb-4" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
+                {eventsData.finalCta.subtitle}
+              </p>
+              <button
+                className="btn btn-light px-4 py-2 fw-semibold"
+                onClick={handleGetUpdates}
+                style={{
+                  backgroundColor: 'white',
+                  border: 'none',
+                  color: 'var(--primary-color)',
+                  borderRadius: '6px',
+                  fontSize: '1rem'
+                }}
+              >
+                {eventsData.finalCta.button.label}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Register Interest Modal */}
       <RegisterFormModal
         show={showModal}
         onClose={() => setShowModal(false)}
-        title="Register Your Interest"
+        title={selectedEvent ? "Register Your Interest" : "Get Event Updates"}
         subtitle={selectedEvent ? `Event: ${selectedEvent.name}` : null}
         fields={[
           {
@@ -219,30 +316,47 @@ const EventsPage = () => {
 };
 
 // Event Card Component
-const EventCard = ({ event, onRegisterInterest, getStatusColor, getRoleIcon }) => {
+const EventCard = ({ event, onRegisterInterest, onViewHighlights, getParticipationTypeColor, isUpcoming }) => {
   return (
-    <div className="card h-100 shadow-sm border-0">
-      <div className="card-body p-4">
-        {/* Event Image Placeholder */}
+    <div className="card h-100 shadow-sm border-0" style={{ borderRadius: '8px', overflow: 'hidden' }}>
+      {/* Event Image */}
+      <div 
+        className="position-relative"
+        style={{
+          height: '200px',
+          backgroundColor: '#f8f9fa',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderBottom: '1px solid #dee2e6'
+        }}
+      >
+        <div className="text-center text-muted">
+          <Calendar size={48} />
+          <div className="small mt-2">Event Image</div>
+        </div>
+        
+        {/* Status Tag */}
         <div 
-          className="mb-3 rounded"
+          className="position-absolute"
           style={{
-            height: '120px',
-            backgroundColor: '#f8f9fa',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid #dee2e6'
+            top: '12px',
+            right: '12px',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: '600',
+            backgroundColor: isUpcoming ? '#ff9800' : '#6c757d',
+            color: 'white'
           }}
         >
-          <div className="text-center text-muted">
-            <Calendar size={32} />
-            <div className="small mt-1">Event Image</div>
-          </div>
+          {isUpcoming ? 'Upcoming' : 'Past'}
         </div>
+      </div>
 
+      <div className="card-body p-4">
         {/* Event Name */}
-        <h5 className="card-title fw-bold text-dark mb-2" style={{ fontSize: '1.1rem' }}>
+        <h5 className="card-title fw-bold text-dark mb-3" style={{ fontSize: '1.1rem', lineHeight: '1.3' }}>
           {event.name}
         </h5>
 
@@ -255,51 +369,73 @@ const EventCard = ({ event, onRegisterInterest, getStatusColor, getRoleIcon }) =
         </div>
 
         {/* Location */}
-        <div className="d-flex align-items-center mb-2">
+        <div className="d-flex align-items-center mb-3">
           <MapPin className="text-muted me-2" size={14} />
           <span className="text-muted small" style={{ fontSize: '0.85rem' }}>
-            {event.location} • {event.venue}
+            {event.venue}
           </span>
         </div>
 
-        {/* Role */}
-        <div className="d-flex align-items-center mb-3">
-          <Users className="text-muted me-2" size={14} />
-          <span className="text-muted small" style={{ fontSize: '0.85rem' }}>
-            Workwise Role: {event.role}
-          </span>
-          <span className="ms-2" style={{ fontSize: '1rem' }}>
-            {getRoleIcon(event.role)}
-          </span>
+        {/* Participation Types */}
+        <div className="mb-3">
+          {event.participationTypes.map((type, index) => {
+            const colors = getParticipationTypeColor(type);
+            return (
+              <span
+                key={index}
+                className="badge me-2 mb-1"
+                style={{
+                  backgroundColor: colors.bg,
+                  color: colors.text,
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '12px',
+                  fontWeight: '500'
+                }}
+              >
+                {type}
+              </span>
+            );
+          })}
         </div>
 
         {/* Description */}
-        <p className="text-muted mb-3" style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
+        <p className="text-muted mb-4" style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
           {event.description}
         </p>
 
-        {/* Status Tag */}
-        <div className="mb-3">
-          <span className={`badge ${getStatusColor(event.status)} text-white`} style={{ fontSize: '0.75rem' }}>
-            {event.status}
-          </span>
-        </div>
-
-        {/* Register Interest Button */}
+        {/* Action Button */}
         <button
           className="btn w-100"
-          onClick={onRegisterInterest}
-          style={{ 
-            backgroundColor: '#0d6efd', 
-            borderColor: '#0d6efd',
-            color: 'white',
-            transition: 'none',
+          onClick={isUpcoming ? onRegisterInterest : onViewHighlights}
+          style={{
+            backgroundColor: isUpcoming ? '#0d6efd' : 'transparent',
+            border: isUpcoming ? '1px solid #0d6efd' : '1px solid #0d6efd',
+            color: isUpcoming ? 'white' : '#0d6efd',
+            transition: 'all 0.2s ease',
             fontSize: '0.85rem',
-            padding: '8px 12px',
-            borderRadius: '6px'
+            padding: '10px 16px',
+            borderRadius: '6px',
+            fontWeight: '500'
+          }}
+          onMouseEnter={(e) => {
+            if (isUpcoming) {
+              e.target.style.backgroundColor = '#0b5ed7';
+            } else {
+              e.target.style.backgroundColor = '#0d6efd';
+              e.target.style.color = 'white';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (isUpcoming) {
+              e.target.style.backgroundColor = '#0d6efd';
+            } else {
+              e.target.style.backgroundColor = 'transparent';
+              e.target.style.color = '#0d6efd';
+            }
           }}
         >
-          Register Your Interest
+          {isUpcoming ? 'Register Your Interest' : 'View Event Highlights'}
         </button>
       </div>
     </div>

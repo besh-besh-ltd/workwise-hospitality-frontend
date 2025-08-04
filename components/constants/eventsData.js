@@ -5,88 +5,95 @@ export const eventsData = {
   },
   filters: {
     eventType: {
-      label: "Event Type",
+      label: "All Events",
       options: ["All Events", "Exhibitions", "Conferences", "Trade Shows", "Seminars"]
     },
-    status: {
-      label: "Status",
-      options: ["All Status", "Upcoming", "Past"]
-    },
     location: {
-      label: "Location",
+      label: "All Locations",
       options: ["All Locations", "Mumbai", "Delhi", "Bangalore", "Chennai", "Hyderabad", "Pune"]
+    },
+    participationType: {
+      label: "All Participation Type",
+      options: ["All Participation Type", "Exhibitor", "Sponsor", "Speaker", "Delegate"]
     }
   },
   events: [
     {
       id: 1,
-      name: "India Manufacturing Show 2024",
-      date: "March 15-17, 2024",
+      name: "India Industrial Expo 2023",
+      date: "15-17 Dec 2023",
       location: "Mumbai",
-      venue: "Bombay Exhibition Centre",
+      venue: "Mumbai Exhibition Centre",
       role: "Exhibitor",
-      description: "Leading manufacturing technology exhibition showcasing the latest innovations in industrial automation and smart manufacturing solutions.",
+      participationTypes: ["Exhibitor", "Sponsor"],
+      description: "Join us at India's largest industrial procurement exhibition. Visit our booth #A42 to discover our latest procurement solutions.",
       status: "Upcoming",
-      image: null
+      image: "/assets/images/events/industrial-expo.jpg"
     },
     {
       id: 2,
-      name: "Procurement & Supply Chain Summit",
-      date: "April 22-24, 2024",
-      location: "Delhi",
-      venue: "Pragati Maidan",
+      name: "Supply Chain Summit 2024",
+      date: "22-24 Jan 2024",
+      location: "Bangalore",
+      venue: "Bangalore Convention Centre",
       role: "Speaker",
-      description: "Annual summit bringing together procurement professionals to discuss digital transformation and vendor management strategies.",
+      participationTypes: ["Speaker"],
+      description: "Our CEO will deliver a keynote on 'Digital Transformation in Procurement' on Day 2 at 11:00 AM.",
       status: "Upcoming",
-      image: null
+      image: "/assets/images/events/supply-chain-summit.jpg"
     },
     {
       id: 3,
-      name: "Industrial Equipment Expo",
-      date: "February 8-10, 2024",
-      location: "Bangalore",
-      venue: "Bangalore International Centre",
-      role: "Sponsor",
-      description: "Comprehensive exhibition featuring industrial equipment, machinery, and technology solutions for various sectors.",
-      status: "Past",
-      image: null
+      name: "Manufacturing Tech Expo",
+      date: "8-10 Feb 2024",
+      location: "Delhi",
+      venue: "Delhi Trade Centre",
+      role: "Exhibitor",
+      participationTypes: ["Exhibitor"],
+      description: "Explore our latest procurement platform features at booth #C15. Schedule a personalized demo with our team.",
+      status: "Upcoming",
+      image: "/assets/images/events/manufacturing-tech.jpg"
     },
     {
       id: 4,
-      name: "Smart Factory Conference",
-      date: "May 12-14, 2024",
+      name: "Procurement Leaders Forum",
+      date: "15-17 Nov 2023",
       location: "Chennai",
       venue: "Chennai Trade Centre",
-      role: "Delegate",
-      description: "Conference focused on Industry 4.0 technologies, IoT integration, and smart manufacturing practices.",
-      status: "Upcoming",
-      image: null
+      role: "Speaker",
+      participationTypes: ["Speaker", "Sponsor"],
+      description: "Our CTO presented on 'AI in Procurement' and we showcased our platform at the innovation booth.",
+      status: "Past",
+      image: "/assets/images/events/procurement-leaders.jpg"
     },
     {
       id: 5,
-      name: "Vendor Management Forum",
-      date: "January 20-22, 2024",
+      name: "India Supply Chain Expo",
+      date: "5-7 Oct 2023",
       location: "Hyderabad",
       venue: "HITEX Exhibition Centre",
       role: "Exhibitor",
-      description: "Specialized forum for vendor management professionals to share best practices and innovative solutions.",
+      participationTypes: ["Exhibitor"],
+      description: "We demonstrated our platform's capabilities for streamlining industrial procurement processes.",
       status: "Past",
-      image: null
+      image: "/assets/images/events/supply-chain-expo.jpg"
     },
     {
       id: 6,
-      name: "Industrial Procurement Summit",
-      date: "June 5-7, 2024",
+      name: "Digital Procurement Summit",
+      date: "20-22 Sep 2023",
       location: "Pune",
       venue: "Pune International Exhibition Centre",
-      role: "Speaker",
-      description: "Summit dedicated to industrial procurement challenges, digital solutions, and vendor discovery strategies.",
-      status: "Upcoming",
-      image: null
+      role: "Sponsor",
+      participationTypes: ["Sponsor", "Delegate"],
+      description: "We sponsored the networking lunch and participated in panel discussions on digital transformation.",
+      status: "Past",
+      image: "/assets/images/events/digital-procurement.jpg"
     }
   ],
   finalCta: {
     title: "Want to Meet Us at an Event Near You?",
+    subtitle: "Stay updated on our upcoming events, receive exclusive invitations, and get notified when we're exhibiting in your city.",
     button: {
       label: "Get Event Updates by Email",
       variant: "white",
