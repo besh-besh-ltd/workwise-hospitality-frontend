@@ -4,6 +4,7 @@ import { downloadQuotesDetails } from "@/services/rfq";
 import ReadMore from "@/components/shared/ReadMore";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal } from "@/utils/sharedFunctions";
+import { Badge } from "react-bootstrap";
 
 const addCommasToNumber = (num) => {
   if (num === null || num === undefined) return '0';
@@ -261,16 +262,16 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                                       </th>
                                       <td style={{ textAlign: "right" }}>
                                         {`${
-                                        details.freight_mode == "percentage"
-                                          ? ""
-                                          : "₹"
-                                      }${addCommasToNumber(
+                                          details.freight_mode == "percentage"
+                                            ? ""
+                                            : "₹"
+                                        }${addCommasToNumber(
                                           details.freight_price
                                         )}${
-                                        details.freight_mode == "percentage"
-                                          ? "%"
-                                          : ""
-                                      }`}
+                                          details.freight_mode == "percentage"
+                                            ? "%"
+                                            : ""
+                                        }`}
                                       </td>
                                     </tr>
                                     <tr>
@@ -283,14 +284,14 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                                       </th>
                                       <td style={{ textAlign: "right" }}>
                                         {`${
-                                        details.tax_mode == "percentage"
-                                          ? ""
-                                          : "₹"
-                                      }${addCommasToNumber(details.tax)}${
-                                        details.tax_mode == "percentage"
-                                          ? "%"
-                                          : ""
-                                      }`}
+                                          details.tax_mode == "percentage"
+                                            ? ""
+                                            : "₹"
+                                        }${addCommasToNumber(details.tax)}${
+                                          details.tax_mode == "percentage"
+                                            ? "%"
+                                            : ""
+                                        }`}
                                       </td>
                                     </tr>
                                     <tr>
@@ -343,19 +344,17 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                           {item.product_specs?.find(
                             (s) => s.title === "total_price"
                           )?.value && (
-                            <div
-                              style={{
-                                fontSize: "0.9em",
-                                color: "#0046ad",
-                                marginTop: 2,
-                              }}
-                            >
-                              Total:{" "}
-                              {
-                                item.product_specs.find(
-                                  (s) => s.title === "total_price"
-                                ).value
-                              }
+                            <div className="d-flex justify-content-center mt-1">
+                              <Badge bg="success" className="d-flex gap-1 px-3">
+                                <p className="fw-medium">Selling Price: </p>
+                                <p className="fw-semibold">
+                                  {addCommasToNumber(
+                                    item.product_specs.find(
+                                      (s) => s.title === "total_price"
+                                    ).value
+                                  )}
+                                </p>
+                              </Badge>
                             </div>
                           )}
                         </td>
