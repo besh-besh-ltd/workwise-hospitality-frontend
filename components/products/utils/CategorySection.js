@@ -8,8 +8,15 @@ export const CategorySection = ({ subcategories }) => {
 
   const handleCategoryClick = (sub) => {
     setShowAll(false);
-    const currentPath = router.asPath.split("?")[0];
-    router.push(`${currentPath}/${sub.slug}`);
+    // Check if we're on a vendor page and navigate accordingly
+    const currentPath = router.asPath;
+    if (currentPath.startsWith('/vendor/')) {
+      // Stay within vendor context
+      router.push(`/vendor/${sub.slug}`);
+    } else {
+      // Navigate to products page
+      router.push(`/products/${sub.slug}`);
+    }
   };
 
   const visibleSubcategories = showAll

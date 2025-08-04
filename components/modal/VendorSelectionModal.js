@@ -135,18 +135,6 @@ const VendorSelectionModal = ({
           </div>
         ) : (
           <div className="vendor-modal-content">
-            {/* Global Summary */}
-            <div className="alert alert-info mx-3 mt-3 mb-3" style={{ backgroundColor: '#e3f2fd', border: '1px solid #2196f3', borderRadius: '8px' }}>
-              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
-                <div className="text-center text-sm-start">
-                  <strong>Total Products Pending:</strong> {totalGlobalProducts}
-                </div>
-                <div className="text-center text-sm-end">
-                  <strong>Total Vendors:</strong> {vendors.length}
-                </div>
-              </div>
-            </div>
-
             {/* Select All Checkbox */}
             <div className="px-3 mb-3">
               <div className="p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>

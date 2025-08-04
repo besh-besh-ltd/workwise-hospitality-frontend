@@ -1,6 +1,6 @@
 import { getCompanyUsers } from '@/services/Auth';
 import { handlePOApproval } from '@/services/po';
-import useDebounce from '@/utils/sharedFunctions';
+import useDebounce, { addCommasToNumber } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import {
@@ -14,12 +14,8 @@ import { toast } from 'react-toastify';
 import Pagination from '@/components/shared/Pagination';
 
 const statusVariants = {
-  draft: 'secondary',
   pending_approval: 'warning',
   approved: 'success',
-  sent: 'primary',
-  GRN: 'info',
-  completed: 'dark',
   cancelled: 'danger',
   rejected: 'danger',
 };
@@ -121,7 +117,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
             }
           />
         </div>
-        <div className="d-flex gap-3 flex-wrap">
+        <div className="d-flex gap-3">
           <div>
             <label>Initiated By</label>
             <select
@@ -239,7 +235,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                     </td>
                     <td>{po.product_details.name}</td>
                     <td>{po.quantity}</td>
-                    <td>₹ {po.total_value}</td>
+                    <td>₹ {addCommasToNumber(po.total_value)}</td>
                     <td>{po.initiated_by}</td>
                     <td>{formatISTDate(po.created_at)}</td>
                     <td>
