@@ -180,9 +180,9 @@ const uploadToServer = async (processed_file) => {
     }
   } catch (error) {
     console.log(error);
-    console.error(error?.response?.data?.detail);
+    console.error(error?.response?.data?.message);
     toast.error(
-      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
         "RFQ creation failed. Please try again later."
     );
     
