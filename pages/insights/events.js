@@ -14,6 +14,7 @@ import { Dropdown } from '@/components/ui/Dropdown';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 import { DynamicCard } from '@/components/ui/DynamicCard';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { eventsData } from '@/components/constants/eventsData';
@@ -81,32 +82,14 @@ const EventsPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="py-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '60px'
-        }}
-      >
-        <div className="container">
-          <div className="row">
-            <div className="col-lg-10">
-              {/* Title with icon */}
-              <div className="d-flex align-items-center mb-3">
-                <h1 className="fs-2 fw-bold text-white mb-0">
-                  {eventsData.hero.title}
-                </h1>
-              </div>
-
-              {/* Description */}
-              <p className="text-white mb-0" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
-                {eventsData.hero.subtitle}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroSection
+        title={eventsData.hero.title}
+        subtitle={eventsData.hero.subtitle}
+        layout="centered"
+        size="small"
+        textAlign="left"
+        showVisual={false}
+      />
 
       {/* Search and Filter Bar */}
       <section className="py-4 bg-white">

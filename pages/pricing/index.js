@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { FeatureCard } from '@/components/ui/FeatureCard';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { pricingData } from '@/components/constants/pricingData';
@@ -45,27 +46,13 @@ const PricingPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="py-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '60px'
-        }}
-      >
-        <div className="container">
-          <div className="row justify-content-center text-center">
-            <div className="col-lg-8">
-              <h1 className="fs-1 fw-bold text-white mb-4">
-                {pricingData.hero.title}
-              </h1>
-              <p className="text-white mb-0" style={{ fontSize: '1.1rem', lineHeight: '1.6' }}>
-                {pricingData.hero.subtitle}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroSection
+        title={pricingData.hero.title}
+        subtitle={pricingData.hero.subtitle}
+        layout="centered"
+        size="small"
+        showVisual={false}
+      />
 
       {/* Tab Navigation */}
       <section className="py-4" style={{ backgroundColor: '#F8F8F8' }}>

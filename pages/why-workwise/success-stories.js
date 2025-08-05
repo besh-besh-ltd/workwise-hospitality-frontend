@@ -16,6 +16,7 @@ import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { Dropdown } from '@/components/ui/Dropdown';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { successStoriesData } from '@/components/constants/successStoriesData';
@@ -52,73 +53,60 @@ const SuccessStoriesPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="py-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '60px'
-        }}
+      <HeroSection
+        title={successStoriesData.hero.title}
+        subtitle={successStoriesData.hero.subtitle}
+        layout="full-width"
+        size="medium"
+        textAlign="left"
+        showVisual={false}
+        className="pb-0"
       >
-        <div className="container">
-          <div className="row">
-            <div className="col-lg-10">
-              {/* Title */}
-              <h1 className="fs-2 fw-bold text-white mb-3 text-start">
-                {successStoriesData.hero.title}
-              </h1>
-
-              {/* Description */}
-              <p className="text-white mb-4 text-start" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
-                {successStoriesData.hero.subtitle}
-              </p>
-
-              {/* Filters */}
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <Dropdown
-                    label={successStoriesData.filters.stakeholderType.label}
-                    options={successStoriesData.filters.stakeholderType.options}
-                    value={stakeholderType}
-                    onChange={setStakeholderType}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <Dropdown
-                    label={successStoriesData.filters.projectValueRange.label}
-                    options={successStoriesData.filters.projectValueRange.options}
-                    value={projectValueRange}
-                    onChange={setProjectValueRange}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <div className="d-flex flex-column h-100 justify-content-end">
-                    <button
-                      onClick={handleBookCall}
-                      className="btn w-100 h-100 d-flex align-items-center justify-content-center text-white fw-medium"
-                      style={{ 
-                        backgroundColor: '#fd7e14',
-                        borderColor: '#fd7e14',
-                        fontSize: '0.9rem',
-                        padding: '12px 16px',
-                        borderRadius: '6px'
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        <Phone className="me-2" size={14} />
-                        <div className="text-start">
-                          <div>{successStoriesData.hero.ctaButton.text}</div>
-                          <div>{successStoriesData.hero.ctaButton.subtext}</div>
-                        </div>
-                      </div>
-                    </button>
+        {/* Custom Filters Section */}
+        <div className="container mt-4">
+          <div className="row g-3">
+            <div className="col-md-4">
+              <Dropdown
+                label={successStoriesData.filters.stakeholderType.label}
+                options={successStoriesData.filters.stakeholderType.options}
+                value={stakeholderType}
+                onChange={setStakeholderType}
+              />
+            </div>
+            <div className="col-md-4">
+              <Dropdown
+                label={successStoriesData.filters.projectValueRange.label}
+                options={successStoriesData.filters.projectValueRange.options}
+                value={projectValueRange}
+                onChange={setProjectValueRange}
+              />
+            </div>
+            <div className="col-md-4">
+              <div className="d-flex flex-column h-100 justify-content-end">
+                <button
+                  onClick={handleBookCall}
+                  className="btn w-100 h-100 d-flex align-items-center justify-content-center text-white fw-medium"
+                  style={{ 
+                    backgroundColor: '#fd7e14',
+                    borderColor: '#fd7e14',
+                    fontSize: '0.9rem',
+                    padding: '12px 16px',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <div className="d-flex align-items-center">
+                    <Phone className="me-2" size={14} />
+                    <div className="text-start">
+                      <div>{successStoriesData.hero.ctaButton.text}</div>
+                      <div>{successStoriesData.hero.ctaButton.subtext}</div>
+                    </div>
                   </div>
-                </div>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </HeroSection>
 
       {/* Success Stories Grid */}
       <section className="py-5 bg-white">

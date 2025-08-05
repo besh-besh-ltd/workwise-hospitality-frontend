@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { ourStoryData } from '@/components/constants/ourStoryData';
@@ -74,51 +75,21 @@ const OurStoryPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="pt-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '60px'
+      <HeroSection
+        title={ourStoryData.hero.title}
+        subtitle={ourStoryData.hero.subtitle}
+        layout="split"
+        size="medium"
+        primaryButton={{
+          label: ourStoryData.hero.ctaButton.label,
+          variant: "white",
+          icon: "none",
+          onClick: handleMeetPeople
         }}
-      >
-        <div className="container">
-          <div className="row align-items-center">
-            <div className="col-lg-6">
-              {/* Title */}
-              <h1 className="fs-1 fw-bold text-white mb-3">
-                {ourStoryData.hero.title}
-              </h1>
-
-              {/* Subtitle */}
-              <p className="text-white mb-4" style={{ fontSize: '1.1rem', lineHeight: '1.6' }}>
-                {ourStoryData.hero.subtitle}
-              </p>
-
-              {/* CTA Button */}
-              <Button
-                label={ourStoryData.hero.ctaButton.label}
-                variant={ourStoryData.hero.ctaButton.variant}
-                icon={ourStoryData.hero.ctaButton.icon}
-                onClick={handleMeetPeople}
-                size="sm"
-                className="px-3 py-3"
-                style={{ 
-                  backgroundColor: 'white',
-                  borderColor: 'white',
-                  color: 'black',
-                  minWidth: '300px',
-                  whiteSpace: 'nowrap'
-                }}
-              />
-            </div>
-            
-            <div className="col-lg-6">
-              <HeroVisual />
-            </div>
-          </div>
-        </div>
-      </section>
+        visualContent={{
+          component: HeroVisual
+        }}
+      />
 
       {/* Why We Built Section */}
       <section className="py-5 bg-white">

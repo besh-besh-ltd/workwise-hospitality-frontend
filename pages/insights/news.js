@@ -8,6 +8,7 @@ import {
 
 // Import components
 import { DynamicCard } from '@/components/ui/DynamicCard';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { newsData } from '@/components/constants/newsData';
@@ -33,30 +34,13 @@ const NewsPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="py-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '80px'
-        }}
-      >
-        <div className="container">
-          <div className="row justify-content-center text-center">
-            <div className="col-lg-8">
-              {/* Title */}
-              <h1 className="fs-1 fw-bold text-white mb-4">
-                {newsData.hero.title}
-              </h1>
-
-              {/* Description */}
-              <p className="text-white mb-0" style={{ fontSize: '1.1rem', lineHeight: '1.6' }}>
-                {newsData.hero.subtitle}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroSection
+        title={newsData.hero.title}
+        subtitle={newsData.hero.subtitle}
+        layout="centered"
+        size="small"
+        showVisual={false}
+      />
 
       {/* Featured Coverage Section */}
       <section className="py-5 bg-white">
