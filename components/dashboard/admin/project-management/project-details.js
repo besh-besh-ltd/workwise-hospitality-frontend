@@ -404,6 +404,14 @@ const ProjectDetailsPage = () => {
                               {formatDate(project.created_at)}
                             </div>
                           </div>
+                          <div className="row mb-3">
+                            <div className="col-md-4">
+                              <strong>Budget :</strong>
+                            </div>
+                            <div className="col-md-8">
+                             { project?.budget || "N/A"}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

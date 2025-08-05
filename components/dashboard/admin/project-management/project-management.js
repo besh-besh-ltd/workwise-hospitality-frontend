@@ -117,8 +117,8 @@ const ProjectManagementPage = () => {
               <div className="vendor-mngt-con">
                 <div className="d-flex justify-content-end mb-4">
                   <SmartButton
-                    label=" Create New Project"
-                    icon=<FontAwesomeIcon icon={faFolderPlus}/>
+                    label="Create New Project"
+                    icon={<FontAwesomeIcon icon={faFolderPlus} />}
                     iconPosition="left" // "left" or "right"
                     theme="primary" // "primary" or "secondary"
                     onClick={() =>
@@ -146,6 +146,7 @@ const ProjectManagementPage = () => {
                             <th>Closed RFQs</th>
                             <th>Created Date</th>
                             <th>Created By</th>
+                            <th>Budget</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -167,15 +168,16 @@ const ProjectManagementPage = () => {
                               <td>{project.open_rfqs || "0"}</td>
                               <td>{project.closed_rfqs || "0"}</td>
                               <td>{formatDate(project.created_at)}</td>
-                              <td>{project.created_by_name || ''}</td>
+                              <td>{project.created_by_name || ""}</td>
+                              <td>{project?.budget || "N/A"}</td>
                               <td>
                                 <SmartButton
                                   href={`/dashboard/admin/project-management/${project.id}`}
                                   label="View"
-                                  icon=<FontAwesomeIcon
+                                  icon={<FontAwesomeIcon
                                     icon={faEye}
                                     className="me-1"
-                                  />
+                                  />}
                                   iconPosition="left" // "left" or "right"
                                   theme="primary" // "primary" or "secondary"
                                   width="120px"
