@@ -12,7 +12,7 @@ const CtaSection = ({
     <section 
       className={`py-5 ${className}`}
       style={{
-        background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)'
+        background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)'
       }}
     >
       <div className="container">

@@ -28,7 +28,7 @@ export const eventsData = {
       participationTypes: ["Exhibitor", "Sponsor"],
       description: "Join us at India's largest industrial procurement exhibition. Visit our booth #A42 to discover our latest procurement solutions.",
       status: "Upcoming",
-      image: "/assets/images/events/industrial-expo.jpg"
+      image: "/assets/images/placeholder.jpeg"
     },
     {
       id: 2,
@@ -40,7 +40,7 @@ export const eventsData = {
       participationTypes: ["Speaker"],
       description: "Our CEO will deliver a keynote on 'Digital Transformation in Procurement' on Day 2 at 11:00 AM.",
       status: "Upcoming",
-      image: "/assets/images/events/supply-chain-summit.jpg"
+      image: "/assets/images/placeholder.jpeg"
     },
     {
       id: 3,
@@ -52,7 +52,7 @@ export const eventsData = {
       participationTypes: ["Exhibitor"],
       description: "Explore our latest procurement platform features at booth #C15. Schedule a personalized demo with our team.",
       status: "Upcoming",
-      image: "/assets/images/events/manufacturing-tech.jpg"
+      image: "/assets/images/placeholder.jpeg"
     },
     {
       id: 4,
@@ -64,7 +64,7 @@ export const eventsData = {
       participationTypes: ["Speaker", "Sponsor"],
       description: "Our CTO presented on 'AI in Procurement' and we showcased our platform at the innovation booth.",
       status: "Past",
-      image: "/assets/images/events/procurement-leaders.jpg"
+      image: "/assets/images/placeholder.jpeg"
     },
     {
       id: 5,
@@ -76,7 +76,7 @@ export const eventsData = {
       participationTypes: ["Exhibitor"],
       description: "We demonstrated our platform's capabilities for streamlining industrial procurement processes.",
       status: "Past",
-      image: "/assets/images/events/supply-chain-expo.jpg"
+      image: "/assets/images/placeholder.jpeg"
     },
     {
       id: 6,
@@ -88,7 +88,7 @@ export const eventsData = {
       participationTypes: ["Sponsor", "Delegate"],
       description: "We sponsored the networking lunch and participated in panel discussions on digital transformation.",
       status: "Past",
-      image: "/assets/images/events/digital-procurement.jpg"
+      image: "/assets/images/placeholder.jpeg"
     }
   ],
   finalCta: {

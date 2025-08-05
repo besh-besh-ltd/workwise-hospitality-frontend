@@ -8,7 +8,8 @@ export const ourStoryData = {
       label: "Meet the People Behind Workwise",
       variant: "primary",
       icon: "users"
-    }
+    },
+    image: "/assets/images/placeholder.jpeg"
   },
 
   // Why We Built Section
@@ -88,10 +89,10 @@ export const ourStoryData = {
   team: {
     title: "Our Core Team",
     founder: {
-      name: "Rajesh Sharma",
+      name: "Siddharth Kothari",
       title: "Founder & CEO",
       quote: "We're not just building a platform — we're transforming an industry that touches millions of lives.",
-      description: "With over 15 years in industrial procurement, Rajesh has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both buyer and vendor pain points."
+      description: "With over 15 years in industrial procurement, Siddharth has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both buyer and vendor pain points."
     },
     members: [
       {
@@ -122,7 +123,7 @@ export const ourStoryData = {
     subtitle: "Whether you're a potential partner, client, or Investor — we'd love to talk about how we can transform procurement together.",
     button: {
       label: "Book a Call with the Workwise Team",
-      variant: "primary",
+      variant: "white",
       icon: "phone"
     }
   }

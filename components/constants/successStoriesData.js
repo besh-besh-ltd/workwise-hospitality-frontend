@@ -46,7 +46,7 @@ export const successStoriesData = {
     title: "Ready to achieve similar results?",
     primaryButton: {
       label: "Book a Call",
-      variant: "primary",
+      variant: "white",
       icon: "phone"
     },
     secondaryButton: {

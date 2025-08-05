@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Rocket,
   Building,
@@ -15,11 +15,21 @@ import {
 import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { ourStoryData } from '@/components/constants/ourStoryData';
 
 const OurStoryPage = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div>Loading...</div>;
+  }
   const handleMeetPeople = () => {
     console.log('Meet the People Behind Workwise clicked');
   };
@@ -74,51 +84,22 @@ const OurStoryPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="pt-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '60px'
+      <HeroSection
+        title={ourStoryData.hero.title}
+        subtitle={ourStoryData.hero.subtitle}
+        layout="split"
+        size="medium"
+        primaryButton={{
+          label: ourStoryData.hero.ctaButton.label,
+          variant: "white",
+          icon: "none",
+          onClick: handleMeetPeople
         }}
-      >
-        <div className="container">
-          <div className="row align-items-center">
-            <div className="col-lg-6">
-              {/* Title */}
-              <h1 className="fs-1 fw-bold text-white mb-3">
-                {ourStoryData.hero.title}
-              </h1>
-
-              {/* Subtitle */}
-              <p className="text-white mb-4" style={{ fontSize: '1.1rem', lineHeight: '1.6' }}>
-                {ourStoryData.hero.subtitle}
-              </p>
-
-              {/* CTA Button */}
-              <Button
-                label={ourStoryData.hero.ctaButton.label}
-                variant={ourStoryData.hero.ctaButton.variant}
-                icon={ourStoryData.hero.ctaButton.icon}
-                onClick={handleMeetPeople}
-                size="sm"
-                className="px-3 py-3"
-                style={{ 
-                  backgroundColor: 'white',
-                  borderColor: 'white',
-                  color: 'black',
-                  minWidth: '300px',
-                  whiteSpace: 'nowrap'
-                }}
-              />
-            </div>
-            
-            <div className="col-lg-6">
-              <HeroVisual />
-            </div>
-          </div>
-        </div>
-      </section>
+        visualContent={{
+          component: HeroVisual,
+          image: ourStoryData.hero.image
+        }}
+      />
 
       {/* Why We Built Section */}
       <section className="py-5 bg-white">
@@ -290,27 +271,29 @@ const OurStoryPage = () => {
             })}
           </div>
 
-          {/* Description in Light Blue Box */}
+          {/* Description in Subtle Gray Box */}
           <div className="row justify-content-center">
-            <div className="col-lg-8">
+            <div className="col-lg-10">
               <div 
                 className="p-4 rounded"
                 style={{ 
-                  backgroundColor: '#e3f2fd',
-                  border: '1px solid #bbdefb'
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #e9ecef',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                 }}
               >
                 <div className="d-flex align-items-center">
                   <div 
                     className="rounded-circle d-flex align-items-center justify-content-center me-3"
                     style={{ 
-                      width: '24px', 
-                      height: '24px',
-                      backgroundColor: '#0d6efd',
-                      color: 'white'
+                      width: '28px', 
+                      height: '28px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      flexShrink: 0
                     }}
                   >
-                    <span className="fw-bold" style={{ fontSize: '12px' }}>i</span>
+                    <span className="fw-bold" style={{ fontSize: '14px' }}>i</span>
                   </div>
                   <p className="text-muted mb-0" style={{ fontSize: '1rem', lineHeight: '1.6' }}>
                     {ourStoryData.whatWeBuilt.description}

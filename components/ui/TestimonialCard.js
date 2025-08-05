@@ -31,7 +31,7 @@ const TestimonialCard = React.forwardRef(({
     >
       <div className="card-body p-4">
         {/* Quote Icon */}
-        <div className="text-warning mb-3" style={{ fontSize: '2rem' }}>
+        <div className="text-warning mb-3" style={{ fontSize: '5rem' }}>
           "
         </div>
 
@@ -52,8 +52,9 @@ const TestimonialCard = React.forwardRef(({
                 e.target.style.display = 'none';
               }}
             />
-          ) : null}
-          <PlaceholderImage />
+          ) : (
+            <PlaceholderImage />
+          )}
           <div>
             <div className="fw-semibold text-dark">
               {authorName}

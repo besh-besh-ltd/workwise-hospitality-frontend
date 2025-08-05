@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Target,
   Zap,
@@ -11,21 +11,30 @@ import {
 } from 'lucide-react';
 
 // Import reusable components
-import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { Dropdown } from '@/components/ui/Dropdown';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
+import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import data
 import { successStoriesData } from '@/components/constants/successStoriesData';
 
 const SuccessStoriesPage = () => {
+  const [mounted, setMounted] = useState(false);
   const [stakeholderType, setStakeholderType] = useState('All Types');
   const [projectValueRange, setProjectValueRange] = useState('All Ranges');
   const [visibleStories, setVisibleStories] = useState(6);
   const [selectedStory, setSelectedStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div>Loading...</div>;
+  }
 
   const handleBookCall = () => {
     console.log('Book a Call clicked');
@@ -52,73 +61,60 @@ const SuccessStoriesPage = () => {
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
       {/* Hero Section */}
-      <section
-        className="py-5"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-          paddingTop: '160px',
-          paddingBottom: '60px'
-        }}
+      <HeroSection
+        title={successStoriesData.hero.title}
+        subtitle={successStoriesData.hero.subtitle}
+        layout="centered"
+        size="medium"
+        textAlign="left"
+        showVisual={false}
+        className="pb-0"
       >
-        <div className="container">
-          <div className="row">
-            <div className="col-lg-10">
-              {/* Title */}
-              <h1 className="fs-2 fw-bold text-white mb-3 text-start">
-                {successStoriesData.hero.title}
-              </h1>
-
-              {/* Description */}
-              <p className="text-white mb-4 text-start" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
-                {successStoriesData.hero.subtitle}
-              </p>
-
-              {/* Filters */}
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <Dropdown
-                    label={successStoriesData.filters.stakeholderType.label}
-                    options={successStoriesData.filters.stakeholderType.options}
-                    value={stakeholderType}
-                    onChange={setStakeholderType}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <Dropdown
-                    label={successStoriesData.filters.projectValueRange.label}
-                    options={successStoriesData.filters.projectValueRange.options}
-                    value={projectValueRange}
-                    onChange={setProjectValueRange}
-                  />
-                </div>
-                <div className="col-md-4">
-                  <div className="d-flex flex-column h-100 justify-content-end">
-                    <button
-                      onClick={handleBookCall}
-                      className="btn w-100 h-100 d-flex align-items-center justify-content-center text-white fw-medium"
-                      style={{ 
-                        backgroundColor: '#fd7e14',
-                        borderColor: '#fd7e14',
+        {/* Custom Filters Section */}
+        <div className="container mt-4">
+          <div className="row g-3 justify-content-center">
+            <div className="col-md-3">
+              <Dropdown
+                label={successStoriesData.filters.stakeholderType.label}
+                options={successStoriesData.filters.stakeholderType.options}
+                value={stakeholderType}
+                onChange={setStakeholderType}
+              />
+            </div>
+            <div className="col-md-3">
+              <Dropdown
+                label={successStoriesData.filters.projectValueRange.label}
+                options={successStoriesData.filters.projectValueRange.options}
+                value={projectValueRange}
+                onChange={setProjectValueRange}
+              />
+            </div>
+            {/* <div className="col-md-4">
+              <div className="d-flex flex-column h-100 justify-content-end">
+                <button
+                  onClick={handleBookCall}
+                  className="btn w-100 h-100 d-flex align-items-center justify-content-center text-white fw-medium"
+                                        style={{ 
+                        backgroundColor: 'var(--tertiary-color)',
+                        borderColor: 'var(--tertiary-color)',
                         fontSize: '0.9rem',
                         padding: '12px 16px',
                         borderRadius: '6px'
                       }}
-                    >
-                      <div className="d-flex align-items-center">
-                        <Phone className="me-2" size={14} />
-                        <div className="text-start">
-                          <div>{successStoriesData.hero.ctaButton.text}</div>
-                          <div>{successStoriesData.hero.ctaButton.subtext}</div>
-                        </div>
-                      </div>
-                    </button>
+                >
+                  <div className="d-flex align-items-center">
+                    <Phone className="me-2" size={14} />
+                    <div className="text-start">
+                      <div>{successStoriesData.hero.ctaButton.text}</div>
+                      <div>{successStoriesData.hero.ctaButton.subtext}</div>
+                    </div>
                   </div>
-                </div>
+                </button>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
-      </section>
+      </HeroSection>
 
       {/* Success Stories Grid */}
       <section className="py-5 bg-white">
@@ -141,8 +137,8 @@ const SuccessStoriesPage = () => {
                 onClick={handleLoadMore}
                 className="btn btn-primary px-4 py-2 fw-medium"
                 style={{ 
-                  backgroundColor: '#0d6efd',
-                  borderColor: '#0d6efd',
+                  backgroundColor: 'var(--primary-color)',
+                  borderColor: 'var(--primary-color)',
                   color: 'white',
                   fontSize: '0.9rem',
                   borderRadius: '6px'
@@ -258,13 +254,13 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
             <span className="text-muted small" style={{ fontSize: '0.8rem' }}>{story.location}</span>
           </div>
 
-          {/* Read More Button - Non-animated */}
+          {/* Read More Button */}
           <button
             className="btn btn-secondary w-100"
             onClick={onReadMore}
             style={{ 
-              backgroundColor: '#6c757d', 
-              borderColor: '#6c757d',
+              backgroundColor: 'var(--muted-text)', 
+              borderColor: 'var(--muted-text)',
               color: 'white',
               transition: 'none',
               fontSize: '0.85rem',

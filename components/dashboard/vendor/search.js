@@ -226,7 +226,10 @@ const Search = ({ title = "Preffered Vendors", type }) => {
   // When a new product is selected, update the search bar value
   useEffect(() => {
     if (currentSelectedProduct) {
-      setSearch_key(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+      const productName = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
+      if (search_key !== productName) {
+        setSearch_key(productName);
+      }
     }
   }, [currentSelectedProduct]);
 
@@ -361,9 +364,11 @@ const addRfqIdParam = (rfq_id) => {
     setSearchSubCategories([]);
     // changes by mukul jatav 29-08-2024 
     // setbulkRFQVendors([]);
-    // Use the name of the product at index 0 as the search_key for vendor search
+    // Use the name of the currentSelectedProduct as the search_key for vendor search
     let canonicalSearchKey = search_key;
-    if (products && products.length > 0) {
+    if (currentSelectedProduct) {
+      canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
+    } else if (products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
     if (canonicalSearchKey != "") {
@@ -390,7 +395,6 @@ const addRfqIdParam = (rfq_id) => {
         "vendors"
       )
         .then((rsp) => {
-
           setloading(false);
 
           let d = rsp.data.map((item) => {
@@ -634,7 +638,13 @@ const clearVendorFilters = () => {
 
   // --- Parse slug only ONCE when slug or lists are ready ---
   useEffect(() => {
-    if (!slug || slug === 'all' || !stateList.length || !cityList.length) return;
+    if (!slug || slug === 'all') return;
+
+    // If location lists are not loaded yet, treat the entire slug as product search
+    if (!stateList.length || !cityList.length) {
+      setSearch_key(slug);
+      return;
+    }
 
     const segments = slug.split('-');
     let foundState = null, foundCity = null, productSegments = [];
@@ -651,15 +661,16 @@ const clearVendorFilters = () => {
       }
       productSegments.unshift(segment);
     }
-    setSearch_key(productSegments.join('-'));
+    const finalSearchKey = productSegments.join('-');
+    setSearch_key(finalSearchKey);
   }, [slug, stateList, cityList]);
 
   // --- Trigger product search automatically ---
   useEffect(() => {
-    if (search_key && slug && slug !== 'all') {
+    if (search_key && slug && slug !== 'all' && !currentSelectedProduct) {
       getProducts(search_key);
     }
-  }, [search_key, slug]);
+  }, [search_key, slug, currentSelectedProduct]);
 
   // --- When filters are cleared, update the URL ---
   const clearLocationFilter = () => {
