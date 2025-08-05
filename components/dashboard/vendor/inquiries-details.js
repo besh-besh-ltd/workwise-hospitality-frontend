@@ -1477,7 +1477,7 @@ const RfqManagementPreview = () => {
                                         {rfqDetails.status == 2 ||
                                         !productleftforbid ||
                                         quoteDisabled ||
-                                        rfqDetails.products?.some(
+                                        rfqDetails.products?.every(
                                           (item) =>
                                             item.finalization_status ===
                                               "Another vendor is finalized" ||
