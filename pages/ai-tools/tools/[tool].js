@@ -249,7 +249,7 @@ const AiToolPage = () => {
         </section>
 
         {/* Output Preview Section */}
-        <section className="py-5 bg-white">
+        {/* <section className="py-5 bg-white">
           <div className="container">
             <div className="text-center mb-5">
               <h2 className="fs-2 fw-bold text-dark mb-3">
@@ -276,19 +276,19 @@ const AiToolPage = () => {
               <small className="text-muted">{toolData.outputPreview.note}</small>
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* Trust Signals Section */}
-        <section className="py-5 bg-light">
-          <div className="container">
-            <div className="text-center mb-5">
+        {/* <section className="py-5 bg-light">
+          <div className="container"> */}
+            {/* <div className="text-center mb-5">
               <h2 className="fs-2 fw-bold text-dark mb-3">
                 {toolData.trustSignals.title}
               </h2>
-            </div>
+            </div> */}
             
             {/* Logos */}
-            <div className="row justify-content-center mb-5">
+            {/* <div className="row justify-content-center mb-5">
               {toolData.trustSignals.logos.map((logo, index) => (
                 <div key={index} className="col-auto">
                   <div className="bg-white rounded-3 p-3 shadow-sm">
@@ -296,10 +296,10 @@ const AiToolPage = () => {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> */}
 
             {/* Testimonials */}
-            <div className="row g-4 mb-4">
+            {/* <div className="row g-4 mb-4">
               {toolData.trustSignals.testimonials.map((testimonial, index) => (
                 <div key={index} className="col-md-6">
                   <div className="bg-white rounded-4 p-4 shadow-sm h-100">
@@ -308,22 +308,22 @@ const AiToolPage = () => {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> */}
 
             {/* Badges */}
-            <div className="text-center mb-3">
+            {/* <div className="text-center mb-3">
               {toolData.trustSignals.badges.map((badge, index) => (
                 <span key={index} className="badge bg-primary me-2 mb-2">
                   {badge}
                 </span>
               ))}
-            </div>
+            </div> */}
 
-            <div className="text-center">
+            {/* <div className="text-center">
               <p className="text-muted small">{toolData.trustSignals.tagline}</p>
-            </div>
-          </div>
-        </section>
+            </div> */}
+          {/* </div>
+        </section> */}
 
         {/* Register Form Modal */}
         <RegisterFormModal
@@ -437,14 +437,14 @@ const AiToolPage = () => {
         )}
 
         {/* Bottom CTA Section */}
-        <CtaSection
+        {/* <CtaSection
           title={toolData.bottomCta.title}
           primaryButton={{
             ...toolData.bottomCta.button,
             variant: "white",
             onClick: handleBookCall
           }}
-        />
+        /> */}
       </div>
     </>
   );
