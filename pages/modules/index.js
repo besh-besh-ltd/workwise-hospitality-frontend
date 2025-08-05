@@ -167,7 +167,8 @@ const ModulePage = () => {
           onClick: handleSecondaryAction
         }}
         visualContent={{
-          component: ModuleVisualPlaceholder
+          component: ModuleVisualPlaceholder,
+          image: moduleData.hero.image
         }}
       />
 

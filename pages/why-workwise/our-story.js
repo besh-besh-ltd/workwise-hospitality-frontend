@@ -96,7 +96,8 @@ const OurStoryPage = () => {
           onClick: handleMeetPeople
         }}
         visualContent={{
-          component: HeroVisual
+          component: HeroVisual,
+          image: ourStoryData.hero.image
         }}
       />
 

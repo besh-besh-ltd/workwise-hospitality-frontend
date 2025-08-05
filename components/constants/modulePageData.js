@@ -14,7 +14,8 @@ export const modulePageData = {
         label: "Book a Call",
         variant: "white",
         icon: "phone"
-      }
+      },
+      image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
       title: "Top Benefits You Get",
@@ -64,7 +65,8 @@ export const modulePageData = {
       testimonial: {
         quote: "Earlier, we used to spend half a day just cleaning BOQs. With Workwise, it's 5 minutes and done.",
         authorName: "Senior Procurement Engineer",
-        authorTitle: "Oil & Gas Contractor"
+        authorTitle: "Oil & Gas Contractor",
+        authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
@@ -125,7 +127,8 @@ export const modulePageData = {
         label: "Book a Call",
         variant: "white",
         icon: "phone"
-      }
+      },
+      image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
       title: "Top Benefits You Get",
@@ -175,7 +178,8 @@ export const modulePageData = {
       testimonial: {
         quote: "We used to create RFQs over 2-3 days with back-and-forth on specs. Now we generate and send it all in 15–20 minutes.",
         authorName: "Procurement Lead",
-        authorTitle: "Turnkey Infra EPC"
+        authorTitle: "Turnkey Infra EPC",
+        authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
@@ -236,7 +240,8 @@ export const modulePageData = {
         label: "Book a Call",
         variant: "white",
         icon: "phone"
-      }
+      },
+      image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
       title: "Top Benefits You Get",
@@ -286,7 +291,8 @@ export const modulePageData = {
       testimonial: {
         quote: "We needed a valve manufacturer from Europe who was approved by PSU. Workwise helped us close it in 3 days.",
         authorName: "Project Procurement Manager",
-        authorTitle: "Oil & Gas EPC"
+        authorTitle: "Oil & Gas EPC",
+        authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
@@ -347,7 +353,8 @@ export const modulePageData = {
         label: "Book a Call",
         variant: "white",
         icon: "phone"
-      }
+      },
+      image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
       title: "Top Benefits You Get",
@@ -397,7 +404,8 @@ export const modulePageData = {
       testimonial: {
         quote: "The evaluation tool saved us hours of manual comparison. We can now spot deviations instantly and make faster decisions.",
         authorName: "Procurement Manager",
-        authorTitle: "Infrastructure EPC"
+        authorTitle: "Infrastructure EPC",
+        authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
@@ -458,7 +466,8 @@ export const modulePageData = {
         label: "Book a Call",
         variant: "white",
         icon: "phone"
-      }
+      },
+      image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
       title: "Top Benefits You Get",
@@ -508,7 +517,8 @@ export const modulePageData = {
       testimonial: {
         quote: "Our negotiation process used to take weeks. Now we can track everything and close deals in days.",
         authorName: "Senior Procurement Officer",
-        authorTitle: "Manufacturing Company"
+        authorTitle: "Manufacturing Company",
+        authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
@@ -569,7 +579,8 @@ export const modulePageData = {
         label: "Book a Call",
         variant: "white",
         icon: "phone"
-      }
+      },
+      image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
       title: "Top Benefits You Get",
@@ -619,7 +630,8 @@ export const modulePageData = {
       testimonial: {
         quote: "The payment management system has eliminated our manual tracking. Everything is automated and transparent.",
         authorName: "Finance Manager",
-        authorTitle: "Construction Company"
+        authorTitle: "Construction Company",
+        authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",

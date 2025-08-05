@@ -72,8 +72,8 @@ const SuccessStoriesPage = () => {
       >
         {/* Custom Filters Section */}
         <div className="container mt-4">
-          <div className="row g-3">
-            <div className="col-md-4">
+          <div className="row g-3 justify-content-center">
+            <div className="col-md-3">
               <Dropdown
                 label={successStoriesData.filters.stakeholderType.label}
                 options={successStoriesData.filters.stakeholderType.options}
@@ -81,7 +81,7 @@ const SuccessStoriesPage = () => {
                 onChange={setStakeholderType}
               />
             </div>
-            <div className="col-md-4">
+            <div className="col-md-3">
               <Dropdown
                 label={successStoriesData.filters.projectValueRange.label}
                 options={successStoriesData.filters.projectValueRange.options}
@@ -89,7 +89,7 @@ const SuccessStoriesPage = () => {
                 onChange={setProjectValueRange}
               />
             </div>
-            <div className="col-md-4">
+            {/* <div className="col-md-4">
               <div className="d-flex flex-column h-100 justify-content-end">
                 <button
                   onClick={handleBookCall}
@@ -111,7 +111,7 @@ const SuccessStoriesPage = () => {
                   </div>
                 </button>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </HeroSection>

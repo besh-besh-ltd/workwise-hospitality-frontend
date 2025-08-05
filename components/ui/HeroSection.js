@@ -87,7 +87,20 @@ const HeroSection = React.forwardRef(({
                     background: 'linear-gradient(135deg, var(--tertiary-color) 0%, var(--red-color) 100%)'
                   }}
                 >
-                  {visualContent?.component ? visualContent.component() : (
+                  {visualContent?.image ? (
+                    <div className="d-flex align-items-center justify-content-center h-100">
+                      <img 
+                        src={visualContent.image} 
+                        alt="Hero Visual" 
+                        style={{
+                          maxWidth: '80%',
+                          maxHeight: '80%',
+                          borderRadius: '16px',
+                          boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
+                        }}
+                      />
+                    </div>
+                  ) : visualContent?.component ? visualContent.component() : (
                     <div className="d-flex align-items-center justify-content-center h-100">
                       <div className="text-center text-white">
                         <p className="mb-0">Visual Placeholder</p>
