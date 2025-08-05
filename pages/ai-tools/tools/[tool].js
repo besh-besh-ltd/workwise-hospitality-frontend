@@ -109,23 +109,6 @@ const AiToolPage = () => {
     console.log('Download clicked');
   };
 
-  // Icon mapping for benefits
-  const getBenefitIcon = (iconName) => {
-    const iconMap = {
-      skip: Clock,
-      'never-miss': CheckCircle,
-      share: Share2,
-      breakdown: Calculator,
-      'market-rates': Zap,
-      rapid: Brain,
-      extract: FileText,
-      deadlines: Clock,
-      compliance: Shield,
-      simplify: Brain,
-      insights: Eye
-    };
-    return iconMap[iconName] || CheckCircle;
-  };
 
   return (
     <>
@@ -157,7 +140,7 @@ const AiToolPage = () => {
                   </p>
                 </div>
                 
-                <div className="bg-light rounded-4 p-4">
+                <div className="rounded-4 p-4">
                   <div
                     className="file-drop-area text-center rounded py-5 mb-4"
                     style={{
