@@ -18,7 +18,7 @@ const HeroSection = React.forwardRef(({
   // Size configurations
   const sizeConfig = {
     large: { minHeight: '100vh', paddingTop: '120px', paddingBottom: '60px' },
-    medium: { minHeight: '70vh', paddingTop: '120px', paddingBottom: '40px' },
+    medium: { minHeight: '60vh', paddingTop: '100px', paddingBottom: '40px' },
     small: { minHeight: '10vh', paddingTop: '120px', paddingBottom: '20px' }
   };
 

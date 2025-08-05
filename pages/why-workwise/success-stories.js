@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Target,
   Zap,
@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 
 // Import reusable components
-import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -22,11 +21,20 @@ import { HeroSection } from '@/components/ui/HeroSection';
 import { successStoriesData } from '@/components/constants/successStoriesData';
 
 const SuccessStoriesPage = () => {
+  const [mounted, setMounted] = useState(false);
   const [stakeholderType, setStakeholderType] = useState('All Types');
   const [projectValueRange, setProjectValueRange] = useState('All Ranges');
   const [visibleStories, setVisibleStories] = useState(6);
   const [selectedStory, setSelectedStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div>Loading...</div>;
+  }
 
   const handleBookCall = () => {
     console.log('Book a Call clicked');
@@ -56,7 +64,7 @@ const SuccessStoriesPage = () => {
       <HeroSection
         title={successStoriesData.hero.title}
         subtitle={successStoriesData.hero.subtitle}
-        layout="full-width"
+        layout="centered"
         size="medium"
         textAlign="left"
         showVisual={false}
@@ -246,7 +254,7 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
             <span className="text-muted small" style={{ fontSize: '0.8rem' }}>{story.location}</span>
           </div>
 
-          {/* Read More Button - Non-animated */}
+          {/* Read More Button */}
           <button
             className="btn btn-secondary w-100"
             onClick={onReadMore}

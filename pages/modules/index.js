@@ -30,6 +30,11 @@ const ModulePage = () => {
   const router = useRouter();
   const { module } = router.query;
   
+  // Wait for router to be ready to avoid hydration mismatch
+  if (!router.isReady) {
+    return <div>Loading...</div>;
+  }
+  
   // Default to 'boq' if no module specified
   const currentModule = module || 'boq';
   const moduleData = modulePageData[currentModule];
