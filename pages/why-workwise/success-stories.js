@@ -86,13 +86,13 @@ const SuccessStoriesPage = () => {
                 <button
                   onClick={handleBookCall}
                   className="btn w-100 h-100 d-flex align-items-center justify-content-center text-white fw-medium"
-                  style={{ 
-                    backgroundColor: '#fd7e14',
-                    borderColor: '#fd7e14',
-                    fontSize: '0.9rem',
-                    padding: '12px 16px',
-                    borderRadius: '6px'
-                  }}
+                                        style={{ 
+                        backgroundColor: 'var(--tertiary-color)',
+                        borderColor: 'var(--tertiary-color)',
+                        fontSize: '0.9rem',
+                        padding: '12px 16px',
+                        borderRadius: '6px'
+                      }}
                 >
                   <div className="d-flex align-items-center">
                     <Phone className="me-2" size={14} />
@@ -129,8 +129,8 @@ const SuccessStoriesPage = () => {
                 onClick={handleLoadMore}
                 className="btn btn-primary px-4 py-2 fw-medium"
                 style={{ 
-                  backgroundColor: '#0d6efd',
-                  borderColor: '#0d6efd',
+                  backgroundColor: 'var(--primary-color)',
+                  borderColor: 'var(--primary-color)',
                   color: 'white',
                   fontSize: '0.9rem',
                   borderRadius: '6px'
@@ -251,8 +251,8 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
             className="btn btn-secondary w-100"
             onClick={onReadMore}
             style={{ 
-              backgroundColor: '#6c757d', 
-              borderColor: '#6c757d',
+              backgroundColor: 'var(--muted-text)', 
+              borderColor: 'var(--muted-text)',
               color: 'white',
               transition: 'none',
               fontSize: '0.85rem',

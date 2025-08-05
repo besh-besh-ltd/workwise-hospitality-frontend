@@ -227,7 +227,7 @@ const EventsPage = () => {
       <section
         className="py-5"
         style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)'
+          background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)'
         }}
       >
         <div className="container">

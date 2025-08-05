@@ -27,12 +27,12 @@ const HeroSection = React.forwardRef(({
   return (
     <section
       className={`d-flex align-items-center position-relative ${className || ''}`}
-      style={{
-        background: 'linear-gradient(135deg, var(--primary-color) 0%, #428B41 100%)',
-        minHeight: currentSize.minHeight,
-        paddingTop: currentSize.paddingTop,
-        paddingBottom: currentSize.paddingBottom
-      }}
+              style={{
+          background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+          minHeight: currentSize.minHeight,
+          paddingTop: currentSize.paddingTop,
+          paddingBottom: currentSize.paddingBottom
+        }}
       ref={ref}
       {...props}
     >
@@ -84,7 +84,7 @@ const HeroSection = React.forwardRef(({
                 <div 
                   className="position-absolute top-0 start-0 w-100 h-100"
                   style={{
-                    background: 'linear-gradient(135deg, #ffa500 0%, #ff6b6b 100%)'
+                    background: 'linear-gradient(135deg, var(--tertiary-color) 0%, var(--red-color) 100%)'
                   }}
                 >
                   {visualContent?.component ? visualContent.component() : (

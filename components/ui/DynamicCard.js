@@ -82,27 +82,27 @@ const DynamicCard = ({
   const getCategoryColor = (cat, cardType) => {
     const colorMap = {
       // News categories
-      'Featured': { bg: '#ff9800', text: 'white' },
-      'Interview': { bg: '#4caf50', text: 'white' },
-      'Funding': { bg: '#2196f3', text: 'white' },
-      'Award': { bg: '#9c27b0', text: 'white' },
-      'Event': { bg: '#2196f3', text: 'white' },
-      'Partnership': { bg: '#4caf50', text: 'white' },
-      'Launch': { bg: '#f44336', text: 'white' },
-      'Report': { bg: '#ffc107', text: 'black' },
+      'Featured': { bg: 'var(--orange-color)', text: 'var(--white-color)' },
+      'Interview': { bg: 'var(--green-color)', text: 'var(--white-color)' },
+      'Funding': { bg: 'var(--blue-color)', text: 'var(--white-color)' },
+      'Award': { bg: 'var(--purple-color)', text: 'var(--white-color)' },
+      'Event': { bg: 'var(--blue-color)', text: 'var(--white-color)' },
+      'Partnership': { bg: 'var(--green-color)', text: 'var(--white-color)' },
+      'Launch': { bg: 'var(--pink-color)', text: 'var(--white-color)' },
+      'Report': { bg: 'var(--amber-color)', text: 'var(--black-color)' },
       
       // Event categories
-      'Exhibitor': { bg: '#e3f2fd', text: '#1976d2' },
-      'Sponsor': { bg: '#e8f5e8', text: '#2e7d32' },
-      'Speaker': { bg: '#f3e5f5', text: '#7b1fa2' },
-      'Delegate': { bg: '#fff3e0', text: '#f57c00' },
+      'Exhibitor': { bg: 'var(--light-blue-color)', text: 'var(--dark-blue-color)' },
+      'Sponsor': { bg: 'var(--light-green-color)', text: 'var(--dark-green-color)' },
+      'Speaker': { bg: 'var(--light-purple-color)', text: 'var(--dark-purple-color)' },
+      'Delegate': { bg: 'var(--light-orange-color)', text: 'var(--dark-orange-color)' },
       
       // Status colors
-      'Upcoming': { bg: '#ff9800', text: 'white' },
-      'Past': { bg: '#6c757d', text: 'white' },
+      'Upcoming': { bg: 'var(--orange-color)', text: 'var(--white-color)' },
+      'Past': { bg: 'var(--dark-grey-color)', text: 'var(--white-color)' },
       
       // Default
-      'default': { bg: '#f5f5f5', text: '#616161' }
+      'default': { bg: 'var(--light-grey-color)', text: 'var(--text-color)' }
     };
     
     return colorMap[cat] || colorMap['default'];
@@ -134,12 +134,12 @@ const DynamicCard = ({
         className="position-relative"
         style={{
           height: config.imageHeight,
-          backgroundColor: '#f8f9fa',
+          backgroundColor: 'var(--light-grey-color)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderBottom: imagePosition === 'top' ? '1px solid #dee2e6' : 'none',
-          borderRight: imagePosition === 'left' ? '1px solid #dee2e6' : 'none'
+          borderBottom: imagePosition === 'top' ? '1px solid var(--border-color)' : 'none',
+          borderRight: imagePosition === 'left' ? '1px solid var(--border-color)' : 'none'
         }}
       >
         {image ? (
@@ -299,9 +299,9 @@ const DynamicCard = ({
             className="btn w-100"
             onClick={onPrimaryAction}
             style={{
-              backgroundColor: primaryAction.variant === 'outline' ? 'transparent' : '#0d6efd',
-              border: '1px solid #0d6efd',
-              color: primaryAction.variant === 'outline' ? '#0d6efd' : 'white',
+              backgroundColor: primaryAction.variant === 'outline' ? 'transparent' : 'var(--primary-color)',
+              border: '1px solid var(--primary-color)',
+              color: primaryAction.variant === 'outline' ? 'var(--primary-color)' : 'var(--white-color)',
               transition: 'all 0.2s ease',
               fontSize: config.descriptionSize,
               padding: size === 'small' ? '8px 12px' : '10px 16px',
@@ -310,18 +310,18 @@ const DynamicCard = ({
             }}
             onMouseEnter={(e) => {
               if (primaryAction.variant === 'outline') {
-                e.target.style.backgroundColor = '#0d6efd';
-                e.target.style.color = 'white';
+                e.target.style.backgroundColor = 'var(--primary-color)';
+                e.target.style.color = 'var(--white-color)';
               } else {
-                e.target.style.backgroundColor = '#0b5ed7';
+                e.target.style.backgroundColor = 'var(--dark-color)';
               }
             }}
             onMouseLeave={(e) => {
               if (primaryAction.variant === 'outline') {
                 e.target.style.backgroundColor = 'transparent';
-                e.target.style.color = '#0d6efd';
+                e.target.style.color = 'var(--primary-color)';
               } else {
-                e.target.style.backgroundColor = '#0d6efd';
+                e.target.style.backgroundColor = 'var(--primary-color)';
               }
             }}
           >
@@ -335,7 +335,7 @@ const DynamicCard = ({
             className="btn btn-link p-0"
             onClick={onSecondaryAction}
             style={{
-              color: secondaryAction.color || '#0d6efd',
+              color: secondaryAction.color || 'var(--primary-color)',
               textDecoration: 'none',
               fontSize: config.descriptionSize,
               fontWeight: '500'

@@ -65,7 +65,7 @@ const NewsPage = () => {
                   image={article.image}
                   secondaryAction={{
                     label: "Read Article →",
-                    color: "#ff9800",
+                    color: "var(--orange-color)",
                     showArrow: false
                   }}
                   onSecondaryAction={() => handleViewArticle(article.url)}
@@ -99,7 +99,7 @@ const NewsPage = () => {
                   image={article.image}
                   secondaryAction={{
                     label: "View",
-                    color: "#0d6efd",
+                    color: "var(--primary-color)",
                     showArrow: true
                   }}
                   onSecondaryAction={() => handleViewArticle(article.url)}
@@ -125,7 +125,7 @@ const NewsPage = () => {
                   className="btn btn-primary px-4 py-2"
                   onClick={handleDownloadPressKit}
                   style={{
-                    backgroundColor: '#0d6efd',
+                    backgroundColor: 'var(--primary-color)',
                     border: 'none',
                     borderRadius: '6px',
                     fontSize: '1rem',
@@ -141,8 +141,8 @@ const NewsPage = () => {
                   onClick={handleMediaContact}
                   style={{
                     backgroundColor: 'transparent',
-                    border: '1px solid #0d6efd',
-                    color: '#0d6efd',
+                    border: '1px solid var(--primary-color)',
+                    color: 'var(--primary-color)',
                     borderRadius: '6px',
                     fontSize: '1rem',
                     fontWeight: '500'

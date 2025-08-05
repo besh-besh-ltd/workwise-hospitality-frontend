@@ -55,24 +55,24 @@ const PricingPage = () => {
       />
 
       {/* Tab Navigation */}
-      <section className="py-4" style={{ backgroundColor: '#F8F8F8' }}>
+      <section className="py-4" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-auto">
               <div className="d-flex" style={{ 
-                backgroundColor: '#f8f9fa', 
+                backgroundColor: 'var(--light-grey-bg)', 
                 borderRadius: '8px', 
                 padding: '4px',
-                border: '1px solid #e9ecef'
+                border: '1px solid var(--light-grey-border)'
               }}>
                 <button
                   className="btn"
                   onClick={() => setActiveTab('buyers')}
                   style={{
                     borderRadius: '6px',
-                    border: activeTab === 'buyers' ? '1px solid #e9ecef' : 'none',
-                    backgroundColor: activeTab === 'buyers' ? '#ffffff' : 'transparent',
-                    color: activeTab === 'buyers' ? '#000000' : '#6c757d',
+                    border: activeTab === 'buyers' ? '1px solid var(--light-grey-border)' : 'none',
+                    backgroundColor: activeTab === 'buyers' ? 'var(--white-color)' : 'transparent',
+                    color: activeTab === 'buyers' ? 'var(--black-color)' : 'var(--muted-text)',
                     padding: '8px 24px',
                     fontSize: '0.9rem',
                     fontWeight: '500',
@@ -87,9 +87,9 @@ const PricingPage = () => {
                   onClick={() => setActiveTab('sellers')}
                   style={{
                     borderRadius: '6px',
-                    border: activeTab === 'sellers' ? '1px solid #e9ecef' : 'none',
-                    backgroundColor: activeTab === 'sellers' ? '#ffffff' : 'transparent',
-                    color: activeTab === 'sellers' ? '#000000' : '#6c757d',
+                    border: activeTab === 'sellers' ? '1px solid var(--light-grey-border)' : 'none',
+                    backgroundColor: activeTab === 'sellers' ? 'var(--white-color)' : 'transparent',
+                    color: activeTab === 'sellers' ? 'var(--black-color)' : 'var(--muted-text)',
                     padding: '8px 24px',
                     fontSize: '0.9rem',
                     fontWeight: '500',
@@ -107,7 +107,7 @@ const PricingPage = () => {
 
       {/* Buyers Tab Content */}
       {activeTab === 'buyers' && (
-        <section className="py-5" style={{ backgroundColor: '#F8F8F8' }}>
+        <section className="py-5" style={{ backgroundColor: 'var(--light-grey-color)' }}>
           <div className="container">
             <div className="row justify-content-center">
               <div className="col-lg-10">
@@ -122,7 +122,7 @@ const PricingPage = () => {
                           style={{
                             width: '32px',
                             height: '32px',
-                            backgroundColor: '#ff9800',
+                            backgroundColor: 'var(--orange-color)',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
@@ -146,7 +146,7 @@ const PricingPage = () => {
                         {pricingData.buyers.features.map((feature, index) => (
                           <div key={index} className="col-md-4">
                             <div className="card h-100 border-0" style={{ 
-                              backgroundColor: '#F8F8F8', 
+                              backgroundColor: 'var(--light-grey-bg)', 
                               borderRadius: '12px' 
                             }}>
                               <div className="card-body p-4 text-center">
@@ -155,14 +155,14 @@ const PricingPage = () => {
                                   style={{
                                     width: '64px',
                                     height: '64px',
-                                    backgroundColor: '#fff3e0',
+                                    backgroundColor: 'var(--light-orange-bg)',
                                     borderRadius: '50%',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                   }}
                                 >
-                                  <span style={{ fontSize: '24px', color: '#ff9800' }}>✓</span>
+                                  <span style={{ fontSize: '24px', color: 'var(--orange-color)' }}>✓</span>
                                 </div>
                                 <h5 className="fw-bold text-dark mb-2">{feature.title}</h5>
                                 <p className="text-muted mb-0" style={{ fontSize: '0.9rem' }}>
@@ -199,7 +199,7 @@ const PricingPage = () => {
                       <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
                         <div className="card-body p-3 text-center">
                           <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: '#ff9800' }}>⭐</span>
+                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>⭐</span>
                           </div>
                           <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>ISO 9001:2015</span>
                         </div>
@@ -209,7 +209,7 @@ const PricingPage = () => {
                       <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
                         <div className="card-body p-3 text-center">
                           <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: '#ff9800' }}>🛡️</span>
+                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>🛡️</span>
                           </div>
                           <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>ISO 27001</span>
                         </div>
@@ -219,7 +219,7 @@ const PricingPage = () => {
                       <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
                         <div className="card-body p-3 text-center">
                           <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: '#ff9800' }}>🏛️</span>
+                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>🏛️</span>
                           </div>
                           <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>Govt. Approved</span>
                         </div>
@@ -229,7 +229,7 @@ const PricingPage = () => {
                       <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
                         <div className="card-body p-3 text-center">
                           <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: '#ff9800' }}>🤝</span>
+                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>🤝</span>
                           </div>
                           <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>PSU Partner</span>
                         </div>
@@ -247,7 +247,7 @@ const PricingPage = () => {
       {activeTab === 'sellers' && (
         <>
           {/* Pricing Tiers Section */}
-          <section className="py-5" style={{ backgroundColor: '#ffffff' }}>
+          <section className="py-5" style={{ backgroundColor: 'var(--white-color)' }}>
             <div className="container">
               <div className="row justify-content-center text-center mb-5">
                 <div className="col-lg-8">
@@ -281,8 +281,8 @@ const PricingPage = () => {
                       className={`card h-100 border-0 shadow-sm position-relative`}
                       style={{ 
                         borderRadius: '12px',
-                        border: plan.popular ? '2px solid #ff9800' : 'none',
-                        backgroundColor: '#f8f9fa'
+                        border: plan.popular ? '2px solid var(--orange-color)' : 'none',
+                        backgroundColor: 'var(--light-grey-bg)'
                       }}
                     >
                       {plan.popular && (
@@ -291,7 +291,7 @@ const PricingPage = () => {
                           style={{
                             top: '-12px',
                             right: '20px',
-                            backgroundColor: '#ff9800',
+                            backgroundColor: 'var(--orange-color)',
                             color: 'white',
                             padding: '4px 12px',
                             borderRadius: '12px',
@@ -319,9 +319,9 @@ const PricingPage = () => {
                             <div key={featureIndex} className="d-flex align-items-center mb-3">
                               <div className="me-3">
                                 {feature.included ? (
-                                  <Check size={16} style={{ color: '#4caf50' }} />
+                                  <Check size={16} style={{ color: 'var(--green-color)' }} />
                                 ) : (
-                                  <X size={16} style={{ color: '#f44336' }} />
+                                  <X size={16} style={{ color: 'var(--pink-color)' }} />
                                 )}
                               </div>
                               <div className="flex-grow-1">
@@ -352,9 +352,9 @@ const PricingPage = () => {
                           }
                           className="w-100"
                           style={{
-                            backgroundColor: plan.name === 'Silver' ? '#ff9800' : '#000000',
-                            borderColor: plan.name === 'Silver' ? '#ff9800' : '#000000',
-                            color: '#ffffff',
+                            backgroundColor: plan.name === 'Silver' ? 'var(--orange-color)' : 'var(--black-color)',
+                            borderColor: plan.name === 'Silver' ? 'var(--orange-color)' : 'var(--black-color)',
+                            color: 'var(--white-color)',
                             fontWeight: '600'
                           }}
                         />
@@ -367,13 +367,13 @@ const PricingPage = () => {
               {/* All Plans Include */}
               <div className="row justify-content-center mt-5">
                 <div className="col-lg-8">
-                  <div className="rounded p-4" style={{ backgroundColor: '#f8f9fa' }}>
+                  <div className="rounded p-4" style={{ backgroundColor: 'var(--light-grey-bg)' }}>
                     <h5 className="fw-bold text-dark mb-3 text-center">All plans include:</h5>
                                          <div className="row">
                        {pricingData.sellers.allPlansInclude.map((feature, index) => (
                          <div key={index} className="col-md-4">
                            <div className="d-flex align-items-center mb-2">
-                             <Check size={16} className="me-2" style={{ color: '#4caf50' }} />
+                             <Check size={16} className="me-2" style={{ color: 'var(--green-color)' }} />
                              <span style={{ fontSize: '0.9rem' }}>{feature}</span>
                            </div>
                          </div>
@@ -386,7 +386,7 @@ const PricingPage = () => {
           </section>
 
           {/* Why Upgrade Section */}
-          <section className="py-5" style={{ backgroundColor: '#f8f9fa' }}>
+          <section className="py-5" style={{ backgroundColor: 'var(--light-grey-bg)' }}>
             <div className="container">
               <div className="row justify-content-center text-center mb-5">
                 <div className="col-lg-8">
@@ -403,14 +403,14 @@ const PricingPage = () => {
                         style={{
                           width: '64px',
                           height: '64px',
-                          backgroundColor: '#fff3e0',
+                          backgroundColor: 'var(--light-orange-bg)',
                           borderRadius: '50%',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}
                       >
-                        <span style={{ fontSize: '24px', color: '#ff9800' }}>✓</span>
+                        <span style={{ fontSize: '24px', color: 'var(--orange-color)' }}>✓</span>
                       </div>
                       <h5 className="fw-bold text-dark mb-2">{feature.title}</h5>
                       <p className="text-muted mb-0" style={{ fontSize: '0.9rem' }}>
@@ -424,7 +424,7 @@ const PricingPage = () => {
           </section>
 
           {/* FAQ Section */}
-          <section className="py-5" style={{ backgroundColor: '#ffffff' }}>
+          <section className="py-5" style={{ backgroundColor: 'var(--white-color)' }}>
             <div className="container">
               <div className="row justify-content-center">
                 <div className="col-lg-8">
