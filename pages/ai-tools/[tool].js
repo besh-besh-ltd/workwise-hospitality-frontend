@@ -4,30 +4,14 @@ import Head from 'next/head';
 import { 
   Upload, 
   CheckCircle, 
-  Users, 
-  Shield, 
   Download,
-  Phone,
-  ArrowRight,
-  FileText,
-  Calculator,
-  Zap,
-  Clock,
-  Share2,
-  Brain,
-  Eye,
-  Lock,
-  CloudArrowUp
 } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faCloudArrowUp } from '@fortawesome/free-solid-svg-icons';
 
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
-import { FeatureCard } from '@/components/ui/FeatureCard';
-import { CtaSection } from '@/components/ui/CtaSection';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
-import AiToolPreview from '@/components/aiTools/AiToolPreview';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
@@ -142,13 +126,19 @@ const AiToolPage = () => {
                 
                 <div className="rounded-4 p-4">
                   <div
-                    className="file-drop-area text-center rounded py-5 mb-4"
+                    className="file-drop-area text-center rounded mb-4"
                     style={{
                       border: "2px dashed #007bff",
                       cursor: "pointer",
                       backgroundColor: "#fff",
                       color: "#007bff",
-                      transition: "all 0.3s ease"
+                      transition: "all 0.3s ease",
+                      minHeight: "300px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: "60px 20px"
                     }}
                     onClick={() => document.getElementById("fileInput").click()}
                     onMouseEnter={(e) => {
@@ -162,12 +152,12 @@ const AiToolPage = () => {
                   >
                     <FontAwesomeIcon
                       icon={fileName ? faFileExcel : faCloudArrowUp}
-                      style={{ fontSize: "45px" }}
+                      style={{ fontSize: "60px" }}
                     />
-                    <p className="fw-semibold mb-0 mt-3">
+                    <p className="fw-semibold mb-0 mt-4 fs-5">
                       {fileName || "Upload/Drag & drop your file here"}
                     </p>
-                    <p className="text-muted small mb-0 mt-2">
+                    <p className="text-muted small mb-0 mt-3">
                       Supported formats: Excel (.xlsx, .xls), PDF, Word (.docx, .doc)
                     </p>
                   </div>
@@ -180,19 +170,11 @@ const AiToolPage = () => {
                     onChange={handleFileUpload}
                   />
 
-                  {fileName && (
-                    <div className="text-center mb-4">
-                      <div className="d-inline-flex align-items-center bg-success bg-opacity-10 rounded-3 px-3 py-2">
-                        <CheckCircle size={16} className="text-success me-2" />
-                        <span className="text-success fw-medium">{fileName}</span>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="text-center">
                     <button
                       onClick={handleUpload}
-                      className="btn btn-primary px-4 py-2 fw-medium"
+                      className="btn btn-primary px-5 py-3 fw-medium"
+                      style={{ minWidth: "300px" }}
                       disabled={!file}
                     >
                       <Upload size={16} className="me-2" />
