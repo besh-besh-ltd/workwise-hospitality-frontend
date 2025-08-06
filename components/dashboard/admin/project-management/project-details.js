@@ -310,7 +310,6 @@ const ProjectDetailsPage = () => {
   const handleRemoveTeamMember = async (userId) => {
     try {
       setLoading(true);
-
       const response = await removeTeamMember(projectId, userId);
 
       if (response && response.data && response.data.status) {
@@ -639,7 +638,7 @@ const ProjectDetailsPage = () => {
                                         theme="red"
                                         onClick={() => {
                                           handleRemoveTeamMember(
-                                            member.user_id
+                                            member.id
                                           );
                                         }}
                                         width="fit-content"
