@@ -18,10 +18,12 @@ import {
   getProjectTeamMembers,
   addTeamMember,
   removeTeamMember,
+  getProjectBudget,
 } from "@/services/project";
 import { getCountryCodes } from "@/services/cms";
 import { getCompanyUsers } from "@/services/Auth";
 import SmartButton from "@/components/shared/SmartButton";
+import { addCommasToNumber } from "@/utils/sharedFunctions";
 
 // Role options with color coding
 const roleOptions = [
@@ -45,6 +47,12 @@ const ProjectDetailsPage = () => {
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
   const [countryCodes, setCountryCodes] = useState([]);
   const [teamMemberUsers, setTeamMemberUsers] = useState([]);
+  const [projectDetails, setProjectDetails] = useState(null);
+  const [projectBudget, setProjectBudget] = useState([]);
+  const [openEditProject, setOpenEditProject] = useState(false); 
+  const [avlBudget , setAvlBudget] = useState(0);
+
+
 
   // Fetch country codes
   const fetchCountryCodes = async () => {
@@ -162,6 +170,41 @@ const ProjectDetailsPage = () => {
     }
   };
 
+  const getProjectBudgetData = async () => {
+    if (!projectId) return;
+
+    setLoading(true);
+    try {
+      const res = await getProjectBudget(projectId);
+      let avlAmount = 0;
+      const processedData = (res || []).map((item) => {
+        avlAmount += parseFloat(item.total_value) || 0;
+        return {
+          ...item,
+          total_value: parseFloat(item.total_value) || 0,
+        };
+      });
+      setAvlBudget(avlAmount);
+
+      setProjectBudget(processedData);
+      // Handle different response structures
+      if (res) {
+        setProjectBudget(res);
+      } else {
+        setProjectBudget([]);
+      }
+    } catch (error) {
+      setProjectBudget([]); // Reset to empty array on error
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (projectId && projectId !== "undefined") {
+      getProjectBudgetData();
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (projectId) {
       fetchProjectDetails();
@@ -175,7 +218,7 @@ const ProjectDetailsPage = () => {
   const getPaginatedData = () => {
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    return teamMembers.slice(startIndex, endIndex);
+    return teamMemberUsers.slice(startIndex, endIndex);
   };
 
   // Format date
@@ -333,79 +376,195 @@ const ProjectDetailsPage = () => {
           ) : (
             <>
               {/* Project Details Card */}
-              <div className="row mb-4">
-                <div className="col-md-12">
-                  <div className="card shadow-sm">
+              <div className="row">
+                {/* Project Info Column */}
+                <div className="col-md-6 mb-4">
+                  <div className="card h-100 shadow-sm border-primary">
                     <div className="card-body p-4">
                       <div className="d-flex justify-content-between align-items-center mb-3">
                         <h3 className="card-title">{project.name}</h3>
-
                         <SmartButton
                           label="Edit Project"
                           icon={<FontAwesomeIcon icon={faEdit} />}
-                          iconPosition="left" // "left" or "right"
-                          theme="primary" // "primary" or "secondary"
+                          iconPosition="left"
+                          theme="primary"
                           onClick={() => setShowEditModal(true)}
                           width="fit-content"
                           className="p-3"
                         />
                       </div>
 
-                      <div className="row">
-                        <div className="col-md-12">
-                          <p className="text-muted mb-4">
-                            {project.description}
-                          </p>
+                      <p className="text-muted mb-4">{project.description}</p>
 
-                          <div className="row mb-3">
-                            <div className="col-md-4">
-                              <strong>Location:</strong>
-                            </div>
-                            <div className="col-md-8">{project.location}</div>
-                          </div>
+                      <div className="row mb-3">
+                        <div className="col-md-4">
+                          <strong>Location:</strong>
+                        </div>
+                        <div className="col-md-8">{project.location}</div>
+                      </div>
 
-                          <div className="row mb-3">
-                            <div className="col-md-4">
-                              <strong>RFQ Type:</strong>
-                            </div>
-                            <div className="col-md-8">
-                              {project.rfq_type
-                                ? project.rfq_type.charAt(0).toUpperCase() +
-                                  project.rfq_type.slice(1)
-                                : "Not specified"}
-                            </div>
-                          </div>
-
-                          <div className="row mb-3">
-                            <div className="col-md-4">
-                              <strong>Reverse Auction:</strong>
-                            </div>
-                            <div className="col-md-8">
-                              {project.reverse_auction ? "Enabled" : "Disabled"}
-                            </div>
-                          </div>
-
-                          <div className="row mb-3">
-                            <div className="col-md-4">
-                              <strong>End Date:</strong>
-                            </div>
-                            <div className="col-md-8">
-                              {project.ended_at
-                                ? formatDate(project.ended_at)
-                                : "Not specified"}
-                            </div>
-                          </div>
-
-                          <div className="row mb-3">
-                            <div className="col-md-4">
-                              <strong>Created At:</strong>
-                            </div>
-                            <div className="col-md-8">
-                              {formatDate(project.created_at)}
-                            </div>
-                          </div>
+                      <div className="row mb-3">
+                        <div className="col-md-4">
+                          <strong>RFQ Type:</strong>
+                        </div>
+                        <div className="col-md-8">
+                          {project.rfq_type
+                            ? project.rfq_type.charAt(0).toUpperCase() +
+                              project.rfq_type.slice(1)
+                            : "Not specified"}
                         </div>
                       </div>
+
+                      <div className="row mb-3">
+                        <div className="col-md-4">
+                          <strong>Reverse Auction:</strong>
+                        </div>
+                        <div className="col-md-8">
+                          {project.reverse_auction ? "Enabled" : "Disabled"}
+                        </div>
+                      </div>
+
+                      <div className="row mb-3">
+                        <div className="col-md-4">
+                          <strong>End Date:</strong>
+                        </div>
+                        <div className="col-md-8">
+                          {project.ended_at
+                            ? formatDate(project.ended_at)
+                            : "Not specified"}
+                        </div>
+                      </div>
+
+                      <div className="row mb-3">
+                        <div className="col-md-4">
+                          <strong>Created At:</strong>
+                        </div>
+                        <div className="col-md-8">
+                          {formatDate(project.created_at)}
+                        </div>
+                      </div>
+
+                      <div className="row mb-3">
+                        <div className="col-md-4">
+                          <strong>Budget:</strong>
+                        </div>
+                        <div className="col-md-8">
+                          {project?.budget || "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Project Budget Column */}
+                <div className="col-md-6 mb-4">
+                  <div className="card h-100 shadow-sm border-success">
+                    <div className="card-body p-4">
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h3 className="card-title">Project Budget</h3>
+                        {!project?.budget || project?.budget == 0 ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary text-sm px-3"
+                            onClick={() => setOpenEditProject(true)}
+                          >
+                            <FontAwesomeIcon icon={faEdit} className="me-2" />
+                            Add Budget
+                          </button>
+                        ) : (
+                          <div className="text-end">
+                            <p className="fw-bold m-0">
+                              Budget: ₹{addCommasToNumber(project?.budget)}
+                            </p>
+                            <p className="fw-bold m-0">
+                              Available Budget: ₹
+                              {addCommasToNumber(Math.max(project?.budget - avlBudget, 0))}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <hr />
+
+                      <div className="budget-header d-flex justify-content-between mb-2 p-2 bg-light rounded fw-bold">
+                        <span>RFQ NO</span>
+                        <span style={{ width: "150px", textAlign: "center" }}>
+                          Vendor
+                        </span>
+                        <span style={{ width: "150px", textAlign: "center" }}>
+                          Date
+                        </span>
+                        <span className="text-end">Amount</span>
+                      </div>
+
+                      <div
+                        className="budget-items"
+                        style={{ maxHeight: "180px", overflowY: "auto" }}
+                      >
+                        {projectBudget?.length > 0 ? (
+                          projectBudget.map((item) => (
+                            <div
+                              key={item.id}
+                              className="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom"
+                            >
+                              <span className="text-muted">{item.rfq_no}</span>
+                              <span style={{ width: "150px" }}>
+                                {item.vendor_name}
+                              </span>
+                              <span style={{ width: "150px" }}>
+                                {new Date(item.updated_at).toLocaleDateString()}
+                              </span>
+                              <span className="text-danger fw-bold text-end">
+                                ₹{addCommasToNumber(parseFloat(item.total_value).toFixed(2))}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-3 text-muted">
+                            No budget data available
+                          </div>
+                        )}
+                      </div>
+
+                      {projectBudget?.length > 0 && (
+                        <div className="mt-4 pt-3 border-top">
+                          <div className="d-flex justify-content-between">
+                            <span className="fw-bold">Total Items:</span>
+                            <span className="fw-bold">
+                              {projectBudget.length}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between mt-2">
+                            <span className="fw-bold">Total Expenditure:</span>
+                            <span className="text-danger fw-bold">
+                              ₹
+                              {addCommasToNumber(projectBudget
+                                .reduce(
+                                  (sum, item) =>
+                                    sum + parseFloat(item.total_value),
+                                  0
+                                )
+                                .toFixed(2))}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between mt-2">
+                            <span className="fw-bold">Budget:</span>
+                            <span className="text-danger fw-bold">
+                              ₹{addCommasToNumber(project?.budget || 0)}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between mt-2">
+                            <span className="fw-bold">Available Budget:</span>
+                            <span className="text-danger fw-bold">
+                              ₹
+                              {addCommasToNumber(Math.max(
+                                project?.budget - (avlBudget || 0),
+                                0
+                              ))}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -430,7 +589,7 @@ const ProjectDetailsPage = () => {
                         />
                       </div>
 
-                      {teamMembers.length === 0 ? (
+                      {teamMemberUsers.length === 0 ? (
                         <p>No team members assigned to this project yet.</p>
                       ) : (
                         <div className="table-responsive">
@@ -470,7 +629,12 @@ const ProjectDetailsPage = () => {
                                     <td>
                                       <SmartButton
                                         label="Delete"
-                                        icon={<FontAwesomeIcon icon={faTrash} className="me-1"  />}
+                                        icon={
+                                          <FontAwesomeIcon
+                                            icon={faTrash}
+                                            className="me-1"
+                                          />
+                                        }
                                         iconPosition="left" // "left" or "right"
                                         theme="red"
                                         onClick={() => {
@@ -517,6 +681,16 @@ const ProjectDetailsPage = () => {
           closeModal={() => setShowEditModal(false)}
           handleEditProject={handleEditProject}
           countryCodes={countryCodes}
+        />
+      )}
+
+      {openEditProject && (
+        <DynamicFormModal
+          type={"edit-project"}
+          projectData={projectDetails}
+          openModal={openEditProject}
+          closeModal={() => setOpenEditProject(false)}
+          handleEditProject={handleEditProject}
         />
       )}
 
