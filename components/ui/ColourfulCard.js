@@ -95,9 +95,6 @@ const ColourfulCard = ({
           </div>
           <div className="bg-white bg-opacity-25 p-2 rounded-circle">
             <FontAwesomeIcon icon={getIcon(icon)} className="text-white" />
-            <span className="ms-1 text-white" style={{ fontSize: '14px' }}>
-              {getEmoji(icon)}
-            </span>
           </div>
         </div>
       </div>
