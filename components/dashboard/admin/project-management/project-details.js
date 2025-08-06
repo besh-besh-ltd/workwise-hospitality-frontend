@@ -218,7 +218,7 @@ const ProjectDetailsPage = () => {
   const getPaginatedData = () => {
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    return teamMembers.slice(startIndex, endIndex);
+    return teamMemberUsers.slice(startIndex, endIndex);
   };
 
   // Format date
@@ -589,7 +589,7 @@ const ProjectDetailsPage = () => {
                         />
                       </div>
 
-                      {teamMembers.length === 0 ? (
+                      {teamMemberUsers.length === 0 ? (
                         <p>No team members assigned to this project yet.</p>
                       ) : (
                         <div className="table-responsive">
