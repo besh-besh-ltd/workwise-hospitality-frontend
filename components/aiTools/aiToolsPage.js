@@ -45,7 +45,7 @@ const AiToolsPage = () => {
       subtitle: "Extract key information from complex tender documents",
       bgGradient: "linear-gradient(45deg,  #1D4ED8, #2563EB)",
       iconColor: "#1D4ED8",
-      url: "/ai-tools/tools/tender-summary",
+      url: "/ai-tools/tender-summary",
       icon: faChartColumn,
       features: [
         {
@@ -73,7 +73,7 @@ const AiToolsPage = () => {
       subtitle: "Simplify complex technical specifications",
       bgGradient: "linear-gradient(45deg, #15803D, #22C55E)",
       iconColor: "#15803D",
-      url: "/ai-tools/tools/technical-summary",
+      url: "/ai-tools/technical-summary",
       icon: faLightbulb,
       features: [
         {
@@ -101,7 +101,7 @@ const AiToolsPage = () => {
       subtitle: "Transform complex BOQs into structured data",
       bgGradient: "linear-gradient(45deg, #7E22CE, #9333EA)",
       iconColor: "#7E22CE",
-      url: "/ai-tools/tools/boq-simplification",
+      url: "/ai-tools/boq-simplification",
       icon: faStream,
       features: [
         {
@@ -130,7 +130,7 @@ const AiToolsPage = () => {
       subtitle: "Generate accurate cost estimates from BOQs",
       bgGradient: "linear-gradient(45deg, #F59E0B, #FACC15)",
       iconColor: "#F59E0B",
-      url: "/ai-tools/tools/cost-estimation",
+      url: "/ai-tools/cost-estimation",
       icon: faMoneyBill,
       features: [
         {
