@@ -130,17 +130,12 @@ const ProjectDetails = () => {
         }
     };
    useEffect(() => {
-        console.log("ProjectID changed:", projectID);
         if (projectID && projectID !== 'undefined') {
             getProjectBudgetData();
         }
     }, [projectID]);
 
-    // Debug state changes
-    useEffect(() => {
-        if(projectBudget)
-        console.log("Project Budget State Updated:", projectBudget);
-    }, [projectBudget]);  
+  
 
 
     const handleDropdownChange = (e) => {
