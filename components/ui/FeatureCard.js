@@ -40,7 +40,7 @@ const FeatureCard = React.forwardRef(({
             className={`rounded-circle d-inline-flex align-items-center justify-content-center mb-3 ${iconBgColor}`}
             style={{ width: "48px", height: "48px" }}
           >
-                <Icon className={`${iconColor}`} size={24} /> {" "}
+            <Icon className={iconColor} size={24} />
           </div>
         )}
 

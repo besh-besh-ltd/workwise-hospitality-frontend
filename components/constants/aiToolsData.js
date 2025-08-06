@@ -45,10 +45,10 @@ export const aiToolsData = {
       iconColor: "#6f42c1"
     }
   ],
-  // BOQ Simplifier
+  // BOQ Simplification
   boqSimplifier: {
     slug: "boq-simplification",
-    title: "BOQ Simplifier",
+    title: "BOQ Simplification",
     subtitle: "Transform complex BOQs into structured data",
     bgGradient: "linear-gradient(45deg, #7E22CE, #9333EA)",
     iconColor: "#7E22CE",
@@ -71,19 +71,19 @@ export const aiToolsData = {
       title: "Save Time. Avoid Errors. Get Instant Clarity.",
       features: [
         {
-          icon: "skip",
-          title: "Skip 600-page tenders",
-          description: "Get key insights instantly"
+          icon: "list",
+          title: "Smart Categorization",
+          description: "Auto-categorize line items by type and category"
         },
         {
-          icon: "never-miss",
-          title: "Never miss a clause",
-          description: "Or scope item again"
+          icon: "screwdriver-wrench",
+          title: "Clean & Structured",
+          description: "Standardize formats and units for easier processing"
         },
         {
-          icon: "share",
-          title: "Share structured insights",
-          description: "With your team"
+          icon: "robot",
+          title: "RFQ Ready",
+          description: "Convert BOQs directly into RFQ formats"
         }
       ]
     },
@@ -225,10 +225,10 @@ export const aiToolsData = {
     ]
   },
 
-  // Project Cost Estimator
+  // Cost Estimation
   costEstimator: {
     slug: "cost-estimation",
-    title: "Project Cost Estimator",
+    title: "Cost Estimation",
     subtitle: "Generate accurate cost estimates from BOQs",
     bgGradient: "linear-gradient(45deg, #F59E0B, #FACC15)",
     iconColor: "#F59E0B",
@@ -250,19 +250,19 @@ export const aiToolsData = {
       title: "Generate Accurate Estimates. Save Time. Reduce Errors.",
       features: [
         {
-          icon: "breakdown",
-          title: "Complete cost breakdown",
-          description: "Material, service, and manpower costs"
+          icon: "money-bill",
+          title: "Cost Breakdown",
+          description: "Split costs into Material, Service & Manpower"
         },
         {
-          icon: "market-rates",
-          title: "Current market rates",
-          description: "Based on real-time data"
+          icon: "chart-line",
+          title: "Market Rates",
+          description: "Access current market rates and historical data"
         },
         {
-          icon: "rapid",
-          title: "Rapid estimation",
-          description: "Get estimates in minutes, not days"
+          icon: "bolt",
+          title: "Rapid Estimation",
+          description: "Get accurate estimates in minutes, not days"
         }
       ]
     },
@@ -429,19 +429,19 @@ export const aiToolsData = {
       title: "Extract Key Information. Never Miss Deadlines. Stay Compliant.",
       features: [
         {
-          icon: "extract",
-          title: "Extract key requirements",
-          description: "From 500+ page tenders instantly"
+          icon: "wand-magic-sparkles",
+          title: "AI-Powered Analysis",
+          description: "Processes up to 500 pages to extract critical requirements"
         },
         {
-          icon: "deadlines",
-          title: "Never miss deadlines",
-          description: "Track all important dates"
+          icon: "clock",
+          title: "Save Time",
+          description: "Reduce analysis from days to minutes"
         },
         {
-          icon: "compliance",
-          title: "Ensure compliance",
-          description: "Identify all mandatory requirements"
+          icon: "chart-column",
+          title: "Interactive Q&A",
+          description: "Ask questions about your tender document"
         }
       ]
     },
@@ -583,10 +583,10 @@ export const aiToolsData = {
     ]
   },
 
-  // Technical Document Summary
+  // Technical Summary
   technicalSummary: {
     slug: "technical-summary",
-    title: "Technical Document Summary",
+    title: "Technical Summary",
     subtitle: "Simplify complex technical specifications",
     bgGradient: "linear-gradient(45deg, #15803D, #22C55E)",
     iconColor: "#15803D",
@@ -608,18 +608,18 @@ export const aiToolsData = {
       title: "Simplify Complex Documents. Get Clear Insights. Share Easily.",
       features: [
         {
-          icon: "simplify",
-          title: "Simplify complex jargon",
-          description: "Convert technical language to clear insights"
+          icon: "lightbulb",
+          title: "Simplified Insights",
+          description: "Convert technical jargon into clear, actionable points"
         },
         {
-          icon: "insights",
-          title: "Get key insights",
-          description: "Extract actionable information"
+          icon: "robot",
+          title: "AI Assistant",
+          description: "Ask up to 10 questions about your technical document"
         },
         {
-          icon: "share",
-          title: "Share with team",
+          icon: "share-alt",
+          title: "Shareable Reports",
           description: "Export and share simplified summaries"
         }
       ]

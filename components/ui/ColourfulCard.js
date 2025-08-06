@@ -16,7 +16,9 @@ import {
   faUsers,
   faListAlt,
   faFileAlt,
-  faCalculator
+  faCalculator,
+  faShare,
+  faShareAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const ColourfulCard = ({
@@ -55,27 +57,6 @@ const ColourfulCard = ({
     return iconMap[iconName] || faChartColumn;
   };
 
-  // Emoji mapping
-  const getEmoji = (iconName) => {
-    const emojiMap = {
-      'chart-column': '📊',
-      'lightbulb': '💡',
-      'stream': '⚡',
-      'money-bill': '💰',
-      'wand-magic-sparkles': '✨',
-      'clock': '⏰',
-      'list': '📋',
-      'screwdriver-wrench': '🔧',
-      'robot': '🤖',
-      'chart-line': '📈',
-      'bolt': '⚡',
-      'users': '👥',
-      'list-alt': '📝',
-      'file-alt': '📄',
-      'calculator': '🧮'
-    };
-    return emojiMap[iconName] || '📊';
-  };
   const handleClick = () => {
     if (onClick) {
       onClick(url);
@@ -90,7 +71,7 @@ const ColourfulCard = ({
       <div className="p-4" style={{ background: bgGradient, color: "white" }}>
         <div className="d-flex justify-content-between align-items-start">
           <div>
-            <h4 className="fw-bold text-white mb-1 mt-5">{title}</h4>
+            <h4 className="fw-bold text-white mb-1">{title}</h4>
             <div className="fw-normal">{subtitle}</div>
           </div>
           <div className="bg-white bg-opacity-25 p-2 rounded-circle">
@@ -107,7 +88,7 @@ const ColourfulCard = ({
             key={idx}
             icon={feature.icon}
             title={feature.title}
-            desc={feature.desc}
+            desc={feature.description}
             iconColor={iconColor}
           />
         ))}
@@ -140,7 +121,8 @@ const Feature = ({ icon, title, desc, iconColor }) => {
       'chart-column': faChartColumn,
       'lightbulb': faLightbulb,
       'robot': faRobot,
-      'share-alt': faRobot,
+      'share-alt': faShareAlt,
+      'share': faShare,
       'list': faList,
       'screwdriver-wrench': faScrewdriverWrench,
       'money-bill': faMoneyBill,
@@ -151,7 +133,6 @@ const Feature = ({ icon, title, desc, iconColor }) => {
       'compliance': faList,
       'simplify': faLightbulb,
       'insights': faChartColumn,
-      'share': faRobot,
       'breakdown': faMoneyBill,
       'market-rates': faChartLine,
       'rapid-estimation': faBolt,

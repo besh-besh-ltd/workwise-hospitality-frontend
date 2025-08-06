@@ -5,14 +5,19 @@ import {
   faUsers,
   faListAlt,
   faFileAlt,
-  faCalculator
+  faCalculator,
+  faPlay,
+  faLock,
+  faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
+import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt } from 'react-icons/fa';
 
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
 import { ColourfulCard } from '@/components/ui/ColourfulCard';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { CtaSection } from '@/components/ui/CtaSection';
+import FilePreview from '@/components/ui/FilePreview';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
@@ -44,9 +49,9 @@ const AiToolsPage = () => {
     console.log('Book Demo clicked');
   };
 
-  return (
+    return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
-      <Head>
+            <Head>
         <title>AI Tools | Workwise</title>
         <meta name="description" content="Workwise AI Tools help you simplify procurement by automating tender summaries, BOQ simplification, cost estimation, and technical document analysis – saving time and reducing costs." />
       </Head>
@@ -80,15 +85,30 @@ const AiToolsPage = () => {
             Trusted by Industry Leaders
           </h2>
           <div className="row justify-content-center align-items-center g-4">
-            {aiToolsData.trustSignals.logos.map((logo, index) => (
-              <div key={index} className="col-auto">
-                <div className="d-flex flex-column align-items-center">
-                  <div className="bg-white rounded-3 p-3 shadow-sm mb-2">
-                    <span className="fw-bold text-primary">{logo}</span>
-                  </div>
-                </div>
+            <div className="col-auto">
+              <div className="d-flex flex-column align-items-center">
+                <FaBuilding size={28} className="text-secondary mb-1" />
+                <small className="text-muted">IOCL</small>
               </div>
-            ))}
+            </div>
+            <div className="col-auto">
+              <div className="d-flex flex-column align-items-center">
+                <FaHardHat size={28} className="text-secondary mb-1" />
+                <small className="text-muted">NTPC</small>
+              </div>
+            </div>
+            <div className="col-auto">
+              <div className="d-flex flex-column align-items-center">
+                <FaProjectDiagram size={28} className="text-secondary mb-1" />
+                <small className="text-muted">ONGC</small>
+              </div>
+            </div>
+            <div className="col-auto">
+              <div className="d-flex flex-column align-items-center">
+                <FaBolt size={28} className="text-secondary mb-1" />
+                <small className="text-muted">PowerGrid</small>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -104,50 +124,175 @@ const AiToolsPage = () => {
           </div>
           
           <div className="row g-4 justify-content-center">
-            {Object.values(aiToolsData).filter(tool => tool.slug).map((tool, index) => (
-              <div key={index} className="col-md-6 col-lg-6">
-                <ColourfulCard
-                  title={tool.title}
-                  subtitle={tool.subtitle}
-                  bgGradient={tool.bgGradient}
-                  icon={tool.icon}
-                  features={tool.benefits?.features || []}
-                  buttonText={tool.buttonText}
-                  buttonVariant={tool.buttonVariant}
-                  iconColor={tool.iconColor}
-                  note={tool.note}
-                  buttonStyle={tool.buttonStyle}
-                  url={`/ai-tools/${tool.slug}`}
-                  onClick={handleToolClick}
-                />
-              </div>
-            ))}
+            {/* Tender Summary - Top Left */}
+            <div className="col-md-6 col-lg-6">
+              <ColourfulCard
+                title={aiToolsData.tenderSummary.title}
+                subtitle={aiToolsData.tenderSummary.subtitle}
+                bgGradient={aiToolsData.tenderSummary.bgGradient}
+                icon={aiToolsData.tenderSummary.icon}
+                features={aiToolsData.tenderSummary.benefits?.features || []}
+                buttonText={aiToolsData.tenderSummary.buttonText}
+                buttonVariant={aiToolsData.tenderSummary.buttonVariant}
+                iconColor={aiToolsData.tenderSummary.iconColor}
+                note={aiToolsData.tenderSummary.note}
+                buttonStyle={aiToolsData.tenderSummary.buttonStyle}
+                url={`/ai-tools/${aiToolsData.tenderSummary.slug}`}
+                onClick={handleToolClick}
+              />
+            </div>
+            
+            {/* Technical Summary - Top Right */}
+            <div className="col-md-6 col-lg-6">
+              <ColourfulCard
+                title={aiToolsData.technicalSummary.title}
+                subtitle={aiToolsData.technicalSummary.subtitle}
+                bgGradient={aiToolsData.technicalSummary.bgGradient}
+                icon={aiToolsData.technicalSummary.icon}
+                features={aiToolsData.technicalSummary.benefits?.features || []}
+                buttonText={aiToolsData.technicalSummary.buttonText}
+                buttonVariant={aiToolsData.technicalSummary.buttonVariant}
+                iconColor={aiToolsData.technicalSummary.iconColor}
+                note={aiToolsData.technicalSummary.note}
+                buttonStyle={aiToolsData.technicalSummary.buttonStyle}
+                url={`/ai-tools/${aiToolsData.technicalSummary.slug}`}
+                onClick={handleToolClick}
+              />
+            </div>
+            
+            {/* BOQ Simplification - Bottom Left */}
+            <div className="col-md-6 col-lg-6">
+              <ColourfulCard
+                title={aiToolsData.boqSimplifier.title}
+                subtitle={aiToolsData.boqSimplifier.subtitle}
+                bgGradient={aiToolsData.boqSimplifier.bgGradient}
+                icon={aiToolsData.boqSimplifier.icon}
+                features={aiToolsData.boqSimplifier.benefits?.features || []}
+                buttonText={aiToolsData.boqSimplifier.buttonText}
+                buttonVariant={aiToolsData.boqSimplifier.buttonVariant}
+                iconColor={aiToolsData.boqSimplifier.iconColor}
+                note={aiToolsData.boqSimplifier.note}
+                buttonStyle={aiToolsData.boqSimplifier.buttonStyle}
+                url={`/ai-tools/${aiToolsData.boqSimplifier.slug}`}
+                onClick={handleToolClick}
+              />
+            </div>
+            
+            {/* Cost Estimation - Bottom Right */}
+            <div className="col-md-6 col-lg-6">
+              <ColourfulCard
+                title={aiToolsData.costEstimator.title}
+                subtitle={aiToolsData.costEstimator.subtitle}
+                bgGradient={aiToolsData.costEstimator.bgGradient}
+                icon={aiToolsData.costEstimator.icon}
+                features={aiToolsData.costEstimator.benefits?.features || []}
+                buttonText={aiToolsData.costEstimator.buttonText}
+                buttonVariant={aiToolsData.costEstimator.buttonVariant}
+                iconColor={aiToolsData.costEstimator.iconColor}
+                note={aiToolsData.costEstimator.note}
+                buttonStyle={aiToolsData.costEstimator.buttonStyle}
+                url={`/ai-tools/${aiToolsData.costEstimator.slug}`}
+                onClick={handleToolClick}
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
+      {/* See AI Tools in Action Section */}
       <section className="py-5 bg-light">
         <div className="container">
-          <div className="text-center mb-5">
-            <h2 className="fw-bold mb-3">How It Works</h2>
-            <p className="text-muted mb-0">
-              Our AI tools follow a seamless 3-step process to deliver insights that drive smarter decisions.
-            </p>
-          </div>
-          
-          <div className="row g-4">
-            {aiToolsData.boqSimplifier.howItWorks.steps.map((step, index) => (
-              <div key={index} className="col-md-4">
-                <FeatureCard
-                  icon={step.icon || "step"}
-                  title={`${step.step}. ${step.title}`}
-                  description={step.description}
-                  variant="centered"
-                  size="medium"
-                />
+          <div className="row align-items-center">
+            <div className="col-md-6 mb-4 mb-md-0">
+              <h2 className="fw-bold mb-3">See Our AI Tools in Action</h2>
+              <p className="text-muted mb-4">
+                Watch how our AI tools transform complex procurement documents into actionable insights in minutes.
+              </p>
+              <ul className="list-unstyled text-start">
+                <li className="d-flex align-items-start mb-3">
+                  <span className="text-success me-2">✔</span>
+                  <span>Extract key information from 500+ page tenders</span>
+                </li>
+                <li className="d-flex align-items-start mb-3">
+                  <span className="text-success me-2">✔</span>
+                  <span>Simplify technical documents into clear summaries</span>
+                </li>
+                <li className="d-flex align-items-start mb-3">
+                  <span className="text-success me-2">✔</span>
+                  <span>Transform complex BOQs into structured data</span>
+                </li>
+                <li className="d-flex align-items-start mb-4">
+                  <span className="text-success me-2">✔</span>
+                  <span>Generate accurate cost estimates in minutes</span>
+                </li>
+              </ul>
+              <button className="btn btn-primary">
+                <FontAwesomeIcon icon={faPlay} className="me-2" /> Watch Demo
+              </button>
+            </div>
+            <div className="col-md-6 text-center">
+              <div
+                style={{
+                  borderRadius: "12px",
+                  backgroundColor: "#0F172A",
+                  padding: "1rem",
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <div className="d-flex justify-content-between align-items-center mb-2 px-2">
+                  <div className="d-flex gap-2">
+                    <span
+                      className="rounded-circle"
+                      style={{
+                        backgroundColor: "#EF4444",
+                        width: 12,
+                        height: 12,
+                      }}
+                    ></span>
+                    <span
+                      className="rounded-circle"
+                      style={{
+                        backgroundColor: "#FACC15",
+                        width: 12,
+                        height: 12,
+                      }}
+                    ></span>
+                    <span
+                      className="rounded-circle"
+                      style={{
+                        backgroundColor: "#22C55E",
+                        width: 12,
+                        height: 12,
+                      }}
+                    ></span>
+                  </div>
+                  <div className="text-white small">Workwise AI Demo</div>
+                </div>
+                <div
+                  className="d-flex flex-column justify-content-center align-items-center"
+                  style={{
+                    backgroundColor: "#0F172A",
+                    borderRadius: "8px",
+                    height: "220px",
+                  }}
+                >
+                  <div
+                    className="rounded-circle d-flex justify-content-center align-items-center"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: "#E5E7EB",
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={faPlay}
+                      style={{ color: "#0F172A" }}
+                    />
+                  </div>
+                  <div className="text-white-50 mt-2">Click to play demo</div>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
@@ -177,6 +322,81 @@ const AiToolsPage = () => {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-5 bg-light">
+        <div className="container">
+          <div className="text-center mb-5">
+            <h2 className="fw-bold mb-3">How It Works</h2>
+            <p className="text-muted mb-0">
+              Our AI tools follow a seamless 3-step process to deliver insights that drive smarter decisions.
+            </p>
+          </div>
+          
+          <div className="row g-4">
+            <div className="col-md-4">
+              <FeatureCard
+                icon={FaUpload}
+                title="1. Upload your file"
+                description="Upload any BOQ in Excel, PDF, or Word format"
+                iconBgColor="bg-primary bg-opacity-10"
+                iconColor="text-primary"
+              />
+            </div>
+            <div className="col-md-4">
+              <FeatureCard
+                icon={FaBrain}
+                title="2. Wisely reads and structures"
+                description="Workwise AI reads, extracts, and structures data"
+                iconBgColor="bg-success bg-opacity-10"
+                iconColor="text-success"
+              />
+            </div>
+            <div className="col-md-4">
+              <FeatureCard
+                icon={FaCheckCircle}
+                title="3. Get results instantly"
+                description="Your results are emailed + previewed instantly on site"
+                iconBgColor="bg-warning bg-opacity-10"
+                iconColor="text-warning"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sample Output Preview Section */}
+      <section className="py-5 text-center">
+        <div className="container">
+          <h2 className="fw-bold mb-2">Sample Output Preview</h2>
+          <p className="text-muted mb-4">
+            Powerful AI-driven solutions to streamline your workflow and boost productivity
+          </p>
+
+          <div className="row g-4 mb-3">
+            <div className="col-md-6">
+              <FilePreview
+                title="Procurement Analysis Report"
+                description="Preview format only — your data stays secure"
+                image="/assets/images/placeholder.jpeg"
+                showPreview={false}
+              />
+            </div>
+            <div className="col-md-6">
+              <FilePreview
+                title="Bill of Quantities (BOQ)"
+                description="Preview format only — your data stays secure"
+                image="/assets/images/placeholder.jpeg"
+                showPreview={false}
+              />
+            </div>
+          </div>
+
+          <button className="btn btn-secondary" disabled>
+            <FontAwesomeIcon icon={faEyeSlash} className="me-2" /> View Full Sample
+          </button>
         </div>
       </section>
 
