@@ -1,6 +1,9 @@
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { HeroSection } from '@/components/ui/HeroSection'
 import React from 'react'
+
+// Import data
+import { earnWithUsData } from '@/components/constants/earnWithUsData';
 import { 
   FaCalendarAlt, 
   FaClock, 
@@ -31,42 +34,31 @@ import { FaRocket, FaComments } from 'react-icons/fa';
 
 const HowItWorksSection = ({ 
   className,
-  title = "How This Works — In 4 Simple Steps",
+  title = earnWithUsData.howItWorks.title,
   steps,
-  earningsHighlight,
-  ctaButton,
+  earningsHighlight = earnWithUsData.howItWorks.earningsHighlight,
+  ctaButton = earnWithUsData.howItWorks.ctaButton,
   ...props 
 }) => {
-  const defaultSteps = [
-    {
-      id: 1,
-      icon: "person-plus",
-      iconBg: "#4a73c4",
-      title: "Register",
-      description: "Sign up with basic details and get your partner account activated"
-    },
-    {
-      id: 2,
-      icon: "gear",
-      iconBg: "#2e8b7c", 
-      title: "Get Referral Kit",
-      description: "Templates, case studies, videos to help you make effective introductions"
-    },
-    {
-      id: 3,
-      icon: "handshake",
-      iconBg: "#ff9500",
-      title: "Make Introductions", 
-      description: "Just connect us with potential buyers or suppliers. No selling required"
-    },
-    {
-      id: 4,
-      icon: "currency-rupee",
-      iconBg: "#4a4a4a",
-      title: "We Close, You Earn",
-      description: "Commission paid directly to your account upon successful closure"
-    }
-  ];
+  const getStepEmoji = (iconName) => {
+    const emojiMap = {
+      'person-plus': '👤',
+      'gear': '📋',
+      'handshake': '🤝',
+      'currency-rupee': '💰',
+      'user': '👤',
+      'file-alt': '📄',
+      'dollar-sign': '💵'
+    };
+    return emojiMap[iconName] || '👤';
+  };
+  const defaultSteps = earnWithUsData.howItWorks.steps.map(step => ({
+    id: step.id,
+    icon: step.icon,
+    iconBg: step.color,
+    title: step.title,
+    description: step.description
+  }));
 
   const stepsToShow = steps || defaultSteps;
 
@@ -99,6 +91,9 @@ const HowItWorksSection = ({
                       }}
                     >
                       <i className={`bi bi-${step.icon} text-white`} style={{ fontSize: '1.8rem' }}></i>
+                      <span className="ms-1 text-white" style={{ fontSize: '16px' }}>
+                        {getStepEmoji(step.icon)}
+                      </span>
                     </div>
                     
                     {/* Number Badge */}
@@ -301,14 +296,12 @@ const WebinarComponent = () => {
               <div className="d-flex align-items-center mb-3">
                 <FaCalendarAlt className="text-primary me-2" size={20} />
                 <h4 className="mb-0 fw-bold text-dark">
-                  30-Min Webinar: Learn How You Can Earn
+                  {earnWithUsData.webinar.title}
                 </h4>
               </div>
               
               <p className="text-muted mb-4" style={{ fontSize: '16px', lineHeight: '1.5' }}>
-                Join our weekly webinar to understand the partner model in 
-                detail and hear from existing partners who are already 
-                earning substantial commissions.
+                {earnWithUsData.webinar.description}
               </p>
             </div>
 
@@ -316,17 +309,17 @@ const WebinarComponent = () => {
             <div className="mb-4 flex-grow-1">
               <div className="d-flex align-items-center mb-3">
                 <FaCalendarAlt className="text-warning me-3" size={16} />
-                <span className="fw-semibold text-dark">Every Wednesday & Saturday</span>
+                <span className="fw-semibold text-dark">{earnWithUsData.webinar.schedule.days}</span>
               </div>
               
               <div className="d-flex align-items-center mb-3">
                 <FaClock className="text-warning me-3" size={16} />
-                <span className="fw-semibold text-dark">7:00 PM - 7:30 PM IST</span>
+                <span className="fw-semibold text-dark">{earnWithUsData.webinar.schedule.time}</span>
               </div>
               
               <div className="d-flex align-items-center mb-4">
                 <FaVideo className="text-warning me-3" size={16} />
-                <span className="fw-semibold text-dark">Hosted on Zoom</span>
+                <span className="fw-semibold text-dark">{earnWithUsData.webinar.schedule.platform}</span>
               </div>
             </div>
 
@@ -341,7 +334,7 @@ const WebinarComponent = () => {
                 }}
               >
                 <FaUsers className="me-2" />
-                Register for Webinar
+                {earnWithUsData.webinar.ctaButton}
               </button>
               
               <div className="text-center">
@@ -351,7 +344,7 @@ const WebinarComponent = () => {
                   style={{ fontSize: '14px' }}
                 >
                   <FaPlay className="me-2" size={12} />
-                  Past Webinars — View Recordings
+                  {earnWithUsData.webinar.pastWebinarsLink}
                 </a>
               </div>
             </div>
@@ -364,33 +357,21 @@ const WebinarComponent = () => {
 
 
 const WhoIsThisForComponent = () => {
-  const targetAudience = [
-    {
-      id: 1,
-      icon: <FaHardHat className="text-white" size={20} />,
-      title: 'Project consultants & PMCs'
-    },
-    {
-      id: 2,
-      icon: <FaUser className="text-white" size={20} />,
-      title: 'Retired procurement heads'
-    },
-    {
-      id: 3,
-      icon: <FaNetworkWired className="text-white" size={20} />,
-      title: 'Salespeople with vendor networks'
-    },
-    {
-      id: 4,
-      icon: <FaHome className="text-white" size={20} />,
-      title: 'Freelancers, industrial agents'
-    },
-    {
-      id: 5,
-      icon: <FaSitemap className="text-white" size={20} />,
-      title: 'Anyone with deep industry contacts'
-    }
-  ];
+  const getIcon = (iconName) => {
+    const iconMap = {
+      'briefcase': <FaHardHat className="text-white" size={20} />,
+      'user': <FaUser className="text-white" size={20} />,
+      'network-wired': <FaNetworkWired className="text-white" size={20} />,
+      'home': <FaHome className="text-white" size={20} />,
+      'sitemap': <FaSitemap className="text-white" size={20} />
+    };
+    return iconMap[iconName] || <FaUser className="text-white" size={20} />;
+  };
+
+  const targetAudience = earnWithUsData.targetAudience.map(item => ({
+    ...item,
+    icon: getIcon(item.icon)
+  }));
 
   return (
     <div className="container py-5">
@@ -705,33 +686,7 @@ const PartnerDashboardComponent = () => {
 
 
 
-const faqList = [
-  {
-    question: "How much can I earn per referral?",
-    answer:
-      "You earn 25% of the first year's contract value and 10% on all renewals. For example, if a buyer signs up for a ₹10 Lakh package, you earn ₹2.5 Lakhs in the first year and ₹1 Lakh every renewal year."
-  },
-  {
-    question: "What if my contact doesn't convert?",
-    answer:
-      "There's no penalty for referrals that don't convert. Our sales team will do their best to close the deal, but you only earn when a successful conversion happens. The more referrals you make, the higher your chances of earning."
-  },
-  {
-    question: "Is it free to join?",
-    answer:
-      "Yes, joining the Workwise Partner Program is completely free. There are no registration fees, monthly charges, or any hidden costs. You only need to register, get verified, and start making introductions."
-  },
-  {
-    question: "How and when do I get paid?",
-    answer:
-      "Payments are processed within 15 days of the client making their payment to Workwise. You'll receive your commission directly in your bank account. All earnings are clearly visible in your partner dashboard."
-  },
-  {
-    question: "Do I need to be technically skilled?",
-    answer:
-      "No technical skills required. Your industry connections and ability to make introductions are what matter. We'll provide all the training and materials you need to understand our solution and make effective referrals."
-  }
-];
+const faqList = earnWithUsData.faqs;
 
 const FaqSection = () => (
   <section className="py-5 bg-light">
@@ -747,36 +702,23 @@ const FaqSection = () => (
 
 
 const WorkwisePartnerComponent = () => {
-  const features = [
-    {
-      id: 1,
-      icon: <FaDollarSign className="text-primary" size={24} />,
-      iconBg: 'rgba(13, 110, 253, 0.1)',
-      title: 'Earn Big, Recurring Income',
-      description: '25% commission on first year + 10% on renewals. Potential to earn lakhs monthly with just a few good referrals.'
-    },
-    {
-      id: 2,
-      icon: <FaCreditCard className="text-success" size={24} />,
-      iconBg: 'rgba(25, 135, 84, 0.1)',
-      title: 'Zero Investment',
-      description: 'No upfront costs or minimum commitments. You simply refer, we handle the sales process and closing.'
-    },
-    {
-      id: 3,
-      icon: <FaHeadset className="text-warning" size={24} />,
-      iconBg: 'rgba(255, 193, 7, 0.1)',
-      title: 'Full Support',
-      description: 'Get a complete referral kit, join our partner WhatsApp group, and have a dedicated SPOC to help you succeed.'
-    },
-    {
-      id: 4,
-      icon: <FaChartLine className="text-info" size={24} />,
-      iconBg: 'rgba(13, 202, 240, 0.1)',
-      title: "India's Capex Boom",
-      description: "Capitalize on India's growing industrial and procurement sector. Huge demand means more opportunities for you."
-    }
-  ];
+  const getIcon = (iconName) => {
+    const iconMap = {
+      'dollar-sign': <FaDollarSign className="text-primary" size={24} />,
+      'equals': <FaCreditCard className="text-success" size={24} />,
+      'hand-holding': <FaHeadset className="text-warning" size={24} />,
+      'building': <FaChartLine className="text-info" size={24} />
+    };
+    return iconMap[iconName] || <FaDollarSign className="text-primary" size={24} />;
+  };
+
+  const features = earnWithUsData.benefits.map(item => ({
+    id: item.id,
+    icon: getIcon(item.icon),
+    iconBg: `rgba(${item.color === '#007bff' ? '13, 110, 253' : item.color === '#28a745' ? '25, 135, 84' : item.color === '#ffc107' ? '255, 193, 7' : '13, 202, 240'}, 0.1)`,
+    title: item.title,
+    description: item.description || 'Benefit description'
+  }));
 
   return (
     <div className="container py-5">
@@ -871,7 +813,7 @@ const JoinPartnersCTAComponent = () => {
                     lineHeight: '1.2'
                   }}
                 >
-                  Join 100+ Partners Already Earning with Workwise
+                  {earnWithUsData.bottomCta.title}
                 </h1>
               </div>
               
@@ -884,7 +826,7 @@ const JoinPartnersCTAComponent = () => {
                   margin: '0 auto 3rem'
                 }}
               >
-                It takes 2 mins to start. And a lifetime of earnings.
+                {earnWithUsData.bottomCta.subtitle}
               </p>
             </div>
 
@@ -899,12 +841,12 @@ const JoinPartnersCTAComponent = () => {
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '1.1rem',
-                  minWidth: '200px',
+                  minWidth: '300px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                 }}
               >
                 <FaUserPlus className="me-2" size={18} />
-                Register as a Partner
+                {earnWithUsData.bottomCta.primaryButton.label}
               </button>
 
               {/* Secondary CTA - Talk to Team */}
@@ -916,12 +858,12 @@ const JoinPartnersCTAComponent = () => {
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '1.1rem',
-                  minWidth: '200px',
+                  minWidth: '300px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                 }}
               >
                 <FaComments className="me-2" size={18} />
-                Talk to Partnership Team
+                {earnWithUsData.bottomCta.secondaryButton.label}
               </button>
             </div>
 
@@ -939,17 +881,17 @@ const EarnWithUs = () => {
   return (
     <>
     <HeroSection
-  title="Turn Your Industry Network into Income"
-  subtitle="Start your second innings as a Workwise Partner — no investment needed. Your experience, contacts, and hunger to grow are your assets."
+  title={earnWithUsData.hero.title}
+  subtitle={earnWithUsData.hero.subtitle}
   primaryButton={{
-    label: "Register to Become a Partner",
-    variant: "dark",
+    label: earnWithUsData.hero.primaryButton.label,
+    variant: earnWithUsData.hero.primaryButton.variant,
     icon: "person-plus",
     onClick: () => console.log("Register clicked")
   }}
   secondaryButton={{
-    label: "Learn More",
-    variant: "outline-light",
+    label: earnWithUsData.hero.secondaryButton.label,
+    variant: earnWithUsData.hero.secondaryButton.variant,
     onClick: () => console.log("Learn more clicked")
   }}
 />

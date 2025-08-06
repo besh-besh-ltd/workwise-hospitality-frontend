@@ -54,6 +54,28 @@ const ColourfulCard = ({
     };
     return iconMap[iconName] || faChartColumn;
   };
+
+  // Emoji mapping
+  const getEmoji = (iconName) => {
+    const emojiMap = {
+      'chart-column': '📊',
+      'lightbulb': '💡',
+      'stream': '⚡',
+      'money-bill': '💰',
+      'wand-magic-sparkles': '✨',
+      'clock': '⏰',
+      'list': '📋',
+      'screwdriver-wrench': '🔧',
+      'robot': '🤖',
+      'chart-line': '📈',
+      'bolt': '⚡',
+      'users': '👥',
+      'list-alt': '📝',
+      'file-alt': '📄',
+      'calculator': '🧮'
+    };
+    return emojiMap[iconName] || '📊';
+  };
   const handleClick = () => {
     if (onClick) {
       onClick(url);
@@ -73,6 +95,9 @@ const ColourfulCard = ({
           </div>
           <div className="bg-white bg-opacity-25 p-2 rounded-circle">
             <FontAwesomeIcon icon={getIcon(icon)} className="text-white" />
+            <span className="ms-1 text-white" style={{ fontSize: '14px' }}>
+              {getEmoji(icon)}
+            </span>
           </div>
         </div>
       </div>

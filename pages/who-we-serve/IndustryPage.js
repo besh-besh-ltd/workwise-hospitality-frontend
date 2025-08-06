@@ -2,55 +2,34 @@ import React from 'react';
 import { FaWrench, FaPhone } from 'react-icons/fa';
 import { FaUsers, FaFileAlt, FaSitemap, FaClipboardCheck } from 'react-icons/fa';
 import { FaBolt, FaBuilding, FaCogs } from 'react-icons/fa';
-
-import { 
- 
-  FaCog, 
-  FaExchangeAlt, 
-  FaThermometerHalf, 
-  FaFireExtinguisher,
-  FaFan
-} from 'react-icons/fa';
+import { FaCog, FaExchangeAlt, FaThermometerHalf, FaFireExtinguisher, FaFan } from 'react-icons/fa';
 import { GiPipes } from 'react-icons/gi';
-
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
-
-
-import {
-
-  FaFileInvoice,
-  FaSearch,
-  FaChartBar,
-} from "react-icons/fa";
-
+import { FaFileInvoice, FaSearch, FaChartBar } from "react-icons/fa";
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
-
-import { CtaSection } from '@/components/ui/CtaSection';     // ← adjust import paths
+import { CtaSection } from '@/components/ui/CtaSection';
 import { FaCalendarCheck, FaArrowRight } from "react-icons/fa";
+import { HeroSection } from '@/components/ui/HeroSection';
+
+// Import data
+import { industryPageData } from '@/components/constants/industryPageData';
 
 const PowerProjectCta = () => (
   <CtaSection
-    /* -----------------------------  headline & copy  ----------------------------- */
-    title="Ready to Transform Your Power Project Procurement?"
-    description="Join industry leaders who are already using Workwise to streamline their procurement processes."
-    
-    /* -----------------------------  primary button  ------------------------------ */
+    title={industryPageData.cta.title}
+    description={industryPageData.cta.description}
     primaryButton={{
-      label: "Book a Demo",
-      variant: "dark",                  // renders solid dark background
-      icon: FaCalendarCheck,            // optional icon (shows at left)
+      label: industryPageData.cta.primaryButton.label,
+      variant: industryPageData.cta.primaryButton.variant,
+      icon: FaCalendarCheck,
       onClick: () => window.open("/book-demo", "_blank")
     }}
-
-    /* ----------------------------- secondary button  ----------------------------- */
     secondaryButton={{
-      label: "See Success Stories",
-      variant: "outline-light",         // white outline just like the mock-up
+      label: industryPageData.cta.secondaryButton.label,
+      variant: industryPageData.cta.secondaryButton.variant,
       icon: FaArrowRight,
       onClick: () => window.open("/success-stories", "_blank")
     }}
-
-    /* optional extra class if you need custom spacing */
     className="mt-4"
   />
 );
@@ -58,28 +37,7 @@ const PowerProjectCta = () => (
 
 
 // 1️⃣ Questions & answers for Power Teams
-const powerTeamsFaqs = [
-  {
-    question: "How do I find reliable vendors for Power industry projects?",
-    answer:
-      "Workwise offers a vendor discovery module with 12,000+ PSU-approved vendors across various disciplines in the Power sector. You can filter by experience, certifications, and past project history."
-  },
-  {
-    question: "What makes procurement in Power projects different?",
-    answer:
-      "Power projects involve unique challenges like multi-vendor coordination across electrical, civil, and mechanical disciplines, complex BOQ structures, and stringent PSU approval processes. Workwise is designed to address these sector-specific challenges."
-  },
-  {
-    question: "How can I compare supplier quotes in Power industry tenders?",
-    answer:
-      "Workwise's Quote Evaluation module creates deviation-aware comparison charts that highlight technical and commercial differences across vendors, making it easier to evaluate complex Power industry proposals."
-  },
-  {
-    question: "Is Workwise suitable for procurement tool for Power capex projects of all sizes?",
-    answer:
-      "Yes, Workwise scales from ₹1 Cr to ₹100+ Cr power projects. The platform is modular, allowing you to use only the features you need based on project complexity and team size."
-  }
-];
+const powerTeamsFaqs = industryPageData.faqs;
 
 // 2️⃣ Section wrapper
 const PowerTeamsFaq = ({ className = "" }) => (
@@ -384,10 +342,10 @@ const AllDisciplines = ({
         {/* Disciplines Grid */}
         <div className="row g-3 justify-content-center">
           {displayDisciplines.map((discipline) => (
-            <div key={discipline.id} className="col-lg-6 col-md-6">
+            <div key={discipline.id} className="col-lg-6 col-md-6 d-flex justify-content-center">
               <div 
                 className="bg-white rounded-3 shadow-sm p-4 d-flex align-items-center"
-                style={{ minHeight: '90px',  maxWidth : '80%'}}
+                style={{ minHeight: '90px', width: '100%', maxWidth: '300px'}}
               >
                 <div className="me-3 flex-shrink-0">
                   {discipline.icon}
@@ -406,138 +364,90 @@ const AllDisciplines = ({
 
 
 
-const HeroPowerCapex = ({
-  className = '',
-  title = "Procurement Built for Power Capex Projects",
-  description = "From ₹1 Cr to ₹100 Cr packages — Workwise simplifies your vendor discovery, quote handling, and technical evaluation across disciplines.",
-  buttonLabel = "Book a Call for Your Power Project",
-  onButtonClick,
-  imageSrc,
-  ...props
-}) => {
-  return (
-    <section
-      className={`py-5 ${className || ''}`}
-      style={{
-        background: 'linear-gradient(135deg, #4a73c4 0%, #2e8b7c 100%)',
-        minHeight: '450px'
-      }}
-      {...props}
-    >
-      <div className="container h-100">
-        <div className="row align-items-center h-100 g-4">
-          {/* Left Content */}
-          <div className="col-lg-6">
-            <div className="text-white pe-lg-4">
-              {/* Title with Wrench Icon */}
-              <h1 className="display-4 fw-bold mb-4 lh-1">
-                <FaWrench className="text-white me-3" size={42} />
-                {title}
-              </h1>
+const HeroPowerCapex = () => (
+  <HeroSection
+    title={industryPageData.hero.title}
+    subtitle={industryPageData.hero.description}
+    layout="split"
+    size="medium"
+    showVisual={true}
+    primaryButton={{
+      label: industryPageData.hero.buttonLabel,
+      variant: "black",
+      onClick: () => console.log('Book a Call clicked')
+    }}
+    visualContent={
+      <div className="text-center">
+        <div
+          className="position-relative rounded-3 shadow-lg mx-auto"
+          style={{
+            width: '100%',
+            maxWidth: '450px',
+            height: '320px',
+            backgroundColor: '#87ceeb',
+            backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%)',
+            backgroundSize: '20px 20px',
+            backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
+          }}
+        >
+          {/* Simulated Power Infrastructure */}
+          <div className="position-absolute bottom-0 start-0 w-100 h-75 d-flex align-items-end justify-content-center p-4">
+            {/* Power Lines Simulation */}
+            <div className="d-flex align-items-end gap-2 w-100">
+              {/* Power Towers */}
+              {[80, 120, 100, 90, 110].map((height, i) => (
+                <div key={i} className="d-flex flex-column align-items-center">
+                  {/* Tower Structure */}
+                  <div
+                    className="bg-dark"
+                    style={{
+                      width: '4px',
+                      height: `${height}px`,
+                      opacity: 0.7
+                    }}
+                  />
+                  {/* Cross Beam */}
+                  <div
+                    className="bg-dark"
+                    style={{
+                      width: '20px',
+                      height: '2px',
+                      marginTop: '-10px',
+                      opacity: 0.6
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
 
-              {/* Description */}
-              <p className="fs-5 mb-4 text-white-50 lh-base">
-                {description}
-              </p>
-
-              {/* CTA Button */}
-              <button
-                className="btn btn-dark btn-lg px-4 py-3 fw-semibold rounded-3 d-flex align-items-center"
-                onClick={onButtonClick}
-                style={{ minWidth: '280px' }}
-              >
-                <span className="me-2">●</span>
-                {buttonLabel}
-              </button>
+            {/* Power Lines */}
+            <div className="position-absolute top-50 start-0 w-100">
+              {[0, 1, 2].map((line) => (
+                <div
+                  key={line}
+                  className="position-absolute start-0 w-100 bg-dark"
+                  style={{
+                    height: '1px',
+                    top: `${line * 15}px`,
+                    opacity: 0.4
+                  }}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Right Content - Image */}
-          <div className="col-lg-6">
-            <div className="text-center">
-              {imageSrc ? (
-                <img
-                  src={imageSrc}
-                  alt="Power Capex Infrastructure"
-                  className="img-fluid rounded-3 shadow-lg"
-                  style={{ maxHeight: '320px', width: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                /* Power Infrastructure Placeholder */
-                <div
-                  className="position-relative rounded-3 shadow-lg mx-auto"
-                  style={{
-                    width: '100%',
-                    maxWidth: '450px',
-                    height: '320px',
-                    backgroundColor: '#87ceeb',
-                    backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%)',
-                    backgroundSize: '20px 20px',
-                    backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
-                  }}
-                >
-                  {/* Simulated Power Infrastructure */}
-                  <div className="position-absolute bottom-0 start-0 w-100 h-75 d-flex align-items-end justify-content-center p-4">
-                    {/* Power Lines Simulation */}
-                    <div className="d-flex align-items-end gap-2 w-100">
-                      {/* Power Towers */}
-                      {[80, 120, 100, 90, 110].map((height, i) => (
-                        <div key={i} className="d-flex flex-column align-items-center">
-                          {/* Tower Structure */}
-                          <div
-                            className="bg-dark"
-                            style={{
-                              width: '4px',
-                              height: `${height}px`,
-                              opacity: 0.7
-                            }}
-                          />
-                          {/* Cross Beam */}
-                          <div
-                            className="bg-dark"
-                            style={{
-                              width: '20px',
-                              height: '2px',
-                              marginTop: '-10px',
-                              opacity: 0.6
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Power Lines */}
-                    <div className="position-absolute top-50 start-0 w-100">
-                      {[0, 1, 2].map((line) => (
-                        <div
-                          key={line}
-                          className="position-absolute start-0 w-100 bg-dark"
-                          style={{
-                            height: '1px',
-                            top: `${line * 15}px`,
-                            opacity: 0.4
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Overlay Text */}
-                  <div className="position-absolute top-50 start-50 translate-middle text-center">
-                    <div className="bg-white bg-opacity-90 rounded-2 p-3">
-                      <h6 className="fw-bold text-dark mb-1">Power Infrastructure</h6>
-                      <small className="text-muted">Capex Projects</small>
-                    </div>
-                  </div>
-                </div>
-              )}
+          {/* Overlay Text */}
+          <div className="position-absolute top-50 start-50 translate-middle text-center">
+            <div className="bg-white bg-opacity-90 rounded-2 p-3">
+              <h6 className="fw-bold text-dark mb-1">Power Infrastructure</h6>
+              <small className="text-muted">Capex Projects</small>
             </div>
           </div>
         </div>
       </div>
-    </section>
-  );
-};
+    }
+  />
+);
 
 
 

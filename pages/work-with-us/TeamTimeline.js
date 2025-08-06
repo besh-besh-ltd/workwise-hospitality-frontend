@@ -60,8 +60,8 @@ const TeamPageWithNavbar = () => {
         <div className="container px-4">
           <div className="row justify-content-center">
             <div className="col-lg-10 col-xl-8">
-              {/* Title - Black text */}
-              <h1 className="fw-bold display-4 mb-4 text-dark">
+              {/* Title - White text */}
+              <h1 className="fw-bold display-4 mb-4 text-white">
                 Meet the Team Behind Workwise
               </h1>
               
@@ -550,7 +550,7 @@ function MissionRecruitmentBanner() {
           className="btn btn-dark btn-lg d-inline-flex align-items-center gap-2 px-4 py-3 fw-semibold"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          style={{ transition: "transform .3s" }}
+          style={{ transition: "transform .3s", minWidth: "280px" }}
         >
           See&nbsp;Open&nbsp;Roles
           <FaArrowRight
