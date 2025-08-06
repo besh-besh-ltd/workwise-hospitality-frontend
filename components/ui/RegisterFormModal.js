@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { Formik, Form, Field } from 'formik';
+import * as Yup from 'yup';
+import CommonFormInput from '@/components/shared/CommonFormInput';
 
 const RegisterFormModal = React.forwardRef(({ 
   show, 
@@ -11,49 +14,50 @@ const RegisterFormModal = React.forwardRef(({
   className = "",
   ...props 
 }, ref) => {
-  const [formData, setFormData] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Initialize form data based on fields
-  React.useEffect(() => {
-    const initialData = {};
+  // Create initial values and validation schema based on fields
+  const getInitialValues = () => {
+    const initialValues = {};
     fields.forEach(field => {
-      initialData[field.name] = field.type === 'checkbox' ? false : '';
+      initialValues[field.name] = field.type === 'checkbox' ? false : '';
     });
-    setFormData(initialData);
-  }, [fields]);
-
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    return initialValues;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (onSubmit) {
-      try {
-        await onSubmit(formData);
-      } catch (error) {
-        console.error('Form submission error:', error);
-        return;
+  const getValidationSchema = () => {
+    const validationFields = {};
+    fields.forEach(field => {
+      if (field.required) {
+        if (field.type === 'email') {
+          validationFields[field.name] = Yup.string().email('Invalid email format').required('This field is required');
+        } else if (field.type === 'checkbox') {
+          validationFields[field.name] = Yup.boolean().oneOf([true], 'This field is required');
+        } else {
+          validationFields[field.name] = Yup.string().required('This field is required');
+        }
       }
+    });
+    return Yup.object().shape(validationFields);
+  };
+
+  const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+    try {
+      if (onSubmit) {
+        await onSubmit(values);
+      }
+      
+      setIsSubmitted(true);
+      setTimeout(() => {
+        setIsSubmitted(false);
+        onClose();
+        resetForm();
+      }, 2000);
+    } catch (error) {
+      console.error('Form submission error:', error);
+    } finally {
+      setSubmitting(false);
     }
-    
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
-      onClose();
-      // Reset form data
-      const initialData = {};
-      fields.forEach(field => {
-        initialData[field.name] = field.type === 'checkbox' ? false : '';
-      });
-      setFormData(initialData);
-    }, 2000);
   };
 
   if (!show) return null;
@@ -101,114 +105,104 @@ const RegisterFormModal = React.forwardRef(({
           {/* Body */}
           <div className="modal-body" style={{ padding: '20px 24px 24px 24px' }}>
             {!isSubmitted ? (
-              <form onSubmit={handleSubmit}>
-                {/* Subtitle */}
-                {subtitle && (
-                  <div className="mb-4">
-                    <div className="d-flex align-items-center mb-2">
-                      <span className="fw-semibold text-dark" style={{ fontSize: '1rem' }}>
-                        {subtitle}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Dynamic Form Fields */}
-                {fields.map((field, index) => (
-                  <div key={field.name} className={index === fields.length - 1 ? 'mb-4' : 'mb-3'}>
-                    <label className="form-label fw-medium text-dark mb-2">
-                      {field.label} {field.required && <span className="text-danger">*</span>}
-                    </label>
-                    
-                    {field.type === 'textarea' ? (
-                      <textarea
-                        name={field.name}
-                        value={formData[field.name] || ''}
-                        onChange={handleInputChange}
-                        className="form-control"
-                        required={field.required}
-                        rows={field.rows || 3}
-                        placeholder={field.placeholder}
-                        style={{
-                          padding: '12px 16px',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '6px',
-                          fontSize: '0.9rem',
-                          resize: 'vertical'
-                        }}
-                      />
-                    ) : field.type === 'checkbox' ? (
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          name={field.name}
-                          checked={formData[field.name] || false}
-                          onChange={handleInputChange}
-                          className="form-check-input"
-                          id={field.name}
-                          style={{ marginTop: '0.2rem' }}
-                        />
-                        <label className="form-check-label text-dark" htmlFor={field.name} style={{ fontSize: '0.9rem' }}>
-                          {field.label}
-                        </label>
+              <Formik
+                initialValues={getInitialValues()}
+                validationSchema={getValidationSchema()}
+                onSubmit={handleSubmit}
+              >
+                {({ values, errors, touched, isSubmitting }) => (
+                  <Form>
+                    {/* Subtitle */}
+                    {subtitle && (
+                      <div className="mb-4">
+                        <div className="d-flex align-items-center mb-2">
+                          <span className="fw-semibold text-dark" style={{ fontSize: '1rem' }}>
+                            {subtitle}
+                          </span>
+                        </div>
                       </div>
-                    ) : field.type === 'select' ? (
-                      <select
-                        name={field.name}
-                        value={formData[field.name] || ''}
-                        onChange={handleInputChange}
-                        className="form-control"
-                        required={field.required}
-                        style={{
-                          padding: '12px 16px',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '6px',
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        <option value="">{field.placeholder || 'Select an option'}</option>
-                        {field.options?.map(option => (
-                          <option key={option.value || option} value={option.value || option}>
-                            {option.label || option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type={field.type || 'text'}
-                        name={field.name}
-                        value={formData[field.name] || ''}
-                        onChange={handleInputChange}
-                        className="form-control"
-                        required={field.required}
-                        placeholder={field.placeholder}
-                        style={{
-                          padding: '12px 16px',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '6px',
-                          fontSize: '0.9rem'
-                        }}
-                      />
                     )}
-                  </div>
-                ))}
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  className="btn w-100 fw-semibold"
-                  style={{
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
-                    color: 'white',
-                    padding: '12px 24px',
-                    borderRadius: '6px',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  {fields.find(f => f.type === 'checkbox') ? 'Register Interest' : 'Submit'}
-                </button>
-              </form>
+                    {/* Dynamic Form Fields using CommonFormInput */}
+                    {fields.map((field, index) => {
+                      // Handle checkbox fields separately as CommonFormInput doesn't support them
+                      if (field.type === 'checkbox') {
+                        return (
+                          <div key={field.name} className={index === fields.length - 1 ? 'mb-4' : 'mb-3'}>
+                            <div className="form-check">
+                              <Field
+                                type="checkbox"
+                                name={field.name}
+                                className="form-check-input"
+                                id={field.name}
+                                style={{ marginTop: '0.2rem' }}
+                              />
+                              <label className="form-check-label text-dark" htmlFor={field.name} style={{ fontSize: '0.9rem' }}>
+                                {field.label}
+                              </label>
+                              {errors[field.name] && touched[field.name] && (
+                                <div className="invalid-feedback d-block">{errors[field.name]}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Map field types to CommonFormInput types
+                      const getInputType = (fieldType) => {
+                        switch (fieldType) {
+                          case 'textarea':
+                            return 'textarea';
+                          case 'select':
+                            return 'select';
+                          case 'email':
+                            return 'email';
+                          case 'password':
+                            return 'password';
+                          case 'number':
+                            return 'number';
+                          default:
+                            return 'simple-text';
+                        }
+                      };
+
+                      return (
+                        <div key={field.name} className={index === fields.length - 1 ? 'mb-4' : 'mb-3'}>
+                          <CommonFormInput
+                            name={field.name}
+                            label={field.label}
+                            type={getInputType(field.type)}
+                            required={field.required}
+                            placeholder={field.placeholder}
+                            options={field.options}
+                            values={values[field.name]}
+                            touched={touched}
+                            errors={errors}
+                            className=""
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      className="btn w-100 fw-semibold"
+                      disabled={isSubmitting}
+                      style={{
+                        backgroundColor: '#0056b3',
+                        borderColor: '#0056b3',
+                        color: 'white',
+                        padding: '12px 24px',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      {isSubmitting ? 'Submitting...' : (fields.find(f => f.type === 'checkbox') ? 'Register Interest' : 'Submit')}
+                    </button>
+                  </Form>
+                )}
+              </Formik>
             ) : (
               /* Success Message */
               <div className="text-center py-4">
