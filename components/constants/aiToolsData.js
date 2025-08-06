@@ -1,9 +1,62 @@
 // AI Tools Data - All tools in one file
 export const aiToolsData = {
+  // Shared data for the AI tools page
+  trustSignals: {
+    title: "Trusted by Industry Leaders",
+    logos: ["IOCL", "NTPC", "ONGC", "PowerGrid"],
+    testimonials: [
+      {
+        text: "Workwise's AI tools saved us 3 days of manual work.",
+        author: "Procurement Head, EPC Company"
+      },
+      {
+        text: "The structured output made our RFQ process seamless.",
+        author: "Project Manager, Infrastructure Firm"
+      }
+    ],
+    badges: ["ISO", "AWS", "IIT-built"],
+    tagline: "Workwise AI is built by industrial experts and IIT Bombay engineers."
+  },
+
+  // Audience data for "Who It's For" section
+  audience: [
+    {
+      icon: "users",
+      title: "EPC Buyer",
+      description: "Create comprehensive procurement plans with automated cost analysis and risk assessment",
+      iconColor: "#0d6efd"
+    },
+    {
+      icon: "list-alt",
+      title: "Contractor",
+      description: "Create faster BOQs with 1-click summaries and resource allocation recommendations",
+      iconColor: "#198754"
+    },
+    {
+      icon: "file-alt",
+      title: "Tender Team",
+      description: "Streamline bid preparation with intelligent document analysis and competitive positioning",
+      iconColor: "#fd7e14"
+    },
+    {
+      icon: "calculator",
+      title: "Cost Estimator",
+      description: "Generate precise cost breakdowns with AI-powered historical data analysis",
+      iconColor: "#6f42c1"
+    }
+  ],
   // BOQ Simplifier
   boqSimplifier: {
     slug: "boq-simplification",
     title: "BOQ Simplifier",
+    subtitle: "Transform complex BOQs into structured data",
+    bgGradient: "linear-gradient(45deg, #7E22CE, #9333EA)",
+    iconColor: "#7E22CE",
+    icon: "stream",
+    buttonText: "Simplify BOQ/PR/PI",
+    buttonVariant: "secondary",
+    buttonStyle: { backgroundColor: "#9333EA", border: "none" },
+    note: "Free processing for up to 100 line items",
     hero: {
       title: "Upload Your BOQ — Let Workwise AI Do the Heavy Lifting",
       subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
@@ -176,6 +229,13 @@ export const aiToolsData = {
   costEstimator: {
     slug: "cost-estimation",
     title: "Project Cost Estimator",
+    subtitle: "Generate accurate cost estimates from BOQs",
+    bgGradient: "linear-gradient(45deg, #F59E0B, #FACC15)",
+    iconColor: "#F59E0B",
+    icon: "money-bill",
+    buttonText: "Get BOQ Cost Estimate",
+    buttonVariant: "warning",
+    note: "Free processing for up to 100 line items",
     hero: {
       title: "Upload Your BOQ — Get Accurate Cost Estimates in Minutes",
       subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
@@ -348,6 +408,13 @@ export const aiToolsData = {
   tenderSummary: {
     slug: "tender-summary",
     title: "Tender Summary",
+    subtitle: "Extract key information from complex tender documents",
+    bgGradient: "linear-gradient(45deg, #1D4ED8, #2563EB)",
+    iconColor: "#1D4ED8",
+    icon: "chart-column",
+    buttonText: "Get Tender Summary",
+    buttonVariant: "primary",
+    note: "Free processing for documents up to 500 pages",
     hero: {
       title: "Upload Your Tender — Get Key Insights in Minutes",
       subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
@@ -520,6 +587,13 @@ export const aiToolsData = {
   technicalSummary: {
     slug: "technical-summary",
     title: "Technical Document Summary",
+    subtitle: "Simplify complex technical specifications",
+    bgGradient: "linear-gradient(45deg, #15803D, #22C55E)",
+    iconColor: "#15803D",
+    icon: "lightbulb",
+    buttonText: "Simplify Technical Document",
+    buttonVariant: "success",
+    note: "Free processing for documents up to 10 pages",
     hero: {
       title: "Upload Your Technical Document — Get Clear Insights",
       subtitle: "Powered by Wisely — Your Smart Procurement Assistant",

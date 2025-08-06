@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download, Eye, Lock } from 'lucide-react';
 
-const AiToolPreview = ({ 
+const FilePreview = ({ 
   title, 
   description, 
   image = "/assets/images/placeholder.jpeg",
@@ -58,4 +58,4 @@ const AiToolPreview = ({
   );
 };
 
-export default AiToolPreview; 
+export default FilePreview; 
