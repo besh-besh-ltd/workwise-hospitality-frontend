@@ -48,12 +48,98 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
   );
   if (!hasAnyQuotes) return <h4 className="mt-4 text-center">No Quotes Yet!</h4>;
 
+
+
+  
+  const handleNormalize = () => {
+  const allFreightPrices = [];
+  const allPackagePrices = [];
+  const allTaxRates = [];
+
+  products.forEach(product => {
+    product.quotations.forEach(quote => {
+      quote.quote_details?.forEach(detail => {
+        const freight = parseFloat(detail.freight_price);
+        if (!isNaN(freight)) allFreightPrices.push(freight);
+
+        const pack = parseFloat(detail.package_price);
+        if (!isNaN(pack)) allPackagePrices.push(pack);
+
+        const tax = parseFloat(detail.tax);
+        if (!isNaN(tax)) allTaxRates.push(tax);
+      });
+    });
+  });
+
+  const averageFreight = allFreightPrices.length
+    ? allFreightPrices.reduce((sum, val) => sum + val, 0) / allFreightPrices.length
+    : 0;
+
+  const averagePackage = allPackagePrices.length
+    ? allPackagePrices.reduce((sum, val) => sum + val, 0) / allPackagePrices.length
+    : 0;
+
+  const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
+  const medianTax = (() => {
+    const len = sortedTaxRates.length;
+    if (len === 0) return 0;
+    const mid = Math.floor(len / 2);
+    return len % 2 === 0
+      ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
+      : sortedTaxRates[mid];
+  })();
+
+  const normalized = products.map(product => {
+    const updatedQuotations = product.quotations.map(quote => {
+      const updatedDetails = quote.quote_details?.map(detail => {
+        const currentFreight = parseFloat(detail.freight_price);
+        const currentPackage = parseFloat(detail.package_price);
+        const currentTax = parseFloat(detail.tax);
+
+        return {
+          ...detail,
+          freight_price:
+            isNaN(currentFreight) || currentFreight === 0 ? averageFreight : currentFreight,
+          package_price:
+            isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
+          tax:
+            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
+        };
+      }) || [];
+
+      return {
+        ...quote,
+        quote_details: updatedDetails,
+      };
+    });
+
+    return {
+      ...product,
+      quotations: updatedQuotations,
+    };
+  });
+
+  setProducts(normalized);
+};
+
+
+
+
+
   return (
     <div className="card card-body shadow-sm p-4" style={{ borderRadius: 18, marginTop: 16 }}>
       <h3 className="fs-5 fw-bold text-center mb-2" style={{ letterSpacing: 0.5, textTransform: 'uppercase' }}>
         OVERALL COST COMPARISON CHART
         <div className="fw-normal" style={{ fontSize: 14, color: '#444', textTransform: 'none' }}>
           (Incl. Packaging, Freight & GST)
+
+<button
+  type="button"
+  className="btn btn-sm btn-outline-primary ms-2"
+  onClick={handleNormalize}
+>
+  Normalize
+</button>
         </div>
       </h3>
       <div className="table-responsive" style={{ overflowX: 'auto', minWidth: 0 }}>
