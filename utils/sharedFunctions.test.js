@@ -4,10 +4,12 @@ import {
   calculateTotal,
 } from "@/utils/sharedFunctions";
 
-//  test cases for handleNormalize
-// handleNormalize logic :
-// a) for freight, and package prices, it calculates the average of all available values and fills in the missing ones.
-// b) for tax, it calculates the median of all available values and fills in the missing ones.
+/**
+ handleNormalize logic :
+   a) for freight, and package prices, it calculates the average of all available values and fills in the missing ones.
+  b) for tax, it calculates the median of all available values and fills in the missing ones.
+
+ */
 describe("handleNormalize", () => {
   // created by mukul 07-aug-2025
   it("should normalize missing freight/package/tax with average/median values", () => {
