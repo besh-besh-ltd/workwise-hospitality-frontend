@@ -182,8 +182,25 @@ const useDebounce = (value, delay = 500) => {
 
 export default useDebounce;
 
-// Calculate Total for Quote Comparison Pages
-export const calculateTotal = (item, quantity) => {
+/**
+ * Calculation_steps:
+ * base = 100 * 2 = 200
+ * freight = 200 * 10% = 20
+ * packaging = 200 * 5% = 10
+ * subtotal = 200 + 20 + 10 = 230
+ * tax = 230 * 18% = 41.4
+ * total = 230 + 41.4 = 271.4
+ *
+ * Apply payment_terms:
+ * - 10% Advance → no discount: 10% of 271.4 = 27.14
+ * - 20% @30 days → 1% discount: 20% * 271.4 * 0.99 = 53.166
+ * - 70% @60 days → 2% discount: 70% * 271.4 * 0.98 = 186.556
+ *
+ * Final normalized total = 27.14 + 53.166 + 186.556 = 266.862 → Math.round = 267
+ * 
+ * Last changes by mukul on 07-aug-2025, to add normalization based on payment terms
+ */
+export const calculateTotal = (item, quantity, normalizeFilter) => {
   let total_qty = parseFloat(quantity) || 0;
   let unit_price = item.unit_price || 0;
   
@@ -200,6 +217,25 @@ export const calculateTotal = (item, quantity) => {
   let T = (item.tax_mode ?? "percentage") == 'percentage' ? (total_with_fpt * tax) / 100 : tax;
 
   let TotalPrice = total_with_fpt + T;
+
+   // ✅ If normalization is ON and payment_terms are present
+  if (normalizeFilter && Array.isArray(item.payment_terms)) {
+    let normalizedTotal = 0;
+
+    item.payment_terms.forEach(term => {
+      const percentage = term.value ?? 0;
+      const days = parseFloat(term.days ?? 0);
+      const delayDays = isNaN(days) ? 0 : days;
+
+      // 1% deduction for every 30 days
+      const discountFactor = 1 - (delayDays / 30) * 0.01;
+
+      normalizedTotal += (percentage / 100) * TotalPrice * discountFactor;
+    });
+
+    return Math.round(normalizedTotal);
+  }
+
   return Math.round(TotalPrice);
 }
 
@@ -257,6 +293,7 @@ export const handleNormalize = (products) => {
             isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
           tax:
             isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
+            payment_terms: [{ value:10, label: "advance" }, { value: 20, label: "credit", days:30 },{ value: 70, label: "credit", days:60 }],
         };
       }) || [];
 
@@ -271,6 +308,8 @@ export const handleNormalize = (products) => {
       quotations: updatedQuotations,
     };
   });
+
+  console.table("Normalized data:", normalized);
 
   return normalized;
 };
