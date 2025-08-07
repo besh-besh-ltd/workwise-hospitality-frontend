@@ -55,7 +55,7 @@ const roleMenus = {
     },
     {
       href: "/dashboard/admin/approval-management",
-      label: "Approval Hierarchy",
+      label: "PO Approval Hierarchy",
       targetMenu: "nav",
     },
     // { href: "/dashboard/admin/account-management/create-account", label: "RFQ management" },
