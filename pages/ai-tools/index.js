@@ -10,7 +10,7 @@ import {
   faLock,
   faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
-import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt } from 'react-icons/fa';
+import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt, FaMicrochip, FaRobot } from 'react-icons/fa';
 
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
@@ -57,23 +57,35 @@ const AiToolsPage = () => {
       </Head>
 
       {/* Hero Section */}
-      <HeroSection
-        title="AI-Powered Tools for Procurement & EPC Professionals"
-        subtitle="Transform complex tenders, BOQs, and technical documents into actionable insights with our suite of AI tools."
-        layout="centered"
-        size="large"
-        showVisual={false}
-        primaryButton={{
-          label: "Explore AI Tools",
-          variant: "black",
-          onClick: () => {}
-        }}
-        secondaryButton={{
-          label: "Watch Demo",
-          variant: "white",
-          onClick: handleWatchDemo
-        }}
-      />
+      <div style={{position: 'relative'}}>
+        <HeroSection
+          title="AI-Powered Tools for Procurement & EPC Professionals"
+          subtitle="Transform complex tenders, BOQs, and technical documents into actionable insights with our suite of AI tools."
+          layout="centered"
+          size="large"
+          showVisual={false}
+          primaryButton={{
+            label: "Explore AI Tools",
+            variant: "black",
+            onClick: () => {}
+          }}
+          secondaryButton={{
+            label: "Watch Demo",
+            variant: "white",
+            onClick: handleWatchDemo
+          }}
+        />
+        {/* Floating Icons */}
+        <div style={{position: 'absolute', top: '32%', left: '68%', zIndex: 2, animation: 'floatA 6s ease-in-out infinite'}} className="d-none d-lg-block">
+          <FaRobot size={32} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
+        </div>
+        <div style={{position: 'absolute', top: '44%', left: '80%', zIndex: 2, animation: 'floatB 7s ease-in-out infinite'}} className="d-none d-md-block">
+          <FaMicrochip size={28} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
+        </div>
+        <div style={{position: 'absolute', top: '65%', left: '70%', zIndex: 2, animation: 'floatC 8s ease-in-out infinite'}} className="d-none d-md-block">
+          <FaProjectDiagram size={28} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
+        </div>
+      </div>
 
       {/* Trusted by Industry Leaders */}
       <section className="py-5 bg-light text-center">
@@ -306,21 +318,30 @@ const AiToolsPage = () => {
               Powerful AI-driven solutions to streamline your workflow and boost productivity
             </p>
           </div>
-          
           <div className="row g-4">
-            {aiToolsData.audience?.map((audience, index) => (
-              <div key={index} className="col-md-6 col-lg-3">
-                <div className="p-4 bg-light rounded-4 shadow-sm text-start h-100">
-                  <div className="mb-2 text-info">
-                    <FontAwesomeIcon icon={getAudienceIcon(audience.icon)} />
+            {aiToolsData.audience?.map((audience, index) => {
+              // Inline AudienceCard
+              const iconMap = {
+                'users': faUsers,
+                'list-alt': faListAlt,
+                'file-alt': faFileAlt,
+                'calculator': faCalculator
+              };
+              const Icon = iconMap[audience.icon] || faUsers;
+              return (
+                <div key={index} className="col-md-6 col-lg-3">
+                  <div className="rounded-4 shadow-sm h-100 text-center position-relative bg-white" style={{borderTop: `5px solid ${audience.iconColor}`}}>
+                    <div className="d-flex flex-column align-items-center justify-content-center pt-4 pb-3">
+                      <span style={{display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: `${audience.iconColor}1A`, marginBottom: 12}}>
+                        <FontAwesomeIcon icon={Icon} style={{color: audience.iconColor, fontSize: 24}} />
+                      </span>
+                      <h6 className="fw-bold mb-1">{audience.title}</h6>
+                      <p className="small text-muted mb-0 px-2">{audience.description}</p>
+                    </div>
                   </div>
-                  <h6 className="fw-bold">{audience.title}</h6>
-                  <p className="small text-muted">
-                    {audience.description}
-                  </p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -401,21 +422,42 @@ const AiToolsPage = () => {
       </section>
 
       {/* Call to Action Section */}
-      <CtaSection
-        title="Ready to Transform Your Procurement Process?"
-        subtitle="Start using our AI tools today and experience the difference in efficiency, accuracy, and insights."
-        primaryButton={{
-          label: "Try for Free",
-          variant: "white",
-          onClick: handleTryForFree
-        }}
-        secondaryButton={{
-          label: "Book a Demo",
-          variant: "outline",
-          onClick: handleBookDemo
-        }}
-        background="gradient"
-      />
+      <div style={{ position: 'relative' }}>
+        <CtaSection
+          title="Ready to Transform Your Procurement Process?"
+          description={
+            <>
+              <span>Start using our AI tools today and experience the difference in efficiency, accuracy, and insights.</span>
+              <span className="d-block mt-2" style={{fontWeight: 500}}>No credit card required. Free for your first file.</span>
+            </>
+          }
+          primaryButton={{
+            label: "Try for Free",
+            variant: "white",
+            onClick: handleTryForFree,
+            icon: undefined,
+            style: { minWidth: '200px' }
+          }}
+          secondaryButton={{
+            label: "Book a Demo",
+            variant: "outline",
+            onClick: handleBookDemo,
+            icon: undefined,
+            style: { 
+              minWidth: '200px',
+              backgroundColor: 'transparent',
+              borderColor: 'rgba(255,255,255,0.8)',
+              color: 'white'
+            }
+          }}
+        />
+        <style>{`
+          .CtaSection .btn, .CtaSection .btn-lg {
+            min-width: 200px !important;
+            max-width: 260px;
+          }
+        `}</style>
+      </div>
     </div>
   );
 };
