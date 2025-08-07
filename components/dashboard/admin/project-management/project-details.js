@@ -121,12 +121,12 @@ const ProjectDetailsPage = () => {
         } else {
           setProject(projectData);
           try {
-            setTeamMembers([]);
-            setTotalData(0);
+            // setTeamMembers([]);
+            // setTotalData(0);
           } catch (teamError) {
             toast.error("Failed to fetch team members");
             setTeamMembers([]);
-            setTotalData(0);
+            setTotalData(0); 
           }
         }
       } else {
@@ -212,13 +212,13 @@ const ProjectDetailsPage = () => {
       fetchCountryCodes();
       fetchTeamMemberUsers();
     }
-  }, [projectId]);
+  }, [projectId]);   
 
   // Get paginated data
   const getPaginatedData = () => {
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    return teamMemberUsers.slice(startIndex, endIndex);
+    return teamMembers.slice(startIndex, endIndex);
   };
 
   // Format date
@@ -588,7 +588,7 @@ const ProjectDetailsPage = () => {
                         />
                       </div>
 
-                      {teamMemberUsers.length === 0 ? (
+                      {teamMembers.length === 0 ? (
                         <p>No team members assigned to this project yet.</p>
                       ) : (
                         <div className="table-responsive">
@@ -638,7 +638,7 @@ const ProjectDetailsPage = () => {
                                         theme="red"
                                         onClick={() => {
                                           handleRemoveTeamMember(
-                                            member.id
+                                            member.user_id
                                           );
                                         }}
                                         width="fit-content"
