@@ -209,8 +209,6 @@ export const handleNormalize = (products) => {
   const allPackagePrices = [];
   const allTaxRates = [];
 
-  console.log("Normalizing data...", products);
-
   products.forEach(product => {
     product.quotations.forEach(quote => {
       quote.quote_details?.forEach(detail => {
