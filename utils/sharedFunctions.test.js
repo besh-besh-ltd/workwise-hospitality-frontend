@@ -82,4 +82,27 @@ describe("calculateTotal", () => {
     const result = calculateTotal(quoteItem, quantity);
     expect(result).toBe(271);
   });
+
+  // This test checks if the function correctly applies normalization based on payment terms.
+  it("should correctly apply normalization based on payment terms", () => {
+    const quoteItem = {
+      unit_price: 100,
+      freight_price: 10,
+      package_price: 5,
+      tax: 18,
+      freight_mode: "percentage",
+      package_mode: "percentage",
+      tax_mode: "percentage",
+      payment_terms: [
+        { value: 10, label: "Advance" }, // 0% deduction
+        { value: 20, label: "credit", days: "30" }, // 1% deduction
+        { value: 70, label: "credit", days: "60" }, // 2% deduction
+      ],
+    };
+
+    const quantity = 2;
+
+    const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
+    expect(result).toBe(267);
+  });
 });
