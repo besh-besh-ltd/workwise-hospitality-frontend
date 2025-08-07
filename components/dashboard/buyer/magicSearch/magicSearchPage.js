@@ -324,7 +324,7 @@ const closeRFQConfirmModal = () => {
                     className={`tab ${tab === "processing-files" ? "active" : ""}`}
                     onClick={() => handleTabChange("processing-files")}
                   >
-                    Processing Files
+                    List of Files
                   </button>
                 </div>
 
