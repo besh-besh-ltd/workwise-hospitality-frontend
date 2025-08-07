@@ -8,8 +8,7 @@ export const CategorySection = ({ subcategories }) => {
 
   const handleCategoryClick = (sub) => {
     setShowAll(false);
-    const currentPath = router.asPath.split("?")[0];
-    router.push(`${currentPath}/${sub.slug}`);
+    router.push(`/vendor/${sub.slug}`);
   };
 
   const visibleSubcategories = showAll

@@ -11,6 +11,8 @@ import ReadMore from "@/components/shared/ReadMore";
 import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
 import { useRouter } from "next/router";
 import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
+import FinalizeVendorModal from "./FinalizeVendorModal";
+import FinalizeHistoryModal from "./FinalizeHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
@@ -18,15 +20,17 @@ const QuoteCompareTable = ({
   handleFinalize,
   proditem,
   alreadyFinalized,
-  isRfqClosed = false
+  isRfqClosed = false,
+  availableBudget
 }) => {
+  // Common state to manage all the modals in the whole component
+  const [activeModal, setActiveModal] = useState(null);
 
+  const [currentItem, setCurrentItem] = useState(null);
   const router = useRouter();
   const { rfq } = router.query;
-  const [openCommonModal, setOpenCommonModal] = useState(false);
   const [vendorData, setVendorData] = useState({});
   const [lowestQuote, setLowestQuote] = useState(null);
-  const [quotehistorymodal, setQuotehistorymodal] = useState(false);
   const [quotehistorydata, setQuotehistorydata] = useState({
     product_details:[],
     previous_quotes:[]
@@ -83,7 +87,7 @@ const QuoteCompareTable = ({
 
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
-    setOpenCommonModal(true);
+    setActiveModal('common');
   };
 
   const renderFileLink = (files,lable = "view file") => {
@@ -95,35 +99,54 @@ const QuoteCompareTable = ({
     ));
   };
 
+  const handleViewFinalizationHistory = () => {
+    setActiveModal('finalize_history');
+  }
+
   return (
     <>
-      <div className="table-content" key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}>
+      <div
+        className="table-content"
+        key={`${proditem.id}_${proditem.product_id}_${proditem.variant}`}
+      >
         <div className="table-elements">
           <div className="table-row">
             <div className="table-col">
               <div className="table-si-row "></div>
               <div className="table-si-row table-grey-row">Quantity</div>
               <div className="table-si-row">Base Price</div>
-              <div className="table-si-row fw-semibold table-grey-row">Sub Total Rate</div>
-              <div className="table-si-row">Packaging (%)</div>
-              <div className="table-si-row table-grey-row">Freight (%)</div>
-              <div className="table-si-row">GST (%)</div>
-              <div className="table-si-row fw-semibold table-grey-row">Total Rate</div>
-              <div className="table-si-row">Delivery Period (In Weeks)</div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Sub Total Rate
+              </div>
+              <div className="table-si-row">Packaging (% / ₹)</div>
+              <div className="table-si-row table-grey-row">Freight (% / ₹)</div>
+              <div className="table-si-row">GST (% / ₹)</div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Total Rate
+              </div>
+              <div className="table-si-row">Delivery Period (In Days)</div>
               <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
-              <div className="table-si-row table-grey-row">Terms & Conditions</div>
+              <div className="table-si-row table-grey-row">
+                Terms & Conditions
+              </div>
               <div className="table-si-row">Payment Terms</div>
+              <div className="table-si-row">Created By</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
               quotations.map((item, index) => {
-
                 // Check if the quote is updated
-                let itemUpdated = item.previous_quotes?.length > 0 ? item.previous_quotes[item.previous_quotes.length - 1] : null;
+                let itemUpdated =
+                  item.previous_quotes?.length > 0
+                    ? item.previous_quotes[item.previous_quotes.length - 1]
+                    : null;
 
-                const rfqDetails = proditem?.product_details[0]
-                const quantity = rfqDetails?.rfq_details.find(spec => spec.title == 'Quantity')?.value || item.quantity
+                const rfqDetails = proditem?.product_details[0];
+                const quantity =
+                  rfqDetails?.rfq_details.find(
+                    (spec) => spec.title == "Quantity"
+                  )?.value || item.quantity;
 
                 return (
                   <div
@@ -134,7 +157,10 @@ const QuoteCompareTable = ({
                       className="table-si-row table-dark-row "
                       style={{ overflow: "visible" }}
                     >
-                      <span className="d-block text-center fw-bold fs-5" style={{"width" : "100%"}}>
+                      <span
+                        className="d-block text-center fw-bold fs-5"
+                        style={{ width: "100%" }}
+                      >
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||
                           item?.quote_details?.vendor_details?.name}
@@ -183,15 +209,17 @@ const QuoteCompareTable = ({
                           >
                             View Profile
                           </Dropdown.Item>
-                          {alreadyFinalized?.length == 0 &&
-                            !item.finalization &&
-                            !isRfqClosed &&
-                            item?.quote_details?.is_regret == 0 && (
+                          {!item.quote_details.is_regret == 1 &&
+                            (!item.finalization ||
+                              item.finalization.winning_vendor.id !=
+                                item?.quote_details?.created_by) && (
                               <Dropdown.Item
                                 href="#"
-                                onClick={(e) =>
-                                  handleFinalize(e, item, proditem)
-                                }
+                                onClick={(e) => {
+                                  setActiveModal("finalize");
+                                  setCurrentItem(item);
+                                  // handleFinalize(item, proditem);
+                                }}
                                 className="finalize-link"
                               >
                                 Finalize
@@ -202,7 +230,7 @@ const QuoteCompareTable = ({
                             <Dropdown.Item
                               href="#"
                               onClick={() => {
-                                setQuotehistorymodal(true);
+                                setActiveModal("quote_history");
                                 setQuotehistorydata({
                                   product_details: proditem.product_details,
                                   previous_quotes: item.previous_quotes,
@@ -240,36 +268,53 @@ const QuoteCompareTable = ({
                     </div>
                     <div className="table-si-row">
                       {item?.package_price !== null
-                        ? `${item?.package_price || 0} %`
+                        ? item.package_mode == "percentage"
+                          ? `${item?.package_price || 0} %`
+                          : `₹ ${item?.package_price || 0}`
                         : "0 %"}
+
                       {itemUpdated &&
                         itemUpdated.package_price != item.package_price && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {itemUpdated?.package_price !== null
-                              ? `${itemUpdated?.package_price || 0} %`
+                              ? itemUpdated.package_mode == "percentage"
+                                ? `${itemUpdated?.package_price || 0} %`
+                                : `₹ ${itemUpdated?.package_price || 0}`
                               : "0 %"}
                           </span>
                         )}
                     </div>
                     <div className="table-si-row table-grey-row">
                       {item?.freight_price !== null
-                        ? `${item?.freight_price || 0} %`
+                        ? item.freight_mode == "percentage"
+                          ? `${item?.freight_price || 0} %`
+                          : `₹ ${item?.freight_price || 0}`
                         : "0 %"}
+
                       {itemUpdated &&
                         itemUpdated.freight_price != item.freight_price && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {itemUpdated?.freight_price !== null
-                              ? `${itemUpdated?.freight_price || 0} %`
+                              ? itemUpdated.freight_mode == "percentage"
+                                ? `${itemUpdated?.freight_price || 0} %`
+                                : `₹ ${itemUpdated?.freight_price || 0}`
                               : "0 %"}
                           </span>
                         )}
                     </div>
                     <div className="table-si-row">
-                      {item.tax !== null ? `${item.tax || 0} %` : "0 %"}
+                      {item?.tax !== null
+                        ? item.tax_mode == "percentage"
+                          ? `${item?.tax || 0} %`
+                          : `₹ ${item?.tax || 0}`
+                        : "0 %"}
+
                       {itemUpdated && itemUpdated.tax != item.tax && (
                         <span className="d-block buyer-individual-quote-compare-text-strike ">
                           {itemUpdated?.tax !== null
-                            ? `${itemUpdated?.tax || 0} %`
+                            ? itemUpdated.tax_mode == "percentage"
+                              ? `${itemUpdated?.tax || 0} %`
+                              : `₹ ${itemUpdated?.tax || 0}`
                             : "0 %"}
                         </span>
                       )}
@@ -283,7 +328,8 @@ const QuoteCompareTable = ({
                     >
                       {calculateTotal(item, quantity)}
                       {itemUpdated &&
-                        calculateTotal(itemUpdated, quantity) != calculateTotal(item, quantity) && (
+                        calculateTotal(itemUpdated, quantity) !=
+                          calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {calculateTotal(itemUpdated, quantity)}
                           </span>
@@ -298,15 +344,15 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">
                       {item.delivery_period != ""
                         ? parseInt(item.delivery_period) <= 1
-                          ? `${item.delivery_period} Week`
-                          : `${item.delivery_period} Weeks`
+                          ? `${item.delivery_period} Day`
+                          : `${item.delivery_period} Days`
                         : "--"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {parseInt(itemUpdated.delivery_period) <= 1
-                              ? `${itemUpdated.delivery_period} Week`
-                              : `${itemUpdated.delivery_period} Weeks`}
+                              ? `${itemUpdated.delivery_period} Day`
+                              : `${itemUpdated.delivery_period} Days`}
                           </span>
                         )}
                     </div>
@@ -351,6 +397,9 @@ const QuoteCompareTable = ({
                         "NA"
                       )}
                     </div>
+                    <div className="table-si-row">
+                      {item?.quote_details?.created_by || "-"}
+                    </div>
                   </div>
                 );
               })}
@@ -362,38 +411,36 @@ const QuoteCompareTable = ({
         <div className="quote-sec-bottom">
           {lowestQuote && (
             <div className="quote-sec-bottom-con">
-            <div>
-              <span>
-                <b>Lowest Bid</b> :{" "}
-                {
-                  lowestQuote?.quote_details?.vendor_details?.organization_name 
-               || lowestQuote?.quote_details?.vendor_details?.name
+              <div>
+                <span>
+                  <b>Lowest Bid</b> :{" "}
+                  {lowestQuote?.quote_details?.vendor_details
+                    ?.organization_name ||
+                    lowestQuote?.quote_details?.vendor_details?.name}
+                </span>
+                <span>
+                  <Link
+                    href={
+                      "mailto:" +
+                      lowestQuote?.quote_details?.vendor_details?.email
+                    }
+                  >
+                    <FontAwesomeIcon icon={faEnvelope} />
+                  </Link>
+                </span>
 
-                }
-              </span>
-              <span>
-                <Link
-                  href={
-                    "mailto:" +
-                    lowestQuote?.quote_details?.vendor_details?.email
-                  }
-                >
-                  <FontAwesomeIcon icon={faEnvelope} />
-                </Link>
-              </span>
-
-              <span>
-                <Link
-                  href={
-                    "tel: " +
-                    lowestQuote[0]?.quote_details?.vendor_details?.mobile
-                  }
-                >
-                  <FontAwesomeIcon icon={faPhone} />
-                </Link>
-              </span>
-</div>
-              {isRfqClosed ?
+                <span>
+                  <Link
+                    href={
+                      "tel: " +
+                      lowestQuote[0]?.quote_details?.vendor_details?.mobile
+                    }
+                  >
+                    <FontAwesomeIcon icon={faPhone} />
+                  </Link>
+                </span>
+              </div>
+              {isRfqClosed ? (
                 <button
                   type="submit"
                   className="btn btn-danger btn-outlined"
@@ -401,17 +448,19 @@ const QuoteCompareTable = ({
                 >
                   RFQ has been Closed
                 </button>
-                :
+              ) : (
                 <button
                   type="submit"
                   className="btn btn-secondary"
-                  onClick={(e) =>
-                    handleFinalize(e, lowestQuote, proditem)
-                  }
+                  onClick={(e) => {
+                    setActiveModal('finalize')
+                    setCurrentItem(lowestQuote);
+                    // handleFinalize(lowestQuote, proditem)
+                  }}
                 >
                   Finalize
                 </button>
-              }
+              )}
             </div>
           )}
         </div>
@@ -447,6 +496,15 @@ const QuoteCompareTable = ({
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
               </span>
+              {Array.isArray(proditem.finalization_history) && proditem.finalization_history.length > 0 && (
+                <button
+                  className="btn btn-sm btn-success p-2"
+                  style={{ minWidth: "230px", marginLeft: "10px" }}
+                  onClick={handleViewFinalizationHistory}
+                >
+                  Finalization History
+                </button>
+              )}
             </div>
 
             <div>
@@ -482,25 +540,49 @@ const QuoteCompareTable = ({
       {/* Lowest bid area end */}
 
       {/* ------------- Show Vendors contact info in Modal ------------- */}
-      {openCommonModal &&
+      {activeModal == 'common' && (
         <CommonModal
           data={{
             title: "Contact Information",
             email: vendorData.email,
-            mobile: vendorData.mobile
+            mobile: vendorData.mobile,
           }}
-          openCommonModal={openCommonModal}
-          closeModal={() => setOpenCommonModal(false)}
+          openCommonModal={activeModal == 'common'}
+          closeModal={() => setActiveModal(null)}
         />
-      }
-      {quotehistorymodal && 
-      <QuoteHistoryModal
-        showModal = {quotehistorymodal}
-        closeModal ={() => {
-          setQuotehistorymodal(false);
+      )}
+      {activeModal == 'quote_history' && (
+        <QuoteHistoryModal
+          showModal={activeModal == 'quote_history'}
+          closeModal={() => {
+            setActiveModal(null);
+          }}
+          quotehistorydata={quotehistorydata}
+        />
+      )}
+      <FinalizeVendorModal
+        show={activeModal == 'finalize'}
+        onHide={() => setActiveModal(null)}
+        onConfirm={() => {
+          handleFinalize(currentItem, proditem);
+          setActiveModal(null)
         }}
-        quotehistorydata = {quotehistorydata}
-      />}
+        vendorName={
+          currentItem?.quote_details?.vendor_details?.organization_name ||
+          currentItem?.quote_details?.vendor_details?.name
+        }
+        quotedPrice={currentItem?.total_price}
+        productName={proditem?.product_details?.[0].product_name}
+        alreadyFinalized={alreadyFinalized}
+        availableBudget={availableBudget}
+      />
+      <FinalizeHistoryModal
+        show={proditem.finalization_history.length > 0 && activeModal == 'finalize_history'}
+        onHide={() => setActiveModal(null)}
+        history={proditem.finalization_history}
+        quantity={proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value}
+        calculateTotal={calculateTotal}
+      />
     </>
   );
 };

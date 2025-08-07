@@ -729,6 +729,7 @@ export const getRfqs = async (params) => {
   return res.data;
 };
 
+
 export const fetchTechEvaluationRfqList = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {

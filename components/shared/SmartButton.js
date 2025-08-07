@@ -19,14 +19,25 @@ const SmartButton = ({
   theme = "primary", // "primary" or "secondary"
   width = "fit-content",
   className = "",
+  style = {},
 }) => {
 const themeColors = {
   primary: "var(--primary-color)",
   secondary: "var(--secondary-color)",
-  red: "var(--red-color)"
+  red: "var(--red-color)",
+  light: "var(--dark-grey-color)"
 };
 
+const textColors = {
+  primary: "white",
+  secondary: "white",
+  red: "white",
+  light: "black"
+}
+
 const backgroundColor = themeColors[theme] || themeColors.primary;
+const textColor = textColors[theme] || textColors.primary;
+
   const ButtonContent = (
     <>
       {icon && iconPosition === "left" && <span className="me-1">{icon}</span>}
@@ -39,12 +50,14 @@ const backgroundColor = themeColors[theme] || themeColors.primary;
     <button
       type="button"
       onClick={onClick}
-      className={` border-0 text-white rounded-2  ${className}`}
+      className={` border-0 rounded-2  ${className}`}
       style={{
         width,
         backgroundColor,
+        color: textColor,
         padding:"5px",
         transition: "background-color 0.3s ease",
+        ...style
       }}
     >
       {ButtonContent}
