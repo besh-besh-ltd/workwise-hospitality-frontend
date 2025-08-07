@@ -615,17 +615,71 @@ const EditRFQ = () => {
     });
   };
 
-  const handleRemoveProduct = (data) => {
-    if((updatableData.products.deletable.length + 1) === rfqData?.products?.length)
-      toast.warning("You cannot delete all products from RFQ, at least one product is required");
-    else
-      setUpdatableData((prev) => ({
-        ...prev,
-        products: {
-          ...prev.products,
-          deletable: [...(prev.products?.deletable ?? []), data.id],
-        },
-      }));
+  const handleSyncApplyToOtherVariants = async () => {
+    const sourceRfqProductId = selectedProduct.product.id?.toString();
+    if (!sourceRfqProductId) return;
+
+    const sourceVendorData = updatableData.vendors?.[sourceRfqProductId];
+
+    const sourceDeletable = sourceVendorData?.deletable || [];
+    const sourceAddable = sourceVendorData?.addable || [];
+    const productId = selectedProduct.product?.product_id;
+
+    // Ensure current vendors of source are loaded
+    let sourceCurrentVendors = selectedProduct.vendors;
+
+    // Simulate updated source vendor list
+    const updatedSourceVendors = [
+      ...sourceCurrentVendors
+        .filter(v => !sourceDeletable.includes(v.user_id)),
+      ...sourceAddable.map(id => ({ user_id: id }))
+    ];
+
+    const updatedSourceVendorIds = updatedSourceVendors.map(v => v.user_id);
+
+    for (const rfqProduct of rfqData.products) {
+      if (
+        rfqProduct.product_id === productId &&
+        rfqProduct.id.toString() !== sourceRfqProductId
+      ) {
+        const otherRfqProductId = rfqProduct.id.toString();
+
+        // Ensure current vendors of target loaded
+        let currentVendors = rfqData.products?.find(product => product.id == otherRfqProductId)?.vendors;
+
+        const currentVendorIds = currentVendors.map(v => v.user_id);
+
+        // Vendors that should be added to sync
+        const syncAddable = updatedSourceVendorIds.filter(
+          id => !currentVendorIds.includes(id)
+        );
+
+        // Vendors that should be removed to sync (those in current but not in updated source)
+        const syncDeletable = currentVendorIds.filter(
+          id => !updatedSourceVendorIds.includes(id)
+        );
+
+        // Ensure updatableData entry exists
+        if (!updatableData.vendors[otherRfqProductId]) {
+          updatableData.vendors[otherRfqProductId] = {
+            product_id: rfqProduct.product_id,
+            variant: rfqProduct.variant,
+            deletable: [],
+            addable: [],
+          };
+        }
+
+        const otherVendorData = updatableData.vendors[otherRfqProductId];
+
+        otherVendorData.deletable = [];
+        otherVendorData.addable = [];
+
+        otherVendorData.deletable = syncDeletable;
+        otherVendorData.addable = syncAddable;
+      }
+    }
+    toast.info("Success! The change has been applied across all product variants.");
+
   };
 
   const handleUpdateRFQ = async (formValues) => {
@@ -2047,6 +2101,7 @@ const EditRFQ = () => {
         updatableData={updatableData}
         setUpdatableData={setUpdatableData}
         isOpen={showVendorModal}
+        applyToOtherVariants={handleSyncApplyToOtherVariants}
         onClose={() => setShowVendorModal(false)}
         onSelectAll={(isChecked) => {
           setUpdatableData((prev) => ({
@@ -2126,6 +2181,7 @@ const EditRFQ = () => {
         productData={selectedProduct}
         updatableData={updatableData}
         isOpen={showAddVendorModal}
+        applyToOtherVariants={handleSyncApplyToOtherVariants}
         onClose={() => setShowAddVendorModal(false)}
         onAdd={(item) =>
           setUpdatableData((prev) => ({

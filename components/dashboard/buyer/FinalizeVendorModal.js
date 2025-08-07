@@ -29,18 +29,6 @@ const FinalizeVendorModal = ({
       </Modal.Header>
 
       <Modal.Body className="pt-3 pb-4 p-0">
-        <p className="fs-6 mb-4">
-          {isFinalized
-            ? `
-            You are about to finalize another vendor for this product. 
-            This will reset any ongoing Purchase Order related to this product in the current RFQ.
-            `
-            : `
-            This will finalize this vendor as well as initiate a Purchase Order. 
-            However, the Purchase Order may require further approvals from the higher-ups.
-          `}
-        </p>
-
         <div className="bg-light p-3 rounded mb-4">
           <p className="mb-2 text-muted" style={{ lineHeight: "1.6" }}>
             {isFinalized ? (

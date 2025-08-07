@@ -309,9 +309,9 @@ const openModalForVariant = (variantId) => {
       heading_array[0].push("");
 
       amount_array.push("Unit Rate");
-      amount_array.push("Freight(%)");
-      amount_array.push("Packaging(%)");
-      amount_array.push("GST(%)");
+      amount_array.push("Freight");
+      amount_array.push("Packaging");
+      amount_array.push("GST");
       amount_array.push("Total Amount");
 
       paymentTermsArray.push(
@@ -469,18 +469,25 @@ const openModalForVariant = (variantId) => {
             ? q.quote_details[0].unit_price : "0"
           );
           temp_arr.push(
-            q.quote_details.length > 0 && q?.quote_details[0]?.freight_price 
-              ? q.quote_details[0].freight_price + "%"
+            q.quote_details.length > 0 && q?.quote_details[0]?.freight_price
+              ? q.quote_details[0].freight_mode == "percentage"
+                ? q.quote_details[0].freight_price + "%"
+                : "₹" + q.quote_details[0].freight_price
               : "0"
           );
           temp_arr.push(
             q.quote_details.length > 0 && q?.quote_details[0]?.package_price
-              ? q.quote_details[0].package_price + "%"
+              ? q.quote_details[0].package_mode == "percentage"
+                ? q.quote_details[0].package_price + "%"
+                : "₹" + q.quote_details[0].package_price
               : "0"
           );
           temp_arr.push(
             q.quote_details.length > 0 && q?.quote_details[0]?.tax
-             ? q.quote_details[0].tax + "%" : "0"
+             ? q.quote_details[0].tax_mode == "percentage"
+                ? q.quote_details[0].tax + "%"
+                : "₹" + q.quote_details[0].tax
+              : "0"
           );
           temp_arr.push(
             q.quote_details.length > 0
@@ -1073,7 +1080,7 @@ const openModalForVariant = (variantId) => {
     const specs = proditem.product_details[0].rfq_details;
 
     const poRequiredPayload = {
-      project_id: availableBudget?.project_id,
+      project_id: proditem.rfq[0].project_id,
       total_value: item.total_price,
       product_info: {
         rfq_product_id: proditem.id,

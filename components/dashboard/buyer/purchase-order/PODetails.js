@@ -19,6 +19,7 @@ import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber } from '@/utils/sharedFunctions';
+import Link from 'next/link';
 
 const statusColors = {
   draft: 'secondary',
@@ -103,6 +104,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     id,
     rfq_id,
     po_number,
+    finalized_vendor_id,
     finalized_vendor_name,
     finalized_vendor_email,
     status,
@@ -111,6 +113,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     total_value,
     initiated_by_name,
     created_at,
+    project_details,
     product_details,
     is_approver,
     logged_in_user,
@@ -156,35 +159,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       toast.error(error.message ?? "Something went wrong while deleting the milestone!");
     }
   }
- 
-  //  useEffect(() => {
-  //   const fetchAvailableBudget = async (projectId) => {
-  //     try {
-  //       const response = await getProjectAvailableBudget(projectId);
-  //       return response?.available_budget || null;
-  //     } catch (error) {
-  //       console.error("Error in fetchAvailableBudget:", error);
-  //       return null;
-  //     }
-  //   };
 
-  //   if (project_id) {
-  //     fetchAvailableBudget(project_id)
-  //       .then((budget) => {
-  //         setAvailableBudget(budget);
-  //       })
-  //       .catch((error) => {
-  //         console.error("Error fetching available budget:", error);
-  //         toast.error("Failed to fetch available budget.");
-  //       });
-  //   }
-  // }, [project_id]);
-
-  // useEffect(() => {
-  //   if (availableBudget !== null) {
-  //     console.log("Available Budget:", availableBudget);
-  //   }
-  // }, [availableBudget]);
   const handleFetchTasks = async () => {
     try {
       const res = await handleGetTasks(id, filters);
@@ -271,6 +246,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
               <PODetailItem label="Quantity" value={quantity} />
               <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
               <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
+              {project_details && (
+                <PODetailItem label="Project Name" value={project_details.name} />
+              )}
             </div>
             <div className="col-md-6">
               <PODetailItem label="Created At" value={formatIST(created_at)} />
@@ -297,17 +275,19 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
             </div>
           </Card.Body>
         </Card>
-        <Card className="shadow-sm w-100">
-          <Card.Body className="d-flex align-items-center">
-            <BsPerson className="me-3 fs-2 text-primary" />
-            <div>
-              <strong>{finalized_vendor_name}</strong> <small className='text-muted'>(Finalized Vendor)</small>
-              <div className="text-muted">
-                {finalized_vendor_email}
+        <Link className='w-100' href={`/vendor/vendor-profile?id=${finalized_vendor_id}`} target='__blank'>
+          <Card className="shadow-sm">
+            <Card.Body className="d-flex align-items-center">
+              <BsPerson className="me-3 fs-2 text-primary" />
+              <div>
+                <strong>{finalized_vendor_name}</strong> <small className='text-muted'>(Finalized Vendor)</small>
+                <div className="text-muted">
+                  {finalized_vendor_email}
+                </div>
               </div>
-            </div>
-          </Card.Body>
-        </Card>
+            </Card.Body>
+          </Card>
+        </Link>
       </div>
 
       {/* Approval Timeline */}
@@ -428,8 +408,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                       new Date(milestone.due_date).toDateString()
                     )}
                     <td>
-                      {milestone.status != "deleted" &&
-                      logged_in_user.user_type == 8 ? (
+                      {milestone.status != "deleted" ? (
                         <>
                           <button
                             title="Edit this Milestone"
