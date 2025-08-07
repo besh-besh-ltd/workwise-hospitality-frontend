@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { faFileExcel } from "@fortawesome/free-regular-svg-icons";
 import { getFuturedate, formatISOToDateTimeLocal, handleFileUpload, extractfileName } from "@/utils/sharedFunctions";
 import { getProjectList } from "@/services/project";
-import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, pollBOQResult, persistMagicSearchJob, getSImplifiedVersionOfBOQ } from "@/services/rfq";
+import { createRfq, getBOQexcelToJsonAI, getMagicRFQPreview, vendorApproveList, getDraftData, pollBOQResult, persistMagicSearchJob, getSImplifiedVersionOfBOQ, handleUploadFile } from "@/services/rfq";
 import ReviewProducts from "./ReviewProducts";
 import FullLoader from "@/components/shared/FullLoader";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -21,14 +21,32 @@ import ProcessingRFQ from "./processingRFQ/ProcessingRFQ";
 
 const MagicSearchPage = () => {
     const router = useRouter();
-    const [file, setFile] = useState(null);
-    const [fileName, setFileName] = useState('');
+    const [fileData, setFileData] = useState({
+      file: null,
+      s3Url: null,
+      name: null,
+    })
     const [reviewData, setReviewData] = useState(null);
     // const [customInstructions, setCustomInstructions] = useState(''); // Commented out custom instruction flow
 
     const [loading, setLoading] = useState(false);
     const [apiData, setApiData] = useState(null);
     const [tab, setTab] = useState('upload-file'); // upload-file, processing-files
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [pendingRemoval, setPendingRemoval] = useState(null);
+    
+    // Confirmation modal states for file uploads
+    const [showSimplifyConfirmModal, setShowSimplifyConfirmModal] = useState(false);
+    const [showRFQConfirmModal, setShowRFQConfirmModal] = useState(false);
+
+    // BOQ Simplification states
+    const [simplifyFileData, setSimplifyFileData] = useState({
+      file: null,
+      s3Url: null,
+      name: null,
+    })
+    const [simplifyUploading, setSimplifyUploading] = useState(false);
 
     // Update URL when tab changes
     const handleTabChange = (newTab) => {
@@ -39,6 +57,22 @@ const MagicSearchPage = () => {
         }, undefined, { shallow: true });
     };
 
+    const handleUploadRawFile = async (type) => {
+      try {
+        const res = await handleUploadFile(type == 'boq-to-rfq' ? fileData.file : simplifyFileData.file);
+        if(res && res.data) {
+          let path = res.data[0].file_path;
+          if(type == 'boq-to-rfq')
+            setFileData((prev) => ({ ...prev, s3Url: path }));
+          else if (type == 'simplify')
+            setSimplifyFileData((prev) => ({ ...prev, s3Url: path }));
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error(error.message ?? "Something went wrong while uploading file")
+      }
+    }
+
     // Handle tab persistence on page load/refresh
     useEffect(() => {
         if (router.query?.tab) {
@@ -46,17 +80,15 @@ const MagicSearchPage = () => {
         }
     }, [router.query?.tab]);
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [pendingRemoval, setPendingRemoval] = useState(null);
-    
-    // Confirmation modal states for file uploads
-    const [showSimplifyConfirmModal, setShowSimplifyConfirmModal] = useState(false);
-    const [showRFQConfirmModal, setShowRFQConfirmModal] = useState(false);
+    useEffect(() => {
+      if(fileData.file)
+        handleUploadRawFile('boq-to-rfq');
+    }, [fileData.file])
 
-    // BOQ Simplification states
-    const [simplifyFile, setSimplifyFile] = useState(null);
-    const [simplifyFileName, setSimplifyFileName] = useState('');
-    const [simplifyUploading, setSimplifyUploading] = useState(false);
+    useEffect(() => {
+      if(simplifyFileData.file)
+        handleUploadRawFile('simplify');
+    }, [simplifyFileData.file])
 
     const today = new Date();
     const tomorrow = new Date(today);
@@ -73,8 +105,7 @@ const MagicSearchPage = () => {
             if (!validTypes.includes(fileType)) {
                 toast.error('Please upload a valid Excel file (xlsx, xls)');
             } else {
-                setFileName(file.name);
-                setFile(file);
+                setFileData(prev => ({...prev, file, name: file.name}));
             }
         }
         // when we upload the same file again.
@@ -89,8 +120,7 @@ const MagicSearchPage = () => {
             if (!validTypes.includes(fileType)) {
                 toast.error('Please upload a valid Excel file (xlsx, xls)');
             } else {
-                setSimplifyFileName(file.name);
-                setSimplifyFile(file);
+                setSimplifyFileData(prev => ({...prev, file, name: file.name}));
             }
         }
         // when we upload the same file again.
@@ -98,22 +128,20 @@ const MagicSearchPage = () => {
     };
 
     const handleSimplifyUpload = async () => {
-        if (!simplifyFile) {
+        if (!simplifyFileData.file) {
             toast.error("Please select a file!");
             return;
         }
-
-        // Show confirmation modal first
-        setShowSimplifyConfirmModal(true);
+        await confirmSimplifyUpload();
     };
 
     const confirmSimplifyUpload = async () => {
         try {
             setSimplifyUploading(true);
-            const persistJob = await persistMagicSearchJob(simplifyFileName, 'simplified');
+            const persistJob = await persistMagicSearchJob(simplifyFileData.name, 'simplified', simplifyFileData.s3Url);
             const webhook = persistJob.webhook;
 
-            const startResponse = await getSImplifiedVersionOfBOQ(simplifyFile, webhook);
+            const startResponse = await getSImplifiedVersionOfBOQ(simplifyFileData.file, webhook);
             
             // Show modal after API call regardless of response
             setShowSimplifyConfirmModal(true);
@@ -136,8 +164,11 @@ const MagicSearchPage = () => {
     };
 
     const handleSimplifyConfirm = () => {
-        setSimplifyFile(null);
-        setSimplifyFileName('');
+        setSimplifyFileData({
+          file: null,
+          s3Url: null,
+          name: null,
+        })
         setTab('processing-files');
         setShowSimplifyConfirmModal(false);
     };
@@ -147,24 +178,25 @@ const MagicSearchPage = () => {
     };
 
 const uploadToServer = async (processed_file) => {
-  if (!file && !processed_file) {
+  if (!fileData.file && !processed_file) {
     toast.error("Please select a file!");
     return;
   }
 
-  if (!file && processed_file && !processed_file instanceof File) {
+  if (!fileData.file && processed_file && !processed_file instanceof File) {
     toast.error("Processed file is not an instance of File!");
     return;
   }
 
-  const curFile = file || processed_file;
-  const curFileName = fileName || processed_file.name;
+  const curFile = fileData.file || processed_file;
+  const curFileName = fileData.name || processed_file.name;
 
   try {
     setLoading(true);
 
     // Step 1: Start async task and get task_id
-    const persistJob = await persistMagicSearchJob(curFileName);
+    console.log("FILE DATA:", fileData);
+    const persistJob = await persistMagicSearchJob(curFileName, 'rfq', fileData.s3Url);
     const webhook = persistJob.webhook;
 
     const startResponse = await getBOQexcelToJsonAI(curFile, webhook);
@@ -201,8 +233,11 @@ const confirmRFQUpload = async () => {
     console.error("Failed to switch tab:", error);
     toast.error("Failed to switch to processing tab.");
   } finally {
-    setFile(null);
-    setFileName("");
+    setFileData({
+      file: null,
+      s3Url: null,
+      name: null,
+    });
     setShowRFQConfirmModal(false);
   }
 };
@@ -373,11 +408,11 @@ const closeRFQConfirmModal = () => {
                                     }}
                                   >
                                     <FontAwesomeIcon
-                                      icon={simplifyFileName ? faFileExcel : faCloudArrowUp}
+                                      icon={simplifyFileData.name ? faFileExcel : faCloudArrowUp}
                                       style={{ fontSize: "45px" }}
                                     />
                                     <p className="fw-semibold mb-0">
-                                      {simplifyFileName || "Upload/Drag & drop your Excel file here"}
+                                      {simplifyFileData.name || "Upload/Drag & drop your Excel file here"}
                                     </p>
                                   </div>
 
@@ -399,7 +434,7 @@ const closeRFQConfirmModal = () => {
                                     <Button 
                                       variant="success" 
                                       onClick={handleSimplifyUpload} 
-                                      disabled={simplifyUploading || !simplifyFile}
+                                      disabled={simplifyUploading || !simplifyFileData.file}
                                       className="px-4 w-100"
                                     >
                                       <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
@@ -452,11 +487,11 @@ const closeRFQConfirmModal = () => {
                                     }}
                                   >
                                     <FontAwesomeIcon
-                                      icon={fileName ? faFileExcel : faCloudArrowUp}
+                                      icon={fileData.name ? faFileExcel : faCloudArrowUp}
                                       style={{ fontSize: "45px" }}
                                     />
                                     <p className="fw-semibold mb-0">
-                                      {fileName || "Upload/Drag & drop your Excel file here"}
+                                      {fileData.name || "Upload/Drag & drop your Excel file here"}
                                     </p>
                                   </div>
 
@@ -478,7 +513,7 @@ const closeRFQConfirmModal = () => {
                                     <Button 
                                       variant="primary" 
                                       onClick={uploadToServer} 
-                                      disabled={loading || !file}
+                                      disabled={loading || !fileData.file}
                                       className="px-4 w-100"
                                     >
                                       <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
@@ -542,7 +577,7 @@ const closeRFQConfirmModal = () => {
           onClose={closeSimplifyConfirmModal}
           onConfirm={handleSimplifyConfirm}
           title="BOQ Simplification Initiated"
-          description={`BOQ simplification has been initiated for the file "${simplifyFileName}". Do you want to switch to the processing tab to monitor the progress?`}
+          description={`BOQ simplification has been initiated for the file "${simplifyFileData.name}". Do you want to switch to the processing tab to monitor the progress?`}
           confirmButtonColor="success"
           confirmButtonText="Switch to Processing"
           cancelButtonText="Cancel"
@@ -555,7 +590,7 @@ const closeRFQConfirmModal = () => {
           onClose={closeRFQConfirmModal}
           onConfirm={confirmRFQUpload}
           title="RFQ Generation Initiated"
-          description={`RFQ generation has been initiated for the file "${fileName}". Do you want to switch to the processing tab to monitor the progress?`}
+          description={`RFQ generation has been initiated for the file "${fileData.name}". Do you want to switch to the processing tab to monitor the progress?`}
           confirmButtonColor="primary"
           confirmButtonText="Switch to Processing"
           cancelButtonText="Cancel"

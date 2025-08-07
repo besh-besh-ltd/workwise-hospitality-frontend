@@ -423,12 +423,11 @@ export const finalizeQuotation = (payload) => {
 /* 
 START :: Initiate magic search
 */
-export const persistMagicSearchJob = async (file_name, type = 'rfq') => {
-  const token = localStorage.getItem("token");
-
+export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_url) => {
   const payload = {
     file_name,
-    type
+    type,
+    raw_file_url
   }
   let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
   return response;
