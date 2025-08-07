@@ -683,7 +683,7 @@ const openModalForVariant = (variantId) => {
                                                 ?.package_price
                                             )}${
                                               item.last_quote_rate
-                                                ?.freight_mode == "percentage"
+                                                ?.package_mode == "percentage"
                                                 ? "%"
                                                 : ""
                                             }`

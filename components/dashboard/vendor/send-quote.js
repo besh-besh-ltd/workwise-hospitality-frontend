@@ -21,13 +21,13 @@ const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
         onClick={() => onToggle('percentage')}
         theme={`${currentMode === 'percentage' ? 'primary' : 'light'}`}
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="IN %"
+        label="%"
       />
       <SmartButton
         onClick={() => onToggle('absolute')}
         theme={`${currentMode === 'absolute' ? 'primary' : 'light'}`}
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="IN ₹"
+        label="₹"
       />
       {/* <button
         type="button"
@@ -1097,7 +1097,7 @@ const SendQuotePageComp = () => {
                               Freight
                             </th>
                             <th>
-                              Package
+                              Packaging
                             </th>
                             <th>
                               Taxes
