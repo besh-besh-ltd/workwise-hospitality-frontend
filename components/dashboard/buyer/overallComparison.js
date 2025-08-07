@@ -859,7 +859,7 @@ const openModalForVariant = (variantId) => {
                                   quoteDetails.product_id,
                                   quoteDetails.variant,
                                 ];
-                                const key = `${item.id}_${quote_item.created_by}`;
+                                const key = `${item.product_variant_id}_${quote_item.created_by}`;
                                 const showBreakup = breakupStates[key] || false;
                                 return (
                                   <td
@@ -926,7 +926,12 @@ const openModalForVariant = (variantId) => {
                                           Show/hide Breakup
                                         </div>
                                         <span></span>
-                                        <input type="checkbox" />
+                                        <input 
+                                          type="checkbox" 
+                                          checked={breakupStates[`${item.product_variant_id}_${quote_item.created_by}`] || false}
+                                          onChange={() => toggleBreakup(`${item.product_variant_id}_${quote_item.created_by}`)}
+                                        />
+                                        {breakupStates[`${item.product_variant_id}_${quote_item.created_by}`] && (
                                         <table className="table has_inner_border_table">
                                           <tr>
                                             <th>Base Price</th>
@@ -1083,6 +1088,7 @@ const openModalForVariant = (variantId) => {
                                             </td>
                                           </tr>
                                         </table>
+                                        )}
                                         <p>
                                           {quote_item?.quote_details?.length >
                                             0 &&
