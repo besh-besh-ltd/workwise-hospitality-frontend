@@ -8,7 +8,6 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
-  handleUploadFile,
   handleUploadFileInFormData,
   saveExcelInDB,
 } from "@/services/rfq";
@@ -17,7 +16,7 @@ import * as XLSX from "xlsx-js-style";
 import QuoteCompareTable from "@/components/dashboard/buyer/quote-compare-table";
 import Loader from "@/components/shared/Loader";
 import OverallComparison from "./overallComparison";
-import { addCommasToNumber, calculateTotal, formatPrice } from "@/utils/sharedFunctions";
+import { addCommasToNumber, calculateTotal, formatPrice, handleNormalize, normalizeFlatQuotationData } from "@/utils/sharedFunctions";
 import PlaceholderLoading from "react-placeholder-loading";
 import { toast } from "react-toastify";
 import { getProjectAvailableBudget, getProjectList } from '@/services/project';
@@ -52,10 +51,10 @@ const QuoteCompare = () => {
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
   const [freightFilter, setFreightFilter] = useState(false);
+  const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
-  const [ showLPRModal, setShowLPRModal] = useState(false);
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
@@ -65,7 +64,7 @@ const QuoteCompare = () => {
     if (rfq) {
       getRespectiveQuotes();
     }
-  }, [rfq, TA_Filter, freightFilter]);
+  }, [rfq, TA_Filter, freightFilter, normalizeFilter]);
 
   useEffect(() => {
     getAllRFQs();
@@ -145,6 +144,10 @@ const openModalForVariant = (variantId) => {
     setFreightFilter(e.target.checked);
   }
 
+  const handleNormalizeFilterChange = (e) => {
+    setNormalizeFilter(e.target.checked);
+  }
+
   const loadMoreRFQs = (e) => {
     e.preventDefault();
     if (hasMoreQuotes) {
@@ -195,7 +198,10 @@ const openModalForVariant = (variantId) => {
 
     getQuotes(rfq, TA_Filter, freightFilter)
       .then((res) => {
-        setquotes(res.data);
+        console.log("Quotes mukul data 1 :", res.data);
+        const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
+        console.log("Quotes mukul data 2 :", res.data);
+        setquotes(data);
       })
       .catch((err) => {
       })
@@ -260,7 +266,10 @@ const openModalForVariant = (variantId) => {
 
     try {
       const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
-      const [excelBuffer, fileName] = generateExcelFile(res.data);
+
+      const quoteData = normalizeFilter ? handleNormalize(res.data) : res.data;
+
+      const [excelBuffer, fileName] = generateExcelFile(quoteData);
 
       if (excelBuffer) {
         const blob = new Blob([excelBuffer], {
@@ -1418,6 +1427,19 @@ const openModalForVariant = (variantId) => {
                           View quotes without freight
                         </label>
                       </div>
+                       <div className="form-check form-switch page-link fs-6">
+                        <input
+                          className="form-check-input border-dark-subtle"
+                          type="checkbox"
+                          role="switch"
+                          checked={normalizeFilter}
+                          id="freight_check"
+                          onChange={handleNormalizeFilterChange}
+                        />
+                        <label className="form-check-label" for="freight_check">
+                          Normalize Quotes
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1681,10 +1703,10 @@ const openModalForVariant = (variantId) => {
                       </>
                     )}
                     {activeTab === 'category' && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} normalizeFilter={normalizeFilter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
                     )}
                     {activeTab === 'cost' && (
-                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
+                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} normalizeFilter={normalizeFilter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
                                         )}
                                       </div>
                                         )}

@@ -203,6 +203,142 @@ export const calculateTotal = (item, quantity) => {
   return Math.round(TotalPrice);
 }
 
+// normalize for overall and category cost comparision
+export const handleNormalize = (products) => {
+  const allFreightPrices = [];
+  const allPackagePrices = [];
+  const allTaxRates = [];
+
+  console.log("Normalizing data...", products);
+
+  products.forEach(product => {
+    product.quotations.forEach(quote => {
+      quote.quote_details?.forEach(detail => {
+        const freight = parseFloat(detail.freight_price);
+        if (!isNaN(freight)) allFreightPrices.push(freight);
+
+        const pack = parseFloat(detail.package_price);
+        if (!isNaN(pack)) allPackagePrices.push(pack);
+
+        const tax = parseFloat(detail.tax);
+        if (!isNaN(tax)) allTaxRates.push(tax);
+      });
+    });
+  });
+
+  const averageFreight = allFreightPrices.length
+    ? allFreightPrices.reduce((sum, val) => sum + val, 0) / allFreightPrices.length
+    : 0;
+
+  const averagePackage = allPackagePrices.length
+    ? allPackagePrices.reduce((sum, val) => sum + val, 0) / allPackagePrices.length
+    : 0;
+
+  const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
+  const medianTax = (() => {
+    const len = sortedTaxRates.length;
+    if (len === 0) return 0;
+    const mid = Math.floor(len / 2);
+    return len % 2 === 0
+      ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
+      : sortedTaxRates[mid];
+  })();
+
+  const normalized = products.map(product => {
+    const updatedQuotations = product.quotations.map(quote => {
+      const updatedDetails = quote.quote_details?.map(detail => {
+        const currentFreight = parseFloat(detail.freight_price);
+        const currentPackage = parseFloat(detail.package_price);
+        const currentTax = parseFloat(detail.tax);
+
+        return {
+          ...detail,
+          freight_price:
+            isNaN(currentFreight) || currentFreight === 0 ? averageFreight : currentFreight,
+          package_price:
+            isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
+          tax:
+            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
+        };
+      }) || [];
+
+      return {
+        ...quote,
+        quote_details: updatedDetails,
+      };
+    });
+
+    return {
+      ...product,
+      quotations: updatedQuotations,
+    };
+  });
+
+  return normalized;
+};
+
+
+// 
+export const normalizeFlatQuotationData = (data) => {
+  const allFreightPrices = [];
+  const allPackagePrices = [];
+  const allTaxRates = [];
+
+  // Step 1: Collect all values (including 0)
+  data.forEach(item => {
+    item.quotations.forEach(quote => {
+      const freight = parseFloat(quote.freight_price);
+      if (!isNaN(freight)) allFreightPrices.push(freight);
+
+      const pack = parseFloat(quote.package_price);
+      if (!isNaN(pack)) allPackagePrices.push(pack);
+
+      const tax = parseFloat(quote.tax);
+      if (!isNaN(tax)) allTaxRates.push(tax);
+    });
+  });
+
+  const average = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+  const median = arr => {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return arr.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+  };
+
+  const averageFreight = average(allFreightPrices);
+  const averagePackage = average(allPackagePrices);
+  const medianTax = median(allTaxRates);
+
+  // Step 2: Normalize
+  const normalizedData = data.map(item => {
+    const updatedQuotations = item.quotations.map(quote => {
+      const freight = parseFloat(quote.freight_price);
+      const pack = parseFloat(quote.package_price);
+      const tax = parseFloat(quote.tax);
+
+      return {
+        ...quote,
+        freight_price: isNaN(freight) || freight === 0 ? averageFreight : freight,
+        package_price: isNaN(pack) || pack === 0 ? averagePackage : pack,
+        tax: isNaN(tax) || tax === 0 ? medianTax : tax,
+      };
+    });
+
+    return {
+      ...item,
+      quotations: updatedQuotations,
+    };
+  });
+
+  return normalizedData;
+};
+
+
+
 export const  addCommasToNumber = (number) => {
 
     if (number <= 0 || !number) {

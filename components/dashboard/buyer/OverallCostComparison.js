@@ -3,7 +3,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
 import ReadMore from "@/components/shared/ReadMore";
 import { renderFileLink } from "@/utils/elementFunctions";
-import { calculateTotal } from "@/utils/sharedFunctions";
+import { calculateTotal, handleNormalize } from "@/utils/sharedFunctions";
 import { Badge } from "react-bootstrap";
 
 const addCommasToNumber = (num) => {
@@ -11,7 +11,7 @@ const addCommasToNumber = (num) => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
+const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter }) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
@@ -28,8 +28,17 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
     setLoading(true);
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
-        const data = res.data || [];
+        let data = res.data || [];
+        
+        // If normalize filter is enabled, normalize the quotes
+        if(normalizeFilter){
+          data =   handleNormalize(data)
+          // setProducts(normalizedData);
+        }
+
         setProducts(data);
+
+
         // Find max number of quoting vendors for any product
         let maxV = 0;
         data.forEach(item => {
@@ -38,9 +47,10 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
         });
         setMaxVendors(maxV);
         setLoading(false);
+
       })
       .catch(() => setLoading(false));
-  }, [rfq_id, TA_Filter, freightFilter]);
+  }, [rfq_id, TA_Filter, freightFilter, normalizeFilter]);
 
   if (loading) return <FullLoader />;
   const hasAnyQuotes = products.some(
@@ -51,78 +61,76 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
 
 
   
-  const handleNormalize = () => {
-  const allFreightPrices = [];
-  const allPackagePrices = [];
-  const allTaxRates = [];
+//   const handleNormalize = () => {
+//   const allFreightPrices = [];
+//   const allPackagePrices = [];
+//   const allTaxRates = [];
 
-  products.forEach(product => {
-    product.quotations.forEach(quote => {
-      quote.quote_details?.forEach(detail => {
-        const freight = parseFloat(detail.freight_price);
-        if (!isNaN(freight)) allFreightPrices.push(freight);
+//   products.forEach(product => {
+//     product.quotations.forEach(quote => {
+//       quote.quote_details?.forEach(detail => {
+//         const freight = parseFloat(detail.freight_price);
+//         if (!isNaN(freight)) allFreightPrices.push(freight);
 
-        const pack = parseFloat(detail.package_price);
-        if (!isNaN(pack)) allPackagePrices.push(pack);
+//         const pack = parseFloat(detail.package_price);
+//         if (!isNaN(pack)) allPackagePrices.push(pack);
 
-        const tax = parseFloat(detail.tax);
-        if (!isNaN(tax)) allTaxRates.push(tax);
-      });
-    });
-  });
+//         const tax = parseFloat(detail.tax);
+//         if (!isNaN(tax)) allTaxRates.push(tax);
+//       });
+//     });
+//   });
 
-  const averageFreight = allFreightPrices.length
-    ? allFreightPrices.reduce((sum, val) => sum + val, 0) / allFreightPrices.length
-    : 0;
+//   const averageFreight = allFreightPrices.length
+//     ? allFreightPrices.reduce((sum, val) => sum + val, 0) / allFreightPrices.length
+//     : 0;
 
-  const averagePackage = allPackagePrices.length
-    ? allPackagePrices.reduce((sum, val) => sum + val, 0) / allPackagePrices.length
-    : 0;
+//   const averagePackage = allPackagePrices.length
+//     ? allPackagePrices.reduce((sum, val) => sum + val, 0) / allPackagePrices.length
+//     : 0;
 
-  const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
-  const medianTax = (() => {
-    const len = sortedTaxRates.length;
-    if (len === 0) return 0;
-    const mid = Math.floor(len / 2);
-    return len % 2 === 0
-      ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
-      : sortedTaxRates[mid];
-  })();
+//   const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
+//   const medianTax = (() => {
+//     const len = sortedTaxRates.length;
+//     if (len === 0) return 0;
+//     const mid = Math.floor(len / 2);
+//     return len % 2 === 0
+//       ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
+//       : sortedTaxRates[mid];
+//   })();
 
-  const normalized = products.map(product => {
-    const updatedQuotations = product.quotations.map(quote => {
-      const updatedDetails = quote.quote_details?.map(detail => {
-        const currentFreight = parseFloat(detail.freight_price);
-        const currentPackage = parseFloat(detail.package_price);
-        const currentTax = parseFloat(detail.tax);
+//   const normalized = products.map(product => {
+//     const updatedQuotations = product.quotations.map(quote => {
+//       const updatedDetails = quote.quote_details?.map(detail => {
+//         const currentFreight = parseFloat(detail.freight_price);
+//         const currentPackage = parseFloat(detail.package_price);
+//         const currentTax = parseFloat(detail.tax);
 
-        return {
-          ...detail,
-          freight_price:
-            isNaN(currentFreight) || currentFreight === 0 ? averageFreight : currentFreight,
-          package_price:
-            isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
-          tax:
-            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
-        };
-      }) || [];
+//         return {
+//           ...detail,
+//           freight_price:
+//             isNaN(currentFreight) || currentFreight === 0 ? averageFreight : currentFreight,
+//           package_price:
+//             isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
+//           tax:
+//             isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
+//         };
+//       }) || [];
 
-      return {
-        ...quote,
-        quote_details: updatedDetails,
-      };
-    });
+//       return {
+//         ...quote,
+//         quote_details: updatedDetails,
+//       };
+//     });
 
-    return {
-      ...product,
-      quotations: updatedQuotations,
-    };
-  });
+//     return {
+//       ...product,
+//       quotations: updatedQuotations,
+//     };
+//   });
 
-  setProducts(normalized);
-};
-
-
+//   setProducts(normalized);
+// };
 
 
 
@@ -132,14 +140,6 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
         OVERALL COST COMPARISON CHART
         <div className="fw-normal" style={{ fontSize: 14, color: '#444', textTransform: 'none' }}>
           (Incl. Packaging, Freight & GST)
-
-<button
-  type="button"
-  className="btn btn-sm btn-outline-primary ms-2"
-  onClick={handleNormalize}
->
-  Normalize
-</button>
         </div>
       </h3>
       <div className="table-responsive" style={{ overflowX: 'auto', minWidth: 0 }}>

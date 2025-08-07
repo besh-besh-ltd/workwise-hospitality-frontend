@@ -4,7 +4,7 @@ import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { downloadQuotesDetails } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
-import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
+import { calculateTotal, extractfileName, handleNormalize } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
@@ -15,7 +15,7 @@ import "react-tooltip/dist/react-tooltip.css";
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
  * @Updated Ayush Singh 22 JUNE 2025
  */
-const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -29,7 +29,7 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
   
   useEffect(() => {
     handleDownloadQuote();
-  }, [rfq_id, TA_Filter, freightFilter]);
+  }, [rfq_id, TA_Filter, freightFilter, normalizeFilter]);
 
   const toggleBreakup = (key) => {
     setBreakupStates(prev => ({
@@ -49,14 +49,15 @@ const openModalForVariant = (variantId) => {
     setloading(true);
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
-        setdata(res.data);
+        
+        const data = normalizeFilter ? handleNormalize(res.data) : res.data;
 
-        let data = res.data;
+        setdata(data);
         setallvendors(data[0]?.all_vendors?.length > 0 ? data[0]?.all_vendors : null);
-        let globalFiles = FilterOutGlobalTermsFiles(res.data);
+        let globalFiles = FilterOutGlobalTermsFiles(data);
         setAttachedFiles(globalFiles);
-        getLowestBidAmount(res.data);
-        getFinalizedTotal(res.data);
+        getLowestBidAmount(data);
+        getFinalizedTotal(data);
         setloading(false);
       })
       .catch((err) => {
@@ -77,14 +78,6 @@ const openModalForVariant = (variantId) => {
     return fileArr;
   }
 
-  const getQty = (item, index) => {
-    let qq = item.quotations.filter((qi) => qi.id != null);
-    if (qq.length > 0) {
-      return qq[0]?.quote_details[0]?.quantity;
-    } else {
-      return "-";
-    }
-  };
 
   const getLowestBidAmount = (all_data) => {
     let l1totaltemp = 0;
