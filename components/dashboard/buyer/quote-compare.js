@@ -226,11 +226,11 @@ const openModalForVariant = (variantId) => {
       let largest = Math.max(...validItems);
 
       if (smallest === largest) {
-        return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
+        return smallest === 1 ? `Within 1 day` : `Within ${smallest} days`;
       }
 
-      let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
-      let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
+      let smallestStr = smallest === 1 ? "1 day" : `${smallest} days`;
+      let largestStr = largest === 1 ? "1 day" : `${largest} days`;
 
       return `Within ${smallestStr} - ${largestStr}`;
     } else {

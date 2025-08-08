@@ -293,11 +293,11 @@ const openModalForVariant = (variantId) => {
       let largest = Math.max(...validItems);
 
       if (smallest === largest) {
-        return smallest === 1 ? `Within 1 week` : `Within ${smallest} weeks`;
+        return smallest === 1 ? `Within 1 day` : `Within ${smallest} days`;
       }
 
-      let smallestStr = smallest === 1 ? "1 week" : `${smallest} weeks`;
-      let largestStr = largest === 1 ? "1 week" : `${largest} weeks`;
+      let smallestStr = smallest === 1 ? "1 day" : `${smallest} days`;
+      let largestStr = largest === 1 ? "1 day" : `${largest} days`;
 
       return `Within ${smallestStr} - ${largestStr}`;
     } else {
@@ -320,6 +320,7 @@ const openModalForVariant = (variantId) => {
                   <col style={{ width: "250px" }} />
                   <col style={{ width: "120px" }} />
                   <col style={{ width: "250px" }} />
+                  <col style={{ width: "250px" }} />
                   {allvendors.length > 0 &&
                     allvendors.map((_, index) => {
                       return (
@@ -335,7 +336,7 @@ const openModalForVariant = (variantId) => {
                     <th
                       scope="col"
                       className="sl_no heading"
-                      colSpan={allvendors.length + 5}
+                      colSpan={allvendors.length + 6}
                     >
                       Category Wise Comparison
                       <br />
@@ -383,7 +384,12 @@ const openModalForVariant = (variantId) => {
                         </div>
                       </div>
                     </th>
-
+                    <th scope="col" className="all_vendors" rowSpan={2}>
+                      <p>
+                        Selling Price
+                      </p>
+                    </th>
+                    
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
@@ -822,6 +828,11 @@ const openModalForVariant = (variantId) => {
                                 RFQ_no={RFQ_no}
                               />
                             </td>
+                          )}
+                          {selling_price ? (
+                            <td>₹{addCommasToNumber(selling_price)}</td>
+                          ) : (
+                            <td>N/A</td>
                           )}
 
                           {item.quotations.length > 0 &&

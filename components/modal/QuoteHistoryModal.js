@@ -149,7 +149,7 @@ const QuoteHistoryModal = (props) => {
                                             <td>{item?.tax || "-"}</td>
                                             <td>{item?.total_price || "-"}</td>
                                             {/* <td>{item.delivery_period}</td> */}
-                                            <td>{item.delivery_period ? item.delivery_period + " weeks" : '-'}</td>
+                                            <td>{item.delivery_period ? item.delivery_period + " days" : '-'}</td>
                                             <td>{item.comment ? item.comment : '-'}</td>
                                             <td>{formatTimestampToIST(item.timestamp)}</td>
                                             </tr>
