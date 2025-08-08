@@ -98,7 +98,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
                 .map(q => {
                   const details = q.quote_details[0];
                   const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
-                  return { ...q, cost: calculateTotal(details, quantity) };
+                  return { ...q, cost: calculateTotal(details, quantity, normalizeFilter) };
                 })
                 .sort((a, b) => a.cost - b.cost);
               // For regrets, keep them in a separate map by vendor id
