@@ -912,11 +912,11 @@ const SendQuotePageComp = () => {
                       {/* Global Inputs Section */}
                       <div className="col-md-4 col-xs-12 ">
                         <h3 className="fs-6 fw-semibold mb-2">
-                          Global Costing (in Percentage)
+                          Global Costing
                         </h3>
                         <div className="row mb-4">
                           <div className="inputBox form-group col-4">
-                            <label>Freight {chargesMode.freight.global == "percentage" ? "(in %)" : "(in ₹)"}</label>
+                            <label>Freight</label>
                             <input
                               type="number"
                               className="form-control"
@@ -942,7 +942,7 @@ const SendQuotePageComp = () => {
                             />
                           </div>
                           <div className="inputBox form-group col-4">
-                            <label>Packaging {chargesMode.package.global == "percentage" ? "(in %)" : "(in ₹)"}</label>
+                            <label>Packaging</label>
                             <input
                               type="number"
                               className="form-control"
@@ -968,7 +968,7 @@ const SendQuotePageComp = () => {
                             />
                           </div>
                           <div className="inputBox form-group col-4">
-                            <label>TAX {chargesMode.tax.global == "percentage" ? "(in %)" : "(in ₹)"}</label>
+                            <label>TAX</label>
                             <input
                               type="number"
                               className="form-control"
