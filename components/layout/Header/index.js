@@ -133,30 +133,60 @@ const roleMenus = {
     },
 
   ],
-  management: [
+  "management": [ // procurment person 
+    { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
+    { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
     {
+      href: "/dashboard/buyer/rfq-management",
+      label: "RFQ management",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/technical-evaluation",
+      label: "Technical Evaluation",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/quote-compare",
+      label: "Quote Comparison",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
+      targetMenu: "nav",
+    },
+        {
       href: "/dashboard/management/editprofile",
       label: "Profile",
       targetMenu: "popup",
     },
-    {
-      href: "/dashboard/management",
-      label: "Dashboard",
-      targetMenu: "nav",
-    },
-    {
+      {
       href: "/dashboard/management/project-management",
       label: "Project Management",
+      targetMenu: "popup",
+    },
+    {
+      href: "/dashboard/buyer/vendor-management",
+      label: "Vendor Management",
+      targetMenu: "popup",
+    },
+  ],
+  finance: [
+    {
+      href: "/dashboard/finance/editprofile",
+      label: "Profile",
+      targetMenu: "popup",
+    },
+    { href: "/dashboard/finance", label: "Dashboard", targetMenu: "popup" },
+    {
+      href: "/dashboard/buyer/quote-compare",
+      label: "Quote Comparison",
       targetMenu: "nav",
     },
     {
-      href: "/dashboard/management/account-management",
-      label: "User Management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/management/approval-management",
-      label: "PO Approval Hierarchy",
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
       targetMenu: "nav",
     },
   ],
@@ -166,46 +196,10 @@ const roleMenus = {
       label: "Profile",
       targetMenu: "popup",
     },
+    { href: "/dashboard/engineering", label: "Dashboard", targetMenu: "popup" },
     {
-      href: "/dashboard/engineering",
-      label: "Dashboard",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/engineering/project-management",
-      label: "Project Management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/engineering/technical-evaluation",
+      href: "/dashboard/buyer/technical-evaluation",
       label: "Technical Evaluation",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/engineering/quote-compare",
-      label: "Quote Comparison",
-      targetMenu: "nav",
-    },
-  ],
-  finance: [
-    {
-      href: "/dashboard/finance/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-    {
-      href: "/dashboard/finance",
-      label: "Dashboard",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/finance/purchase-order",
-      label: "Purchase Orders",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/finance/payment-management",
-      label: "Payment Management",
       targetMenu: "nav",
     },
   ],
