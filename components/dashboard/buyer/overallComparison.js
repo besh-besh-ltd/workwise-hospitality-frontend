@@ -14,6 +14,7 @@ import "react-tooltip/dist/react-tooltip.css";
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
  * @Updated Ayush Singh 22 JUNE 2025
+ * @updated by mukul 08-08-2025 - normilize total
  */
 const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter }) => {
   const [loading, setloading] = useState(false);
@@ -183,7 +184,7 @@ const openModalForVariant = (variantId) => {
           const curItemQuoteDetails = finalized.quote_details[0];
           const lowestQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-          l1totaltemp = l1totaltemp + calculateTotal(curItemQuoteDetails, lowestQuantity);
+          l1totaltemp = l1totaltemp + calculateTotal(curItemQuoteDetails);
         }
       }
     });
@@ -618,13 +619,13 @@ const openModalForVariant = (variantId) => {
                                     <tr className="is_lowest ">
                                       <th>Sub Total</th>
                                       <td>
-                                        {item.last_purchase_rate &&
+                                         {item.last_purchase_rate &&
                                         quantity?.value
                                           ? addCommasToNumber(
                                               calculateTotal(
                                                 item.last_purchase_rate,
-                                                quantity.value
-                                              )
+                                                quantity.value 
+                                            )
                                             )
                                           : "0"}
                                       </td>
@@ -746,8 +747,7 @@ const openModalForVariant = (variantId) => {
                                           ? addCommasToNumber(
                                               calculateTotal(
                                                 item.last_quote_rate,
-                                                quantity.value
-                                              )
+                                                quantity.value)
                                             )
                                           : "0"}
                                       </td>
@@ -775,7 +775,8 @@ const openModalForVariant = (variantId) => {
                                     ? addCommasToNumber(
                                         calculateTotal(
                                           item.last_quote_rate,
-                                          quantity.value
+                                          quantity.value,
+                                          normalizeFilter
                                         )
                                       )
                                     : "0"}
@@ -1074,7 +1075,8 @@ const openModalForVariant = (variantId) => {
                                                     calculateTotal(
                                                       quote_item
                                                         .quote_details[0],
-                                                      quantity.value
+                                                      quantity.value,
+                                                      normalizeFilter
                                                     )
                                                   )
                                                 : "-"}
@@ -1092,7 +1094,8 @@ const openModalForVariant = (variantId) => {
                                             ? addCommasToNumber(
                                                 calculateTotal(
                                                   quote_item.quote_details[0],
-                                                  quantity.value
+                                                  quantity.value,
+                                                  normalizeFilter
                                                 )
                                               )
                                             : "-"}

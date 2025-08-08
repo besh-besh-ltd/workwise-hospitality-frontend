@@ -29,6 +29,7 @@ import ReadMore from "@/components/shared/ReadMore";
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
  * @Updated Ayush Singh 22 JUNE 2025
+ * @updated by mukul 08-08-2025 - normilize total
  */
 
 
@@ -357,8 +358,8 @@ const openModalForVariant = (variantId) => {
         );
         if (q.length > 0) {
           vq.push(parseFloat(q[0].quote_details[0].delivery_period));
-          calculateTotal(q[0].quote_details[0], quantity.value)
-          total = total + calculateTotal(q[0].quote_details[0], quantity.value)
+          calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter)
+          total = total + calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter)
           // Old way that calculated this based on only unit price and quantity not any taxes
           // parseFloat(q[0].quote_details[0]?.unit_price * parseFloat(quantity.value));
         }
@@ -411,8 +412,8 @@ const openModalForVariant = (variantId) => {
           const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
           const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
-          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
-          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter)
 
           if (curItemQuoteDetails.unit_price > 0) {
             let curLowest = lowest;
@@ -444,7 +445,7 @@ const openModalForVariant = (variantId) => {
         const lowestQuoteDetails = lowest.quote_details[0];
         const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
+        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
         setl1total(l1totaltemp);
 
         item.quotations.map((q) => {
@@ -495,7 +496,7 @@ const openModalForVariant = (variantId) => {
           );
           temp_arr.push(
             q.quote_details.length > 0
-              ? `${calculateTotal(temp_quote_details, temp_quantity)} ${q.is_lowest ? "(Lowest)" : ""
+              ? `${calculateTotal(temp_quote_details, temp_quantity, normalizeFilter)} ${q.is_lowest ? "(Lowest)" : ""
               }`
               : "-"
           );
@@ -507,7 +508,8 @@ const openModalForVariant = (variantId) => {
               lowest.quote_details[0],
               lowest.quote_details[0].rfq_details.find(
                 (spec) => spec.title == "Quantity"
-              )?.value
+              )?.value,
+              normalizeFilter
             )
           : "-"
       );
@@ -524,7 +526,9 @@ const openModalForVariant = (variantId) => {
                 item.last_purchase_rate,
                 item.product_specs.find(
                   (specItem) => specItem.title == "Quantity"
-                )?.value
+                )?.value,
+                normalizeFilter
+
               )
             )
           : item.last_quote_rate
@@ -533,7 +537,8 @@ const openModalForVariant = (variantId) => {
                 item.last_quote_rate,
                 item.product_specs.find(
                   (specItem) => specItem.title == "Quantity"
-                )?.value
+                )?.value,
+                normalizeFilter
               )
             )
           : "-"
@@ -862,14 +867,6 @@ const openModalForVariant = (variantId) => {
       }
     }
 
-    // String type
-    // for (let row = range.s.r; row <= range.e.r; row++) {
-    //   for (let col = range.s.c; col <= range.e.c; col++) {
-    //     const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-    //     if (!ws[cellAddress]) ws[cellAddress] = {}; // Ensure cell exists
-    //     ws[cellAddress].t = 's'; // Set cell type to string
-    //   }
-    // }
 
     // color
     for (let col = range.s.c; col <= range.e.c; col++) {
@@ -1010,11 +1007,6 @@ const openModalForVariant = (variantId) => {
         setfinalizeLoading(false);
         toast.error(err?.message?.response?.data?.message ?? err.message ?? "Something went wrong in finalizing a vendor!")
       });
-  };
-
-  const handleOverallComparisonTab = (e) => {
-    e.preventDefault();
-    setshowOverallComparison(!showOverallComparison);
   };
 
   useEffect(() => {
@@ -1579,6 +1571,7 @@ const openModalForVariant = (variantId) => {
                                     alreadyFinalized={item?.quotations?.filter((item) => item.finalization != null)}
                                     isRfqClosed={Array.isArray(item.rfq) && item.rfq[0]?.status === 2}
                                     availableBudget = {availableBudget}
+                                    normalizeFilter={normalizeFilter}
                                   />
                                 </>
                               )}
