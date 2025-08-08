@@ -563,7 +563,7 @@ const Header = () => {
                           </Link>
                         </li>
                         <li
-                          className="signup"
+                          className="signup book-call"
                           onClick={() => {
                             handleChange(setOpenAuthModal(true));
                           }}
@@ -604,7 +604,7 @@ const Header = () => {
                       {loggedinUser?.name && !mainNavs.includes(pathname) && (
                         <div className="header-right header-center align-items-center forLoggedIn">
                           <nav className="main-menu">
-                            <ul className="d-flex justify-content-center w-100">
+                            <ul className="d-flex justify-content-start w-100">
                               {roleMenus[currentUserType]
                                 ?.filter(
                                   (menuType) => menuClass || menuType.targetMenu == "nav"
@@ -735,12 +735,12 @@ const Header = () => {
                 </li>
                 {!loggedinUser && (
                   <>
-                    <li>
+                    <li className="mobile-login">
                       <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
                         Login
                       </Link>
                     </li>
-                    <li>
+                    <li className="mobile-book-call">
                       <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
                         Book a Call
                       </Link>

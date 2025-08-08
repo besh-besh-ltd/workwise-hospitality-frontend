@@ -7902,3 +7902,221 @@ td:hover .tooltip_custom {
   max-width: 85vw;
   width: 85vw;
 }
+
+/* Dropdown Menu Improvements */
+.dropdown-menu {
+  text-align: left !important;
+  min-width: 300px !important; /* Increase width by ~100px */
+}
+
+.dropdown-menu .dropdown-item {
+  text-align: left !important;
+  white-space: normal !important;
+  line-height: 1.4 !important;
+  padding: 8px 16px !important;
+}
+
+.dropdown-menu .dropdown-item h6,
+.dropdown-menu .dropdown-item span {
+  text-align: left !important;
+}
+
+/* Comprehensive dropdown alignment fixes */
+.main-menu ul {
+  text-align: left !important;
+}
+
+.main-menu ul li {
+  text-align: left !important;
+}
+
+.main-menu ul li ul {
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
+.main-menu ul li ul li {
+  text-align: left !important;
+  width: 100% !important;
+}
+
+.main-menu ul li ul li > * {
+  text-align: left !important;
+}
+
+/* Force left alignment in all dropdown elements */
+.main-menu ul li ul {
+  text-align: left !important;
+}
+
+.main-menu ul li ul li {
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
+
+.main-menu ul li ul li a,
+.main-menu ul li ul li div,
+.main-menu ul li ul li span {
+  text-align: left !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+/* Override any center alignment */
+.main-menu ul li ul li > * {
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
+
+/* Specific override for Bootstrap centering classes */
+.main-menu .justify-content-center,
+.main-menu .text-center,
+.main-menu .d-flex.justify-content-center {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+/* Force all dropdown content to left align */
+.main-menu ul li > ul,
+.main-menu ul li > ul li,
+.main-menu ul li > ul li > *,
+.main-menu ul li > ul li > a,
+.main-menu ul li > ul li > div,
+.main-menu ul li > ul li > span {
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
+/* Specific fixes for nested dropdown items */
+.main-menu ul li > ul li > div {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.main-menu ul li > ul li > div > span {
+  text-align: left !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+.main-menu ul li > ul li > a {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  text-align: left !important;
+}
+
+/* Mobile Navigation Improvements */
+@media (max-width: 991px) {
+  /* Ensure logo and hamburger are always visible */
+  .main-header .header-container {
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+  
+  .main-header .logo {
+    flex-shrink: 0 !important;
+    margin-right: auto !important;
+  }
+  
+  .main-header .menu-ctrl {
+    flex-shrink: 0 !important;
+    margin-left: auto !important;
+  }
+  
+  /* Hide login button in tight spaces, keep only book a call */
+  .main-header .extra-buttons ul li.login {
+    display: none !important;
+  }
+  
+  /* Hide login in mobile menu, keep only book a call */
+  .mobile-menu .mobile-login {
+    display: none !important;
+  }
+  
+  /* Mobile menu styling */
+  .mobile-menu {
+    text-align: left !important;
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6) !important;
+    padding: 20px 0 !important;
+  }
+  
+  .mobile-menu ul {
+    text-align: left !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .mobile-menu ul li {
+    text-align: left !important;
+    font-size: 18px !important; /* Bigger size */
+    padding: 0 !important;
+    list-style: none !important;
+  }
+  
+  .mobile-menu ul li a {
+    text-align: left !important;
+    font-size: 18px !important;
+    color: white !important; /* White color for main headers */
+    padding: 15px 25px !important;
+    display: block !important;
+    font-weight: 500 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  /* Main dropdown items in mobile */
+  .mobile-menu > nav > ul > li > div,
+  .mobile-menu > nav > ul > li > span {
+    color: white !important;
+    font-size: 18px !important;
+    text-align: left !important;
+    padding: 15px 25px !important;
+    display: block !important;
+    font-weight: 500 !important;
+  }
+  
+  /* Dropdown sub-items in mobile */
+  .mobile-menu ul li ul,
+  .mobile-menu .dropdown-menu {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: none !important;
+    box-shadow: none !important;
+    position: static !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .mobile-menu ul li ul li,
+  .mobile-menu .dropdown-menu li {
+    padding: 0 !important;
+  }
+  
+  .mobile-menu ul li ul li a,
+  .mobile-menu .dropdown-menu .dropdown-item,
+  .mobile-menu .dropdown-menu a {
+    color: rgba(255, 255, 255, 0.9) !important; /* White subheadings */
+    font-size: 16px !important;
+    padding: 12px 40px !important; /* Indented for hierarchy */
+    text-align: left !important;
+    font-weight: 400 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+  
+  .mobile-menu ul li ul li a:hover,
+  .mobile-menu .dropdown-menu .dropdown-item:hover,
+  .mobile-menu .dropdown-menu a:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+  }
+
+  /* For suppliers and login buttons */
+  .mobile-menu .btn-supplier-mobile,
+  .mobile-menu .mobile-book-call a {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 8px !important;
+    margin: 10px 25px !important;
+    text-align: center !important;
+    font-weight: 600 !important;
+  }
+}

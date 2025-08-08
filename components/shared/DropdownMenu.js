@@ -113,12 +113,13 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 margin: 0,
                 display: open ? 'block' : 'none',
                 listStyle: 'none',
+                textAlign: 'left',
               }
             : {
                 position: 'absolute',
                 top: '100%',
                 left: 0,
-                minWidth: 240,
+                minWidth: 340, /* Increased by 100px */
                 background: 'rgba(255, 255, 255, 0.98)',
                 backdropFilter: 'blur(20px)',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
@@ -133,11 +134,18 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 display: 'flex',
                 flexDirection: 'column',
                 border: '1px solid rgba(0, 0, 0, 0.08)',
+                textAlign: 'left',
+                alignItems: 'stretch',
               }),
         }}
       >
         {options.map((opt, index) => (
-          <li key={opt.href || index} style={{ listStyle: 'none', position: 'relative' }}>
+          <li key={opt.href || index} style={{ 
+            listStyle: 'none', 
+            position: 'relative',
+            textAlign: 'left',
+            width: '100%'
+          }}>
             {opt.type === 'nested-dropdown' ? (
               // Nested dropdown item
               <div
@@ -161,15 +169,32 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                   fontWeight: 500,
                   transition: 'all 0.2s ease',
                   borderRadius: '8px',
-                  margin: '0 8px',
+                  margin: '0',
                   color: '#333',
                   fontSize: '0.9rem',
                   cursor: 'pointer',
                   textAlign: 'left',
+                  whiteSpace: 'normal',
+                  lineHeight: '1.4',
+                  width: '100%',
                 }}
               >
-                <span>{opt.label}</span>
-                <FontAwesomeIcon icon={faChevronRight} size="sm" style={{ opacity: 0.6 }} />
+                <span style={{ 
+                  textAlign: 'left', 
+                  flex: '1', 
+                  paddingRight: '12px',
+                  display: 'block',
+                  width: '100%'
+                }}>{opt.label}</span>
+                <FontAwesomeIcon 
+                  icon={faChevronRight} 
+                  size="sm" 
+                  style={{ 
+                    opacity: 0.6, 
+                    flexShrink: 0,
+                    marginLeft: 'auto'
+                  }} 
+                />
                 
                 {/* Nested dropdown */}
                 {nestedOpen === index && (
@@ -178,7 +203,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       position: 'absolute',
                       left: '100%',
                       top: 0,
-                      minWidth: 200,
+                      minWidth: 300, /* Increased by 100px */
                       background: 'rgba(255, 255, 255, 0.98)',
                       backdropFilter: 'blur(20px)',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
@@ -204,10 +229,12 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                             textDecoration: 'none',
                             transition: 'all 0.2s ease',
                             borderRadius: '8px',
-                            margin: '0 8px',
+                            margin: '0',
                             color: '#333',
                             fontSize: '0.9rem',
                             textAlign: 'left',
+                            whiteSpace: 'normal',
+                            lineHeight: '1.4',
                           }}
                           onMouseEnter={e => {
                             e.currentTarget.style.color = 'var(--secondary-color)';
@@ -239,10 +266,14 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
                   borderRadius: '8px',
-                  margin: '0 8px',
+                  margin: '0',
                   color: '#333',
-                  fontSize: '0.9rem',
+                  fontSize: '0.9rem', 
                   textAlign: 'left',
+                  whiteSpace: 'normal',
+                  lineHeight: '1.4',
+                  width: '100%',
+                  boxSizing: 'border-box',
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.color = 'var(--secondary-color)';
