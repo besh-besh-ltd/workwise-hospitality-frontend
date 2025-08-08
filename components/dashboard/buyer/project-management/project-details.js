@@ -576,7 +576,7 @@ const ProjectDetails = () => {
                             alignItems: "center",
                           }}
                         >
-                          <h3 className="title">Project Budget</h3>
+                          <h3 className="title">Project Procurement Budget</h3>
                           {!projectDetails?.budget ||
                           projectDetails?.budget == 0 ? (
                             <button
