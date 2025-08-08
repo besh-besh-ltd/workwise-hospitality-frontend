@@ -201,6 +201,24 @@ export default useDebounce;
  * Last changes by mukul on 07-aug-2025, to add normalization based on payment terms
  */
 export const calculateTotal = (item, quantity, normalizeFilter) => {
+
+  item.payment_terms = [
+        {
+            "value": 10,
+            "label": "advance"
+        },
+        {
+            "value": 20,
+            "label": "credit",
+            "days": 30
+        },
+        {
+            "value": 70,
+            "label": "credit",
+            "days": 60
+        }
+    ]
+
   let total_qty = parseFloat(quantity) || 0;
   let unit_price = item.unit_price || 0;
   
@@ -218,29 +236,37 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 
   let TotalPrice = total_with_fpt + T;
 
-   // ✅ If normalization is ON and payment_terms are present
-  if (normalizeFilter && Array.isArray(item.payment_terms)) {
+
+
+ if (normalizeFilter) {
     let normalizedTotal = 0;
 
     item.payment_terms.forEach(term => {
-      const percentage = term.value ?? 0;
-      const days = parseFloat(term.days ?? 0);
-      const delayDays = isNaN(days) ? 0 : days;
+      const percentage = parseFloat(term.value) || 0; // x, y, z %
+      const days = parseInt(term.days ?? 0) || 0;
 
-      // 1% deduction for every 30 days
-      const discountFactor = 1 - (delayDays / 30) * 0.01;
+      // Deduction = 1% per 30 days
+      const rawFactor = 1 - (days / 30) * 0.01;
+      const factor = Math.max(0, Math.min(1, rawFactor)); // Clamp to [0,1]
 
-      normalizedTotal += (percentage / 100) * TotalPrice * discountFactor;
+      // Add this tranche
+      normalizedTotal += (percentage / 100) * TotalPrice * factor;
     });
 
-    return Math.round(normalizedTotal);
+    console.log("Normalized Total Price => :", normalizedTotal);
+    console.log("Original Total Price -> :", TotalPrice);
+
+    TotalPrice = normalizedTotal;
   }
+
 
   return Math.round(TotalPrice);
 }
 
 // normalize for overall and category cost comparision
 export const handleNormalize = (products) => {
+
+  // return products 
   const allFreightPrices = [];
   const allPackagePrices = [];
   const allTaxRates = [];
@@ -292,8 +318,7 @@ export const handleNormalize = (products) => {
           package_price:
             isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
           tax:
-            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
-            payment_terms: [{ value:10, label: "advance" }, { value: 20, label: "credit", days:30 },{ value: 70, label: "credit", days:60 }],
+            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax
         };
       }) || [];
 
@@ -317,6 +342,8 @@ export const handleNormalize = (products) => {
 
 // 
 export const normalizeFlatQuotationData = (data) => {
+
+  // return data 
   const allFreightPrices = [];
   const allPackagePrices = [];
   const allTaxRates = [];

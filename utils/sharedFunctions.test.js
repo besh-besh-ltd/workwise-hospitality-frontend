@@ -86,10 +86,10 @@ describe("calculateTotal", () => {
   // This test checks if the function correctly applies normalization based on payment terms.
   it("should correctly apply normalization based on payment terms", () => {
     const quoteItem = {
-      unit_price: 100,
+      unit_price: 1000,
       freight_price: 10,
-      package_price: 5,
-      tax: 18,
+      package_price: 20,
+      tax: 10,
       freight_mode: "percentage",
       package_mode: "percentage",
       tax_mode: "percentage",
@@ -100,9 +100,9 @@ describe("calculateTotal", () => {
       ],
     };
 
-    const quantity = 2;
+    const quantity = 1;
 
     const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
-    expect(result).toBe(267);
+    expect(result).toBe(1407);
   });
 });
