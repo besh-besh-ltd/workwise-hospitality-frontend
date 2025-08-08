@@ -398,14 +398,17 @@ textarea {
   width: 100%;
   top: 0;
   z-index: 1022;
-  background-color: var(--white-color);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
 
   .header-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
     position: relative;
-    padding: 8px 0;
+    padding: 12px 0;
     transition: var(--primary-transition);
 
     .logo {
@@ -424,42 +427,37 @@ textarea {
       padding: 0;
       display: flex;
       margin: 0;
+      align-items: center;
 
-      li {
-        letter-spacing: 1.2px;
-        font-size: 1rem;
-        padding: 0 15px;
+                        li {
+                    letter-spacing: 0.5px;
+                    font-size: 0.95rem;
+                    padding: 0 12px;
+                    position: relative;
+                    text-align: left;
 
-        a {
-          color: var(--black-color);
-          display: block;
-          border: none;
-          font-weight: 600;
-          background: transparent;
-          line-height: 1.5;
-          position: relative;
+                    a, span {
+                      color: var(--black-color);
+                      display: flex;
+                      align-items: center;
+                      border: none;
+                      font-weight: 500;
+                      background: transparent;
+                      line-height: 1.5;
+                      position: relative;
+                      padding: 8px 12px;
+                      border-radius: 8px;
+                      transition: all 0.2s ease;
+                      cursor: pointer;
+                      text-align: left;
+                      justify-content: flex-start;
 
-          &::after {
-            position: absolute;
-            left: 50%;
-            bottom: -25px;
-            background: var(--secondary-color);
-            content: "";
-            display: inline-block;
-            width: 0%;
-            height: 4px;
-            transition: var(--primary-transition);
-            transform: translateX(-50%);
-          }
-
-          &:hover {
-            color: var(--secondary-color);
-
-            &::after {
-              width: 100%;
-            }
-          }
-        }
+                      &:hover {
+                        color: var(--secondary-color);
+                        background: rgba(66, 139, 65, 0.08);
+                        transform: translateY(-1px);
+                      }
+                    }
 
         &.login,
         &.signup {
@@ -468,12 +466,189 @@ textarea {
 
         &.active a {
           color: var(--secondary-color);
+          background: rgba(66, 139, 65, 0.1);
+          font-weight: 600;
+        }
+      }
+    }
+  }
 
-          &::after {
-            width: 100%;
+  // Header right section - ensure proper alignment
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  // Supplier CTA Button
+  .supplier-cta {
+    margin-right: 0;
+    
+    .btn-supplier {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      padding: 0 20px;
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+      color: var(--black-color);
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(255, 215, 0, 0.25);
+      border: none;
+      position: relative;
+      overflow: hidden;
+      font-size: 0.9rem;
+      min-width: 140px;
+      text-align: center;
+      white-space: nowrap;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s;
+      }
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+        color: var(--black-color);
+        text-decoration: none;
+        
+        &::before {
+          left: 100%;
+        }
+      }
+    }
+  }
+
+  // Mobile Menu
+  .mobile-menu {
+    position: fixed;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    z-index: 1021;
+    max-height: calc(100vh - 100%);
+    overflow-y: auto;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    
+    .main-menu {
+      padding: 24px 0;
+      
+      ul {
+        flex-direction: column;
+        
+        li {
+          padding: 0;
+          margin: 0;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          a {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            text-align: left;
+            
+            &:hover {
+              background: rgba(66, 139, 65, 0.08);
+              color: var(--secondary-color);
+              transform: translateX(8px);
+            }
+          }
+          
+          .btn-supplier-mobile {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: var(--black-color);
+            font-weight: 600;
+            margin: 12px 24px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.25);
+            
+            &:hover {
+              background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+              color: var(--black-color);
+              transform: translateY(-2px);
+              box-shadow: 0 6px 16px rgba(255, 215, 0, 0.35);
+            }
           }
         }
       }
+    }
+  }
+
+  // Sticky Mobile CTA
+  .sticky-mobile-cta {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1020;
+    display: none;
+    
+    a {
+      display: block;
+      padding: 12px 24px;
+      background: var(--secondary-color);
+      color: var(--white-color);
+      text-decoration: none;
+      border-radius: 25px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(66, 139, 65, 0.3);
+      transition: all 0.3s ease;
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(66, 139, 65, 0.4);
+        color: var(--white-color);
+        text-decoration: none;
+      }
+    }
+  }
+
+  // Responsive styles
+  @media (max-width: 768px) {
+    .supplier-cta {
+      display: none;
+    }
+    
+    .sticky-mobile-cta {
+      display: block;
+    }
+    
+    .main-menu {
+      display: none;
+    }
+    
+    .menu-ctrl {
+      display: block;
+    }
+  }
+
+  @media (min-width: 769px) {
+    .mobile-menu {
+      display: none;
+    }
+    
+    .menu-ctrl {
+      display: none;
     }
   }
 
@@ -486,11 +661,10 @@ textarea {
       margin: 0;
       padding: 0;
       list-style-type: none;
+      gap: 12px;
 
       li {
-        font-size: 1rem;
-        margin-left: 15px;
-        min-width: 99px;
+        font-size: 0.9rem;
         text-align: center;
 
         svg {
@@ -498,63 +672,47 @@ textarea {
         }
 
         a {
-          display: block;
-          padding: 10px 20px;
-          transition: var(--primary-transition);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 40px;
+          padding: 0 20px;
+          transition: all 0.3s ease;
           color: var(--white-color);
           position: relative;
           overflow: hidden;
           z-index: 1;
-          border-radius: var(--border-radius);
-
-          &::before {
-            content: "";
-            position: absolute;
-            bottom: 0;
-            width: 0%;
-            height: 100%;
-            transition: var(--primary-transition);
-            z-index: -1;
-          }
-
-          &::after {
-            content: "";
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -2;
-          }
+          border-radius: 10px;
+          font-weight: 500;
+          text-decoration: none;
+          border: none;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          min-width: 140px;
+          text-align: center;
+          white-space: nowrap;
 
           &:hover {
             color: var(--white-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            text-decoration: none;
           }
         }
 
-        &:first-child a:before {
-          right: 0;
-          background-color: var(--black-color);
-          z-index: -1;
+        &:first-child a {
+          background: linear-gradient(135deg, var(--secondary-color) 0%, #2d8a2d 100%);
+          
+          &:hover {
+            background: linear-gradient(135deg, #2d8a2d 0%, var(--secondary-color) 100%);
+          }
         }
 
-        &:first-child a:after {
-          right: 0;
-          width: 100%;
-          height: 100%;
-          background-color: var(--secondary-color);
-          z-index: -2;
-        }
-
-        &:last-child a:before {
-          left: 0;
-          background-color: var(--black-color);
-          z-index: -1;
-        }
-
-        &:last-child a:after {
-          left: 0;
-          background-color: var(--primary-color);
-          z-index: -2;
+        &:last-child a {
+          background: linear-gradient(135deg, var(--primary-color) 0%, #1e4a8a 100%);
+          
+          &:hover {
+            background: linear-gradient(135deg, #1e4a8a 0%, var(--primary-color) 100%);
+          }
         }
       }
     }
@@ -565,15 +723,14 @@ textarea {
   }
 
   &.sticky {
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.16);
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(25px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 
     .header-container {
-      padding-top: 10px;
-      padding-bottom: 10px;
-    }
-
-    .main-menu ul li a::after {
-      bottom: -20px;
+      padding-top: 8px;
+      padding-bottom: 8px;
     }
   }
 }
@@ -589,62 +746,44 @@ textarea {
   overflow: hidden;
   display: none;
   border-radius: 4px;
-  overflow: hidden;
+  cursor: pointer;
 
   label {
     display: block;
     cursor: pointer;
     position: absolute;
-    width: auto;
-    height: auto;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: var(--primary-color);
-    border-radius: 6px;
-
-    svg {
-      fill: var(--primary-color);
-      border-radius: 6px;
-
-      path {
-        fill: none;
-        stroke: #ffffff;
-        stroke-width: 3;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        --length: 24;
-        --offset: -38;
-        stroke-dasharray: var(--length) var(--total-length);
-        stroke-dashoffset: var(--offset);
-        transition: all 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
-      }
-
-      .line--1,
-      .line--3 {
-        --total-length: 126.64183044433594;
-      }
-
-      .line--2 {
-        --total-length: 70;
-      }
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    
+    span {
+      display: block;
+      width: 25px;
+      height: 3px;
+      background: var(--black-color);
+      margin: 5px auto;
+      transition: all 0.3s ease;
+      border-radius: 2px;
+    }
+    
+    &:hover span {
+      background: var(--secondary-color);
     }
   }
-
+  
   &.button-active {
     label {
-      svg {
-
-        .line--1,
-        .line--3 {
-          --length: 22.627416998;
-          --offset: -94.1149185097;
-        }
-
-        .line--2 {
-          --length: 0;
-          --offset: -50;
-        }
+      span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+      }
+      
+      span:nth-child(2) {
+        opacity: 0;
+      }
+      
+      span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px);
       }
     }
   }

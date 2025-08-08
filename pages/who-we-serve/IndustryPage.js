@@ -629,18 +629,20 @@ const CapexProjectsServed = ({
 
 
 
+import Layout from '@/components/layout';
+
 const IndustryPage = () => {
   return (
-    <>
+    <Layout>
       <HeroPowerCapex/>
       <PowerProcurementChallenges/>
       <CapexProjectsServed/>
       <AllDisciplines />
       <TestimonialsSection />
       <WorkwiseModules/>
-        <PowerTeamsFaq className="mt-5" />
-        <PowerProjectCta />
-    </>
+      <PowerTeamsFaq className="mt-5" />
+      <PowerProjectCta />
+    </Layout>
   )
 }
 

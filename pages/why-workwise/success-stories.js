@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '@/components/layout';
 import { 
-  Target,
-  Zap,
-  Building,
-  Wrench,
-  Settings,
+  Target, 
+  Zap, 
+  Building, 
+  Wrench, 
+  Settings, 
   Waves,
   MapPin,
   Phone
@@ -59,9 +60,10 @@ const SuccessStoriesPage = () => {
   const displayedStories = filteredStories.slice(0, visibleStories);
 
   return (
-    <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
-      {/* Hero Section */}
-      <HeroSection
+    <Layout>
+      <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
+        {/* Hero Section */}
+        <HeroSection
         title={successStoriesData.hero.title}
         subtitle={successStoriesData.hero.subtitle}
         layout="centered"
@@ -171,7 +173,8 @@ const SuccessStoriesPage = () => {
         story={selectedStory}
         onBookCall={handleBookCall}
       />
-    </div>
+      </div>
+    </Layout>
   );
 };
 

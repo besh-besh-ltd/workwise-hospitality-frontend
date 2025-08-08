@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faChevronDown, faChevronUp, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { useRouter } from 'next/router';
 
-const DropdownMenu = ({ label, options }) => {
+const DropdownMenu = ({ label, options, href, onAction }) => {
   const [open, setOpen] = useState(false);
+  const [nestedOpen, setNestedOpen] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const timeoutRef = useRef();
+  const nestedTimeoutRef = useRef();
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -24,12 +27,51 @@ const DropdownMenu = ({ label, options }) => {
 
   const handleMouseLeave = () => {
     if (!isMobile) {
-      timeoutRef.current = setTimeout(() => setOpen(false), 150);
+      timeoutRef.current = setTimeout(() => {
+        setOpen(false);
+        setNestedOpen(null);
+      }, 150);
     }
   };
 
   const handleClick = () => {
     if (isMobile) setOpen((prev) => !prev);
+  };
+
+  const router = useRouter();
+
+  const handleMainLabelClick = (e) => {
+    if (href) {
+      e.stopPropagation();
+      router.push(href);
+    }
+  };
+
+  const handleOptionClick = (e, option) => {
+    e.preventDefault();
+    
+    if (option.action === 'book-call' && onAction) {
+      onAction('open-auth-modal');
+    } else if (option.action === 'buyer-pricing') {
+      router.push('/pricing?tab=buyer');
+    } else if (option.action === 'supplier-pricing') {
+      router.push('/pricing?tab=supplier');
+    } else if (option.href && option.href !== 'javascript:void(0)') {
+      router.push(option.href);
+    }
+  };
+
+  const handleNestedMouseEnter = (index) => {
+    if (!isMobile) {
+      clearTimeout(nestedTimeoutRef.current);
+      setNestedOpen(index);
+    }
+  };
+
+  const handleNestedMouseLeave = () => {
+    if (!isMobile) {
+      nestedTimeoutRef.current = setTimeout(() => setNestedOpen(null), 150);
+    }
   };
 
   return (
@@ -39,16 +81,25 @@ const DropdownMenu = ({ label, options }) => {
       style={{ position: isMobile ? 'static' : 'relative' }}
     >
       <span
-        onClick={handleClick}
+        onClick={href ? handleMainLabelClick : handleClick}
         style={{
           cursor: 'pointer',
-          fontWeight: 600,
+          fontWeight: 500,
           color: isMobile ? '#fff' : '#222',
           textDecoration: 'none !important',
+          padding: '8px 12px',
+          borderRadius: '8px',
+          transition: 'all 0.2s ease',
         }}
         className="d-flex align-items-center"
       >
-        {label}
+        {href ? (
+          <Link href={href} style={{ color: 'inherit', textDecoration: 'none' }}>
+            {label}
+          </Link>
+        ) : (
+          label
+        )}
         {isMobile && (
           <FontAwesomeIcon icon={open ? faChevronUp : faChevronDown} className="ms-2" />
         )}
@@ -67,69 +118,162 @@ const DropdownMenu = ({ label, options }) => {
                 position: 'absolute',
                 top: '100%',
                 left: 0,
-                minWidth: 180,
-                background: '#fff',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                borderRadius: 8,
-                padding: 0,
-                margin: 0,
+                minWidth: 240,
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                borderRadius: 16,
+                padding: '8px 0',
+                margin: '8px 0 0 0',
                 zIndex: 1000,
                 opacity: open ? 1 : 0,
                 pointerEvents: open ? 'auto' : 'none',
                 transform: open ? 'translateY(0)' : 'translateY(8px)',
-                transition: 'opacity 0.2s ease, transform 0.2s ease',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex',
                 flexDirection: 'column',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
               }),
         }}
       >
-        {options.map((opt) => (
-          <li key={opt.href} style={{ listStyle: 'none' }}>
-            <Link href={opt.href} legacyBehavior>
- <a
-                className="navbar-dropdown-link"
-                style={{
-                  display: 'block',
-                  padding: '10px 0px 0px 0px', // more bottom padding for underline
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  borderBottom: '1px solid #f0f0f0',
-                  transition: 'background 0.15s',
-                  borderRadius: 0,
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-                onMouseEnter={e => {
-                  // e.currentTarget.querySelector('.dropdown-underline').style.width = '100%';
-                  // e.currentTarget.style.background = '#f5f7fa';
+        {options.map((opt, index) => (
+          <li key={opt.href || index} style={{ listStyle: 'none', position: 'relative' }}>
+            {opt.type === 'nested-dropdown' ? (
+              // Nested dropdown item
+              <div
+                onMouseEnter={(e) => {
+                  handleNestedMouseEnter(index);
                   e.currentTarget.style.color = 'var(--secondary-color)';
+                  e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
+                  e.currentTarget.style.transform = 'translateX(4px)';
                 }}
-                onMouseLeave={e => {
-                  e.currentTarget.querySelector('.dropdown-underline').style.width = '0';
-                  e.currentTarget.style.background = '';
-                  e.currentTarget.style.color = '#222';
+                onMouseLeave={(e) => {
+                  handleNestedMouseLeave();
+                  e.currentTarget.style.color = '#333';
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 20px',
+                  fontWeight: 500,
+                  transition: 'all 0.2s ease',
+                  borderRadius: '8px',
+                  margin: '0 8px',
+                  color: '#333',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
                 }}
               >
-                <span style={{ position: 'relative', display: 'block', width: '100%' }}>
-                  {opt.label}
-                  <span
-                    className="dropdown-underline"
+                <span>{opt.label}</span>
+                <FontAwesomeIcon icon={faChevronRight} size="sm" style={{ opacity: 0.6 }} />
+                
+                {/* Nested dropdown */}
+                {nestedOpen === index && (
+                  <ul
                     style={{
-                      display: 'block',
-                      height: 5, // thicker underline
-                      background: 'var(--secondary-color)',
-                      width: 0,
-                      margin: '10px 0 0 0', // more space below text
-                      transition: 'width 0.18s cubic-bezier(.4,0,.2,1)',
-                      borderRadius: 3,
+                      position: 'absolute',
+                      left: '100%',
+                      top: 0,
+                      minWidth: 200,
+                      background: 'rgba(255, 255, 255, 0.98)',
+                      backdropFilter: 'blur(20px)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                      borderRadius: 16,
+                      padding: '8px 0',
+                      margin: '0 0 0 8px',
+                      zIndex: 1001,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      border: '1px solid rgba(0, 0, 0, 0.08)',
+                      animation: 'slideInRight 0.2s ease-out',
                     }}
-                  />
-                </span>
+                  >
+                    {opt.options.map((nestedOpt, nestedIndex) => (
+                      <li key={nestedOpt.href || nestedIndex} style={{ listStyle: 'none' }}>
+                        <a
+                          href={nestedOpt.href}
+                          onClick={(e) => handleOptionClick(e, nestedOpt)}
+                          style={{
+                            display: 'block',
+                            padding: '12px 20px',
+                            fontWeight: 500,
+                            textDecoration: 'none',
+                            transition: 'all 0.2s ease',
+                            borderRadius: '8px',
+                            margin: '0 8px',
+                            color: '#333',
+                            fontSize: '0.9rem',
+                            textAlign: 'left',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.color = 'var(--secondary-color)';
+                            e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
+                            e.currentTarget.style.transform = 'translateX(4px)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.color = '#333';
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.transform = 'translateX(0)';
+                          }}
+                        >
+                          {nestedOpt.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              // Regular dropdown item
+              <a
+                href={opt.href}
+                onClick={(e) => handleOptionClick(e, opt)}
+                style={{
+                  display: 'block',
+                  padding: '12px 20px',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                  transition: 'all 0.2s ease',
+                  borderRadius: '8px',
+                  margin: '0 8px',
+                  color: '#333',
+                  fontSize: '0.9rem',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = 'var(--secondary-color)';
+                  e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = '#333';
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }}
+              >
+                {opt.label}
               </a>
-            </Link>
+            )}
           </li>
         ))}
       </ul>
+
+      <style jsx>{`
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </li>
   );
 };

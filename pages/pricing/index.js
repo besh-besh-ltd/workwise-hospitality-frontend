@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { 
   Wrench,
   ShoppingBag,
@@ -21,7 +22,20 @@ import { HeroSection } from '@/components/ui/HeroSection';
 import { pricingData } from '@/components/constants/pricingData';
 
 const PricingPage = () => {
+  const router = useRouter();
+  const { tab } = router.query;
   const [activeTab, setActiveTab] = useState('buyers');
+
+  // Set initial tab based on URL parameter
+  useEffect(() => {
+    if (router.isReady) {
+      if (tab === 'supplier' || tab === 'sellers') {
+        setActiveTab('sellers');
+      } else if (tab === 'buyer' || tab === 'buyers') {
+        setActiveTab('buyers');
+      }
+    }
+  }, [tab, router.isReady]);
 
   const handleContactUs = () => {
     console.log('Contact Us clicked');
@@ -67,7 +81,10 @@ const PricingPage = () => {
               }}>
                 <button
                   className="btn"
-                  onClick={() => setActiveTab('buyers')}
+                  onClick={() => {
+                    setActiveTab('buyers');
+                    router.push('/pricing?tab=buyer', undefined, { shallow: true });
+                  }}
                   style={{
                     borderRadius: '6px',
                     border: activeTab === 'buyers' ? '1px solid var(--light-grey-border)' : 'none',
@@ -84,7 +101,10 @@ const PricingPage = () => {
                 </button>
                 <button
                   className="btn"
-                  onClick={() => setActiveTab('sellers')}
+                  onClick={() => {
+                    setActiveTab('sellers');
+                    router.push('/pricing?tab=supplier', undefined, { shallow: true });
+                  }}
                   style={{
                     borderRadius: '6px',
                     border: activeTab === 'sellers' ? '1px solid var(--light-grey-border)' : 'none',

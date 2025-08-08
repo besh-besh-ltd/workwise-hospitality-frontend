@@ -19,7 +19,7 @@ const initialMainNavs = [
   "/for-vendors",
   "/IEW-2025",
   "/solutions",
-  // "/blogs",
+  "/blogs",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
@@ -28,6 +28,39 @@ const initialMainNavs = [
   "/dashboard/vendor/inquiries-details",
   "/dashboard/buyer/rfq-management-vendor/vendor-profile",
   "/newHomePageDesign",
+  // New pages for comprehensive navigation
+  "/ai-tools",
+  "/ai-tools/boq-simplification",
+  "/ai-tools/cost-estimation",
+  "/ai-tools/tender-summary",
+  "/ai-tools/technical-summary",
+  "/insights",
+  "/insights/events",
+  "/insights/news",
+  "/insights/procurement-guide",
+  "/insights/ai-procurement",
+  "/insights/epc-trends",
+  "/modules",
+  "/modules/boq",
+  "/modules/rfq",
+  "/modules/payments",
+  "/modules/evaluation",
+  "/modules/negotiation",
+  "/modules/vendors",
+  "/work-with-us",
+  "/work-with-us/TeamTimeline",
+  "/work-with-us/careers",
+  "/who-we-serve",
+  "/who-we-serve/Stakeholder",
+  "/who-we-serve/IndustryPage",
+  "/why-workwise",
+  "/why-workwise/TrustSecurity",
+  "/why-workwise/our-story",
+  "/why-workwise/success-stories",
+  "/earn-with-us",
+  "/earn-with-us/EarnWithUs",
+  "/pricing",
+  "/pricing/pilot",
 ];
 
 const roleMenus = {
@@ -100,60 +133,30 @@ const roleMenus = {
     },
 
   ],
-  "management": [ // procurment person 
-    { href: "/dashboard/management", label: "Dashboard", targetMenu: "nav" },
-    { href: "/vendor/all", label: "Search Vendor", targetMenu: "nav" },
+  management: [
     {
-      href: "/dashboard/buyer/rfq-management",
-      label: "RFQ management",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/technical-evaluation",
-      label: "Technical Evaluation",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/quote-compare",
-      label: "Quote Comparison",
-      targetMenu: "nav",
-    },
-    {
-      href: "/dashboard/buyer/purchase-order",
-      label: "Purchase Orders",
-      targetMenu: "nav",
-    },
-        {
       href: "/dashboard/management/editprofile",
       label: "Profile",
       targetMenu: "popup",
     },
-      {
-      href: "/dashboard/management/project-management",
-      label: "Project Management",
-      targetMenu: "popup",
-    },
     {
-      href: "/dashboard/buyer/vendor-management",
-      label: "Vendor Management",
-      targetMenu: "popup",
-    },
-  ],
-  finance: [
-    {
-      href: "/dashboard/finance/editprofile",
-      label: "Profile",
-      targetMenu: "popup",
-    },
-    { href: "/dashboard/finance", label: "Dashboard", targetMenu: "popup" },
-    {
-      href: "/dashboard/buyer/quote-compare",
-      label: "Quote Comparison",
+      href: "/dashboard/management",
+      label: "Dashboard",
       targetMenu: "nav",
     },
     {
-      href: "/dashboard/buyer/purchase-order",
-      label: "Purchase Orders",
+      href: "/dashboard/management/project-management",
+      label: "Project Management",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/management/account-management",
+      label: "User Management",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/management/approval-management",
+      label: "PO Approval Hierarchy",
       targetMenu: "nav",
     },
   ],
@@ -163,10 +166,46 @@ const roleMenus = {
       label: "Profile",
       targetMenu: "popup",
     },
-    { href: "/dashboard/engineering", label: "Dashboard", targetMenu: "popup" },
     {
-      href: "/dashboard/buyer/technical-evaluation",
+      href: "/dashboard/engineering",
+      label: "Dashboard",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/engineering/project-management",
+      label: "Project Management",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/engineering/technical-evaluation",
       label: "Technical Evaluation",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/engineering/quote-compare",
+      label: "Quote Comparison",
+      targetMenu: "nav",
+    },
+  ],
+  finance: [
+    {
+      href: "/dashboard/finance/editprofile",
+      label: "Profile",
+      targetMenu: "popup",
+    },
+    {
+      href: "/dashboard/finance",
+      label: "Dashboard",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/finance/purchase-order",
+      label: "Purchase Orders",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/finance/payment-management",
+      label: "Payment Management",
       targetMenu: "nav",
     },
   ],
@@ -195,13 +234,91 @@ const roleMenus = {
   ],
 };
 
+// Comprehensive website navigation menu structure
 const websiteMenu = [
-  { href: "/", label: "Home" },
-  { href: "/aboutus", label: "About Us" },
-  { href: "/vendor/all", label: "Find a Vendor" },
-  { href: "/solutions/*", label: "Our Solutions" },
-  { href: "/for-vendors", label: "For Vendor" },
-  { href: "/contactus", label: "Contact Us" },
+  { 
+    label: "Our Offerings", 
+    type: "dropdown",
+    options: [
+      { label: "BOQ Understanding & Simplification", href: "/modules/boq" },
+      { label: "RFQ Creation & Management", href: "/modules/rfq" },
+      { label: "Supplier Discovery & Vendor Management", href: "/modules/vendors" },
+      { label: "Technical & Commercial Evaluation", href: "/modules/evaluation" },
+      { label: "Negotiation Management", href: "/modules/negotiation" },
+      { label: "PO & Payment Lifecycle Management", href: "/modules/payments" },
+    ]
+  },
+  { 
+    label: "Who We Serve", 
+    type: "dropdown",
+    options: [
+      { label: "Stakeholders", href: "/who-we-serve/Stakeholder" },
+      { label: "Industries We Serve", href: "/who-we-serve/IndustryPage" },
+      { 
+        label: "Disciplines We Cover", 
+        type: "nested-dropdown",
+        options: [
+          { label: "Civil", href: "/solutions/civil" },
+          { label: "Mechanical", href: "/solutions/mechanical" },
+          { label: "Electrical", href: "/solutions/electrical" },
+          { label: "Chemical", href: "/solutions/chemical" },
+          { label: "Fire Engineering", href: "/solutions/fire-engineering" },
+        ]
+      },
+    ]
+  },
+  { 
+    label: "Why Workwise", 
+    type: "dropdown",
+    options: [
+      { label: "Customer Success Stories", href: "/why-workwise/success-stories" },
+      { label: "Trust & Security", href: "/why-workwise/TrustSecurity" },
+      { label: "Our Story", href: "/why-workwise/our-story" },
+    ]
+  },
+  { 
+    label: "Tools", 
+    type: "dropdown",
+    options: [
+      { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
+      { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
+      { label: "Tender Summary", href: "/ai-tools/tender-summary" },
+      { label: "Technical Document Summary", href: "/ai-tools/technical-summary" },
+    ],
+    href: "/ai-tools" // Make the main "Tools" label clickable
+  },
+  { 
+    label: "Insights & Resources", 
+    type: "dropdown",
+    options: [
+      { label: "Blogs", href: "/blogs" },
+      { label: "Events", href: "/insights/events" },
+      { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
+      { label: "AI in Procurement – Use Cases", href: "/insights/ai-procurement" },
+      { label: "Trends in EPC Procurement", href: "/insights/epc-trends" },
+      { label: "Workwise in News", href: "/insights/news" },
+    ]
+  },
+  { 
+    label: "Work With Us", 
+    type: "dropdown",
+    options: [
+      { label: "Meet the Team", href: "/work-with-us/TeamTimeline" },
+      { label: "We are hiring!", href: "/work-with-us/careers" },
+      { label: "Partner With Us", href: "/earn-with-us/EarnWithUs" },
+      { label: "Contact Us", href: "/contactus" },
+    ]
+  },
+  { 
+    label: "Pricing", 
+    type: "dropdown",
+    options: [
+      { label: "Buyer Pricing (Success based model)", href: "/pricing", action: "buyer-pricing" },
+      { label: "Supplier Plans (Subscription tiers)", href: "/pricing", action: "supplier-pricing" },
+      { label: "Claim Pilot Project Access for Free", href: "/contactus" },
+      { label: "Book a Call for Custom Quote", href: "javascript:void(0)", action: "book-call" },
+    ]
+  },
 ];
 
 const Header = () => {
@@ -235,13 +352,10 @@ const Header = () => {
     }
   };
 
-
   // Set State Change
   const handleChange = (setState) => (event) => {
     setState(event);
   };
-
-
 
   const isSticky = () => {
     const scrollTop = window.scrollY;
@@ -259,7 +373,7 @@ const Header = () => {
     setcurrentUserType(storageInstance.getStorage("current-user-type"));
   };
 
-    const handleLogout = (e) => {
+  const handleLogout = (e) => {
     e.preventDefault();
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
@@ -269,7 +383,7 @@ const Header = () => {
     router.push("/");
   };
 
-    useEffect(() => {
+  useEffect(() => {
     setMenuClass(false);
   }, [router]);
 
@@ -281,7 +395,7 @@ const Header = () => {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     window.addEventListener("scroll", isSticky);
     if (window.scrollY > 100) {
       isSticky();
@@ -322,8 +436,6 @@ const Header = () => {
     }
   }, [router, pathname]);
 
-
-
   return (
     <>
       <header
@@ -359,44 +471,61 @@ const Header = () => {
                 />
               </Link>
             </div>
-            {/* for Login Users only */}
 
-            {(mainNavs.includes(pathname) ||
-              (!loggedinUser &&
-                (pathname?.startsWith("/vendor") ||
-                  pathname?.startsWith("/solutions")))) && (
+            {/* Website Navigation - Show for non-logged in users and public pages only */}
+            {(!loggedinUser || 
+              (!loggedinUser && mainNavs.includes(pathname)) ||
+              (!loggedinUser && pathname?.startsWith("/solutions")) ||
+              (!loggedinUser && pathname?.startsWith("/ai-tools")) ||
+              (!loggedinUser && pathname?.startsWith("/insights")) ||
+              (!loggedinUser && pathname?.startsWith("/modules")) ||
+              (!loggedinUser && pathname?.startsWith("/work-with-us")) ||
+              (!loggedinUser && pathname?.startsWith("/who-we-serve")) ||
+              (!loggedinUser && pathname?.startsWith("/why-workwise")) ||
+              (!loggedinUser && pathname?.startsWith("/earn-with-us")) ||
+              (!loggedinUser && pathname?.startsWith("/pricing")) ||
+              (!loggedinUser && pathname?.startsWith("/blogs")) ||
+              (!loggedinUser && pathname?.startsWith("/for-vendors")) ||
+              (!loggedinUser && pathname?.startsWith("/contactus")) ||
+              (!loggedinUser && pathname?.startsWith("/aboutus"))) && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   {/* START: website navbar - static pages content */}
                   <nav className="main-menu">
                     <ul>
-                    {websiteMenu.map((item) =>
-                        item.label === 'Our Solutions' ? (
+                                            {websiteMenu.map((item, index) => (
+                        item.type === 'dropdown' ? (
                           <DropdownMenu
-                            key={item.href}
-                            label="Our Solutions"
-                            options={[
-                              { label: 'Civil', href: '/solutions/civil' },
-                              { label: 'Mechanical', href: '/solutions/mechanical' },
-                              { label: 'Electrical', href: '/solutions/electrical' },
-                              { label: 'Chemical', href: '/solutions/chemical' },
-                              { label: 'Fire Engineering', href: '/solutions/fire-engineering' },
-                            ]}
+                            key={index}
+                            label={item.label}
+                            options={item.options}
+                            href={item.href}
+                            onAction={(action) => {
+                              if (action === 'open-auth-modal') {
+                                setOpenAuthModal(true);
+                              }
+                            }}
                           />
                         ) : (
                           <li
-                            key={item.href}
+                            key={index}
                             className={router.pathname === item.href ? 'active' : ''}
                           >
                              <Link href={item.href}>{item.label}</Link>
                           </li>
                         )
-                      )}
+                      ))}
                     </ul>
                   </nav>
                   {/* END: website navbar - static pages content */}
 
-                  {/* {!loggedinUser && !loggedinUser?.name && ( */}
+                  {/* Supplier CTA Button */}
+                  <div className="supplier-cta">
+                    <Link href="/for-vendors" className="btn-supplier">
+                      For Suppliers
+                    </Link>
+                  </div>
+
                   <div
                     className={`extra-buttons hideDesktop ${
                       loggedinUser && loggedinUser?.name && "hasloggedinuser"
@@ -435,6 +564,16 @@ const Header = () => {
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
+                          <Link href="javascript:void(0)">
+                            Login
+                          </Link>
+                        </li>
+                        <li
+                          className="signup"
+                          onClick={() => {
+                            handleChange(setOpenAuthModal(true));
+                          }}
+                        >
                           <Link
                             id="book-a-call-navigation"
                             href="javascript:void(0)"
@@ -446,36 +585,24 @@ const Header = () => {
                       </ul>
                     )}
                   </div>
+                </div>
 
-                  {/* )} */}
-                  <div
-                    className={`menu-ctrl ${menuClass ? "button-active" : ""}`}
+                {/* Mobile Menu Toggle */}
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`}>
+                  <label
+                    htmlFor="menu-toggle"
+                    onClick={() => setMenuClass(!menuClass)}
                   >
-                    <label
-                      onClick={() => handleChange(setMenuClass(!menuClass))}
-                    >
-                      <svg
-                        width="100"
-                        height="100"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          className="line--1"
-                          d="M0 40h62c13 0 6 28-4 18L35 35"
-                        />
-                        <path className="line--2" d="M0 50h70" />
-                        <path
-                          className="line--3"
-                          d="M0 60h62c13 0 6-28-4-18L35 65"
-                        />
-                      </svg>
-                    </label>
-                  </div>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </label>
                 </div>
               </>
             )}
 
-            {loggedinUser && loggedinUser?.name ? (
+            {/* Logged-in User Navigation - Show for dashboard and user-specific pages */}
+            {loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) ? (
               <>
                 {!mainNavs.includes(pathname) && (
                   <div className="header-right header-center align-items-center forLoggedIn">
@@ -503,59 +630,8 @@ const Header = () => {
                         </div>
                       )}
                     </nav>
-
-                    <div className="extra-buttons dashboard-area-buttons hideDesktop">
-                      <ul>
-                        <li
-                          className="login"
-                          onClick={() => {
-                            router.push(
-                              `/dashboard/${currentUserType}/editprofile`
-                            );
-                          }}
-                        >
-                          <Link href="">
-                            {" "}
-                            <FontAwesomeIcon icon={faUser} />{" "}
-                            <span>My Profile </span>
-                          </Link>
-                        </li>
-                        <li className="signup" onClick={handleLogout}>
-                          <Link href="">
-                            <FontAwesomeIcon icon={faSignOut} />{" "}
-                            <span>Logout</span>
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-                    <div
-                      className={`menu-ctrl ${
-                        menuClass ? "button-active" : ""
-                      }`}
-                    >
-                      <label
-                        onClick={() => handleChange(setMenuClass(!menuClass))}
-                      >
-                        <svg
-                          width="100"
-                          height="100"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            className="line--1"
-                            d="M0 40h62c13 0 6 28-4 18L35 35"
-                          />
-                          <path className="line--2" d="M0 50h70" />
-                          <path
-                            className="line--3"
-                            d="M0 60h62c13 0 6-28-4-18L35 65"
-                          />
-                        </svg>
-                      </label>
-                    </div>
                   </div>
                 )}
-
 
                 <div className="header-right align-items-center forLoggedIn hidemobile">
                   <nav className="main-menu">
@@ -601,31 +677,138 @@ const Header = () => {
                             Change Password
                           </Link>
                         </li>
-                        <li className="">
-                          <Link href="/" onClick={handleLogout}>
+
+                        <li>
+                          <Link
+                            href=""
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleLogout(e);
+                            }}
+                          >
                             Logout
                           </Link>
                         </li>
                       </ul>
                     </div>
                   )}
-
                 </div>
               </>
             ) : null}
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {menuClass && (!loggedinUser || 
+          (!loggedinUser && pathname?.startsWith("/ai-tools")) ||
+          (!loggedinUser && pathname?.startsWith("/insights")) ||
+          (!loggedinUser && pathname?.startsWith("/modules")) ||
+          (!loggedinUser && pathname?.startsWith("/work-with-us")) ||
+          (!loggedinUser && pathname?.startsWith("/who-we-serve")) ||
+          (!loggedinUser && pathname?.startsWith("/why-workwise")) ||
+          (!loggedinUser && pathname?.startsWith("/earn-with-us")) ||
+          (!loggedinUser && pathname?.startsWith("/pricing")) ||
+          (!loggedinUser && pathname?.startsWith("/blogs")) ||
+          (!loggedinUser && pathname?.startsWith("/for-vendors")) ||
+          (!loggedinUser && pathname?.startsWith("/contactus")) ||
+          (!loggedinUser && pathname?.startsWith("/aboutus")) ||
+          (!loggedinUser && pathname?.startsWith("/solutions"))) && (
+          <div className="mobile-menu">
+            <nav className="main-menu">
+              <ul>
+                {websiteMenu.map((item, index) => (
+                  <li key={index}>
+                    {item.type === 'dropdown' ? (
+                      <DropdownMenu
+                        label={item.label}
+                        options={item.options}
+                        href={item.href}
+                        onAction={(action) => {
+                          if (action === 'open-auth-modal') {
+                            setOpenAuthModal(true);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Link href={item.href}>{item.label}</Link>
+                    )}
+                  </li>
+                ))}
+                <li>
+                  <Link href="/for-vendors" className="btn-supplier-mobile">
+                    For Suppliers
+                  </Link>
+                </li>
+                {!loggedinUser && (
+                  <>
+                    <li>
+                      <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
+                        Login
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
+                        Book a Call
+                      </Link>
+                    </li>
+                  </>
+                )}
+              </ul>
+            </nav>
+          </div>
+        )}
+
+        {/* Mobile Menu for Logged-in Users */}
+        {menuClass && loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) && (
+          <div className="mobile-menu">
+            <nav className="main-menu">
+              <ul>
+                {roleMenus[currentUserType]
+                  ?.filter((menuType) => menuType.targetMenu == "nav")
+                  ?.map((item) => (
+                    <li
+                      key={item.href}
+                      className={pathname === item.href ? "active" : ""}
+                    >
+                      <Link href={item.href}>{item.label}</Link>
+                    </li>
+                  ))}
+                <li>
+                  <Link href={`/dashboard/${currentUserType}`}>
+                    <FontAwesomeIcon icon={faUser} /> My Account
+                  </Link>
+                </li>
+                <li>
+                  <Link href="javascript:void(0)" onClick={handleLogout}>
+                    <FontAwesomeIcon icon={faSignOut} /> Logout
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        )}
       </header>
 
-      {/* ------------- Auth Modal ------------- */}
-      <LoginContainer
-        loading={loading}
-        setloading={setloading}
-        openAuthModal={openAuthModal}
-        setOpenAuthModal={setOpenAuthModal}
-        activeAuthTab={activeAuthTab}
-        setActiveAuthTab={setActiveAuthTab}
-      />
+      {/* Sticky Mobile CTA */}
+      {!loggedinUser && !pathname?.startsWith("/vendor") && (
+        <div className="sticky-mobile-cta">
+          <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
+            Book a Call
+          </Link>
+        </div>
+      )}
+
+      {/* Auth Modal */}
+      {openAuthModal && (
+        <LoginContainer
+          openAuthModal={openAuthModal}
+          setOpenAuthModal={setOpenAuthModal}
+          activeAuthTab={activeAuthTab}
+          setActiveAuthTab={setActiveAuthTab}
+          loading={loading}
+          setloading={setloading}
+        />
+      )}
     </>
   );
 };

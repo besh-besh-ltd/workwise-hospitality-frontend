@@ -2,51 +2,12 @@
 // HeroSectionTeam.jsx
 // ----------------------------------------------------
 import React, { useState } from 'react';
-import { Navbar, Nav, Container } from "react-bootstrap";
+import Layout from '@/components/layout';
 import { FaUser ,FaUsers, FaLinkedin , FaCalendarAlt , FaRocket , FaArrowRight} from "react-icons/fa";
 
-
 const TeamPageWithNavbar = () => {
-  const navItems = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Search Vendor", href: "/search-vendor" },
-    { label: "RFQ management", href: "/rfq-management" },
-    { label: "Technical Evaluation", href: "/technical-evaluation" },
-    { label: "Quote Comparison", href: "/quote-comparison" },
-    { label: "Purchase Orders", href: "/purchase-orders" }
-  ];
-
   return (
     <>
-      {/* Navigation Bar */}
-      <Navbar bg="white" expand="lg" className="shadow-sm">
-        <Container fluid className="px-4">
-          {/* Logo */}
-          <Navbar.Brand href="/" className="fw-bold fs-4 text-primary">
-            work<span className="text-dark">wise</span>
-          </Navbar.Brand>
-
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
-            {/* Navigation Links */}
-            <Nav className="me-auto">
-              {navItems.map((item, index) => (
-                <Nav.Link key={index} href={item.href} className="fw-medium text-dark mx-2">
-                  {item.label}
-                </Nav.Link>
-              ))}
-            </Nav>
-
-            {/* User Icon */}
-            <Nav>
-              <Nav.Link href="/profile">
-                <FaUser size={20} className="text-dark" />
-              </Nav.Link>
-            </Nav>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>
-
       {/* Hero Section */}
       <section
         className="w-100 d-flex align-items-center justify-content-center text-center position-relative overflow-hidden"
@@ -644,15 +605,12 @@ function MissionRecruitmentBanner() {
 
 function TeamPage() {
   return (
-    <>
+    <Layout>
       <TeamPageWithNavbar />
-
       <FoundersTeamComponent/>
       <OurJourneyComponent/>
-        <MissionRecruitmentBanner />
-
-      {/* …rest of the page… */}
-    </>
+      <MissionRecruitmentBanner />
+    </Layout>
   )
 }
 export default TeamPage;
