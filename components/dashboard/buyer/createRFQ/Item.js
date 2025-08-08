@@ -181,7 +181,8 @@ const Item = ({
     setHasUnsavedChanges(true);
   };
 
-  const handleRemoveProduct = () => {
+  const handleRemoveProduct = (e) => {
+    e.stopPropagation();
     if(handleRemoveProductInEdit)
       handleRemoveProductInEdit(data)
     else
@@ -189,7 +190,8 @@ const Item = ({
     setHasUnsavedChanges(true);
   };
 
-  const handleAddVarient = async () => {
+  const handleAddVarient = async (e) => {
+    e.stopPropagation();
     try {
       setHasUnsavedChanges(true);
       let variantVendors = vendors ?? [];
