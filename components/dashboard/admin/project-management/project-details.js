@@ -460,7 +460,7 @@ const ProjectDetailsPage = () => {
                   <div className="card h-100 shadow-sm border-success">
                     <div className="card-body p-4">
                       <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h3 className="card-title">Project Budget</h3>
+                        <h3 className="card-title">Project Procurement Budget</h3>
                         {!project?.budget || project?.budget == 0 ? (
                           <button
                             type="button"
