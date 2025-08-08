@@ -197,7 +197,7 @@ const ProjectDetails = () => {
         setOpenEditProject(false);
         updateProject(projectIdRef.current, payload)
             .then((res) => {
-                toast.success(res.message, { position: "top-right", });
+                toast.success("Project Updated Successfully!", { position: "top-right", });
                 // Call getProjectDetails instead of getProjects which doesn't exist
                 getProjectDetails();
             })
