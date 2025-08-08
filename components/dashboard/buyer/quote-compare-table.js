@@ -21,7 +21,8 @@ const QuoteCompareTable = ({
   proditem,
   alreadyFinalized,
   isRfqClosed = false,
-  availableBudget
+  availableBudget,
+  normalizeFilter
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -52,8 +53,8 @@ const QuoteCompareTable = ({
           const curQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
           const lowQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
-          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
-          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter)
 
           if (curItemQuoteDetails.unit_price > 0) {
             let curLowest = lowest;
@@ -83,11 +84,6 @@ const QuoteCompareTable = ({
       });
       setLowestQuote(quoteWithLowestPrice);
     }
-  };
-
-  const handleNegotiate = (item) => {
-    setVendorData(item?.quote_details?.vendor_details);
-    setActiveModal('common');
   };
 
   const renderFileLink = (files,lable = "view file") => {
@@ -326,8 +322,8 @@ const QuoteCompareTable = ({
                           : "table-grey-row"
                       }`}
                     >
-                      {calculateTotal(item, quantity)}
-                      {itemUpdated &&
+                     {calculateTotal(item, quantity, normalizeFilter)}
+                       {itemUpdated &&
                         calculateTotal(itemUpdated, quantity) !=
                           calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
