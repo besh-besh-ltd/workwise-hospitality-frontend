@@ -793,16 +793,14 @@ const Header = () => {
       )}
 
       {/* Auth Modal */}
-      {openAuthModal && (
-        <LoginContainer
-          openAuthModal={openAuthModal}
-          setOpenAuthModal={setOpenAuthModal}
-          activeAuthTab={activeAuthTab}
-          setActiveAuthTab={setActiveAuthTab}
-          loading={loading}
-          setloading={setloading}
-        />
-      )}
+      <LoginContainer
+        openAuthModal={openAuthModal}
+        setOpenAuthModal={setOpenAuthModal}
+        activeAuthTab={activeAuthTab}
+        setActiveAuthTab={setActiveAuthTab}
+        loading={loading}
+        setloading={setloading}
+      />
     </>
   );
 };
