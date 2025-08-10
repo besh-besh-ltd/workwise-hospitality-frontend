@@ -420,6 +420,21 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+
+
+export const updateTargetPrice = (targetPrice, tbl_rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post('/rfq/negotiate', {
+        target_price : targetPrice,
+        rfq_product_id : tbl_rfq_product_id
+      });
+      resolve(response.data);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
 /* 
 START :: Initiate magic search
 */
