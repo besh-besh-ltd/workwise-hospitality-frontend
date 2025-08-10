@@ -24,6 +24,9 @@ const Button = React.forwardRef(({
       case "outline":
         classes += " btn-outline-primary";
         break;
+      case "outline-white":
+        classes += " btn-outline-light";
+        break;
       case "white":
         classes += " btn-light";
         break;

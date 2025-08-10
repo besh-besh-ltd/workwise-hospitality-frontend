@@ -5,6 +5,7 @@ const HeroSection = React.forwardRef(({
   className, 
   title,
   subtitle,
+  valueProps,
   primaryButton,
   secondaryButton,
   visualContent,
@@ -27,12 +28,12 @@ const HeroSection = React.forwardRef(({
   return (
     <section
       className={`d-flex align-items-center position-relative ${className || ''}`}
-              style={{
-          background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
-          minHeight: currentSize.minHeight,
-          paddingTop: currentSize.paddingTop,
-          paddingBottom: currentSize.paddingBottom
-        }}
+      style={{
+        background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+        minHeight: currentSize.minHeight,
+        paddingTop: currentSize.paddingTop,
+        paddingBottom: currentSize.paddingBottom
+      }}
       ref={ref}
       {...props}
     >
@@ -48,9 +49,31 @@ const HeroSection = React.forwardRef(({
                 </h1>
 
                 {/* Subtitle */}
-                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-5`}>
+                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`}>
                   {subtitle}
                 </p>
+
+                {/* Value Props Strip */}
+                {valueProps && valueProps.length > 0 && (
+                  <div className={`d-flex flex-wrap gap-3 mb-5 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
+                    {valueProps.map((prop, index) => (
+                      <div
+                        key={index}
+                        className="d-flex align-items-center gap-2 px-3 py-2 rounded-pill"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          backdropFilter: 'blur(10px)'
+                        }}
+                      >
+                        <span style={{ color: prop.color || '#0EA5E9' }}>
+                          {prop.icon}
+                        </span>
+                        <span className="text-white fw-medium small">{prop.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* CTA Buttons */}
                 <div className={`d-flex flex-column flex-sm-row gap-3 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
@@ -75,19 +98,23 @@ const HeroSection = React.forwardRef(({
                     />
                   )}
                 </div>
+
+                {/* Secondary Text */}
+                <p className="text-white-50 small mt-3 mb-0">
+                  Still not convinced? Scroll below!
+                </p>
               </div>
             </div>
 
             {/* Right Panel */}
             {showVisual && (
               <div className="col-lg-6 d-none d-lg-block position-relative">
-                <div 
-                  className="position-absolute top-0 start-0 w-100 h-100"
-                  style={{
-                    background: 'linear-gradient(135deg, var(--tertiary-color) 0%, var(--red-color) 100%)'
-                  }}
-                >
-                  {visualContent?.image ? (
+                <div className="position-relative h-100 d-flex align-items-center justify-content-center">
+                  {visualContent?.video ? (
+                    <div className="w-100">
+                      {visualContent.video}
+                    </div>
+                  ) : visualContent?.image ? (
                     <div className="d-flex align-items-center justify-content-center h-100">
                       <img 
                         src={visualContent.image} 
@@ -122,9 +149,31 @@ const HeroSection = React.forwardRef(({
               </h1>
 
               {/* Subtitle */}
-              <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-5`}>
+              <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`}>
                 {subtitle}
               </p>
+
+              {/* Value Props Strip */}
+              {valueProps && valueProps.length > 0 && (
+                <div className="d-flex flex-wrap gap-3 justify-content-center mb-5">
+                  {valueProps.map((prop, index) => (
+                    <div
+                      key={index}
+                      className="d-flex align-items-center gap-2 px-3 py-2 rounded-pill"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        backdropFilter: 'blur(10px)'
+                      }}
+                    >
+                      <span style={{ color: prop.color || '#0EA5E9' }}>
+                        {prop.icon}
+                      </span>
+                      <span className="text-white fw-medium small">{prop.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* CTA Buttons */}
               <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
@@ -149,6 +198,11 @@ const HeroSection = React.forwardRef(({
                   />
                 )}
               </div>
+
+              {/* Secondary Text */}
+              <p className="text-white-50 small mt-3 mb-0">
+                Still not convinced? Scroll below!
+              </p>
             </div>
           </div>
         )}
@@ -163,9 +217,31 @@ const HeroSection = React.forwardRef(({
                 </h1>
 
                 {/* Subtitle */}
-                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-5`}>
+                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`}>
                   {subtitle}
                 </p>
+
+                {/* Value Props Strip */}
+                {valueProps && valueProps.length > 0 && (
+                  <div className={`d-flex flex-wrap gap-3 mb-5 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
+                    {valueProps.map((prop, index) => (
+                      <div
+                        key={index}
+                        className="d-flex align-items-center gap-2 px-3 py-2 rounded-pill"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          backdropFilter: 'blur(10px)'
+                        }}
+                      >
+                        <span style={{ color: prop.color || '#0EA5E9' }}>
+                          {prop.icon}
+                        </span>
+                        <span className="text-white fw-medium small">{prop.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* CTA Buttons */}
                 <div className={`d-flex flex-column flex-sm-row gap-3 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
@@ -190,6 +266,11 @@ const HeroSection = React.forwardRef(({
                     />
                   )}
                 </div>
+
+                {/* Secondary Text */}
+                <p className="text-white-50 small mt-3 mb-0">
+                  Still not convinced? Scroll below!
+                </p>
               </div>
             </div>
           </div>
