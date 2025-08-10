@@ -322,7 +322,7 @@ const EditRFQ = () => {
       }
 
       // Get RFQ data which includes selected term IDs
-      const rfqResponse = await getRFQById(id);
+      const rfqResponse = await getRFQById(id, null, true);
       if (!rfqResponse.data) {
         throw new Error("No data received from RFQ endpoint");
       }
@@ -645,7 +645,7 @@ const EditRFQ = () => {
         const otherRfqProductId = rfqProduct.id.toString();
 
         // Ensure current vendors of target loaded
-        let currentVendors = rfqData.products?.find(product => product.id == otherRfqProductId)?.vendors;
+        let currentVendors = rfqData.products?.find(product => product.id == otherRfqProductId)?.vendor_details;
 
         const currentVendorIds = currentVendors.map(v => v.user_id);
 

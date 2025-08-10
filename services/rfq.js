@@ -244,10 +244,16 @@ export const getRFQS = (payload) => {
     }
   });
 };
-export const getRFQById = (id, token) => {
+export const getRFQById = (id, token, includeVendors = false) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/getRfqById/${id}${token !== undefined ? `?token=${token}` : ''}`);
+      let response = await axiosInstance.get(
+        `/rfq/getRfqById/${id}${
+          token !== undefined
+            ? `?token=${token}&includeVendors=${includeVendors}`
+            : `?includeVendors=${includeVendors}`
+        }`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
