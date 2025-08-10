@@ -53,6 +53,11 @@ const roleMenus = {
       label: "User Management",
       targetMenu: "nav",
     },
+    {
+      href: "/dashboard/admin/approval-management",
+      label: "PO Approval Hierarchy",
+      targetMenu: "nav",
+    },
     // { href: "/dashboard/admin/account-management/create-account", label: "RFQ management" },
   ],
   buyer: [ // procurment person 
@@ -71,6 +76,11 @@ const roleMenus = {
     {
       href: "/dashboard/buyer/quote-compare",
       label: "Quote Comparison",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
       targetMenu: "nav",
     },
     {
@@ -108,6 +118,11 @@ const roleMenus = {
       label: "Quote Comparison",
       targetMenu: "nav",
     },
+    {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
+      targetMenu: "nav",
+    },
         {
       href: "/dashboard/management/editprofile",
       label: "Profile",
@@ -134,6 +149,11 @@ const roleMenus = {
     {
       href: "/dashboard/buyer/quote-compare",
       label: "Quote Comparison",
+      targetMenu: "nav",
+    },
+    {
+      href: "/dashboard/buyer/purchase-order",
+      label: "Purchase Orders",
       targetMenu: "nav",
     },
   ],

@@ -220,13 +220,17 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     isLoggedIn,
     debouncedVendorName, // Use debouncedVendorName instead of vendorName,
     myVendorType,
-    selectedMakes
+    selectedMakes,
+    search_key
   ]);
 
   // When a new product is selected, update the search bar value
   useEffect(() => {
     if (currentSelectedProduct) {
-      setSearch_key(currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '');
+      const productName = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || '';
+      if (search_key !== productName) {
+        setSearch_key(productName);
+      }
     }
   }, [currentSelectedProduct]);
 
@@ -361,9 +365,11 @@ const addRfqIdParam = (rfq_id) => {
     setSearchSubCategories([]);
     // changes by mukul jatav 29-08-2024 
     // setbulkRFQVendors([]);
-    // Use the name of the product at index 0 as the search_key for vendor search
+    // Use the name of the currentSelectedProduct as the search_key for vendor search
     let canonicalSearchKey = search_key;
-    if (products && products.length > 0) {
+    if (currentSelectedProduct) {
+      canonicalSearchKey = currentSelectedProduct.variant_name || currentSelectedProduct.product_name || search_key;
+    } else if (products && products.length > 0) {
       canonicalSearchKey = products[0].variant_name || products[0].product_name || search_key;
     }
     if (canonicalSearchKey != "") {
@@ -390,7 +396,6 @@ const addRfqIdParam = (rfq_id) => {
         "vendors"
       )
         .then((rsp) => {
-
           setloading(false);
 
           let d = rsp.data.map((item) => {
@@ -599,7 +604,8 @@ const clearVendorFilters = () => {
 
     // Set the search key and update the selected product
     getMakeList(item?.variant_id)
-    setSearch_key(item.variant_name);
+    const productName = item.variant_name || item.product_name || '';
+    setSearch_key(productName);
     setCat_id(item.category_id);
     setcurrentSelectedProduct(item);
     setbulkRFQVendors([]);
@@ -611,7 +617,7 @@ const clearVendorFilters = () => {
     const { rfq_id, sheet_id } = router.query;
 
     // Update the URL to include the selected product's slug and preserve rfq_id if it exists
-    const productSlug = item.slug || cleanAndAddHyphen(item.variant_name || item.product_name || '');
+    const productSlug = item.slug || cleanAndAddHyphen(productName);
     const newUrl = rfq_id && sheet_id
       ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
       : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 
@@ -634,7 +640,13 @@ const clearVendorFilters = () => {
 
   // --- Parse slug only ONCE when slug or lists are ready ---
   useEffect(() => {
-    if (!slug || slug === 'all' || !stateList.length || !cityList.length) return;
+    if (!slug || slug === 'all') return;
+
+    // If location lists are not loaded yet, treat the entire slug as product search
+    if (!stateList.length || !cityList.length) {
+      setSearch_key(slug);
+      return;
+    }
 
     const segments = slug.split('-');
     let foundState = null, foundCity = null, productSegments = [];
@@ -651,15 +663,16 @@ const clearVendorFilters = () => {
       }
       productSegments.unshift(segment);
     }
-    setSearch_key(productSegments.join('-'));
+    const finalSearchKey = productSegments.join('-');
+    setSearch_key(finalSearchKey);
   }, [slug, stateList, cityList]);
 
   // --- Trigger product search automatically ---
   useEffect(() => {
-    if (search_key && slug && slug !== 'all') {
+    if (search_key && slug && slug !== 'all' && !currentSelectedProduct) {
       getProducts(search_key);
     }
-  }, [search_key, slug]);
+  }, [search_key, slug, currentSelectedProduct]);
 
   // --- When filters are cleared, update the URL ---
   const clearLocationFilter = () => {
@@ -724,15 +737,15 @@ const clearVendorFilters = () => {
           <h1 className="heading">{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</h1>
           <div className="d-flex justify-content-end">
             <Link
-              href="/dashboard/buyer/magic-search"
+              href="/dashboard/buyer/boq-automation"
               className="page-link backBtn btn btn-secondary text-white px-2 "
               style={{ minWidth: "280px" }}
               onClick={(e) => {
                 e.preventDefault();
                 if (!isLoggedIn) {
                   setOpenAuthModal(true);
-                  setRedirectAfterLogin("/dashboard/buyer/magic-search");
-                } else router.push("/dashboard/buyer/magic-search");
+                  setRedirectAfterLogin("/dashboard/buyer/boq-automation");
+                } else router.push("/dashboard/buyer/boq-automation");
               }}
             >
               {" "}
@@ -929,17 +942,18 @@ const clearVendorFilters = () => {
                   <div className="container">
                     <h2 className="fs-3">Sub Categories List</h2>
                     <div className="parent-categories">
-                      {mapEntries?.map(
+                      {Array.from(categoryLvlRef.current.entries()).map(
                         ([category_id, category_name], index) => {
-                          const isLastItem = index === mapEntries?.size - 1;
+                          const isLastItem = index === categoryLvlRef.current.size - 1;
                           return (
                             <p
                               role="button"
                               key={category_id}
                               className="fs-6 badge text-bg-warning mx-1 px-3 py-2"
                               onClick={() => {
+                                const entries = Array.from(categoryLvlRef.current.entries());
                                 categoryLvlRef.current = new Map(
-                                  mapEntries.slice(0, index + 1)
+                                  entries.slice(0, index + 1)
                                 );
                                 getCategoriesById(category_id, category_name);
                               }}

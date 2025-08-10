@@ -1,61 +1,113 @@
-import React from 'react'
+import React from 'react';
 import Modal from "react-modal";
 
 const ConfirmationModal = ({
     isOpen,
     onClose,
     onConfirm,
-    message
+    title = "Confirm Action",
+    description = "Are you sure you want to proceed with this action?",
+    confirmButtonColor = "danger",
+    confirmButtonText = "Confirm",
+    cancelButtonText = "Cancel",
+    showCloseButton = false
 }) => {
+    const getButtonClass = (color) => {
+        switch (color) {
+            case 'danger':
+                return 'btn-danger';
+            case 'warning':
+                return 'btn-warning';
+            case 'success':
+                return 'btn-success';
+            case 'info':
+                return 'btn-info';
+            case 'primary':
+                return 'btn-primary';
+            case 'secondary':
+                return 'btn-secondary';
+            default:
+                return 'btn-danger';
+        }
+    };
+
     return (
         <div className=''>
             <Modal
                 isOpen={isOpen}
                 onRequestClose={onClose}
                 ariaHideApp={false}
-                contentLabel="Regret Quote Reason"
+                contentLabel="Confirmation Modal"
                 className="contact-modal contact-modal-new"
                 style={{
                     overlay: {
                         backgroundColor: "rgba(0, 0, 0, 0.75)",
+                        zIndex: 9999
                     },
                     content: {
                         position: "absolute",
                         top: "50%",
                         left: "50%",
                         transform: "translate(-50%, -50%)",
-                        maxWidth: "90vw", // Adjust this value as needed
-                        width: "50%", // Set to 'auto' or a specific value based on your design
+                        maxWidth: "500px",
+                        width: "90%",
                         border: "none",
                         background: "transparent",
                         overflow: "hidden",
-                        padding: "60px",
-                        maxHeight: "100vh", // Adjust this value as needed\
-                        height: "90vh", // Adjust this value as needed,
+                        padding: "20px",
+                        maxHeight: "100vh",
+                        height: "auto",
                         alignContent: 'center'
                     },
                 }}
             >
-                <div className="modal-header">
-                    <button
-                        onClick={onClose}
-                        className="btn-close"
-                        aria-label="Close"
-                    ></button>
-                </div>
+
+                {showCloseButton && (
+                    <div className="modal-header border-0 pb-0">
+                        <button
+                            onClick={onClose}
+                            className="btn-close"
+                            aria-label="Close"
+                        ></button>
+                    </div>
+                )}
 
                 <div className="modal-body text-center">
-                    <div className='p-5 pb-3'>
-                        <h4 className='mb-4'>{message}</h4>
-                        <div className='d-flex justify-content-center'>
-                            <button onClick={onConfirm} className="btn btn-primary">Yes</button>
-                            <button onClick={onClose} className="btn btn-secondary mx-3 btn-md">No</button>
+                    <div className='p-4 d-flex flex-column' style={{ minHeight: '200px' }}>
+                        {/* Title */}
+                        <div className="mb-4">
+                            <h4 className='fw-bold'>{title}</h4>
+                        </div>
+                        
+                        {/* Description */}
+                        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+                            <p className='text-muted' style={{ fontSize: '16px', lineHeight: '1.5' }}>
+                                {description}
+                            </p>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className='d-flex justify-content-center gap-3 mt-4'>
+                            <button 
+                                onClick={onClose} 
+                                className="btn btn-outline-secondary px-4 py-2"
+                                style={{ minWidth: '100px' }}
+                            >
+                                {cancelButtonText}
+                            </button>
+                            <button 
+                                onClick={onConfirm} 
+                                className={`btn ${getButtonClass(confirmButtonColor)} px-4 py-2`}
+                                style={{ minWidth: '100px' }}
+                            >
+                                {confirmButtonText}
+                            </button>
                         </div>
                     </div>
                 </div>
             </Modal>
         </div>
-    )
-}
+    );
+};
 
-export default ConfirmationModal
+export default ConfirmationModal; 

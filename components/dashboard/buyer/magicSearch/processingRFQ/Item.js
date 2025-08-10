@@ -112,10 +112,16 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
     <tr key={data.id}>
       <td className="fw-semibold">{data.id}</td>
       <td className="fw-semibold">
-        {data.file_name}{" "}
-        {data.type == "simplified" && (
-          <span className="text-muted text-sm">(Simplified)</span>
-        )}
+        {data.file_name}
+      </td>
+      <td>
+        <Badge
+          bg={data.type === "simplified" ? "success" : "primary"}
+          className="px-3 py-2"
+          style={{ fontWeight: 600 }}
+        >
+          {data.type === "simplified" ? "BOQ Simplified" : "BOQ To RFQ"}
+        </Badge>
       </td>
       <td>
         <Badge
@@ -160,7 +166,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                   Download
                 </Button>
                 <Link
-                  href={`magic-search/view?jsonUrl=${encodeURIComponent(
+                  href={`/dashboard/buyer/boq-automation/view?jsonUrl=${encodeURIComponent(
                     getDownloadURL(data.download_url, true)
                   )}`}
                   passHref
@@ -195,7 +201,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
             <Link
-              href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
+              href={data.is_published == 1 ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.persisted_rfq_id}` : `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
               passHref
             >
               <Button
