@@ -340,6 +340,17 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
   });
 };
 
+export const getTargetPriceHistory = () =>{
+  return new Promise (async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get('/rfq/targetPriceHistory')
+      resolve(response.data)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
+
 export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -571,6 +582,17 @@ export const getRfqDetails = (payload, token = null) => {
     }
   });
 };
+
+export const broadcastMessage = ( payload ) =>{
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.post('/rfq/send-query-message-to-vendor', payload)
+      resolve(response)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 
 export const sendQueryMessage = (payload,token=null ) => {
   return new Promise(async (resolve, reject) => {

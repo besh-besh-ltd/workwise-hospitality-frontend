@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import VendorList from "./vendorList.js";
 import ChatBox from "./chatBox.js";
-import { listQueryMessages, listQueries, getRfqDetails } from "@/services/rfq";
+import { listQueryMessages, listQueries, getRfqDetails, broadcastMessage } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
+import BroadcastModal from "@/components/shared/BroadcastModal.js";
+import { toast } from "react-toastify";
 
 const QueryComponent = () => {
   const router = useRouter();
@@ -17,6 +19,8 @@ const QueryComponent = () => {
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [broadcastPayload , setBroadcastPayload] = useState({});
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
   const loadVendors = async (name = "") => {
     setVendorsLoading(true);
@@ -33,7 +37,32 @@ const QueryComponent = () => {
       setVendorsLoading(false);
     }
   };
+  
+ const handleBroadCastMessage = async (message) => {
+  let payload = {
+    receiver_ids: [], // initialize as array
+    rfq_id: rfqDetails.id,
+    message_text: message
+  };
 
+  if (vendors.length > 0) {
+    vendors.forEach((vendor) => {
+      payload.receiver_ids.push({id : vendor.user_id});
+    });
+  }
+
+  const res =  await broadcastMessage(payload);
+
+  if(res){
+    toast.success("Message sent to All vendors")
+  }
+  else {
+    toast.error("Can not deliver message to Vendors")
+  }
+
+};
+
+  
   const loadMessages = async () => {
     if (rfq_id && selectedVendor) {
       // setMessagesLoading(true);
@@ -104,50 +133,75 @@ const QueryComponent = () => {
 
   return (
     <>
-      <section className="small-size-heading buyer-common-header">
-        <div className="container-fluid">
-          <h1 className="heading">{`Queries for RFQ#${rfqDetails?.rfq_no}`}</h1>
-        </div>
-      </section>
-      <div className="container-fluid">
-        <div className="row">
-          {role === "buyer" ? (
-            <div className="col-md-4 my-3">
-              <VendorList
-                vendors={vendors}
-                onSelectVendor={handleSelectVendor}
-                vendorName={vendorName}
-                setVendorName={setVendorName}
-                loading={vendorsLoading}
-              />
-            </div>
-          ) : null}
-          <div
-            className={`col-md-${
-              role === "buyer" ? "8" : "12"
-            } p-3 my-3 border rounded shadow-sm`}
-            style={{ height: "65vh" }}
+  <section className="small-size-heading buyer-common-header">
+    <div className="container-fluid">
+      <div className="d-flex justify-content-between align-items-center">
+        <h1 className="heading">{`Queries for RFQ#${rfqDetails?.rfq_no}`}</h1>
+        {role === "buyer" && (
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowBroadcastModal(true)}
           >
-            {messagesLoading ? (
-              <div className="hasFullLoader h-100">
-                <FullLoader />
-              </div>
-            ) : selectedVendor ? (
-              <ChatBox
-                messages={messages}
-                vendor={selectedVendor}
-                rfq_id={rfq_id}
-                role={role}
-                onMessageSent={handleMessageSent}
-                vendorwithoutlogintoken={token}
-              />
-            ) : (
-              <p>Select a vendor to view messages</p>
-            )}
-          </div>
-        </div>
+            <i className="fas fa-broadcast-tower me-2"></i>
+            Broadcast Message
+          </button>
+        )}
       </div>
-    </>
+    </div>
+  </section>
+  
+  <div className="container-fluid">
+    <div className="row">
+      {role === "buyer" ? (
+        <div className="col-md-4 my-3">
+          <VendorList
+            vendors={vendors}
+            onSelectVendor={handleSelectVendor}
+            vendorName={vendorName}
+            setVendorName={setVendorName}
+            loading={vendorsLoading}
+          />
+        </div>
+      ) : null}
+      
+      <div
+        className={`col-md-${
+          role === "buyer" ? "8" : "12"
+        } p-3 my-3 border rounded shadow-sm`}
+        style={{ height: "65vh" }}
+      >
+        {messagesLoading ? (
+          <div className="hasFullLoader h-100">
+            <FullLoader />
+          </div>
+        ) : selectedVendor ? (
+          <ChatBox
+            messages={messages}
+            vendor={selectedVendor}
+            rfq_id={rfq_id}
+            role={role}
+            onMessageSent={handleMessageSent}
+            vendorwithoutlogintoken={token}
+          />
+        ) : (
+          <p>Select a vendor to view messages</p>
+        )}
+      </div>
+    </div>
+    
+    {/* Broadcast Modal */}
+    {role === "buyer" && (
+      <BroadcastModal
+        show={showBroadcastModal}
+        onHide={() => setShowBroadcastModal(false)}
+        onSendMessage={handleBroadCastMessage}
+        vendorCount={vendors.length}
+        loading={false} // you can wire your loading state here
+        rfqNumber={rfqDetails?.rfq_no}
+      />
+    )}
+  </div>
+</>
   );
 };
 

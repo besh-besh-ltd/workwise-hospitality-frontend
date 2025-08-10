@@ -8,6 +8,7 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
+  getTargetPriceHistory,
   handleUploadFile,
   handleUploadFileInFormData,
   saveExcelInDB,
@@ -63,6 +64,10 @@ const QuoteCompare = () => {
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState('product');
   const [targetPrice , setTargetPrice] = useState(null);
+  const [targetPriceHistroy ,  targetPriceHistory] = useState(null);
+
+
+
 
  const [openModalId, setOpenModalId] = useState(null);
 
@@ -78,7 +83,8 @@ const QuoteCompare = () => {
   
   useEffect(() => {
     getAllProjects();
-  }, []);
+    getPricehistory();
+  }, [rfq]);
 
   useEffect(() => {
     if(quotes && quotes.length > 0) {
@@ -110,6 +116,23 @@ const QuoteCompare = () => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
 };
 
+
+
+const getPricehistory = async () =>{
+  try {
+    const data = await getTargetPriceHistory();
+
+  if(data.length > 0){
+    setTargetPrice(data)
+  }
+  else {
+    setTargetPrice([])
+  }
+    
+  } catch (error) {
+    console.log("error in fetching Target History")
+  }
+}
 const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
@@ -1826,6 +1849,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                       }
                                       availableBudget={availableBudget}
                                       targetPrice={item.latest_target_price}
+                                      targetHistory = {targetPriceHistory}
                                     />
                                   </>
                                 )}
@@ -1835,10 +1859,10 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                       </>
                     )}
                     {activeTab === 'category' && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} targetHistory = {targetPriceHistory} />
                     )}
                     {activeTab === 'cost' && (
-                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
+                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />
                                         )}
                                       </div>
                                         )}

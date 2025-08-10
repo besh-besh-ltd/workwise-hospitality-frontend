@@ -22,7 +22,8 @@ const QuoteCompareTable = ({
   alreadyFinalized,
   isRfqClosed = false,
   availableBudget,
-  targetPrice
+  targetPrice,
+  targetHistory
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
