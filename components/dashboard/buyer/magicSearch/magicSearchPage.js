@@ -104,7 +104,8 @@ const MagicSearchPage = () => {
         }
 
         // Show confirmation modal first
-        setShowSimplifyConfirmModal(true);
+        // setShowSimplifyConfirmModal(true);
+        await confirmSimplifyUpload();
     };
 
     const confirmSimplifyUpload = async () => {
