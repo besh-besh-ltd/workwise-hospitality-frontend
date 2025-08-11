@@ -133,7 +133,19 @@ export default function Home() {
             onClick: handleTryFreeTools
           }}
           visualContent={{
-            video: <HeroVideo />
+            video: <div className="col-12 col-lg-10">
+            <div 
+              className="rounded-4 p-4"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <HeroVideo /> 
+            </div>
+          </div>
           }}
           layout="split"
           size="large"
@@ -159,7 +171,7 @@ export default function Home() {
           </div>
           <div
             className="floatingIcon floatB d-none d-md-block"
-            style={{ top: "45%", left: "95%" }}
+            style={{ top: "45%", left: "89%" }}
           >
             <FaMicrochip size={20} />
           </div>
