@@ -513,12 +513,7 @@ const Header = () => {
                   </nav>
                   {/* END: website navbar - static pages content */}
 
-                  {/* Supplier CTA Button */}
-                  <div className="supplier-cta">
-                    <Link href="/for-vendors" className="btn-supplier">
-                      For Suppliers
-                    </Link>
-                  </div>
+
 
                   <div
                     className={`extra-buttons hideDesktop ${
@@ -728,11 +723,7 @@ const Header = () => {
                     )}
                   </li>
                 ))}
-                <li>
-                  <Link href="/for-vendors" className="btn-supplier-mobile">
-                    For Suppliers
-                  </Link>
-                </li>
+
                 {!loggedinUser && (
                   <>
                     <li className="mobile-login">

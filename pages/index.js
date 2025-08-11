@@ -138,53 +138,39 @@ export default function Home() {
           layout="split"
           size="large"
           textAlign="left"
-        />
-  {/* Floating Icons */}
-        <div style={{position: 'absolute', top: '30%', left: '50%', zIndex: 2, animation: 'floatA 6s ease-in-out infinite'}} className="d-none d-lg-block">
-          <FaRobot size={32} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
-        </div>
-        <div style={{position: 'absolute', top: '64%', left: '95%', zIndex: 2, animation: 'floatB 7s ease-in-out infinite'}} className="d-none d-md-block">
-          <FaMicrochip size={28} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
-        </div>
-      </div>
-
-      <div className="position-absolute" style={{ top: '70%', right: '-40px', zIndex: 1 }}>
-        <FaProjectDiagram 
-          style={{ 
-            color: 'rgba(255, 255, 255, 0.3)', 
-            fontSize: '28px',
-            animation: 'float 3s ease-in-out infinite 1.5s'
-          }} 
-        />
-      </div>
-
-        {/* Supplier CTA Section */}
-        <section className="py-4" style={{ background: 'rgba(0, 0, 0, 0.05)' }}>
-          <div className="container-fluid">
-            <div className="row align-items-center">
-              <div className="col-lg-6 d-flex align-items-center gap-2">
-                <FontAwesomeIcon 
-                  icon={faTruck} 
-                  style={{ color: '#6B7280', fontSize: '18px' }} 
-                />
-                <span className="text-muted fw-medium">Are you a Supplier?</span>
-              </div>
-              <div className="col-lg-6 d-flex justify-content-lg-end justify-content-start">
-                <Button
-                  onClick={handleExploreVendorTools}
-                  variant="primary"
-                  size="default"
-                  icon="none"
-                  className="w-auto"
-                >
-                  <FontAwesomeIcon icon={faSearch} />
-                  Explore Vendor Tools
-                </Button>
-              </div>
-            </div>
+        >
+          {/* Secondary Text - Only for index.js */}
+          <div className="text-center mt-4">
+            <p className="text-white fw-medium mb-0" style={{ 
+              fontSize: '1.1rem', 
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              opacity: 0.9
+            }}>
+              Still not convinced? Scroll below!
+            </p>
           </div>
-        </section>
-
+        </HeroSection>
+        {/* Floating Icons */}
+         <div
+            className="floatingIcon floatA d-none d-lg-block"
+            style={{ top: "20%", left: "50%" }}
+          >
+            <FaRobot size={20} />
+          </div>
+          <div
+            className="floatingIcon floatB d-none d-md-block"
+            style={{ top: "45%", left: "95%" }}
+          >
+            <FaMicrochip size={20} />
+          </div>
+          <div
+            className="floatingIcon floatC d-none d-md-block"
+            style={{ top: "75%", left: "50%" }}
+          >
+            <FaProjectDiagram size={20} />
+          </div>
+        </div>
+        
         {/* Free Tools Section */}
         <section className="py-5">
           <div className="container">

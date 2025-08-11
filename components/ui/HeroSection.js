@@ -29,7 +29,7 @@ const HeroSection = React.forwardRef(({
     <section
       className={`d-flex align-items-center position-relative ${className || ''}`}
       style={{
-        background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+        background: 'linear-gradient(to bottom, #004B84, #30A07D)',
         minHeight: currentSize.minHeight,
         paddingTop: currentSize.paddingTop,
         paddingBottom: currentSize.paddingBottom
@@ -44,12 +44,18 @@ const HeroSection = React.forwardRef(({
             <div className="col-lg-6 px-4 px-lg-5">
               <div className={`${textAlign === 'center' ? 'text-center' : textAlign === 'right' ? 'text-end' : 'text-start'}`}>
                 {/* Title */}
-                <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`}>
-                  {title}
+                <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`} style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                  {title === "Procurement se Profit Banao" ? (
+                    <>
+                      Procurement se <span style={{ color: '#FF8C00' }}>Profit Banao</span>
+                    </>
+                  ) : (
+                    title
+                  )}
                 </h1>
 
                 {/* Subtitle */}
-                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`}>
+                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
                   {subtitle}
                 </p>
 
@@ -98,11 +104,6 @@ const HeroSection = React.forwardRef(({
                     />
                   )}
                 </div>
-
-                {/* Secondary Text */}
-                <p className="text-white-50 small mt-3 mb-0">
-                  Still not convinced? Scroll below!
-                </p>
               </div>
             </div>
 
@@ -144,12 +145,18 @@ const HeroSection = React.forwardRef(({
           <div className="row justify-content-center text-center">
             <div className="col-lg-8 px-4 px-lg-5">
               {/* Title */}
-              <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`}>
-                {title}
+              <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`} style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                {title === "Procurement se Profit Banao" ? (
+                  <>
+                    Procurement se <span style={{ color: '#FF8C00' }}>Profit Banao</span>
+                  </>
+                ) : (
+                  title
+                )}
               </h1>
 
               {/* Subtitle */}
-              <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`}>
+              <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
                 {subtitle}
               </p>
 
@@ -198,11 +205,6 @@ const HeroSection = React.forwardRef(({
                   />
                 )}
               </div>
-
-              {/* Secondary Text */}
-              <p className="text-white-50 small mt-3 mb-0">
-                Still not convinced? Scroll below!
-              </p>
             </div>
           </div>
         )}
@@ -212,12 +214,18 @@ const HeroSection = React.forwardRef(({
             <div className="col-12 px-4 px-lg-5">
               <div className={`${textAlign === 'center' ? 'text-center' : textAlign === 'right' ? 'text-end' : 'text-start'}`}>
                 {/* Title */}
-                <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`}>
-                  {title}
+                <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`} style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                  {title === "Procurement se Profit Banao" ? (
+                    <>
+                      Procurement se <span style={{ color: '#FF8C00' }}>Profit Banao</span>
+                    </>
+                  ) : (
+                    title
+                  )}
                 </h1>
 
                 {/* Subtitle */}
-                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`}>
+                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
                   {subtitle}
                 </p>
 
@@ -266,11 +274,6 @@ const HeroSection = React.forwardRef(({
                     />
                   )}
                 </div>
-
-                {/* Secondary Text */}
-                <p className="text-white-50 small mt-3 mb-0">
-                  Still not convinced? Scroll below!
-                </p>
               </div>
             </div>
           </div>

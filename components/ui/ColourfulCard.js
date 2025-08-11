@@ -97,7 +97,11 @@ const ColourfulCard = ({
         <Button
           variant={buttonVariant}
           className="w-100 py-2 fw-semibold rounded-3 text-white"
-          style={buttonStyle}
+          style={{
+            ...buttonStyle,
+            background: bgGradient,
+            border: 'none'
+          }}
           onClick={handleClick}
         >
           {buttonText}

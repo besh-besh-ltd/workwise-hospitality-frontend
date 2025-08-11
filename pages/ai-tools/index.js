@@ -11,7 +11,7 @@ import {
   faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
 import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt, FaMicrochip, FaRobot } from 'react-icons/fa';
-
+import { Container, Button } from 'react-bootstrap';
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
 import { ColourfulCard } from '@/components/ui/ColourfulCard';
@@ -76,15 +76,24 @@ const AiToolsPage = () => {
           }}
         />
         {/* Floating Icons */}
-        <div style={{position: 'absolute', top: '32%', left: '68%', zIndex: 2, animation: 'floatA 6s ease-in-out infinite'}} className="d-none d-lg-block">
-          <FaRobot size={32} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
-        </div>
-        <div style={{position: 'absolute', top: '44%', left: '80%', zIndex: 2, animation: 'floatB 7s ease-in-out infinite'}} className="d-none d-md-block">
-          <FaMicrochip size={28} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
-        </div>
-        <div style={{position: 'absolute', top: '65%', left: '70%', zIndex: 2, animation: 'floatC 8s ease-in-out infinite'}} className="d-none d-md-block">
-          <FaProjectDiagram size={28} color="#fff" style={{filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))'}} />
-        </div>
+        <div
+            className="floatingIcon floatA d-none d-lg-block"
+            style={{ top: "20%", left: "80%" }}
+          >
+            <FaRobot size={20} />
+          </div>
+          <div
+            className="floatingIcon floatB d-none d-md-block"
+            style={{ top: "45%", left: "80%" }}
+          >
+            <FaMicrochip size={20} />
+          </div>
+          <div
+            className="floatingIcon floatC d-none d-md-block"
+            style={{ top: "65%", left: "75%" }}
+          >
+            <FaProjectDiagram size={20} />
+          </div>
       </div>
 
       {/* Trusted by Industry Leaders */}
