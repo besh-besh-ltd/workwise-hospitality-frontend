@@ -117,6 +117,81 @@ export default function Home() {
           .testimonial-card-compact .d-flex.align-items-center {
             margin-top: auto;
           }
+
+          /* Mobile optimizations */
+          @media (max-width: 768px) {
+            section {
+              padding-top: 3rem !important;
+              padding-bottom: 3rem !important;
+            }
+            
+            h1, h2 {
+              line-height: 1.3 !important;
+            }
+            
+            h2.fs-1 {
+              font-size: 2rem !important;
+            }
+            
+            p {
+              line-height: 1.5 !important;
+            }
+            
+            .container {
+              padding-left: 1rem !important;
+              padding-right: 1rem !important;
+            }
+            
+            /* Ensure clear section separation */
+            section + section {
+              border-top: 1px solid rgba(0,0,0,0.05);
+            }
+            
+            /* Prevent text wrapping in mobile */
+            h1, h2, h3, h4, h5, h6 {
+              white-space: normal !important;
+              word-wrap: break-word !important;
+              line-height: 1.2 !important;
+            }
+            
+            /* Optimize card layouts for mobile */
+            .card-body {
+              padding: 1rem !important;
+            }
+            
+            /* Ensure proper spacing between sections */
+            .py-5 {
+              padding-top: 2.5rem !important;
+              padding-bottom: 2.5rem !important;
+            }
+          }
+          
+          /* Better section separation */
+          section {
+            position: relative;
+          }
+          
+          section:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(0,0,0,0.1), transparent);
+          }
+          
+          /* Enhanced card shadows for better visibility */
+          .card {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+            transition: all 0.3s ease;
+          }
+          
+          .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+            transform: translateY(-2px);
+          }
         `}</style>
         {/* Hero Section */}
         <div style={{position: 'relative'}}>
@@ -133,7 +208,7 @@ export default function Home() {
             onClick: handleTryFreeTools
           }}
           visualContent={{
-            video: <div className="col-12 col-lg-10">
+            video: <div className="col-12 col-lg-10 d-none d-lg-block">
             <div 
               className="rounded-4 p-4"
               style={{
@@ -147,6 +222,21 @@ export default function Home() {
             </div>
           </div>
           }}
+          mobileVideoContent={
+            <div className="d-lg-none mt-4 mb-4">
+              <div 
+                className="rounded-4 p-3"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                }}
+              >
+                <HeroVideo />
+              </div>
+            </div>
+          }
           layout="split"
           size="large"
           textAlign="left"
@@ -188,22 +278,9 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <div className="d-flex align-items-center justify-content-center gap-3 mb-3">
-                <div 
-                  className="d-flex align-items-center justify-content-center rounded-3"
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    background: 'linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)',
-                    color: 'white'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faBriefcase} style={{ fontSize: '20px' }} />
-                </div>
-                <h2 className="fs-1 fw-bold text-dark mb-0">
-                  Tools That Make Procurement 10X Faster & Smarter
-                </h2>
-              </div>
+              <h2 className="fs-1 fw-bold text-dark mb-3">
+                4 Tools That Make Procurement 10X Faster & Smarter
+              </h2>
               <p className="text-muted fs-5 mb-0">
                 Try our free tools, made for project buyers like you. Save hours, avoid errors, and get instant insights.
               </p>
@@ -253,52 +330,58 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <div className="d-flex align-items-center justify-content-center gap-3 mb-3">
-                <div 
-                  className="d-flex align-items-center justify-content-center rounded-3"
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    background: homepageData.trustSection.iconBg,
-                    color: 'white'
-                  }}
-                >
-                  <FontAwesomeIcon icon={homepageData.trustSection.icon} style={{ fontSize: '20px' }} />
-                </div>
-                <h2 className="fs-1 fw-bold text-dark mb-0">
-                  {homepageData.trustSection.title}
-                </h2>
-              </div>
+              <h2 className="fs-1 fw-bold text-dark mb-3">
+                {homepageData.trustSection.title}
+              </h2>
             </div>
 
             {/* Stats Cards */}
             <div className="row g-4 mb-5">
               {homepageData.trustSection.stats.map((stat, index) => (
                 <div key={index} className="col-lg-6">
-                  <div className="card h-100 border-0 shadow-sm rounded-4">
+                  <div className="card h-100 border-0 shadow-lg rounded-4" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' }}>
                     <div className="card-body p-4">
-                      <div className="d-flex align-items-center mb-3">
+                      <div className="d-flex align-items-center mb-4">
                         <div 
                           className="d-flex align-items-center justify-content-center rounded-3 me-3"
                           style={{
-                            width: '48px',
-                            height: '48px',
+                            width: '56px',
+                            height: '56px',
                             background: stat.iconBg,
-                            color: 'white'
+                            color: 'white',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                           }}
                         >
-                          <FontAwesomeIcon icon={stat.icon} style={{ fontSize: '20px' }} />
+                          <FontAwesomeIcon icon={stat.icon} style={{ fontSize: '24px' }} />
                         </div>
-                        <h4 className="fw-bold text-dark mb-0">{stat.title}</h4>
+                        <h4 className="fw-bold text-dark mb-0 fs-3">{stat.title}</h4>
                       </div>
-                      <ul className="list-unstyled mb-0">
-                        {stat.items.map((item, itemIndex) => (
-                          <li key={itemIndex} className="d-flex align-items-center mb-2">
-                            <span className="text-success me-2">✓</span>
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {/* Horizontal Stats Layout */}
+                      <div className="d-flex justify-content-around text-center">
+                        {stat.items.map((item, itemIndex) => {
+                          const [number, text] = item.split(' ', 2);
+                          const remainingText = item.substring(number.length + 1);
+                          return (
+                            <div key={itemIndex} className="flex-fill">
+                              <div 
+                                className="fw-bold text-primary mb-1"
+                                style={{ 
+                                  fontSize: '2.5rem',
+                                  background: 'linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)',
+                                  WebkitBackgroundClip: 'text',
+                                  WebkitTextFillColor: 'transparent',
+                                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                {number}
+                              </div>
+                              <div className="text-muted fw-medium" style={{ fontSize: '0.9rem' }}>
+                                {remainingText}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -342,8 +425,9 @@ export default function Home() {
             <div className="row g-4">
               {homepageData.trustSection.securityFeatures.map((feature, index) => (
                 <div key={index} className="col-lg-3 col-md-6">
-                  <div className="card h-100 border-0 shadow-sm rounded-4 text-center">
-                    <div className="card-body p-4">
+                  <div className="card h-100 border-0 shadow-sm rounded-4">
+                    {/* Desktop Layout - Centered */}
+                    <div className="card-body p-4 text-center d-none d-md-block">
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                         style={{
@@ -356,6 +440,23 @@ export default function Home() {
                         <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '24px' }} />
                       </div>
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
+                    </div>
+                    
+                    {/* Mobile Layout - Alternating */}
+                    <div className={`card-body p-4 d-md-none d-flex align-items-center ${index % 2 === 0 ? '' : 'flex-row-reverse'}`}>
+                      <div 
+                        className={`d-flex align-items-center justify-content-center rounded-circle ${index % 2 === 0 ? 'me-3' : 'ms-3'}`}
+                        style={{
+                          width: '48px',
+                          height: '48px',
+                          background: feature.iconBg,
+                          color: 'white',
+                          flexShrink: 0
+                        }}
+                      >
+                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '20px' }} />
+                      </div>
+                      <h6 className={`fw-bold text-dark mb-0 ${index % 2 === 0 ? 'text-start' : 'text-end'}`}>{feature.title}</h6>
                     </div>
                   </div>
                 </div>
@@ -399,17 +500,39 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-4">
-              <h2 className="fs-1 fw-bold text-dark mb-2">{homepageData.modularOfferings.title}</h2>
-              <h3 className="fs-3 fw-bold text-color-primary mb-3">{homepageData.modularOfferings.subtitle}</h3>
+             <h2 className="fs-1 fw-bold text-dark mb-3">{homepageData.modularOfferings.title}</h2>
               <p className="text-muted fs-5 mb-0">{homepageData.modularOfferings.intro}</p>
             </div>
 
             {/* Modules Grid */}
              <div className="row g-4 mb-5">
                {homepageData.modularOfferings.modules.map((module, index) => {
+                 // Use colors from the module data
+                 const colors = {
+                   border: module.iconColor || '#0EA5E9',
+                   bg: module.iconColor || '#0EA5E9',
+                   icon: module.iconColor || '#0EA5E9'
+                 };
+                 
                  return (
                    <div key={index} className="col-lg-6">
-                     <div className="rounded-4 shadow-sm h-100 position-relative bg-white" style={{borderTop: `5px solid ${module.iconColor}`}}>
+                     <div 
+                       className="rounded-4 shadow-sm h-100 position-relative bg-white cursor-pointer" 
+                       style={{
+                         borderTop: `5px solid ${colors.border}`,
+                         cursor: 'pointer',
+                         transition: 'all 0.3s ease'
+                       }}
+                       onClick={() => window.location.href = module.link}
+                       onMouseEnter={(e) => {
+                         e.currentTarget.style.transform = 'translateY(-4px)';
+                         e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                       }}
+                       onMouseLeave={(e) => {
+                         e.currentTarget.style.transform = 'translateY(0)';
+                         e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                       }}
+                     >
                        <div className="d-flex flex-column p-4">
                          {/* Header with Icon */}
                          <div className="d-flex align-items-center mb-3">
@@ -420,19 +543,29 @@ export default function Home() {
                              width: 48, 
                              height: 48, 
                              borderRadius: '50%', 
-                             background: module.iconBg, 
+                             background: colors.bg, 
                              marginRight: 12
                            }}>
                              <FontAwesomeIcon icon={module.icon} style={{color: 'white', fontSize: 20}} />
                            </span>
-                           <h4 className="fw-bold text-dark mb-0">{module.title}</h4>
+                           <h4 className="fw-bold text-dark mb-0" style={{ 
+                             fontSize: '1.1rem',
+                             lineHeight: '1.3'
+                           }}>
+                             {module.title}
+                           </h4>
                          </div>
 
                        {/* Description */}
-                       <p className="text-muted mb-3">{module.description}</p>
+                       <p className="text-muted mb-3" style={{ 
+                         fontSize: '0.9rem',
+                         lineHeight: '1.4'
+                       }}>
+                         {module.description}
+                       </p>
 
                        {/* Desktop Features */}
-                       <div className="mb-3">
+                       <div className="mb-3 d-none d-lg-block">
                          <ul className="list-unstyled mb-0">
                            {module.desktopFeatures.map((feature, featureIndex) => (
                              <li key={featureIndex} className="d-flex align-items-center mb-2">
@@ -444,19 +577,23 @@ export default function Home() {
                        </div>
 
                        {/* Mobile Description */}
-                       <div className="d-md-none">
-                         <p className="text-muted small mb-0">{module.mobileDescription}</p>
+                       <div className="d-lg-none">
+                         <p className="text-muted small mb-0" style={{ 
+                           fontSize: '0.85rem',
+                           lineHeight: '1.4'
+                         }}>
+                           {module.mobileDescription}
+                         </p>
                        </div>
 
                        {/* Learn More Link */}
                        <div className="mt-auto">
-                         <a 
-                           href={module.link}
-                           className="text-decoration-none fw-bold"
-                           style={{ color: '#0EA5E9' }}
+                         <span 
+                           className="text-decoration-none fw-bold d-inline-flex align-items-center"
+                           style={{ color: colors.icon }}
                          >
                            Learn more →
-                         </a>
+                         </span>
                        </div>
                      </div>
                    </div>
@@ -470,25 +607,16 @@ export default function Home() {
               <div className="row">
                 <div className="col-12">
                   <div className="d-flex align-items-center mb-3">
-                    <div 
-                      className="d-flex align-items-center justify-content-center rounded-circle me-3"
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        background: '#F59E0B'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faWrench} style={{ color: 'white', fontSize: '16px' }} />
-                    </div>
                     <h3 className="fw-bold text-dark mb-0">{homepageData.modularOfferings.vendorSupport.title}</h3>
                   </div>
-                  <p className="text-muted mb-4">{homepageData.modularOfferings.vendorSupport.subtitle}</p>
+                  <p className="text-muted mb-4 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.subtitle}</p>
                   
                   <div className="row g-3 mb-4">
                     {homepageData.modularOfferings.vendorSupport.services.map((service, index) => (
                       <div key={index} className="col-md-4">
                         <div className="card border-0 shadow-sm rounded-4 h-100">
-                          <div className="card-body text-center p-4">
+                          {/* Desktop Layout - Centered */}
+                          <div className="card-body text-center p-4 d-none d-md-block">
                             <div 
                               className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                               style={{
@@ -502,12 +630,31 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-2">{service.title}</h6>
                             <p className="text-muted small mb-0">{service.description}</p>
                           </div>
+                          
+                          {/* Mobile Layout - Icon Left, Text Right */}
+                          <div className="card-body p-3 d-md-none d-flex align-items-center">
+                            <div 
+                              className="d-flex align-items-center justify-content-center rounded-circle me-3"
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                background: service.iconBg,
+                                flexShrink: 0
+                              }}
+                            >
+                              <FontAwesomeIcon icon={service.icon} style={{ color: 'white', fontSize: '16px' }} />
+                            </div>
+                            <div className="flex-grow-1">
+                              <h6 className="fw-bold text-dark mb-1" style={{ fontSize: '0.95rem' }}>{service.title}</h6>
+                              <p className="text-muted small mb-0" style={{ fontSize: '0.8rem', lineHeight: '1.3' }}>{service.description}</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                   
-                  <p className="text-muted mb-3">{homepageData.modularOfferings.vendorSupport.footerText}</p>
+                  <p className="text-muted mb-3 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.footerText}</p>
                   <Button 
                     onClick={handleVendorSupport}
                     className="btn fw-bold text-white px-4 py-3 w-auto"
@@ -526,24 +673,12 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <div className="d-flex align-items-center justify-content-center mb-3">
-                <div 
-                  className="d-flex align-items-center justify-content-center rounded-circle me-3"
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    background: '#0EA5E9'
-                  }}
-                >
-                  <span style={{ color: 'white', fontSize: '16px' }}>🏭</span>
-                </div>
-                <h2 className="fw-bold text-dark mb-0">{homepageData.heavyIndustries.headline}</h2>
-              </div>
+              <h2 className="fs-1 fw-bold text-dark mb-3">{homepageData.heavyIndustries.headline}</h2>
               <p className="text-muted fs-5 mb-0">{homepageData.heavyIndustries.subheadline}</p>
             </div>
 
-            {/* Industries and Domains */}
-            <div className="row g-4 mb-5">
+            {/* Industries and Domains - Desktop Only */}
+            <div className="row g-4 mb-5 d-none d-lg-flex">
               {/* Industries Card */}
               <div className="col-lg-6">
                 <div className="card border-0 shadow-sm rounded-4 h-100">
@@ -613,13 +748,40 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Mobile Layout - Stacked List */}
+            <div className="d-lg-none mb-5">
+              <div className="card border-0 shadow-sm rounded-4">
+                <div className="card-body p-4">
+                  <h4 className="fw-bold text-dark mb-3">Industries:</h4>
+                  <div className="mb-4">
+                    {homepageData.heavyIndustries.industries.map((industry, index) => (
+                      <div key={index} className="d-flex align-items-center mb-2">
+                        <span className="text-success me-2">✓</span>
+                        <span className="fw-medium text-dark">{industry.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <h4 className="fw-bold text-dark mb-3">Disciplines:</h4>
+                  <div className="mb-3">
+                    {homepageData.heavyIndustries.domains.map((domain, index) => (
+                      <div key={index} className="d-flex align-items-center mb-2">
+                        <span className="text-success me-2">✓</span>
+                        <span className="fw-medium text-dark">{domain.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Testimonials */}
             <div className="text-center mb-4">
               <h3 className="fw-bold text-dark">What Our Customers Say</h3>
             </div>
             <div className="row g-4">
               {homepageData.heavyIndustries.testimonials.map((testimonial, index) => (
-                <div key={index} className="col-lg-4 col-md-6">
+                <div key={index} className="col-lg-4 col-md-6 col-12">
                   <TestimonialCard
                     className="testimonial-card-compact"
                     quote={testimonial.quote}
@@ -718,16 +880,7 @@ export default function Home() {
               <p className="text-muted fs-5 mb-4">
                 Compare the reality of traditional procurement vs what it looks like with Workwise — and decide for yourself.
               </p>
-              <Button
-                onClick={() => console.log('Show Full Comparison clicked')}
-                variant="primary"
-                size="default"
-                icon="eye"
-                className="d-flex align-items-center gap-2 mx-auto w-auto"
-              >
-                <FontAwesomeIcon icon={faEye} />
-                Show Full Comparison
-              </Button>
+
             </div>
 
             {/* Comparison Table */}
@@ -923,31 +1076,7 @@ export default function Home() {
 
         {/* End Frequently Asked Questions Section */}
 
-        {/* Floating Chat Icon */}
-        <div 
-          className="position-fixed"
-          style={{
-            bottom: '30px',
-            right: '30px',
-            zIndex: 1000
-          }}
-        >
-          <div 
-            className="d-flex align-items-center justify-content-center rounded-circle"
-            style={{
-              width: '60px',
-              height: '60px',
-              background: '#10B981',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-            }}
-          >
-            <FontAwesomeIcon 
-              icon={faComments} 
-              style={{ fontSize: '24px', color: 'white' }} 
-            />
-          </div>
-        </div>
+        
       </main>
     </>
   )

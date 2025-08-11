@@ -66,15 +66,35 @@ const ColourfulCard = ({
   };
 
   return (
-    <div className="shadow rounded-4 overflow-hidden text-start h-100">
+    <div 
+      className="shadow rounded-4 overflow-hidden text-start h-100"
+      onClick={() => {
+        // In mobile, make entire card clickable to go to ai-tools
+        if (typeof window !== 'undefined' && window.innerWidth < 992) {
+          window.location.href = '/ai-tools';
+        }
+      }}
+      style={{ cursor: typeof window !== 'undefined' && window.innerWidth < 992 ? 'pointer' : 'default' }}
+    >
       {/* Header with gradient background */}
-      <div className="p-4" style={{ background: bgGradient, color: "white" }}>
+      <div className="p-4 position-relative" style={{ background: bgGradient, color: "white" }}>
         <div className="d-flex justify-content-between align-items-start">
           <div>
             <h4 className="fw-bold text-white mb-1">{title}</h4>
-            <div className="fw-normal">{subtitle}</div>
+            <div className="fw-normal d-none d-lg-block">{subtitle}</div>
+            <div className="fw-normal d-lg-none" style={{ 
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}>
+              {subtitle}
+            </div>
           </div>
-          <div className="bg-white bg-opacity-25 p-2 rounded-circle">
+          <div 
+            className="position-absolute bg-white bg-opacity-25 p-2 rounded-circle"
+            style={{ top: '16px', right: '16px' }}
+          >
             <FontAwesomeIcon icon={getIcon(icon)} className="text-white" />
           </div>
         </div>
@@ -82,16 +102,18 @@ const ColourfulCard = ({
 
       {/* Content */}
       <div className="bg-white p-4">
-        {/* Features */}
-        {features && features.map((feature, idx) => (
-          <Feature
-            key={idx}
-            icon={feature.icon}
-            title={feature.title}
-            desc={feature.description}
-            iconColor={iconColor}
-          />
-        ))}
+        {/* Features - Hidden on mobile */}
+        <div className="d-none d-lg-block">
+          {features && features.map((feature, idx) => (
+            <Feature
+              key={idx}
+              icon={feature.icon}
+              title={feature.title}
+              desc={feature.description}
+              iconColor={iconColor}
+            />
+          ))}
+        </div>
 
         {/* Button */}
         <Button
@@ -102,14 +124,17 @@ const ColourfulCard = ({
             background: bgGradient,
             border: 'none'
           }}
-          onClick={handleClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClick();
+          }}
         >
           {buttonText}
         </Button>
 
-        {/* Note */}
+        {/* Note - Hidden on mobile */}
         {note && (
-          <div className="text-muted text-center small mt-2">{note}</div>
+          <div className="text-muted text-center small mt-2 d-none d-lg-block">{note}</div>
         )}
       </div>
     </div>

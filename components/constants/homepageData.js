@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRocket, faClock, faShield, faLink, faPhone, faWrench, faTruck, faBriefcase, faFileAlt, faListUl, faCalculator, faFileContract, faUsers, faBuilding, faCloud, faLock, faBrain, faHammer, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faRocket, faClock, faShield, faLink, faPhone, faWrench, faTruck, faBriefcase, faFileAlt, faListUl, faCalculator, faFileContract, faUsers, faBuilding, faCloud, faLock, faBrain, faHammer, faSearch, faMoneyBill } from '@fortawesome/free-solid-svg-icons';
 import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
 
 export const homepageData = {
@@ -101,7 +101,7 @@ export const homepageData = {
     },
     {
       title: "Project Cost Estimator",
-      subtitle: "Estimate project cost instantly. Upload your BOQ to get AI-generated pricing across products, services, and manpower.",
+      subtitle: "Upload your BOQ to estimate project cost instantly.",
       bgGradient: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
       icon: "calculator",
       features: [
@@ -118,7 +118,7 @@ export const homepageData = {
         {
           icon: "bolt",
           title: "Rapid Estimation",
-          description: "Get estimates in minutes, not days"
+          description: "Get understanding in minutes, not days"
         }
       ],
       buttonText: "Try Now",
@@ -128,7 +128,7 @@ export const homepageData = {
     },
     {
       title: "Technical Document Summary",
-      subtitle: "Clause-level clarity. Upload your technical specs and get a section-wise summary of key clauses for faster evaluation.",
+      subtitle: "Upload your technical files and get section wise summary of key clauses.",
       bgGradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
       icon: "file-contract",
       features: [
@@ -144,8 +144,8 @@ export const homepageData = {
         },
         {
           icon: "share",
-          title: "Shareable Reports",
-          description: "Create and share summaries with your team"
+          title: "Rapid Estimation",
+          description: "Get understanding in minutes, not days"
         }
       ],
       buttonText: "Try Now",
@@ -222,7 +222,7 @@ export const homepageData = {
         icon: faBuilding,
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
         items: [
-          "11,000+ Domestic Vendors",
+          "12,500+ Domestic Vendors",
           "1,500+ International Vendors"
         ]
       }
@@ -256,7 +256,7 @@ export const homepageData = {
     title: "Why You Should Choose Workwise",
     cards: [
       {
-        title: "12,000+ PSU-Approved Vendors",
+        title: "12,500+ PSU-Approved Vendors",
         description: "Find the right supplier fast — verified OEMs, dealers, and traders.",
         icon: faBriefcase,
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)"
@@ -269,7 +269,7 @@ export const homepageData = {
       },
       {
         title: "Tailor-Made for Industrial Capex Projects",
-        description: "Workwise is tailor-made for complex EPC and infrastructure buying — not FMCG, not e-commerce.",
+        description: "Workwise is tailor-made for complex EPC and infrastructure buying- not FMCG, not e-commerce.",
         icon: faBuilding,
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)"
       }
@@ -278,9 +278,8 @@ export const homepageData = {
 
   // Modular Offerings section
   modularOfferings: {
-    title: "MODULAR OFFERINGS",
-    subtitle: "BUILT FOR REAL PROCUREMENT NEEDS",
-    intro: "Simplify procurement, from BOQ/PR to final payment. Each one is built for industrial capex needs.",
+    title: "Simplify Procurement, From BOQ/PR to Final Payment",
+    intro: "Each one is built for industrial capex needs.",
     modules: [
       {
         title: "BOQ Understanding & Simplification",
@@ -314,12 +313,12 @@ export const homepageData = {
         title: "Supplier Discovery & Vendor Management",
         description: "Find the right vendors — fast.",
         desktopFeatures: [
-          "Access 12,000+ PSU-approved suppliers",
+          "Access 12,500+ PSU-approved suppliers",
           "Filter by Make, Approval, and Location",
           "View vendor profiles instantly"
         ],
         mobileDescription: "Find the right vendors — fast. Search 12,000+ verified vendors using smart filters.",
-        icon: faBuilding,
+        icon: faUsers,
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)",
         iconColor: "#0EA5E9",
         link: "/modules/vendors"
@@ -347,9 +346,9 @@ export const homepageData = {
           "See all bids live in one view"
         ],
         mobileDescription: "Negotiate better online. Run smart online auctions with full customization.",
-        icon: faUsers,
-        iconBg: "linear-gradient(135deg, #7C3AED 100%, #A855F7 0%)",
-        iconColor: "#7C3AED",
+        icon: faMoneyBill,
+        iconBg: "linear-gradient(135deg, #3B82F6 100%, #1D4ED8 0%)",
+        iconColor: "#3B82F6",
         link: "/modules/negotiation"
       },
       {
@@ -362,8 +361,8 @@ export const homepageData = {
         ],
         mobileDescription: "Track POs till final payment. Generate POs and monitor all payment stages, both in and out.",
         icon: faCalculator,
-        iconBg: "linear-gradient(135deg, #6B7280 0%, #4B5563 100%)",
-        iconColor: "#6B7280",
+        iconBg: "linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)",
+        iconColor: "#14B8A6",
         link: "/modules/payments"
       }
     ],
@@ -397,21 +396,26 @@ export const homepageData = {
 
   // Heavy Industries section
   heavyIndustries: {
-    headline: "Built for Heavy Industries",
-    subheadline: "Workwise is purpose-built for complex industrial procurement. We understand the unique challenges of EPC, infrastructure, and heavy industry projects.",
+    headline: "Built for Heavy Industries. Trusted Across Disciplines.",
+    subheadline: "From refineries to substations to utility-scale solar and more — Workwise powers procurement where complexity is high and accuracy matters.",
     industries: [
       {
-        name: "Oil & Gas",
+        name: "Energy (Oil & Gas, Renewables, Hydrogen)",
         icon: "🛢️",
         color: "#F59E0B"
       },
       {
-        name: "Power & Energy",
+        name: "Power",
         icon: "⚡",
         color: "#10B981"
       },
       {
-        name: "Steel & Metals",
+        name: "Petrochemical & Chemical",
+        icon: "🧪",
+        color: "#EF4444"
+      },
+      {
+        name: "Steel & Cement",
         icon: "🏭",
         color: "#6B7280"
       },
@@ -421,63 +425,68 @@ export const homepageData = {
         color: "#0EA5E9"
       },
       {
-        name: "Mining & Minerals",
-        icon: "⛏️",
+        name: "Heavy Engineering Equipment & Machine Tools Manufacturing",
+        icon: "⚙️",
         color: "#8B5CF6"
       },
       {
-        name: "Chemicals & Petrochemicals",
-        icon: "🧪",
-        color: "#EF4444"
+        name: "Marine, mining and more",
+        icon: "⛏️",
+        color: "#6B7280"
       }
     ],
     domains: [
       {
-        name: "Mechanical Equipment",
-        icon: "⚙️",
-        color: "#0EA5E9"
-      },
-      {
-        name: "Electrical Systems",
+        name: "Electrical",
         icon: "🔌",
         color: "#F59E0B"
       },
       {
-        name: "Instrumentation & Control",
-        icon: "🎛️",
-        color: "#10B981"
+        name: "Mechanical",
+        icon: "⚙️",
+        color: "#0EA5E9"
       },
       {
-        name: "Civil & Structural",
+        name: "Civil",
         icon: "🏗️",
         color: "#8B5CF6"
       },
       {
-        name: "Piping & Valves",
+        name: "Instrumentation",
+        icon: "🎛️",
+        color: "#10B981"
+      },
+      {
+        name: "Piping",
         icon: "🔧",
         color: "#EF4444"
       },
       {
-        name: "Safety & Fire Protection",
+        name: "HVAC",
+        icon: "❄️",
+        color: "#0EA5E9"
+      },
+      {
+        name: "Fire & Safety",
         icon: "🚨",
         color: "#6B7280"
       }
     ],
     testimonials: [
       {
-        quote: "Workwise helped us reduce our procurement time by 80% and saved us significant costs on our refinery project.",
-        author: "Rajesh Kumar",
-        position: "Procurement Manager, IOCL"
+        quote: "RFQs done in 15 mins.",
+        author: "Abhinav",
+        position: "Power EPC"
       },
       {
-        quote: "The vendor discovery and evaluation tools are game-changers for complex EPC projects like ours.",
-        author: "Priya Sharma",
-        position: "Head of Procurement, BHEL"
+        quote: "Chart saved us from wrong vendor.",
+        author: "Arnav",
+        position: "Infra"
       },
       {
-        quote: "Finally, a platform that understands industrial procurement challenges. Workwise has streamlined our entire process.",
-        author: "Amit Patel",
-        position: "Project Director, NTPC"
+        quote: "PO tracking is now in one view.",
+        author: "Sushanta",
+        position: "Oil & Gas"
       }
     ]
   },

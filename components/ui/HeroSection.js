@@ -9,6 +9,7 @@ const HeroSection = React.forwardRef(({
   primaryButton,
   secondaryButton,
   visualContent,
+  mobileVideoContent,
   layout = "split", // "split" | "centered" | "full-width"
   size = "large", // "large" | "medium" | "small"
   textAlign = "left", // "left" | "center" | "right"
@@ -55,7 +56,7 @@ const HeroSection = React.forwardRef(({
                 </h1>
 
                 {/* Subtitle */}
-                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                <p className={`${size === 'large' ? 'fs-4' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
                   {subtitle}
                 </p>
 
@@ -72,12 +73,19 @@ const HeroSection = React.forwardRef(({
                           backdropFilter: 'blur(10px)'
                         }}
                       >
-                        <span style={{ color: prop.color || '#0EA5E9' }}>
+                        <span style={{ color: prop.color || '#0EA5E9', filter: 'brightness(1.2) contrast(1.3)' }}>
                           {prop.icon}
                         </span>
                         <span className="text-white fw-medium small">{prop.text}</span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Mobile Video Content - Above CTA Buttons */}
+                {mobileVideoContent && (
+                  <div className="d-lg-none mb-4">
+                    {mobileVideoContent}
                   </div>
                 )}
 
@@ -225,7 +233,7 @@ const HeroSection = React.forwardRef(({
                 </h1>
 
                 {/* Subtitle */}
-                <p className={`${size === 'large' ? 'lead' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                <p className={`${size === 'large' ? 'fs-4' : 'fs-5'} text-white mb-4`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
                   {subtitle}
                 </p>
 
@@ -242,7 +250,7 @@ const HeroSection = React.forwardRef(({
                           backdropFilter: 'blur(10px)'
                         }}
                       >
-                        <span style={{ color: prop.color || '#0EA5E9' }}>
+                        <span style={{ color: prop.color || '#0EA5E9', filter: 'brightness(1.2) contrast(1.3)' }}>
                           {prop.icon}
                         </span>
                         <span className="text-white fw-medium small">{prop.text}</span>

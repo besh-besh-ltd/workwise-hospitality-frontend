@@ -85,13 +85,16 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
         style={{
           cursor: 'pointer',
           fontWeight: 500,
-          color: isMobile ? '#fff' : '#222',
+          color: isMobile ? '#fff !important' : 'inherit',
           textDecoration: 'none !important',
           padding: '8px 12px',
           borderRadius: '8px',
           transition: 'all 0.2s ease',
+          whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center'
         }}
-        className="d-flex align-items-center"
+        className="d-flex align-items-center flex-nowrap"
       >
         {href ? (
           <Link href={href} style={{ color: 'inherit', textDecoration: 'none' }}>
@@ -100,9 +103,11 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
         ) : (
           label
         )}
-        {isMobile && (
-          <FontAwesomeIcon icon={open ? faChevronUp : faChevronDown} className="ms-2" />
-        )}
+        <FontAwesomeIcon 
+          icon={isMobile ? (open ? faChevronUp : faChevronDown) : faChevronDown} 
+          className="ms-2" 
+          style={{ fontSize: '0.8rem', opacity: 0.7, flexShrink: 0 }}
+        />
       </span>
 
       <ul

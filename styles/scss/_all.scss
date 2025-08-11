@@ -8337,3 +8337,13 @@ td:hover .tooltip_custom {
     font-weight: 600 !important;
   }
 }
+
+/* Prevent navbar items from wrapping */
+.main-header .main-menu ul li {
+  white-space: nowrap;
+}
+
+.main-header .main-menu ul li span,
+.main-header .main-menu ul li a {
+  white-space: nowrap;
+}
