@@ -27,7 +27,7 @@ const ApprovalHierarchyPage = () => {
   const [tab, setTab] = useState("display");
   const [users, setUsers] = useState([]);
 
-  const [hierarchy, setHierarchy] = useState([]);
+  const [hierarchy, setHierarchy] = useState(null);
   const [removableApprovers, setRemovableApprovers] = useState([]);
   const [isEdit, setIsEdit] = useState(false);
   const [saving, setSaving] = useState(false);

@@ -343,15 +343,15 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">
                       {item.delivery_period != ""
                         ? parseInt(item.delivery_period) <= 1
-                          ? `${item.delivery_period} Day`
-                          : `${item.delivery_period} Days`
+                          ? `${item.delivery_period || 0} Day`
+                          : `${item.delivery_period || 0} Days`
                         : "--"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {parseInt(itemUpdated.delivery_period) <= 1
-                              ? `${itemUpdated.delivery_period} Day`
-                              : `${itemUpdated.delivery_period} Days`}
+                              ? `${itemUpdated.delivery_period || 0} Day`
+                              : `${itemUpdated.delivery_period || 0} Days`}
                           </span>
                         )}
                     </div>
