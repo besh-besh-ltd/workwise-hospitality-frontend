@@ -349,7 +349,7 @@ const QuoteCompareTable = ({
                         item.is_lowest
                           ? "bg-success text-white d-flex justify-content-between"
                           : "table-grey-row"
-                      } text-warning`} // highlights in yellow-orange
+                      } `} // highlights in yellow-orange
                     >
                       ₹{targetPrice}
                     </div>

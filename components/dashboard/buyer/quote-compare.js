@@ -63,10 +63,8 @@ const QuoteCompare = () => {
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState('product');
-  const [targetPrice , setTargetPrice] = useState(null);
+  // const [targetPrice , setTargetPrice] = useState(null);
   const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
-
-
 
 
  const [openModalId, setOpenModalId] = useState(null);
@@ -181,10 +179,7 @@ const openModalForVariant = (variantId) => {
     }
   };
 
-  useEffect(()=>{
-    if(targetPriceHistory.length > 0)
-      console.log('logg target price', targetPriceHistory);
-  },[])
+ 
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
     getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC" })
@@ -294,7 +289,7 @@ const openModalForVariant = (variantId) => {
     try {
       const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
       const [excelBuffer, fileName] = generateExcelFile(res.data);
-      setTargetPrice(res?.data?.latest_target_price)
+      // setTargetPrice(res?.data?.latest_target_price)
       if (excelBuffer) {
         const blob = new Blob([excelBuffer], {
           type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1868,7 +1863,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                       </>
                     )}
                     {activeTab === 'category' && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} targetPriceHistory = {targetPriceHistory}  />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />
                     )}
                     {activeTab === 'cost' && (
                       <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />

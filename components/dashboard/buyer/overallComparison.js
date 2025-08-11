@@ -873,36 +873,35 @@ const openModalForVariant = (variantId) => {
                           <td>
                             <table className="w-100">
                               {/* Selling Price Row */}
-                              <tr>
-                                <td
-                                  className="pe-2"
-                                  style={{ whiteSpace: "nowrap" }}
-                                >
-                                  Selling Price:
-                                </td>
-                                <td>
-                                  {selling_price
-                                    ? `₹${addCommasToNumber(selling_price)}`
-                                    : "NA"}
-                                </td>
-                              </tr>
+                              {selling_price && (
+                                <tr>
+                                  <td
+                                    className="pe-2 fw-bold"
+                                    style={{ whiteSpace: "nowrap" }}
+                                  >
+                                    Selling Price:
+                                  </td>
+                                  <td>₹{addCommasToNumber(selling_price)}</td>
+                                </tr>
+                              )}
 
                               {/* Target Price Row */}
-                              <tr>
-                                <td
-                                  className="pe-2"
-                                  style={{ whiteSpace: "nowrap" }}
-                                >
-                                  Target Price:
-                                </td>
-                                <td>
-                                  {item.latest_target_price
-                                    ? `₹${addCommasToNumber(
-                                        item.latest_target_price
-                                      )}`
-                                    : "NA"}
-                                </td>
-                              </tr>
+                              {item.latest_target_price && (
+                                <tr>
+                                  <td
+                                    className="pe-2 fw-bold"
+                                    style={{ whiteSpace: "nowrap" }}
+                                  >
+                                    Target Price:
+                                  </td>
+                                  <td>
+                                    ₹
+                                    {addCommasToNumber(
+                                      item.latest_target_price
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
 
                               {/* Set Target Price Row */}
                               <tr>
@@ -1092,12 +1091,7 @@ const openModalForVariant = (variantId) => {
                                                   : "-"}
                                               </td>
                                             </tr>
-                                            <tr>
-                                              <th>Target Price</th>
-                                              <td className="fw-bold text-warning">
-                                                ₹{item?.latest_target_price}
-                                              </td>
-                                            </tr>
+                                           
 
                                             <tr>
                                               <th>
