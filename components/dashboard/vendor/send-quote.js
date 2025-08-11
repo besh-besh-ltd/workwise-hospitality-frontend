@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
@@ -9,10 +9,11 @@ import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
-import { faDownload } from "@fortawesome/free-solid-svg-icons";
+import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
+import { Button } from "bootstrap/dist/js/bootstrap.bundle.min";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -29,22 +30,6 @@ const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
         label="₹"
       />
-      {/* <button
-        type="button"
-        className={`btn ${currentMode === 'percentage' ? 'btn-primary' : 'btn-outline-primary'}`}
-        onClick={() => onToggle('percentage')}
-        style={{ fontSize: '11px', padding: '2px 8px' }}
-      >
-        in %
-      </button>
-      <button
-        type="button"
-        className={`btn ${currentMode === 'absolute' ? 'btn-primary' : 'btn-outline-primary'}`}
-        onClick={() => onToggle('absolute')}
-        style={{ fontSize: '11px', padding: '2px 8px' }}
-      >
-        in ₹
-      </button> */}
     </div>
   );
 };
@@ -77,6 +62,13 @@ const SendQuotePageComp = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
+
+  // structured payment terms rows
+const [paymentTermsRows, setPaymentTermsRows] = useState([
+  {value: "", type: "advance", days: "", comment: ""},
+]);
+
+
 
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
@@ -111,19 +103,11 @@ const SendQuotePageComp = () => {
       getRFQdetails();
     }
     
-    // Changes by Agnij 2024-07-29 [Add debug logging for URL parameters]
-    console.log("URL parameters:", {
-      id: router.query.id,
-      token: router.query.token,
-      type: router.query.type,
-      showTechEvalRestrictions: router.query.showTechEvalRestrictions,
-      parsedValue: router.query.showTechEvalRestrictions === 'true'
-    });
+
     
     // Update the tech evaluation restriction flag
     const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
     setShowTechEvalRestrictions(restrictionsEnabled);
-    console.log("Tech eval restrictions:", restrictionsEnabled ? "Enabled" : "Disabled");
   }, [router, router.query]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
@@ -392,12 +376,18 @@ const SendQuotePageComp = () => {
   }
 
   const handleSendQuote = () => {
+
+
+
+
+    // return 0
     let payload = {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
       status: 1,
       products: [],
       globalPaymentTerms,
+      global_payment_term_list: paymentTermsRows,    // NEW structured array
       globalComment,
       term_and_condition_files: globalDocumentFiles
     };
@@ -559,7 +549,7 @@ const SendQuotePageComp = () => {
         filePath
       )
     } catch (error) {
-      console.log(error)
+      console.error(error)
       let message = error.message?.response?.data?.errors?.file?.message;
       toast.error(message);
     }
@@ -776,13 +766,6 @@ const SendQuotePageComp = () => {
                                 height={20}
                               />
                             </td>
-                            {/* <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td> */}
                             <td>
                               <PlaceholderLoading
                                 shape="rect"
@@ -881,183 +864,155 @@ const SendQuotePageComp = () => {
               <div className="col-md-12">
                 <div className="quote-sec-table">
                   <div className="quote-sec-table-top">
-                    <h3 className="title">RFQ No. #{rfqDetails.rfq_no}</h3>
-                    <div className="row">
 
                       {/* RFQ Details Section */}
-                      <div className="col-md-4 col-xs-12">
-                        {rfqDetails?.company_name && (
-                          <p>
-                            <b>Buyer</b> : {rfqDetails?.company_name}.
-                          </p>
-                        )}
-                        {rfqDetails?.contact_name && (
-                          <p>
-                            <b>Contact Person</b> : {rfqDetails?.contact_name}
-                          </p>
-                        )}
-                        {rfqDetails?.response_email && (
-                          <p>
-                            <b>Email</b> : {rfqDetails?.response_email}
-                          </p>
-                        )}
-                        {rfqDetails?.contact_number && (
-                          <p>
-                            <b>Contact Number</b> :
-                            {rfqDetails?.contact_number}
-                          </p>
-                        )}
+                                      <div className="d-flex flex-wrap justify-content-between gap-4 mb-3">
+                    {rfqDetails?.company_name && (
+                      <div className="text-start">
+                        <strong>RFQ No:</strong>
+                        <div>#{rfqDetails.rfq_no}</div>
                       </div>
-
-                      {/* Global Inputs Section */}
-                      <div className="col-md-4 col-xs-12 ">
-                        <h3 className="fs-6 fw-semibold mb-2">
-                          Global Costing
-                        </h3>
-                        <div className="row mb-4">
-                          <div className="inputBox form-group col-4">
-                            <label>Freight</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min={0}
-                              value={globalFreight}
-                              placeholder={chargesMode.freight.global == "percentage" ? "3%" : "₹950"}
-                              onChange={(e) => {setglobalFreight(e.target.value || "")}}
-                              onWheel={(e) => e.target.blur()}
-                            />
-                            <PercentageAbsoluteToggle
-                              currentMode={
-                                chargesMode.freight.global
-                              }
-                              onToggle={(value) => {
-                                setChargesMode((prev) => ({
-                                  ...prev,
-                                  freight: {
-                                    ...prev.freight,
-                                    global: value,
-                                  },
-                                }));
-                              }}
-                            />
-                          </div>
-                          <div className="inputBox form-group col-4">
-                            <label>Packaging</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min={0}
-                              value={globalPackaging}
-                              placeholder={chargesMode.package.global == "percentage" ? "4%" : "₹1450"}
-                              onChange={(e) => setglobalPackaging(e.target.value || "")}
-                              onWheel={(e) => e.target.blur()}
-                            />
-                            <PercentageAbsoluteToggle
-                              currentMode={
-                                chargesMode.package.global
-                              }
-                              onToggle={(value) => {
-                                setChargesMode((prev) => ({
-                                  ...prev,
-                                  package: {
-                                    ...prev.package,
-                                    global: value,
-                                  },
-                                }));
-                              }}
-                            />
-                          </div>
-                          <div className="inputBox form-group col-4">
-                            <label>TAX</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min={0}
-                              value={globalTax}
-                              placeholder={chargesMode.tax.global == "percentage" ? "18%" : "₹18940"}
-                              onChange={(e) => setglobalTax(e.target.value || "")}
-                              onWheel={(e) => e.target.blur()}
-                            />
-                            <PercentageAbsoluteToggle
-                              currentMode={
-                                chargesMode.tax.global
-                              }
-                              onToggle={(value) => {
-                                setChargesMode((prev) => ({
-                                  ...prev,
-                                  tax: {
-                                    ...prev.tax,
-                                    global: value,
-                                  },
-                                }));
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="row">
-                          <div className="col-md-12 col-lg-6 pe-2 mb-4">
-                            <h3 className="fs-6 fw-semibold mb-2">Payment Terms</h3>
-                            <div className="inputBox form-group">
-                              <textarea
-                                type="text"
-                                className="form-control"
-                                value={globalPaymentTerms}
-                                placeholder="100% Against Proforma Invoice"
-                                onChange={(e) =>
-                                  setglobalPaymentTerms(e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="col-md-12 col-lg-6 pe-2 mb-4">
-                            <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
-                            <div className="inputBox form-group">
-                              <textarea
-                                type="text"
-                                className="form-control"
-                                value={globalComment}
-                                placeholder="Placeholder text for global comment"
-                                onChange={(e) => setglobalComment(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        </div>
+                    )}
+                    {rfqDetails?.contact_name && (
+                      <div className="text-start">
+                        <strong>Contact Person:</strong>
+                        <div>{rfqDetails.contact_name}</div>
                       </div>
+                    )}
+                    {rfqDetails?.contact_name && (
+                      <div className="text-start">
+                        <strong>Contact Person:</strong>
+                        <div>{rfqDetails.contact_name}</div>
+                      </div>
+                    )}
+                    {rfqDetails?.response_email && (
+                      <div className="text-start">
+                        <strong>Email:</strong>
+                        <div>{rfqDetails.response_email}</div>
+                      </div>
+                    )}
+                    {rfqDetails?.contact_number && (
+                      <div className="text-start">
+                        <strong>Contact Number:</strong>
+                        <div>{rfqDetails.contact_number}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+       
+<div className="row align-items-stretch">
+  {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
+  <div className="col-lg-3 col-12 d-flex">
+    <div className="card border shadow-sm rounded-3 w-100 h-100">
+      <div className="card-body">
+        <h3 className="fs-6 fw-semibold mb-3">Global Costing</h3>
 
-                      <div className="col-lg-1"></div>
+        <div className="row g-3 mb-4">
+          {/* Freight */}
+          <div className="col-12 col-sm-4">
+            <label className="form-label">Freight</label>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              value={globalFreight}
+              placeholder={chargesMode.freight.global === "percentage" ? "3%" : "₹950"}
+              onChange={(e) => setglobalFreight(e.target.value || "")}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            <div className="mt-2">
+              <PercentageAbsoluteToggle
+                currentMode={chargesMode.freight.global}
+                onToggle={(value) =>
+                  setChargesMode((prev) => ({ ...prev, freight: { ...prev.freight, global: value } }))
+                }
+              />
+            </div>
+          </div>
 
-                      {/* Global File Upload Section */}
-                      <div className="col-md-6 col-lg-3">
-                        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
+          {/* Packaging */}
+          <div className="col-12 col-sm-4">
+            <label className="form-label">Packaging</label>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              value={globalPackaging}
+              placeholder={chargesMode.package.global === "percentage" ? "4%" : "₹1450"}
+              onChange={(e) => setglobalPackaging(e.target.value || "")}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            <div className="mt-2">
+              <PercentageAbsoluteToggle
+                currentMode={chargesMode.package.global}
+                onToggle={(value) =>
+                  setChargesMode((prev) => ({ ...prev, package: { ...prev.package, global: value } }))
+                }
+              />
+            </div>
+          </div>
 
-                        {previousGlobalFiles && previousGlobalFiles.length > 0 &&
-                          <div className="border rounded-2 px-2 mb-2">
-                            <p className="fw-medium text-sm text-center mb-1 ">Previously Uploaded Files</p>
-                            <div className="row">
-                              {previousGlobalFiles.map((prev_file) => {
-                                return (
-                                  <div key={prev_file} className="col-md-6">
-                                    <a href={prev_file} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
-                                      <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                      {extractfileName(prev_file)}
-                                    </a>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        }
+          {/* TAX */}
+          <div className="col-12 col-sm-4">
+            <label className="form-label">TAX</label>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              value={globalTax}
+              placeholder={chargesMode.tax.global === "percentage" ? "18%" : "₹18940"}
+              onChange={(e) => setglobalTax(e.target.value || "")}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            <div className="mt-2">
+              <PercentageAbsoluteToggle
+                currentMode={chargesMode.tax.global}
+                onToggle={(value) =>
+                  setChargesMode((prev) => ({ ...prev, tax: { ...prev.tax, global: value } }))
+                }
+              />
+            </div>
+          </div>
+        </div>
 
-                        <label className="upload uploadInlineFile d-flex align-items-center justify-content-center mb-1">
-                          <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
-                          <input
-                            type="file"
-                            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                            onChange={(e) => uploadGlobalDocumentFiles(e)}
-                            multiple={true}
-                          />
-                        </label>
+        {/* Quote Document */}
+        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
+
+        {previousGlobalFiles?.length > 0 && (
+          <div className="border rounded-2 px-2 py-2 mb-3">
+            <p className="fw-medium text-center mb-2">Previously Uploaded Files</p>
+            <div className="row g-2 overflow-x-auto">
+              {previousGlobalFiles.map((prev_file) => (
+                <div key={prev_file} className="col-12 col-md-6">
+                  <a
+                    href={prev_file}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="d-inline-flex align-items-center gap-2 text-truncate"
+                    style={{ maxWidth: 260 }}
+                  >
+                    <FontAwesomeIcon icon={faDownload} />
+                    {extractfileName(prev_file)}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <label
+          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer" }}
+        >
+          <FontAwesomeIcon icon={faFile} className="me-2" />
+          Upload Quotation Document
+          <input
+            type="file"
+            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            multiple
+          />
+        </label>
 
 
                         <div className="row">
@@ -1078,10 +1033,71 @@ const SendQuotePageComp = () => {
                             })
                           )}
                         </div>
+      </div>
+    </div>
+  </div>
 
-                      </div>
+  {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
+  <div className="col-lg-4 col-12 d-flex">
+    <div className="card border shadow-sm rounded-3 w-100 h-100">
+      <div className="card-body">
+        <div className="mb-3 d-flex align-items-center justify-content-between">
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+        </div>
+        <textarea
+          className="form-control mb-3"
+          rows={3}
+          value={globalPaymentTerms}
+          placeholder="100% Against Proforma Invoice"
+          onChange={(e) => setglobalPaymentTerms(e.target.value)}
+        />
 
-                    </div>
+        <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
+        <textarea
+          className="form-control"
+          rows={3}
+          value={globalComment}
+          placeholder="Placeholder text for global comment"
+          onChange={(e) => setglobalComment(e.target.value)}
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
+  <div className="col-lg-5 col-12">
+
+   <div className="border rounded-3 p-3" >
+          <div className="d-flex align-items-center justify-content-between mb-2">
+          <div>
+            <h6 className="mb-0">Payment Terms</h6>
+            <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
+            </div>
+
+        <SmartButton
+              onClick={() =>
+                setPaymentTermsRows((prev) => [ ...(prev || []), { value: "", type: "advance", days: "", comment:'' } ])
+              }
+        theme={'primary'}
+        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        label="Add Term"
+        icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
+      />
+
+
+          </div>
+
+          <PaymentTermsEditor
+            value={paymentTermsRows}
+            onChange={setPaymentTermsRows}
+          />
+        </div>
+  </div>
+
+</div>
+
+
+
                   </div>
                   <div className="table-responsive">
                     <div className="table-container">
@@ -1715,3 +1731,126 @@ const SendQuotePageComp = () => {
 };
 
 export default SendQuotePageComp;
+
+
+
+
+
+
+//  PaymentTermsUIOnly component
+const PaymentTermsEditor = ({ value, onChange, disabled }) => {
+  const rows = value?.length
+    ? value
+    : [{ value: "", type: "advance", days: "", comment: "" }];
+
+  const setRows = (next) => onChange && onChange(next);
+
+  const addRow = () =>
+    setRows([...rows, { value: "", type: "advance", days: "", comment: "" }]);
+
+  const removeRow = (index) => {
+    const next = rows.filter((_, i) => i !== index);
+    setRows(next.length ? next : [{ value: "", type: "advance", days: "", comment: "" }]);
+  };
+
+  const updateRow = (index, patch) =>
+    setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+  return (
+    <div>
+      {rows.map((row, index) => {
+        const isCredit = row.type === "credit";
+        const showComment = !isCredit; // advance/other
+        return (
+          <div key={index} className="row g-2 align-items-end mb-2">
+            <div className="col-3">
+              <label className="form-label mb-1">% of Amount</label>
+              <input
+                type="number"
+                className="form-control"
+                placeholder="e.g., 30"
+                value={row.value}
+                onChange={(e) =>
+                  updateRow(index, {
+                    value: e.target.value === "" ? "" : Number(e.target.value),
+                  })
+                }
+                min={0}
+                max={100}
+                disabled={disabled}
+              />
+            </div>
+
+            <div className="col-3">
+              <label className="form-label mb-1">Type</label>
+              <select
+                className="form-select"
+                value={row.type}
+                onChange={(e) => {
+                  const nextType = e.target.value;
+                  updateRow(index, {
+                    type: nextType,
+                    // when switching, clear the field that won't be used
+                    days: nextType === "credit" ? row.days : "",
+                    comment: nextType === "credit" ? "" : row.comment,
+                  });
+                }}
+                disabled={disabled}
+              >
+                <option value="advance">Advance</option>
+                <option value="credit">Credit</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {isCredit ? (
+              <div className="col-4">
+                <label className="form-label mb-1">Credit Days</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  placeholder="e.g., 30"
+                  value={row.days}
+                  onChange={(e) =>
+                    updateRow(index, {
+                      days: e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
+                  min={1}
+                  disabled={disabled}
+                />
+              </div>
+            ) : (
+              <div className="col-4">
+                <label className="form-label mb-1">
+                  Comment 
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
+                  value={row.comment || ""}
+                  onChange={(e) => updateRow(index, { comment: e.target.value })}
+                  disabled={disabled}
+                />
+              </div>
+            )}
+
+            <div className="col-2 d-flex mb-1">
+       <SmartButton
+        onClick={() => removeRow(index)}
+        theme={"red"}
+        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        label="X"
+        // icon = {<FontAwesomeIcon icon={faRemove} />}
+      />
+            </div>
+          </div>
+        );
+      })}
+
+    </div>
+  );
+};
+
+
