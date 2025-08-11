@@ -131,7 +131,6 @@ const QuoteCompareTable = ({
                 Terms & Conditions
               </div>
               <div className="table-si-row">Payment Terms</div>
-              <div className="table-si-row">Created By</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -344,15 +343,15 @@ const QuoteCompareTable = ({
                     <div className="table-si-row">
                       {item.delivery_period != ""
                         ? parseInt(item.delivery_period) <= 1
-                          ? `${item.delivery_period} Day`
-                          : `${item.delivery_period} Days`
+                          ? `${item.delivery_period || 0} Day`
+                          : `${item.delivery_period || 0} Days`
                         : "--"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {parseInt(itemUpdated.delivery_period) <= 1
-                              ? `${itemUpdated.delivery_period} Day`
-                              : `${itemUpdated.delivery_period} Days`}
+                              ? `${itemUpdated.delivery_period || 0} Day`
+                              : `${itemUpdated.delivery_period || 0} Days`}
                           </span>
                         )}
                     </div>
@@ -396,9 +395,6 @@ const QuoteCompareTable = ({
                       ) : (
                         "NA"
                       )}
-                    </div>
-                    <div className="table-si-row">
-                      {item?.quote_details?.created_by || "-"}
                     </div>
                   </div>
                 );
