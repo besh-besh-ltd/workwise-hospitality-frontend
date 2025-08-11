@@ -5,26 +5,24 @@ import RFQItem from "./Item";
 import Pagination from "@/components/shared/Pagination";
 import FilterSection from "@/components/shared/FilterSection";
 
-const initialFilterData = {
-  project_id: -1,
-  rfq_type: "",
-  reverse_auction: "-1",
-  sort: "DESC",
-  rfq_no: null,
-}
-
 const ManageRFQ = () => {
   const [loading, setloading] = useState(false);
-  const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(10);
-  const [filterData, setFilterData] = useState(initialFilterData);
+  const [filterData, setFilterData] = useState({
+    project_id: -1,
+    rfq_type: "",
+    reverse_auction: "-1",
+    sort: "DESC",
+    rfq_no: null,
+    page: 1,
+    limit: 10,
+  });
   const [myRFQs, setmyRFQs] = useState([]);
   const [totalRFQs, settotalRFQs] = useState(0);
 
   const getAllRFQs = () => {
     setloading(true);
 
-    getRFQS({ ...filterData, page })
+    getRFQS({ ...filterData })
       .then((res) => {
         setloading(false);
         setmyRFQs(res.data);
@@ -37,9 +35,9 @@ const ManageRFQ = () => {
   };
 
   useEffect(() => {
+    console.log("CURRENT FILTER DATA:", filterData)
     getAllRFQs();
-  }, [page, filterData]);
-
+  }, [filterData]);
 
   return (
     <>
@@ -48,9 +46,10 @@ const ManageRFQ = () => {
         {/* <h3 className="title">Manage RFQs</h3> */}
 
         <div className="details-table hasFullLoader mt-0">
-
           {/* Table Filter Section */}
-          <FilterSection setFilterData={setFilterData} />
+          <FilterSection
+            setFilterData={setFilterData}
+          />
 
           {/* Table Data Section */}
           {loading && <FullLoader />}
@@ -84,14 +83,17 @@ const ManageRFQ = () => {
 
           {!loading && myRFQs.length > 0 && (
             <Pagination
-              page={page}
-              setPage={setpage}
-              limit={limit}
-              setLimit={setlimit}
+              page={filterData.page}
+              setPage={(newPage) =>
+                setFilterData((prev) => ({ ...prev, page: newPage }))
+              }
+              limit={filterData.limit}
+              setLimit={(newLimit) =>
+                setFilterData((prev) => ({ ...prev, limit: newLimit }))
+              }
               totalData={totalRFQs}
             />
           )}
-
         </div>
       </div>
     </>
