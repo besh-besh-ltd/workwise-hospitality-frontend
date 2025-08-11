@@ -64,110 +64,119 @@ const BroadcastModal = ({
   if (!show) return null;
 
   return (
-    <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-dialog modal-lg">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">
-              <i className="fas fa-broadcast-tower me-2"></i>
-              Send Broadcast Message
-            </h5>
-            <button 
-              type="button" 
-              className="btn-close" 
-              onClick={handleClose}
-              disabled={loading}
-            ></button>
-          </div>
-          
-          <div className="modal-body">
-            <div className="alert alert-info">
-              <i className="fas fa-info-circle me-2"></i>
-              This message will be sent to <strong>{vendorCount}</strong> vendor(s) for RFQ #{rfqNumber}
-            </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="messageText" className="form-label">
-                  Message Text <span className="text-danger">*</span>
-                </label>
-                <textarea
-                  id="messageText"
-                  className={`form-control ${errors.message ? 'is-invalid' : ''}`}
-                  rows="4"
-                  value={messageText}
-                  onChange={(e) => {
-                    setMessageText(e.target.value);
-                    if (errors.message) {
-                      setErrors({ ...errors, message: null });
-                    }
-                  }}
-                  placeholder="Enter your message here..."
-                  disabled={loading}
-                  maxLength="1000"
-                />
-                {errors.message && (
-                  <div className="invalid-feedback">
-                    {errors.message}
-                  </div>
-                )}
-                <div className="form-text">
-                  {messageText.length}/1000 characters
-                </div>
-              </div>
+    <div
+  className="modal fade show d-block"
+  tabIndex="-1"
+  style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+>
+  <div className="modal-dialog modal-lg">
+    <div className="modal-content">
+      <div className="modal-header p-3">
+        <h5 className="modal-title">
+          <i className="fas fa-broadcast-tower me-2"></i>
+          Send Broadcast Message
+        </h5>
+        <button
+          type="button"
+          className="btn-close"
+          onClick={handleClose}
+          disabled={loading}
+        ></button>
+      </div>
 
-              {/* Quick Message Templates */}
-              <div className="mb-3">
-                <label className="form-label">Quick Message Templates:</label>
-                <div className="list-group">
-                  {quickMessages.map((message, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className="list-group-item list-group-item-action"
-                      onClick={() => handleQuickMessage(message)}
-                      disabled={loading}
-                    >
-                      {message}
-                    </button>
-                  ))}
-                </div>
-                <small className="text-muted">Click on any template to use it as your message</small>
-              </div>
-            </form>
-          </div>
-          
-          <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn btn-secondary" 
-              onClick={handleClose}
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button 
-              type="button" 
-              className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={loading || !messageText.trim()}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-paper-plane me-2"></i>
-                  Send to {vendorCount} Vendor(s)
-                </>
-              )}
-            </button>
-          </div>
+      <div className="modal-body p-4">
+        <div className="alert alert-info">
+          <i className="fas fa-info-circle me-2"></i>
+          This message will be sent to <strong>{vendorCount}</strong> vendor(s) for RFQ #{rfqNumber}
         </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label htmlFor="messageText" className="form-label">
+              Message Text <span className="text-danger">*</span>
+            </label>
+            <textarea
+              id="messageText"
+              className={`form-control ${errors.message ? "is-invalid" : ""}`}
+              rows="4"
+              value={messageText}
+              onChange={(e) => {
+                setMessageText(e.target.value);
+                if (errors.message) {
+                  setErrors({ ...errors, message: null });
+                }
+              }}
+              placeholder="Enter your message here..."
+              disabled={loading}
+              maxLength="1000"
+            />
+            {errors.message && (
+              <div className="invalid-feedback">{errors.message}</div>
+            )}
+            <div className="form-text">
+              {messageText.length}/1000 characters
+            </div>
+          </div>
+
+          {/* Quick Message Templates */}
+          <div className="mb-3">
+            <label className="form-label">Quick Message Templates:</label>
+            <div className="list-group">
+              {quickMessages.map((message, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className="list-group-item list-group-item-action"
+                  onClick={() => handleQuickMessage(message)}
+                  disabled={loading}
+                >
+                  {message}
+                </button>
+              ))}
+            </div>
+            <small className="text-muted">
+              Click on any template to use it as your message
+            </small>
+          </div>
+        </form>
+      </div>
+
+      <div className="modal-footer p-3">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={handleClose}
+          disabled={loading}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleSubmit}
+          disabled={loading || !messageText.trim()}
+          style = {{"minWidth" : "240px"}}
+        >
+          {loading ? (
+            <>
+              <span
+                className="spinner-border spinner-border-sm me-2"
+                role="status"
+              ></span>
+              Sending...
+            </>
+          ) : (
+            <>
+              <i className="fas fa-paper-plane me-2"></i>
+              Send to {vendorCount} Vendor(s)
+            </>
+          )}
+        </button>
       </div>
     </div>
+  </div>
+</div>
+
   );
 };
 
