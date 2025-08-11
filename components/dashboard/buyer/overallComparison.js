@@ -3,7 +3,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import InputModal from "@/components/shared/InputModal";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { downloadQuotesDetails, updateTargetPrice } from "@/services/rfq";
+import { downloadQuotesDetails, getTargetPriceHistory, updateTargetPrice } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal, extractfileName } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -28,6 +28,7 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no }) => {
   const [breakupStates, setBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
   const [openModalId, setOpenModalId] = useState(null);
+  const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
   
   useEffect(() => {
     handleDownloadQuote();
@@ -78,6 +79,23 @@ const openModalForVariant = (variantId) => {
     
     return fileArr;
   }
+  const getPricehistory = async (rfq_product_id) => {
+    try {
+      const data = await getTargetPriceHistory(rfq_product_id);
+
+  
+      if (data.length > 0) {
+        settargetPriceHistory(data);
+      } else {
+        setTargetPrice([]);
+      }
+  
+      return data || [];
+    } catch (error) {
+      console.log("error in fetching Target History");
+      return [];
+    }
+  };
 
   const getQty = (item, index) => {
     let qq = item.quotations.filter((qi) => qi.id != null);
@@ -404,7 +422,7 @@ const openModalForVariant = (variantId) => {
                     </th>
                     <th scope="col" className="all_vendors" rowSpan={2}>
                       <p>
-                        Selling Price
+                        Selling Price / Target Price
                       </p>
                     </th>
                     
@@ -424,11 +442,7 @@ const openModalForVariant = (variantId) => {
                         );
                       })}
 
-                      <th scope="col" className="all_vendors" rowSpan={2}>
-                      <p>
-                        Target Price
-                      </p>
-                    </th>
+                     
                    </tr>
                 </thead>
                 <tbody className="last_row">
@@ -855,11 +869,75 @@ const openModalForVariant = (variantId) => {
                               />
                             </td>
                           )}
-                          {selling_price ? (
-                            <td>₹{addCommasToNumber(selling_price)}</td>
-                          ) : (
-                            <td>N/A</td>
-                          )}
+
+                          <td>
+                            <table className="w-100">
+                              {/* Selling Price Row */}
+                              <tr>
+                                <td
+                                  className="pe-2"
+                                  style={{ whiteSpace: "nowrap" }}
+                                >
+                                  Selling Price:
+                                </td>
+                                <td>
+                                  {selling_price
+                                    ? `₹${addCommasToNumber(selling_price)}`
+                                    : "NA"}
+                                </td>
+                              </tr>
+
+                              {/* Target Price Row */}
+                              <tr>
+                                <td
+                                  className="pe-2"
+                                  style={{ whiteSpace: "nowrap" }}
+                                >
+                                  Target Price:
+                                </td>
+                                <td>
+                                  {item.latest_target_price
+                                    ? `₹${addCommasToNumber(
+                                        item.latest_target_price
+                                      )}`
+                                    : "NA"}
+                                </td>
+                              </tr>
+
+                              {/* Set Target Price Row */}
+                              <tr>
+                                <td colSpan="2" className="pt-2">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    className="border-0 py-1 px-2"
+                                    onClick={async () => {
+                                      await getPricehistory(item.id);
+                                      setOpenModalId(item.id);
+                                    }}
+                                  >
+                                    Set Target
+                                  </Button>
+
+                                  <InputModal
+                                    show={openModalId === item.id}
+                                    onHide={() => setOpenModalId(null)}
+                                    onSubmit={(targetPrice) =>
+                                      handleSubmitTargetPrice(
+                                        targetPrice,
+                                        rfq_product_id
+                                      )
+                                    }
+                                    productName={productName}
+                                    initialValue={item.latest_target_price}
+                                    numericLabel="Target Price"
+                                    modalTitle="Set Target Price"
+                                    historyData={targetPriceHistory}
+                                  />
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item, vIdx) => {
@@ -937,7 +1015,6 @@ const openModalForVariant = (variantId) => {
                                       </div>
                                     )}
                                   </td>
-                                  
                                 );
                               } else {
                                 const freight_mode =
@@ -984,7 +1061,8 @@ const openModalForVariant = (variantId) => {
                                             <tr>
                                               <th>Base Price</th>
                                               <td>
-                                                ₹{quote_item?.quote_details
+                                                ₹
+                                                {quote_item?.quote_details
                                                   ?.length > 0
                                                   ? addCommasToNumber(
                                                       quote_item
@@ -997,7 +1075,8 @@ const openModalForVariant = (variantId) => {
                                             <tr>
                                               <th>Total Rate</th>
                                               <td>
-                                                ₹{quote_item?.quote_details
+                                                ₹
+                                                {quote_item?.quote_details
                                                   ?.length > 0 &&
                                                 quote_item?.quote_details[0]
                                                   ?.unit_price &&
@@ -1132,7 +1211,8 @@ const openModalForVariant = (variantId) => {
                                             >
                                               <th>Sub Total</th>
                                               <td>
-                                                ₹{quote_item?.quote_details
+                                                ₹
+                                                {quote_item?.quote_details
                                                   .length > 0 &&
                                                 (parseInt(
                                                   quote_item.quote_details[0]
@@ -1173,28 +1253,6 @@ const openModalForVariant = (variantId) => {
                                 );
                               }
                             })}
-                             <td> <Button
-                                      onClick={() => setOpenModalId(item.id)}
-                                    >
-                                      Set Target Price
-                                    </Button>
-
-                                    <InputModal
-                                      show={openModalId === item.id}
-                                      onHide={() => setOpenModalId(null)}
-                                      onSubmit={(targetPrice) =>
-                                        handleSubmitTargetPrice(
-                                          targetPrice,
-                                          rfq_product_id
-                                        )
-                                      }
-                                      productName={
-                                        productName
-                                      }
-                                      initialValue={item.latest_target_price}
-                                      numericLabel="Target Price"
-                                      modalTitle="Set Target Price"
-                                    /></td>
                         </tr>
                       );
                     })}

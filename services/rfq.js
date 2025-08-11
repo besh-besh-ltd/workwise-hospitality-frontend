@@ -340,10 +340,10 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
   });
 };
 
-export const getTargetPriceHistory = () =>{
+export const getTargetPriceHistory = (rfq_product_id) =>{
   return new Promise (async (resolve , reject) =>{
     try {
-      let response = await axiosInstance.get('/rfq/targetPriceHistory')
+      let response = await axiosInstance.get(`/rfq/targetPriceHistory/${rfq_product_id}`)
       resolve(response.data)
     } catch (error) {
       reject({message : error})

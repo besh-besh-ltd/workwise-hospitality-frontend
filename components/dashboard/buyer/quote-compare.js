@@ -64,7 +64,7 @@ const QuoteCompare = () => {
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState('product');
   const [targetPrice , setTargetPrice] = useState(null);
-  const [targetPriceHistroy ,  targetPriceHistory] = useState(null);
+  const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
 
 
 
@@ -118,21 +118,22 @@ const QuoteCompare = () => {
 
 
 
-const getPricehistory = async () =>{
+const getPricehistory = async (rfq_product_id) => {
   try {
-    const data = await getTargetPriceHistory();
+    const data = await getTargetPriceHistory(rfq_product_id);
 
-  if(data.length > 0){
-    setTargetPrice(data)
-  }
-  else {
-    setTargetPrice([])
-  }
-    
+    if (data.length > 0) {
+      settargetPriceHistory(data);
+    } else {
+      setTargetPrice([]);
+    }
+
+    return data || [];
   } catch (error) {
-    console.log("error in fetching Target History")
+    console.log("error in fetching Target History");
+    return [];
   }
-}
+};
 const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
@@ -180,6 +181,10 @@ const openModalForVariant = (variantId) => {
     }
   };
 
+  useEffect(()=>{
+    if(targetPriceHistory.length > 0)
+      console.log('logg target price', targetPriceHistory);
+  },[])
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
     getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC" })
@@ -1527,20 +1532,25 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                     </p>
                                   </div>
                                   <div>
-                                    <Button
-                                      variant="outline-primary"
-                                      size="sm"
-                                      className="position-relative p-2 px-2"
-                                      onClick={() => openModalForVariant(key)}
-                                    >
-                                      View LPR History
-                                    </Button>
-                                    {/* <Button onClick={loadOptions}>Open Modal</Button> */}
-                                    <Button
-                                      onClick={() => setOpenModalId(item.id)}
-                                    >
-                                      Set Target Price
-                                    </Button>
+                                    <div className="d-flex gap-2">
+                                      <Button
+                                        variant="primary"
+                                        size="sm"
+                                        className="position-relative p-2 px-2"
+                                        onClick={() => openModalForVariant(key)}
+                                      >
+                                        View LPR History
+                                      </Button>
+
+                                      <Button
+                                        variant="success"
+                                        size="sm"
+                                        className="position-relative p-2 px-2"
+                                        onClick={() => {getPricehistory(item.id) ,setOpenModalId(item.id)}}
+                                      >
+                                        Set Target Price
+                                      </Button>
+                                    </div>
 
                                     <InputModal
                                       show={openModalId === item.id}
@@ -1551,12 +1561,11 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                           item.id
                                         )
                                       }
-                                      productName={
-                                        product_name
-                                      }
+                                      productName={product_name}
                                       initialValue={item.latest_target_price}
                                       numericLabel="Target Price"
                                       modalTitle="Set Target Price"
+                                      historyData={targetPriceHistory} // pass array directly
                                     />
                                   </div>
                                 </div>
@@ -1849,7 +1858,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                       }
                                       availableBudget={availableBudget}
                                       targetPrice={item.latest_target_price}
-                                      targetHistory = {targetPriceHistory}
+                                      targetHistory={targetPriceHistory}
                                     />
                                   </>
                                 )}
@@ -1859,7 +1868,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                       </>
                     )}
                     {activeTab === 'category' && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} targetHistory = {targetPriceHistory} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} targetPriceHistory = {targetPriceHistory}  />
                     )}
                     {activeTab === 'cost' && (
                       <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />

@@ -6,6 +6,9 @@ import { listQueryMessages, listQueries, getRfqDetails, broadcastMessage } from 
 import FullLoader from "@/components/shared/FullLoader";
 import BroadcastModal from "@/components/shared/BroadcastModal.js";
 import { toast } from "react-toastify";
+import { Button } from "react-bootstrap";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 const QueryComponent = () => {
   const router = useRouter();
@@ -138,13 +141,18 @@ const QueryComponent = () => {
       <div className="d-flex justify-content-between align-items-center">
         <h1 className="heading">{`Queries for RFQ#${rfqDetails?.rfq_no}`}</h1>
         {role === "buyer" && (
-          <button
-            className="btn btn-primary"
+          <Button
+            className="page-link backBtn btn btn-secondary text-white px-2"
+            style={{ minWidth: "280px" }}
             onClick={() => setShowBroadcastModal(true)}
           >
-            <i className="fas fa-broadcast-tower me-2"></i>
+            {" "}
+              <FontAwesomeIcon
+                icon={faWandMagicSparkles}
+                className="me-2"
+              />{" "}
             Broadcast Message
-          </button>
+          </Button>
         )}
       </div>
     </div>

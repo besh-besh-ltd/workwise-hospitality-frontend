@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Modal, Button, Form, Table } from 'react-bootstrap';
 
 const InputModal = ({ 
   show, 
   onHide, 
   onSubmit, 
-  productName,          // Static product name to display
-  initialValue = '',    // Initial value for the numeric input
+  productName,
+  initialValue = '',
   numericLabel = "Target Price",
-  modalTitle = "Set Target Price"
+  modalTitle = "Set Target Price",
+  historyData = [] // <-- pass array directly
 }) => {
   const [numericValue, setNumericValue] = useState(initialValue);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,34 +41,67 @@ const InputModal = ({
       </Modal.Header>
 
       <Modal.Body>
-        <Form>
-          <Form.Group className="mb-3" controlId="formProductName">
-            <Form.Label>Product</Form.Label>
-            <Form.Control
-              type="text"
-              value={productName}
-              readOnly
-              plaintext
-            />
-          </Form.Group>
+        {/* Product Name */}
+        <Form.Group className="mb-3" controlId="formProductName">
+          <Form.Label>Product</Form.Label>
+          <Form.Control
+            type="text"
+            value={productName}
+            readOnly
+            plaintext
+          />
+        </Form.Group>
 
-          <Form.Group className="mb-3" controlId="formNumericInput">
-            <Form.Label>{numericLabel}</Form.Label>
-            <Form.Control
-              type="number"
-              min="0"
-              step="0.01"
-              value={numericValue}
-              onChange={(e) => setNumericValue(e.target.value)}
-              disabled={isSubmitting}
-              placeholder={`Enter ${numericLabel.toLowerCase()}`}
-            />
-          </Form.Group>
-        </Form>
+        {/* Target Price */}
+        <Form.Group className="mb-3" controlId="formNumericInput">
+          <Form.Label>{numericLabel}</Form.Label>
+          <Form.Control
+            type="number"
+            min="0"
+            step="0.01"
+            value={numericValue}
+            onChange={(e) => setNumericValue(e.target.value)}
+            disabled={isSubmitting}
+            placeholder={`Enter ${numericLabel.toLowerCase()}`}
+          />
+        </Form.Group>
+
+        {/* Price History */}
+        <div className="mt-4">
+          <h6 className="mb-2">Price History</h6>
+          {historyData?.length > 0 ? (
+            <Table bordered hover size="sm" className="align-middle text-center">
+              <thead className="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Target Price</th>
+                  <th>Created At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyData.map((item, index) => (
+                  <tr key={item.id}>
+                    <td>{index + 1}</td>
+                    <td>
+                      <span className="fw-semibold text-primary">
+                        {item.target_price}
+                      </span>
+                    </td>
+                    <td className="text-muted small">
+                      {new Date(item.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : (
+            <div className="text-muted fst-italic">No history available</div>
+          )}
+        </div>
       </Modal.Body>
 
       <Modal.Footer className="py-2 px-3">
-        <div className="d-flex justify-content-between w-100">
+        <div className="d-flex gap-2 ms-auto">
           <Button 
             variant="outline-secondary" 
             onClick={onHide}
