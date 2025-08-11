@@ -65,8 +65,8 @@ const HeroVideo = () => {
 
         {/* AI Attribution Badge */}
         <div className="d-flex align-items-center gap-2 mt-3">
-          <FaRobot style={{ color: '#0EA5E9' }} />
-          <span className="text-primary fw-medium small">
+          <FaRobot style={{ color: 'white' }} />
+          <span className="text-white fw-medium small">
             Powered by AI from IIT Bombay
           </span>
         </div>

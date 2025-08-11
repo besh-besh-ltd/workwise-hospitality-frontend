@@ -161,8 +161,11 @@ const RegisterFormModal = React.forwardRef(({
                             return 'password';
                           case 'number':
                             return 'number';
-                          default:
-                            return 'simple-text';
+                           case 'text':
+                             return 'text';
+                           default:
+                             // Use standard text input so Formik controls the value
+                             return 'text';
                         }
                       };
 

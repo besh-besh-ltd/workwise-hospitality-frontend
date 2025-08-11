@@ -88,7 +88,7 @@ const HeroSection = React.forwardRef(({
                       label={primaryButton.label}
                       variant={primaryButton.variant || "black"}
                       icon={primaryButton.icon || "none"}
-                      size="lg"
+                      size="md"
                       onClick={primaryButton.onClick}
                       className="w-auto"
                     />
@@ -98,7 +98,7 @@ const HeroSection = React.forwardRef(({
                       label={secondaryButton.label}
                       variant={secondaryButton.variant || "white"}
                       icon={secondaryButton.icon || "phone"}
-                      size="lg"
+                      size="md"
                       onClick={secondaryButton.onClick}
                       className="w-auto"
                     />

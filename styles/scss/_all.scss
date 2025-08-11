@@ -403,6 +403,174 @@ textarea {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
 
+  /* Ensure smooth transitions for all child elements */
+  * {
+    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  /* Transparent state when at top */
+  &.transparent {
+    background: transparent !important;
+    backdrop-filter: none;
+    border-bottom: none;
+
+    /* Only top-level nav links should be white; keep dropdown text default */
+    .main-menu > ul > li > a,
+    .main-menu > ul > li > span,
+    .header-right nav.main-menu > ul > li > a,
+    .header-right nav.main-menu > ul > li > span {
+      color: #ffffff !important;
+    }
+
+    .main-menu ul li a:hover {
+      color: var(--secondary-color);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .main-menu ul li.active a {
+      color: var(--secondary-color);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .extra-buttons ul li a {
+      color: #ffffff;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      background: transparent;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    .extra-buttons ul li:first-child a {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    .extra-buttons ul li:last-child a {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    .menu-ctrl span {
+      background-color: #ffffff;
+    }
+
+    /* Dropdown menu styling for transparent state */
+    .dropdown-menu {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+      .dropdown-item {
+        color: var(--black-color);
+
+        &:hover {
+          background: rgba(66, 139, 65, 0.08);
+          color: var(--secondary-color);
+        }
+      }
+    }
+  }
+
+  /* Scrolled state */
+  &.scrolled {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(25px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+    .main-menu ul li a,
+    .main-menu ul li span {
+      color: var(--black-color);
+    }
+
+    .main-menu ul li a:hover {
+      color: var(--secondary-color);
+      background: rgba(66, 139, 65, 0.08);
+    }
+
+    .main-menu ul li.active a {
+      color: var(--secondary-color);
+      background: rgba(66, 139, 65, 0.1);
+    }
+
+    .extra-buttons ul li a {
+      color: var(--white-color);
+    }
+
+    .extra-buttons ul li:first-child a {
+      background: linear-gradient(135deg, var(--secondary-color) 0%, #2d8a2d 100%);
+      border: none;
+    }
+
+    .extra-buttons ul li:last-child a {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #1e4a8a 100%);
+      border: none;
+    }
+  }
+
+    /* Always white state for dashboard pages */
+  &.always-white {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(25px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+    .main-menu ul li a,
+    .main-menu ul li span {
+      color: var(--black-color);
+    }
+
+    .main-menu ul li a:hover {
+      color: var(--secondary-color);
+      background: rgba(66, 139, 65, 0.08);
+    }
+
+    .main-menu ul li.active a {
+      color: var(--secondary-color);
+      background: rgba(66, 139, 65, 0.1);
+    }
+
+    .extra-buttons ul li a {
+      color: var(--white-color);
+    }
+
+    .extra-buttons ul li:first-child a {
+      background: linear-gradient(135deg, var(--secondary-color) 0%, #2d8a2d 100%);
+      border: none;
+    }
+
+    .extra-buttons ul li:last-child a {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #1e4a8a 100%);
+      border: none;
+    }
+
+    .logo .logo-white { filter: none; }
+    .menu-ctrl span { background: var(--black-color); }
+  }
+
+  /* Hero page specific styling */
+  &.hero-page {
+    &.transparent {
+      .logo .logo-white {
+        filter: brightness(0) invert(1);
+      }
+    }
+  }
+
   .header-container {
     display: flex;
     justify-content: space-between;
@@ -417,6 +585,11 @@ textarea {
       img {
         width: 100%;
         height: auto;
+        transition: filter 0.3s ease;
+      }
+
+      .logo-white {
+        filter: brightness(0) invert(1);
       }
     }
   }
@@ -735,6 +908,12 @@ textarea {
   }
 }
 
+/* Remove any accidental top margin/padding when at the very top to avoid white bar */
+body.at-top {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
 /* Menu Control */
 .menu-ctrl {
   position: relative;
@@ -747,6 +926,10 @@ textarea {
   display: none;
   border-radius: 4px;
   cursor: pointer;
+
+  &.menu-ctrl-transparent span {
+    background-color: white;
+  }
 
   label {
     display: block;
@@ -786,6 +969,40 @@ textarea {
         transform: rotate(-45deg) translate(7px, -6px);
       }
     }
+  }
+}
+
+/* Sticky Mobile CTA - global (outside header) */
+.sticky-mobile-cta {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1020;
+  display: none;
+
+  a {
+    display: block;
+    padding: 12px 24px;
+    background: var(--secondary-color);
+    color: var(--white-color);
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(66, 139, 65, 0.3);
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(66, 139, 65, 0.4);
+      color: var(--white-color);
+      text-decoration: none;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .sticky-mobile-cta {
+    display: block;
   }
 }
 

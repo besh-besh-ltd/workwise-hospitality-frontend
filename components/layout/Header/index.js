@@ -325,6 +325,7 @@ const Header = () => {
   const [sticky, setSticky] = useState("");
   const [menuClass, setMenuClass] = useState(false);
   const [popoverVisible, setPopoverVisible] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const popoverRef = useRef(null);
   const [loggedinUser, setLoggedinUser] = useState(null);
   const [currentUserType, setcurrentUserType] = useState("vendor");
@@ -351,10 +352,24 @@ const Header = () => {
     setState(event);
   };
 
+  // determine if current route should use transparent header at the very top
+  const shouldUseTransparent = () => {
+    const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
+    return !isPrivate && (pathname === "/" || pathname === "/ai-tools");
+  };
+
   const isSticky = () => {
     const scrollTop = window.scrollY;
     const stickyClass = scrollTop >= 50 ? "sticky" : "";
+    const scrolled = scrollTop > 10;
     handleChange(setSticky(stickyClass));
+    setIsScrolled(scrolled);
+    // Only add the at-top helper when we are on a page that uses transparent header
+    if (!scrolled && shouldUseTransparent()) {
+      document.body.classList.add("at-top");
+    } else {
+      document.body.classList.remove("at-top");
+    }
   };
 
   const setUserDetails = () => {
@@ -433,7 +448,16 @@ const Header = () => {
   return (
     <>
       <header
-        className={`main-header ${sticky} ${menuClass ? "menu-open" : ""}`}
+        className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
+          const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
+          if (isPrivate || (loggedinUser && loggedinUser?.name)) {
+            return "always-white"; // never transparent for logged-in areas
+          }
+          if (pathname === "/" || pathname === "/ai-tools") {
+            return isScrolled ? "scrolled hero-page" : "transparent hero-page";
+          }
+          return "scrolled"; // default public pages are white
+        })()}`}
       >
         <div className="container-fluid">
           <div className="header-container">
@@ -458,7 +482,7 @@ const Header = () => {
                 <Image
                   src="/assets/images/logo1.png"
                   alt="Workwise"
-                  className=""
+                  className={`logo-image ${(!isScrolled && shouldUseTransparent()) ? "logo-white" : ""}`}
                   width={160}
                   height={41}
                   priority={true}
@@ -586,6 +610,7 @@ const Header = () => {
                   <label
                     htmlFor="menu-toggle"
                     onClick={() => setMenuClass(!menuClass)}
+                    className={(!isScrolled && shouldUseTransparent()) ? 'menu-ctrl-transparent' : ''}
                   >
                     <span></span>
                     <span></span>
