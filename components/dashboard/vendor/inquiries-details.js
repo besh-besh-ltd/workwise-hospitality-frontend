@@ -29,8 +29,6 @@ const RfqManagementPreview = () => {
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
-  const [buyerClauses, setBuyerClauses] = useState(null);
-  const [clauseMap, setClauseMap] = useState(null);
   const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   // New state variables for enhanced RA logic
@@ -51,7 +49,6 @@ const RfqManagementPreview = () => {
   useEffect(() => {
     if (id) {
       getRFQdetails();
-      getRFQClauses();
     }
   }, [id]);
 
@@ -70,21 +67,6 @@ const RfqManagementPreview = () => {
       setRedirectAfterLogin(null);
     }
   }, [router]);
-
-  useEffect(() => {
-    if (rfqDetails && buyerClauses) {
-      let c_map = new Map();
-      rfqDetails.products?.map((pItem) => {
-        c_map.set(pItem.id, false);
-      })
-
-      buyerClauses?.map((pItem) => {
-        c_map.set(pItem.rfq_product_id, true);
-      })
-      setClauseMap(c_map);
-    }
-
-  }, [rfqDetails, buyerClauses])
 
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
@@ -195,15 +177,6 @@ const RfqManagementPreview = () => {
       setCurrentLowest(hasLowestQuotation && showLowestPrice);
     } else {
       setCurrentLowest(null);
-    }
-  };
-
-  const getRFQClauses = async () => {
-    try {
-      const res = await getAllClauses(id);
-      setBuyerClauses(res.data);
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -967,14 +940,14 @@ const RfqManagementPreview = () => {
                           className="page-link"
                         >
                                           View selected vendors (
-                                          {item.vendor_details?.length})
+                                          {item.vendors_count})
                                         </Link>
                                       </span>
                                     </td>
                                   )}
 
                                   <td>
-                                    {clauseMap && clauseMap.get(item.id) ? (
+                                    {item.tech_evaluation_status.has_tech_eval ? (
                                       <a
                                         href={`/dashboard/${
                                           type == "buyer-view"
