@@ -17,6 +17,9 @@ import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 import { aiToolsData } from '@/components/constants/aiToolsData';
 import { getBOQexcelToJsonAI, handleCostEstimation, startCostEstimationProcess } from '@/services/rfq';
 import { toast } from 'react-toastify';
+import { LoginService, SWSubscribe } from '@/services/Auth';
+import { useSelector } from 'react-redux';
+import storageInstance from '@/utils/storageInstance';
 
 const AiToolPage = () => {
   const router = useRouter();
@@ -29,6 +32,7 @@ const AiToolPage = () => {
   const [fileName, setFileName] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [formError, setFormError] = useState(null);
+  const swSubscription = useSelector((data) => data.swSubscription);
 
   useEffect(() => {
     setMounted(true);
@@ -71,6 +75,40 @@ const AiToolPage = () => {
     setShowFormModal(true);
   };
 
+  const handleUserLogin = async (values) => {
+    try {
+      const response = await LoginService(values, true);
+      // subscribe to SW
+      SWSubscribe({ subscription: swSubscription, token: response.token });
+      let userType = "";
+      if (response.user_detail[0].user_type == 2) {
+        userType = "buyer";
+      } else if (response.user_detail[0].user_type == 3) {
+        userType = "vendor";
+      } else if (response.user_detail[0].user_type == 4) {
+        userType = "other";
+      } else if (response.user_detail[0].user_type == 7) {
+        userType = "admin";
+      } else if (response.user_detail[0].user_type == 8) {
+        userType = "management";
+      } else if (response.user_detail[0].user_type == 9) {
+        userType = "engineering";
+      } else if (response.user_detail[0].user_type == 10) {
+        userType = "finance";
+      }
+      storageInstance.setStorage("current-user-type", userType);
+      return true;
+    } catch (error) {
+      if (error?.response?.status === 400) {
+      } else {
+        toast.error(error?.message, {
+          position: "top-center",
+        });
+      }
+      return false;
+    }
+  }
+
   const handleFormSubmit = async (formData) => {
     try {
       const persistJob = await handleCostEstimation(fileName, 'cost-estimation', formData);
@@ -81,6 +119,7 @@ const AiToolPage = () => {
       if (startResponse) {
         const response = startResponse.data;
         toast.success(response.message);
+        handleUserLogin(response.user);
       } else {
         toast.error("Server is too busy to handle your request, please try again in some time...");
       }
