@@ -284,9 +284,16 @@ export const handleNormalize = (data) => {
   })();
 
   const normalized = data.map(item => {
+
+    // Build a quick lookup: vendorId -> payment_terms
+    const vendorTermsById = new Map(
+      (item.all_vendors || []).map(v => [v.id, v.payment_terms || []])
+    );
+
     const updatedQuotations = item.quotations.map(quote => {
 
-      const paymentTerms = quote.payment_terms || [];
+      const paymentTerms = vendorTermsById.get(quote.created_by) || [];
+
       const updatedDetails = quote.quote_details?.map(detail => {
         const currentFreight = parseFloat(detail.freight_price);
         const currentPackage = parseFloat(detail.package_price);
