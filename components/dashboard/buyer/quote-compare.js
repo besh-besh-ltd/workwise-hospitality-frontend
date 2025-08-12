@@ -8,9 +8,11 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
+  getTargetPriceHistory,
   handleUploadFile,
   handleUploadFileInFormData,
   saveExcelInDB,
+  updateTargetPrice,
 } from "@/services/rfq";
 import { useRouter } from "next/router";
 import * as XLSX from "xlsx-js-style";
@@ -26,6 +28,7 @@ import LPRModal from "@/components/shared/LPRModal";
 import { Button } from "react-bootstrap";
 import OverallCostComparison from './OverallCostComparison';
 import ReadMore from "@/components/shared/ReadMore";
+import InputModal from "@/components/shared/InputModal";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -55,11 +58,16 @@ const QuoteCompare = () => {
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
-  const [ showLPRModal, setShowLPRModal] = useState(false);
+  const [showLPRModal, setShowLPRModal] = useState(false);
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState('product');
+  // const [targetPrice , setTargetPrice] = useState(null);
+  const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
+
+
+ const [openModalId, setOpenModalId] = useState(null);
 
   useEffect(() => {
     if (rfq) {
@@ -73,7 +81,8 @@ const QuoteCompare = () => {
   
   useEffect(() => {
     getAllProjects();
-  }, []);
+    getPricehistory();
+  }, [rfq]);
 
   useEffect(() => {
     if(quotes && quotes.length > 0) {
@@ -105,6 +114,24 @@ const QuoteCompare = () => {
   setOpenModals(prev => ({ ...prev, [variantId]: false }));
 };
 
+
+
+const getPricehistory = async (rfq_product_id) => {
+  try {
+    const data = await getTargetPriceHistory(rfq_product_id);
+
+    if (data.length > 0) {
+      settargetPriceHistory(data);
+    } else {
+      setTargetPrice([]);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.log("error in fetching Target History");
+    return [];
+  }
+};
 const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
@@ -115,10 +142,10 @@ const getAvailableBudget = async (projectId) => {
   }
 };
 
-useEffect(() => {
- if(availableBudget){
- console.log("Available Budget:", availableBudget);
-  } }, [availableBudget]);
+// useEffect(() => {
+//  if(availableBudget){
+//  console.log("Available Budget:", availableBudget);
+//   } }, [availableBudget]);
 
 const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
@@ -152,6 +179,7 @@ const openModalForVariant = (variantId) => {
     }
   };
 
+ 
   const getAllRFQs = (rfqNumberChange=false) => {
     setloading(true);
     getRfqs({ tech_eval: false, page, limit, project_id: selectedproject ? selectedproject : -1, rfq_no: rfqNo ? parseInt(rfqNo.replace('#','')) : null, sort: "DESC" })
@@ -261,7 +289,7 @@ const openModalForVariant = (variantId) => {
     try {
       const res = await downloadQuotesDetails(rfq, TA_Filter, freightFilter);
       const [excelBuffer, fileName] = generateExcelFile(res.data);
-
+      // setTargetPrice(res?.data?.latest_target_price)
       if (excelBuffer) {
         const blob = new Blob([excelBuffer], {
           type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -284,7 +312,6 @@ const openModalForVariant = (variantId) => {
       setDownloadLoading(false);
     }
   };
-
 
   const generateExcelFile = (api_data) => {
     let l1totaltemp = 0;
@@ -1061,7 +1088,21 @@ const openModalForVariant = (variantId) => {
     
     return fileArr;
   }
-
+   
+const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
+  try {
+    const result = await updateTargetPrice(targetPrice, rfq_product_id);
+    
+    if (!result) {
+      toast.error("Error updating Target Price");
+    } else {
+      toast.success("Target Price created and vendors have been informed");
+    }
+  } catch (error) {
+    toast.error(error.message || "Failed to update Target Price");
+    console.error("Update target price error:", error);
+  }
+};
   const handleRFqClose = (e) => {
     setcloseRFqLoading(true);
     e.preventDefault();
@@ -1135,10 +1176,10 @@ const openModalForVariant = (variantId) => {
     getAllRFQs();
   }, [page]);
   
-  // // Debug useEffect to log myRFQs changes
-  // useEffect(() => {
-  //   console.log('myRFQs state changed:', myRFQs, 'length:', myRFQs?.length);
-  // }, [myRFQs]);
+// useEffect(()=>{
+//   if(quotes)
+//     console.log("logging here best possible price",quotes[0]?.latest_target_price)
+// },[])
 
 
   return (
@@ -1452,31 +1493,75 @@ const openModalForVariant = (variantId) => {
                           const product_specs = item?.product_details[0]?.rfq_details
                           const spec = product_specs.find(spec => spec.title == 'Spec')?.value;
                           const selling_price = product_specs.find(spec => spec.title == 'total_price')?.value
+                          const product_name  = item?.product_details.map((prod) => prod.product_name)
 
                           return (
-                            <div className="quote-sec-table-sub" key={`qq_${index}`}> 
+                            <div
+                              className="quote-sec-table-sub"
+                              key={`qq_${index}`}
+                            >
                               <div className="row">
                                 <div className="d-flex justify-content-between">
                                   <div>
                                     <p className="sub-heading mb-0">
-                                      <b>Product</b> : {item?.product_details[0]?.product_name}
+                                      <b>Product</b> :{" "}
+                                      {item?.product_details[0]?.product_name}
                                     </p>
                                     <div className="sub-heading mb-0 d-flex gap-1">
-                                      <b>Product Specification</b> : {spec ? <ReadMore content={spec} maxLength={30} maxLines={2} /> : "N/A"}
+                                      <b>Product Specification</b> :{" "}
+                                      {spec ? (
+                                        <ReadMore
+                                          content={spec}
+                                          maxLength={30}
+                                          maxLines={2}
+                                        />
+                                      ) : (
+                                        "N/A"
+                                      )}
                                     </div>
                                     <p className="sub-heading mb-0">
-                                      <b>Selling Price</b> : {selling_price ? "₹" + addCommasToNumber(selling_price) : "N/A"}
+                                      <b>Selling Price</b> :{" "}
+                                      {selling_price
+                                        ? "₹" + addCommasToNumber(selling_price)
+                                        : "N/A"}
                                     </p>
                                   </div>
                                   <div>
-                                    <Button
-                                      variant="outline-primary"
-                                      size="sm"
-                                      className="position-relative p-2 px-2"
-                                      onClick={() => openModalForVariant(key)}
-                                    >
-                                      View LPR History
-                                    </Button>
+                                    <div className="d-flex gap-2">
+                                      <Button
+                                        variant="primary"
+                                        size="sm"
+                                        className="position-relative p-2 px-2"
+                                        onClick={() => openModalForVariant(key)}
+                                      >
+                                        View LPR History
+                                      </Button>
+
+                                      <Button
+                                        variant="success"
+                                        size="sm"
+                                        className="position-relative p-2 px-2"
+                                        onClick={() => {getPricehistory(item.id) ,setOpenModalId(item.id)}}
+                                      >
+                                        Set Target Price
+                                      </Button>
+                                    </div>
+
+                                    <InputModal
+                                      show={openModalId === item.id}
+                                      onHide={() => setOpenModalId(null)}
+                                      onSubmit={(targetPrice) =>
+                                        handleSubmitTargetPrice(
+                                          targetPrice,
+                                          item.id
+                                        )
+                                      }
+                                      productName={product_name}
+                                      initialValue={item.latest_target_price}
+                                      numericLabel="Target Price"
+                                      modalTitle="Set Target Price"
+                                      historyData={targetPriceHistory} // pass array directly
+                                    />
                                   </div>
                                 </div>
                                 {item?.last_purchase_rate != null && (
@@ -1494,11 +1579,18 @@ const openModalForVariant = (variantId) => {
                                           <span>Base Price </span>
                                           {loading ? (
                                             <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
+                                              <PlaceholderLoading
+                                                shape="rect"
+                                                width={80}
+                                                height={20}
+                                              />
                                             </span>
                                           ) : (
                                             <span className="d-block fw-medium text-muted ">
-                                              {formatPrice(item?.last_purchase_rate?.unit_price) || "---"}
+                                              {formatPrice(
+                                                item?.last_purchase_rate
+                                                  ?.unit_price
+                                              ) || "---"}
                                             </span>
                                           )}
                                         </div>
@@ -1506,11 +1598,18 @@ const openModalForVariant = (variantId) => {
                                           <span>Freight Rate </span>
                                           {loading ? (
                                             <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
+                                              <PlaceholderLoading
+                                                shape="rect"
+                                                width={80}
+                                                height={20}
+                                              />
                                             </span>
                                           ) : (
                                             <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate?.freight_price !== null ? `${item?.last_purchase_rate?.freight_price}%` : "0%"}
+                                              {item?.last_purchase_rate
+                                                ?.freight_price !== null
+                                                ? `${item?.last_purchase_rate?.freight_price}%`
+                                                : "0%"}
                                             </span>
                                           )}
                                         </div>
@@ -1518,11 +1617,18 @@ const openModalForVariant = (variantId) => {
                                           <span>Packaging Rate </span>
                                           {loading ? (
                                             <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
+                                              <PlaceholderLoading
+                                                shape="rect"
+                                                width={80}
+                                                height={20}
+                                              />
                                             </span>
                                           ) : (
                                             <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate?.package_price !== null ? `${item?.last_purchase_rate?.package_price}%` : "0%"}
+                                              {item?.last_purchase_rate
+                                                ?.package_price !== null
+                                                ? `${item?.last_purchase_rate?.package_price}%`
+                                                : "0%"}
                                             </span>
                                           )}
                                         </div>
@@ -1530,11 +1636,18 @@ const openModalForVariant = (variantId) => {
                                           <span>Tax </span>
                                           {loading ? (
                                             <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
+                                              <PlaceholderLoading
+                                                shape="rect"
+                                                width={80}
+                                                height={20}
+                                              />
                                             </span>
                                           ) : (
                                             <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate?.tax !== null ? `${item?.last_purchase_rate?.tax}%` : "0%"}
+                                              {item?.last_purchase_rate?.tax !==
+                                              null
+                                                ? `${item?.last_purchase_rate?.tax}%`
+                                                : "0%"}
                                             </span>
                                           )}
                                         </div>
@@ -1542,11 +1655,16 @@ const openModalForVariant = (variantId) => {
                                           <span>Quantity </span>
                                           {loading ? (
                                             <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
+                                              <PlaceholderLoading
+                                                shape="rect"
+                                                width={80}
+                                                height={20}
+                                              />
                                             </span>
                                           ) : (
                                             <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate?.quantity || "---"}
+                                              {item?.last_purchase_rate
+                                                ?.quantity || "---"}
                                             </span>
                                           )}
                                         </div>
@@ -1554,11 +1672,18 @@ const openModalForVariant = (variantId) => {
                                           <span>Total Price </span>
                                           {loading ? (
                                             <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
+                                              <PlaceholderLoading
+                                                shape="rect"
+                                                width={80}
+                                                height={20}
+                                              />
                                             </span>
                                           ) : (
                                             <span className="d-block fw-medium text-muted ">
-                                              {formatPrice(item?.last_purchase_rate?.total_price) || "---"}
+                                              {formatPrice(
+                                                item?.last_purchase_rate
+                                                  ?.total_price
+                                              ) || "---"}
                                             </span>
                                           )}
                                         </div>
@@ -1566,125 +1691,182 @@ const openModalForVariant = (variantId) => {
                                     </div>
                                   </div>
                                 )}
-                                {item?.last_purchase_rate == null && item?.last_quote_rate != null && (
-                                  <div className="col-12 bg-transparent border-0 m">
-                                    <div className="d-flex justify-content-between align-items-center px-2 mb-2">
-                                      <div className="flex-grow-1 text-center">
-                                        <p className="sub-heading mb-0">
-                                          <b>Last Quoted Details :</b>
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="sub-heading border rounded-3 p-2">
-                                      <div className="row fw-medium mx-2">
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Base Price </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {formatPrice(item?.last_quote_rate?.unit_price) || "---"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Freight Rate </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_quote_rate?.freight_price !== null ? `${item?.last_quote_rate?.freight_price}%` : "0%"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Packaging Rate </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_quote_rate?.package_price !== null ? `${item?.last_quote_rate?.package_price}%` : "0%"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Tax </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_quote_rate?.tax !== null ? `${item?.last_quote_rate?.tax}%` : "0%"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Quantity </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_quote_rate?.quantity || "---"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Total Price </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading shape="rect" width={80} height={20} />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {formatPrice(item?.last_quote_rate?.total_price) || "---"}
-                                            </span>
-                                          )}
+                                {item?.last_purchase_rate == null &&
+                                  item?.last_quote_rate != null && (
+                                    <div className="col-12 bg-transparent border-0 m">
+                                      <div className="d-flex justify-content-between align-items-center px-2 mb-2">
+                                        <div className="flex-grow-1 text-center">
+                                          <p className="sub-heading mb-0">
+                                            <b>Last Quoted Details :</b>
+                                          </p>
                                         </div>
                                       </div>
+                                      <div className="sub-heading border rounded-3 p-2">
+                                        <div className="row fw-medium mx-2">
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Base Price </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {formatPrice(
+                                                  item?.last_quote_rate
+                                                    ?.unit_price
+                                                ) || "---"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Freight Rate </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_quote_rate
+                                                  ?.freight_price !== null
+                                                  ? `${item?.last_quote_rate?.freight_price}%`
+                                                  : "0%"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Packaging Rate </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_quote_rate
+                                                  ?.package_price !== null
+                                                  ? `${item?.last_quote_rate?.package_price}%`
+                                                  : "0%"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Tax </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_quote_rate?.tax !==
+                                                null
+                                                  ? `${item?.last_quote_rate?.tax}%`
+                                                  : "0%"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Quantity </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {item?.last_quote_rate
+                                                  ?.quantity || "---"}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="col-md-3 col-lg-2">
+                                            <span>Total Price </span>
+                                            {loading ? (
+                                              <span className="d-block mt-1">
+                                                <PlaceholderLoading
+                                                  shape="rect"
+                                                  width={80}
+                                                  height={20}
+                                                />
+                                              </span>
+                                            ) : (
+                                              <span className="d-block fw-medium text-muted ">
+                                                {formatPrice(
+                                                  item?.last_quote_rate
+                                                    ?.total_price
+                                                ) || "---"}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
                                 <LPRModal
                                   show={openModals[key] || false}
                                   onHide={() => closeModalForVariant(key)}
                                   variantId={item.product_variant_id}
                                 />
                               </div>
-                              {item?.quotations && item?.quotations.length === 0 && (
-                                <h4 className="mt-4 text-center">No Quotations yet!</h4>
-                              )}
-                              {item?.quotations && item?.quotations.length > 0 && (
-                                <>
-                                  <QuoteCompareTable
-                                    proditem={item}
-                                    handleFinalize={handleFinalize}
-                                    quotations={item?.quotations}
-                                    quantity={item?.product_details[0]?.rfq_details ? item?.product_details[0]?.rfq_details[2]?.value : "-"}
-                                    alreadyFinalized={item?.quotations?.filter((item) => item.finalization != null)}
-                                    isRfqClosed={Array.isArray(item.rfq) && item.rfq[0]?.status === 2}
-                                    availableBudget = {availableBudget}
-                                  />
-                                </>
-                              )}
+                              {item?.quotations &&
+                                item?.quotations.length === 0 && (
+                                  <h4 className="mt-4 text-center">
+                                    No Quotations yet!
+                                  </h4>
+                                )}
+                              {item?.quotations &&
+                                item?.quotations.length > 0 && (
+                                  <>
+                                    <QuoteCompareTable
+                                      proditem={item}
+                                      handleFinalize={handleFinalize}
+                                      quotations={item?.quotations}
+                                      quantity={
+                                        item?.product_details[0]?.rfq_details
+                                          ? item?.product_details[0]
+                                              ?.rfq_details[2]?.value
+                                          : "-"
+                                      }
+                                      alreadyFinalized={item?.quotations?.filter(
+                                        (item) => item.finalization != null
+                                      )}
+                                      isRfqClosed={
+                                        Array.isArray(item.rfq) &&
+                                        item.rfq[0]?.status === 2
+                                      }
+                                      availableBudget={availableBudget}
+                                      targetPrice={item.latest_target_price}
+                                      targetHistory={targetPriceHistory}
+                                    />
+                                  </>
+                                )}
                             </div>
                           );
                         })}
                       </>
                     )}
                     {activeTab === 'category' && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
+                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />
                     )}
                     {activeTab === 'cost' && (
-                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no} />
+                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />
                                         )}
                                       </div>
                                         )}

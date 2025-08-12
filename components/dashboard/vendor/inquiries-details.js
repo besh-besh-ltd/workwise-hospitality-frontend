@@ -784,6 +784,7 @@ const RfqManagementPreview = () => {
                                 <th>Selected vendors</th>
                               ) : null}
                               {<th>Technical Evaluation</th>}
+                              {rfqDetails?.products[0].latest_target_price && (<th>Target Price</th>)}
                             </tr>
                           </thead>
                           <tbody>
@@ -935,10 +936,10 @@ const RfqManagementPreview = () => {
                                   {type == "buyer-view" && (
                                     <td>
                                       <span>
-                                                                <Link
-                          href={`rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
-                          className="page-link"
-                        >
+                                        <Link
+                                          href={`rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
+                                          className="page-link"
+                                        >
                                           View selected vendors (
                                           {item.vendors_count})
                                         </Link>
@@ -973,6 +974,15 @@ const RfqManagementPreview = () => {
                                       "N/A"
                                     )}
                                   </td>
+                                  {item.latest_target_price && (
+                                    <td className="position-relative">
+                                      <div className="target-price-badge bg-warning text-dark fw-bold px-3 py-2 rounded shadow-sm border border-warning-subtle">
+                                        <i className="bi bi-bullseye me-2"></i>₹
+                                        {item?.latest_target_price?.toLocaleString()}
+                                        <span className="target-price-pulse"></span>
+                                      </div>
+                                    </td>
+                                  )}
                                 </tr>
                               );
                             })}
