@@ -341,7 +341,7 @@ const QuoteCompareTable = ({
                         ? parseInt(item.delivery_period) <= 1
                           ? `${item.delivery_period || 0} Day`
                           : `${item.delivery_period || 0} Days`
-                        : "--"}
+                        : "-"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
@@ -367,7 +367,7 @@ const QuoteCompareTable = ({
                       {item.document_files ? (
                         <>{renderFileLink(item.document_files)}</>
                       ) : (
-                        <span>N/A</span>
+                        <span>-</span>
                       )}
                     </div>
                     <div className="table-si-row table-grey-row">
@@ -379,18 +379,39 @@ const QuoteCompareTable = ({
                           )}
                         </>
                       ) : (
-                        <span>N/A</span>
+                        <span>-</span>
                       )}
                     </div>
                     <div className="table-si-row">
-                      {item?.global_payment_term ? (
                         <ReadMore
-                          content={item?.global_payment_term}
+                          content={item?.global_payment_term || ""}
                           maxLines={2}
                         />
-                      ) : (
-                        "NA"
-                      )}
+
+                    {/* Payment terms list */}
+                    {(() => {
+                      const terms = Array.isArray(item?.payment_terms)
+                        ? item.payment_terms
+                        : (Array.isArray(item?.payment_terms_list) ? item.payment_terms_list : []);
+                    
+                      return (
+                        <div className="">
+                          {terms.length ? (
+                            <ul className="">
+                              {terms.map((t, i) => (
+                                <li key={t.id ?? i} className="d-flex justify-content-between py-1">
+                                  <span className="text-capitalize">
+                                    {t.type || "term"}{t.days ? ` (${t.days} days)` : ""}
+                                    {t.comment ? <span className="small text-muted ms-1">— {t.comment}</span> : null}
+                                  </span>
+                                  <span className="fw-semibold">{t.value != null ? `${t.value}%` : "-"}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : "-"}
+                        </div>
+                      );
+                    })()}
                     </div>
                   </div>
                 );
