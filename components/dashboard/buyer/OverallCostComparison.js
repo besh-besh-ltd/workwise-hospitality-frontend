@@ -11,12 +11,11 @@ const addCommasToNumber = (num) => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
+const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter , targetPrice}) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
-
   const toggleBreakup = (productIdx, vendorId) => {
     setBreakupOpen(prev => ({
       ...prev,
@@ -24,6 +23,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
     }));
   };
 
+  console.log("checkin gthe child process",targetPrice);
   useEffect(() => {
     setLoading(true);
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
@@ -64,6 +64,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300 }}>Product Name</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 300, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350 }}>Product Details</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Quantity</th>
+              <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Target Price</th>
               {[...Array(maxVendors)].map((_, idx) => (
                 <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === maxVendors - 1 ? 12 : 0 }}>
                   {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
@@ -76,6 +77,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               const productName = item.product_details?.[0]?.name || '-';
               const size = item.product_specs?.find(s => s.title === 'Size')?.value || '--';
               const spec = item.product_specs?.find(s => s.title === 'Spec')?.value || '--';
+              const latest_target_price = item?.latest_target_price;
               // Sort vendors for this product by cost (excluding regrets)
               const quotingVendors = item.quotations
                 .filter(q => q.id != null && q.is_regret !== 1 && q.quote_details && q.quote_details[0])
@@ -117,6 +119,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
+                  {latest_target_price && (<td>₹{latest_target_price}</td>)}
                   {[...Array(maxVendors)].map((_, vIdx) => {
                     const q = quotingVendors[vIdx];
                     if (q) {
@@ -366,6 +369,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       );
                     }
                   })}
+                  
                 </tr>
               );
             })}

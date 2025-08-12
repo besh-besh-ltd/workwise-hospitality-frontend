@@ -346,6 +346,17 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
   });
 };
 
+export const getTargetPriceHistory = (rfq_product_id) =>{
+  return new Promise (async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get(`/rfq/targetPriceHistory/${rfq_product_id}`)
+      resolve(response.data)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
+
 export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -426,6 +437,21 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+
+
+export const updateTargetPrice = (targetPrice, tbl_rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post('/rfq/negotiate', {
+        target_price : targetPrice,
+        rfq_product_id : tbl_rfq_product_id
+      });
+      resolve(response.data);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
 /* 
 START :: Initiate magic search
 */
@@ -561,6 +587,17 @@ export const getRfqDetails = (payload, token = null) => {
     }
   });
 };
+
+export const broadcastMessage = ( payload ) =>{
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.post('/rfq/send-query-message-to-vendor', payload)
+      resolve(response)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 
 export const sendQueryMessage = (payload,token=null ) => {
   return new Promise(async (resolve, reject) => {
