@@ -75,7 +75,6 @@ const LPRModal = ({ show, onHide, variantId , RFQ_no }) => {
     : displayData;
 }, [displayData, RFQ_no]);
 
-console.log("chekcng the RFQ number hre", RFQ_no);
 
   return (
    

@@ -13,7 +13,6 @@ import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesom
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
-import { Button } from "bootstrap/dist/js/bootstrap.bundle.min";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -65,7 +64,7 @@ const SendQuotePageComp = () => {
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
-  {value: "", type: "advance", days: "", comment: ""},
+  {id:null, value: "", type: "advance", days: "", comment: ""},
 ]);
 
 
@@ -212,6 +211,7 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
+          setPaymentTermsRows(res.data.quotations[0].payment_terms || [{id: null, value: "", type: "advance", days: "", comment: ""}]); // Set structured payment terms rows
         }
 
         if (res.data.terms_and_conditions_files) {
@@ -1076,7 +1076,7 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 
         <SmartButton
               onClick={() =>
-                setPaymentTermsRows((prev) => [ ...(prev || []), { value: "", type: "advance", days: "", comment:'' } ])
+                setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
               }
         theme={'primary'}
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
@@ -1741,16 +1741,16 @@ export default SendQuotePageComp;
 const PaymentTermsEditor = ({ value, onChange, disabled }) => {
   const rows = value?.length
     ? value
-    : [{ value: "", type: "advance", days: "", comment: "" }];
+    : [{id:null, value: "", type: "advance", days: "", comment: "" }];
 
   const setRows = (next) => onChange && onChange(next);
 
   const addRow = () =>
-    setRows([...rows, { value: "", type: "advance", days: "", comment: "" }]);
+    setRows([...rows, { id:null, value: "", type: "advance", days: "", comment: "" }]);
 
   const removeRow = (index) => {
     const next = rows.filter((_, i) => i !== index);
-    setRows(next.length ? next : [{ value: "", type: "advance", days: "", comment: "" }]);
+    setRows(next.length ? next : [{ id:null, value: "", type: "advance", days: "", comment: "" }]);
   };
 
   const updateRow = (index, patch) =>

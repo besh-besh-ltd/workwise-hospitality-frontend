@@ -202,23 +202,7 @@ export default useDebounce;
  */
 export const calculateTotal = (item, quantity, normalizeFilter) => {
 
-  item.payment_terms = [
-        {
-            "value": 10,
-            "label": "advance"
-        },
-        {
-            "value": 20,
-            "label": "credit",
-            "days": 30
-        },
-        {
-            "value": 70,
-            "label": "credit",
-            "days": 60
-        }
-    ]
-
+// return 0
   let total_qty = parseFloat(quantity) || 0;
   let unit_price = item.unit_price || 0;
   
@@ -236,12 +220,10 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 
   let TotalPrice = total_with_fpt + T;
 
-
-
  if (normalizeFilter) {
     let normalizedTotal = 0;
 
-    item.payment_terms.forEach(term => {
+    item?.payment_terms?.forEach(term => {
       const percentage = parseFloat(term.value) || 0; // x, y, z %
       const days = parseInt(term.days ?? 0) || 0;
 
@@ -253,10 +235,7 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
       normalizedTotal += (percentage / 100) * TotalPrice * factor;
     });
 
-    console.log("Normalized Total Price => :", normalizedTotal);
-    console.log("Original Total Price -> :", TotalPrice);
-
-    TotalPrice = normalizedTotal;
+    TotalPrice = normalizedTotal || TotalPrice;
   }
 
 
@@ -264,15 +243,15 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 }
 
 // normalize for overall and category cost comparision
-export const handleNormalize = (products) => {
+export const handleNormalize = (data) => {
 
   // return products 
   const allFreightPrices = [];
   const allPackagePrices = [];
   const allTaxRates = [];
 
-  products.forEach(product => {
-    product.quotations.forEach(quote => {
+  data.forEach(item => {
+    item.quotations.forEach(quote => {
       quote.quote_details?.forEach(detail => {
         const freight = parseFloat(detail.freight_price);
         if (!isNaN(freight)) allFreightPrices.push(freight);
@@ -304,8 +283,10 @@ export const handleNormalize = (products) => {
       : sortedTaxRates[mid];
   })();
 
-  const normalized = products.map(product => {
-    const updatedQuotations = product.quotations.map(quote => {
+  const normalized = data.map(item => {
+    const updatedQuotations = item.quotations.map(quote => {
+
+      const paymentTerms = quote.payment_terms || [];
       const updatedDetails = quote.quote_details?.map(detail => {
         const currentFreight = parseFloat(detail.freight_price);
         const currentPackage = parseFloat(detail.package_price);
@@ -318,7 +299,8 @@ export const handleNormalize = (products) => {
           package_price:
             isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
           tax:
-            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax
+            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
+          payment_terms:paymentTerms
         };
       }) || [];
 
@@ -329,18 +311,16 @@ export const handleNormalize = (products) => {
     });
 
     return {
-      ...product,
+      ...item,
       quotations: updatedQuotations,
     };
   });
-
-  console.table("Normalized data:", normalized);
 
   return normalized;
 };
 
 
-// 
+// for Product Wise Comparison
 export const normalizeFlatQuotationData = (data) => {
 
   // return data 
