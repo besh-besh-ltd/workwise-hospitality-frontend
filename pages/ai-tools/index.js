@@ -12,6 +12,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt, FaMicrochip, FaRobot } from 'react-icons/fa';
 import { Container, Button } from 'react-bootstrap';
+import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
 import { ColourfulCard } from '@/components/ui/ColourfulCard';
@@ -21,6 +24,7 @@ import FilePreview from '@/components/ui/FilePreview';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
+import { homepageData } from '@/components/constants/homepageData';
 
 const AiToolsPage = () => {
   const getAudienceIcon = (iconName) => {
@@ -105,31 +109,24 @@ const AiToolsPage = () => {
           >
             Trusted by Industry Leaders
           </h2>
-          <div className="row justify-content-center align-items-center g-4">
-            <div className="col-auto">
-              <div className="d-flex flex-column align-items-center">
-                <FaBuilding size={28} className="text-secondary mb-1" />
-                <small className="text-muted">IOCL</small>
-              </div>
-            </div>
-            <div className="col-auto">
-              <div className="d-flex flex-column align-items-center">
-                <FaHardHat size={28} className="text-secondary mb-1" />
-                <small className="text-muted">NTPC</small>
-              </div>
-            </div>
-            <div className="col-auto">
-              <div className="d-flex flex-column align-items-center">
-                <FaProjectDiagram size={28} className="text-secondary mb-1" />
-                <small className="text-muted">ONGC</small>
-              </div>
-            </div>
-            <div className="col-auto">
-              <div className="d-flex flex-column align-items-center">
-                <FaBolt size={28} className="text-secondary mb-1" />
-                <small className="text-muted">PowerGrid</small>
-              </div>
-            </div>
+          <div className="company-logos-carousel">
+            <Slider {...homepageData.carouselSettings}>
+              {homepageData.companyLogos.map((logo, index) => (
+                <div key={index} className="px-2">
+                  <img
+                    src={logo}
+                    alt=""
+                    style={{
+                      maxWidth: '120px',
+                      maxHeight: '60px',
+                      objectFit: 'contain',
+                      filter: 'none',
+                      opacity: '1'
+                    }}
+                  />
+                </div>
+              ))}
+            </Slider>
           </div>
         </div>
       </section>

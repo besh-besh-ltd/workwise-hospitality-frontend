@@ -17,8 +17,8 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
       
       {/* Bootstrap Modal */}
       <div className="modal fade show d-block" tabIndex="-1" role="dialog" style={{ zIndex: 1050 }}>
-        <div className="modal-dialog modal-lg" role="document">
-          <div className="modal-content">
+        <div className="modal-dialog modal-lg modal-dialog-centered" role="document">
+          <div className="modal-content" style={{ borderRadius: '12px' }}>
             {/* Header */}
             <div className="modal-header border-0 pb-0">
               <div className="d-flex align-items-center justify-content-between w-100">
@@ -45,14 +45,14 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
             </div>
             
             {/* Body */}
-            <div className="modal-body px-5 py-4">
+            <div className="modal-body px-4 px-md-5 py-3">
               {/* Main Topic */}
               <h2 className="fw-semibold text-dark mb-4 fs-5">
                 {story.industry} - Equipment Procurement
               </h2>
 
               {/* Role/Location */}
-              <div className="d-flex align-items-center mb-5">
+              <div className="d-flex align-items-center mb-4">
                 <MessageCircle className="text-primary me-3" size={18} />
                 <span className="text-primary fw-medium">
                   Procurement Manager, {story.industry}, {story.location}
@@ -60,7 +60,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
               </div>
 
               {/* The Challenge */}
-              <div className="mb-5">
+              <div className="mb-4">
                 <div className="d-flex align-items-center mb-3">
                   <AlertTriangle className="text-warning me-3" size={18} />
                   <h3 className="fw-semibold text-dark mb-0 fs-6">The Challenge:</h3>
@@ -71,7 +71,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
               </div>
 
               {/* What We Did */}
-              <div className="mb-5">
+              <div className="mb-4">
                 <div className="d-flex align-items-center mb-3">
                   <Wrench className="text-secondary me-3" size={18} />
                   <h3 className="fw-semibold text-dark mb-0 fs-6">What We Did:</h3>
@@ -82,7 +82,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
               </div>
 
               {/* The Outcome */}
-              <div className="mb-5">
+              <div className="mb-4">
                 <div className="d-flex align-items-center mb-3">
                   <TrendingUp className="text-success me-3" size={18} />
                   <h3 className="fw-semibold text-dark mb-0 fs-6">The Outcome:</h3>

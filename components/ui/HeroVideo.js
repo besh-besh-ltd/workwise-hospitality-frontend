@@ -103,8 +103,8 @@ const HeroVideo = () => {
       <style jsx>{`
         .video-container {
           width: 100%;
-          max-width: 85%;
-          aspect-ratio: 5 / 4;
+          max-width: 70%;
+          aspect-ratio: 16 / 9;
           border-radius: 10px;
           overflow: hidden;
           position: relative;
@@ -123,15 +123,15 @@ const HeroVideo = () => {
 
         @media (max-width: 992px) {
           .video-container {
-            max-width: 90%;
-            aspect-ratio: 5 / 4 !important;
+            max-width: 80%;
+            aspect-ratio: 16 / 9 !important;
           }
         }
 
         @media (max-width: 576px) {
           .video-container {
-            max-width: 95%;
-            aspect-ratio: 5 / 4 !important;
+            max-width: 90%;
+            aspect-ratio: 16 / 9 !important;
           }
         }
       `}</style>

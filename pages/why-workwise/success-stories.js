@@ -166,7 +166,7 @@ const SuccessStoriesPage = () => {
         }}
       />
 
-      {/* Success Story Modal */}
+      {/* Success Story Modal - reduce spacing for mobile */}
       <SuccessStoryModal
         show={showModal}
         onClose={() => setShowModal(false)}

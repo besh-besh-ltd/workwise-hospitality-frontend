@@ -21,6 +21,7 @@ import { HeroSection } from '@/components/ui/HeroSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
 import { CtaSection } from '@/components/ui/CtaSection';
+import { Button } from '@/components/ui/Button';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 
 // Import data
@@ -295,6 +296,19 @@ const ModulePage = () => {
           onClick: handleSecondaryAction
         }}
       />
+
+      {/* Mobile Sticky CTA */}
+      <div className="d-lg-none" style={{ position: 'sticky', bottom: 0, zIndex: 1030 }}>
+        <div className="bg-white border-top p-3">
+          <Button
+            label={moduleData.hero.primaryButton.label}
+            variant={moduleData.hero.primaryButton.variant || 'primary'}
+            icon={moduleData.hero.primaryButton.icon || 'none'}
+            onClick={handlePrimaryAction}
+            className="w-100"
+          />
+        </div>
+      </div>
     </div>
   );
 };

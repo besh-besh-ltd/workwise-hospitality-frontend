@@ -537,8 +537,8 @@ const Header = () => {
                   </nav>
                   {/* END: website navbar - static pages content */}
 
-                  {/* Supplier CTA Button */}
-                  <div className="supplier-cta">
+                  {/* Supplier CTA Button - show on desktop too */}
+                  <div className="supplier-cta d-none d-md-block">
                     <Link href="/for-vendors" className="btn-supplier">
                       For Suppliers
                     </Link>
@@ -586,18 +586,10 @@ const Header = () => {
                             Login
                           </Link>
                         </li>
-                        <li
-                          className="signup book-call"
-                          onClick={() => {
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link
-                            id="book-a-call-navigation"
-                            href="javascript:void(0)"
-                            style={{ width: "fit-content", fontSize: "14px" }}
-                          >
-                            Book a Call
+                        {/* Replace Book a Call with For Suppliers in mobile header extra buttons */}
+                        <li className="signup">
+                          <Link href="/for-vendors" style={{ width: "fit-content", fontSize: "14px" }}>
+                            For Suppliers
                           </Link>
                         </li>
                       </ul>
@@ -733,7 +725,7 @@ const Header = () => {
           (!loggedinUser && pathname?.startsWith("/aboutus")) ||
           (!loggedinUser && pathname?.startsWith("/solutions"))) && (
           <div className="mobile-menu">
-            <nav className="main-menu">
+            <nav className="main-menu" style={{ color: '#fff' }}>
               <ul>
                 {websiteMenu.map((item, index) => (
                   <li key={index}>
@@ -749,27 +741,23 @@ const Header = () => {
                         }}
                       />
                     ) : (
-                      <Link href={item.href}>{item.label}</Link>
+                      <Link href={item.href} style={{ color: '#fff' }}>{item.label}</Link>
                     )}
                   </li>
                 ))}
                 <li>
-                  <Link href="/for-vendors" className="btn-supplier-mobile">
+                  <Link href="/for-vendors" className="btn-supplier-mobile" style={{ color: '#fff' }}>
                     For Suppliers
                   </Link>
                 </li>
                 {!loggedinUser && (
                   <>
                     <li className="mobile-login">
-                      <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
+                      <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)} style={{ color: '#fff' }}>
                         Login
                       </Link>
                     </li>
-                    <li className="mobile-book-call">
-                      <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
-                        Book a Call
-                      </Link>
-                    </li>
+                    {/* Hide Book a Call in mobile menu; For Suppliers CTA is present above */}
                   </>
                 )}
               </ul>
@@ -808,14 +796,6 @@ const Header = () => {
         )}
       </header>
 
-      {/* Sticky Mobile CTA */}
-      {!loggedinUser && !pathname?.startsWith("/vendor") && (
-        <div className="sticky-mobile-cta">
-          <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
-            Book a Call
-          </Link>
-        </div>
-      )}
 
       {/* Auth Modal */}
       <LoginContainer

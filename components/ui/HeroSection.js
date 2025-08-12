@@ -45,10 +45,10 @@ const HeroSection = React.forwardRef(({
             <div className="col-lg-6 px-4 px-lg-5">
               <div className={`${textAlign === 'center' ? 'text-center' : textAlign === 'right' ? 'text-end' : 'text-start'}`}>
                 {/* Title */}
-                <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`} style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                <h1 className={`${size === 'large' ? 'display-4' : size === 'medium' ? 'fs-1' : 'fs-2'} fw-bold text-white mb-4`} style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)', fontSize: size === 'medium' ? 'clamp(2.2rem, 7vw, 3.2rem)' : undefined }}>
                   {title === "Procurement se Profit Banao" ? (
                     <>
-                      Procurement se <span style={{ color: '#FF8C00' }}>Profit Banao</span>
+                      Procurement se <span style={{ color: '#FF8C00', whiteSpace: 'nowrap' }}>Profit Banao</span>
                     </>
                   ) : (
                     title
@@ -84,7 +84,7 @@ const HeroSection = React.forwardRef(({
 
                 {/* Mobile Video Content - Above CTA Buttons */}
                 {mobileVideoContent && (
-                  <div className="d-lg-none mb-4">
+                  <div className="d-lg-none mb-3">
                     {mobileVideoContent}
                   </div>
                 )}

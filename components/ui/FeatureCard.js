@@ -34,18 +34,18 @@ const FeatureCard = React.forwardRef(({
           </div>
         )}
 
-        {/* Icon */}
-        {Icon && (
-          <div
-            className={`rounded-circle d-inline-flex align-items-center justify-content-center mb-3 ${iconBgColor}`}
-            style={{ width: "48px", height: "48px" }}
-          >
-            <Icon className={iconColor} size={24} />
-          </div>
-        )}
-
-        {/* Title */}
-        <h5 className="card-title fw-bold text-dark mb-3">{title}</h5>
+        {/* Icon + Title: inline on mobile, stacked on >= sm */}
+        <div className="d-flex d-sm-block align-items-center justify-content-center mb-3">
+          {Icon && (
+            <div
+              className={`rounded-circle d-inline-flex align-items-center justify-content-center me-2 me-sm-0 mb-0 mb-sm-3 ${iconBgColor}`}
+              style={{ width: "48px", height: "48px" }}
+            >
+              <Icon className={iconColor} size={24} />
+            </div>
+          )}
+          <h5 className="card-title fw-bold text-dark mb-0 mb-sm-3">{title}</h5>
+        </div>
 
         {/* Description */}
         <p className="card-text text-muted">{description}</p>

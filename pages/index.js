@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import { Inter } from 'next/font/google'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTruck, faBriefcase, faFileAlt, faListUl, faCalculator, faFileContract, faRocket, faPlay, faShield, faUsers, faBuilding, faCloud, faLock, faBrain, faHammer, faSearch, faWrench, faPhone, faClock, faEye, faTimes, faCheck, faExclamationTriangle, faPaperPlane, faCopy, faTable, faChartLine, faEnvelope, faQuestionCircle, faHourglassHalf, faBolt, faDollarSign, faPercent, faCheckSquare, faChartColumn, faComments } from '@fortawesome/free-solid-svg-icons';
+import { faTruck, faBriefcase, faFileAlt, faListUl, faCalculator, faFileContract, faRocket, faPlay, faShield, faUsers, faBuilding, faCloud, faLock, faBrain, faHammer, faSearch, faWrench, faPhone, faClock, faEye, faTimes, faCheck, faExclamationTriangle, faPaperPlane, faCopy, faTable, faChartLine, faEnvelope, faQuestionCircle, faHourglassHalf, faBolt, faDollarSign, faPercent, faCheckSquare, faChartColumn, faComments, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import Slider from 'react-slick';
 import { FaMicrochip, FaProjectDiagram, FaRobot, FaWrench } from 'react-icons/fa';
 
@@ -16,6 +16,7 @@ import { ColourfulCard } from '@/components/ui/ColourfulCard';
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
 import { Button } from '@/components/ui/Button';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
+import { useEffect, useRef, useState } from 'react';
 
 // Import data
 import { homepageData } from '@/components/constants/homepageData';
@@ -43,6 +44,51 @@ const pageInfo = {
 }
 
 export default function Home() {
+  // Counting animation helper
+  const AnimatedCounter = ({ targetValue, duration = 1500, suffix = '' }) => {
+    const [value, setValue] = useState(0);
+    const ref = useRef(null);
+    const hasAnimated = useRef(false);
+
+    useEffect(() => {
+      const observer = new IntersectionObserver(
+        entries => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && !hasAnimated.current) {
+              hasAnimated.current = true;
+              const start = performance.now();
+              const animate = (now) => {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                setValue(Math.floor(eased * targetValue));
+                if (progress < 1) requestAnimationFrame(animate);
+              };
+              requestAnimationFrame(animate);
+            }
+          });
+        },
+        { threshold: 0.4 }
+      );
+      if (ref.current) observer.observe(ref.current);
+      return () => observer.disconnect();
+    }, [targetValue, duration]);
+
+    return (
+      <div ref={ref}
+        className="fw-bold text-primary"
+        style={{ 
+          fontSize: 'clamp(1.1rem, 7vw, 2.5rem)',
+          background: 'linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}
+      >
+        {value.toLocaleString()}<span style={{ WebkitTextFillColor: 'currentColor' }}>{suffix}</span>
+      </div>
+    );
+  };
   const handleBookCall = () => {
     // Handle book a call action
     console.log('Book a call clicked');
@@ -62,6 +108,9 @@ export default function Home() {
     // Handle vendor support action
     console.log('Vendor support clicked');
   };
+
+  // FAQ: track which category is expanded
+  const [openCategoryIndex, setOpenCategoryIndex] = useState(null);
 
   const handleToolClick = (toolName) => {
     console.log(`${toolName} clicked`);
@@ -158,6 +207,12 @@ export default function Home() {
             .card-body {
               padding: 1rem !important;
             }
+
+            /* Stats inline tweak */
+            .stat-inline { flex-wrap: nowrap !important; justify-content: space-between !important; gap: 8px; }
+            .stat-inline > div { min-width: 0; }
+            .stat-inline .text-muted { font-size: 0.78rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .stat-inline .fw-bold { font-size: 1.4rem !important; }
             
             /* Ensure proper spacing between sections */
             .py-5 {
@@ -192,6 +247,32 @@ export default function Home() {
             box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
             transform: translateY(-2px);
           }
+
+          /* FAQ SEO-friendly hiding - content always in DOM but visually hidden */
+          .faq-category-content.faq-collapsed {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+            padding: 0;
+            margin: 0;
+            border: none;
+          }
+          
+          .faq-category-content.faq-expanded {
+            max-height: 2000px;
+            opacity: 1;
+            transition: all 0.3s ease;
+          }
+          
+          /* Ensure content is accessible to screen readers even when collapsed */
+          .faq-category-content.faq-collapsed * {
+            visibility: hidden;
+          }
+          
+          .faq-category-content.faq-expanded * {
+            visibility: visible;
+          }
         `}</style>
         {/* Hero Section */}
         <div style={{position: 'relative'}}>
@@ -208,35 +289,9 @@ export default function Home() {
             onClick: handleTryFreeTools
           }}
           visualContent={{
-            video: <div className="col-12 col-lg-10 d-none d-lg-block">
-            <div 
-              className="rounded-4 p-4"
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-              }}
-            >
-              <HeroVideo /> 
-            </div>
-          </div>
+            video: <HeroVideo /> 
           }}
-          mobileVideoContent={
-            <div className="d-lg-none mt-4 mb-4">
-              <div 
-                className="rounded-4 p-3"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-                }}
-              >
-                <HeroVideo />
-              </div>
-            </div>
-          }
+          mobileVideoContent={<HeroVideo />}
           layout="split"
           size="large"
           textAlign="left"
@@ -255,19 +310,19 @@ export default function Home() {
         {/* Floating Icons */}
          <div
             className="floatingIcon floatA d-none d-lg-block"
-            style={{ top: "20%", left: "50%" }}
+            style={{ top: "30%", left: "55%" }}
           >
             <FaRobot size={20} />
           </div>
           <div
             className="floatingIcon floatB d-none d-md-block"
-            style={{ top: "45%", left: "89%" }}
+            style={{ top: "45%", left: "92%" }}
           >
             <FaMicrochip size={20} />
           </div>
           <div
             className="floatingIcon floatC d-none d-md-block"
-            style={{ top: "75%", left: "50%" }}
+            style={{ top: "65%", left: "55%" }}
           >
             <FaProjectDiagram size={20} />
           </div>
@@ -300,7 +355,8 @@ export default function Home() {
                     buttonVariant={tool.buttonVariant}
                     iconColor={tool.iconColor}
                     note={tool.note}
-                    onClick={() => handleToolClick(tool.title)}
+                    url={tool.url}
+                    onClick={(url) => { if (url) window.location.href = url; }}
                   />
                 </div>
               ))}
@@ -342,40 +398,20 @@ export default function Home() {
                   <div className="card h-100 border-0 shadow-lg rounded-4" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' }}>
                     <div className="card-body p-4">
                       <div className="d-flex align-items-center mb-4">
-                        <div 
-                          className="d-flex align-items-center justify-content-center rounded-3 me-3"
-                          style={{
-                            width: '56px',
-                            height: '56px',
-                            background: stat.iconBg,
-                            color: 'white',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                          }}
-                        >
-                          <FontAwesomeIcon icon={stat.icon} style={{ fontSize: '24px' }} />
-                        </div>
                         <h4 className="fw-bold text-dark mb-0 fs-3">{stat.title}</h4>
                       </div>
-                      {/* Horizontal Stats Layout */}
-                      <div className="d-flex justify-content-around text-center">
+                      {/* Stats: numbers on one line (with +) and labels below */}
+                      <div className="d-flex flex-row justify-content-around text-center stat-inline">
                         {stat.items.map((item, itemIndex) => {
-                          const [number, text] = item.split(' ', 2);
+                          const [number] = item.split(' ', 2);
                           const remainingText = item.substring(number.length + 1);
                           return (
-                            <div key={itemIndex} className="flex-fill">
-                              <div 
-                                className="fw-bold text-primary mb-1"
-                                style={{ 
-                                  fontSize: '2.5rem',
-                                  background: 'linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)',
-                                  WebkitBackgroundClip: 'text',
-                                  WebkitTextFillColor: 'transparent',
-                                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                }}
-                              >
-                                {number}
-                              </div>
-                              <div className="text-muted fw-medium" style={{ fontSize: '0.9rem' }}>
+                            <div key={itemIndex} className="flex-fill d-flex flex-column align-items-center justify-content-center mb-3 mb-sm-0">
+                              <AnimatedCounter 
+                                targetValue={parseInt(number.replace(/[^0-9]/g, ''))} 
+                                suffix={number.replace(/[0-9]/g, '')} 
+                              />
+                              <div className="text-muted fw-medium mt-1" style={{ fontSize: '0.9rem' }}>
                                 {remainingText}
                               </div>
                             </div>
@@ -402,17 +438,9 @@ export default function Home() {
                           maxWidth: '120px',
                           maxHeight: '60px',
                           objectFit: 'contain',
-                          filter: 'grayscale(100%)',
-                          opacity: '0.7',
-                          transition: 'all 0.3s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.filter = 'grayscale(0%)';
-                          e.target.style.opacity = '1';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.filter = 'grayscale(100%)';
-                          e.target.style.opacity = '0.7';
+                          filter: 'none',
+                          opacity: '1',
+                          transition: 'transform 0.2s ease'
                         }}
                       />
                     </div>
@@ -442,10 +470,10 @@ export default function Home() {
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
                     </div>
                     
-                    {/* Mobile Layout - Alternating */}
-                    <div className={`card-body p-4 d-md-none d-flex align-items-center ${index % 2 === 0 ? '' : 'flex-row-reverse'}`}>
+                        {/* Mobile Layout - Left aligned for all */}
+                        <div className={`card-body p-4 d-md-none d-flex align-items-center`}>
                       <div 
-                        className={`d-flex align-items-center justify-content-center rounded-circle ${index % 2 === 0 ? 'me-3' : 'ms-3'}`}
+                          className={`d-flex align-items-center justify-content-center rounded-circle me-3`}
                         style={{
                           width: '48px',
                           height: '48px',
@@ -456,7 +484,7 @@ export default function Home() {
                       >
                         <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '20px' }} />
                       </div>
-                      <h6 className={`fw-bold text-dark mb-0 ${index % 2 === 0 ? 'text-start' : 'text-end'}`}>{feature.title}</h6>
+                        <h6 className={`fw-bold text-dark mb-0 text-start`}>{feature.title}</h6>
                     </div>
                   </div>
                 </div>
@@ -468,7 +496,7 @@ export default function Home() {
         {/* Why You Should Choose Workwise */}
         <section className="py-5 px-5">
           <div className="text-center mb-5">
-            <h2 className="fw-bold text-dark mb-5">{homepageData.whyChooseSection.title}</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">{homepageData.whyChooseSection.title}</h2>
             <div className="row g-4">
               {homepageData.whyChooseSection.cards.map((card, index) => (
                 <div key={index} className="col-lg-4 col-md-6">
@@ -673,7 +701,7 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <h2 className="fs-1 fw-bold text-dark mb-3">{homepageData.heavyIndustries.headline}</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">{homepageData.heavyIndustries.headline}</h2>
               <p className="text-muted fs-5 mb-0">{homepageData.heavyIndustries.subheadline}</p>
             </div>
 
@@ -785,6 +813,8 @@ export default function Home() {
                   <TestimonialCard
                     className="testimonial-card-compact"
                     quote={testimonial.quote}
+                    quoteDesktop={testimonial.quoteDesktop}
+                    quoteMobile={testimonial.quoteMobile}
                     authorName={testimonial.author}
                     authorTitle={testimonial.position}
                   />
@@ -799,7 +829,7 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <h2 className="fw-bold text-white mb-2" style={{ fontSize: '2.5rem' }}>
+            <h2 className="fs-1 fw-bold text-white mb-3" style={{ fontSize: '2.5rem' }}>
                 See How Workwise Simplifies{' '}
                 <span style={{ color: '#8B5CF6' }}>Project Procurement</span>
               </h2>
@@ -825,7 +855,7 @@ export default function Home() {
                 <span className="text-white fw-medium" style={{ fontSize: '1.1rem' }}>Liked the Demo? Let's Talk.</span>
               </div>
               
-              <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
+                      <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
                 <Button 
                   onClick={handleBookCall}
                   className="btn fw-bold text-white px-4 py-3 w-auto"
@@ -834,7 +864,7 @@ export default function Home() {
                   <FontAwesomeIcon icon={faPhone} className="me-2" />
                   Book a Call
                 </Button>
-                <Button 
+                         <Button 
                   onClick={handleTryFreeTools}
                   className="btn fw-bold px-4 py-3 w-auto"
                   style={{border: '2px solid #6B7280', color: '#6B7280', borderRadius: '8px', background: 'transparent'}}
@@ -874,7 +904,7 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <h2 className="fw-bold text-dark mb-3">
+              <h2 className="fs-1 fw-bold text-dark mb-3">
                 Why Workwise Is a No-Brainer for Project Procurement
               </h2>
               <p className="text-muted fs-5 mb-4">
@@ -885,7 +915,8 @@ export default function Home() {
 
             {/* Comparison Table */}
             <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-              <div className="table-responsive">
+              {/* Desktop View - Table */}
+              <div className="table-responsive d-none d-lg-block">
                 <table className="table table-hover mb-0">
                   <thead>
                     <tr>
@@ -1018,6 +1049,237 @@ export default function Home() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile View - Stacked Cards */}
+              <div className="d-lg-none">
+                <div className="p-3">
+                  <div className="row g-3">
+                    {/* BOQ Handling */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📦</span>
+                            <h6 className="fw-bold text-dark mb-0">BOQ Handling</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faExclamationTriangle} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual, error-prone formatting</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faCheck} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Upload & get clean, structured BOQ</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RFQ Creation - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>🧾</span>
+                            <h6 className="fw-bold text-dark mb-0">RFQ Creation</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faCopy} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Copy‑paste & delays</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faRocket} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto‑generated & sent instantly</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vendor Discovery - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>🔍</span>
+                            <h6 className="fw-bold text-dark mb-0">Vendor Discovery</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faPhone} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Calling old vendors, outdated lists</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faBuilding} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU‑approved vendors</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quote Evaluation - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📊</span>
+                            <h6 className="fw-bold text-dark mb-0">Quote Evaluation</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faTable} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual comparisons, messy Excel</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faChartLine} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Smart chart + deviation check</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Negotiation - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>💬</span>
+                            <h6 className="fw-bold text-dark mb-0">Negotiation</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faEnvelope} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Endless phone/email back-and-forth</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faWrench} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Reverse auction or digital workflows</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PO & Payment Tracking - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📋</span>
+                            <h6 className="fw-bold text-dark mb-0">PO & Payment Tracking</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faQuestionCircle} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>No single source of truth</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faEye} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Track both sides till final payment</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Procurement Timeline - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>⏱️</span>
+                            <h6 className="fw-bold text-dark mb-0">Procurement Timeline</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faHourglassHalf} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faBolt} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>4-5 days (avg)</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Savings Per Project - single line without/with */}
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <span className="me-2" style={{ fontSize: '1.5rem' }}>💰</span>
+                            <h6 className="fw-bold text-dark mb-0">Savings Per Project</h6>
+                          </div>
+                          <div className="d-flex flex-column g-2">
+                            <div className="d-flex align-items-center mb-2">
+                              <small className="text-danger fw-bold me-2">Without:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faTimes} className="text-danger me-2" />
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Missed opportunities</span>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center">
+                              <small className="text-success fw-bold me-2">With:</small>
+                              <div className="d-flex align-items-center">
+                                <FontAwesomeIcon icon={faPercent} className="text-success me-2" />
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>6-9% cost savings</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1027,9 +1289,9 @@ export default function Home() {
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
-              <h2 className="fw-bold text-dark mb-2" style={{ fontSize: '2.5rem' }}>
-                Frequently Asked Questions about{' '}
-                <span style={{ color: '#8B5CF6' }}>Workwise & Procurement Automation</span>
+            <h2 className="fs-1 fw-bold text-dark mb-3" style={{ fontSize: '2.5rem' }}>
+                Frequently Asked Questions
+                {/* <span style={{ color: '#8B5CF6' }}>Workwise & Procurement Automation</span> */}
               </h2>
               <p className="text-muted mb-0" style={{ fontSize: '1.1rem' }}>
                 We've answered the most common questions buyers and vendors ask us about Workwise, AI tools, procurement workflows, and integrations.
@@ -1041,28 +1303,43 @@ export default function Home() {
               <div className="col-lg-10">
                 {homepageData.faqSection.categories.map((category, categoryIndex) => (
                   <div key={categoryIndex} className="mb-4">
-                    {/* Category Header */}
-                    <div className="d-flex align-items-center mb-3">
-                      <div 
-                        className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                        style={{ 
-                          width: '48px', 
-                          height: '48px', 
-                          backgroundColor: category.iconBg 
-                        }}
-                      >
+                    {/* Category Header as dropdown trigger */}
+                    <button
+                      className="w-100 bg-transparent border-0 p-0 text-start"
+                      onClick={() => setOpenCategoryIndex(openCategoryIndex === categoryIndex ? null : categoryIndex)}
+                      aria-expanded={openCategoryIndex === categoryIndex}
+                    >
+                      <div className="d-flex align-items-center justify-content-between mb-3">
+                        <div className="d-flex align-items-center">
+                          <div 
+                            className="rounded-circle d-flex align-items-center justify-content-center me-3"
+                            style={{ 
+                              width: '48px', 
+                              height: '48px', 
+                              backgroundColor: category.iconBg 
+                            }}
+                          >
+                            <FontAwesomeIcon 
+                              icon={faqIconMap[category.icon]} 
+                              style={{ fontSize: '1.5rem', color: 'white' }} 
+                            />
+                          </div>
+                          <h3 className="fw-bold text-dark mb-0" style={{ fontSize: '1.25rem' }}>
+                            {category.title}
+                          </h3>
+                        </div>
                         <FontAwesomeIcon 
-                          icon={faqIconMap[category.icon]} 
-                          style={{ fontSize: '1.5rem', color: 'white' }} 
+                          icon={openCategoryIndex === categoryIndex ? faChevronUp : faChevronDown}
+                          className="text-muted"
+                          style={{ fontSize: '1.2rem', transition: 'transform 0.2s ease' }}
                         />
                       </div>
-                      <h3 className="fw-bold text-dark mb-0" style={{ fontSize: '1.25rem' }}>
-                        {category.title}
-                      </h3>
-                    </div>
+                    </button>
 
-                    {/* Category Questions */}
-                    <div className="bg-white rounded shadow-sm p-4">
+                    <div 
+                      className={`bg-white rounded shadow-sm p-4 faq-category-content ${openCategoryIndex === categoryIndex ? 'faq-expanded' : 'faq-collapsed'}`}
+                      aria-hidden={openCategoryIndex !== categoryIndex}
+                    >
                       <FaqAccordion 
                         questions={category.questions} 
                       />

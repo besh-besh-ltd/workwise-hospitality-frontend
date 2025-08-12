@@ -69,9 +69,13 @@ const ColourfulCard = ({
     <div 
       className="shadow rounded-4 overflow-hidden text-start h-100"
       onClick={() => {
-        // In mobile, make entire card clickable to go to ai-tools
+        // In mobile, make entire card clickable to go to provided url (fallback to /ai-tools)
         if (typeof window !== 'undefined' && window.innerWidth < 992) {
-          window.location.href = '/ai-tools';
+          if (url) {
+            window.location.href = url;
+          } else {
+            window.location.href = '/ai-tools';
+          }
         }
       }}
       style={{ cursor: typeof window !== 'undefined' && window.innerWidth < 992 ? 'pointer' : 'default' }}
@@ -91,8 +95,9 @@ const ColourfulCard = ({
               {subtitle}
             </div>
           </div>
+          {/* Hide top-right icon on mobile */}
           <div 
-            className="position-absolute bg-white bg-opacity-25 p-2 rounded-circle"
+            className="position-absolute bg-white bg-opacity-25 p-2 rounded-circle d-none d-lg-block"
             style={{ top: '16px', right: '16px' }}
           >
             <FontAwesomeIcon icon={getIcon(icon)} className="text-white" />
@@ -115,22 +120,24 @@ const ColourfulCard = ({
           ))}
         </div>
 
-        {/* Button */}
-        <Button
-          variant={buttonVariant}
-          className="w-100 py-2 fw-semibold rounded-3 text-white"
-          style={{
-            ...buttonStyle,
-            background: bgGradient,
-            border: 'none'
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClick();
-          }}
-        >
-          {buttonText}
-        </Button>
+        {/* Button - show only on desktop; on mobile, whole card is clickable */}
+        <div className="d-none d-lg-block">
+          <Button
+            variant={buttonVariant}
+            className="w-100 py-2 fw-semibold rounded-3 text-white"
+            style={{
+              ...buttonStyle,
+              background: bgGradient,
+              border: 'none'
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClick();
+            }}
+          >
+            {buttonText}
+          </Button>
+        </div>
 
         {/* Note - Hidden on mobile */}
         {note && (

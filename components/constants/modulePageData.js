@@ -4,7 +4,7 @@ export const modulePageData = {
   boq: {
     hero: {
       title: "Make Your BOQ Usable in Minutes — No Excel Cleanup Needed",
-      subtitle: "Upload any BOQ in Excel, PDF, or Word — Workwise converts it into a clean, structured, editable format ready for procurement.",
+      subtitle: "Upload any BOQ in Excel or PDF, and get a clean, structured version- ready for procurement.",
       primaryButton: {
         label: "Try BOQ Simplifier",
         variant: "black",
@@ -21,20 +21,20 @@ export const modulePageData = {
       title: "Top Benefits You Get",
       features: [
         {
-          title: "Upload messy BOQs",
-          description: "Upload messy BOQs and get structured output by category, organized and ready to use.",
+          title: "Clean up messy BOQs, no more Excel rework",
+          description: "",
           iconBgColor: "bg-primary",
           iconColor: "text-white"
         },
         {
-          title: "Auto-classify items",
-          description: "Auto-classify items by discipline (Electrical, Mechanical, etc.) for better organization.",
+          title: "Group line items by similar product variants, package or discipline (auto or manual)",
+          description: "",
           iconBgColor: "bg-success",
           iconColor: "text-white"
         },
         {
-          title: "Download clean BOQ",
-          description: "Download clean BOQ for RFQ or internal use, saving time and reducing errors.",
+          title: "Instantly ready your BOQ for RFQ creation or cost estimation",
+          description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
         }
@@ -45,18 +45,18 @@ export const modulePageData = {
       steps: [
         {
           stepNumber: 1,
-          title: "Upload Your BOQ",
-          description: "Excel, PDF, Word — any format accepted. Simply drag and drop or browse to select your file."
+          title: "Upload any BOQ file (Excel or PDF)",
+          description: ""
         },
         {
           stepNumber: 2,
-          title: "Get AI-Powered Breakdown",
-          description: "Auto-categorized by domain, product type, and section for easier management and understanding."
+          title: "AI parses, cleans, groups, and simplifies data",
+          description: ""
         },
         {
           stepNumber: 3,
-          title: "Download Simplified BOQ",
-          description: "Clean, editable Excel ready for RFQs or cost estimation. Save time and reduce errors."
+          title: "Download structured BOQ or proceed to create RFQs",
+          description: ""
         }
       ]
     },
@@ -72,8 +72,8 @@ export const modulePageData = {
         title: "Real Outcomes",
         items: [
           "90% reduction in manual cleanup",
-          "BOQs from different vendors or clients made comparable",
-          "Output used directly in RFQ & Cost Estimation workflows"
+          "Output used directly in RFQ & Cost Estimation workflows",
+          "Standardized BOQ helped reduce errors in quote comparison"
         ]
       }
     },
@@ -82,7 +82,7 @@ export const modulePageData = {
       questions: [
         {
           question: "Can I upload PDF or scanned BOQs?",
-          answer: "Yes. Workwise supports PDF, Excel, and Word. Scanned PDFs work best if text-recognizable."
+          answer: "Yes. Workwise supports PDF, Excel. Scanned PDFs work best if text-recognizable."
         },
         {
           question: "Can I re-edit the simplified BOQ after download?",
@@ -134,20 +134,20 @@ export const modulePageData = {
       title: "Top Benefits You Get",
       features: [
         {
-          title: "Generate multiple RFQs instantly",
-          description: "Generate multiple RFQs instantly from your BOQ, manual effort reduced significantly.",
+          title: "Generate multiple RFQs instantly from your BOQ, manual effort reduced significantly",
+          description: "",
           iconBgColor: "bg-primary",
           iconColor: "text-white"
         },
         {
-          title: "Share via WhatsApp and email",
-          description: "Share RFQs via WhatsApp and email to your selected vendors, and setup automated reminders.",
+          title: "Setup automated reminders on Whatsapp/Email",
+          description: "",
           iconBgColor: "bg-success",
           iconColor: "text-white"
         },
         {
-          title: "Track status and responses",
-          description: "Track status of sent RFQs, vendor responses, and revisions in one dashboard.",
+          title: "Track status of sent RFQs, vendor responses, and revisions in one dashboard",
+          description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
         }
@@ -158,18 +158,18 @@ export const modulePageData = {
       steps: [
         {
           stepNumber: 1,
-          title: "Import simplified BOQ",
-          description: "Import simplified BOQ or enter line items manually."
+          title: "Import simplified BOQ or enter line items manually",
+          description: ""
         },
         {
           stepNumber: 2,
-          title: "AI maps to vendors",
-          description: "AI fetches each product with its sizing, specification, quantity, unit and map it to relevant vendors."
+          title: "AI fetches each product with its sizing, specification, quantity, unit and map it to relevant vendors",
+          description: ""
         },
         {
           stepNumber: 3,
-          title: "Send and track RFQs",
-          description: "Send RFQs via WhatsApp/Email and track responses live, plus send automated reminders to all in single click."
+          title: "Send RFQs via WhatsApp/Email and track responses live, plus send automated reminders to all in single click",
+          description: ""
         }
       ]
     },
@@ -208,6 +208,10 @@ export const modulePageData = {
         {
           question: "What file formats can be used to generate RFQs?",
           answer: "Excel, PDF, and CSV are supported. You can also build RFQs manually from within Workwise."
+        },
+        {
+          question: "Can I edit RFQs after sending it to vendors?",
+          answer: "Yes. You can edit, revise RFQs, and vendors get notification of the revision done."
         }
       ]
     },
@@ -247,20 +251,20 @@ export const modulePageData = {
       title: "Top Benefits You Get",
       features: [
         {
-          title: "Access 12,500+ PSU-approved vendors",
-          description: "Instantly access 12,500+ PSU-approved vendors, including hard-to-find international partners.",
+          title: "Instantly access 12,500+ PSU-approved vendors, including hard-to-find international partners",
+          description: "",
           iconBgColor: "bg-primary",
           iconColor: "text-white"
         },
         {
-          title: "Add your own vendors in one click",
-          description: "Add your own vendors in one click, or upload a list for assisted onboarding.",
+          title: "Add your own vendors in one click, or upload a list for assisted onboarding",
+          description: "",
           iconBgColor: "bg-success",
           iconColor: "text-white"
         },
         {
-          title: "End-to-end vendor support",
-          description: "Get end-to-end vendor support — from discovery to follow-up and negotiation.",
+          title: "Get end-to-end vendor support — from discovery to follow-up and negotiation",
+          description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
         }
@@ -271,18 +275,18 @@ export const modulePageData = {
       steps: [
         {
           stepNumber: 1,
-          title: "Search or filter vendors",
-          description: "Search or filter from Workwise's PSU-approved vendor base."
+          title: "Search or filter from Workwise’s PSU-approved vendor base",
+          description: ""
         },
         {
           stepNumber: 2,
-          title: "Add your own vendors",
-          description: "Add your own vendors — manually or via upload — we onboard them for you."
+          title: "Add your own vendors — manually or via upload — we onboard them for you",
+          description: ""
         },
         {
           stepNumber: 3,
-          title: "Expert team support",
-          description: "Our expert team helps with vendor follow-ups, onboarding, and negotiations."
+          title: "Our expert team helps with vendor follow-ups, onboarding, and negotiations",
+          description: ""
         }
       ]
     },
@@ -321,6 +325,10 @@ export const modulePageData = {
         {
           question: "Will I be able to filter vendors by make or location?",
           answer: "Yes. You can search and filter by product category, make, approval, location, and other tags."
+        },
+        {
+          question: "Can Workwise negotiate with vendors on our behalf?",
+          answer: "Yes. You can opt-in for vendor negotiation support from our expert procurement team."
         }
       ]
     },
@@ -342,10 +350,10 @@ export const modulePageData = {
   // Technical & Commercial Evaluation
   evaluation: {
     hero: {
-      title: "Evaluate Quotes Smartly, Make Better Decisions",
-      subtitle: "Compare vendor quotes side-by-side, identify deviations, and make informed decisions with AI-powered analysis.",
+      title: "AI‑Powered Technical & Commercial Evaluation — Faster, Smarter, Fairer",
+      subtitle: "From extracting technical clauses to IS/BIS/ASTM deviation checks, to normalized commercial comparisons — Workwise gives you full clarity in minutes.",
       primaryButton: {
-        label: "Try Evaluation Tool",
+        label: "Try Evaluation Module",
         variant: "black",
         icon: "none"
       },
@@ -360,20 +368,20 @@ export const modulePageData = {
       title: "Top Benefits You Get",
       features: [
         {
-          title: "Side-by-side quote comparison",
-          description: "Compare vendor quotes side-by-side with automated deviation detection and analysis.",
+          title: "Auto‑extract section‑wise technical clauses from spec documents, ready for vendor RFQs.",
+          description: "",
           iconBgColor: "bg-primary",
           iconColor: "text-white"
         },
         {
-          title: "AI-powered deviation detection",
-          description: "Automatically identify price deviations, specification differences, and compliance issues.",
+          title: "AI deviation checks against BIS/ASTM codes with suggestions & proof for client approval.",
+          description: "",
           iconBgColor: "bg-success",
           iconColor: "text-white"
         },
         {
-          title: "Export smart comparison charts",
-          description: "Generate and export detailed comparison reports for stakeholder review and decision making.",
+          title: "Normalized commercial comparisons with L1,L2,L3 ranking, factoring in all cost elements, delivery & payment terms.",
+          description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
         }
@@ -384,35 +392,35 @@ export const modulePageData = {
       steps: [
         {
           stepNumber: 1,
-          title: "Upload vendor quotes",
-          description: "Upload vendor quotes in any format — Excel, PDF, or manual entry."
+          title: "Upload your technical specification file (TDS or detailed spec)",
+          description: ""
         },
         {
           stepNumber: 2,
-          title: "System flags deviations",
-          description: "System automatically flags deviations and compares values across all quotes."
+          title: "AI extracts key clauses for vendor RFQ & auto‑checks deviations against BIS/ASTM codes once responses arrive",
+          description: ""
         },
         {
           stepNumber: 3,
-          title: "Download smart chart",
-          description: "Download/export smart comparison chart for decision making and stakeholder review."
+          title: "System generates normalized commercial tables with payment term adjustments & overall BOQ/project cost ranking",
+          description: ""
         }
       ]
     },
     customerSayings: {
       title: "What Real Customers Are Saying",
       testimonial: {
-        quote: "The evaluation tool saved us hours of manual comparison. We can now spot deviations instantly and make faster decisions.",
-        authorName: "Procurement Manager",
-        authorTitle: "Infrastructure EPC",
+        quote: "We reduced technical evaluation from weeks to hours, and could share deviation proof with clients instantly for faster approvals.",
+        authorName: "Procurement Head",
+        authorTitle: "Large EPC Contractor",
         authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
         items: [
-          "70% faster quote evaluation",
-          "Reduced evaluation errors by 90%",
-          "Better vendor selection decisions"
+          "90% faster technical evaluation & approval process",
+          "Zero missed critical deviations in vendor quotes",
+          "Transparent, comparable pricing for fair vendor selection"
         ]
       }
     },
@@ -420,27 +428,31 @@ export const modulePageData = {
       title: "Frequently Asked Questions",
       questions: [
         {
-          question: "Can I compare quotes in different formats?",
-          answer: "Yes. Workwise can handle quotes in Excel, PDF, and manual entry formats for comparison."
+          question: "What file formats are supported for technical specifications?",
+          answer: "We support Excel and PDF formats. Scanned PDFs work best if text‑recognizable."
         },
         {
-          question: "How does the deviation detection work?",
-          answer: "AI analyzes price variations, specification differences, and compliance gaps automatically."
+          question: "How does the AI deviation checker work?",
+          answer: "It compares vendor‑quoted specs against your RFQ specs and relevant IS/BIS/ASTM manufacturing codes, flagging mismatches and suggesting actions."
         },
         {
-          question: "Can I export comparison reports?",
-          answer: "Yes. You can export detailed comparison charts and reports for stakeholder review."
+          question: "Can I share deviation results with my client?",
+          answer: "Yes. Deviation reports include proof references, making it easy to forward for client approvals."
         },
         {
-          question: "Does it support technical evaluation too?",
-          answer: "Yes. The tool evaluates both commercial and technical aspects of vendor quotes."
+          question: "How does commercial normalization work?",
+          answer: "The system adjusts rates to a common baseline by adding missing costs (freight, packaging, taxes) and factoring in payment terms (1% interest per month for credit days)."
+        },
+        {
+          question: "Does the module provide overall cost ranking?",
+          answer: "Yes. You get a BOQ/project‑level cost chart with L1, L2, L3 rankings and total calculated amounts."
         }
       ]
     },
     finalCta: {
-      title: "Ready to Evaluate Your Next Quotes?",
+      title: "Ready for Clear, Accurate Vendor Comparisons?",
       primaryButton: {
-        label: "Try Evaluation Tool",
+        label: "Try Evaluation Module",
         variant: "black",
         icon: "none"
       },
@@ -455,10 +467,10 @@ export const modulePageData = {
   // Negotiation Management
   negotiation: {
     hero: {
-      title: "Negotiate Smarter, Close Deals Faster",
-      subtitle: "Streamline negotiation processes with automated workflows, track discussions, and close deals efficiently.",
+      title: "Negotiate Smarter with Multiple Auction Strategies",
+      subtitle: "From reverse auctions to custom bidding formats, Workwise helps you close the best deals transparently and efficiently.",
       primaryButton: {
-        label: "Try Negotiation Tool",
+        label: "Try Negotiation Module",
         variant: "black",
         icon: "none"
       },
@@ -473,20 +485,20 @@ export const modulePageData = {
       title: "Top Benefits You Get",
       features: [
         {
-          title: "Automated negotiation workflows",
-          description: "Streamline negotiation processes with automated workflows and approval chains.",
+          title: "Run reverse auctions by default for transparent, competitive pricing.",
+          description: "",
           iconBgColor: "bg-primary",
           iconColor: "text-white"
         },
         {
-          title: "Track all discussions",
-          description: "Track all negotiation discussions, changes, and approvals in one centralized system.",
+          title: "Use target price & snap bidding to push prices down further.",
+          description: "",
           iconBgColor: "bg-success",
           iconColor: "text-white"
         },
         {
-          title: "Close deals efficiently",
-          description: "Close deals efficiently with automated document generation and approval processes.",
+          title: "Access multiple customizable auction formats — tailored to your project needs.",
+          description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
         }
@@ -497,35 +509,35 @@ export const modulePageData = {
       steps: [
         {
           stepNumber: 1,
-          title: "Initiate negotiation",
-          description: "Start negotiation process with selected vendors based on evaluation results."
+          title: "Select package & invite shortlisted vendors to participate in auction",
+          description: ""
         },
         {
           stepNumber: 2,
-          title: "Track discussions",
-          description: "Track all discussions, changes, and approvals in automated workflows."
+          title: "Set auction type, target price, rules, and enable features like snap bidding",
+          description: ""
         },
         {
           stepNumber: 3,
-          title: "Generate final documents",
-          description: "Generate final documents and close deals with automated approval processes."
+          title: "Run auction in real‑time with vendor participation and instant results",
+          description: ""
         }
       ]
     },
     customerSayings: {
       title: "What Real Customers Are Saying",
       testimonial: {
-        quote: "Our negotiation process used to take weeks. Now we can track everything and close deals in days.",
-        authorName: "Senior Procurement Officer",
-        authorTitle: "Manufacturing Company",
+        quote: "We’ve consistently saved 4-8% more after technical evaluation by running reverse auctions through Workwise.",
+        authorName: "Procurement Manager",
+        authorTitle: "EPC Contractor",
         authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
         items: [
-          "60% faster negotiation cycles",
-          "Improved transparency in discussions",
-          "Better deal closure rates"
+          "Increased cost savings even after commercial evaluation",
+          "Transparent, fair competition among vendors",
+          "Flexible formats for different procurement scenarios"
         ]
       }
     },
@@ -533,27 +545,35 @@ export const modulePageData = {
       title: "Frequently Asked Questions",
       questions: [
         {
-          question: "Can I track negotiation history?",
-          answer: "Yes. All negotiation discussions, changes, and approvals are tracked in the system."
+          question: "What auction types does Workwise support?",
+          answer: "Default is reverse auction, but we also support rank, Dutch, English, referential, and custom auction formats."
         },
         {
-          question: "Does it support multi-level approvals?",
-          answer: "Yes. You can set up automated approval workflows with multiple stakeholders."
+          question: "How does reverse auction work on Workwise?",
+          answer: "You set the reverse auction start & end date‑time during rfq creation — always after the RFQ quote submission deadline. Once the start time arrives, all vendors who submitted quotes are notified of the current lowest rate. As vendors revise their bids during the auction, every update to the lowest rate triggers instant notifications to all participants, allowing them to respond competitively until the auction closes."
         },
         {
-          question: "Can I generate final documents automatically?",
-          answer: "Yes. Final documents can be generated automatically based on negotiation outcomes."
+          question: "What is target price setting?",
+          answer: "It allows you to define a benchmark rate vendors must match or beat to stay competitive."
         },
         {
-          question: "Is there audit trail for negotiations?",
-          answer: "Yes. Complete audit trail is maintained for all negotiation activities and decisions."
+          question: "What is snap bidding?",
+          answer: "An optional short auction round at the end to encourage vendors to give their best final price."
+        },
+        {
+          question: "Can I customize auction rules for each purchase?",
+          answer: "Yes. You can define duration, bid increments, visibility rules, and format per package/rfq/enquiry/purchase"
+        },
+        {
+          question: "Can vendors participate without login?",
+          answer: "Yes. They receive a secure auction link via email/WhatsApp."
         }
       ]
     },
     finalCta: {
-      title: "Ready to Streamline Your Negotiations?",
+      title: "Ready to Maximize Your Procurement Savings?",
       primaryButton: {
-        label: "Try Negotiation Tool",
+        label: "Try Negotiation Module",
         variant: "black",
         icon: "none"
       },
@@ -568,10 +588,10 @@ export const modulePageData = {
   // PO & Payment Lifecycle Management
   payments: {
     hero: {
-      title: "Manage PO & Payments Seamlessly",
-      subtitle: "Streamline purchase order creation, payment tracking, and vendor management in one integrated platform.",
+      title: "From Vendor Finalization to Final Payment — All in One Flow",
+      subtitle: "Define PO approval hierarchies, auto‑generate POs, and track every milestone — from dispatches and GRNs to client and supplier payments.",
       primaryButton: {
-        label: "Try Payment Tool",
+        label: "Try PO Management Module",
         variant: "black",
         icon: "none"
       },
@@ -586,20 +606,20 @@ export const modulePageData = {
       title: "Top Benefits You Get",
       features: [
         {
-          title: "Automated PO generation",
-          description: "Generate purchase orders automatically from approved negotiations and vendor selections.",
+          title: "Automate PO creation with defined approval hierarchies.",
+          description: "",
           iconBgColor: "bg-primary",
           iconColor: "text-white"
         },
         {
-          title: "Track payment lifecycle",
-          description: "Track payment lifecycle from PO creation to vendor payment with automated workflows.",
+          title: "Track every delivery, invoice, GRN, and payment milestone in one place.",
+          description: "",
           iconBgColor: "bg-success",
           iconColor: "text-white"
         },
         {
-          title: "Integrated vendor management",
-          description: "Manage vendor relationships, payment terms, and compliance in one integrated system.",
+          title: "Manage staggered dispatches, partial GRNs, and corresponding payments easily.",
+          description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
         }
@@ -610,35 +630,35 @@ export const modulePageData = {
       steps: [
         {
           stepNumber: 1,
-          title: "Generate PO",
-          description: "Generate purchase orders automatically from approved negotiations and selections."
+          title: "Finalize vendor => triggers sequential approvals as per PO hierarchy",
+          description: ""
         },
         {
           stepNumber: 2,
-          title: "Track deliveries",
-          description: "Track deliveries, quality checks, and payment milestones automatically."
+          title: "Final approver’s confirmation auto‑creates PO for accounts team to review & send",
+          description: ""
         },
         {
           stepNumber: 3,
-          title: "Process payments",
-          description: "Process payments based on delivery milestones and vendor payment terms."
+          title: "Track PO lifecycle: seller invoice → delivery challan(s) → GRN(s) → client invoice → payment milestones",
+          description: ""
         }
       ]
     },
     customerSayings: {
       title: "What Real Customers Are Saying",
       testimonial: {
-        quote: "The payment management system has eliminated our manual tracking. Everything is automated and transparent.",
-        authorName: "Finance Manager",
-        authorTitle: "Construction Company",
+        quote: "We issue 40–50 POs daily, and tracking them was a nightmare: missed payments, even double payments at times. Workwise has eliminated those errors completely.",
+        authorName: "Accounts Head",
+        authorTitle: "EPC Contractor",
         authorImage: "/assets/images/placeholder.jpeg"
       },
       realOutcomes: {
         title: "Real Outcomes",
         items: [
-          "80% reduction in payment processing time",
-          "Improved vendor relationships",
-          "Better cash flow management"
+          "100% visibility on supplier & client payment timelines",
+          "No missed approvals or delayed POs",
+          "Streamlined handover between procurement, accounts, and project teams"
         ]
       }
     },
@@ -646,27 +666,31 @@ export const modulePageData = {
       title: "Frequently Asked Questions",
       questions: [
         {
-          question: "Can I generate POs automatically?",
-          answer: "Yes. Purchase orders can be generated automatically from approved negotiations and vendor selections."
+          question: "Can I define multiple levels of PO approval?",
+          answer: "Yes. Admins can set up multi‑level approval hierarchies, and the system sends notifications sequentially to each approver."
         },
         {
-          question: "Does it track payment milestones?",
-          answer: "Yes. The system tracks payment milestones based on delivery and quality check completion."
+          question: "Can POs be edited before sending to the vendor?",
+          answer: "Yes. The accounts team can review and edit the PO before sending it to the vendor."
         },
         {
-          question: "Can I manage vendor payment terms?",
-          answer: "Yes. You can set up and manage vendor payment terms and compliance requirements."
+          question: "How does milestone tracking work?",
+          answer: "You can define payment milestones based on PO terms, track them for both supplier and client, and get automated reminders."
         },
         {
-          question: "Is there integration with accounting systems?",
-          answer: "Yes. The system can integrate with your existing accounting and ERP systems."
+          question: "Can it handle staggered dispatches?",
+          answer: "Yes. Multiple dispatches can be linked to the same PO, each with its own delivery challan, GRN, and payment status."
+        },
+        {
+          question: "Does the system track both supplier and client payments?",
+          answer: "Yes. You can track when you need to pay the supplier and when to collect from the client — with reminders for both."
         }
       ]
     },
     finalCta: {
-      title: "Ready to Streamline Your PO & Payments?",
+      title: "Want Complete Control Over POs & Payments?",
       primaryButton: {
-        label: "Try Payment Tool",
+        label: "Try PO Management Module",
         variant: "black",
         icon: "none"
       },

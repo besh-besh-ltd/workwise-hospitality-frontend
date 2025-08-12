@@ -28,7 +28,7 @@ const FaqSecuritySection = () => (
   <section className="py-5 bg-light">
     <div className="container">
       <h2 className="h4 fw-bold text-center mb-4">
-        ❓ Common Questions About Workwise Security
+        Common Questions About Workwise Security
       </h2>
 
       <FaqAccordion questions={securityFaqs} />
@@ -101,7 +101,7 @@ const SecurityFeatures = ({
 
 const AuditReadySection = ({ 
   className = '',
-  title = "🔍 Audit-Ready. Private. Always in Control.",
+  title = "Audit-Ready. Private. Always in Control.",
   subtitle = "Workwise ensures full transparency for your team — and complete confidentiality from vendors.",
   features,
   ...props 
@@ -139,7 +139,7 @@ const AuditReadySection = ({
 
 const EnterpriseStackIntegration = ({ 
   className = '',
-  title = "📋 Fits Right Into Your Enterprise Stack",
+  title = "Fits Right Into Your Enterprise Stack",
   features,
   ...props 
 }) => {
@@ -156,9 +156,11 @@ const EnterpriseStackIntegration = ({
         <div className="row justify-content-center g-4">
           {displayFeatures.map((feature) => (
             <div key={feature.id} className="col-lg-3 col-md-6 col-sm-6">
-              <div className="text-center px-2">
-                <div className="mb-3">{feature.icon}</div>
-                <p className="text-muted mb-0 small lh-base">{feature.title}</p>
+              <div className="px-2">
+                <div className="d-flex d-sm-block align-items-center justify-content-center text-center">
+                  <div className="me-2 me-sm-0 mb-0 mb-sm-3">{feature.icon}</div>
+                  <p className="text-muted mb-0 small lh-base">{feature.title}</p>
+                </div>
               </div>
             </div>
           ))}

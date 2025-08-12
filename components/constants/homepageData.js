@@ -5,7 +5,7 @@ import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
 export const homepageData = {
   hero: {
     title: "Procurement se Profit Banao",
-    subtitle: "India's #1 Capex Project Procurement Platform — Built for EPCs, Contractors & Industrial Buyers",
+    subtitle: "India's #1 Project Procurement Platform — Built for EPCs, Contractors & Industrial Buyers",
     valueProps: [
       {
         icon: <FontAwesomeIcon icon={faRocket} />,
@@ -71,6 +71,7 @@ export const homepageData = {
       buttonVariant: "primary",
       iconColor: "#0EA5E9",
       note: "Free processing for documents up to 500 pages"
+      ,url: "/ai-tools/tender-summary"
     },
     {
       title: "BOQ Simplifier",
@@ -98,6 +99,7 @@ export const homepageData = {
       buttonVariant: "primary",
       iconColor: "#10B981",
       note: "Free processing for up to 100 line items"
+      ,url: "/ai-tools/boq-simplification"
     },
     {
       title: "Project Cost Estimator",
@@ -125,6 +127,7 @@ export const homepageData = {
       buttonVariant: "primary",
       iconColor: "#8B5CF6",
       note: "Free for projects up to ₹50 lakhs"
+      ,url: "/ai-tools/cost-estimation"
     },
     {
       title: "Technical Document Summary",
@@ -152,6 +155,7 @@ export const homepageData = {
       buttonVariant: "primary",
       iconColor: "#F59E0B",
       note: "Free for documents up to 200 pages"
+      ,url: "/ai-tools/technical-summary"
     }
   ],
 
@@ -173,11 +177,13 @@ export const homepageData = {
   carouselSettings: {
     dots: false,
     infinite: true,
-    speed: 500,
+    speed: 10000,
     slidesToShow: 5,
     slidesToScroll: 1,
     autoplay: true,
-    autoplaySpeed: 3000,
+    autoplaySpeed: 0,
+    cssEase: "linear",
+    pauseOnHover: false,
     arrows: false,
     responsive: [
       {
@@ -222,7 +228,7 @@ export const homepageData = {
         icon: faBuilding,
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
         items: [
-          "12,500+ Domestic Vendors",
+          "11,000+ Domestic Vendors",
           "1,500+ International Vendors"
         ]
       }
@@ -289,7 +295,7 @@ export const homepageData = {
           "AI classifies and structures the data",
           "Download clean, editable BOQ"
         ],
-        mobileDescription: "Make your BOQ usable. Upload any BOQ format and get a structured, editable version instantly.",
+        mobileDescription: "Upload any BOQ format → get structured, editable BOQ instantly.",
         icon: faFileAlt,
         iconBg: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
         iconColor: "#F59E0B",
@@ -303,7 +309,7 @@ export const homepageData = {
           "Choose vendors and send enquiries via WhatsApp and email",
           "Track responses and read receipts"
         ],
-        mobileDescription: "Create RFQs in minutes. Turn your BOQ into RFQs and send to vendors in one click.",
+        mobileDescription: "Turn BOQ into RFQs → send to vendors in one click.",
         icon: faFileContract,
         iconBg: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
         iconColor: "#10B981",
@@ -317,7 +323,7 @@ export const homepageData = {
           "Filter by Make, Approval, and Location",
           "View vendor profiles instantly"
         ],
-        mobileDescription: "Find the right vendors — fast. Search 12,000+ verified vendors using smart filters.",
+        mobileDescription: "Search 12,000+ verified vendors with smart filters.",
         icon: faUsers,
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)",
         iconColor: "#0EA5E9",
@@ -331,7 +337,7 @@ export const homepageData = {
           "View grouped, ungrouped, or normalized layouts",
           "Instantly detect technical deviations"
         ],
-        mobileDescription: "Compare quotes with clarity. Get smart, deviation-flagged comparisons in multiple formats.",
+        mobileDescription: "Smart quote comparison with deviation flags & multiple views.",
         icon: faListUl,
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
         iconColor: "#a855f7",
@@ -345,7 +351,7 @@ export const homepageData = {
           "Customize with English, Dutch, Rank, or Preferential auctions",
           "See all bids live in one view"
         ],
-        mobileDescription: "Negotiate better online. Run smart online auctions with full customization.",
+        mobileDescription: "Run reverse/custom auctions online with full controls.",
         icon: faMoneyBill,
         iconBg: "linear-gradient(135deg, #3B82F6 100%, #1D4ED8 0%)",
         iconColor: "#3B82F6",
@@ -359,7 +365,7 @@ export const homepageData = {
           "Get reminders for due payments or receivables",
           "Track both vendor and client-side payment status"
         ],
-        mobileDescription: "Track POs till final payment. Generate POs and monitor all payment stages, both in and out.",
+        mobileDescription: "Auto-POs and full milestone tracking till final payment.",
         icon: faCalculator,
         iconBg: "linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)",
         iconColor: "#14B8A6",
@@ -474,26 +480,26 @@ export const homepageData = {
     ],
     testimonials: [
       {
-        quote: "RFQs done in 15 mins.",
-        author: "Abhinav",
-        position: "Power EPC"
+        quote: "Earlier, RFQs took 2-3 days to prepare. With Workwise, it's done in 15 minutes.",
+        author: "Abhinav Sharma",
+        position: "Procurement Head, Power EPC"
       },
       {
-        quote: "Chart saved us from wrong vendor.",
-        author: "Arnav",
-        position: "Infra"
+        quote: "The comparison chart saved us from making the wrong vendor choice — super helpful.",
+        author: "Arnav Singh",
+        position: "Project Director, Infrastructure Contractor"
       },
       {
-        quote: "PO tracking is now in one view.",
-        author: "Sushanta",
-        position: "Oil & Gas"
+        quote: "Vendor follow-ups and PO tracking used to be a mess. Now it's all in one view.",
+        author: "Sushanta Kumar Roy",
+        position: "Owner, Oil & Gas Turnkey Contractor"
       }
     ]
   },
 
   // FAQ Section
   faqSection: {
-    headline: "Frequently Asked Questions about Workwise & Procurement Automation",
+    headline: "Frequently Asked Questions",
     subheadline: "We've answered the most common questions buyers and vendors ask us about Workwise, AI tools, procurement workflows, and integrations.",
     categories: [
       {
