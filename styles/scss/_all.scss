@@ -443,6 +443,19 @@ textarea {
       }
     }
 
+    /* Force Supplier CTA to remain orange in transparent navbar */
+    .extra-buttons .btn-supplier {
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+      color: var(--black-color) !important;
+      border: none !important;
+      box-shadow: 0 2px 8px rgba(255, 215, 0, 0.25);
+
+      &:hover {
+        background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%) !important;
+        color: var(--black-color) !important;
+      }
+    }
+
     .extra-buttons ul li:first-child a {
       background: rgba(255, 255, 255, 0.1);
       border: 2px solid rgba(255, 255, 255, 0.3);
@@ -1025,21 +1038,29 @@ body.at-top {
   display: none;
 
   a {
-    display: block;
-    padding: 12px 24px;
-    background: var(--secondary-color);
-    color: var(--white-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: var(--black-color);
     text-decoration: none;
-    border-radius: 25px;
+    border-radius: 50%;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(66, 139, 65, 0.3);
+    box-shadow: 0 6px 16px rgba(255, 165, 0, 0.35);
     transition: all 0.3s ease;
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(66, 139, 65, 0.4);
-      color: var(--white-color);
+      box-shadow: 0 8px 18px rgba(255, 165, 0, 0.45);
+      color: var(--black-color);
       text-decoration: none;
+    }
+
+    svg {
+      font-size: 22px;
     }
   }
 }

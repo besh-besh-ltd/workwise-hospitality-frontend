@@ -1,7 +1,7 @@
 "use client";
 import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
-import { faBell, faUser, faChat } from "@fortawesome/free-regular-svg-icons";
+import { faBell, faUser, faMessage } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
@@ -814,7 +814,7 @@ const Header = () => {
       {!loggedinUser && !pathname?.startsWith("/vendor") && (
         <div className="sticky-mobile-cta">
           <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
-            <FontAwesomeIcon icon={faChat} />
+            <FontAwesomeIcon icon={faMessage} />
           </Link>
         </div>
       )}
