@@ -6,10 +6,13 @@ import {
 
 /**
  handleNormalize logic :
-   a) for freight, and package prices, it calculates the average of all available values and fills in the missing ones.
+  a) for freight, and package prices, it calculates the average of all available values and fills in the missing ones.
   b) for tax, it calculates the median of all available values and fills in the missing ones.
-
  */
+
+// Replaces missing freight/package/tax (percentage mode) with calculated values –
+// Uses the average of available freight/package values and median of tax values to fill missing fields.
+// created by mukul 07-aug-2025
 describe("handleNormalize", () => {
   // created by mukul 07-aug-2025
   it("should normalize missing freight/package/tax with average/median values", () => {
@@ -34,7 +37,8 @@ describe("handleNormalize", () => {
   });
 });
 
-//  test cases for normalizeFlatQuotationData
+// Normalizes missing freight/package/tax (percentage mode) in flat data – Similar to handleNormalize, but works on flat quotation arrays.
+// created by mukul 07-aug-2025
 describe("normalizeFlatQuotationData", () => {
   // created by mukul 07-aug-2025
   it("should normalize missing freight/package/tax with average/median values", () => {
@@ -65,6 +69,7 @@ describe("normalizeFlatQuotationData", () => {
      total = 230 + 41.4 = 271.4 => Math.round = 271
      */
 describe("calculateTotal", () => {
+  // Calculates total including % freight, % packaging, and % tax – Computes total price by adding percentage-based freight and packaging to the base, then applying percentage-based tax.
   // created by mukul 07-aug-2025
   it("should correctly calculate total price including freight, packaging, and tax", () => {
     const quoteItem = {
@@ -83,7 +88,27 @@ describe("calculateTotal", () => {
     expect(result).toBe(271);
   });
 
-  // This test checks if the function correctly applies normalization based on payment terms.
+  // Calculates total without freight, packaging, and tax – Confirms that total equals unit_price × quantity when all extras are zero.
+    // created by mukul 07-aug-2025
+  it("should correctly calculate total price without freight, packaging, and tax", () => {
+    const quoteItem = {
+      unit_price: 10,
+      freight_price: 0, // 10% of base
+      package_price: 0, // 5% of base
+      tax: 0, // 18% on total_with_fpt
+      freight_mode: "percentage",
+      package_mode: "percentage",
+      tax_mode: "percentage",
+    };
+
+    const quantity = 5;
+
+    const result = calculateTotal(quoteItem, quantity);
+    expect(result).toBe(50);
+  });
+
+  // Calculates total with payment term deductions (percentage mode) – Applies deductions based on payment term days to a total that includes % freight, % packaging, and % tax.
+  // created by mukul 13-aug-2025
   it("should correctly apply normalization based on payment terms", () => {
     const quoteItem = {
       unit_price: 1000,
@@ -94,9 +119,9 @@ describe("calculateTotal", () => {
       package_mode: "percentage",
       tax_mode: "percentage",
       payment_terms: [
-        { value: 10, label: "Advance" }, // 0% deduction
-        { value: 20, label: "credit", days: "30" }, // 1% deduction
-        { value: 70, label: "credit", days: "60" }, // 2% deduction
+        { value: 10, type: "advance" }, // 0% deduction
+        { value: 20, type: "credit", days: "30" }, // 1% deduction
+        { value: 70, type: "credit", days: "60" }, // 2% deduction
       ],
     };
 
@@ -105,4 +130,30 @@ describe("calculateTotal", () => {
     const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
     expect(result).toBe(1407);
   });
+
+
+  // should correctly apply normalization based on payment terms without freight, tax, packaging Tests that payment term deductions are still applied correctly even when freight, packaging, and tax are zero.
+  // created by mukul 13-aug-2025
+   it("should correctly apply normalization based on payment terms without freight, tax, packging", () => {
+    const quoteItem = {
+      unit_price: 10,
+      freight_price: 0,
+      package_price: 0,
+      tax: 0,
+      freight_mode: "percentage",
+      package_mode: "percentage",
+      tax_mode: "percentage",
+      payment_terms: [
+        { value: 12, type: "advance" }, // 0% deduction
+        { value: 10, type: "credit", days: "30" }, // 1% deduction
+        { value: 77, type: "other", days: "60" }, // 2% deduction
+      ],
+    };
+
+    const quantity = 5;
+
+    const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
+    expect(result).toBe(49);
+  });
+
 });
