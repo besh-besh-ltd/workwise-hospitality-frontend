@@ -77,7 +77,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter , targetPrice}
               const productName = item.product_details?.[0]?.name || '-';
               const size = item.product_specs?.find(s => s.title === 'Size')?.value || '--';
               const spec = item.product_specs?.find(s => s.title === 'Spec')?.value || '--';
-              const latest_target_price = item.id;
+              const latest_target_price = item?.latest_target_price;
               // Sort vendors for this product by cost (excluding regrets)
               const quotingVendors = item.quotations
                 .filter(q => q.id != null && q.is_regret !== 1 && q.quote_details && q.quote_details[0])
