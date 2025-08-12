@@ -244,10 +244,16 @@ export const getRFQS = (payload) => {
     }
   });
 };
-export const getRFQById = (id, token) => {
+export const getRFQById = (id, token, includeVendors = false) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/getRfqById/${id}${token !== undefined ? `?token=${token}` : ''}`);
+      let response = await axiosInstance.get(
+        `/rfq/getRfqById/${id}${
+          token !== undefined
+            ? `?token=${token}&includeVendors=${includeVendors}`
+            : `?includeVendors=${includeVendors}`
+        }`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -449,12 +455,11 @@ export const updateTargetPrice = (targetPrice, tbl_rfq_product_id) => {
 /* 
 START :: Initiate magic search
 */
-export const persistMagicSearchJob = async (file_name, type = 'rfq') => {
-  const token = localStorage.getItem("token");
-
+export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_url) => {
   const payload = {
     file_name,
-    type
+    type,
+    raw_file_url
   }
   let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
   return response;
