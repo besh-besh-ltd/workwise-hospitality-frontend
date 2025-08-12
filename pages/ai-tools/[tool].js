@@ -15,6 +15,8 @@ import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
+import { getBOQexcelToJsonAI, handleCostEstimation, startCostEstimationProcess } from '@/services/rfq';
+import { toast } from 'react-toastify';
 
 const AiToolPage = () => {
   const router = useRouter();
@@ -26,6 +28,7 @@ const AiToolPage = () => {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [formError, setFormError] = useState(null);
 
   useEffect(() => {
     setMounted(true);
@@ -69,21 +72,32 @@ const AiToolPage = () => {
   };
 
   const handleFormSubmit = async (formData) => {
-    // Here you would typically send the form data and file to your backend
-    console.log('Form submitted:', formData);
-    console.log('File:', file);
-    setShowFormModal(false);
-    setShowSuccessModal(true);
-    
-    // Reset file after successful submission
-    setTimeout(() => {
-      setFile(null);
-      setFileName('');
-      setShowSuccessModal(false);
-    }, 3000);
+    try {
+      const persistJob = await handleCostEstimation(fileName, 'cost-estimation', formData);
+      const webhook = persistJob.webhook;
+
+      const startResponse = await startCostEstimationProcess(file, webhook);
+
+      if (startResponse) {
+        const response = startResponse.data;
+        toast.success(response.message);
+      } else {
+        toast.error("Server is too busy to handle your request, please try again in some time...");
+      }
+
+      setShowFormModal(false);
+      setShowSuccessModal(true);
+      
+      // Reset file after successful submission
+      setTimeout(() => {
+        setFile(null);
+        setFileName('');
+        setShowSuccessModal(false);
+      }, 3000);
+    } catch (error) {
+      setFormError(error?.response?.data?.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+    }
   };
-
-
 
   const handleBookCall = () => {
     console.log('Book a Call clicked');

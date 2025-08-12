@@ -439,6 +439,16 @@ export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_ur
   return response;
 };
 
+export const handleCostEstimation = async (file_name, type = 'rfq', userData) => {
+  const payload = {
+    file_name,
+    type,
+    ...userData,
+  }
+  let response = await axiosInstance.post(`/rfq/estimate-cost`, payload);
+  return response;
+};
+
 
 /* 
 START :: AI server functions 
@@ -457,6 +467,21 @@ export const getBOQexcelToJsonAI = (file, webhook, customInstructions = "") => {
     formData.append("webhook", webhook);
 
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+export const startCostEstimationProcess = (file, webhook) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  
+  if(webhook)
+    formData.append("webhook", webhook);
+
+  return axios.post(`${aiServerBaseURL}/estimate-cost`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "multipart/form-data",
