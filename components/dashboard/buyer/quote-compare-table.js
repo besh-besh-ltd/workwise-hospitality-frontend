@@ -390,10 +390,7 @@ const QuoteCompareTable = ({
 
                     {/* Payment terms list */}
                     {(() => {
-                      const terms = Array.isArray(item?.payment_terms)
-                        ? item.payment_terms
-                        : (Array.isArray(item?.payment_terms_list) ? item.payment_terms_list : []);
-                    
+                      const terms =item?.payment_terms                   
                       return (
                         <div className="">
                           {terms.length ? (
@@ -401,8 +398,9 @@ const QuoteCompareTable = ({
                               {terms.map((t, i) => (
                                 <li key={t.id ?? i} className="d-flex justify-content-between py-1">
                                   <span className="text-capitalize">
-                                    {t.type || "term"}{t.days ? ` (${t.days} days)` : ""}
-                                    {t.comment ? <span className="small text-muted ms-1">— {t.comment}</span> : null}
+                                    {!t.comment ? ` ${t.type} ${t.days ? t.days + ' days' : ''} ` : ""}
+
+                                    {t.comment ? t.comment  : null}
                                   </span>
                                   <span className="fw-semibold">{t.value != null ? `${t.value}%` : "-"}</span>
                                 </li>

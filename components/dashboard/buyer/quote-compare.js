@@ -1291,6 +1291,8 @@ const openModalForVariant = (variantId) => {
                             View Technically Accepted Vendors
                           </label>
                         </div>}
+
+                     {!normalizeFilter && 
                       <div className="form-check form-switch page-link fs-6">
                         <input
                           className="form-check-input border-dark-subtle"
@@ -1304,6 +1306,8 @@ const openModalForVariant = (variantId) => {
                           View quotes without freight
                         </label>
                       </div>
+                      }
+
                        <div className="form-check form-switch page-link fs-6">
                         <input
                           className="form-check-input border-dark-subtle"
