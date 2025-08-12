@@ -66,7 +66,7 @@ export const ourStoryData = {
     title: "Where We Stand Today",
     stats: [
       {
-        value: "100+",
+        value: "135+",
         label: "EPCs, consultants, and clients onboarded"
       },
       {
@@ -74,11 +74,11 @@ export const ourStoryData = {
         label: "procurement managed"
       },
       {
-        value: "12,000+",
+        value: "12,500+",
         label: "verified suppliers"
       },
       {
-        value: "5+",
+        value: "7+",
         label: "Industries served including oil & gas, infrastructure, and power"
       }
     ],

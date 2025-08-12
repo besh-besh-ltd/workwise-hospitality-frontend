@@ -238,7 +238,7 @@ const DynamicCard = ({
     if (!date && !location && !venue) return null;
 
     return (
-      <div className={`d-flex align-items-center ${config.gap}`}>
+      <div className={`d-flex align-items-center ${config.gap}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
         {date && (
           <div className="d-flex align-items-center me-3">
             <Calendar className="text-muted me-1" size={size === 'small' ? 10 : 12} />

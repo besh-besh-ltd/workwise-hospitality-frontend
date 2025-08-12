@@ -1,7 +1,7 @@
 "use client";
 import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
-import { faBell, faUser } from "@fortawesome/free-regular-svg-icons";
+import { faBell, faUser, faChat } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
@@ -586,8 +586,14 @@ const Header = () => {
                             Login
                           </Link>
                         </li>
+                        {/* Mobile-only: show For Suppliers instead of Book a Call */}
+                        <li className="signup d-block d-md-none">
+                          <Link href="/for-vendors" className="btn-supplier" style={{ color: '#000' }}>
+                            For Suppliers
+                          </Link>
+                        </li>
                         <li
-                          className="signup book-call"
+                          className="signup book-call d-none d-md-block"
                           onClick={() => {
                             handleChange(setOpenAuthModal(true));
                           }}
@@ -803,6 +809,16 @@ const Header = () => {
           </div>
         )}
       </header>
+
+      {/* Sticky Mobile CTA */}
+      {!loggedinUser && !pathname?.startsWith("/vendor") && (
+        <div className="sticky-mobile-cta">
+          <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
+            <FontAwesomeIcon icon={faChat} />
+          </Link>
+        </div>
+      )}
+
 
 
       {/* Auth Modal */}

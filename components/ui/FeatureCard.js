@@ -49,6 +49,13 @@ const FeatureCard = React.forwardRef(({
 
         {/* Description */}
         <p className="card-text text-muted">{description}</p>
+
+        <style jsx>{`
+          @media (max-width: 576px) {
+            .card-body .rounded-circle { width: 40px !important; height: 40px !important; }
+            .card-body .rounded-circle svg { width: 18px !important; height: 18px !important; }
+          }
+        `}</style>
       </div>
     </div>
   );

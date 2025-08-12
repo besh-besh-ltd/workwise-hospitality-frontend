@@ -31,7 +31,7 @@ const Button = React.forwardRef(({
         classes += " btn-light";
         break;
       case "black":
-        classes += " btn-dark";
+        classes += " btn-primary position-relative overflow-hidden";
         break;
       case "gradient":
         classes += " btn-primary position-relative overflow-hidden";

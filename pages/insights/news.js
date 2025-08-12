@@ -26,10 +26,11 @@ const NewsPage = () => {
     console.log('Media Contact clicked');
   };
 
+  const [openYear, setOpenYear] = useState(2024);
   // Featured articles (first 2)
-  const featuredArticles = newsData.newsCoverage[2024].slice(0, 2);
+  const featuredArticles = newsData.newsCoverage[openYear].slice(0, 2);
   // Regular articles (rest)
-  const regularArticles = newsData.newsCoverage[2024].slice(2);
+  const regularArticles = newsData.newsCoverage[openYear].slice(2);
 
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
@@ -76,16 +77,23 @@ const NewsPage = () => {
         </div>
       </section>
 
-      {/* 2024 Coverage Section */}
+      {/* Yearly Coverage Section with CSS-only dropdown (DOM always visible) */}
       <section className="py-5" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         <div className="container">
           {/* Section Header */}
-          <div className="mb-5">
-            <h2 className="fs-2 fw-bold text-dark mb-0">2024 Coverage</h2>
+          <div className="mb-4">
+            <div className="d-flex align-items-center justify-content-between">
+              <h2 className="fs-2 fw-bold text-dark mb-0">Coverage</h2>
+              <div className="position-relative">
+                <button className="btn btn-light dropdown-toggle" onClick={() => setOpenYear(openYear === 2024 ? 2023 : 2024)}>
+                  {openYear}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Regular Articles Grid */}
-          <div className="row g-4">
+          <div className={`row g-4 year-content ${openYear === 2024 ? 'expanded' : 'collapsed'}`}>
             {regularArticles.map((article) => (
               <div key={article.id} className="col-md-6 col-lg-4">
                 <DynamicCard
@@ -108,6 +116,10 @@ const NewsPage = () => {
             ))}
           </div>
         </div>
+        <style jsx>{`
+          .year-content.collapsed { max-height: 0; overflow: hidden; opacity: 0; transition: all .3s ease; }
+          .year-content.expanded { max-height: 4000px; opacity: 1; transition: all .3s ease; }
+        `}</style>
       </section>
 
       {/* Press Kit & Media Resources Section */}

@@ -44,7 +44,7 @@ const PowerTeamsFaq = ({ className = "" }) => (
   <section className={`py-5 bg-light ${className}`}>
     <div className="container">
       <h2 className="h4 fw-bold text-center mb-4">
-        ❓ Questions Power Teams Ask Us
+        Questions Power Teams Ask Us
       </h2>
 
       <div className="row justify-content-center">
@@ -164,7 +164,7 @@ const WorkwiseModules = ({
 
 const TestimonialsSection = ({
   className = '',
-  title = "🏢 Used in Projects by Companies You Know",
+  title = "Used in Projects by Companies You Know",
   testimonials,
   ...props
 }) => {
@@ -284,7 +284,7 @@ const TestimonialsSection = ({
 
 const AllDisciplines = ({
   className = '',
-  title = "📦 All Disciplines — One Platform",
+  title = "All Disciplines — One Platform",
   disciplines,
   variant = 'grid', // 'grid' or 'compact'
   ...props
@@ -368,84 +368,14 @@ const HeroPowerCapex = () => (
   <HeroSection
     title={industryPageData.hero.title}
     subtitle={industryPageData.hero.description}
-    layout="split"
+    layout="centered"
     size="medium"
-    showVisual={true}
+    showVisual={false}
     primaryButton={{
       label: industryPageData.hero.buttonLabel,
       variant: "black",
       onClick: () => console.log('Book a Call clicked')
     }}
-    visualContent={
-      <div className="text-center">
-        <div
-          className="position-relative rounded-3 shadow-lg mx-auto"
-          style={{
-            width: '100%',
-            maxWidth: '450px',
-            height: '320px',
-            backgroundColor: '#87ceeb',
-            backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%)',
-            backgroundSize: '20px 20px',
-            backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
-          }}
-        >
-          {/* Simulated Power Infrastructure */}
-          <div className="position-absolute bottom-0 start-0 w-100 h-75 d-flex align-items-end justify-content-center p-4">
-            {/* Power Lines Simulation */}
-            <div className="d-flex align-items-end gap-2 w-100">
-              {/* Power Towers */}
-              {[80, 120, 100, 90, 110].map((height, i) => (
-                <div key={i} className="d-flex flex-column align-items-center">
-                  {/* Tower Structure */}
-                  <div
-                    className="bg-dark"
-                    style={{
-                      width: '4px',
-                      height: `${height}px`,
-                      opacity: 0.7
-                    }}
-                  />
-                  {/* Cross Beam */}
-                  <div
-                    className="bg-dark"
-                    style={{
-                      width: '20px',
-                      height: '2px',
-                      marginTop: '-10px',
-                      opacity: 0.6
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Power Lines */}
-            <div className="position-absolute top-50 start-0 w-100">
-              {[0, 1, 2].map((line) => (
-                <div
-                  key={line}
-                  className="position-absolute start-0 w-100 bg-dark"
-                  style={{
-                    height: '1px',
-                    top: `${line * 15}px`,
-                    opacity: 0.4
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Overlay Text */}
-          <div className="position-absolute top-50 start-50 translate-middle text-center">
-            <div className="bg-white bg-opacity-90 rounded-2 p-3">
-              <h6 className="fw-bold text-dark mb-1">Power Infrastructure</h6>
-              <small className="text-muted">Capex Projects</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    }
   />
 );
 
@@ -453,7 +383,7 @@ const HeroPowerCapex = () => (
 
 const PowerProcurementChallenges = ({
   className = '',
-  title = "🎯 We Understand the Real-World Challenges of Power Procurement",
+  title = "We Understand the Real-World Challenges of Power Procurement",
   challenges,
   ...props
 }) => {
@@ -526,7 +456,7 @@ const PowerProcurementChallenges = ({
 
 const CapexProjectsServed = ({
   className = '',
-  title = "📋 Capex Projects We've Served in Power",
+  title = "Capex Projects We've Served in Power",
   projects,
   ...props
 }) => {

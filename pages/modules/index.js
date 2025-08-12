@@ -85,73 +85,6 @@ const ModulePage = () => {
     console.log('Book a Call clicked');
   };
 
-  // Dynamic visual placeholder based on module
-  const ModuleVisualPlaceholder = () => {
-    const visualMap = {
-      boq: {
-        title: "BOQ Simplification Process",
-        left: { title: "BOQ", items: ["Staffy icannet", "ccedfit loools", "stinfilisctution"] },
-        right: { title: "Simplified", items: ["Ctudficgane", "Ccedfil pools", "Ccedft: ciater", "Cesate pools", "Ccedtil plant"] }
-      },
-      rfq: {
-        title: "RFQ Generation Process",
-        left: { title: "BOQ", items: ["Product A", "Product B", "Product C"] },
-        right: { title: "RFQ", items: ["Vendor 1", "Vendor 2", "Vendor 3"] }
-      },
-      vendors: {
-        title: "Vendor Discovery",
-        left: { title: "Search", items: ["Category", "Location", "Approval"] },
-        right: { title: "Vendors", items: ["Vendor A", "Vendor B", "Vendor C"] }
-      },
-      evaluation: {
-        title: "Quote Evaluation",
-        left: { title: "Quotes", items: ["Vendor 1", "Vendor 2", "Vendor 3"] },
-        right: { title: "Analysis", items: ["Comparison", "Deviations", "Recommendation"] }
-      },
-      negotiation: {
-        title: "Negotiation Process",
-        left: { title: "Initial", items: ["Quote", "Terms", "Timeline"] },
-        right: { title: "Final", items: ["Agreement", "Contract", "Approval"] }
-      },
-      payments: {
-        title: "Payment Management",
-        left: { title: "PO", items: ["Order", "Delivery", "Quality"] },
-        right: { title: "Payment", items: ["Milestone", "Invoice", "Settlement"] }
-      }
-    };
-
-    const visual = visualMap[currentModule] || visualMap.boq;
-
-    return (
-      <div className="d-flex align-items-center justify-content-center h-100">
-        <div className="text-center text-white">
-          <div className="mb-3">
-            <div className="d-flex align-items-center gap-4">
-              <div className="bg-white bg-opacity-20 rounded p-3">
-                <div className="text-center mb-2">
-                  <strong>{visual.left.title}</strong>
-                </div>
-                <div className="small">
-                  {visual.left.items.map((item, index) => (
-                    <div key={index}>{item}</div>
-                  ))}
-                </div>
-              </div>
-              <div>→</div>
-              <div className="bg-white bg-opacity-20 rounded p-3">
-                <div className="small">
-                  {visual.right.items.map((item, index) => (
-                    <div key={index}>{item}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          <p className="mb-0 small">{visual.title}</p>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
@@ -168,9 +101,9 @@ const ModulePage = () => {
           onClick: handleSecondaryAction
         }}
         visualContent={{
-          component: ModuleVisualPlaceholder,
           image: moduleData.hero.image
         }}
+        mobileVideoContent={<img src={moduleData.hero.image} alt="Module visual" style={{ width: '100%', height: 'auto', borderRadius: '12px' }} />}
       />
 
       {/* Top Benefits Section */}
@@ -187,8 +120,7 @@ const ModulePage = () => {
                   icon={featureIcons[index]}
                   iconBgColor={feature.iconBgColor}
                   iconColor={feature.iconColor}
-                  title={feature.title}
-                  description={feature.description}
+                  description={feature.title}
                 />
               </div>
             ))}
@@ -200,7 +132,6 @@ const ModulePage = () => {
       <section className="py-5" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         <div className="container">
           <div className="d-flex align-items-center justify-content-center mb-5">
-            <TrendingUp className="me-2" size={24} style={{ color: 'var(--text-color)' }} />
             <h2 className="fs-1 fw-bold text-dark mb-0">
               {moduleData.howItWorks.title}
             </h2>
@@ -213,8 +144,7 @@ const ModulePage = () => {
                   icon={stepIcons[index]}
                   iconBgColor="bg-light"
                   iconColor="text-muted"
-                  title={step.title}
-                  description={step.description}
+                  description={step.title}
                   stepNumber={step.stepNumber}
                   isStep={true}
                 />
@@ -228,7 +158,6 @@ const ModulePage = () => {
       <section className="py-5 bg-white">
         <div className="container">
           <div className="d-flex align-items-center justify-content-center mb-5">
-            <TrendingUp className="me-2" size={24} style={{ color: 'var(--red-color)' }} />
             <h2 className="fs-1 fw-bold text-dark mb-0">
               {moduleData.customerSayings.title}
             </h2>

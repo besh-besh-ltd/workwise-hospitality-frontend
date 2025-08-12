@@ -133,7 +133,7 @@ const PricingPage = () => {
               <div className="col-lg-10">
                 {/* Main White Card */}
                 <div className="card border-0 shadow-sm" style={{ borderRadius: '12px' }}>
-                  <div className="card-body p-5">
+                  <div className="card-body p-4 p-md-5">
                     <div className="text-center">
                       {/* Section Title */}
                       <div className="d-flex align-items-center justify-content-center mb-3">
@@ -157,19 +157,19 @@ const PricingPage = () => {
                       </div>
 
                       {/* Message Block */}
-                      <p className="text-muted mb-5" style={{ fontSize: '1.1rem', lineHeight: '1.5' }}>
+                      <p className="text-muted mb-4 mb-md-5" style={{ fontSize: '1rem', lineHeight: '1.5' }}>
                         {pricingData.buyers.message}
                       </p>
 
                       {/* Feature Cards */}
-                      <div className="row g-4 mb-5">
+                      <div className="row g-3 g-md-4 mb-4 mb-md-5">
                         {pricingData.buyers.features.map((feature, index) => (
-                          <div key={index} className="col-md-4">
+                          <div key={index} className="col-12 col-md-4">
                             <div className="card h-100 border-0" style={{ 
                               backgroundColor: 'var(--light-grey-bg)', 
                               borderRadius: '12px' 
                             }}>
-                              <div className="card-body p-4 text-center">
+                              <div className="card-body p-3 p-md-4 text-center">
                                 <div 
                                   className="mx-auto mb-3"
                                   style={{
@@ -200,11 +200,11 @@ const PricingPage = () => {
                         variant="dark"
                         icon="arrow-right"
                         onClick={handleContactUs}
-                        className="px-5 py-3 mb-5"
+                        className="px-4 px-md-5 py-3 mb-4 mb-md-5 w-100 w-md-auto"
                         style={{ 
-                          fontSize: '1.1rem', 
+                          fontSize: '1rem', 
                           fontWeight: '600',
-                          minWidth: '400px'
+                          minWidth: 'auto'
                         }}
                       />
                     </div>
