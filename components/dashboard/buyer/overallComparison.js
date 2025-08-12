@@ -1248,6 +1248,21 @@ const openModalForVariant = (variantId) => {
                                   : "-"
                               }
                             />
+
+                        {item?.payment_terms?.length ? (
+                          <p className="text-start">
+                            {item.payment_terms.map((t,i) => {
+                              const label =
+                                (t.type || "").toLowerCase() === "other"
+                                  ? (t.comment || "")
+                                  : `${t.type}${t.days ? ` (${t.days} days)` : ""}`;
+                              return <span key={t.id ?? i} className="mt-3" >{label} - {t.value ?? 0}%</span>;
+                            })}
+                          </p>
+                        ) : (
+                          item?.global_payment_term?.[0]?.details || "-"
+                        )}
+
                           </td>
                         );
                       })}
