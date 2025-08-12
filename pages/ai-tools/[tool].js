@@ -114,27 +114,24 @@ const AiToolPage = () => {
       const persistJob = await handleCostEstimation(fileName, 'cost-estimation', formData);
       const webhook = persistJob.webhook;
 
+      if(persistJob.didUserRegister) {
+        const isLoginSuccess = await handleUserLogin({ email: persistJob.user.email, password: persistJob.user.password });
+        if(!isLoginSuccess) throw new Error("Login Failed!")
+      }
+      
       const startResponse = await startCostEstimationProcess(file, webhook);
+      const response = startResponse.data;
 
       if (startResponse) {
-        const response = startResponse.data;
         toast.success(response.message);
-        handleUserLogin(response.user);
+        setShowFormModal(false);
+        setShowSuccessModal(true);
       } else {
-        toast.error("Server is too busy to handle your request, please try again in some time...");
+        throw new Error("Server is too busy to handle your request, please try again in some time...")
       }
-
-      setShowFormModal(false);
-      setShowSuccessModal(true);
-      
-      // Reset file after successful submission
-      setTimeout(() => {
-        setFile(null);
-        setFileName('');
-        setShowSuccessModal(false);
-      }, 3000);
     } catch (error) {
-      setFormError(error?.response?.data?.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+      setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+      toast.error(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
     }
   };
 
