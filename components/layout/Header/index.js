@@ -586,10 +586,18 @@ const Header = () => {
                             Login
                           </Link>
                         </li>
-                        {/* Replace Book a Call with For Suppliers in mobile header extra buttons */}
-                        <li className="signup">
-                          <Link href="/for-vendors" style={{ width: "fit-content", fontSize: "14px" }}>
-                            For Suppliers
+                        <li
+                          className="signup book-call"
+                          onClick={() => {
+                            handleChange(setOpenAuthModal(true));
+                          }}
+                        >
+                          <Link
+                            id="book-a-call-navigation"
+                            href="javascript:void(0)"
+                            style={{ width: "fit-content", fontSize: "14px" }}
+                          >
+                            Book a Call
                           </Link>
                         </li>
                       </ul>
