@@ -480,7 +480,7 @@ return { deletedTerms, createdTerms, updatedTerms };
     else {
       let isEmpty = false;
       let allFinalizedProducts = [];
-      rfqDetails.finalizations.map((item) =>
+      rfqDetails?.finalizations?.map((item) =>
         allFinalizedProducts.push(item.product_id)
       );
       let filteredquoteProducts = quoteProducts.filter((item) => {
@@ -548,7 +548,7 @@ return { deletedTerms, createdTerms, updatedTerms };
   const handleRegretQuote = ({ reqret_reason }, resetForm) => {
     let isEmpty = false;
     let allFinalizedProducts = [];
-    rfqDetails.finalizations.map((item) =>
+    rfqDetails?.finalizations?.map((item) =>
       allFinalizedProducts.push(item.product_id)
     );
     let filteredquoteProducts = quoteProducts.filter((item) => {
