@@ -22,6 +22,8 @@ const QuoteCompareTable = ({
   alreadyFinalized,
   isRfqClosed = false,
   availableBudget,
+  targetPrice,
+  targetHistory,
   normalizeFilter
 }) => {
   // Common state to manage all the modals in the whole component
@@ -85,6 +87,10 @@ const QuoteCompareTable = ({
       setLowestQuote(quoteWithLowestPrice);
     }
   };
+  const handleNegotiate = (item) => {
+    setVendorData(item?.quote_details?.vendor_details);
+    setActiveModal('common');
+  };
 
   const renderFileLink = (files,lable = "view file") => {
     return files.map((file, index) => (
@@ -98,7 +104,7 @@ const QuoteCompareTable = ({
   const handleViewFinalizationHistory = () => {
     setActiveModal('finalize_history');
   }
-
+  console.log("taregt peice ", targetPrice)
   return (
     <>
       <div
@@ -119,6 +125,9 @@ const QuoteCompareTable = ({
               <div className="table-si-row">GST (% / ₹)</div>
               <div className="table-si-row fw-semibold table-grey-row">
                 Total Rate
+              </div>
+              <div className="table-si-row fw-semibold table-grey-row">
+                Target Price
               </div>
               <div className="table-si-row">Delivery Period (In Days)</div>
               <div className="table-si-row table-grey-row">Comments</div>
@@ -335,6 +344,15 @@ const QuoteCompareTable = ({
                           Lowest
                         </span>
                       )}
+                    </div>
+                    <div
+                      className={`table-si-row fw-semibold ${
+                        item.is_lowest
+                          ? "bg-success text-white d-flex justify-content-between"
+                          : "table-grey-row"
+                      } `} // highlights in yellow-orange
+                    >
+                      ₹{targetPrice}
                     </div>
                     <div className="table-si-row">
                       {item.delivery_period != ""

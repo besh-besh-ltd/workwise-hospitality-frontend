@@ -1,14 +1,16 @@
 
 import FullLoader from "@/components/shared/FullLoader";
+import InputModal from "@/components/shared/InputModal";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { downloadQuotesDetails } from "@/services/rfq";
+import { downloadQuotesDetails, getTargetPriceHistory, updateTargetPrice } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal, extractfileName, handleNormalize } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import { Badge, Button } from "react-bootstrap";
+import { toast } from "react-toastify";
 import "react-tooltip/dist/react-tooltip.css";
 
 /**
@@ -26,7 +28,8 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
- 
+  const [openModalId, setOpenModalId] = useState(null);
+  const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
   
   useEffect(() => {
     handleDownloadQuote();
@@ -78,6 +81,23 @@ const openModalForVariant = (variantId) => {
     
     return fileArr;
   }
+  const getPricehistory = async (rfq_product_id) => {
+    try {
+      const data = await getTargetPriceHistory(rfq_product_id);
+
+  
+      if (data.length > 0) {
+        settargetPriceHistory(data);
+      } else {
+        setTargetPrice([]);
+      }
+  
+      return data || [];
+    } catch (error) {
+      console.log("error in fetching Target History");
+      return [];
+    }
+  };
 
 
   const getLowestBidAmount = (all_data) => {
@@ -158,6 +178,22 @@ const openModalForVariant = (variantId) => {
     setdata(edited_data);
     setl1total(l1totaltemp);
   };
+   
+  const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
+    try {
+      const result = await updateTargetPrice(targetPrice, rfq_product_id);
+      
+      if (!result) {
+        toast.error("Error updating Target Price");
+      } else {
+        toast.success("Target Price created and vendors have been informed");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to update Target Price");
+      console.error("Update target price error:", error);
+    }
+  };
+
 
   const getFinalizedTotal = (all_data) => {
     let l1totaltemp = 0;
@@ -330,7 +366,7 @@ const openModalForVariant = (variantId) => {
                     <th
                       scope="col"
                       className="sl_no heading"
-                      colSpan={allvendors.length + 6}
+                      colSpan={allvendors.length + 7}
                     >
                       Category Wise Comparison
                       <br />
@@ -380,9 +416,10 @@ const openModalForVariant = (variantId) => {
                     </th>
                     <th scope="col" className="all_vendors" rowSpan={2}>
                       <p>
-                        Selling Price
+                        Selling Price / Target Price
                       </p>
                     </th>
+                    
                     
                     {allvendors &&
                       allvendors.length > 0 &&
@@ -398,12 +435,16 @@ const openModalForVariant = (variantId) => {
                           </th>
                         );
                       })}
-                  </tr>
+
+                     
+                   </tr>
                 </thead>
                 <tbody className="last_row">
                   {data &&
                     data.length > 0 &&
                     data.map((item, index) => {
+                      const rfq_product_id = item.id;
+                      const productName =  item.product_details.map((prod)=>prod.name);
                       const key = item.product_variant_id + item.variant;
                       const size = item.product_specs.find(
                         (spec) => spec.title === "Size"
@@ -502,7 +543,6 @@ const openModalForVariant = (variantId) => {
                           <td>{`${quantity?.value ?? "NA"}-${
                             unit?.value ?? "NA"
                           }`}</td>
-
                           {item.last_purchase_rate || item.last_quote_rate ? (
                             <td className="total_amt_field">
                               <label className="view_breakup">
@@ -823,11 +863,74 @@ const openModalForVariant = (variantId) => {
                               />
                             </td>
                           )}
-                          {selling_price ? (
-                            <td>₹{addCommasToNumber(selling_price)}</td>
-                          ) : (
-                            <td>N/A</td>
-                          )}
+
+                          <td>
+                            <table className="w-100">
+                              {/* Selling Price Row */}
+                              {selling_price && (
+                                <tr>
+                                  <td
+                                    className="pe-2 fw-bold"
+                                    style={{ whiteSpace: "nowrap" }}
+                                  >
+                                    Selling Price:
+                                  </td>
+                                  <td>₹{addCommasToNumber(selling_price)}</td>
+                                </tr>
+                              )}
+
+                              {/* Target Price Row */}
+                              {item.latest_target_price && (
+                                <tr>
+                                  <td
+                                    className="pe-2 fw-bold"
+                                    style={{ whiteSpace: "nowrap" }}
+                                  >
+                                    Target Price:
+                                  </td>
+                                  <td>
+                                    ₹
+                                    {addCommasToNumber(
+                                      item.latest_target_price
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+
+                              {/* Set Target Price Row */}
+                              <tr>
+                                <td colSpan="2" className="pt-2">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    className="border-0 py-1 px-2"
+                                    onClick={async () => {
+                                      await getPricehistory(item.id);
+                                      setOpenModalId(item.id);
+                                    }}
+                                  >
+                                    Set Target
+                                  </Button>
+
+                                  <InputModal
+                                    show={openModalId === item.id}
+                                    onHide={() => setOpenModalId(null)}
+                                    onSubmit={(targetPrice) =>
+                                      handleSubmitTargetPrice(
+                                        targetPrice,
+                                        rfq_product_id
+                                      )
+                                    }
+                                    productName={productName}
+                                    initialValue={item.latest_target_price}
+                                    numericLabel="Target Price"
+                                    modalTitle="Set Target Price"
+                                    historyData={targetPriceHistory}
+                                  />
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
 
                           {item.quotations.length > 0 &&
                             item.quotations.map((quote_item, vIdx) => {
@@ -931,169 +1034,190 @@ const openModalForVariant = (variantId) => {
                                           Show/hide Breakup
                                         </div>
                                         <span></span>
-                                        <input 
-                                          type="checkbox" 
-                                          checked={breakupStates[`${index}_${item.product_variant_id}_${quote_item.created_by}`] || false}
-                                          onChange={() => toggleBreakup(`${index}_${item.product_variant_id}_${quote_item.created_by}`)}
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            breakupStates[
+                                              `${index}_${item.product_variant_id}_${quote_item.created_by}`
+                                            ] || false
+                                          }
+                                          onChange={() =>
+                                            toggleBreakup(
+                                              `${index}_${item.product_variant_id}_${quote_item.created_by}`
+                                            )
+                                          }
                                         />
-                                        {breakupStates[`${index}_${item.product_variant_id}_${quote_item.created_by}`] && (
-                                        <table className="table has_inner_border_table">
-                                          <tr>
-                                            <th>Base Price</th>
-                                            <td>
-                                              {quote_item?.quote_details
-                                                ?.length > 0
-                                                ? addCommasToNumber(
-                                                    quote_item?.quote_details[0]
-                                                      ?.unit_price
-                                                  )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>Total Rate</th>
-                                            <td>
-                                              {quote_item?.quote_details
-                                                ?.length > 0 &&
-                                              quote_item?.quote_details[0]
-                                                ?.unit_price &&
-                                              quantity?.value
-                                                ? addCommasToNumber(
-                                                    quote_item?.quote_details[0]
-                                                      ?.unit_price *
-                                                      parseFloat(quantity.value)
-                                                  )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>
-                                              Packaging (
-                                              {package_mode == "percentage"
-                                                ? "%"
-                                                : "IN ₹"}
-                                              )
-                                            </th>
-                                            <td>
-                                              {quote_item?.quote_details
-                                                ?.length > 0
-                                                ? package_mode == "percentage"
+                                        {breakupStates[
+                                          `${index}_${item.product_variant_id}_${quote_item.created_by}`
+                                        ] && (
+                                          <table className="table has_inner_border_table">
+                                            <tr>
+                                              <th>Base Price</th>
+                                              <td>
+                                                ₹
+                                                {quote_item?.quote_details
+                                                  ?.length > 0
                                                   ? addCommasToNumber(
                                                       quote_item
                                                         ?.quote_details[0]
-                                                        ?.package_price
-                                                    ) + "%"
-                                                  : "₹" +
-                                                    addCommasToNumber(
-                                                      quote_item
-                                                        ?.quote_details[0]
-                                                        ?.package_price
+                                                        ?.unit_price
                                                     )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>
-                                              Freight (
-                                              {freight_mode == "percentage"
-                                                ? "%"
-                                                : "IN ₹"}
-                                              )
-                                            </th>
-                                            <td>
-                                              {quote_item?.quote_details
-                                                ?.length > 0
-                                                ? freight_mode == "percentage"
-                                                  ? addCommasToNumber(
-                                                      quote_item
-                                                        ?.quote_details[0]
-                                                        ?.freight_price
-                                                    ) + "%"
-                                                  : "₹" +
-                                                    addCommasToNumber(
-                                                      quote_item
-                                                        ?.quote_details[0]
-                                                        ?.freight_price
-                                                    )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>
-                                              GST ({tax_mode ? "%" : "IN ₹"})
-                                            </th>
-                                            <td>
-                                              {quote_item?.quote_details
-                                                ?.length > 0
-                                                ? tax_mode
-                                                  ? addCommasToNumber(
-                                                      quote_item
-                                                        ?.quote_details[0]?.tax
-                                                    ) + "%"
-                                                  : "₹" +
-                                                    addCommasToNumber(
-                                                      quote_item
-                                                        ?.quote_details[0]?.tax
-                                                    )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>Delivery</th>
-                                            <td>
-                                              {
+                                                  : "-"}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <th>Total Rate</th>
+                                              <td>
+                                                ₹
+                                                {quote_item?.quote_details
+                                                  ?.length > 0 &&
                                                 quote_item?.quote_details[0]
-                                                  ?.delivery_period
-                                              }{" "}
-                                              (in days)
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>Comments</th>
-                                            <td>
-                                              {quote_item?.quote_details?.[0]
-                                                ?.comment || "--"}
-                                            </td>
-                                          </tr>
-                                          <tr>
-                                            <th>Files</th>
-                                            <td>
-                                              {renderFileLink(
-                                                quote_item?.quote_details?.[0]
-                                                  ?.document_files?.[0]
-                                                  ?.file_url,
-                                                "View File"
-                                              )}
-                                            </td>
-                                          </tr>
-                                          <tr
-                                            className={`${
-                                              quote_item?.quote_details[0]
-                                                ?.total_price
-                                                ? "is_lowest"
-                                                : ""
-                                            }`}
-                                          >
-                                            <th>Sub Total</th>
-                                            <td>
-                                              {quote_item?.quote_details
-                                                .length > 0 &&
-                                              (parseInt(
-                                                quote_item.quote_details[0]
-                                                  ?.unit_price
-                                              ) || 0) > 0
-                                                ? addCommasToNumber(
-                                                    calculateTotal(
+                                                  ?.unit_price &&
+                                                quantity?.value
+                                                  ? addCommasToNumber(
                                                       quote_item
-                                                        .quote_details[0],
-                                                      quantity.value,
-                                                      normalizeFilter
+                                                        ?.quote_details[0]
+                                                        ?.unit_price *
+                                                        parseFloat(
+                                                          quantity.value
+                                                        )
                                                     )
-                                                  )
-                                                : "-"}
-                                            </td>
-                                          </tr>
-                                        </table>
+                                                  : "-"}
+                                              </td>
+                                            </tr>
+                                           
+
+                                            <tr>
+                                              <th>
+                                                Packaging (
+                                                {package_mode == "percentage"
+                                                  ? "%"
+                                                  : "IN ₹"}
+                                                )
+                                              </th>
+                                              <td>
+                                                {quote_item?.quote_details
+                                                  ?.length > 0
+                                                  ? package_mode == "percentage"
+                                                    ? addCommasToNumber(
+                                                        quote_item
+                                                          ?.quote_details[0]
+                                                          ?.package_price
+                                                      ) + "%"
+                                                    : "₹" +
+                                                      addCommasToNumber(
+                                                        quote_item
+                                                          ?.quote_details[0]
+                                                          ?.package_price
+                                                      )
+                                                  : "-"}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <th>
+                                                Freight (
+                                                {freight_mode == "percentage"
+                                                  ? "%"
+                                                  : "IN ₹"}
+                                                )
+                                              </th>
+                                              <td>
+                                                {quote_item?.quote_details
+                                                  ?.length > 0
+                                                  ? freight_mode == "percentage"
+                                                    ? addCommasToNumber(
+                                                        quote_item
+                                                          ?.quote_details[0]
+                                                          ?.freight_price
+                                                      ) + "%"
+                                                    : "₹" +
+                                                      addCommasToNumber(
+                                                        quote_item
+                                                          ?.quote_details[0]
+                                                          ?.freight_price
+                                                      )
+                                                  : "-"}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <th>
+                                                GST ({tax_mode ? "%" : "IN ₹"})
+                                              </th>
+                                              <td>
+                                                {quote_item?.quote_details
+                                                  ?.length > 0
+                                                  ? tax_mode
+                                                    ? addCommasToNumber(
+                                                        quote_item
+                                                          ?.quote_details[0]
+                                                          ?.tax
+                                                      ) + "%"
+                                                    : "₹" +
+                                                      addCommasToNumber(
+                                                        quote_item
+                                                          ?.quote_details[0]
+                                                          ?.tax
+                                                      )
+                                                  : "-"}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <th>Delivery</th>
+                                              <td>
+                                                {
+                                                  quote_item?.quote_details[0]
+                                                    ?.delivery_period
+                                                }{" "}
+                                                (in days)
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <th>Comments</th>
+                                              <td>
+                                                {quote_item?.quote_details?.[0]
+                                                  ?.comment || "--"}
+                                              </td>
+                                            </tr>
+                                            <tr>
+                                              <th>Files</th>
+                                              <td>
+                                                {renderFileLink(
+                                                  quote_item?.quote_details?.[0]
+                                                    ?.document_files?.[0]
+                                                    ?.file_url,
+                                                  "View File"
+                                                )}
+                                              </td>
+                                            </tr>
+                                            <tr
+                                              className={`${
+                                                quote_item?.quote_details[0]
+                                                  ?.total_price
+                                                  ? "is_lowest"
+                                                  : ""
+                                              }`}
+                                            >
+                                              <th>Sub Total</th>
+                                              <td>
+                                                ₹
+                                                {quote_item?.quote_details
+                                                  .length > 0 &&
+                                                (parseInt(
+                                                  quote_item.quote_details[0]
+                                                    ?.unit_price
+                                                ) || 0) > 0
+                                                  ? addCommasToNumber(
+                                                      calculateTotal(
+                                                        quote_item
+                                                          .quote_details[0],
+                                                        quantity.value,
+                                                      normalizeFilter
+                                                      )
+                                                    )
+                                                  : "-"}
+                                              </td>
+                                            </tr>
+                                          </table>
                                         )}
                                         <p>
                                           {quote_item?.quote_details?.length >
