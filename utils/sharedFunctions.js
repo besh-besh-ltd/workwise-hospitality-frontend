@@ -242,15 +242,58 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
   return Math.round(TotalPrice);
 }
 
-// normalize for overall and category cost comparision
+/**
+ * @created by mukul on 13-aug-2025
+ * @description Normalizes freight, packaging, and tax for nested quote details. Converts absolute values to percentages and fills missing values using average (freight/package) or median (tax).
+ * @used in category wise and overall quotation chart,
+ * @test_cases written in workwise-portal/tests/utils/sharedFunctions.test.js
+ */
 export const handleNormalize = (data) => {
 
-  // return products 
+  // --- pre-normalize absolute -> percentage (values + labels) ---
+  const toNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const getQty = (d) => {
+    const fromRfq = d?.rfq_details?.find(x => x.title === 'Quantity')?.value;
+    const q = toNum(fromRfq ?? d?.quantity ?? 0);
+    return q > 0 ? q : 0;
+  };
+  const preNormalized = (data || []).map(item => ({
+    ...item,
+    quotations: (item.quotations || []).map(quote => ({
+      ...quote,
+      quote_details: (quote.quote_details || []).map(detail => {
+        const unit = toNum(detail.unit_price);
+        const qty  = getQty(detail);
+        const base = unit * qty;
+        const d = { ...detail };
+
+        if (d.freight_mode === 'absolute') {
+          d.freight_price = base ? (toNum(d.freight_price) / base) * 100 : 0;
+          d.freight_mode = 'percentage';
+        }
+        if (d.package_mode === 'absolute') {
+          d.package_price = base ? (toNum(d.package_price) / base) * 100 : 0;
+          d.package_mode = 'percentage';
+        }
+        if (d.tax_mode === 'absolute') {
+          d.tax = base ? (toNum(d.tax) / base) * 100 : 0;
+          d.tax_mode = 'percentage';
+        }
+        return d;
+      })
+    }))
+  }));
+  // --- END pre-normalize ---
+
+  // pools must use PERCENT data -> use preNormalized
   const allFreightPrices = [];
   const allPackagePrices = [];
   const allTaxRates = [];
 
-  data.forEach(item => {
+  preNormalized.forEach(item => {                 // <-- changed
     item.quotations.forEach(quote => {
       quote.quote_details?.forEach(detail => {
         const freight = parseFloat(detail.freight_price);
@@ -266,11 +309,11 @@ export const handleNormalize = (data) => {
   });
 
   const averageFreight = allFreightPrices.length
-    ? allFreightPrices.reduce((sum, val) => sum + val, 0) / allFreightPrices.length
+    ? allFreightPrices.reduce((s, v) => s + v, 0) / allFreightPrices.length
     : 0;
 
   const averagePackage = allPackagePrices.length
-    ? allPackagePrices.reduce((sum, val) => sum + val, 0) / allPackagePrices.length
+    ? allPackagePrices.reduce((s, v) => s + v, 0) / allPackagePrices.length
     : 0;
 
   const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
@@ -283,9 +326,9 @@ export const handleNormalize = (data) => {
       : sortedTaxRates[mid];
   })();
 
-  const normalized = data.map(item => {
+  // final mapping must also use preNormalized so labels are "%"
+  const normalized = preNormalized.map(item => {  // <-- changed
 
-    // Build a quick lookup: vendorId -> payment_terms
     const vendorTermsById = new Map(
       (item.all_vendors || []).map(v => [v.id, v.payment_terms || []])
     );
@@ -307,36 +350,78 @@ export const handleNormalize = (data) => {
             isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
           tax:
             isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
-          payment_terms:paymentTerms
+          payment_terms: paymentTerms
         };
       }) || [];
 
-      return {
-        ...quote,
-        quote_details: updatedDetails,
-      };
+      return { ...quote, quote_details: updatedDetails };
     });
 
-    return {
-      ...item,
-      quotations: updatedQuotations,
-    };
+    return { ...item, quotations: updatedQuotations };
   });
 
   return normalized;
 };
 
 
-// for Product Wise Comparison
+
+/**
+ * @created by mukul on 13-aug-2025
+ * @description Normalizes freight, packaging, and tax for nested quote details. Converts absolute values to percentages and fills missing values using average (freight/package) or median (tax).
+ * @used in individual quotation chart, and input is flat quotation data
+ * @test_cases written in workwise-portal/tests/utils/sharedFunctions.test.js
+ */
 export const normalizeFlatQuotationData = (data) => {
+
+  // --- pre-normalize absolute -> percentage (values + labels) ---
+  const toNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const getQty = (q) => {
+    const fromRfq = q?.rfq_details?.find?.(x => x.title === 'Quantity')?.value;
+    const qtty =
+      toNum(fromRfq) ||
+      toNum(q?.quantity) ||
+      toNum(q?.quote_details?.[0]?.quantity);
+    return qtty > 0 ? qtty : 0;
+  };
+  const getUnit = (q) =>
+    toNum(q?.unit_price ?? q?.quote_details?.[0]?.unit_price);
+
+  const preNormalized = (data || []).map(item => ({
+    ...item,
+    quotations: (item.quotations || []).map(q => {
+      const unit = getUnit(q);
+      const qty  = getQty(q);
+      const base = unit * qty; // base for % conversion
+
+      const r = { ...q };
+
+      if (r.package_mode === 'absolute') {
+        r.package_price = base ? (toNum(r.package_price) / base) * 100 : 0;
+        r.package_mode = 'percentage';
+      }
+      if (r.freight_mode === 'absolute') {
+        r.freight_price = base ? (toNum(r.freight_price) / base) * 100 : 0;
+        r.freight_mode = 'percentage';
+      }
+      if (r.tax_mode === 'absolute') {
+        r.tax = base ? (toNum(r.tax) / base) * 100 : 0;
+        r.tax_mode = 'percentage';
+      }
+      return r;
+    })
+  }));
+  // --- end pre-normalize ---
 
   // return data 
   const allFreightPrices = [];
   const allPackagePrices = [];
   const allTaxRates = [];
 
-  // Step 1: Collect all values (including 0)
-  data.forEach(item => {
+  // Step 1: Collect all values (including 0) FROM preNormalized
+  preNormalized.forEach(item => {
     item.quotations.forEach(quote => {
       const freight = parseFloat(quote.freight_price);
       if (!isNaN(freight)) allFreightPrices.push(freight);
@@ -364,8 +449,8 @@ export const normalizeFlatQuotationData = (data) => {
   const averagePackage = average(allPackagePrices);
   const medianTax = median(allTaxRates);
 
-  // Step 2: Normalize
-  const normalizedData = data.map(item => {
+  // Step 2: Normalize (use preNormalized so modes are already '%')
+  const normalizedData = preNormalized.map(item => {
     const updatedQuotations = item.quotations.map(quote => {
       const freight = parseFloat(quote.freight_price);
       const pack = parseFloat(quote.package_price);
@@ -387,6 +472,7 @@ export const normalizeFlatQuotationData = (data) => {
 
   return normalizedData;
 };
+
 
 
 

@@ -5,14 +5,14 @@ import {
 } from "@/utils/sharedFunctions";
 
 /**
- handleNormalize logic :
-  a) for freight, and package prices, it calculates the average of all available values and fills in the missing ones.
-  b) for tax, it calculates the median of all available values and fills in the missing ones.
+ * ------------------------------------------------------------------
+ * TEST SUITE: handleNormalize
+ * Description: Normalizes nested quotation data by:
+ *   - Converting absolute to percentage values
+ *   - Replacing empty or 0 freight/package with average
+ *   - Replacing empty or 0 tax with median
+ * ------------------------------------------------------------------
  */
-
-// Replaces missing freight/package/tax (percentage mode) with calculated values –
-// Uses the average of available freight/package values and median of tax values to fill missing fields.
-// created by mukul 07-aug-2025
 describe("handleNormalize", () => {
   // created by mukul 07-aug-2025
   it("should normalize missing freight/package/tax with average/median values", () => {
@@ -35,12 +35,108 @@ describe("handleNormalize", () => {
     expect(result[0].quotations[0].quote_details[1].package_price).toBe(20);
     expect(result[0].quotations[0].quote_details[1].tax).toBe(5);
   });
+ 
+    it("should convert absolute to percentage before normalizing", () => {
+    const input = [
+      {
+        rfq_details: [{ title: "Quantity", value: 10 }],
+        all_vendors: [{ id: 1, payment_terms: [] }],
+        quotations: [
+          {
+            created_by: 1,
+            quote_details: [
+              {
+                unit_price: 100,
+                quantity: 10,
+                freight_price: 100,
+                freight_mode: "absolute",
+                package_price: 200,
+                package_mode: "absolute",
+                tax: 50,
+                tax_mode: "absolute",
+              },
+              {
+                unit_price: 100,
+                quantity: 10,
+                freight_price: "",
+                freight_mode: "percentage",
+                package_price: "",
+                package_mode: "percentage",
+                tax: "",
+                tax_mode: "percentage",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = handleNormalize(input);
+    const converted = result[0].quotations[0].quote_details[0];
+    const normalized = result[0].quotations[0].quote_details[1];
+
+    // 1000 is base = 100 * 10
+    // freight = 100 → 10%
+    // package = 200 → 20%
+    // tax = 50 → 5% of base
+
+    expect(converted.freight_price).toBe(10);
+    expect(converted.package_price).toBe(20);
+    expect(converted.tax).toBe(5);
+
+    // Now second one should be normalized using avg/median
+    expect(normalized.freight_price).toBe(10);
+    expect(normalized.package_price).toBe(20);
+    expect(normalized.tax).toBe(5);
+  });
+
+
+    it("should ensure all modes are set to 'percentage' after normalization", () => {
+    const input = [
+      {
+        rfq_details: [{ title: "Quantity", value: 5 }],
+        quotations: [
+          {
+            created_by: 1,
+            quote_details: [
+              {
+                unit_price: 100,
+                quantity: 5,
+                freight_price: 250,
+                freight_mode: "absolute",
+                package_price: 100,
+                package_mode: "absolute",
+                tax: 50,
+                tax_mode: "absolute",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const result = handleNormalize(input);
+    const detail = result[0].quotations[0].quote_details[0];
+
+    expect(detail.freight_mode).toBe("percentage");
+    expect(detail.package_mode).toBe("percentage");
+    expect(detail.tax_mode).toBe("percentage");
+  });
+  
 });
 
-// Normalizes missing freight/package/tax (percentage mode) in flat data – Similar to handleNormalize, but works on flat quotation arrays.
-// created by mukul 07-aug-2025
+
+
+/**
+ * ------------------------------------------------------------------
+ * TEST SUITE: normalizeFlatQuotationData
+ * Description: Same logic as handleNormalize, but works with
+ *   - Flat quote structure
+ *   - No nested quote_details
+ * ------------------------------------------------------------------
+ */
 describe("normalizeFlatQuotationData", () => {
-  // created by mukul 07-aug-2025
+  // ✅ created by mukul 07-aug-2025
   it("should normalize missing freight/package/tax with average/median values", () => {
     const input = [
       {
@@ -57,7 +153,83 @@ describe("normalizeFlatQuotationData", () => {
     expect(result[0].quotations[1].package_price).toBe(20);
     expect(result[0].quotations[1].tax).toBe(5);
   });
+
+  // ✅ created by mukul 13-aug-2025
+  it("should convert absolute values to percentage before normalizing", () => {
+    const input = [
+      {
+        quotations: [
+          {
+            unit_price: 100,
+            quantity: 10,
+            freight_price: 100,
+            freight_mode: "absolute",
+            package_price: 200,
+            package_mode: "absolute",
+            tax: 50,
+            tax_mode: "absolute",
+          },
+          {
+            unit_price: 100,
+            quantity: 10,
+            freight_price: "",
+            freight_mode: "percentage",
+            package_price: "",
+            package_mode: "percentage",
+            tax: "",
+            tax_mode: "percentage",
+          },
+        ],
+      },
+    ];
+
+    const result = normalizeFlatQuotationData(input);
+    const converted = result[0].quotations[0]; // absolute → percentage
+    const normalized = result[0].quotations[1]; // uses avg/median
+
+    // 100 * 10 = 1000 base
+    // freight 100 → 10%
+    // package 200 → 20%
+    // tax 50 → 5%
+
+    expect(converted.freight_price).toBe(10);
+    expect(converted.package_price).toBe(20);
+    expect(converted.tax).toBe(5);
+
+    expect(normalized.freight_price).toBe(10);
+    expect(normalized.package_price).toBe(20);
+    expect(normalized.tax).toBe(5);
+  });
+
+  // ✅ created by mukul 13-aug-2025
+  it("should ensure all modes are set to 'percentage' after normalization", () => {
+    const input = [
+      {
+        quotations: [
+          {
+            unit_price: 50,
+            quantity: 5,
+            freight_price: 25,
+            freight_mode: "absolute",
+            package_price: 25,
+            package_mode: "absolute",
+            tax: 25,
+            tax_mode: "absolute",
+          },
+        ],
+      },
+    ];
+
+    const result = normalizeFlatQuotationData(input);
+    const q = result[0].quotations[0];
+
+    expect(q.freight_mode).toBe("percentage");
+    expect(q.package_mode).toBe("percentage");
+    expect(q.tax_mode).toBe("percentage");
+  });
 });
+
+
 
 /**
     Calculation_steps:
@@ -130,7 +302,6 @@ describe("calculateTotal", () => {
     const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
     expect(result).toBe(1407);
   });
-
 
   // should correctly apply normalization based on payment terms without freight, tax, packaging Tests that payment term deductions are still applied correctly even when freight, packaging, and tax are zero.
   // created by mukul 13-aug-2025
