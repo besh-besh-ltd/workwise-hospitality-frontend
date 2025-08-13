@@ -1023,3 +1023,14 @@ export const saveExcelInDB = (rfq_id, file_path) => {
     }
   });
 };
+
+export const getCostEstimationData = (persistent_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-cost-estimation/${persistent_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
