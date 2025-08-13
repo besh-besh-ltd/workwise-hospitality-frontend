@@ -20,6 +20,7 @@ import { toast } from 'react-toastify';
 import { LoginService, SWSubscribe } from '@/services/Auth';
 import { useSelector } from 'react-redux';
 import storageInstance from '@/utils/storageInstance';
+import TenderSummary from '@/components/ui/TenderSummary';
 
 const AiToolPage = () => {
   const router = useRouter();
@@ -32,6 +33,7 @@ const AiToolPage = () => {
   const [fileName, setFileName] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [summary , setSummary] = useState(false)
   const swSubscription = useSelector((data) => data.swSubscription);
 
   useEffect(() => {
@@ -154,7 +156,7 @@ const AiToolPage = () => {
         <meta name="description" content={`${toolData.hero.subtitle} - ${toolData.hero.title}`} />
       </Head>
 
-      <div className="min-vh-100">
+      {summary ? (<div className="min-vh-100">
         {/* Hero Section */}
         <HeroSection
           title={toolData.hero.title}
@@ -463,7 +465,8 @@ const AiToolPage = () => {
             onClick: handleBookCall
           }}
         /> */}
-      </div>
+      </div>) : <TenderSummary/>}
+      
     </>
   );
 };
