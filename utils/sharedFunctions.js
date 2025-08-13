@@ -197,7 +197,7 @@ export default useDebounce;
  * - 70% @60 days → 2% discount: 70% * 271.4 * 0.98 = 186.556
  *
  * Final normalized total = 27.14 + 53.166 + 186.556 = 266.862 → Math.round = 267
- * 
+ * Note: If payment terms do not sum to 100%, the leftover percentage (100% - defined %)  is added back to the normalized total with no discount applied.
  * Last changes by mukul on 07-aug-2025, to add normalization based on payment terms
  */
 export const calculateTotal = (item, quantity, normalizeFilter) => {
@@ -222,18 +222,27 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 
  if (normalizeFilter) {
     let normalizedTotal = 0;
+    let totalPercentDefined = 0; 
 
     item?.payment_terms?.forEach(term => {
       const percentage = parseFloat(term.value) || 0; // x, y, z %
       const days = parseInt(term.days ?? 0) || 0;
 
+      totalPercentDefined += percentage;
+
       // Deduction = 1% per 30 days
       const rawFactor = 1 - (days / 30) * 0.01;
       const factor = Math.max(0, Math.min(1, rawFactor)); // Clamp to [0,1]
-
+      
       // Add this tranche
       normalizedTotal += (percentage / 100) * TotalPrice * factor;
     });
+
+    // NEW — Add leftover percentage without discount
+    if (totalPercentDefined < 100) {
+      const leftoverPercent = 100 - totalPercentDefined;
+      normalizedTotal += (leftoverPercent / 100) * TotalPrice;
+    }
 
     TotalPrice = normalizedTotal || TotalPrice;
   }
