@@ -478,19 +478,6 @@ const openModalForVariant = (variantId) => {
                                 ? item.product_details[0]?.name
                                 : "-"}
                             </p>
-                            {selling_price && (
-                              <div className="d-flex justify-content-center">
-                                <Badge
-                                  bg="success"
-                                  className="d-flex gap-1 px-3"
-                                >
-                                  <p className="fw-medium">Selling Price: </p>
-                                  <p className="fw-semibold">
-                                    {addCommasToNumber(selling_price)}
-                                  </p>
-                                </Badge>
-                              </div>
-                            )}
                           </td>
                           <td>
                             <div
@@ -1299,7 +1286,7 @@ const openModalForVariant = (variantId) => {
                     )}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       TOTAL
                     </th>
 
@@ -1314,7 +1301,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       FINALIZED VENDOR
                     </th>
 
@@ -1328,7 +1315,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={5} scope="col" className="bggray">
+                    <th colSpan={6} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
@@ -1344,7 +1331,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Delivery{" "}
                     </th>
 
@@ -1360,7 +1347,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Payment{" "}
                     </th>
 
@@ -1381,7 +1368,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Vendor comment{" "}
                     </th>
 
@@ -1402,7 +1389,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Attached Files{" "}
                     </th>
 
