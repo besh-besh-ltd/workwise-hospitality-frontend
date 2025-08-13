@@ -327,4 +327,26 @@ describe("calculateTotal", () => {
     expect(result).toBe(49);
   });
 
+  // Verifies normalization when payment terms cover less than 100%, Scenario: 25% credit @ 30 days (1% discount) + 75% without discount
+  // created by mukul 13-aug-2025
+   it("applies partial payment-term normalization and adds leftover without discount", () => {
+    const quoteItem = {
+      unit_price: 1000,
+      freight_price: 8,
+      package_price: 0,
+      tax: 0,
+      freight_mode: "percentage",
+      package_mode: "percentage",
+      tax_mode: "percentage",
+      payment_terms: [
+        { value: 25, type: "credit", days: "30" }, // 1% deduction
+      ],
+    };
+
+    const quantity = 5;
+
+    const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
+    expect(result).toBe(5387);
+  });
+
 });
