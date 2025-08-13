@@ -244,10 +244,16 @@ export const getRFQS = (payload) => {
     }
   });
 };
-export const getRFQById = (id, token) => {
+export const getRFQById = (id, token, includeVendors = false) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/getRfqById/${id}${token !== undefined ? `?token=${token}` : ''}`);
+      let response = await axiosInstance.get(
+        `/rfq/getRfqById/${id}${
+          token !== undefined
+            ? `?token=${token}&includeVendors=${includeVendors}`
+            : `?includeVendors=${includeVendors}`
+        }`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -340,6 +346,17 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
   });
 };
 
+export const getTargetPriceHistory = (rfq_product_id) =>{
+  return new Promise (async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get(`/rfq/targetPriceHistory/${rfq_product_id}`)
+      resolve(response.data)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
+
 export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -420,15 +437,29 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+
+
+export const updateTargetPrice = (targetPrice, tbl_rfq_product_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post('/rfq/negotiate', {
+        target_price : targetPrice,
+        rfq_product_id : tbl_rfq_product_id
+      });
+      resolve(response.data);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
 /* 
 START :: Initiate magic search
 */
-export const persistMagicSearchJob = async (file_name, type = 'rfq') => {
-  const token = localStorage.getItem("token");
-
+export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_url) => {
   const payload = {
     file_name,
-    type
+    type,
+    raw_file_url
   }
   let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
   return response;
@@ -556,6 +587,17 @@ export const getRfqDetails = (payload, token = null) => {
     }
   });
 };
+
+export const broadcastMessage = ( payload ) =>{
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.post('/rfq/send-query-message-to-vendor', payload)
+      resolve(response)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 
 export const sendQueryMessage = (payload,token=null ) => {
   return new Promise(async (resolve, reject) => {

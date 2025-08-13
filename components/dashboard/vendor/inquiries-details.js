@@ -29,8 +29,6 @@ const RfqManagementPreview = () => {
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
-  const [buyerClauses, setBuyerClauses] = useState(null);
-  const [clauseMap, setClauseMap] = useState(null);
   const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   // New state variables for enhanced RA logic
@@ -51,7 +49,6 @@ const RfqManagementPreview = () => {
   useEffect(() => {
     if (id) {
       getRFQdetails();
-      getRFQClauses();
     }
   }, [id]);
 
@@ -70,21 +67,6 @@ const RfqManagementPreview = () => {
       setRedirectAfterLogin(null);
     }
   }, [router]);
-
-  useEffect(() => {
-    if (rfqDetails && buyerClauses) {
-      let c_map = new Map();
-      rfqDetails.products?.map((pItem) => {
-        c_map.set(pItem.id, false);
-      })
-
-      buyerClauses?.map((pItem) => {
-        c_map.set(pItem.rfq_product_id, true);
-      })
-      setClauseMap(c_map);
-    }
-
-  }, [rfqDetails, buyerClauses])
 
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
@@ -195,15 +177,6 @@ const RfqManagementPreview = () => {
       setCurrentLowest(hasLowestQuotation && showLowestPrice);
     } else {
       setCurrentLowest(null);
-    }
-  };
-
-  const getRFQClauses = async () => {
-    try {
-      const res = await getAllClauses(id);
-      setBuyerClauses(res.data);
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -811,6 +784,7 @@ const RfqManagementPreview = () => {
                                 <th>Selected vendors</th>
                               ) : null}
                               {<th>Technical Evaluation</th>}
+                              {rfqDetails?.products[0].latest_target_price && (<th>Target Price</th>)}
                             </tr>
                           </thead>
                           <tbody>
@@ -962,19 +936,19 @@ const RfqManagementPreview = () => {
                                   {type == "buyer-view" && (
                                     <td>
                                       <span>
-                                                                <Link
-                          href={`rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
-                          className="page-link"
-                        >
+                                        <Link
+                                          href={`rfq-management-vendor?type=buyer-view&productid=${item.product_id}&variant=${item.variant}&id=${id}&rfq_product_id=${item.id}`}
+                                          className="page-link"
+                                        >
                                           View selected vendors (
-                                          {item.vendor_details?.length})
+                                          {item.vendors_count})
                                         </Link>
                                       </span>
                                     </td>
                                   )}
 
                                   <td>
-                                    {clauseMap && clauseMap.get(item.id) ? (
+                                    {item.tech_evaluation_status.has_tech_eval ? (
                                       <a
                                         href={`/dashboard/${
                                           type == "buyer-view"
@@ -1000,6 +974,15 @@ const RfqManagementPreview = () => {
                                       "N/A"
                                     )}
                                   </td>
+                                  {item.latest_target_price && (
+                                    <td className="position-relative">
+                                      <div className="target-price-badge bg-warning text-dark fw-bold px-3 py-2 rounded shadow-sm border border-warning-subtle">
+                                        <i className="bi bi-bullseye me-2"></i>₹
+                                        {item?.latest_target_price?.toLocaleString()}
+                                        <span className="target-price-pulse"></span>
+                                      </div>
+                                    </td>
+                                  )}
                                 </tr>
                               );
                             })}
