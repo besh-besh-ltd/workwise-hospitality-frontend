@@ -1,14 +1,14 @@
 export const earnWithUsData = {
   hero: {
     title: "Turn Your Industry Network into Income",
-    subtitle: "Start your second innings as a Workwise Partner – no investment needed. Your experience, contacts, and hunger to grow are your assets.",
+    subtitle: "Start your 2nd innings as a Workwise Partner - no investment needed. Your experience, contacts, and hunger to grow are your assets.",
     primaryButton: {
       label: "Register To Become A Partner",
       variant: "primary"
     },
     secondaryButton: {
       label: "Learn More",
-      variant: "outline-light"
+      variant: "outline-white"
     }
   },
 
@@ -56,12 +56,12 @@ export const earnWithUsData = {
     title: "30-Min Webinar: Learn How You Can Earn",
     description: "Join our weekly webinar to understand the partner model in detail and hear from existing partners who are already earning substantial commissions.",
     schedule: {
-      days: "Every Wednesday & Saturday",
+      days: "Every Wednesday",
       time: "7:00 PM - 7:30 PM IST",
       platform: "Hosted on Zoom"
     },
-    ctaButton: "Register For Webinar",
-    pastWebinarsLink: "Past Webinars - View Recordings"
+    ctaButton: "Register For Webinar",  
+    // pastWebinarsLink: "Past Webinars - View Recordings"
   },
 
   benefits: [
@@ -69,25 +69,29 @@ export const earnWithUsData = {
       id: 1,
       icon: 'dollar-sign',
       title: 'Earn Big, Recurring Income',
-      color: '#007bff'
+      color: '#007bff',
+      description: '25% revenue share + 10% renewal revenue share'
     },
     {
       id: 2,
       icon: 'equals',
       title: 'Zero Investment',
-      color: '#28a745'
+      color: '#28a745',
+      description: 'You introduce. We handle sales. You earn.'
     },
     {
       id: 3,
       icon: 'hand-holding',
       title: 'Full Support',
-      color: '#ffc107'
+      color: '#ffc107',
+      description: 'Referral kit, WhatsApp group, dedicated SPOC'
     },
     {
       id: 4,
       icon: 'building',
       title: "India's Capex Boom",
-      color: '#17a2b8'
+      color: '#17a2b8',
+      description: 'Workwise is solving real problems in industrial procurement'
     }
   ],
 
@@ -175,11 +179,11 @@ export const earnWithUsData = {
   ],
 
   bottomCta: {
-    title: "Join 100+ Partners Already Earning with Workwise",
-    subtitle: "It takes 2 mins to start. And a lifetime of earnings.",
+    title: "Join 50+ Partners Already Earning with Workwise",
+    subtitle: "It takes 2 minutes to start. And a lifetime of earnings.",
     primaryButton: {
       label: "Register As A Partner",
-      variant: "dark"
+      variant: "primary"
     },
     secondaryButton: {
       label: "Talk To Partnership Team",

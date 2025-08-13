@@ -299,7 +299,7 @@ const websiteMenu = [
     options: [
       { label: "Meet the Team", href: "/work-with-us/TeamTimeline" },
       { label: "We are hiring!", href: "/work-with-us/careers" },
-      { label: "Partner With Us", href: "/earn-with-us/EarnWithUs" },
+      { label: "Earn With Us", href: "/earn-with-us/EarnWithUs" },
       { label: "Contact Us", href: "/contactus" },
     ]
   },

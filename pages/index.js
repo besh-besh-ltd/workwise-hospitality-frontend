@@ -722,7 +722,7 @@ export default function Home() {
                       >
                         <span style={{ color: 'white', fontSize: '16px' }}>✓</span>
                       </div>
-                      <h4 className="fw-bold text-dark mb-0">We Support These Heavy Industries</h4>
+                      <h4 className="fw-bold text-dark mb-0">We Support Projects In</h4>
                     </div>
                     <div className="row g-2">
                       {homepageData.heavyIndustries.industries.map((industry, index) => (

@@ -1,6 +1,6 @@
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { HeroSection } from '@/components/ui/HeroSection'
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 // Import data
 import { earnWithUsData } from '@/components/constants/earnWithUsData';
@@ -8,7 +8,7 @@ import {
   FaCalendarAlt, 
   FaClock, 
   FaVideo, 
-  
+  FaFileAlt,
   FaUsers,
   FaPlay,
   FaTrendingUp,
@@ -40,18 +40,16 @@ const HowItWorksSection = ({
   ctaButton = earnWithUsData.howItWorks.ctaButton,
   ...props 
 }) => {
-  const getStepEmoji = (iconName) => {
-    const emojiMap = {
-      'person-plus': '👤',
-      'gear': '📋',
-      'handshake': '🤝',
-      'currency-rupee': '💰',
-      'user': '👤',
-      'file-alt': '📄',
-      'dollar-sign': '💵'
+  const getFaIcon = (iconName, size = 28) => {
+    const map = {
+      'user': <FaUser size={size} color="#ffffff" />,
+      'file-alt': <FaFileAlt size={size} color="#ffffff" />,
+      'handshake': <FaHandshake size={size} color="#ffffff" />,
+      'dollar-sign': <FaDollarSign size={size} color="#ffffff" />,
     };
-    return emojiMap[iconName] || '👤';
+    return map[iconName] || <FaUser size={size} color="#ffffff" />;
   };
+
   const defaultSteps = earnWithUsData.howItWorks.steps.map(step => ({
     id: step.id,
     icon: step.icon,
@@ -90,10 +88,7 @@ const HowItWorksSection = ({
                         backgroundColor: step.iconBg
                       }}
                     >
-                      <i className={`bi bi-${step.icon} text-white`} style={{ fontSize: '1.8rem' }}></i>
-                      <span className="ms-1 text-white" style={{ fontSize: '16px' }}>
-                        {getStepEmoji(step.icon)}
-                      </span>
+                      {getFaIcon(step.icon, 28)}
                     </div>
                     
                     {/* Number Badge */}
@@ -115,7 +110,7 @@ const HowItWorksSection = ({
                   <h5 className="fw-bold text-dark mb-3">
                     {step.title}
                   </h5>
-                  <p className="text-muted mb-0 small lh-base">
+                  <p className="text-muted mb-0 lh-base" style={{ fontSize: '0.98rem' }}>
                     {step.description}
                   </p>
                 </div>
@@ -128,10 +123,12 @@ const HowItWorksSection = ({
         {earningsHighlight !== false && (
           <div className="text-center mb-4">
             <div 
-              className="d-inline-flex align-items-center px-4 py-2 rounded-pill"
+              className="d-inline-flex align-items-center px-5 py-3 rounded-pill"
               style={{ 
                 backgroundColor: '#fff3cd',
-                border: '1px solid #f0c419'
+                border: '1px solid #f0c419',
+                fontSize: '1.05rem',
+                fontWeight: 600
               }}
             >
               <i className="bi bi-star-fill text-warning me-2"></i>
@@ -146,7 +143,7 @@ const HowItWorksSection = ({
         {ctaButton !== false && (
           <div className="text-center">
             <button
-              className="btn btn-dark btn-lg px-4 py-3 fw-semibold rounded-3"
+              className="btn btn-primary btn-lg px-4 py-3 fw-semibold rounded-3"
               onClick={ctaButton?.onClick}
               style={{ 
                 minWidth: '250px',
@@ -198,7 +195,7 @@ const WebinarComponent = () => {
                   <div className="h-100 d-flex flex-column gap-2">
                     {/* Chart 1 */}
                     <div 
-                      className="bg-dark rounded-2 flex-grow-1 d-flex align-items-center justify-content-center"
+                      className="bg-primary rounded-2 flex-grow-1 d-flex align-items-center justify-content-center"
                       style={{ background: '#1a1d29' }}
                     >
                       <div className="d-flex align-items-end gap-1">
@@ -211,7 +208,7 @@ const WebinarComponent = () => {
                     
                     {/* Chart 2 */}
                     <div 
-                      className="bg-dark rounded-2 flex-grow-1 d-flex align-items-center justify-content-center"
+                      className="bg-primary rounded-2 flex-grow-1 d-flex align-items-center justify-content-center"
                       style={{ background: '#1a1d29' }}
                     >
                       <div className="d-flex align-items-center gap-1">
@@ -230,7 +227,7 @@ const WebinarComponent = () => {
                   <div className="row g-2 h-100">
                     <div className="col-6">
                       <div 
-                        className="bg-dark rounded-2 h-100 d-flex align-items-center justify-content-center"
+                        className="bg-primary rounded-2 h-100 d-flex align-items-center justify-content-center"
                         style={{ background: '#1a1d29' }}
                       >
                         <div className="d-flex align-items-end gap-1">
@@ -251,7 +248,7 @@ const WebinarComponent = () => {
                     </div>
                     <div className="col-6">
                       <div 
-                        className="bg-dark rounded-2 h-100 d-flex align-items-center justify-content-center"
+                        className="bg-primary rounded-2 h-100 d-flex align-items-center justify-content-center"
                         style={{ background: '#1a1d29' }}
                       >
                         <svg width="40" height="20">
@@ -326,18 +323,19 @@ const WebinarComponent = () => {
             {/* Action Buttons */}
             <div>
               <button 
-                className="btn btn-dark btn-lg w-100 py-3 mb-3 fw-semibold d-flex align-items-center justify-content-center"
+                className="btn btn-primary btn-lg w-100 py-3 mb-3 fw-semibold d-flex align-items-center justify-content-center"
                 style={{ 
-                  background: '#2c3e50',
                   border: 'none',
                   borderRadius: '8px'
-                }}
+                }} 
               >
                 <FaUsers className="me-2" />
                 {earnWithUsData.webinar.ctaButton}
               </button>
+
+              {/* For Now, we are not showing the past webinars link */}
               
-              <div className="text-center">
+              {/* <div className="text-center">
                 <a 
                   href="#" 
                   className="text-primary text-decoration-none d-flex align-items-center justify-content-center"
@@ -346,7 +344,7 @@ const WebinarComponent = () => {
                   <FaPlay className="me-2" size={12} />
                   {earnWithUsData.webinar.pastWebinarsLink}
                 </a>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
@@ -357,53 +355,24 @@ const WebinarComponent = () => {
 
 
 const WhoIsThisForComponent = () => {
-  const getIcon = (iconName) => {
-    const iconMap = {
-      'briefcase': <FaHardHat className="text-white" size={20} />,
-      'user': <FaUser className="text-white" size={20} />,
-      'network-wired': <FaNetworkWired className="text-white" size={20} />,
-      'home': <FaHome className="text-white" size={20} />,
-      'sitemap': <FaSitemap className="text-white" size={20} />
-    };
-    return iconMap[iconName] || <FaUser className="text-white" size={20} />;
-  };
-
-  const targetAudience = earnWithUsData.targetAudience.map(item => ({
-    ...item,
-    icon: getIcon(item.icon)
-  }));
-
+  const allItems = earnWithUsData.targetAudience;
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
         <div className="col-12">
-          {/* Header */}
           <div className="text-center mb-5">
             <div className="d-flex align-items-center justify-content-center mb-4">
-              <div 
-                className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  background: 'rgba(13, 110, 253, 0.1)' 
-                }}
-              >
-                <FaHandshake className="text-primary" size={20} />
-              </div>
               <h2 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
                 Who Is This For?
               </h2>
             </div>
           </div>
-
-          {/* Target Audience List */}
           <div className="row justify-content-center">
             <div className="col-lg-10">
               <div className="row g-4 mb-5">
-                {/* Left Column */}
-                <div className="col-md-6">
-                  {targetAudience.slice(0, 3).map((item) => (
-                    <div key={item.id} className="d-flex align-items-center mb-4">
+                {allItems.map((item) => (
+                  <div key={item.id} className="col-12 col-md-6">
+                    <div className="d-flex align-items-center mb-2">
                       <div 
                         className="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
                         style={{ 
@@ -412,60 +381,20 @@ const WhoIsThisForComponent = () => {
                           background: 'linear-gradient(135deg, #4a90a4 0%, #5fa8c0 100%)'
                         }}
                       >
-                        {item.icon}
+                        <FaUser className="text-white" size={20} />
                       </div>
-                      <h5 className="mb-0 fw-semibold text-dark" style={{ fontSize: '1.1rem' }}>
+                      <h5 className="mb-0 fw-semibold text-dark" style={{ fontSize: '1.05rem' }}>
                         {item.title}
                       </h5>
                     </div>
-                  ))}
-                </div>
-
-                {/* Right Column */}
-                <div className="col-md-6">
-                  {targetAudience.slice(3, 5).map((item) => (
-                    <div key={item.id} className="d-flex align-items-center mb-4">
-                      <div 
-                        className="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
-                        style={{ 
-                          width: '50px', 
-                          height: '50px', 
-                          background: 'linear-gradient(135deg, #4a90a4 0%, #5fa8c0 100%)'
-                        }}
-                      >
-                        {item.icon}
-                      </div>
-                      <h5 className="mb-0 fw-semibold text-dark" style={{ fontSize: '1.1rem' }}>
-                        {item.title}
-                      </h5>
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-
-              {/* Bottom Text & CTA */}
               <div className="text-center">
-                <p 
-                  className="text-muted mb-4" 
-                  style={{ 
-                    fontSize: '1.1rem', 
-                    lineHeight: '1.6',
-                    maxWidth: '600px',
-                    margin: '0 auto 2rem'
-                  }}
-                >
+                <p className="text-muted mb-4" style={{ fontSize: '1.05rem', lineHeight: '1.6', maxWidth: '600px', margin: '0 auto 2rem' }}>
                   Have contacts in industrial, manufacturing, or procurement sectors? You're a perfect fit!
                 </p>
-                
-                <button 
-                  className="btn btn-dark btn-lg px-4 py-3 fw-semibold d-inline-flex align-items-center"
-                  style={{ 
-                    background: '#2c3e50',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '1rem'
-                  }}
-                >
+                <button className="btn btn-primary w-auto px-4 py-3 fw-semibold d-inline-flex align-items-center" style={{ border: 'none', borderRadius: '8px', fontSize: '1rem' }}>
                   <FaUserPlus className="me-2" size={16} />
                   Join as a Partner
                 </button>
@@ -480,206 +409,87 @@ const WhoIsThisForComponent = () => {
 
 
 
-const PartnerDashboardComponent = () => {
-  const referralsData = [
-    {
-      company: 'ABC Manufacturing',
-      contact: 'Vikram Singh',
-      type: 'Buyer',
-      status: 'Closed',
-      statusColor: 'success'
-    },
-    {
-      company: 'XYZ Industries',
-      contact: 'Priya Desai',
-      type: 'Buyer',
-      status: 'Demo',
-      statusColor: 'primary'
-    },
-    {
-      company: 'Global Supplies Ltd',
-      contact: 'Anand Kumar',
-      type: 'Vendor',
-      status: 'Contacted',
-      statusColor: 'warning'
-    }
-  ];
+const PartnerStatsSection = () => {
+  const AnimatedCounter = ({ targetValue, duration = 1500, suffix = '' }) => {
+    const [value, setValue] = useState(0);
+    const ref = useRef(null);
+    const hasAnimated = useRef(false);
+
+    useEffect(() => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const start = performance.now();
+            const animate = now => {
+              const elapsed = now - start;
+              const progress = Math.min(elapsed / duration, 1);
+              const eased = 1 - Math.pow(1 - progress, 3);
+              setValue(Math.floor(eased * targetValue));
+              if (progress < 1) requestAnimationFrame(animate);
+            };
+            requestAnimationFrame(animate);
+          }
+        });
+      }, { threshold: 0.4 });
+      if (ref.current) observer.observe(ref.current);
+      return () => observer.disconnect();
+    }, [targetValue, duration]);
+
+    return (
+      <div ref={ref} className="fw-bold" style={{ fontSize: '2rem' }}>
+        {value.toLocaleString()}<span>{suffix}</span>
+      </div>
+    );
+  };
 
   return (
-    <div className="container py-5">
-      <div className="row justify-content-center">
-        <div className="col-12" style={{ maxWidth: '1000px' }}>
-          {/* Dashboard Card */}
-          <div className="bg-white rounded-4 shadow-lg p-4" style={{ backgroundColor: '#f8f9fa' }}>
-            
-            {/* Header */}
-            <div className="d-flex align-items-center mb-4">
-              <div 
-                className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  background: 'rgba(13, 110, 253, 0.1)' 
-                }}
-              >
-                <FaChartPie className="text-primary" size={20} />
+    <section className="py-5 bg-light">
+      <div className="container">
+        <div className="text-center mb-4">
+          <h2 className="fw-bold text-dark mb-2" style={{ fontSize: '2rem' }}>How Our Partners Are Performing</h2>
+          <p className="text-muted mb-0">Live snapshot of referrals, closures, and total earnings</p>
+        </div>
+
+        <div className="row g-4 justify-content-center">
+          {/* Referrals */}
+          <div className="col-12 col-md-4">
+            <div className="rounded-4 shadow-sm p-4 h-100 text-center" style={{ borderTop: '5px solid #3B82F6', background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' }}>
+              <div className="text-dark" style={{ fontWeight: 800, fontSize: '3rem', lineHeight: 1, color: '#3B82F6' }}>
+                <AnimatedCounter targetValue={114} duration={1600} />
               </div>
-              <h2 className="mb-0 fw-bold text-dark" style={{ fontSize: '1.75rem' }}>
-                Your Partner Dashboard
-              </h2>
+              <div className="mt-2 fw-semibold" style={{ fontSize: '1.1rem' }}>Referrals</div>
             </div>
+          </div>
 
-            {/* Profile Section */}
-            <div className="d-flex align-items-center justify-content-between mb-4 pb-3" style={{ borderBottom: '1px solid #e9ecef' }}>
-              <div className="d-flex align-items-center">
-                {/* Profile Image Placeholder */}
-                <img 
-                  src="https://via.placeholder.com/60x60/6c757d/ffffff?text=RS" 
-                  alt="Rajesh Sharma"
-                  className="rounded-circle me-3"
-                  style={{ width: '60px', height: '60px', objectFit: 'cover' }}
-                />
-                <div>
-                  <h4 className="mb-1 fw-bold text-dark">Rajesh Sharma</h4>
-                  <span 
-                    className="badge px-3 py-1" 
-                    style={{ 
-                      backgroundColor: '#d1e7dd', 
-                      color: '#0f5132',
-                      fontSize: '0.875rem',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Active Partner
-                  </span>
-                </div>
+          {/* Sales Closed */}
+          <div className="col-12 col-md-4">
+            <div className="rounded-4 shadow-sm p-4 h-100 text-center" style={{ borderTop: '5px solid #10B981', background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' }}>
+              <div className="text-dark" style={{ fontWeight: 800, fontSize: '3rem', lineHeight: 1, color: '#10B981' }}>
+                <AnimatedCounter targetValue={60} duration={1600} />
               </div>
-              <div className="text-end">
-                <p className="mb-0 text-muted" style={{ fontSize: '0.9rem' }}>
-                  Partner since: <span className="fw-semibold">15 Jun 2023</span>
-                </p>
-              </div>
+              <div className="mt-2 fw-semibold" style={{ fontSize: '1.1rem' }}>Sales Closed</div>
             </div>
+          </div>
 
-            {/* Stats Cards */}
-            <div className="row g-3 mb-4">
-              <div className="col-md-4">
-                <div 
-                  className="p-4 rounded-3" 
-                  style={{ backgroundColor: 'rgba(13, 110, 253, 0.08)' }}
-                >
-                  <p className="mb-2 text-muted fw-medium" style={{ fontSize: '0.9rem' }}>
-                    Total Referrals
-                  </p>
-                  <h3 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
-                    12
-                  </h3>
-                </div>
+          {/* Earnings */}
+          <div className="col-12 col-md-4">
+            <div className="rounded-4 shadow-sm p-4 h-100 text-center" style={{ borderTop: '5px solid #F59E0B', background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' }}>
+              <div className="text-dark" style={{ fontWeight: 800, fontSize: '3rem', lineHeight: 1, color: '#F59E0B' }}>
+                <AnimatedCounter targetValue={44} duration={1600} suffix="L" />
               </div>
-              <div className="col-md-4">
-                <div 
-                  className="p-4 rounded-3" 
-                  style={{ backgroundColor: 'rgba(25, 135, 84, 0.08)' }}
-                >
-                  <p className="mb-2 text-muted fw-medium" style={{ fontSize: '0.9rem' }}>
-                    Active Deals
-                  </p>
-                  <h3 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
-                    5
-                  </h3>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div 
-                  className="p-4 rounded-3" 
-                  style={{ backgroundColor: 'rgba(108, 117, 125, 0.08)' }}
-                >
-                  <p className="mb-2 text-muted fw-medium" style={{ fontSize: '0.9rem' }}>
-                    Total Earnings
-                  </p>
-                  <h3 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
-                    ₹3.8L
-                  </h3>
-                </div>
-              </div>
+              <div className="mt-2 fw-semibold" style={{ fontSize: '1.1rem' }}>Earnings</div>
             </div>
-
-            {/* Recent Referrals Section */}
-            <div className="mb-4">
-              <h5 className="mb-3 fw-bold text-dark">Recent Referrals</h5>
-              
-              {/* Table Header */}
-              <div className="row py-2 mb-2" style={{ borderBottom: '2px solid #e9ecef' }}>
-                <div className="col-3">
-                  <span className="text-muted fw-semibold" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Company
-                  </span>
-                </div>
-                <div className="col-3">
-                  <span className="text-muted fw-semibold" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Contact
-                  </span>
-                </div>
-                <div className="col-2">
-                  <span className="text-muted fw-semibold" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Type
-                  </span>
-                </div>
-                <div className="col-4">
-                  <span className="text-muted fw-semibold" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Status
-                  </span>
-                </div>
-              </div>
-
-              {/* Table Rows */}
-              {referralsData.map((referral, index) => (
-                <div key={index} className="row py-3 align-items-center" style={{ borderBottom: '1px solid #f1f3f4' }}>
-                  <div className="col-3">
-                    <span className="fw-semibold text-dark">{referral.company}</span>
-                  </div>
-                  <div className="col-3">
-                    <span className="text-dark">{referral.contact}</span>
-                  </div>
-                  <div className="col-2">
-                    <span className="text-muted">{referral.type}</span>
-                  </div>
-                  <div className="col-4">
-                    <span 
-                      className={`badge px-3 py-1 bg-${referral.statusColor}`}
-                      style={{ 
-                        fontSize: '0.8rem',
-                        fontWeight: '500',
-                        opacity: referral.statusColor === 'warning' ? '0.9' : '1'
-                      }}
-                    >
-                      {referral.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA Button */}
-            <div className="text-center pt-3">
-              <button 
-                className="btn btn-dark btn-lg px-4 py-3 fw-semibold d-inline-flex align-items-center"
-                style={{ 
-                  background: '#2c3e50',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '1rem'
-                }}
-              >
-                <FaLink className="me-2" size={16} />
-                Make an Introduction
-              </button>
-            </div>
-
           </div>
         </div>
+
+        <div className="text-center mt-4">
+          <button className="btn btn-primary w-auto px-4 py-3 fw-semibold" style={{ borderRadius: '10px' }}>
+            Start Earning Now
+          </button>
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 
@@ -727,16 +537,6 @@ const WorkwisePartnerComponent = () => {
           {/* Header */}
           <div className="text-center mb-5">
             <div className="d-flex align-items-center justify-content-center mb-3">
-              <div 
-                className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  background: 'rgba(25, 135, 84, 0.1)' 
-                }}
-              >
-                <FaBullseye className="text-success" size={20} />
-              </div>
               <h2 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
                 Why Become a Workwise Partner?
               </h2>
@@ -744,10 +544,10 @@ const WorkwisePartnerComponent = () => {
           </div>
 
           {/* Features Grid */}
-          <div className="row g-4">
-            {features.map((feature) => (
-              <div key={feature.id} className="col-lg-6 col-md-6">
-                <div className="d-flex align-items-start">
+            <div className="row g-4 justify-content-center">
+              {features.map((feature) => (
+                <div key={feature.id} className="col-lg-5 col-md-6">
+                  <div className="d-flex align-items-start justify-content-start">
                   {/* Icon */}
                   <div 
                     className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 me-4"
@@ -759,7 +559,6 @@ const WorkwisePartnerComponent = () => {
                   >
                     {feature.icon}
                   </div>
-                  
                   {/* Content */}
                   <div className="flex-grow-1">
                     <h4 className="fw-bold text-dark mb-3" style={{ fontSize: '1.25rem' }}>
@@ -773,7 +572,7 @@ const WorkwisePartnerComponent = () => {
                         color: '#6c757d !important'
                       }}
                     >
-                      {feature.description}
+                      {feature.description || 'Benefit description'}
                     </p>
                   </div>
                 </div>
@@ -836,13 +635,13 @@ const JoinPartnersCTAComponent = () => {
               <button 
                 className="btn btn-lg px-5 py-3 fw-semibold d-flex align-items-center"
                 style={{ 
-                  backgroundColor: '#2c3e50',
+                  backgroundColor: '#2E5BBB',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '1.1rem',
                   minWidth: '300px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  boxShadow: '0 4px 12px rgba(122, 119, 119, 0.15)'
                 }}
               >
                 <FaUserPlus className="me-2" size={18} />
@@ -899,7 +698,7 @@ const EarnWithUs = () => {
 <WebinarComponent />
 <WorkwisePartnerComponent />
 <WhoIsThisForComponent />
-<PartnerDashboardComponent/>
+<PartnerStatsSection/>
 
 <FaqSection />
 
