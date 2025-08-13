@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
@@ -66,6 +66,9 @@ const SendQuotePageComp = () => {
 const [paymentTermsRows, setPaymentTermsRows] = useState([
   {id:null, value: "", type: "advance", days: "", comment: ""},
 ]);
+
+// Save the initial payment terms list from backend
+const originalPaymentTermsListRef = useRef(null);
 
 
 
@@ -211,7 +214,11 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
-          setPaymentTermsRows(res.data.quotations[0].payment_terms || [{id: null, value: "", type: "advance", days: "", comment: ""}]); // Set structured payment terms rows
+
+          //  one state and useRef for payment terms to track newly added, updated, and deleted terms
+          const paymetTermData = res.data.quotations[0].payment_terms || [{id: null, value: "", type: "advance", days: "", comment: ""}]
+          setPaymentTermsRows(paymetTermData); // Set structured payment terms rows
+          originalPaymentTermsListRef.current  = paymetTermData
         }
 
         if (res.data.terms_and_conditions_files) {
@@ -375,10 +382,57 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
     setquoteProducts(d);
   }
 
+
+
+  // 
+  const getPaymentTermsChanges = () => {
+  const normalize = (rows) =>
+    rows.map(r => ({
+      id: r.id ?? null,
+      value: Number(r.value) || 0,
+      type: r.type || "advance",
+      days: r.type === "credit" ? (Number(r.days) || 0) : null,
+      comment: r.type !== "credit" ? (r.comment || "") : null,
+    }));
+
+
+  
+  // newly added term, no id in objects
+const createdTerms = 
+  paymentTermsRows
+    .filter(t => !t.id && t.action !== "delete")
+    .map(({ id, action, ...rest }) => rest)
+
+
+// DELETE: only ids
+const deletedTerms = paymentTermsRows
+  .filter(t => t.id && t.action === "delete")
+  .map(t => t.id);
+
+// UPDATE: full object incl. id, exclude action
+const updatedTerms = 
+  paymentTermsRows
+    .filter(c => {
+      const o = originalPaymentTermsListRef.current.find(x => x.id === c.id);
+      return (
+        c.id &&
+        c.action !== "delete" &&
+        o && (
+          c.type !== o.type ||
+          c.value !== o.value ||
+          (c.days ?? null) !== (o.days ?? null) ||
+          (c.comment ?? "") !== (o.comment ?? "")
+        )
+      );
+    })
+    .map(({ action, ...rest }) => rest)
+
+
+return { deletedTerms, createdTerms, updatedTerms };
+};
+
+
   const handleSendQuote = () => {
-
-
-
 
     // return 0
     let payload = {
@@ -393,6 +447,10 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
     };
 
     if (alreadyQuoted) {
+
+      const paymentTermsUpdate = getPaymentTermsChanges(paymentTermsRows, originalPaymentTermsListRef.current);
+      payload.global_payment_term_list = paymentTermsUpdate;
+
       let quote_id = rfqDetails.quotations[0].id;
       const updatedProducts = quoteProducts.map(product => {
         if(product.unit_price == 0) {
@@ -866,7 +924,7 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
                   <div className="quote-sec-table-top">
 
                       {/* RFQ Details Section */}
-                                      <div className="d-flex flex-wrap justify-content-between gap-4 mb-3">
+                                      <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
                     {rfqDetails?.company_name && (
                       <div className="text-start">
                         <strong>RFQ No:</strong>
@@ -1070,7 +1128,7 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
    <div className="border rounded-3 p-3" >
           <div className="d-flex align-items-center justify-content-between mb-2">
           <div>
-            <h6 className="mb-0">Payment Terms</h6>
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
             <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
             </div>
 
@@ -1738,20 +1796,26 @@ export default SendQuotePageComp;
 
 
 //  PaymentTermsUIOnly component
-const PaymentTermsEditor = ({ value, onChange, disabled }) => {
+const PaymentTermsEditor = ({ value, onChange }) => {
   const rows = value?.length
     ? value
     : [{id:null, value: "", type: "advance", days: "", comment: "" }];
 
-  const setRows = (next) => onChange && onChange(next);
+    const setRows = (next) => onChange && onChange(next);
 
-  const addRow = () =>
-    setRows([...rows, { id:null, value: "", type: "advance", days: "", comment: "" }]);
+    const removeRow = (index) => {
+     const updated = [...rows];
+     const row = updated[index];
+   
+     if (!row?.id) {
+       updated.splice(index, 1);
+     } else {
+       updated[index] = { ...row, action: "delete" };
+     }
+   
+     setRows(updated.length ? updated : [{ id: null, value: "", type: "advance", days: "", comment: "" }]);
+   };
 
-  const removeRow = (index) => {
-    const next = rows.filter((_, i) => i !== index);
-    setRows(next.length ? next : [{ id:null, value: "", type: "advance", days: "", comment: "" }]);
-  };
 
   const updateRow = (index, patch) =>
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -1760,7 +1824,7 @@ const PaymentTermsEditor = ({ value, onChange, disabled }) => {
     <div>
       {rows.map((row, index) => {
         const isCredit = row.type === "credit";
-        const showComment = !isCredit; // advance/other
+        const isDeleted = row.action == "delete";
         return (
           <div key={index} className="row g-2 align-items-end mb-2">
             <div className="col-3">
@@ -1777,13 +1841,14 @@ const PaymentTermsEditor = ({ value, onChange, disabled }) => {
                 }
                 min={0}
                 max={100}
-                disabled={disabled}
+                disabled={ isDeleted}
               />
             </div>
 
             <div className="col-3">
               <label className="form-label mb-1">Type</label>
               <select
+                     disabled={ isDeleted}
                 className="form-select"
                 value={row.type}
                 onChange={(e) => {
@@ -1795,7 +1860,6 @@ const PaymentTermsEditor = ({ value, onChange, disabled }) => {
                     comment: nextType === "credit" ? "" : row.comment,
                   });
                 }}
-                disabled={disabled}
               >
                 <option value="advance">Advance</option>
                 <option value="credit">Credit</option>
@@ -1817,7 +1881,7 @@ const PaymentTermsEditor = ({ value, onChange, disabled }) => {
                     })
                   }
                   min={1}
-                  disabled={disabled}
+                disabled={ isDeleted}
                 />
               </div>
             ) : (
@@ -1831,10 +1895,12 @@ const PaymentTermsEditor = ({ value, onChange, disabled }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-                  disabled={disabled}
+                disabled={ isDeleted}
                 />
               </div>
             )}
+
+{ row.action !== "delete" &&
 
             <div className="col-2 d-flex mb-1">
        <SmartButton
@@ -1845,6 +1911,7 @@ const PaymentTermsEditor = ({ value, onChange, disabled }) => {
         // icon = {<FontAwesomeIcon icon={faRemove} />}
       />
             </div>
+}
           </div>
         );
       })}
