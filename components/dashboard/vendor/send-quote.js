@@ -64,7 +64,7 @@ const SendQuotePageComp = () => {
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
-  {id:null, value: "", type: "advance", days: "", comment: ""},
+  // {id:null, value: "", type: "advance", days: "", comment: ""},
 ]);
 
 // Save the initial payment terms list from backend
@@ -216,7 +216,7 @@ const originalPaymentTermsListRef = useRef(null);
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
 
           //  one state and useRef for payment terms to track newly added, updated, and deleted terms
-          const paymetTermData = res.data.quotations[0].payment_terms || [{id: null, value: "", type: "advance", days: "", comment: ""}]
+          const paymetTermData = res.data.quotations[0]?.payment_terms || []
           setPaymentTermsRows(paymetTermData); // Set structured payment terms rows
           originalPaymentTermsListRef.current  = paymetTermData
         }
@@ -386,16 +386,6 @@ const originalPaymentTermsListRef = useRef(null);
 
   // 
   const getPaymentTermsChanges = () => {
-  const normalize = (rows) =>
-    rows.map(r => ({
-      id: r.id ?? null,
-      value: Number(r.value) || 0,
-      type: r.type || "advance",
-      days: r.type === "credit" ? (Number(r.days) || 0) : null,
-      comment: r.type !== "credit" ? (r.comment || "") : null,
-    }));
-
-
   
   // newly added term, no id in objects
 const createdTerms = 
@@ -1797,9 +1787,7 @@ export default SendQuotePageComp;
 
 //  PaymentTermsUIOnly component
 const PaymentTermsEditor = ({ value, onChange }) => {
-  const rows = value?.length
-    ? value
-    : [{id:null, value: "", type: "advance", days: "", comment: "" }];
+  const rows = Array.isArray(value) ? value : [];
 
     const setRows = (next) => onChange && onChange(next);
 
@@ -1813,7 +1801,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
        updated[index] = { ...row, action: "delete" };
      }
    
-     setRows(updated.length ? updated : [{ id: null, value: "", type: "advance", days: "", comment: "" }]);
+     setRows(updated);
    };
 
 
