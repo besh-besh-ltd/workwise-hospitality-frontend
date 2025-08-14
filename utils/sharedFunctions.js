@@ -254,64 +254,47 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 
 /**
  * @created by mukul on 13-aug-2025
- * @description Normalizes freight, packaging, and tax for nested quote details.
- * Converts absolute values to percentages and fills missing values using
- * average (freight/package) or median (tax). Caps all three to 2 decimals.
- * @used in category wise and overall quotation chart
+ * @description Normalizes freight, packaging, and tax for nested quote details. Converts absolute values to percentages and fills missing values using average (freight/package) or median (tax).
+ * @used in category wise and overall quotation chart,
  * @test_cases written in workwise-portal/tests/utils/sharedFunctions.test.js
  */
 export const handleNormalize = (data) => {
-  // --- helpers ---
+
+  // --- pre-normalize absolute -> percentage (values + labels) ---
   const toNum = (v) => {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : 0;
   };
-  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-
   const getQty = (d) => {
-    const fromRfq = d?.rfq_details?.find((x) => x.title === "Quantity")?.value;
+    const fromRfq = d?.rfq_details?.find(x => x.title === 'Quantity')?.value;
     const q = toNum(fromRfq ?? d?.quantity ?? 0);
     return q > 0 ? q : 0;
   };
-
-  // --- pre-normalize absolute -> percentage (values + labels) ---
-  const preNormalized = (data || []).map((item) => ({
+  const preNormalized = (data || []).map(item => ({
     ...item,
-    quotations: (item.quotations || []).map((quote) => ({
+    quotations: (item.quotations || []).map(quote => ({
       ...quote,
-      quote_details: (quote.quote_details || []).map((detail) => {
+      quote_details: (quote.quote_details || []).map(detail => {
         const unit = toNum(detail.unit_price);
-        const qty = getQty(detail);
+        const qty  = getQty(detail);
         const base = unit * qty;
         const d = { ...detail };
 
-        if (d.freight_mode === "absolute") {
-          const pct = base ? (toNum(d.freight_price) / base) * 100 : 0;
-          d.freight_price = round2(pct);
-          d.freight_mode = "percentage";
-        } else if (d.freight_mode === "percentage") {
-          d.freight_price = round2(toNum(d.freight_price));
+        if (d.freight_mode === 'absolute') {
+          d.freight_price = base ? (toNum(d.freight_price) / base) * 100 : 0;
+          d.freight_mode = 'percentage';
         }
-
-        if (d.package_mode === "absolute") {
-          const pct = base ? (toNum(d.package_price) / base) * 100 : 0;
-          d.package_price = round2(pct);
-          d.package_mode = "percentage";
-        } else if (d.package_mode === "percentage") {
-          d.package_price = round2(toNum(d.package_price));
+        if (d.package_mode === 'absolute') {
+          d.package_price = base ? (toNum(d.package_price) / base) * 100 : 0;
+          d.package_mode = 'percentage';
         }
-
-        if (d.tax_mode === "absolute") {
-          const pct = base ? (toNum(d.tax) / base) * 100 : 0;
-          d.tax = round2(pct);
-          d.tax_mode = "percentage";
-        } else if (d.tax_mode === "percentage") {
-          d.tax = round2(toNum(d.tax));
+        if (d.tax_mode === 'absolute') {
+          d.tax = base ? (toNum(d.tax) / base) * 100 : 0;
+          d.tax_mode = 'percentage';
         }
-
         return d;
-      }),
-    })),
+      })
+    }))
   }));
   // --- END pre-normalize ---
 
@@ -320,77 +303,67 @@ export const handleNormalize = (data) => {
   const allPackagePrices = [];
   const allTaxRates = [];
 
-  preNormalized.forEach((item) => {
-    item.quotations.forEach((quote) => {
-      quote.quote_details?.forEach((detail) => {
-        const freight = toNum(detail.freight_price);
+  preNormalized.forEach(item => {                 // <-- changed
+    item.quotations.forEach(quote => {
+      quote.quote_details?.forEach(detail => {
+        const freight = parseFloat(detail.freight_price);
         if (!isNaN(freight)) allFreightPrices.push(freight);
 
-        const pack = toNum(detail.package_price);
+        const pack = parseFloat(detail.package_price);
         if (!isNaN(pack)) allPackagePrices.push(pack);
 
-        const tax = toNum(detail.tax);
+        const tax = parseFloat(detail.tax);
         if (!isNaN(tax)) allTaxRates.push(tax);
       });
     });
   });
 
   const averageFreight = allFreightPrices.length
-    ? round2(allFreightPrices.reduce((s, v) => s + v, 0) / allFreightPrices.length)
+    ? allFreightPrices.reduce((s, v) => s + v, 0) / allFreightPrices.length
     : 0;
 
   const averagePackage = allPackagePrices.length
-    ? round2(allPackagePrices.reduce((s, v) => s + v, 0) / allPackagePrices.length)
+    ? allPackagePrices.reduce((s, v) => s + v, 0) / allPackagePrices.length
     : 0;
 
-  const sortedTaxRates = [...allTaxRates].sort((a, b) => a - b);
+  const sortedTaxRates = allTaxRates.sort((a, b) => a - b);
   const medianTax = (() => {
     const len = sortedTaxRates.length;
     if (len === 0) return 0;
     const mid = Math.floor(len / 2);
-    const m =
-      len % 2 === 0
-        ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
-        : sortedTaxRates[mid];
-    return round2(m);
+    return len % 2 === 0
+      ? (sortedTaxRates[mid - 1] + sortedTaxRates[mid]) / 2
+      : sortedTaxRates[mid];
   })();
 
   // final mapping must also use preNormalized so labels are "%"
-  const normalized = preNormalized.map((item) => {
+  const normalized = preNormalized.map(item => {  // <-- changed
+
     const vendorTermsById = new Map(
-      (item.all_vendors || []).map((v) => [v.id, v.payment_terms || []])
+      (item.all_vendors || []).map(v => [v.id, v.payment_terms || []])
     );
 
-    const updatedQuotations = item.quotations.map((quote) => {
+    const updatedQuotations = item.quotations.map(quote => {
+
       const paymentTerms = vendorTermsById.get(quote.created_by) || [];
 
-      const updatedDetails =
-        quote.quote_details?.map((detail) => {
-          const currentFreight = toNum(detail.freight_price);
-          const currentPackage = toNum(detail.package_price);
-          const currentTax = toNum(detail.tax);
+    const updatedDetails = quote.quote_details?.map(detail => {
+      const currentFreight = safeTwoDecimals(detail.freight_price);
+      const currentPackage = safeTwoDecimals(detail.package_price);
+      const currentTax = safeTwoDecimals(detail.tax);
+    
+      return {
+        ...detail,
+        freight_price:
+          currentFreight === 0 ? safeTwoDecimals(averageFreight) : currentFreight,
+        package_price:
+          currentPackage === 0 ? safeTwoDecimals(averagePackage) : currentPackage,
+        tax:
+          currentTax === 0 ? safeTwoDecimals(medianTax) : currentTax,
+        payment_terms: paymentTerms
+      };
+    }) || [];
 
-          const finalFreight =
-            isNaN(currentFreight) || currentFreight === 0
-              ? averageFreight
-              : round2(currentFreight);
-
-          const finalPackage =
-            isNaN(currentPackage) || currentPackage === 0
-              ? averagePackage
-              : round2(currentPackage);
-
-          const finalTax =
-            isNaN(currentTax) || currentTax === 0 ? medianTax : round2(currentTax);
-
-          return {
-            ...detail,
-            freight_price: finalFreight,
-            package_price: finalPackage,
-            tax: finalTax,
-            payment_terms: paymentTerms,
-          };
-        }) || [];
 
       return { ...quote, quote_details: updatedDetails };
     });
@@ -410,115 +383,98 @@ export const handleNormalize = (data) => {
  * @test_cases written in workwise-portal/tests/utils/sharedFunctions.test.js
  */
 export const normalizeFlatQuotationData = (data) => {
-  // --- helpers ---
+
+  // --- pre-normalize absolute -> percentage (values + labels) ---
   const toNum = (v) => {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : 0;
   };
-  const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-
   const getQty = (q) => {
-    const fromRfq = q?.rfq_details?.find?.((x) => x.title === "Quantity")?.value;
+    const fromRfq = q?.rfq_details?.find?.(x => x.title === 'Quantity')?.value;
     const qtty =
       toNum(fromRfq) ||
       toNum(q?.quantity) ||
       toNum(q?.quote_details?.[0]?.quantity);
     return qtty > 0 ? qtty : 0;
   };
-  const getUnit = (q) => toNum(q?.unit_price ?? q?.quote_details?.[0]?.unit_price);
+  const getUnit = (q) =>
+    toNum(q?.unit_price ?? q?.quote_details?.[0]?.unit_price);
 
-  // --- pre-normalize absolute -> percentage (values + labels) ---
-  const preNormalized = (data || []).map((item) => ({
+  const preNormalized = (data || []).map(item => ({
     ...item,
-    quotations: (item.quotations || []).map((q) => {
+    quotations: (item.quotations || []).map(q => {
       const unit = getUnit(q);
-      const qty = getQty(q);
+      const qty  = getQty(q);
       const base = unit * qty; // base for % conversion
 
       const r = { ...q };
 
-      if (r.package_mode === "absolute") {
-        const pct = base ? (toNum(r.package_price) / base) * 100 : 0;
-        r.package_price = round2(pct);
-        r.package_mode = "percentage";
-      } else if (r.package_mode === "percentage") {
-        r.package_price = round2(toNum(r.package_price));
+      if (r.package_mode === 'absolute') {
+        r.package_price = base ? (toNum(r.package_price) / base) * 100 : 0;
+        r.package_mode = 'percentage';
       }
-
-      if (r.freight_mode === "absolute") {
-        const pct = base ? (toNum(r.freight_price) / base) * 100 : 0;
-        r.freight_price = round2(pct);
-        r.freight_mode = "percentage";
-      } else if (r.freight_mode === "percentage") {
-        r.freight_price = round2(toNum(r.freight_price));
+      if (r.freight_mode === 'absolute') {
+        r.freight_price = base ? (toNum(r.freight_price) / base) * 100 : 0;
+        r.freight_mode = 'percentage';
       }
-
-      if (r.tax_mode === "absolute") {
-        const pct = base ? (toNum(r.tax) / base) * 100 : 0;
-        r.tax = round2(pct);
-        r.tax_mode = "percentage";
-      } else if (r.tax_mode === "percentage") {
-        r.tax = round2(toNum(r.tax));
+      if (r.tax_mode === 'absolute') {
+        r.tax = base ? (toNum(r.tax) / base) * 100 : 0;
+        r.tax_mode = 'percentage';
       }
-
       return r;
-    }),
+    })
   }));
   // --- end pre-normalize ---
 
-  // Collect all values (including 0) FROM preNormalized
+  // return data 
   const allFreightPrices = [];
   const allPackagePrices = [];
   const allTaxRates = [];
 
-  preNormalized.forEach((item) => {
-    item.quotations.forEach((quote) => {
-      const freight = toNum(quote.freight_price);
+  // Step 1: Collect all values (including 0) FROM preNormalized
+  preNormalized.forEach(item => {
+    item.quotations.forEach(quote => {
+      const freight = parseFloat(quote.freight_price);
       if (!isNaN(freight)) allFreightPrices.push(freight);
 
-      const pack = toNum(quote.package_price);
+      const pack = parseFloat(quote.package_price);
       if (!isNaN(pack)) allPackagePrices.push(pack);
 
-      const tax = toNum(quote.tax);
+      const tax = parseFloat(quote.tax);
       if (!isNaN(tax)) allTaxRates.push(tax);
     });
   });
 
-  const average = (arr) =>
-    arr.length ? round2(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  const average = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-  const median = (arr) => {
+  const median = arr => {
     if (!arr.length) return 0;
     const sorted = [...arr].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    const m =
-      sorted.length % 2 === 0
-        ? (sorted[mid - 1] + sorted[mid]) / 2
-        : sorted[mid];
-    return round2(m);
+    return arr.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
   };
 
   const averageFreight = average(allFreightPrices);
   const averagePackage = average(allPackagePrices);
   const medianTax = median(allTaxRates);
 
-  // Normalize (use preNormalized so modes are already '%')
-  const normalizedData = preNormalized.map((item) => {
-    const updatedQuotations = item.quotations.map((quote) => {
-      const freight = toNum(quote.freight_price);
-      const pack = toNum(quote.package_price);
-      const tax = toNum(quote.tax);
-
+  // Step 2: Normalize (use preNormalized so modes are already '%')
+  const normalizedData = preNormalized.map(item => {
+    const updatedQuotations = item.quotations.map(quote => {
+      const freight = safeTwoDecimals(quote.freight_price);
+      const pack = safeTwoDecimals(quote.package_price);
+      const tax = safeTwoDecimals(quote.tax);
+  
       return {
         ...quote,
-        freight_price:
-          isNaN(freight) || freight === 0 ? averageFreight : round2(freight),
-        package_price:
-          isNaN(pack) || pack === 0 ? averagePackage : round2(pack),
-        tax: isNaN(tax) || tax === 0 ? medianTax : round2(tax),
+        freight_price: freight === 0 ? safeTwoDecimals(averageFreight) : freight,
+        package_price: pack === 0 ? safeTwoDecimals(averagePackage) : pack,
+        tax: tax === 0 ? safeTwoDecimals(medianTax) : tax,
       };
     });
-
+  
     return {
       ...item,
       quotations: updatedQuotations,
@@ -527,8 +483,6 @@ export const normalizeFlatQuotationData = (data) => {
 
   return normalizedData;
 };
-
-
 
 
 export const  addCommasToNumber = (number) => {
@@ -550,3 +504,25 @@ export const  addCommasToNumber = (number) => {
     // Join the parts back together with decimal point if applicable
     return parts.join(".");
   };
+
+
+  /**
+ * Safely converts a value to a number rounded to 2 decimal places.
+ * - Returns 0 if the value is null, undefined, or not a valid number.
+ * - Always returns a number, not a string.
+ *
+ * @param {any} val - The input value to format.
+ * @returns {number} The formatted number with 2 decimal places.
+ *
+ * @example
+ * safeTwoDecimals(0.2986875); // 0.30
+ * safeTwoDecimals(null);      // 0
+ * safeTwoDecimals("abc");     // 0
+ * 
+ * @created by mukul on 13-aug-2025
+ */
+export const safeTwoDecimals = (val) => {
+  const num = Number(val);
+  if (isNaN(num)) return 0;
+  return parseFloat(num.toFixed(2));
+};
