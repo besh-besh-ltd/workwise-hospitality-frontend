@@ -23,6 +23,12 @@ import FilePreview from '@/components/ui/FilePreview';
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
 import { homepageData } from '@/components/constants/homepageData';
+import { getBOQexcelToJsonAI, handleCostEstimation, startCostEstimationProcess } from '@/services/rfq';
+import { toast } from 'react-toastify';
+import { LoginService, SWSubscribe } from '@/services/Auth';
+import { useSelector } from 'react-redux';
+import storageInstance from '@/utils/storageInstance';
+import TenderSummary from '@/components/ui/TenderSummary';
 
 const AiToolPage = () => {
   const router = useRouter();
@@ -34,6 +40,9 @@ const AiToolPage = () => {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const [summary , setSummary] = useState(false)
+  const swSubscription = useSelector((data) => data.swSubscription);
 
   useEffect(() => {
     setMounted(true);
@@ -76,22 +85,65 @@ const AiToolPage = () => {
     setShowFormModal(true);
   };
 
+  const handleUserLogin = async (values) => {
+    try {
+      const response = await LoginService(values, true);
+      // subscribe to SW
+      SWSubscribe({ subscription: swSubscription, token: response.token });
+      let userType = "";
+      if (response.user_detail[0].user_type == 2) {
+        userType = "buyer";
+      } else if (response.user_detail[0].user_type == 3) {
+        userType = "vendor";
+      } else if (response.user_detail[0].user_type == 4) {
+        userType = "other";
+      } else if (response.user_detail[0].user_type == 7) {
+        userType = "admin";
+      } else if (response.user_detail[0].user_type == 8) {
+        userType = "management";
+      } else if (response.user_detail[0].user_type == 9) {
+        userType = "engineering";
+      } else if (response.user_detail[0].user_type == 10) {
+        userType = "finance";
+      }
+      storageInstance.setStorage("current-user-type", userType);
+      return true;
+    } catch (error) {
+      if (error?.response?.status === 400) {
+      } else {
+        toast.error(error?.message, {
+          position: "top-center",
+        });
+      }
+      return false;
+    }
+  }
+
   const handleFormSubmit = async (formData) => {
-    // Here you would typically send the form data and file to your backend
-    console.log('Form submitted:', formData);
-    console.log('File:', file);
-    setShowFormModal(false);
-    setShowSuccessModal(true);
-    
-    // Reset file after successful submission
-    setTimeout(() => {
-      setFile(null);
-      setFileName('');
-      setShowSuccessModal(false);
-    }, 3000);
+    try {
+      const persistJob = await handleCostEstimation(fileName, 'cost-estimation', formData);
+      const webhook = persistJob.webhook;
+
+      if(persistJob.didUserRegister) {
+        const isLoginSuccess = await handleUserLogin({ email: persistJob.user.email, password: persistJob.user.password });
+        if(!isLoginSuccess) throw new Error("Login Failed!")
+      }
+      
+      const startResponse = await startCostEstimationProcess(file, webhook);
+      const response = startResponse.data;
+
+      if (startResponse) {
+        toast.success(response.message);
+        setShowFormModal(false);
+        setShowSuccessModal(true);
+      } else {
+        throw new Error("Server is too busy to handle your request, please try again in some time...")
+      }
+    } catch (error) {
+      setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+      toast.error(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+    }
   };
-
-
 
   const handleBookCall = () => {
     console.log('Book a Call clicked');

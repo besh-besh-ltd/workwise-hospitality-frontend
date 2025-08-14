@@ -8412,3 +8412,52 @@ td:hover .tooltip_custom {
 .main-header .main-menu ul li a {
   white-space: nowrap;
 }
+
+
+.minimal-btn {
+  /* your minimal style base */
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* Solid primary */
+.btn-primary-minimal {
+  background-color: #0d6efd;
+  color: white;
+}
+.btn-primary-minimal:hover:not(:disabled) {
+  background-color: #0b5ed7;
+}
+
+/* Outline primary */
+.btn-outline-primary-minimal {
+  background-color: transparent;
+  border: 2px solid #0d6efd;
+  color: #0d6efd;
+}
+.btn-outline-primary-minimal:hover:not(:disabled) {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* Outline secondary */
+.btn-outline-secondary-minimal {
+  background-color: transparent;
+  border: 2px solid #6c757d;
+  color: #6c757d;
+}
+.btn-outline-secondary-minimal:hover:not(:disabled) {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Disabled state style */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

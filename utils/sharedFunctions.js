@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from "@/lib/axios";
-import { handleUploadFile } from "@/services/rfq";
+import { handleUploadFile, persistMagicSearchJob } from "@/services/rfq";
 
 /**
  * Executes an asynchronous data-fetching function while managing a loading state.
