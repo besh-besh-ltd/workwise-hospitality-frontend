@@ -1,31 +1,56 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form, Table } from 'react-bootstrap';
+import React, { useState, useEffect } from "react";
+import { Modal, Button, Form, Badge } from "react-bootstrap";
 
-const InputModal = ({ 
-  show, 
-  onHide, 
-  onSubmit, 
-  productName,
-  initialValue = '',
-  numericLabel = "Target Price",
+const InputModal = ({
+  show,
+  onHide,
+  onSubmit,
   modalTitle = "Set Target Price",
-  historyData = [] // <-- pass array directly
+  products = [] // [{ id, name, product_variant_id, vendors: [...] }]
 }) => {
-  const [numericValue, setNumericValue] = useState(initialValue);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedVendorIds, setSelectedVendorIds] = useState([]);
+  const [numericValue, setNumericValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Find selected product object
+  const selectedProduct = products.find(
+    (p) => p.id === Number(selectedProductId)
+  );
+
+  // Reset vendors when product changes
+  useEffect(() => {
+    setSelectedVendorIds([]);
+  }, [selectedProductId]);
+
   const handleSubmit = async () => {
-    if (!numericValue) return;
-    
+    if (!selectedProductId || selectedVendorIds.length === 0 || !numericValue) return;
+
     setIsSubmitting(true);
     try {
-      await onSubmit(parseFloat(numericValue) || 0);
+      await onSubmit({
+        productId: Number(selectedProductId),
+        vendorIds: selectedVendorIds, // Pass array of vendor IDs
+        targetPrice: parseFloat(numericValue)
+      });
       onHide();
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error("Submission error:", error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleVendorChange = (vendorId) => {
+    setSelectedVendorIds((prev) =>
+      prev.includes(vendorId)
+        ? prev.filter((id) => id !== vendorId) // Remove if already selected
+        : [...prev, vendorId] // Add if not selected
+    );
+  };
+
+  const removeVendor = (vendorId) => {
+    setSelectedVendorIds((prev) => prev.filter((id) => id !== vendorId));
   };
 
   return (
@@ -41,20 +66,78 @@ const InputModal = ({
       </Modal.Header>
 
       <Modal.Body>
-        {/* Product Name */}
-        <Form.Group className="mb-3" controlId="formProductName">
+        {/* Product Dropdown */}
+        <Form.Group className="mb-3">
           <Form.Label>Product</Form.Label>
-          <Form.Control
-            type="text"
-            value={productName}
-            readOnly
-            plaintext
-          />
+          <Form.Select
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
+            disabled={isSubmitting}
+          >
+            <option value="">-- Select Product --</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Form.Select>
         </Form.Group>
 
+        {/* Selected Vendors Display */}
+        {selectedVendorIds.length > 0 && (
+          <Form.Group className="mb-3">
+            <Form.Label>Selected Vendors</Form.Label>
+            <div className="d-flex flex-wrap gap-2 mb-2">
+              {selectedVendorIds.map((vendorId) => {
+                const vendor = selectedProduct?.vendors?.find((v) => v.id === vendorId);
+                return vendor ? (
+                  <Badge
+                    key={vendorId}
+                    bg="primary"
+                    className="d-flex align-items-center"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => removeVendor(vendorId)}
+                  >
+                    {vendor.name}
+                    <span className="ms-2">×</span>
+                  </Badge>
+                ) : null;
+              })}
+            </div>
+          </Form.Group>
+        )}
+
+        {/* Vendor Checkboxes */}
+        {selectedProduct?.vendors?.length > 0 && (
+          <Form.Group className="mb-3">
+            <Form.Label>Select Vendors</Form.Label>
+            <div
+              className="vendor-list"
+              style={{
+                maxHeight: "150px",
+                overflowY: "auto",
+                border: "1px solid #ced4da",
+                borderRadius: "0.25rem",
+                padding: "0.5rem"
+              }}
+            >
+              {selectedProduct.vendors.map((vendor) => (
+                <Form.Check
+                  key={vendor.id}
+                  type="checkbox"
+                  label={vendor.name}
+                  checked={selectedVendorIds.includes(vendor.id)}
+                  onChange={() => handleVendorChange(vendor.id)}
+                  disabled={!selectedProductId || isSubmitting}
+                />
+              ))}
+            </div>
+          </Form.Group>
+        )}
+
         {/* Target Price */}
-        <Form.Group className="mb-3" controlId="formNumericInput">
-          <Form.Label>{numericLabel}</Form.Label>
+        <Form.Group className="mb-3">
+          <Form.Label>Target Price</Form.Label>
           <Form.Control
             type="number"
             min="0"
@@ -62,48 +145,15 @@ const InputModal = ({
             value={numericValue}
             onChange={(e) => setNumericValue(e.target.value)}
             disabled={isSubmitting}
-            placeholder={`Enter ${numericLabel.toLowerCase()}`}
+            placeholder="Enter target price"
           />
         </Form.Group>
-
-        {/* Price History */}
-        <div className="mt-4">
-          <h6 className="mb-2">Price History</h6>
-          {historyData?.length > 0 ? (
-            <Table bordered hover size="sm" className="align-middle text-center">
-              <thead className="table-light">
-                <tr>
-                  <th>#</th>
-                  <th>Target Price</th>
-                  <th>Created At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyData.map((item, index) => (
-                  <tr key={item.id}>
-                    <td>{index + 1}</td>
-                    <td>
-                      <span className="fw-semibold text-primary">
-                        {item.target_price}
-                      </span>
-                    </td>
-                    <td className="text-muted small">
-                      {new Date(item.created_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          ) : (
-            <div className="text-muted fst-italic">No history available</div>
-          )}
-        </div>
       </Modal.Body>
 
       <Modal.Footer className="py-2 px-3">
         <div className="d-flex gap-2 ms-auto">
-          <Button 
-            variant="outline-secondary" 
+          <Button
+            variant="outline-secondary"
             onClick={onHide}
             disabled={isSubmitting}
             size="sm"
@@ -111,17 +161,29 @@ const InputModal = ({
             Cancel
           </Button>
           <Button
+            vendorIds
             variant="primary"
             onClick={handleSubmit}
-            disabled={!numericValue || isSubmitting}
+            disabled={
+              !selectedProductId ||
+              selectedVendorIds.length === 0 ||
+              !numericValue ||
+              isSubmitting
+            }
             size="sm"
           >
             {isSubmitting ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                <span
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
                 Submitting...
               </>
-            ) : 'Set Target Price'}
+            ) : (
+              "Set Target Price"
+            )}
           </Button>
         </div>
       </Modal.Footer>

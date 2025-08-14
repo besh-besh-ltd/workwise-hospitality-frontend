@@ -69,7 +69,7 @@ const QuoteCompare = () => {
   const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
 
 
- const [openModalId, setOpenModalId] = useState(null);
+ const [openInputModal, setOpenInputModal] = useState(false);
 
   useEffect(() => {
     if (rfq) {
@@ -117,7 +117,30 @@ const QuoteCompare = () => {
 };
 
 
+const transformData = (data) => {
+  return data.map(item => {
+    // Extract product information
+    const product = {
+      product_variant_id: item.product_variant_id,
+      id: item.id,
+      name: item.product_details[0].product_name,
+    };
 
+    // Extract vendors from quotations
+    const vendors = item.quotations.map(quote => ({
+      id: quote.quote_details.vendor_details.id,
+      name: quote.quote_details.vendor_details.name,
+      email: quote.quote_details.vendor_details.email,
+      mobile: quote.quote_details.vendor_details.mobile,
+      organization_name: quote.quote_details.vendor_details.organization_name
+    }));
+
+    return {
+      ...product,
+      vendors
+    };
+  });
+};
 const getPricehistory = async (rfq_product_id) => {
   try {
     const data = await getTargetPriceHistory(rfq_product_id);
@@ -241,7 +264,13 @@ const openModalForVariant = (variantId) => {
         getRFQClauses();
       })
   };
+  useEffect(()=>{
+    if(quotes.length > 0)
+      console.log("checkignt he qotes here" , quotes);
+      const newData =  transformData(quotes);
 
+      console.log("vendor and product list", newData);
+  })
   const getRFQClauses = async () => {
     try {
       const res = await getAllClauses(rfq);
@@ -993,9 +1022,9 @@ const openModalForVariant = (variantId) => {
     return fileArr;
   }
    
-const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
+const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) => {
   try {
-    const result = await updateTargetPrice(targetPrice, rfq_product_id);
+    const result = await updateTargetPrice({productId, vendorIds, targetPrice });
     
     if (!result) {
       toast.error("Error updating Target Price");
@@ -1080,7 +1109,10 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
 //     console.log("logging here best possible price",quotes[0]?.latest_target_price)
 // },[])
 
-
+// const handleTargetPriceSubmit = async ({ productId, vendorIds, targetPrice }) => {
+//   console.log("Submitted Data:", { productId, vendorIds, targetPrice });
+  
+// };
   return (
     <>
       {finalizeLoading && <Loader />}
@@ -1092,18 +1124,46 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
             </div>
             <div className="col-md-6">
               <div className="btn-options float-end">
+                {/*Negotiation Module Button*/}
+                <span
+                  onClick={() => {
+                    setOpenInputModal(true); // Make sure this matches the state variable name
+                  }}
+                >
+                  Negotiation
+                </span>
+                {openInputModal && (
+                  <InputModal
+                    show={openInputModal}
+                    onHide={() => setOpenInputModal(false)}
+                    onSubmit={handleSubmitTargetPrice}
+                    products={transformData(quotes)} // directly passing API response
+                    modalTitle="Set Target Price for Vendor"
+                  />
+                )}
 
                 {/* Download quote & Close Rfq Buttons */}
                 {rfq && showOverallComparison && (
-                  <span onClick={handleDownloadQuote}> {downloadLoading ? "Generating Excel file...." : "Download as Excel"} </span>
+                  <span onClick={handleDownloadQuote}>
+                    {" "}
+                    {downloadLoading
+                      ? "Generating Excel file...."
+                      : "Download as Excel"}{" "}
+                  </span>
                 )}
                 {rfq && quotes && quotes.length > 0 && (
                   <>
-                    {quotes[0]?.rfq[0]?.status == 1 &&
-                      <span onClick={handleRFqClose}>{closeRFqLoading ? "Processing request..." : "Mark RFQ as Closed"}</span>
-                    }
+                    {quotes[0]?.rfq[0]?.status == 1 && (
+                      <span onClick={handleRFqClose}>
+                        {closeRFqLoading
+                          ? "Processing request..."
+                          : "Mark RFQ as Closed"}
+                      </span>
+                    )}
                     {quotes[0]?.rfq[0]?.status == 2 && (
-                      <span className="disabled-button">RFQ has been closed</span>
+                      <span className="disabled-button">
+                        RFQ has been closed
+                      </span>
                     )}
                   </>
                 )}
@@ -1118,65 +1178,91 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
           <div className="row">
             <div className="col-md-2">
               <div className="hasFullLoader">
-                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">
-                  Quotes Received
-                </p>
-                {loading && <FullLoader/>}
+                <p className="px-1 pt-3 fs-6 mb-1 fw-medium">Quotes Received</p>
+                {loading && <FullLoader />}
                 <div className="py-1">
-                    <label>Search RFQ No.</label>
-                    <input
-                        className="form-control react-select" 
-                        style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
-                        value={rfqNo}
-                        onChange={(e)=> setRfqNo(e.target.value)}
-                        name="rfq_type"
-                        placeholder="Ex. 123456"
-                        isClearable
-                    />
+                  <label>Search RFQ No.</label>
+                  <input
+                    className="form-control react-select"
+                    style={{
+                      borderRadius: "0.25rem",
+                      borderColor: "#ced4da",
+                      boxShadow: "none",
+                    }}
+                    value={rfqNo}
+                    onChange={(e) => setRfqNo(e.target.value)}
+                    name="rfq_type"
+                    placeholder="Ex. 123456"
+                    isClearable
+                  />
                 </div>
                 <div className="py-2">
-                    <label>Select Project</label>
-                    <Select
-                        options={projects}
-                        onChange={(selectedOption,actionMeta)=> setSelectedproject(selectedOption?.value ? selectedOption.value : -1)}
-                        // value={selectedproject}
-                        name="project_id"
-                        placeholder="Select"
-                        isClearable
-                    />
-                </div>
-                {!loading && myRFQs && myRFQs.length === 0
-                  ? <p style={{ textAlign: 'center' }}>No RFQs yet!</p>
-                  : !loading && myRFQs && myRFQs.length > 0 ? (
-                  <ul className="overflow-y-auto mt-1" style={{ maxHeight: "70vh" }}>
-                    {myRFQs.map((item) => {
-                      return (
-                        <li key={item.id} className={`${item.id == rfq ? "active rounded" : ""}`}>
-                          <Link
-                            href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
-                            className={`${item.id == rfq ? "text-white" : "text-dark"}`}
-                          >
-                            RFQ #{item?.rfq_no}
-                            {item.project_name && item.project_name != "" &&
-                              <b className="d-block fw-semibold" style={{ fontSize: "14px" }}>
-                                {item.project_name}
-                              </b>}
-                          </Link>
-                        </li>
+                  <label>Select Project</label>
+                  <Select
+                    options={projects}
+                    onChange={(selectedOption, actionMeta) =>
+                      setSelectedproject(
+                        selectedOption?.value ? selectedOption.value : -1
                       )
                     }
-                    )}
+                    // value={selectedproject}
+                    name="project_id"
+                    placeholder="Select"
+                    isClearable
+                  />
+                </div>
+                {!loading && myRFQs && myRFQs.length === 0 ? (
+                  <p style={{ textAlign: "center" }}>No RFQs yet!</p>
+                ) : !loading && myRFQs && myRFQs.length > 0 ? (
+                  <ul
+                    className="overflow-y-auto mt-1"
+                    style={{ maxHeight: "70vh" }}
+                  >
+                    {myRFQs.map((item) => {
+                      return (
+                        <li
+                          key={item.id}
+                          className={`${
+                            item.id == rfq ? "active rounded" : ""
+                          }`}
+                        >
+                          <Link
+                            href={`/dashboard/buyer/quote-compare/?rfq=${item?.id}`}
+                            className={`${
+                              item.id == rfq ? "text-white" : "text-dark"
+                            }`}
+                          >
+                            RFQ #{item?.rfq_no}
+                            {item.project_name && item.project_name != "" && (
+                              <b
+                                className="d-block fw-semibold"
+                                style={{ fontSize: "14px" }}
+                              >
+                                {item.project_name}
+                              </b>
+                            )}
+                          </Link>
+                        </li>
+                      );
+                    })}
 
                     {hasMoreQuotes && !loading && myRFQs.length >= 10 && (
-                      <Link href="#" className="d-flex justify-content-end px-3 pe-auto" onClick={loadMoreRFQs}>
+                      <Link
+                        href="#"
+                        className="d-flex justify-content-end px-3 pe-auto"
+                        onClick={loadMoreRFQs}
+                      >
                         <span className="link-primary">...Load More</span>
                       </Link>
                     )}
 
                     {hasMoreQuotes && loading && (
-                      <div className="d-flex justify-content-center align-items-center" >
+                      <div className="d-flex justify-content-center align-items-center">
                         Loading ...
-                        <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+                        <div
+                          className="spinner-border spinner-border-sm text-primary ms-2"
+                          role="status"
+                        >
                           <span className="visually-hidden">Loading...</span>
                         </div>
                       </div>
@@ -1187,52 +1273,48 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
             </div>
 
             <div className="col-md-10">
-
-
               <div className="quote-sec-table quote-sec-tab">
-
-
-                {!quotesLoading && currentRFQ &&
+                {!quotesLoading && currentRFQ && (
                   <div className="mb-3">
                     <h3 className="fs-5 mb-1">
-                      <span className="fw-semibold">RFQ No : </span>{currentRFQ?.rfq_no}
+                      <span className="fw-semibold">RFQ No : </span>
+                      {currentRFQ?.rfq_no}
                     </h3>
-                    {currentRFQ.project_name && currentRFQ.project_name != "" &&
-                      <p className="sub-heading fs-6 mb-2">
-                        {currentRFQ.project_name}
-                      </p>}
+                    {currentRFQ.project_name &&
+                      currentRFQ.project_name != "" && (
+                        <p className="sub-heading fs-6 mb-2">
+                          {currentRFQ.project_name}
+                        </p>
+                      )}
                     <hr />
 
                     <div className="row text-sm ">
-
                       <div className="col-md-6">
                         <p className="sub-heading mb-0">
-                          <b>Company Name</b> :{" "}
-                          {currentRFQ.company_name}
+                          <b>Company Name</b> : {currentRFQ.company_name}
                         </p>
                         <p className="sub-heading mb-0">
-                          <b>Contact Person Name</b> :{" "}
-                          {currentRFQ.contact_name}
+                          <b>Contact Person Name</b> : {currentRFQ.contact_name}
                         </p>
                         <p className="sub-heading mb-0">
-                          <b>Response Email</b> :{" "}
-                          {currentRFQ.response_email}
+                          <b>Response Email</b> : {currentRFQ.response_email}
                         </p>
                         <p className="sub-heading mb-0">
-                          <b>Contact Number</b> :{" "}
-                          {currentRFQ.contact_number}
+                          <b>Contact Number</b> : {currentRFQ.contact_number}
                         </p>
-                        {currentRFQ.location && currentRFQ.location != "" &&
+                        {currentRFQ.location && currentRFQ.location != "" && (
                           <p className="sub-heading mb-0">
-                            <b>Delivery Location</b> :{" "}
-                            {currentRFQ.location}
-                          </p>}
+                            <b>Delivery Location</b> : {currentRFQ.location}
+                          </p>
+                        )}
                       </div>
 
                       <div className="col-md-6">
                         <p className="sub-heading mb-0">
                           <b>Reverse Auction</b> :{" "}
-                          {currentRFQ.reverse_auction == 1 ? "Enabled" : "Disabled"}
+                          {currentRFQ.reverse_auction == 1
+                            ? "Enabled"
+                            : "Disabled"}
                         </p>
                         {currentRFQ.reverse_auction == 1 && (
                           <>
@@ -1246,92 +1328,109 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                             </p>
                           </>
                         )}
-                        {currentRFQ.rfq_type && currentRFQ.rfq_type != "" &&
+                        {currentRFQ.rfq_type && currentRFQ.rfq_type != "" && (
                           <p className="sub-heading mb-0">
-                            <b>RFQ Type</b> :{" "}
-                            {currentRFQ.rfq_type}
-                          </p>}
+                            <b>RFQ Type</b> : {currentRFQ.rfq_type}
+                          </p>
+                        )}
                         <p className="sub-heading mb-0">
-                          <b>Bid End Date</b> :{" "}
-                          {currentRFQ.bid_end_date}
+                          <b>Bid End Date</b> : {currentRFQ.bid_end_date}
                         </p>
-                        {currentRFQ.comment && currentRFQ.comment != "" &&
+                        {currentRFQ.comment && currentRFQ.comment != "" && (
                           <p className="sub-heading mb-0">
-                            <b>Comment</b> :{" "}
-                            {currentRFQ.comment}
-                          </p>}
+                            <b>Comment</b> : {currentRFQ.comment}
+                          </p>
+                        )}
                       </div>
-
                     </div>
                   </div>
-                }
+                )}
                 {"rfq" in router?.query && (
-                  <div className="tabs-container" style={{ borderBottom: '1px solid #e0e0e0', marginBottom: 16 }}>
+                  <div
+                    className="tabs-container"
+                    style={{
+                      borderBottom: "1px solid #e0e0e0",
+                      marginBottom: 16,
+                    }}
+                  >
                     <Link
                       href="#"
-                      className={`tab ${activeTab === 'product' ? 'active' : ''}`}
+                      className={`tab ${
+                        activeTab === "product" ? "active" : ""
+                      }`}
                       style={{
-                        background: activeTab === 'product' ? '#2d5ba7' : '#fff',
-                        color: activeTab === 'product' ? '#fff' : '#2d5ba7',
-                        border: '1px solid #2d5ba7',
-                        borderBottom: activeTab === 'product' ? 'none' : '1px solid #2d5ba7',
-                        borderRadius: '8px 8px 0 0',
+                        background:
+                          activeTab === "product" ? "#2d5ba7" : "#fff",
+                        color: activeTab === "product" ? "#fff" : "#2d5ba7",
+                        border: "1px solid #2d5ba7",
+                        borderBottom:
+                          activeTab === "product"
+                            ? "none"
+                            : "1px solid #2d5ba7",
+                        borderRadius: "8px 8px 0 0",
                         marginRight: 4,
-                        padding: '8px 20px',
+                        padding: "8px 20px",
                         fontWeight: 500,
-                        position: 'relative',
-                        top: activeTab === 'product' ? 2 : 0,
-                        zIndex: activeTab === 'product' ? 2 : 1,
-                        transition: 'background 0.2s, color 0.2s',
+                        position: "relative",
+                        top: activeTab === "product" ? 2 : 0,
+                        zIndex: activeTab === "product" ? 2 : 1,
+                        transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab('product')}
+                      onClick={() => setActiveTab("product")}
                     >
                       Product Wise Comparison
                     </Link>
                     <Link
                       href="#"
-                      className={`tab ${activeTab === 'category' ? 'active' : ''}`}
+                      className={`tab ${
+                        activeTab === "category" ? "active" : ""
+                      }`}
                       style={{
-                        background: activeTab === 'category' ? '#2d5ba7' : '#fff',
-                        color: activeTab === 'category' ? '#fff' : '#2d5ba7',
-                        border: '1px solid #2d5ba7',
-                        borderBottom: activeTab === 'category' ? 'none' : '1px solid #2d5ba7',
-                        borderRadius: '8px 8px 0 0',
+                        background:
+                          activeTab === "category" ? "#2d5ba7" : "#fff",
+                        color: activeTab === "category" ? "#fff" : "#2d5ba7",
+                        border: "1px solid #2d5ba7",
+                        borderBottom:
+                          activeTab === "category"
+                            ? "none"
+                            : "1px solid #2d5ba7",
+                        borderRadius: "8px 8px 0 0",
                         marginRight: 4,
-                        padding: '8px 20px',
+                        padding: "8px 20px",
                         fontWeight: 500,
-                        position: 'relative',
-                        top: activeTab === 'category' ? 2 : 0,
-                        zIndex: activeTab === 'category' ? 2 : 1,
-                        transition: 'background 0.2s, color 0.2s',
+                        position: "relative",
+                        top: activeTab === "category" ? 2 : 0,
+                        zIndex: activeTab === "category" ? 2 : 1,
+                        transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab('category')}
+                      onClick={() => setActiveTab("category")}
                     >
                       Category wise Comparison
                     </Link>
                     <Link
                       href="#"
-                      className={`tab ${activeTab === 'cost' ? 'active' : ''}`}
+                      className={`tab ${activeTab === "cost" ? "active" : ""}`}
                       style={{
-                        background: activeTab === 'cost' ? '#2d5ba7' : '#fff',
-                        color: activeTab === 'cost' ? '#fff' : '#2d5ba7',
-                        border: '1px solid #2d5ba7',
-                        borderBottom: activeTab === 'cost' ? 'none' : '1px solid #2d5ba7',
-                        borderRadius: '8px 8px 0 0',
+                        background: activeTab === "cost" ? "#2d5ba7" : "#fff",
+                        color: activeTab === "cost" ? "#fff" : "#2d5ba7",
+                        border: "1px solid #2d5ba7",
+                        borderBottom:
+                          activeTab === "cost" ? "none" : "1px solid #2d5ba7",
+                        borderRadius: "8px 8px 0 0",
                         marginRight: 4,
-                        padding: '8px 20px',
+                        padding: "8px 20px",
                         fontWeight: 500,
-                        position: 'relative',
-                        top: activeTab === 'cost' ? 2 : 0,
-                        zIndex: activeTab === 'cost' ? 2 : 1,
-                        transition: 'background 0.2s, color 0.2s',
+                        position: "relative",
+                        top: activeTab === "cost" ? 2 : 0,
+                        zIndex: activeTab === "cost" ? 2 : 1,
+                        transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab('cost')}
+                      onClick={() => setActiveTab("cost")}
                     >
                       Overall Cost Comparison
                     </Link>
                     <div className="d-flex flex-column gap-2 ms-auto">
-                      {TEavailable &&
+                      {TEavailable && (
                         <div className="form-check form-switch page-link fs-6">
                           <input
                             className="form-check-input border-dark-subtle"
@@ -1344,25 +1443,29 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                           <label className="form-check-label" for="TA_check">
                             View Technically Accepted Vendors
                           </label>
-                        </div>}
+                        </div>
+                      )}
 
-                     {!normalizeFilter && 
+                      {!normalizeFilter && (
+                        <div className="form-check form-switch page-link fs-6">
+                          <input
+                            className="form-check-input border-dark-subtle"
+                            type="checkbox"
+                            role="switch"
+                            checked={freightFilter}
+                            id="freight_check"
+                            onChange={handleFreightFilterChange}
+                          />
+                          <label
+                            className="form-check-label"
+                            for="freight_check"
+                          >
+                            View quotes without freight
+                          </label>
+                        </div>
+                      )}
+
                       <div className="form-check form-switch page-link fs-6">
-                        <input
-                          className="form-check-input border-dark-subtle"
-                          type="checkbox"
-                          role="switch"
-                          checked={freightFilter}
-                          id="freight_check"
-                          onChange={handleFreightFilterChange}
-                        />
-                        <label className="form-check-label" for="freight_check">
-                          View quotes without freight
-                        </label>
-                      </div>
-                      }
-
-                       <div className="form-check form-switch page-link fs-6">
                         <input
                           className="form-check-input border-dark-subtle"
                           type="checkbox"
@@ -1379,7 +1482,6 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                   </div>
                 )}
 
-
                 {!rfq && (
                   <div className="quote-sec-main">
                     <div className="quote-sec-table-sub">
@@ -1392,7 +1494,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
 
                 {rfq && (
                   <div className="quote-sec-main">
-                    {activeTab === 'product' && (
+                    {activeTab === "product" && (
                       <>
                         {quotesLoading && (
                           <div className="quote-sec-table-sub hasFullLoader">
@@ -1404,216 +1506,103 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                             <h4>You don't have any quotes.</h4>
                           </div>
                         )}
-                        {quotes && quotes.length > 0 && quotes.map((item, index) => {
-                          const key = `${item.product_variant_id}_${item.variant}`;
-                          const product_specs = item?.product_details[0]?.rfq_details
-                          const spec = product_specs.find(spec => spec.title == 'Spec')?.value;
-                          const selling_price = product_specs.find(spec => spec.title == 'total_price')?.value
-                          const product_name  = item?.product_details.map((prod) => prod.product_name)
+                        {quotes &&
+                          quotes.length > 0 &&
+                          quotes.map((item, index) => {
+                            const key = `${item.product_variant_id}_${item.variant}`;
+                            const product_specs =
+                              item?.product_details[0]?.rfq_details;
+                            const spec = product_specs.find(
+                              (spec) => spec.title == "Spec"
+                            )?.value;
+                            const selling_price = product_specs.find(
+                              (spec) => spec.title == "total_price"
+                            )?.value;
+                            const product_name = item?.product_details.map(
+                              (prod) => prod.product_name
+                            );
 
-                          return (
-                            <div
-                              className="quote-sec-table-sub"
-                              key={`qq_${index}`}
-                            >
-                              <div className="row">
-                                <div className="d-flex justify-content-between">
-                                  <div>
-                                    <p className="sub-heading mb-0">
-                                      <b>Product</b> :{" "}
-                                      {item?.product_details[0]?.product_name}
-                                    </p>
-                                    <div className="sub-heading mb-0 d-flex gap-1">
-                                      <b>Product Specification</b> :{" "}
-                                      {spec ? (
-                                        <ReadMore
-                                          content={spec}
-                                          maxLength={30}
-                                          maxLines={2}
-                                        />
-                                      ) : (
-                                        "N/A"
-                                      )}
-                                    </div>
-                                    <p className="sub-heading mb-0">
-                                      <b>Selling Price</b> :{" "}
-                                      {selling_price
-                                        ? "₹" + addCommasToNumber(selling_price)
-                                        : "N/A"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <div className="d-flex gap-2">
-                                      <Button
-                                        variant="primary"
-                                        size="sm"
-                                        className="position-relative p-2 px-2"
-                                        onClick={() => openModalForVariant(key)}
-                                      >
-                                        View LPR History
-                                      </Button>
-
-                                      <Button
-                                        variant="success"
-                                        size="sm"
-                                        className="position-relative p-2 px-2"
-                                        onClick={() => {getPricehistory(item.id) ,setOpenModalId(item.id)}}
-                                      >
-                                        Set Target Price
-                                      </Button>
-                                    </div>
-
-                                    <InputModal
-                                      show={openModalId === item.id}
-                                      onHide={() => setOpenModalId(null)}
-                                      onSubmit={(targetPrice) =>
-                                        handleSubmitTargetPrice(
-                                          targetPrice,
-                                          item.id
-                                        )
-                                      }
-                                      productName={product_name}
-                                      initialValue={item.latest_target_price}
-                                      numericLabel="Target Price"
-                                      modalTitle="Set Target Price"
-                                      historyData={targetPriceHistory} // pass array directly
-                                    />
-                                  </div>
-                                </div>
-                                {item?.last_purchase_rate != null && (
-                                  <div className="col-12 bg-transparent border-0 m">
-                                    <div className="d-flex justify-content-between align-items-center px-2 mb-2">
-                                      <div className="flex-grow-1 text-center">
-                                        <p className="sub-heading mb-0">
-                                          <b>Last Purchase Details :</b>
-                                        </p>
+                            return (
+                              <div
+                                className="quote-sec-table-sub"
+                                key={`qq_${index}`}
+                              >
+                                <div className="row">
+                                  <div className="d-flex justify-content-between">
+                                    <div>
+                                      <p className="sub-heading mb-0">
+                                        <b>Product</b> :{" "}
+                                        {item?.product_details[0]?.product_name}
+                                      </p>
+                                      <div className="sub-heading mb-0 d-flex gap-1">
+                                        <b>Product Specification</b> :{" "}
+                                        {spec ? (
+                                          <ReadMore
+                                            content={spec}
+                                            maxLength={30}
+                                            maxLines={2}
+                                          />
+                                        ) : (
+                                          "N/A"
+                                        )}
                                       </div>
+                                      <p className="sub-heading mb-0">
+                                        <b>Selling Price</b> :{" "}
+                                        {selling_price
+                                          ? "₹" +
+                                            addCommasToNumber(selling_price)
+                                          : "N/A"}
+                                      </p>
                                     </div>
-                                    <div className="sub-heading border rounded-3 p-2">
-                                      <div className="row fw-medium mx-2">
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Base Price </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading
-                                                shape="rect"
-                                                width={80}
-                                                height={20}
-                                              />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {formatPrice(
-                                                item?.last_purchase_rate
-                                                  ?.unit_price
-                                              ) || "---"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Freight Rate </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading
-                                                shape="rect"
-                                                width={80}
-                                                height={20}
-                                              />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate
-                                                ?.freight_price !== null
-                                                ? `${item?.last_purchase_rate?.freight_price}%`
-                                                : "0%"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Packaging Rate </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading
-                                                shape="rect"
-                                                width={80}
-                                                height={20}
-                                              />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate
-                                                ?.package_price !== null
-                                                ? `${item?.last_purchase_rate?.package_price}%`
-                                                : "0%"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Tax </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading
-                                                shape="rect"
-                                                width={80}
-                                                height={20}
-                                              />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate?.tax !==
-                                              null
-                                                ? `${item?.last_purchase_rate?.tax}%`
-                                                : "0%"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Quantity </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading
-                                                shape="rect"
-                                                width={80}
-                                                height={20}
-                                              />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {item?.last_purchase_rate
-                                                ?.quantity || "---"}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="col-md-3 col-lg-2">
-                                          <span>Total Price </span>
-                                          {loading ? (
-                                            <span className="d-block mt-1">
-                                              <PlaceholderLoading
-                                                shape="rect"
-                                                width={80}
-                                                height={20}
-                                              />
-                                            </span>
-                                          ) : (
-                                            <span className="d-block fw-medium text-muted ">
-                                              {formatPrice(
-                                                item?.last_purchase_rate
-                                                  ?.total_price
-                                              ) || "---"}
-                                            </span>
-                                          )}
-                                        </div>
+                                    <div>
+                                      <div className="d-flex gap-2">
+                                        <Button
+                                          variant="primary"
+                                          size="sm"
+                                          className="position-relative p-2 px-2"
+                                          onClick={() =>
+                                            openModalForVariant(key)
+                                          }
+                                        >
+                                          View LPR History
+                                        </Button>
+
+                                        {/* <Button
+                                          variant="success"
+                                          size="sm"
+                                          className="position-relative p-2 px-2"
+                                          onClick={() => {
+                                            getPricehistory(item.id),
+                                              setOpenModalId(item.id);
+                                          }}
+                                        >
+                                          Set Target Price
+                                        </Button> */}
                                       </div>
+
+                                      {/* <InputModal
+                                        show={openModalId === item.id}
+                                        onHide={() => setOpenModalId(null)}
+                                        onSubmit={(targetPrice) =>
+                                          handleSubmitTargetPrice(
+                                            targetPrice,
+                                            item.id
+                                          )
+                                        }
+                                        productName={product_name}
+                                        initialValue={item.latest_target_price}
+                                        numericLabel="Target Price"
+                                        modalTitle="Set Target Price"
+                                        historyData={targetPriceHistory} // pass array directly
+                                      /> */}
                                     </div>
                                   </div>
-                                )}
-                                {item?.last_purchase_rate == null &&
-                                  item?.last_quote_rate != null && (
+                                  {item?.last_purchase_rate != null && (
                                     <div className="col-12 bg-transparent border-0 m">
                                       <div className="d-flex justify-content-between align-items-center px-2 mb-2">
                                         <div className="flex-grow-1 text-center">
                                           <p className="sub-heading mb-0">
-                                            <b>Last Quoted Details :</b>
+                                            <b>Last Purchase Details :</b>
                                           </p>
                                         </div>
                                       </div>
@@ -1632,7 +1621,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                             ) : (
                                               <span className="d-block fw-medium text-muted ">
                                                 {formatPrice(
-                                                  item?.last_quote_rate
+                                                  item?.last_purchase_rate
                                                     ?.unit_price
                                                 ) || "---"}
                                               </span>
@@ -1650,9 +1639,9 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                               </span>
                                             ) : (
                                               <span className="d-block fw-medium text-muted ">
-                                                {item?.last_quote_rate
+                                                {item?.last_purchase_rate
                                                   ?.freight_price !== null
-                                                  ? `${item?.last_quote_rate?.freight_price}%`
+                                                  ? `${item?.last_purchase_rate?.freight_price}%`
                                                   : "0%"}
                                               </span>
                                             )}
@@ -1669,9 +1658,9 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                               </span>
                                             ) : (
                                               <span className="d-block fw-medium text-muted ">
-                                                {item?.last_quote_rate
+                                                {item?.last_purchase_rate
                                                   ?.package_price !== null
-                                                  ? `${item?.last_quote_rate?.package_price}%`
+                                                  ? `${item?.last_purchase_rate?.package_price}%`
                                                   : "0%"}
                                               </span>
                                             )}
@@ -1688,9 +1677,9 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                               </span>
                                             ) : (
                                               <span className="d-block fw-medium text-muted ">
-                                                {item?.last_quote_rate?.tax !==
-                                                null
-                                                  ? `${item?.last_quote_rate?.tax}%`
+                                                {item?.last_purchase_rate
+                                                  ?.tax !== null
+                                                  ? `${item?.last_purchase_rate?.tax}%`
                                                   : "0%"}
                                               </span>
                                             )}
@@ -1707,7 +1696,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                               </span>
                                             ) : (
                                               <span className="d-block fw-medium text-muted ">
-                                                {item?.last_quote_rate
+                                                {item?.last_purchase_rate
                                                   ?.quantity || "---"}
                                               </span>
                                             )}
@@ -1725,7 +1714,7 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                             ) : (
                                               <span className="d-block fw-medium text-muted ">
                                                 {formatPrice(
-                                                  item?.last_quote_rate
+                                                  item?.last_purchase_rate
                                                     ?.total_price
                                                 ) || "---"}
                                               </span>
@@ -1735,60 +1724,200 @@ const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
                                       </div>
                                     </div>
                                   )}
-                                <LPRModal
-                                  show={openModals[key] || false}
-                                  onHide={() => closeModalForVariant(key)}
-                                  variantId={item.product_variant_id}
-                                />
-                              </div>
-                              {item?.quotations &&
-                                item?.quotations.length === 0 && (
-                                  <h4 className="mt-4 text-center">
-                                    No Quotations yet!
-                                  </h4>
-                                )}
-                              {item?.quotations &&
-                                item?.quotations.length > 0 && (
-                                  <>
-                                    <QuoteCompareTable
-                                      proditem={item}
-                                      handleFinalize={handleFinalize}
-                                      quotations={item?.quotations}
-                                      quantity={
-                                        item?.product_details[0]?.rfq_details
-                                          ? item?.product_details[0]
-                                              ?.rfq_details[2]?.value
-                                          : "-"
-                                      }
-                                      alreadyFinalized={item?.quotations?.filter(
-                                        (item) => item.finalization != null
-                                      )}
-                                      isRfqClosed={
-                                        Array.isArray(item.rfq) &&
-                                        item.rfq[0]?.status === 2
-                                      }
-                                      availableBudget={availableBudget}
-                                      targetPrice={item.latest_target_price}
-                                      targetHistory={targetPriceHistory}
-                                      normalizeFilter={normalizeFilter}
+                                  {item?.last_purchase_rate == null &&
+                                    item?.last_quote_rate != null && (
+                                      <div className="col-12 bg-transparent border-0 m">
+                                        <div className="d-flex justify-content-between align-items-center px-2 mb-2">
+                                          <div className="flex-grow-1 text-center">
+                                            <p className="sub-heading mb-0">
+                                              <b>Last Quoted Details :</b>
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="sub-heading border rounded-3 p-2">
+                                          <div className="row fw-medium mx-2">
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Base Price </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {formatPrice(
+                                                    item?.last_quote_rate
+                                                      ?.unit_price
+                                                  ) || "---"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Freight Rate </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.freight_price !== null
+                                                    ? `${item?.last_quote_rate?.freight_price}%`
+                                                    : "0%"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Packaging Rate </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.package_price !== null
+                                                    ? `${item?.last_quote_rate?.package_price}%`
+                                                    : "0%"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Tax </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.tax !== null
+                                                    ? `${item?.last_quote_rate?.tax}%`
+                                                    : "0%"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Quantity </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {item?.last_quote_rate
+                                                    ?.quantity || "---"}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="col-md-3 col-lg-2">
+                                              <span>Total Price </span>
+                                              {loading ? (
+                                                <span className="d-block mt-1">
+                                                  <PlaceholderLoading
+                                                    shape="rect"
+                                                    width={80}
+                                                    height={20}
+                                                  />
+                                                </span>
+                                              ) : (
+                                                <span className="d-block fw-medium text-muted ">
+                                                  {formatPrice(
+                                                    item?.last_quote_rate
+                                                      ?.total_price
+                                                  ) || "---"}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  <LPRModal
+                                    show={openModals[key] || false}
+                                    onHide={() => closeModalForVariant(key)}
+                                    variantId={item.product_variant_id}
                                   />
-                                  </>
-                                )}
-                            </div>
-                          );
-                        })}
+                                </div>
+                                {item?.quotations &&
+                                  item?.quotations.length === 0 && (
+                                    <h4 className="mt-4 text-center">
+                                      No Quotations yet!
+                                    </h4>
+                                  )}
+                                {item?.quotations &&
+                                  item?.quotations.length > 0 && (
+                                    <>
+                                      <QuoteCompareTable
+                                        proditem={item}
+                                        handleFinalize={handleFinalize}
+                                        quotations={item?.quotations}
+                                        quantity={
+                                          item?.product_details[0]?.rfq_details
+                                            ? item?.product_details[0]
+                                                ?.rfq_details[2]?.value
+                                            : "-"
+                                        }
+                                        alreadyFinalized={item?.quotations?.filter(
+                                          (item) => item.finalization != null
+                                        )}
+                                        isRfqClosed={
+                                          Array.isArray(item.rfq) &&
+                                          item.rfq[0]?.status === 2
+                                        }
+                                        availableBudget={availableBudget}
+                                        targetPrice={item.latest_target_price}
+                                        targetHistory={targetPriceHistory}
+                                        normalizeFilter={normalizeFilter}
+                                      />
+                                    </>
+                                  )}
+                              </div>
+                            );
+                          })}
                       </>
                     )}
-                    {activeTab === 'category' && (
-                      <OverallComparison rfq_id={rfq} TA_Filter={TA_Filter} normalizeFilter={normalizeFilter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />
+                    {activeTab === "category" && (
+                      <OverallComparison
+                        rfq_id={rfq}
+                        TA_Filter={TA_Filter}
+                        normalizeFilter={normalizeFilter}
+                        freightFilter={freightFilter}
+                        RFQ_no={currentRFQ?.rfq_no}
+                      />
                     )}
-                    {activeTab === 'cost' && (
-                      <OverallCostComparison rfq_id={rfq} TA_Filter={TA_Filter} normalizeFilter={normalizeFilter} freightFilter={freightFilter} RFQ_no={currentRFQ?.rfq_no}  />
-                                        )}
-                                      </div>
-                                        )}
-                                      </div>
-                                      </div>
+                    {activeTab === "cost" && (
+                      <OverallCostComparison
+                        rfq_id={rfq}
+                        TA_Filter={TA_Filter}
+                        normalizeFilter={normalizeFilter}
+                        freightFilter={freightFilter}
+                        RFQ_no={currentRFQ?.rfq_no}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </section>
