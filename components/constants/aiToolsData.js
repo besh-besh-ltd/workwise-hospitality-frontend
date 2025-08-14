@@ -58,8 +58,8 @@ export const aiToolsData = {
     buttonStyle: { backgroundColor: "#9333EA", border: "none" },
     note: "Free processing for up to 100 line items",
     hero: {
-      title: "Upload Your BOQ — Let Workwise AI Do the Heavy Lifting",
-      subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
+      title: "Upload Your BOQ/PR/PI - Let Workwise AI Do the Heavy Lifting",
+      subtitle: "Powered by Wisely - Your Smart Procurement Assistant",
       primaryButton: {
         label: "Upload to Start",
         variant: "primary",
@@ -73,17 +73,17 @@ export const aiToolsData = {
         {
           icon: "list",
           title: "Smart Categorization",
-          description: "Auto-categorize line items by type and category"
+          description: "Simplify messy BOQs, PRs, or PIs across multiple sub-sheets"
         },
         {
           icon: "screwdriver-wrench",
           title: "Clean & Structured",
-          description: "Standardize formats and units for easier processing"
+          description: "Auto-extract specs, sizing, quantity, UOM, and comments"
         },
         {
           icon: "robot",
           title: "RFQ Ready",
-          description: "Convert BOQs directly into RFQ formats"
+          description: "Get grouped output by package, product variant, or skid"
         }
       ]
     },
@@ -237,32 +237,32 @@ export const aiToolsData = {
     buttonVariant: "warning",
     note: "Free processing for up to 100 line items",
     hero: {
-      title: "Upload Your BOQ — Get Accurate Cost Estimates in Minutes",
-      subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
+      title: "Estimate Project Cost in Minutes - Not Weeks",
+      subtitle: "Upload your BOQ and let Workwise AI calculate material cost, service & manpower inputs, and total project estimation with smart logic.",
       primaryButton: {
-        label: "Upload to Start",
+        label: "Upload to Estimate",
         variant: "primary",
         icon: "upload"
       },
       image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
-      title: "Generate Accurate Estimates. Save Time. Reduce Errors.",
+      title: "Quick Estimations. Smarter Budgeting. No More Guesswork.",
       features: [
         {
           icon: "money-bill",
           title: "Cost Breakdown",
-          description: "Split costs into Material, Service & Manpower"
+          description: "Get accurate material cost for each line item in your BOQ"
         },
         {
           icon: "chart-line",
           title: "Market Rates",
-          description: "Access current market rates and historical data"
+          description: "Add manual inputs for service, manpower, contingencies, etc."
         },
         {
           icon: "bolt",
           title: "Rapid Estimation",
-          description: "Get accurate estimates in minutes, not days"
+          description: "View clean, structured project-level cost chart with L1-L2-L3 vendors (if available)"
         }
       ]
     },
@@ -416,8 +416,8 @@ export const aiToolsData = {
     buttonVariant: "primary",
     note: "Free processing for documents up to 500 pages",
     hero: {
-      title: "Upload Your Tender — Get Key Insights in Minutes",
-      subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
+      title: "Upload Tender. Skip the 500-Page Scroll.",
+      subtitle: "Let Workwise AI read the tender for you and give you a crisp, actionable summary in minutes.",
       primaryButton: {
         label: "Upload to Start",
         variant: "primary",
@@ -426,22 +426,22 @@ export const aiToolsData = {
       image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
-      title: "Extract Key Information. Never Miss Deadlines. Stay Compliant.",
+      title: "Understand Tenders in Minutes - Not Days",
       features: [
         {
           icon: "wand-magic-sparkles",
           title: "AI-Powered Analysis",
-          description: "Processes up to 500 pages to extract critical requirements"
+          description: "Get all key sections summarized - eligibility, scope, submission checklists, timelines"
         },
         {
           icon: "clock",
           title: "Save Time",
-          description: "Reduce analysis from days to minutes"
+          description: "Know whether a tender is relevant for you before investing hours"
         },
         {
           icon: "chart-column",
           title: "Interactive Q&A",
-          description: "Ask questions about your tender document"
+          description: "Share and discuss with your team instantly - no more full-tender forwarding"
         }
       ]
     },
@@ -593,10 +593,10 @@ export const aiToolsData = {
     icon: "lightbulb",
     buttonText: "Simplify Technical Document",
     buttonVariant: "success",
-    note: "Free processing for documents up to 10 pages",
+    note: "Free processing for documents up to 25 pages",
     hero: {
-      title: "Upload Your Technical Document — Get Clear Insights",
-      subtitle: "Powered by Wisely — Your Smart Procurement Assistant",
+      title: "Understand Any Technical Document - Without Reading All 25 Pages",
+      subtitle: "Upload any spec sheet, TDS, or scanned PDF - get a smart summary with key clauses in minutes, powered by Wisely.",
       primaryButton: {
         label: "Upload to Start",
         variant: "primary",
@@ -605,22 +605,22 @@ export const aiToolsData = {
       image: "/assets/images/placeholder.jpeg"
     },
     benefits: {
-      title: "Simplify Complex Documents. Get Clear Insights. Share Easily.",
+      title: "Read Less. Understand More. Share Instantly.",
       features: [
         {
           icon: "lightbulb",
           title: "Simplified Insights",
-          description: "Convert technical jargon into clear, actionable points"
+          description: "Auto-summarizes key specs, clauses, and tables - no manual scanning"
         },
         {
           icon: "robot",
           title: "AI Assistant",
-          description: "Ask up to 10 questions about your technical document"
+          description: "Works even on scanned, stamped, or image-based PDFs"
         },
         {
           icon: "share-alt",
           title: "Shareable Reports",
-          description: "Export and share simplified summaries"
+          description: "Perfect for both buyers issuing enquiries and sellers reviewing responses"
         }
       ]
     },

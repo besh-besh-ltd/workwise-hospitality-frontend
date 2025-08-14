@@ -278,8 +278,7 @@ const websiteMenu = [
       { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
       { label: "Tender Summary", href: "/ai-tools/tender-summary" },
       { label: "Technical Document Summary", href: "/ai-tools/technical-summary" },
-    ],
-    href: "/ai-tools" // Make the main "Tools" label clickable
+    ]
   },
   { 
     label: "Insights & Resources", 
@@ -355,7 +354,7 @@ const Header = () => {
   // determine if current route should use transparent header at the very top
   const shouldUseTransparent = () => {
     const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
-    return !isPrivate && (pathname === "/" || pathname === "/ai-tools");
+    return !isPrivate && (pathname === "/");
   };
 
   const isSticky = () => {
@@ -453,7 +452,7 @@ const Header = () => {
           if (isPrivate || (loggedinUser && loggedinUser?.name)) {
             return "always-white"; // never transparent for logged-in areas
           }
-          if (pathname === "/" || pathname === "/ai-tools") {
+          if (pathname === "/") {
             return isScrolled ? "scrolled hero-page" : "transparent hero-page";
           }
           return "scrolled"; // default public pages are white
@@ -494,7 +493,7 @@ const Header = () => {
             {(!loggedinUser || 
               (!loggedinUser && mainNavs.includes(pathname)) ||
               (!loggedinUser && pathname?.startsWith("/solutions")) ||
-              (!loggedinUser && pathname?.startsWith("/ai-tools")) ||
+              false ||
               (!loggedinUser && pathname?.startsWith("/insights")) ||
               (!loggedinUser && pathname?.startsWith("/modules")) ||
               (!loggedinUser && pathname?.startsWith("/work-with-us")) ||
@@ -725,7 +724,7 @@ const Header = () => {
 
         {/* Mobile Menu */}
         {menuClass && (!loggedinUser || 
-          (!loggedinUser && pathname?.startsWith("/ai-tools")) ||
+          false ||
           (!loggedinUser && pathname?.startsWith("/insights")) ||
           (!loggedinUser && pathname?.startsWith("/modules")) ||
           (!loggedinUser && pathname?.startsWith("/work-with-us")) ||
