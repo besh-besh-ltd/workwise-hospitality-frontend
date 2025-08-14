@@ -22,7 +22,6 @@ import FilePreview from '@/components/ui/FilePreview';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
-import { homepageData } from '@/components/constants/homepageData';
 import { getBOQexcelToJsonAI, handleCostEstimation, handleTenderSummary, startCostEstimationProcess } from '@/services/rfq';
 import { toast } from 'react-toastify';
 import { LoginService, SWSubscribe } from '@/services/Auth';
@@ -791,7 +790,6 @@ const AiToolPage = () => {
             }
           `}</style>
         </div>
-      </div>
         {/* Bottom CTA Section */}
         {/* <CtaSection
           title={toolData.bottomCta.title}
