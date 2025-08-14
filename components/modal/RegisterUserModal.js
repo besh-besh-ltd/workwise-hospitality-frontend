@@ -3,34 +3,43 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { Modal } from "react-bootstrap";
 import Register from "../register";
 
-export default function RegisterUserModal() {
-  const [showModal, setShowModal] = useState(false);
+export default function RegisterUserModal({ 
+  showModal, 
+  setShowModal, 
+  showButton = true 
+}) {
+  // Use internal state if props not provided (for backwards compatibility)
+  const [internalShowModal, setInternalShowModal] = useState(false);
+  const modalShow = showModal !== undefined ? showModal : internalShowModal;
+  const setModalShow = setShowModal !== undefined ? setShowModal : setInternalShowModal;
 
   return (
     <>
-      <div  >
-        <button
-        id="register-as-vendor-modal"
-          className="btn btn-primary mt-3"
-          style={{
-            borderRadius: "5px",
-            width:"250px",
-            border:"none",
-            backgroundColor: "white",
-            color: "black",
-            padding: "10px 20px",
-            fontWeight: "500",
-            fontSize: "16px",
-          }}
-          onClick={() => setShowModal(true)}
-        >
-          Register As Vendor
-        </button>
-      </div>
+      {showButton && (
+        <div>
+          <button
+            id="register-as-vendor-modal"
+            className="btn btn-primary mt-3"
+            style={{
+              borderRadius: "5px",
+              width:"250px",
+              border:"none",
+              backgroundColor: "white",
+              color: "black",
+              padding: "10px 20px",
+              fontWeight: "500",
+              fontSize: "16px",
+            }}
+            onClick={() => setModalShow(true)}
+          >
+            Register As Vendor
+          </button>
+        </div>
+      )}
 
       <Modal
-        show={showModal}
-        onHide={() => setShowModal(false)}
+        show={modalShow}
+        onHide={() => setModalShow(false)}
         centered
         backdrop="static"
         style={{ backdropFilter: "blur(5px)" }}

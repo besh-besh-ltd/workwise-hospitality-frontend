@@ -61,6 +61,7 @@ const initialMainNavs = [
   "/earn-with-us/EarnWithUs",
   "/pricing",
   "/pricing/pilot",
+  "/pilot-project",
 ];
 
 const roleMenus = {
@@ -308,7 +309,7 @@ const websiteMenu = [
     options: [
       { label: "Buyer Pricing (Success based model)", href: "/pricing", action: "buyer-pricing" },
       { label: "Supplier Plans (Subscription tiers)", href: "/pricing", action: "supplier-pricing" },
-      { label: "Claim Pilot Project Access for Free", href: "/contactus" },
+              { label: "Claim Pilot Project Access for Free", href: "/pilot-project" },
       { label: "Book a Call for Custom Quote", href: "javascript:void(0)", action: "book-call" },
     ]
   },

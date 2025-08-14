@@ -41,6 +41,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
   const [nestedOpen, setNestedOpen] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const isHoveringRef = useRef(false);
   const timeoutRef = useRef();
   const nestedTimeoutRef = useRef();
   const dropdownRef = useRef();
@@ -117,6 +118,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
     if (!isMobile) {
       clearTimeout(timeoutRef.current);
       setIsHovering(true);
+      isHoveringRef.current = true;
       dropdownManager.setActive(dropdownId.current);
     }
   };
@@ -124,6 +126,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
   const handleDropdownMouseLeave = (e) => {
     if (!isMobile) {
       setIsHovering(false);
+      isHoveringRef.current = false;
       
       // Check if moving to another dropdown area
       const relatedTarget = e.relatedTarget;
@@ -141,9 +144,9 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
       }
 
       timeoutRef.current = setTimeout(() => {
-        if (!isHovering) {
-        setOpen(false);
-        setNestedOpen(null);
+        if (!isHoveringRef.current) {
+          setOpen(false);
+          setNestedOpen(null);
           dropdownManager.clearActive();
         }
       }, 150);
@@ -155,6 +158,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
     if (!isMobile && open) {
       clearTimeout(timeoutRef.current);
       setIsHovering(true);
+      isHoveringRef.current = true;
       dropdownManager.setActive(dropdownId.current);
     }
   };
@@ -522,7 +526,6 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       borderRadius: 16,
                       padding: '8px 0',
                       margin: 0,
-                      zIndex: 1002,
                       display: 'flex',
                       flexDirection: 'column',
                       border: '1px solid rgba(0, 0, 0, 0.08)',
@@ -581,12 +584,12 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 style={{
                   display: 'block',
                   padding: '12px 20px',
-                  fontWeight: 500,
+                  fontWeight: opt.isHighlighted ? 600 : 500,
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
                   borderRadius: '8px',
                   margin: '0',
-                  color: label === 'Insights & Resources' && isInsightsUpcoming(opt) ? (isMobile ? 'rgba(255,255,255,0.6)' : '#aaa') : (isMobile ? '#fff' : '#333'),
+                  color: opt.isHighlighted ? (isMobile ? '#FFD700' : '#FF6B35') : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? (isMobile ? 'rgba(255,255,255,0.6)' : '#aaa') : (isMobile ? '#fff' : '#333')),
                   fontSize: '0.9rem', 
                   textAlign: 'left',
                   whiteSpace: 'normal',
@@ -594,21 +597,33 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                   width: '100%',
                   boxSizing: 'border-box',
                   pointerEvents: label === 'Insights & Resources' && isInsightsUpcoming(opt) ? 'none' : 'auto',
+                  background: opt.isHighlighted ? (isMobile ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255, 107, 53, 0.1)') : 'transparent',
+                  border: opt.isHighlighted ? (isMobile ? '1px solid rgba(255, 215, 0, 0.3)' : '1px solid rgba(255, 107, 53, 0.3)') : 'none',
                 }}
                 onMouseEnter={e => {
                   if (!isMobile) {
                     if (!(label === 'Insights & Resources' && isInsightsUpcoming(opt))) {
-                  e.currentTarget.style.color = 'var(--secondary-color)';
-                  e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                  e.currentTarget.style.transform = 'translateX(4px)';
+                      if (opt.isHighlighted) {
+                        e.currentTarget.style.color = '#FF4500';
+                        e.currentTarget.style.background = 'rgba(255, 107, 53, 0.2)';
+                      } else {
+                        e.currentTarget.style.color = 'var(--secondary-color)';
+                        e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
+                      }
+                      e.currentTarget.style.transform = 'translateX(4px)';
                     }
                   }
                 }}
                 onMouseLeave={e => {
                   if (!isMobile) {
-                  e.currentTarget.style.color = '#333';
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.transform = 'translateX(0)';
+                    if (opt.isHighlighted) {
+                      e.currentTarget.style.color = '#FF6B35';
+                      e.currentTarget.style.background = 'rgba(255, 107, 53, 0.1)';
+                    } else {
+                      e.currentTarget.style.color = '#333';
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                    e.currentTarget.style.transform = 'translateX(0)';
                   }
                 }}
               >
