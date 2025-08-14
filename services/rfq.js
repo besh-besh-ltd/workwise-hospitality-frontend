@@ -475,6 +475,16 @@ export const handleCostEstimation = async (file_name, type = 'rfq', userData) =>
   return response;
 };
 
+export const handleTenderSummary = async (file_name, userData) => {
+  const payload = {
+    file_name,
+    ...userData,
+  }
+  let response = await axiosInstance.post(`/rfq/tender-summary`, payload);
+  return response;
+};
+
+
 
 /* 
 START :: AI server functions 
