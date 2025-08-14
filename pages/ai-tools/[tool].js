@@ -15,7 +15,7 @@ import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
-import { getBOQexcelToJsonAI, handleCostEstimation, startCostEstimationProcess } from '@/services/rfq';
+import { getBOQexcelToJsonAI, handleCostEstimation, handleTenderSummary, startCostEstimationProcess } from '@/services/rfq';
 import { toast } from 'react-toastify';
 import { LoginService, SWSubscribe } from '@/services/Auth';
 import { useSelector } from 'react-redux';
@@ -111,25 +111,66 @@ const AiToolPage = () => {
     }
   }
 
+  const handleCostEstimationRequest = async (formData) => {
+    const persistJob = await handleCostEstimation(
+      fileName,
+      "cost-estimation",
+      formData
+    );
+    const webhook = persistJob.webhook;
+
+    if (persistJob.didUserRegister) {
+      const isLoginSuccess = await handleUserLogin({
+        email: persistJob.user.email,
+        password: persistJob.user.password,
+      });
+      if (!isLoginSuccess) throw new Error("Login Failed!");
+    }
+
+    const startResponse = await startCostEstimationProcess(file, webhook);
+    const response = startResponse.data;
+
+    if (startResponse) {
+      toast.success(response.message);
+      setShowFormModal(false);
+      setShowSuccessModal(true);
+    } else {
+      throw new Error(
+        "Server is too busy to handle your request, please try again in some time..."
+      );
+    }
+  };
+
+  const handleTenderSummaryRequest = async (formData) => {
+    const summary = await handleTenderSummary(
+      fileName,
+      formData
+    );
+    if(summary.markup)
+      setSummary(summary.markup)
+
+    if (summary.didUserRegister) {
+      const isLoginSuccess = await handleUserLogin({
+        email: summary.user.email,
+        password: summary.user.password,
+      });
+      if (!isLoginSuccess) throw new Error("Login Failed!");
+    }
+
+    if(summary.status == 2) {
+      toast.error("Summary cannot be generated for given file at the time, please try again later!")
+    }
+  };
+
   const handleFormSubmit = async (formData) => {
     try {
-      const persistJob = await handleCostEstimation(fileName, 'cost-estimation', formData);
-      const webhook = persistJob.webhook;
-
-      if(persistJob.didUserRegister) {
-        const isLoginSuccess = await handleUserLogin({ email: persistJob.user.email, password: persistJob.user.password });
-        if(!isLoginSuccess) throw new Error("Login Failed!")
-      }
-      
-      const startResponse = await startCostEstimationProcess(file, webhook);
-      const response = startResponse.data;
-
-      if (startResponse) {
-        toast.success(response.message);
-        setShowFormModal(false);
-        setShowSuccessModal(true);
-      } else {
-        throw new Error("Server is too busy to handle your request, please try again in some time...")
+      switch(toolData.slug) {
+        case 'cost-estimation':
+          handleCostEstimationRequest(formData);
+          break;
+        
+        case 'tender-summary':
+          handleTenderSummaryRequest(formData);
       }
     } catch (error) {
       setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
@@ -153,7 +194,7 @@ const AiToolPage = () => {
         <meta name="description" content={`${toolData.hero.subtitle} - ${toolData.hero.title}`} />
       </Head>
 
-      {summary ? (<div className="min-vh-100">
+      {!summary ? (<div className="min-vh-100">
         {/* Hero Section */}
         <HeroSection
           title={toolData.hero.title}
@@ -462,7 +503,7 @@ const AiToolPage = () => {
             onClick: handleBookCall
           }}
         /> */}
-      </div>) : <TenderSummary/>}
+      </div>) : <TenderSummary summary={summary}/>}
       
     </>
   );
