@@ -340,9 +340,10 @@ const openModalForVariant = (variantId) => {
       {loading ? (
         <FullLoader />
       ) : (
-        <div className="quote-sec-table-sub hasFullLoader">
+      <div className="quote-sec-table-sub hasFullLoader">
           {allvendors && allvendors.length > 0 ? (
-            <div className="table-responsive">
+            // ✅ SCROLL CONTAINER (vertical + horizontal)
+            <div className="table-scroll-wrap">
               <table className="table table-bordered overall-table">
                 <colgroup>
                   <col style={{ width: "75px" }} />
@@ -361,8 +362,10 @@ const openModalForVariant = (variantId) => {
                       );
                     })}
                 </colgroup>
-                <thead class="thead-dark">
-                  <tr>
+
+                {/* ✅ FIXED HEADER */}
+                <thead className="">
+                  <tr className="title-row">
                     <th
                       scope="col"
                       className="sl_no heading"
@@ -373,7 +376,7 @@ const openModalForVariant = (variantId) => {
                       <small>(Incl. Packaging , Freight &amp; GST)</small>
                     </th>
                   </tr>
-                  <tr style={{ backgroundColor: "#2d5ba7", color: "white" }}>
+                  <tr className="title-row" >
                     <th
                       scope="col"
                       className="sl_no"
@@ -1457,6 +1460,45 @@ const openModalForVariant = (variantId) => {
           )}
         </div>
       )}
+
+
+<style jsx>{`
+  /* ===== TUNABLE SIZES ===== */
+
+  /* Scroll area */
+  .table-scroll-wrap {
+    max-height: 85vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  /* Keep column widths steady and borders clean while sticky */
+  .overall-table {
+    min-width: 960px;          /* avoid squishing on narrow screens */
+  }
+
+  /* Make header cells sticky */
+  .overall-table thead th {
+    position: sticky;
+    z-index: 3;
+  }
+
+  /* First header row (title) */
+  .overall-table thead .title-row th {
+    top: 0;
+    height: 60px;
+    line-height: 1.1;
+    padding: 12px 16px;
+    background-color: #2d5ba7;
+    color: white;
+    font-weight: 600;
+  }
+
+
+
+`}</style>
+
     </>
   );
 };
