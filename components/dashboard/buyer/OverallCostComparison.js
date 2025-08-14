@@ -135,7 +135,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
-                  {latest_target_price && (<td>₹{latest_target_price}</td>)}
+                 <td>{latest_target_price != null ? `₹ ${latest_target_price}` : '-'}</td>
                   {[...Array(maxVendors)].map((_, vIdx) => {
                     const q = quotingVendors[vIdx];
                     if (q) {
