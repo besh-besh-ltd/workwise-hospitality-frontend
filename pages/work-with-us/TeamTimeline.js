@@ -608,7 +608,7 @@ function TeamPage() {
     <Layout>
       <TeamPageWithNavbar />
       <FoundersTeamComponent/>
-      <OurJourneyComponent/>
+      {/* <OurJourneyComponent/> */}
       <MissionRecruitmentBanner />
     </Layout>
   )

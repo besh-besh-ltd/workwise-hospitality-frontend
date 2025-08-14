@@ -59,7 +59,7 @@ export const pricingData = {
         price: "₹30,000/year",
         popular: false,
         features: [
-          { name: "Guaranteed Enquiries", included: true, value: "X/year" },
+          { name: "Guaranteed Enquiries", included: true, value: "5/year" },
           { name: "Search Positioning", included: true, value: "Boosted" },
           { name: "Deviation Checker", included: false, value: null },
           { name: "Auto Response Tools", included: false, value: null },
@@ -80,7 +80,7 @@ export const pricingData = {
         price: "₹50,000/year",
         popular: true,
         features: [
-          { name: "Guaranteed Enquiries", included: true, value: "Y/year" },
+          { name: "Guaranteed Enquiries", included: true, value: "15/year" },
           { name: "Search Positioning", included: true, value: "Highest Visibility" },
           { name: "Deviation Checker", included: true, value: null },
           { name: "Auto Response Tools", included: true, value: null },
@@ -104,26 +104,10 @@ export const pricingData = {
     whyUpgrade: {
       title: "Why Upgrade?",
       features: [
-        {
-          title: "Stand out from the crowd",
-          description: "Get featured above competitors in search results",
-          icon: "Star"
-        },
-        {
-          title: "Be discovered faster",
-          description: "Get found by verified buyers looking for your services",
-          icon: "Compass"
-        },
-        {
-          title: "AI-powered tools",
-          description: "Respond instantly to inquiries and RFQs",
-          icon: "Settings"
-        },
-        {
-          title: "Priority RFQ access",
-          description: "Get first access to high-value opportunities",
-          icon: "BarChart3"
-        }
+        { title: "Stand out from the crowd", description: "Get featured above competitors in search results", icon: "Award" },
+        { title: "Be discovered faster", description: "Get found by verified buyers", icon: "Search" },
+        { title: "AI-powered tools", description: "Respond instantly to inquiries and RFQs", icon: "Cpu" },
+        { title: "Priority RFQ access", description: "Get first access to high-value opportunities", icon: "Zap" }
       ]
     },
     faq: [
