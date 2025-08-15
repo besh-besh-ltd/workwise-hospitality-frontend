@@ -154,16 +154,17 @@ const AiToolPage = () => {
       fileName,
       formData
     );
-    if(summary.markup)
-      setSummary(summary.markup)
-
+    
     if (summary.didUserRegister) {
       const isLoginSuccess = await handleUserLogin({
         email: summary.user.email,
         password: summary.user.password,
       });
       if (!isLoginSuccess) throw new Error("Login Failed!");
+      else if(isLoginSuccess && summary.markup)
+        setSummary(summary.markup)
     }
+    
 
     if(summary.status == 2) {
       toast.error("Summary cannot be generated for given file at the time, please try again later!")
