@@ -65,90 +65,161 @@ const InputModal = ({
         <Modal.Title>{modalTitle}</Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
-        {/* Product Dropdown */}
-        <Form.Group className="mb-3">
-          <Form.Label>Product</Form.Label>
-          <Form.Select
-            value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
-            disabled={isSubmitting}
-          >
-            <option value="">-- Select Product --</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Form.Select>
-        </Form.Group>
+     <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+  {/* Product Dropdown */}
+  <Form.Group className="mb-3">
+    <Form.Label>Product</Form.Label>
+    <Form.Select
+      value={selectedProductId}
+      onChange={(e) => setSelectedProductId(e.target.value)}
+      disabled={isSubmitting}
+    >
+      <option value="">-- Select Product --</option>
+      {products.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name} {p.quantity} {p.unit}
+        </option>
+      ))}
+    </Form.Select>
+  </Form.Group>
 
-        {/* Selected Vendors Display */}
-        {selectedVendorIds.length > 0 && (
-          <Form.Group className="mb-3">
-            <Form.Label>Selected Vendors</Form.Label>
-            <div className="d-flex flex-wrap gap-2 mb-2">
-              {selectedVendorIds.map((vendorId) => {
-                const vendor = selectedProduct?.vendors?.find((v) => v.id === vendorId);
-                return vendor ? (
-                  <Badge
-                    key={vendorId}
-                    bg="primary"
-                    className="d-flex align-items-center"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => removeVendor(vendorId)}
-                  >
-                    {vendor.name}
-                    <span className="ms-2">×</span>
-                  </Badge>
-                ) : null;
-              })}
-            </div>
-          </Form.Group>
-        )}
-
-        {/* Vendor Checkboxes */}
-        {selectedProduct?.vendors?.length > 0 && (
-          <Form.Group className="mb-3">
-            <Form.Label>Select Vendors</Form.Label>
-            <div
-              className="vendor-list"
-              style={{
-                maxHeight: "150px",
-                overflowY: "auto",
-                border: "1px solid #ced4da",
-                borderRadius: "0.25rem",
-                padding: "0.5rem"
-              }}
+  {/* Selected Vendors Display */}
+  {selectedVendorIds.length > 0 && (
+    <Form.Group className="mb-3">
+      <Form.Label>Selected Vendors</Form.Label>
+      <div className="d-flex flex-wrap gap-2 mb-2">
+        {selectedVendorIds.map((vendorId) => {
+          const vendor = selectedProduct?.vendors?.find(
+            (v) => v.id === vendorId
+          );
+          return vendor ? (
+            <Badge
+              key={vendorId}
+              bg="primary"
+              className="d-flex align-items-center"
+              style={{ cursor: "pointer" }}
+              onClick={() => removeVendor(vendorId)}
             >
-              {selectedProduct.vendors.map((vendor) => (
-                <Form.Check
-                  key={vendor.id}
-                  type="checkbox"
-                  label={vendor.name}
-                  checked={selectedVendorIds.includes(vendor.id)}
-                  onChange={() => handleVendorChange(vendor.id)}
-                  disabled={!selectedProductId || isSubmitting}
-                />
-              ))}
-            </div>
-          </Form.Group>
-        )}
+              {vendor.name}
+              <span className="ms-2">×</span>
+            </Badge>
+          ) : null;
+        })}
+      </div>
+    </Form.Group>
+  )}
 
-        {/* Target Price */}
-        <Form.Group className="mb-3">
-          <Form.Label>Target Price</Form.Label>
-          <Form.Control
-            type="number"
-            min="0"
-            step="0.01"
-            value={numericValue}
-            onChange={(e) => setNumericValue(e.target.value)}
-            disabled={isSubmitting}
-            placeholder="Enter target price"
+  {/* Vendor Checkboxes */}
+  {selectedProduct?.vendors?.length > 0 && (
+    <Form.Group className="mb-3">
+      <Form.Label>Select Vendors</Form.Label>
+      <div
+        className="vendor-list"
+        style={{
+          maxHeight: "150px",
+          overflowY: "auto",
+          border: "1px solid #ced4da",
+          borderRadius: "0.25rem",
+          padding: "0.5rem",
+        }}
+      >
+        {selectedProduct.vendors.map((vendor) => (
+          <Form.Check
+            key={vendor.id}
+            type="checkbox"
+            label={vendor.name}
+            checked={selectedVendorIds.includes(vendor.id)}
+            onChange={() => handleVendorChange(vendor.id)}
+            disabled={!selectedProductId || isSubmitting}
           />
-        </Form.Group>
-      </Modal.Body>
+        ))}
+      </div>
+    </Form.Group>
+  )}
+
+  {/* Target Price */}
+  <Form.Group className="mb-3">
+    <Form.Label>Target Price</Form.Label>
+    <Form.Control
+      type="number"
+      min="0"
+      step="0.01"
+      value={numericValue}
+      onChange={(e) => setNumericValue(e.target.value)}
+      disabled={isSubmitting}
+      placeholder="Enter target price"
+    />
+  </Form.Group>
+
+  {/* Existing Target Prices Table */}
+  {selectedProduct?.vendors?.length > 0 && (
+    <div className="mt-3">
+      <h6>Existing Target Prices</h6>
+      <div style={{ maxHeight: "150px", overflowY: "auto" }}>
+        <table className="table table-sm table-bordered">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Vendor</th>
+              <th>Existing Target Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {selectedProduct.vendors.map((vendor) => (
+              <tr key={vendor.id}>
+                <td>{selectedProduct.name}</td>
+                <td>{vendor.name}</td>
+                <td>
+                  {vendor.latest_target_price !== null &&
+                  vendor.latest_target_price !== undefined ? (
+                    vendor.latest_target_price
+                  ) : (
+                    <span className="text-muted">N/A</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )}
+</Modal.Body>
+
+
+      {/* Existing Target Prices Table
+      {selectedProduct?.vendors?.length > 0 && (
+        <div className="mt-3">
+          <h6>Existing Target Prices</h6>
+          <div style={{ maxHeight: "150px", overflowY: "auto" }}>
+            <table className="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Vendor</th>
+                  <th>Existing Target Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedProduct.vendors.map((vendor) => (
+                  <tr key={vendor.id}>
+                    <td>{selectedProduct.name}</td>
+                    <td>{vendor.name}</td>
+                    <td>
+                      {vendor.latest_target_price !== null &&
+                      vendor.latest_target_price !== undefined ? (
+                        vendor.latest_target_price
+                      ) : (
+                        <span className="text-muted">N/A</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )} */}
 
       <Modal.Footer className="py-2 px-3">
         <div className="d-flex gap-2 ms-auto">

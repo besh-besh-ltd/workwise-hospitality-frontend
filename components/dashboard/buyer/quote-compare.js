@@ -120,19 +120,27 @@ const QuoteCompare = () => {
 const transformData = (data) => {
   return data.map(item => {
     // Extract product information
-    const product = {
-      product_variant_id: item.product_variant_id,
-      id: item.id,
-      name: item.product_details[0].product_name,
-    };
-
+   const product = {
+     product_variant_id: item.product_variant_id,
+     id: item.id,
+     name: item.product_details[0].product_name,
+     spec: item.product_details[0],
+     quantity: item.product_details[0].rfq_details.find(
+       (detail) => detail.title === "Quantity"
+     )?.value,
+     unit: item.product_details[0].rfq_details.find(
+       (detail) => detail.title === "Unit"
+     )?.value,
+    
+   };
     // Extract vendors from quotations
     const vendors = item.quotations.map(quote => ({
       id: quote.quote_details.vendor_details.id,
       name: quote.quote_details.vendor_details.name,
       email: quote.quote_details.vendor_details.email,
       mobile: quote.quote_details.vendor_details.mobile,
-      organization_name: quote.quote_details.vendor_details.organization_name
+      organization_name: quote.quote_details.vendor_details.organization_name,
+      latest_target_price : quote.quote_details.latest_target_price
     }));
 
     return {
