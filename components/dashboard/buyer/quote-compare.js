@@ -1113,10 +1113,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       <section className="quote-common-header compare-received-quote sc-pt-80">
         <div className="container-fluid">
           <div className="row">
-            <div className="col-md-6">
+            <div className="col-md-4">
               <h3 className="heading">Compare Received Quote</h3>
             </div>
-            <div className="col-md-6">
+            <div className="col-md-8">
               <div className="btn-options float-end">
                 {/*Negotiation Module Button*/}
                 <span
@@ -1464,19 +1464,6 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </div>
                       }
 
-                       <div className="form-check form-switch page-link fs-6">
-                        <input
-                          className="form-check-input border-dark-subtle"
-                          type="checkbox"
-                          role="switch"
-                          checked={normalizeFilter}
-                          id="freight_check"
-                          onChange={handleNormalizeFilterChange}
-                        />
-                        <label className="form-check-label" for="freight_check">
-                          Normalize Quotes
-                        </label>
-                      </div>
                     </div>
                   </div>
                 )}
