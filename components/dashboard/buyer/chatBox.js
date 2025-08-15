@@ -13,7 +13,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
   const latestMessageRef = useRef(null);
 
-  const isBroadcastMode = selectedVendors?.length > 1;
+  const isBroadcastMode = Array.isArray(selectedVendors) && selectedVendors.length > 1;
 
   useEffect(() => {
     if (!isBroadcastMode && latestMessageRef.current) {
@@ -39,13 +39,18 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
   const handleSendMessage = async () => {
     setSendButtonLoading(true);
 
-    if (!messageText) {
+    if (!messageText.trim()) {
       toast.error("Message text can't be empty!", { position: "top-right" });
       setSendButtonLoading(false);
       return;
     }
 
-    const targets = isBroadcastMode ? selectedVendors : [vendor];
+    const targets = isBroadcastMode ? selectedVendors : vendor ? [vendor] : [];
+    if (targets.length === 0) {
+      toast.error("Select at least one vendor.");
+      setSendButtonLoading(false);
+      return;
+    }
 
     try {
       for (const targetVendor of targets) {
@@ -78,21 +83,9 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
       <div className="mb-3 border-bottom pb-2 d-flex">
         <h5 className="me-auto mb-0">
           {isBroadcastMode
-            ? `Broadcast to ${selectedVendors.length} vendors`
-            : vendor?.company_name ?? "-"}
+            ? `Send message to ${selectedVendors.length} vendors`
+            : vendor?.company_name ?? "Select a vendor to continue the conversation"}
         </h5>
-        {/* {!isBroadcastMode && role === "buyer" && (
-          <Link
-            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.user_id}`}
-            className="p-0 mx-2 d-flex align-items-center"
-            aria-label="View Vendor Profile"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FontAwesomeIcon icon={faInfoCircle} size="lg" className="me-1" />
-            Details
-          </Link>
-        )} */}
       </div>
 
       <div className="chat-messages flex-grow-1 mb-3" style={{ overflowY: "auto" }}>
