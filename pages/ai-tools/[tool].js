@@ -22,7 +22,7 @@ import FilePreview from '@/components/ui/FilePreview';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
-import { getBOQexcelToJsonAI, handleCostEstimation, handleTenderSummary, startCostEstimationProcess } from '@/services/rfq';
+import { getBOQexcelToJsonAI, handleCostEstimation, handleTenderSummary, handleTechnicalSummary, startCostEstimationProcess } from '@/services/rfq';
 import { toast } from 'react-toastify';
 import { LoginService, SWSubscribe } from '@/services/Auth';
 import { useSelector } from 'react-redux';
@@ -42,6 +42,8 @@ const AiToolPage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [formError, setFormError] = useState(null);
   const [summary , setSummary] = useState(false)
+  const [technicalSummary, setTechnicalSummary] = useState(false)
+  const [showTechnicalSummaryModal, setShowTechnicalSummaryModal] = useState(false)
   const swSubscription = useSelector((data) => data.swSubscription);
 
   useEffect(() => {
@@ -171,6 +173,31 @@ const AiToolPage = () => {
     }
   };
 
+  const handleTechnicalSummaryRequest = async (formData) => {
+    try {
+      const response = await handleTechnicalSummary(file, formData);
+      
+      if (response.didUserRegister) {
+        const isLoginSuccess = await handleUserLogin({
+          email: response.user.email,
+          password: response.user.password,
+        });
+        if (!isLoginSuccess) throw new Error("Login Failed!");
+      }
+      
+      if (response.status === 1) {
+        setTechnicalSummary(response);
+        setShowFormModal(false);
+        setShowTechnicalSummaryModal(true);
+        toast.success("Technical document analyzed successfully!");
+      } else {
+        throw new Error(response.message || "Failed to analyze technical document");
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const handleFormSubmit = async (formData) => {
     try {
       switch(toolData.slug) {
@@ -180,6 +207,11 @@ const AiToolPage = () => {
         
         case 'tender-summary':
           handleTenderSummaryRequest(formData);
+          break;
+          
+        case 'technical-summary':
+          handleTechnicalSummaryRequest(formData);
+          break;
       }
     } catch (error) {
       setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
@@ -215,7 +247,7 @@ const AiToolPage = () => {
         <meta name="description" content={`${toolData.hero.subtitle} - ${toolData.hero.title}`} />
       </Head>
 
-      {!summary ? (<div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
+      {!summary && !technicalSummary ? (<div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         <style jsx>{`
           .floatingIcon {
             position: absolute;
@@ -801,6 +833,336 @@ const AiToolPage = () => {
           }}
         /> */}
       </div>) : <TenderSummary summary={summary}/>}
+
+      {/* Technical Summary Modal */}
+      {showTechnicalSummaryModal && technicalSummary && (
+        <div 
+          className="modal show d-block" 
+          style={{ 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1050
+          }}
+        >
+          <div className="modal-dialog modal-xl modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header border-0 pb-0">
+                <h4 className="modal-title fw-bold">Technical Document Summary</h4>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowTechnicalSummaryModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="row g-4">
+                  {/* Technical Specifications */}
+                  {technicalSummary.structuredData?.technicalSpecifications && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-cog me-2 text-primary"></i>
+                            Technical Specifications
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <div className="row g-3">
+                            {technicalSummary.structuredData.technicalSpecifications.map((clause, index) => (
+                              <div key={index} className="col-12">
+                                <div className="d-flex align-items-start">
+                                  <i className="fas fa-check-circle me-2 mt-1 text-success"></i>
+                                  <div className="flex-grow-1">
+                                    {typeof clause === 'string' ? (
+                                      <p className="mb-0 text-muted">{clause}</p>
+                                    ) : (
+                                      <div>
+                                        {clause.parameter && (
+                                          <span className="fw-medium">{clause.parameter}: </span>
+                                        )}
+                                        {clause.value && (
+                                          <span className="text-muted">{clause.value}</span>
+                                        )}
+                                        {clause.unit && (
+                                          <span className="text-muted"> {clause.unit}</span>
+                                        )}
+                                        {clause.text && (
+                                          <span className="text-muted">{clause.text}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commercial Requirements */}
+                  {technicalSummary.structuredData?.commercialRequirements && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-file-alt me-2 text-primary"></i>
+                            Commercial Requirements
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <div className="row g-3">
+                            {technicalSummary.structuredData.commercialRequirements.map((clause, index) => (
+                              <div key={index} className="col-12">
+                                <div className="d-flex align-items-start">
+                                  <i className="fas fa-check-circle me-2 mt-1 text-success"></i>
+                                  <div className="flex-grow-1">
+                                    {typeof clause === 'string' ? (
+                                      <p className="mb-0 text-muted">{clause}</p>
+                                    ) : (
+                                      <div>
+                                        {clause.parameter && (
+                                          <span className="fw-medium">{clause.parameter}: </span>
+                                        )}
+                                        {clause.value && (
+                                          <span className="text-muted">{clause.value}</span>
+                                        )}
+                                        {clause.text && (
+                                          <span className="text-muted">{clause.text}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Standards */}
+                  {technicalSummary.structuredData?.standards && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-check-circle me-2 text-primary"></i>
+                            Standards & Compliance
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <div className="row g-3">
+                            {technicalSummary.structuredData.standards.map((clause, index) => (
+                              <div key={index} className="col-12">
+                                <div className="d-flex align-items-start">
+                                  <i className="fas fa-check-circle me-2 mt-1 text-success"></i>
+                                  <div className="flex-grow-1">
+                                    {typeof clause === 'string' ? (
+                                      <p className="mb-0 text-muted">{clause}</p>
+                                    ) : (
+                                      <div>
+                                        {clause.standard && (
+                                          <span className="fw-medium">{clause.standard}: </span>
+                                        )}
+                                        {clause.description && (
+                                          <span className="text-muted">{clause.description}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inspection Requirements */}
+                  {technicalSummary.structuredData?.inspectionRequirements && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-clipboard-list me-2 text-primary"></i>
+                            Inspection Requirements
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <div className="row g-3">
+                            {technicalSummary.structuredData.inspectionRequirements.map((clause, index) => (
+                              <div key={index} className="col-12">
+                                <div className="d-flex align-items-start">
+                                  <i className="fas fa-check-circle me-2 mt-1 text-success"></i>
+                                  <div className="flex-grow-1">
+                                    {typeof clause === 'string' ? (
+                                      <p className="mb-0 text-muted">{clause}</p>
+                                    ) : (
+                                      <div>
+                                        {clause.requirement && (
+                                          <span className="fw-medium">{clause.requirement}: </span>
+                                        )}
+                                        {clause.description && (
+                                          <span className="text-muted">{clause.description}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {technicalSummary.structuredData?.notes && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-file-alt me-2 text-primary"></i>
+                            Additional Notes
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <div className="row g-3">
+                            {technicalSummary.structuredData.notes.map((clause, index) => (
+                              <div key={index} className="col-12">
+                                <div className="d-flex align-items-start">
+                                  <i className="fas fa-check-circle me-2 mt-1 text-success"></i>
+                                  <div className="flex-grow-1">
+                                    {typeof clause === 'string' ? (
+                                      <p className="mb-0 text-muted">{clause}</p>
+                                    ) : (
+                                      <div>
+                                        {clause.note && (
+                                          <span className="text-muted">{clause.note}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tables */}
+                  {technicalSummary.structuredData?.tables && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-clipboard-list me-2 text-primary"></i>
+                            Data Tables
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          {technicalSummary.structuredData.tables.map((table, index) => (
+                            <div key={index} className="mb-4">
+                              {table.title && <h6 className="mb-3">{table.title}</h6>}
+                              {table.headers && table.rows && (
+                                <div className="table-responsive">
+                                  <table className="table table-sm table-bordered">
+                                    <thead className="table-light">
+                                      <tr>
+                                        {table.headers.map((header, hIndex) => (
+                                          <th key={hIndex} className="text-center">{header}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {table.rows.map((row, rIndex) => (
+                                        <tr key={rIndex}>
+                                          {row.map((cell, cIndex) => (
+                                            <td key={cIndex} className="text-center">{cell}</td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attachments */}
+                  {technicalSummary.structuredData?.attachments && technicalSummary.structuredData.attachments.length > 0 && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-file-alt me-2 text-primary"></i>
+                            Referenced Documents
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <div className="row g-3">
+                            {technicalSummary.structuredData.attachments.map((attachment, index) => (
+                              <div key={index} className="col-12">
+                                <div className="d-flex align-items-start">
+                                  <i className="fas fa-file-alt me-2 mt-1 text-muted"></i>
+                                  <div>
+                                    <div className="fw-medium">{attachment.name}</div>
+                                    {attachment.description && (
+                                      <div className="text-muted small">{attachment.description}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="modal-footer border-0">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowTechnicalSummaryModal(false)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    // Download functionality
+                    const summaryText = JSON.stringify(technicalSummary, null, 2);
+                    const blob = new Blob([summaryText], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'technical-summary.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Download JSON
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
     </>
   );

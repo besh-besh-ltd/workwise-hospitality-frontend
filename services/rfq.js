@@ -484,6 +484,21 @@ export const handleTenderSummary = async (file_name, userData) => {
   return response;
 };
 
+export const handleTechnicalSummary = async (file, userData) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Add user data if provided
+  if (userData) {
+    Object.keys(userData).forEach(key => {
+      formData.append(key, userData[key]);
+    });
+  }
+  
+  let response = await axiosFormData.post(`/rfq/technical-summary`, formData);
+  return response;
+};
+
 
 
 /* 
