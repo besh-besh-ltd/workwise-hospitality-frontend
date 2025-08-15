@@ -41,7 +41,7 @@ const QuoteCompareTable = ({
   useEffect(() => {
     calculateLowestQuote();
   }, []);
-
+//  console.log("logging the quotations recived ", quotations);
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
     if (removeRegretQuotes.length > 0) {
@@ -104,7 +104,7 @@ const QuoteCompareTable = ({
   const handleViewFinalizationHistory = () => {
     setActiveModal('finalize_history');
   }
-  console.log("taregt peice ", targetPrice)
+ 
   return (
     <>
       <div
@@ -126,7 +126,7 @@ const QuoteCompareTable = ({
               <div className="table-si-row fw-semibold table-grey-row">
                 Total Rate
               </div>
-              <div className="table-si-row fw-semibold table-grey-row">
+              <div className="table-si-row fw-semibold">
                 Target Price
               </div>
               <div className="table-si-row">Delivery Period (In Days)</div>
@@ -349,10 +349,10 @@ const QuoteCompareTable = ({
                       className={`table-si-row fw-semibold ${
                         item.is_lowest
                           ? "bg-success text-white d-flex justify-content-between"
-                          : "table-grey-row"
+                          : ""
                       } `} // highlights in yellow-orange
                     >
-                      ₹{targetPrice}
+                      ₹{item.quote_details.latest_target_price}
                     </div>
                     <div className="table-si-row">
                       {item.delivery_period != ""
