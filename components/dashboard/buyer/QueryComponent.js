@@ -24,6 +24,18 @@ const QueryComponent = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [broadcastPayload , setBroadcastPayload] = useState({});
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [selectedVendorIds, setSelectedVendorIds] = useState([]);
+
+// Toggle selection
+const handleToggleVendor = (vendorId) => {
+  setSelectedVendorIds((prev) =>
+    prev.includes(vendorId)
+      ? prev.filter((id) => id !== vendorId)
+      : [...prev, vendorId]
+  );
+};
+
+
 
   const loadVendors = async (name = "") => {
     setVendorsLoading(true);
@@ -82,14 +94,16 @@ const QueryComponent = () => {
     }
   };
 
-  const handleSelectVendor = (vendor) => {
-    setSelectedVendor(vendor);
-    setVendors((prevVendors) =>
-      prevVendors.map((v) =>
-        v.user_id === vendor.user_id ? { ...v, unseen_count: 0 } : v
-      )
-    );
-  };
+// Handle click on vendor name (single selection)
+const handleSelectVendor = (vendor) => {
+  setSelectedVendorIds([vendor.user_id]);
+  setSelectedVendor(vendor);
+  setVendors((prev) =>
+    prev.map((v) =>
+      v.user_id === vendor.user_id ? { ...v, unseen_count: 0 } : v
+    )
+  );
+};
 
   const loadRfqDetails = async () => {
     try {
@@ -134,6 +148,18 @@ const QueryComponent = () => {
     loadMessages();
   }, [rfq_id, selectedVendor]);
 
+  useEffect(() => {
+  if (selectedVendorIds.length > 1) {
+    setMessages([]);
+    setSelectedVendor(null);
+  } else if (selectedVendorIds.length === 1) {
+    const vendor = vendors.find(v => v.user_id === selectedVendorIds[0]);
+    if (vendor) {
+      setSelectedVendor(vendor);
+    }
+  }
+}, [selectedVendorIds, vendors]);
+
   return (
     <>
   <section className="small-size-heading buyer-common-header">
@@ -163,12 +189,15 @@ const QueryComponent = () => {
       {role === "buyer" ? (
         <div className="col-md-4 my-3">
           <VendorList
-            vendors={vendors}
-            onSelectVendor={handleSelectVendor}
-            vendorName={vendorName}
-            setVendorName={setVendorName}
-            loading={vendorsLoading}
-          />
+  vendors={vendors}
+  onSelectVendor={handleSelectVendor}
+  onToggleVendor={handleToggleVendor}
+  selectedVendorIds={selectedVendorIds}
+  vendorName={vendorName}
+  setVendorName={setVendorName}
+  loading={vendorsLoading}
+/>
+
         </div>
       ) : null}
       
@@ -179,26 +208,24 @@ const QueryComponent = () => {
         style={{ height: "65vh" }}
       >
         {messagesLoading ? (
-          <div className="hasFullLoader h-100">
-            <FullLoader />
-          </div>
-        ) : selectedVendor ? (
-          <ChatBox
-            messages={messages}
-            vendor={selectedVendor}
-            rfq_id={rfq_id}
-            role={role}
-            onMessageSent={handleMessageSent}
-            vendorwithoutlogintoken={token}
-          />
-        ) : (
-          <p>Select a vendor to view messages</p>
-        )}
+  <div className="hasFullLoader h-100">
+    <FullLoader />
+  </div>
+) : (
+  <ChatBox
+    messages={messages}
+    vendor={selectedVendor}
+    rfq_id={rfq_id}
+    role={role}
+    onMessageSent={handleMessageSent}
+    vendorwithoutlogintoken={token}
+  />
+)}
       </div>
     </div>
     
     {/* Broadcast Modal */}
-    {role === "buyer" && (
+    {/* {role === "buyer" && (
       <BroadcastModal
         show={showBroadcastModal}
         onHide={() => setShowBroadcastModal(false)}
@@ -207,7 +234,7 @@ const QueryComponent = () => {
         loading={false} // you can wire your loading state here
         rfqNumber={rfqDetails?.rfq_no}
       />
-    )}
+    )} */}
   </div>
 </>
   );

@@ -3,26 +3,26 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { formatDate } from "@/utils/sharedFunctions";
 import FullLoader from "@/components/shared/FullLoader";
 
+// VendorList.js
 const VendorList = ({
   vendors,
   onSelectVendor,
+  onToggleVendor,
+  selectedVendorIds,
   vendorName,
   setVendorName,
   loading,
 }) => {
-  const handleVendorSelect = (vendor) => {
-    const updatedVendor = { ...vendor, unseen_count: 0 };
-    onSelectVendor(updatedVendor);
+  const handleClickVendor = (vendor) => {
+    onSelectVendor(vendor);
+  };
+
+  const handleCheckboxChange = (vendorId) => {
+    onToggleVendor(vendorId);
   };
 
   return (
-    <div
-      className="list-group px-2"
-      style={{
-        height: "65vh",
-        overflowY: "auto",
-      }}
-    >
+    <div className="list-group px-2" style={{ height: "65vh", overflowY: "auto" }}>
       <input
         type="text"
         className="form-control mb-3 p-2"
@@ -36,29 +36,35 @@ const VendorList = ({
         </div>
       ) : (
         vendors.map((vendor) => (
-          <button
+          <div
             key={vendor.user_id}
             className="p-3 pb-1 bg-light border rounded shadow-sm mb-2 d-flex justify-content-between align-items-center"
-            onClick={() => handleVendorSelect(vendor)}
+            style={{ cursor: "pointer" }}
           >
-            <div>
+            {/* Checkbox */}
+            <input
+              type="checkbox"
+              checked={selectedVendorIds.includes(vendor.user_id)}
+              onChange={() => handleCheckboxChange(vendor.user_id)}
+              className="me-2"
+            />
+
+            {/* Vendor info clickable */}
+            <div
+              style={{ flex: 1 }}
+              onClick={() => handleClickVendor(vendor)}
+            >
               <h6 className="mb-2" style={{ fontSize: "1.1rem" }}>
                 {vendor?.company_name ?? "-"}
               </h6>
-              <p
-                className="text-muted"
-                style={{
-                  display: "block",
-                  fontSize: "0.95rem",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  maxWidth: "250px",
-                  width: "fit-content",
-                  textAlign: "left",
-                }}
-              >
-                {vendor.last_message ? vendor.last_message : "Send a query..."}
+              <p className="text-muted" style={{
+                fontSize: "0.95rem",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "250px",
+              }}>
+                {vendor.last_message || "Send a query..."}
               </p>
             </div>
 
@@ -74,11 +80,12 @@ const VendorList = ({
                   : ""}
               </small>
             </div>
-          </button>
+          </div>
         ))
       )}
     </div>
   );
 };
+
 
 export default VendorList;
