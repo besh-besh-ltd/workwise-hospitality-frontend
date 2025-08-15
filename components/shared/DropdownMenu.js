@@ -104,7 +104,8 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
       // Only close if actually leaving the dropdown system
       if (!dropdownRef.current?.contains(relatedTarget) && !triggerRef.current?.contains(relatedTarget)) {
         timeoutRef.current = setTimeout(() => {
-          if (!isHovering) {
+          // Use the ref value instead of state to avoid stale closure issues
+          if (!isHoveringRef.current) {
             setOpen(false);
             setNestedOpen(null);
             dropdownManager.clearActive();
@@ -144,6 +145,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
       }
 
       timeoutRef.current = setTimeout(() => {
+        // Use the ref value instead of state to avoid stale closure issues
         if (!isHoveringRef.current) {
           setOpen(false);
           setNestedOpen(null);
