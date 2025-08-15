@@ -29,6 +29,7 @@ import { Button } from "react-bootstrap";
 import OverallCostComparison from './OverallCostComparison';
 import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
+import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -69,7 +70,7 @@ const QuoteCompare = () => {
   const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
 
 
- const [openInputModal, setOpenInputModal] = useState(false);
+ const [openModalId, setOpenModalId] = useState(null);
 
   useEffect(() => {
     if (rfq) {
@@ -205,9 +206,19 @@ const openModalForVariant = (variantId) => {
     setFreightFilter(e.target.checked);
   }
 
-  const handleNormalizeFilterChange = (e) => {
-    setNormalizeFilter(e.target.checked);
+
+const handleNormalizeClick = () => {
+  if (normalizeFilter) {
+    setNormalizeFilter(false);
+  } else {
+    setNormalizeFilter(true);
+    setShowNormalizeModal(true);
   }
+};
+
+const handleCloseNormalizeModal = () => {
+  setShowNormalizeModal(false);
+};
 
   const loadMoreRFQs = (e) => {
     e.preventDefault();
@@ -1159,6 +1170,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       : "Download as Excel"}{" "}
                   </span>
                 )}
+
                 {rfq && quotes && quotes.length > 0 && (
                   <>
                     {quotes[0]?.rfq[0]?.status == 1 && (
@@ -1175,6 +1187,13 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     )}
                   </>
                 )}
+
+              {rfq && quotes && quotes.length > 0 && (
+                <span onClick={handleNormalizeClick}>
+                  {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
+                </span>
+              )}
+
               </div>
             </div>
           </div>
@@ -1454,26 +1473,23 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         </div>
                       )}
 
-                      {!normalizeFilter && (
-                        <div className="form-check form-switch page-link fs-6">
-                          <input
-                            className="form-check-input border-dark-subtle"
-                            type="checkbox"
-                            role="switch"
-                            checked={freightFilter}
-                            id="freight_check"
-                            onChange={handleFreightFilterChange}
-                          />
-                          <label
-                            className="form-check-label"
-                            for="freight_check"
-                          >
-                            View quotes without freight
-                          </label>
-                        </div>
-                      )}
-
+                     {!normalizeFilter && 
                       <div className="form-check form-switch page-link fs-6">
+                        <input
+                          className="form-check-input border-dark-subtle"
+                          type="checkbox"
+                          role="switch"
+                          checked={freightFilter}
+                          id="freight_check"
+                          onChange={handleFreightFilterChange}
+                        />
+                        <label className="form-check-label" for="freight_check">
+                          View quotes without freight
+                        </label>
+                      </div>
+                      }
+
+                       <div className="form-check form-switch page-link fs-6">
                         <input
                           className="form-check-input border-dark-subtle"
                           type="checkbox"
@@ -1929,8 +1945,19 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
           </div>
         </div>
       </section>
+
+      <NormalizeInfoModal
+  show={showNormalizeModal}
+  // secondsLeft={normSecondsLeft}
+  onClose={handleCloseNormalizeModal}
+/>
+
+
     </>
   );
 };
 
 export default QuoteCompare;
+
+
+

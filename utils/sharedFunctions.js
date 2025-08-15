@@ -251,6 +251,7 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
   return Math.round(TotalPrice);
 }
 
+
 /**
  * @created by mukul on 13-aug-2025
  * @description Normalizes freight, packaging, and tax for nested quote details. Converts absolute values to percentages and fills missing values using average (freight/package) or median (tax).
@@ -346,22 +347,23 @@ export const handleNormalize = (data) => {
 
       const paymentTerms = vendorTermsById.get(quote.created_by) || [];
 
-      const updatedDetails = quote.quote_details?.map(detail => {
-        const currentFreight = parseFloat(detail.freight_price);
-        const currentPackage = parseFloat(detail.package_price);
-        const currentTax = parseFloat(detail.tax);
+    const updatedDetails = quote.quote_details?.map(detail => {
+      const currentFreight = safeTwoDecimals(detail.freight_price);
+      const currentPackage = safeTwoDecimals(detail.package_price);
+      const currentTax = safeTwoDecimals(detail.tax);
+    
+      return {
+        ...detail,
+        freight_price:
+          currentFreight === 0 ? safeTwoDecimals(averageFreight) : currentFreight,
+        package_price:
+          currentPackage === 0 ? safeTwoDecimals(averagePackage) : currentPackage,
+        tax:
+          currentTax === 0 ? safeTwoDecimals(medianTax) : currentTax,
+        payment_terms: paymentTerms
+      };
+    }) || [];
 
-        return {
-          ...detail,
-          freight_price:
-            isNaN(currentFreight) || currentFreight === 0 ? averageFreight : currentFreight,
-          package_price:
-            isNaN(currentPackage) || currentPackage === 0 ? averagePackage : currentPackage,
-          tax:
-            isNaN(currentTax) || currentTax === 0 ? medianTax : currentTax,
-          payment_terms: paymentTerms
-        };
-      }) || [];
 
       return { ...quote, quote_details: updatedDetails };
     });
@@ -461,18 +463,18 @@ export const normalizeFlatQuotationData = (data) => {
   // Step 2: Normalize (use preNormalized so modes are already '%')
   const normalizedData = preNormalized.map(item => {
     const updatedQuotations = item.quotations.map(quote => {
-      const freight = parseFloat(quote.freight_price);
-      const pack = parseFloat(quote.package_price);
-      const tax = parseFloat(quote.tax);
-
+      const freight = safeTwoDecimals(quote.freight_price);
+      const pack = safeTwoDecimals(quote.package_price);
+      const tax = safeTwoDecimals(quote.tax);
+  
       return {
         ...quote,
-        freight_price: isNaN(freight) || freight === 0 ? averageFreight : freight,
-        package_price: isNaN(pack) || pack === 0 ? averagePackage : pack,
-        tax: isNaN(tax) || tax === 0 ? medianTax : tax,
+        freight_price: freight === 0 ? safeTwoDecimals(averageFreight) : freight,
+        package_price: pack === 0 ? safeTwoDecimals(averagePackage) : pack,
+        tax: tax === 0 ? safeTwoDecimals(medianTax) : tax,
       };
     });
-
+  
     return {
       ...item,
       quotations: updatedQuotations,
@@ -481,8 +483,6 @@ export const normalizeFlatQuotationData = (data) => {
 
   return normalizedData;
 };
-
-
 
 
 export const  addCommasToNumber = (number) => {
@@ -504,3 +504,25 @@ export const  addCommasToNumber = (number) => {
     // Join the parts back together with decimal point if applicable
     return parts.join(".");
   };
+
+
+  /**
+ * Safely converts a value to a number rounded to 2 decimal places.
+ * - Returns 0 if the value is null, undefined, or not a valid number.
+ * - Always returns a number, not a string.
+ *
+ * @param {any} val - The input value to format.
+ * @returns {number} The formatted number with 2 decimal places.
+ *
+ * @example
+ * safeTwoDecimals(0.2986875); // 0.30
+ * safeTwoDecimals(null);      // 0
+ * safeTwoDecimals("abc");     // 0
+ * 
+ * @created by mukul on 13-aug-2025
+ */
+export const safeTwoDecimals = (val) => {
+  const num = Number(val);
+  if (isNaN(num)) return 0;
+  return parseFloat(num.toFixed(2));
+};
