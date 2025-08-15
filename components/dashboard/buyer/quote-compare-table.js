@@ -23,7 +23,8 @@ const QuoteCompareTable = ({
   isRfqClosed = false,
   availableBudget,
   targetPrice,
-  targetHistory
+  targetHistory,
+  normalizeFilter
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -54,8 +55,8 @@ const QuoteCompareTable = ({
           const curQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
           const lowQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
-          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
-          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter)
 
           if (curItemQuoteDetails.unit_price > 0) {
             let curLowest = lowest;
@@ -329,8 +330,8 @@ const QuoteCompareTable = ({
                           : "table-grey-row"
                       }`}
                     >
-                      {calculateTotal(item, quantity)}
-                      {itemUpdated &&
+                     {calculateTotal(item, quantity, normalizeFilter)}
+                       {itemUpdated &&
                         calculateTotal(itemUpdated, quantity) !=
                           calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
@@ -358,7 +359,7 @@ const QuoteCompareTable = ({
                         ? parseInt(item.delivery_period) <= 1
                           ? `${item.delivery_period || 0} Day`
                           : `${item.delivery_period || 0} Days`
-                        : "--"}
+                        : "-"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
@@ -384,7 +385,7 @@ const QuoteCompareTable = ({
                       {item.document_files ? (
                         <>{renderFileLink(item.document_files)}</>
                       ) : (
-                        <span>N/A</span>
+                        <span>-</span>
                       )}
                     </div>
                     <div className="table-si-row table-grey-row">
@@ -396,18 +397,37 @@ const QuoteCompareTable = ({
                           )}
                         </>
                       ) : (
-                        <span>N/A</span>
+                        <span>-</span>
                       )}
                     </div>
                     <div className="table-si-row">
-                      {item?.global_payment_term ? (
                         <ReadMore
-                          content={item?.global_payment_term}
+                          content={item?.global_payment_term || ""}
                           maxLines={2}
                         />
-                      ) : (
-                        "NA"
-                      )}
+
+                    {/* Payment terms list */}
+                    {(() => {
+                      const terms =item?.payment_terms                   
+                      return (
+                        <div className="">
+                          {terms.length ? (
+                            <ul className="">
+                              {terms.map((t, i) => (
+                                <li key={t.id ?? i} className="d-flex justify-content-between py-1">
+                                  <span className="text-capitalize">
+                                    {!t.comment ? ` ${t.type} ${t.days ? t.days + ' days' : ''} ` : ""}
+
+                                    {t.comment ? t.comment  : null}
+                                  </span>
+                                  <span className="fw-semibold">{t.value != null ? `${t.value}%` : "-"}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : "-"}
+                        </div>
+                      );
+                    })()}
                     </div>
                   </div>
                 );

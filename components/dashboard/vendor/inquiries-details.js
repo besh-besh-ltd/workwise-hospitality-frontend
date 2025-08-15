@@ -843,7 +843,7 @@ const RfqManagementPreview = () => {
                                           ""
                                         )}
                                         <div className="row mx-1">
-                                          {item.SPEC_files?.map(
+                                          {item.spec_file?.map(
                                             (file, index) => (
                                               <a
                                                 key={index}
@@ -878,14 +878,14 @@ const RfqManagementPreview = () => {
                                     ))}
 
                                   <td>
-                                    {item.datasheet_file || item.TDS_flies ? (
+                                    {item.datasheet_file ? (
                                       <>{renderFileLink(item.datasheet_file)}</>
                                     ) : (
                                       <span>N/A</span>
                                     )}
                                   </td>
                                   <td>
-                                    {item.qap_file || item.QAP_files ? (
+                                    {item.qap_file ? (
                                       <>{renderFileLink(item.qap_file)}</>
                                     ) : (
                                       <span>N/A</span>
