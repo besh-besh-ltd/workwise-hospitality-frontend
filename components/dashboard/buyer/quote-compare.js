@@ -67,7 +67,7 @@ const QuoteCompare = () => {
   // Add new state for active tab
   const [activeTab, setActiveTab] = useState('product');
   // const [targetPrice , setTargetPrice] = useState(null);
-  const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
+  // const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
 
 
  const [openModalId, setOpenModalId] = useState(null);
@@ -89,7 +89,7 @@ const QuoteCompare = () => {
   
   useEffect(() => {
     getAllProjects();
-    getPricehistory();
+    // getPricehistory();
   }, [rfq]);
 
   useEffect(() => {
@@ -155,22 +155,21 @@ const transformData = (data) => {
     };
   });
 };
-const getPricehistory = async (rfq_product_id) => {
-  try {
-    const data = await getTargetPriceHistory(rfq_product_id);
+// const getPricehistory = async (rfq_product_id) => {
+//   try {
+//     const data = await getTargetPriceHistory(rfq_product_id);
 
-    if (data.length > 0) {
-      settargetPriceHistory(data);
-    } else {
-      setTargetPrice([]);
-    }
+//     if (data.length > 0) {
+//       settargetPriceHistory(data);
+//     } else {
+//       setTargetPrice([]);
+//     }
 
-    return data || [];
-  } catch (error) {
-    console.log("error in fetching Target History");
-    return [];
-  }
-};
+//     return data || [];
+//   } catch (error) {
+//     return [];
+//   }
+// };
 const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
@@ -288,13 +287,7 @@ const handleCloseNormalizeModal = () => {
         getRFQClauses();
       })
   };
-  useEffect(()=>{
-    if(quotes.length > 0)
-      console.log("checkignt he qotes here" , quotes);
-      const newData =  transformData(quotes);
 
-      console.log("vendor and product list", newData);
-  })
   const getRFQClauses = async () => {
     try {
       const res = await getAllClauses(rfq);
@@ -1892,7 +1885,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         }
                                         availableBudget={availableBudget}
                                         targetPrice={item.latest_target_price}
-                                        targetHistory={targetPriceHistory}
+                                        // targetHistory={targetPriceHistory}
                                         normalizeFilter={normalizeFilter}
                                       />
                                     </>
