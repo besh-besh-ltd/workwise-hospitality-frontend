@@ -71,7 +71,12 @@ const QuoteCompare = () => {
 
 
  const [openModalId, setOpenModalId] = useState(null);
+ const[openInputModal , setOpenInputModal] =useState(false)
+ const [showNormalizeModal, setShowNormalizeModal] = useState(false);
 
+ const handleNormalizeFilterChange =()=>{
+  console.log("nothing to do");
+ }
   useEffect(() => {
     if (rfq) {
       getRespectiveQuotes();
@@ -373,659 +378,636 @@ const handleCloseNormalizeModal = () => {
     }
   };
 
-  const generateExcelFile = (api_data) => {
-    let l1totaltemp = 0;
-    let allVendors = api_data[0].all_vendors;
+const generateExcelFile = (api_data) => {
+  let l1totaltemp = 0;
+  let allVendors = api_data[0].all_vendors;
 
-    let heading_array = [["Product Name", "Specification", "Size", "Qty"]];
-    let amount_array = ["", "", "", ""];
+  let heading_array = [["Product Name", "Specification", "Size", "Qty"]];
+  let amount_array = ["", "", "", ""];
 
-    let total_array = ["TOTAL", "", ""];
-    let l1array = ["Lowest total (L1 Total)", "", "", ""];
-    let paymentTermsArray = ["Payment Terms", "", "", ""];
-    let commentsArray = ["Vendor Comment", "", "", ""];
-    let deliveryArray = ["Delivery", "", "", ""];
-    let totalArray = ["Total", "", ""];
-    let filesArray = ["Attached Files", "", "", ""];
+  let total_array = ["TOTAL", "", ""];
+  let l1array = ["Lowest total (L1 Total)", "", "", ""];
+  let paymentTermsArray = ["Payment Terms", "", "", ""];
+  let commentsArray = ["Vendor Comment", "", "", ""];
+  let deliveryArray = ["Delivery", "", "", ""];
+  let totalArray = ["Total", "", ""];
+  let filesArray = ["Attached Files", "", "", ""];
 
-    allVendors.map((item) => {
-      heading_array[0].push(`${item.organization_name || item.name}`);
-      heading_array[0].push("");
-      heading_array[0].push("");
-      heading_array[0].push("");
-      heading_array[0].push("");
+  allVendors.map((item) => {
+    heading_array[0].push(`${item.organization_name || item.name}`);
+    heading_array[0].push("");
+    heading_array[0].push("");
+    heading_array[0].push("");
+    heading_array[0].push("");
+    heading_array[0].push(""); // Added for target_price
 
-      amount_array.push("Unit Rate");
-      amount_array.push("Freight");
-      amount_array.push("Packaging");
-      amount_array.push("GST");
-      amount_array.push("Total Amount");
+    amount_array.push("Unit Rate");
+    amount_array.push("Freight");
+    amount_array.push("Packaging");
+    amount_array.push("GST");
+    amount_array.push("Target Price"); // Added new column
+    amount_array.push("Total Amount");
 
-      paymentTermsArray.push(
-        item.global_payment_term[0].details
-          ? item.global_payment_term[0].details
-          : "-"
+    paymentTermsArray.push(
+      item.global_payment_term[0].details
+        ? item.global_payment_term[0].details
+        : "-"
+    );
+    paymentTermsArray.push("");
+    paymentTermsArray.push("");
+    paymentTermsArray.push("");
+    paymentTermsArray.push("");
+    paymentTermsArray.push(""); // Added for target_price
+
+    const sanitizeComment = (comment) => comment.replace(/[\n\r,"]/g, " ").trim();
+
+    commentsArray.push(
+      (item?.global_payment_term && item?.global_payment_term[0]?.comment)
+        ? sanitizeComment(item?.global_payment_term[0]?.comment)
+        : "-"
+    );
+    commentsArray.push("");
+    commentsArray.push("");
+    commentsArray.push("");
+    commentsArray.push("");
+    commentsArray.push(""); // Added for target_price
+  });
+
+  allVendors.map((vendor) => {
+    let vq = [];
+    let total = 0;
+    api_data.map((product) => {
+      const quantity = product.product_specs.find(
+        (spec) => spec.title === "Quantity"
       );
-      paymentTermsArray.push("");
-      paymentTermsArray.push("");
-      paymentTermsArray.push("");
-      paymentTermsArray.push("");
 
-      const sanitizeComment = (comment) => comment.replace(/[\n\r,"]/g, " ").trim();
-
-      commentsArray.push(
-        (item?.global_payment_term && item?.global_payment_term[0]?.comment)
-          ? sanitizeComment(item?.global_payment_term[0]?.comment)
-          : "-"
+      let q = product.quotations.filter(
+        (quotation) =>
+          quotation.created_by == vendor.id &&
+          quotation.id != null &&
+          quotation.is_regret != 1
       );
-      commentsArray.push("");
-      commentsArray.push("");
-      commentsArray.push("");
-      commentsArray.push("");
+      if (q.length > 0) {
+        vq.push(parseFloat(q[0].quote_details[0].delivery_period));
+        total = total + calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter);
+      }
     });
+    vendor.total = total;
+    vendor.quoted_products = vq;
+  });
 
-    allVendors.map((vendor) => {
-      let vq = [];
-      let total = 0;
-      api_data.map((product) => {
-        const quantity = product.product_specs.find(
-          (spec) => spec.title === "Quantity"
-        );
+  heading_array[0].push("LOWEST");
+  heading_array[0].push("Selling Price");
+  heading_array[0].push("Last Purchase Rate");
+  amount_array.push("");
 
-        let q = product.quotations.filter(
-          (quotation) =>
-            quotation.created_by == vendor.id &&
-            quotation.id != null &&
-            quotation.is_regret != 1
-        );
-        if (q.length > 0) {
-          vq.push(parseFloat(q[0].quote_details[0].delivery_period));
-          calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter)
-          total = total + calculateTotal(q[0].quote_details[0], quantity.value, normalizeFilter)
-          // Old way that calculated this based on only unit price and quantity not any taxes
-          // parseFloat(q[0].quote_details[0]?.unit_price * parseFloat(quantity.value));
-        }
-      });
-      vendor.total = total;
-      vendor.quoted_products = vq;
-    });
-    // Lowest
-    heading_array[0].push("LOWEST");
-    heading_array[0].push("Selling Price");
-    heading_array[0].push("Last Purchase Rate");
-    amount_array.push("");
+  let data = heading_array;
+  data.push(amount_array);
+  let totalQty = 0;
 
-    let data = heading_array;
-    data.push(amount_array);
-    let totalQty = 0;
+  api_data.map((item) => {
+    totalQty = totalQty + parseFloat(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
+    let temp_arr = [
+      item.product_details[0].name,
+      item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
+      item.product_specs.find((specItem) => specItem.title == 'Size')?.value || "-",
+      item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || "-"
+    ];
 
-    api_data.map((item) => {
+    const array = item.quotations.filter(
+      (item) => item.id != null && item.is_regret != 1
+    );
 
-      totalQty = totalQty + parseFloat(item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value);
-      let temp_arr = [
-        item.product_details[0].name,
-        item.product_specs.find((specItem) => specItem.title == 'Spec')?.value || "-",
-        item.product_specs.find((specItem) => specItem.title == 'Size')?.value || "-",
-        item.product_specs.find((specItem) => specItem.title == 'Quantity')?.value || "-"
-      ];
+    let lowest = null;
 
-      const array = item.quotations.filter(
-        (item) => item.id != null && item.is_regret != 1
-      );
-
-      let lowest = null;
-
-      if (array.length === 1) {
-        // Handle single-element case
-        if (array[0].quote_details[0].total_price > 0) {
-          lowest = array[0];
-        } else {
-          lowest = null;
-        }
+    if (array.length === 1) {
+      if (array[0].quote_details[0].total_price > 0) {
+        lowest = array[0];
       } else {
-        // Reduce logic for multiple elements
-        lowest = array.reduce((lowest, currentItem) => {
-          const curItemQuoteDetails = currentItem.quote_details[0];
-          const curItemVendorDetails = currentItem.vendor_details[0];
-
-          const lowestQuoteDetails = lowest.quote_details[0];
-          const lowestVendorDetails = lowest.vendor_details[0];
-
-          const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
-          const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
-
-          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter)
-          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter)
-
-          if (curItemQuoteDetails.unit_price > 0) {
-            let curLowest = lowest;
-            if (currentTotal < lowestTotal) curLowest = currentItem;
-            else if (currentTotal == lowestTotal) {
-              const curPrevWorked = curItemVendorDetails.prev_worked == 1;
-              const lowestPrevWorked = lowestVendorDetails.prev_worked == 1;
-
-              if (curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
-              else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
-              else {
-                const curTimestamp = new Date(
-                  currentItem.timestamp.slice(0, 23)
-                );
-                const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
-
-                if (curTimestamp < lowestTimestamp) curLowest = currentItem;
-                else curLowest = lowest;
-              }
-            }
-
-            return curLowest;
-          }
-          return lowest;
-        }, array[0]);
+        lowest = null;
       }
+    } else {
+      lowest = array.reduce((lowest, currentItem) => {
+        const curItemQuoteDetails = currentItem.quote_details[0];
+        const curItemVendorDetails = currentItem.vendor_details[0];
 
-      if (lowest) {
         const lowestQuoteDetails = lowest.quote_details[0];
-        const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
+        const lowestVendorDetails = lowest.vendor_details[0];
 
-        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
-        setl1total(l1totaltemp);
+        const curQuantity = curItemQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity;
+        const lowQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-        item.quotations.map((q) => {
-          if (q.id == lowest.id) {
-            q.is_lowest = true;
-          } else {
-            q.is_lowest = false;
+        const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter);
+        const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter);
+
+        if (curItemQuoteDetails.unit_price > 0) {
+          let curLowest = lowest;
+          if (currentTotal < lowestTotal) curLowest = currentItem;
+          else if (currentTotal == lowestTotal) {
+            const curPrevWorked = curItemVendorDetails.prev_worked == 1;
+            const lowestPrevWorked = lowestVendorDetails.prev_worked == 1;
+
+            if (curPrevWorked && !lowestPrevWorked) curLowest = currentItem;
+            else if (!curPrevWorked && lowestPrevWorked) curLowest = lowest;
+            else {
+              const curTimestamp = new Date(
+                currentItem.timestamp.slice(0, 23)
+              );
+              const lowestTimestamp = new Date(lowest.timestamp.slice(0, 23));
+
+              if (curTimestamp < lowestTimestamp) curLowest = currentItem;
+              else curLowest = lowest;
+            }
           }
-        });
-      }
+          return curLowest;
+        }
+        return lowest;
+      }, array[0]);
+    }
 
-      item?.quotations?.map((q) => {
+    if (lowest) {
+      const lowestQuoteDetails = lowest.quote_details[0];
+      const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-        if (q.is_regret == 1 || !q.quote_details || q?.quote_details?.length == 0) {
-          temp_arr.push("0");
-          temp_arr.push("0");
-          temp_arr.push("0");
-          temp_arr.push("0");
-          temp_arr.push("0");
+      l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
+      setl1total(l1totaltemp);
+
+      item.quotations.map((q) => {
+        if (q.id == lowest.id) {
+          q.is_lowest = true;
         } else {
-          const temp_quote_details = q.quote_details[0];
-          const temp_quantity = temp_quote_details?.rfq_details?.find(spec => spec?.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
-
-          temp_arr.push(
-            q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
-            ? q.quote_details[0].unit_price : "0"
-          );
-          temp_arr.push(
-            q.quote_details.length > 0 && q?.quote_details[0]?.freight_price
-              ? q.quote_details[0].freight_mode == "percentage"
-                ? q.quote_details[0].freight_price + "%"
-                : "₹" + q.quote_details[0].freight_price
-              : "0"
-          );
-          temp_arr.push(
-            q.quote_details.length > 0 && q?.quote_details[0]?.package_price
-              ? q.quote_details[0].package_mode == "percentage"
-                ? q.quote_details[0].package_price + "%"
-                : "₹" + q.quote_details[0].package_price
-              : "0"
-          );
-          temp_arr.push(
-            q.quote_details.length > 0 && q?.quote_details[0]?.tax
-             ? q.quote_details[0].tax_mode == "percentage"
-                ? q.quote_details[0].tax + "%"
-                : "₹" + q.quote_details[0].tax
-              : "0"
-          );
-          temp_arr.push(
-            q.quote_details.length > 0
-              ? `${calculateTotal(temp_quote_details, temp_quantity, normalizeFilter)} ${q.is_lowest ? "(Lowest)" : ""
-              }`
-              : "-"
-          );
+          q.is_lowest = false;
         }
       });
-      temp_arr.push(
-        lowest
-          ? calculateTotal(
-              lowest.quote_details[0],
-              lowest.quote_details[0].rfq_details.find(
-                (spec) => spec.title == "Quantity"
+    }
+
+    item?.quotations?.map((q) => {
+      // Find the vendor's latest_target_price from all_vendors
+      const vendor = item.all_vendors.find(v => v.id === q.created_by);
+      const target_price = vendor?.latest_target_price ?? "0";
+
+      if (q.is_regret == 1 || !q.quote_details || q?.quote_details?.length == 0) {
+        temp_arr.push("0");
+        temp_arr.push("0");
+        temp_arr.push("0");
+        temp_arr.push("0");
+        temp_arr.push(target_price); // Use vendor-specific target_price
+        temp_arr.push("0");
+      } else {
+        const temp_quote_details = q.quote_details[0];
+        const temp_quantity = temp_quote_details?.rfq_details?.find(spec => spec?.title == 'Quantity')?.value || temp_quote_details.quantity;
+
+        temp_arr.push(
+          q.quote_details.length > 0 && q?.quote_details[0]?.unit_price
+            ? q.quote_details[0].unit_price : "0"
+        );
+        temp_arr.push(
+          q.quote_details.length > 0 && q?.quote_details[0]?.freight_price
+            ? q.quote_details[0].freight_mode == "percentage"
+              ? q.quote_details[0].freight_price + "%"
+              : "₹" + q.quote_details[0].freight_price
+            : "0"
+        );
+        temp_arr.push(
+          q.quote_details.length > 0 && q?.quote_details[0]?.package_price
+            ? q.quote_details[0].package_mode == "percentage"
+              ? q.quote_details[0].package_price + "%"
+              : "₹" + q.quote_details[0].package_price
+            : "0"
+        );
+        temp_arr.push(
+          q.quote_details.length > 0 && q?.quote_details[0]?.tax
+            ? q.quote_details[0].tax_mode == "percentage"
+              ? q.quote_details[0].tax + "%"
+              : "₹" + q.quote_details[0].tax
+            : "0"
+        );
+        temp_arr.push(target_price); // Use vendor-specific target_price
+        temp_arr.push(
+          q.quote_details.length > 0
+            ? `${calculateTotal(temp_quote_details, temp_quantity, normalizeFilter)} ${q.is_lowest ? "(Lowest)" : ""}`
+            : "-"
+        );
+      }
+    });
+    temp_arr.push(
+      lowest
+        ? calculateTotal(
+            lowest.quote_details[0],
+            lowest.quote_details[0].rfq_details.find(
+              (spec) => spec.title == "Quantity"
+            )?.value,
+            normalizeFilter
+          )
+        : "-"
+    );
+    temp_arr.push(
+      addCommasToNumber(
+        item.product_specs.find((specItem) => specItem.title == "total_price")
+          ?.value
+      ) ?? "-"
+    );
+    temp_arr.push(
+      item.last_purchase_rate
+        ? addCommasToNumber(
+            calculateTotal(
+              item.last_purchase_rate,
+              item.product_specs.find(
+                (specItem) => specItem.title == "Quantity"
               )?.value,
               normalizeFilter
             )
-          : "-"
-      );
-      temp_arr.push(
-        addCommasToNumber(
-          item.product_specs.find((specItem) => specItem.title == "total_price")
-            ?.value
-        ) ?? "-"
-      );
-      temp_arr.push(
-        item.last_purchase_rate
-          ? addCommasToNumber(
-              calculateTotal(
-                item.last_purchase_rate,
-                item.product_specs.find(
-                  (specItem) => specItem.title == "Quantity"
-                )?.value,
-                normalizeFilter
-
-              )
+          )
+        : item.last_quote_rate
+        ? addCommasToNumber(
+            calculateTotal(
+              item.last_quote_rate,
+              item.product_specs.find(
+                (specItem) => specItem.title == "Quantity"
+              )?.value,
+              normalizeFilter
             )
-          : item.last_quote_rate
-          ? addCommasToNumber(
-              calculateTotal(
-                item.last_quote_rate,
-                item.product_specs.find(
-                  (specItem) => specItem.title == "Quantity"
-                )?.value,
-                normalizeFilter
-              )
-            )
-          : "-"
-      );
-      data.push(temp_arr);
+          )
+        : "-"
+    );
+    data.push(temp_arr);
+  });
+
+  total_array.push(totalQty);
+  totalArray.push(totalQty);
+  l1array.push(l1totaltemp);
+
+  let emptyArr = ["", "", "", ""];
+  allVendors.map((item) => {
+    emptyArr.push("");
+    emptyArr.push("");
+    emptyArr.push("");
+    emptyArr.push("");
+    emptyArr.push(""); // Added for target_price
+    emptyArr.push("");
+    l1array.push("");
+    l1array.push("");
+    l1array.push("");
+    l1array.push("");
+    l1array.push(""); // Added for target_price
+    l1array.push("");
+
+    let deliveryRange = getDeliveryRange(item.quoted_products);
+    deliveryArray.push(deliveryRange);
+    deliveryArray.push("");
+    deliveryArray.push("");
+    deliveryArray.push("");
+    deliveryArray.push(""); // Added for target_price
+    deliveryArray.push("");
+
+    totalArray.push("");
+    totalArray.push("");
+    totalArray.push("");
+    totalArray.push("");
+    totalArray.push(""); // Added for target_price
+    totalArray.push(item.total ? item.total : 0);
+  });
+
+  l1array.pop();
+  data.push(emptyArr, emptyArr, emptyArr, emptyArr);
+
+  data.push(totalArray);
+  data.push(l1array);
+
+  data.push(deliveryArray);
+  data.push(paymentTermsArray);
+  data.push(commentsArray);
+
+  const globalFiles = FilterOutGlobalTermsFiles(api_data);
+  const maxFileLen = globalFiles
+    .filter(Array.isArray)
+    .reduce((max, arr) => Math.max(max, arr.length), 0);
+
+  globalFiles.map((item) => {
+    filesArray.push(
+      item
+        ? item[0]?.file_url
+        : "-"
+    );
+    filesArray.push("");
+    filesArray.push("");
+    filesArray.push("");
+    filesArray.push(""); // Added for target_price
+    filesArray.push("");
+  });
+
+  data.push(filesArray);
+  for (let i = 1; i < maxFileLen; i++) {
+    let temp = ["", "", "", ""];
+    globalFiles.map((fileArr) => {
+      if (fileArr && fileArr[i])
+        temp = [...temp, fileArr[i].file_url, "", "", "", "", ""]; // Added empty string for target_price
+      else temp = [...temp, "-", "", "", "", "", ""]; // Added empty string for target_price
     });
+    data.push(temp);
+  }
 
-    total_array.push(totalQty);
-    totalArray.push(totalQty);
-    l1array.push(l1totaltemp);
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const width = 25;
+  const range = XLSX.utils.decode_range(ws["!ref"]);
 
-    let emptyArr = ["", "", "", ""];
-    allVendors.map((item) => {
-      emptyArr.push("");
-      emptyArr.push("");
-      emptyArr.push("");
-      emptyArr.push("");
-      emptyArr.push("");
-      l1array.push("");
-      l1array.push("");
-      l1array.push("");
-      l1array.push("");
-      l1array.push("");
+  // MERGE l1 row
+  {
+    let columnToMergeStart = 4;
+    let columnToMergeEnd = allVendors.length * 6 + 3; // Updated for 6 columns per vendor
 
-      let deliveryRange = getDeliveryRange(item.quoted_products);
-      deliveryArray.push(deliveryRange);
-      deliveryArray.push("");
-      deliveryArray.push("");
-      deliveryArray.push("");
-      deliveryArray.push("");
-
-      totalArray.push("");
-      totalArray.push("");
-      totalArray.push("");
-      totalArray.push("");
-      totalArray.push(item.total ? item.total : 0);
-    });
-
-    l1array.pop();
-    data.push(emptyArr, emptyArr, emptyArr, emptyArr);
-
-    data.push(totalArray);
-    data.push(l1array);
-
-    data.push(deliveryArray);
-    data.push(paymentTermsArray);
-    data.push(commentsArray);
-
-    const globalFiles = FilterOutGlobalTermsFiles(api_data);
-    const maxFileLen = globalFiles
-      .filter(Array.isArray)
-      .reduce((max, arr) => Math.max(max, arr.length), 0);
-
-    globalFiles.map((item) => {
-      filesArray.push(
-        item
-          ? item[0]?.file_url
-          : "-"
-      );
-      filesArray.push("");
-      filesArray.push("");
-      filesArray.push("");
-      filesArray.push("");
-    })
-
-    data.push(filesArray);
-    for (let i = 1; i < maxFileLen; i++) {
-      let temp = ["", "", "", ""];
-      globalFiles.map((fileArr) => {
-        if (fileArr && fileArr[i])
-          temp = [...temp, fileArr[i].file_url, "", "", "", ""]
-        else temp = [...temp, "-", "", "", "", ""]
-      })
-      data.push(temp);
-    }
-
-
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const width = 25; // Width in characters (adjust according to your requirement)
-    const range = XLSX.utils.decode_range(ws["!ref"]);
-
-    // MERGE l1 row
-    {
-      let columnToMergeStart = 4; // Index of the first column to merge
-      let columnToMergeEnd = allVendors.length * 5 + 3; // Index of the last column to merge
-
-      const mergeRange = {
-        s: { r: api_data.length + 7, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: api_data.length + 7, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
-
-      if (!ws["!merges"]) ws["!merges"] = [];
-      ws["!merges"].push(mergeRange);
-
-      for (let col = range.s.c; col < range.e.c - 1; col++) {
-        const cellAddress = XLSX.utils.encode_cell({
-          r: api_data.length + 7,
-          c: col,
-        }); // First row, current column
-        if (!ws[cellAddress]) ws[cellAddress] = {};
-        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-
-        //ws[cellAddress].s ={ fill: { fgColor: { rgb: "DDDDDD" } } }
-        ws[cellAddress].s.fill = { fgColor: { rgb: "DDDDDD" } }; // Blue background color
-        ws[cellAddress].s.font = { color: { rgb: "000000" } }; // White text color
-      }
-    }
-
-    // Align all text to the center
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-        if (!ws[cellAddress]) ws[cellAddress] = {};
-        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-        ws[cellAddress].s.alignment = {
-          horizontal: "center",
-          wrapText: true,
-          vertical: "center",
-        }; // Text align right
-      }
-    }
-
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col }); // First row, current column
-
-      if (!ws["!cols"]) ws["!cols"] = [];
-      const cell = ws[cellAddress];
-
-      // Assign specific widths to the first three columns
-      if (col === 0 || col === 2) {
-        ws["!cols"][col] = { width: 30 };
-      } else if (col === 1) {
-        ws["!cols"][col] = { width: 60 };
-      } else if (col === 3) {
-        ws["!cols"][col] = { width: 15 };
-      } else {
-        ws["!cols"][col] = { width };
-        cell.s.alignment = { horizontal: "center" }; // Center align text
-      }
-
-      if (!cell) ws[cellAddress] = {};
-      if (!cell.s) cell.s = {}; // Cell style
-    }
-
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: 1, c: col }); // First row, current column
-      if (!ws["!cols"]) ws["!cols"] = [];
-      if (col >= 3) {
-        const cell = ws[cellAddress];
-        if (!cell) ws[cellAddress] = {};
-        if (!cell.s) cell.s = {}; // Cell style
-        cell.s.alignment = { horizontal: "center" }; // Center align text
-      }
-    }
-
-    // MERGE Heading
-    for (let i = 4; i < allVendors.length * 5 + 2; i += 5) {
-      let columnToMergeStart = i; // Index of the first column to merge
-      let columnToMergeEnd = i + 4; // Index of the last column to merge
-
-      const mergeRange = {
-        s: { r: 0, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: 0, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
-      const mergeRangeDelivery = {
-        s: { r: api_data.length + 8, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: api_data.length + 8, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
-      const mergeRangePaymentTerms = {
-        s: { r: api_data.length + 9, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: api_data.length + 9, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
-      const mergeRangeComments = {
-        s: { r: api_data.length + 10, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: api_data.length + 10, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
-      const mergeRangeFiles = {
-        s: { r: api_data.length + 11, c: columnToMergeStart }, // Start cell (first row, first column)
-        e: { r: api_data.length + 11, c: columnToMergeEnd }, // End cell (first row, second column)
-      };
-
-      if (!ws["!merges"]) ws["!merges"] = [];
-      ws["!merges"].push(mergeRange);
-      ws["!merges"].push(mergeRangeDelivery);
-      ws["!merges"].push(mergeRangePaymentTerms);
-      ws["!merges"].push(mergeRangeComments);
-      ws["!merges"].push(mergeRangeFiles);
-
-      for (let i = 1; i < maxFileLen; i++) {
-        const mergeConfig = {
-          s: { r: api_data.length + 11 + i, c: columnToMergeStart }, // Start cell (first row, first column)
-          e: { r: api_data.length + 11 + i, c: columnToMergeEnd }, // End cell (first row, second column)
-        }
-        if (!ws["!merges"]) ws["!merges"] = [];
-        ws["!merges"].push(mergeConfig);
-      }
-    }
-
-    // Packaging & Fright column width
-    for (let i = 6; i < allVendors.length * 5 + 2; i += 5) {
-      if (!ws["!cols"]) ws["!cols"] = [];
-      ws["!cols"][i - 2] = { width: 10 };
-      ws["!cols"][i - 1] = { width: 10 };
-      ws["!cols"][i] = { width: 12 };
-      ws["!cols"][i + 1] = { width: 10 };
-      ws["!cols"][i + 2] = { width: 12 };
-    }
+    const mergeRange = {
+      s: { r: api_data.length + 7, c: columnToMergeStart },
+      e: { r: api_data.length + 7, c: columnToMergeEnd },
+    };
 
     if (!ws["!merges"]) ws["!merges"] = [];
+    ws["!merges"].push(mergeRange);
 
-    // Merge two rows of first 4 columns
-    const columns = 4;
+    for (let col = range.s.c; col < range.e.c - 1; col++) {
+      const cellAddress = XLSX.utils.encode_cell({
+        r: api_data.length + 7,
+        c: col,
+      });
+      if (!ws[cellAddress]) ws[cellAddress] = {};
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+      ws[cellAddress].s.fill = { fgColor: { rgb: "DDDDDD" } };
+      ws[cellAddress].s.font = { color: { rgb: "000000" } };
+    }
+  }
+
+  // Align all text to the center
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      if (!ws[cellAddress]) ws[cellAddress] = {};
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+      ws[cellAddress].s.alignment = {
+        horizontal: "center",
+        wrapText: true,
+        vertical: "center",
+      };
+    }
+  }
+
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    if (!ws["!cols"]) ws["!cols"] = [];
+    const cell = ws[cellAddress];
+
+    if (col === 0 || col === 2) {
+      ws["!cols"][col] = { width: 30 };
+    } else if (col === 1) {
+      ws["!cols"][col] = { width: 60 };
+    } else if (col === 3) {
+      ws["!cols"][col] = { width: 15 };
+    } else {
+      ws["!cols"][col] = { width };
+      cell.s.alignment = { horizontal: "center" };
+    }
+
+    if (!cell) ws[cellAddress] = {};
+    if (!cell.s) cell.s = {};
+  }
+
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: 1, c: col });
+    if (!ws["!cols"]) ws["!cols"] = [];
+    if (col >= 3) {
+      const cell = ws[cellAddress];
+      if (!cell) ws[cellAddress] = {};
+      if (!cell.s) cell.s = {};
+      cell.s.alignment = { horizontal: "center" };
+    }
+  }
+
+  // MERGE Heading
+  for (let i = 4; i < allVendors.length * 6 + 2; i += 6) { // Updated for 6 columns
+    let columnToMergeStart = i;
+    let columnToMergeEnd = i + 5; // Updated for 6 columns
+
+    const mergeRange = {
+      s: { r: 0, c: columnToMergeStart },
+      e: { r: 0, c: columnToMergeEnd },
+    };
+    const mergeRangeDelivery = {
+      s: { r: api_data.length + 8, c: columnToMergeStart },
+      e: { r: api_data.length + 8, c: columnToMergeEnd },
+    };
+    const mergeRangePaymentTerms = {
+      s: { r: api_data.length + 9, c: columnToMergeStart },
+      e: { r: api_data.length + 9, c: columnToMergeEnd },
+    };
+    const mergeRangeComments = {
+      s: { r: api_data.length + 10, c: columnToMergeStart },
+      e: { r: api_data.length + 10, c: columnToMergeEnd },
+    };
+    const mergeRangeFiles = {
+      s: { r: api_data.length + 11, c: columnToMergeStart },
+      e: { r: api_data.length + 11, c: columnToMergeEnd },
+    };
+
+    if (!ws["!merges"]) ws["!merges"] = [];
+    ws["!merges"].push(mergeRange);
+    ws["!merges"].push(mergeRangeDelivery);
+    ws["!merges"].push(mergeRangePaymentTerms);
+    ws["!merges"].push(mergeRangeComments);
+    ws["!merges"].push(mergeRangeFiles);
+
+    for (let i = 1; i < maxFileLen; i++) {
+      const mergeConfig = {
+        s: { r: api_data.length + 11 + i, c: columnToMergeStart },
+        e: { r: api_data.length + 11 + i, c: columnToMergeEnd },
+      };
+      if (!ws["!merges"]) ws["!merges"] = [];
+      ws["!merges"].push(mergeConfig);
+    }
+  }
+
+  // Packaging, Freight, GST, Target Price, Total Amount column width
+  for (let i = 6; i < allVendors.length * 6 + 2; i += 6) { // Updated for 6 columns
+    if (!ws["!cols"]) ws["!cols"] = [];
+    ws["!cols"][i - 2] = { width: 10 };
+    ws["!cols"][i - 1] = { width: 10 };
+    ws["!cols"][i] = { width: 10 };
+    ws["!cols"][i + 1] = { width: 12 }; // Target Price column
+    ws["!cols"][i + 2] = { width: 12 };
+  }
+
+  if (!ws["!merges"]) ws["!merges"] = [];
+
+  const columns = 4;
+  for (let c = 0; c < columns; c++) {
+    const mergeConfig = {
+      s: { r: 0, c },
+      e: { r: 1, c },
+    };
+    ws["!merges"].push(mergeConfig);
+  }
+  ws["!merges"].push({
+    s: { r: 0, c: range.e.c },
+    e: { r: 1, c: range.e.c },
+  });
+
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    const col = 0;
+    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+    if (!ws[cellAddress]) ws[cellAddress] = {};
+    if (!ws[cellAddress].s) ws[cellAddress].s = {};
+    if (row > 1) {
+      ws[cellAddress].s.alignment = {
+        horizontal: "left",
+        vertical: "center",
+      };
+    }
+  }
+
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      const cellValue = ws[cellAddress] ? ws[cellAddress].v : "";
+      if (cellValue === "-") {
+        if (!ws[cellAddress].s) ws[cellAddress].s = {};
+        ws[cellAddress].s.font = { bold: true, color: { rgb: "FF0000" } };
+      }
+    }
+  }
+
+  for (
+    let i = 2 + api_data.length + 4;
+    i < 2 + api_data.length + 4 + 6;
+    i++
+  ) {
+    const cellAddress = XLSX.utils.encode_cell({ r: i, c: 0 });
+    if (!ws[cellAddress]) ws[cellAddress] = {};
+    if (!ws[cellAddress].s) ws[cellAddress].s = {};
+    ws[cellAddress].s.font = { bold: true };
+  }
+
+  const mergedCellAddresses = ["A1", "A2", "B1", "B2"];
+  mergedCellAddresses.forEach((cellAddress) => {
+    if (!ws[cellAddress]) ws[cellAddress] = {};
+    if (!ws[cellAddress].s) ws[cellAddress].s = {};
+    ws[cellAddress].s.alignment = {
+      vertical: "center",
+      horizontal: "center",
+    };
+  });
+
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    if (!ws[cellAddress]) ws[cellAddress] = {};
+    if (!ws[cellAddress].s) ws[cellAddress].s = {};
+    ws[cellAddress].s.font = { bold: true };
+    ws[cellAddress].s.alignment = {
+      wrapText: true,
+      horizontal: "center",
+      vertical: "center",
+    };
+
+    if (col >= 4 && col < range.e.c) {
+      const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col });
+      if (!ws[cellAddress2]) ws[cellAddress2] = {};
+      if (!ws[cellAddress2].s) ws[cellAddress2].s = {};
+      ws[cellAddress2].s.font = { bold: true, sz: 9 };
+    }
+  }
+
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      if (!ws[cellAddress]) ws[cellAddress] = {};
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+      ws[cellAddress].s.border = {
+        top: { style: "thin", color: { auto: 1 } },
+        bottom: { style: "thin", color: { auto: 1 } },
+        left: { style: "thin", color: { auto: 1 } },
+        right: { style: "thin", color: { auto: 1 } },
+      };
+    }
+  }
+
+  for (let i = 4; i < allVendors.length * 6 + 4; i += 6) { // Updated for 6 columns
+    for (let j = 0; j < api_data.length + 6 + 1; j++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: j, c: i });
+      if (!ws[cellAddress]) ws[cellAddress] = {};
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+      ws[cellAddress].s.border = {
+        right: { style: "thin" },
+        top: { style: "thin" },
+        left: { style: "thick" },
+        bottom: { style: "thin" },
+      };
+    }
+  }
+
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    if (!ws[cellAddress]) ws[cellAddress] = {};
+    if (!ws[cellAddress].s) ws[cellAddress].s = {};
+    ws[cellAddress].s.fill = { fgColor: { rgb: "DDDDDD" } };
+    ws[cellAddress].s.font = { color: { rgb: "000000" }, sz: 12, bold: true };
+  }
+
+  let fileRow = 2 + api_data.length + 9;
+  for (let row_i = fileRow; row_i < fileRow + maxFileLen; row_i++) {
+    if (!ws["!rows"]) ws["!rows"] = [];
+    ws["!rows"][row_i] = { hpx: 35 };
+
+    for (let col = 4; col <= api_data.length * 6 + 4; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row_i, c: col });
+      if (!ws[cellAddress]) ws[cellAddress] = {};
+      if (!ws[cellAddress].s) ws[cellAddress].s = {};
+
+      if (ws[cellAddress].v !== "" && ws[cellAddress].v !== "-") {
+        const file_link = ws[cellAddress].v;
+        ws[cellAddress].l = { Target: file_link };
+        ws[cellAddress].s = {
+          alignment: {
+            wrapText: true,
+            horizontal: "left",
+            vertical: "top"
+          },
+          font: {
+            color: { rgb: "0000FF" },
+            underline: true,
+          },
+          border: {
+            right: { style: "thin" },
+            top: { style: "thin" },
+            bottom: { style: "thin" },
+          }
+        };
+      }
+    }
+  }
+
+  if (maxFileLen > 1) {
     for (let c = 0; c < columns; c++) {
       const mergeConfig = {
-        s: { r: 0, c }, // Start cell
-        e: { r: 1, c }, // End cell
+        s: { r: fileRow, c },
+        e: { r: fileRow + maxFileLen - 1, c },
       };
       ws["!merges"].push(mergeConfig);
     }
-    ws["!merges"].push({
-      s: { r: 0, c: range.e.c }, // Start cell
-      e: { r: 1, c: range.e.c }, // End cell
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+
+  try {
+    const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
+    const excelBuffer = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
     });
-
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      const col = 0; // Column A
-      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-      if (row > 1) {
-        // Skip A1 and A2
-        ws[cellAddress].s.alignment = {
-          horizontal: "left",
-          vertical: "center",
-        }; // Text align left
-      }
-    }
-
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-        const cellValue = ws[cellAddress] ? ws[cellAddress].v : ""; // Cell value
-
-        if (cellValue === "-") {
-          // Set red color for cells with "N/A"
-          if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-          ws[cellAddress].s.font = { bold: true, color: { rgb: "FF0000" } };
-        }
-      }
-    }
-
-    // Bold footer items
-    for (
-      let i = 2 + api_data.length + 4;
-      i < 2 + api_data.length + 4 + 6;
-      i++
-    ) {
-      const cellAddress = XLSX.utils.encode_cell({ r: i, c: 0 }); // First row, current column
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-
-      // ws[cellAddress].s.fill = { fgColor: { rgb: "DDDDDD" } }; // Blue background color
-      ws[cellAddress].s.font = { bold: true }; // White text color
-    }
-
-    // Apply vertical center alignment to merged cells
-    const mergedCellAddresses = ["A1", "A2", "B1", "B2"];
-    mergedCellAddresses.forEach((cellAddress) => {
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-      ws[cellAddress].s.alignment = {
-        vertical: "center",
-        horizontal: "center",
-      }; // Center alignment
-    });
-
-    // BOLD
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col }); // First row, current column
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-      ws[cellAddress].s.font = { bold: true }; // Make text bold
-      ws[cellAddress].s.alignment = {
-        wrapText: true,
-        horizontal: "center",
-        vertical: "center",
-      }; // Text align left
-
-      // Bold second heading
-      if (col >= 4 && col < range.e.c) {
-        const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col }); // First row, current column
-        if (!ws[cellAddress2]) ws[cellAddress2] = {};
-        if (!ws[cellAddress2].s) ws[cellAddress2].s = {}; // Cell style
-        ws[cellAddress2].s.font = { bold: true, sz: 9 }; // Make text bold
-      }
-    }
-
-    // BORDER
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-        if (!ws[cellAddress]) ws[cellAddress] = {};
-        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-        ws[cellAddress].s.border = {
-          top: { style: "thin", color: { auto: 1 } },
-          bottom: { style: "thin", color: { auto: 1 } },
-          left: { style: "thin", color: { auto: 1 } },
-          right: { style: "thin", color: { auto: 1 } },
-        };
-      }
-    }
-
-    // Side border
-    for (let i = 4; i < allVendors.length * 5 + 4; i += 5) {
-      for (let j = 0; j < api_data.length + 6 + 1; j++) {
-        // borders
-        const cellAddress = XLSX.utils.encode_cell({ r: j, c: i });
-        if (!ws[cellAddress]) ws[cellAddress] = {};
-        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-        ws[cellAddress].s.border = {
-          right: { style: "thin" },
-          top: { style: "thin" },
-          left: { style: "thick" },
-          bottom: { style: "thin" },
-        };
-      }
-    }
-
-
-    // color
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col }); // First row, current column
-      if (!ws[cellAddress]) ws[cellAddress] = {};
-      if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-
-      ws[cellAddress].s.fill = { fgColor: { rgb: "DDDDDD" } }; // Blue background color
-      ws[cellAddress].s.font = { color: { rgb: "000000" }, sz: 12, bold: true }; // White text color
-    }
-
-    // Add File Links
-    let fileRow = 2 + api_data.length + 9;
-
-    for (let row_i = fileRow; row_i < fileRow + maxFileLen; row_i++) {
-      if (!ws["!rows"]) ws["!rows"] = [];
-      ws["!rows"][row_i] = { hpx: 35 };
-
-      for (let col = 4; col <= api_data.length * 5 + 4; col++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row_i, c: col }); // file row, current column
-        if (!ws[cellAddress]) ws[cellAddress] = {};
-        if (!ws[cellAddress].s) ws[cellAddress].s = {}; // Cell style
-
-        if (ws[cellAddress].v !== "" && ws[cellAddress].v !== "-") {
-          const file_link = ws[cellAddress].v;
-          ws[cellAddress].l = { Target: file_link };
-
-          ws[cellAddress].s = {
-            alignment: {
-              wrapText: true,
-              horizontal: "left",
-              vertical: "top"
-            },
-            font: {
-              color: { rgb: "0000FF" },
-              underline: true,
-            },
-            border: {
-              right: { style: "thin" },
-              top: { style: "thin" },
-              bottom: { style: "thin" },
-            }
-          }
-        }
-      }
-    }
-
-    // Merge maxFileLen rows of first 4 columns
-    if (maxFileLen > 1) {
-      for (let c = 0; c < columns; c++) {
-        const mergeConfig = {
-          s: { r: fileRow, c }, // Start cell
-          e: { r: fileRow + maxFileLen - 1, c }, // End cell
-        };
-        ws["!merges"].push(mergeConfig);
-      }
-    }
-
-
-   
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-
-    try {
-      const filename = `${currentRFQ?.rfq_no}_quotes.xlsx`;
-      const excelBuffer = XLSX.write(wb, {
-        bookType: "xlsx",
-        type: "array", // Important: gives raw ArrayBuffer
-      });
-      setDownloadLoading(false);
-      return [excelBuffer, filename];
-    } catch (error) {
-      console.error("Error generating Excel file:", error);
-      return null;
-    }
-  };
+    setDownloadLoading(false);
+    return [excelBuffer, filename];
+  } catch (error) {
+    console.error("Error generating Excel file:", error);
+    return null;
+  }
+};
 
 
   const FilterOutGlobalTermsFiles = (all_data) => {
