@@ -20,6 +20,7 @@ import { HeroSection } from '@/components/ui/HeroSection';
 
 // Import subscription components and services
 import SubscriptionModal from '@/components/modal/SubscriptionModal';
+import RegisterUserModal from '@/components/modal/RegisterUserModal';
 import { 
   proceedToSubscription, 
   applyCoupon, 
@@ -30,6 +31,7 @@ import {
 // Import data
 import { pricingData } from '@/components/constants/pricingData';
 import { toast, ToastContainer } from 'react-toastify';
+import storageInstance from '@/utils/storageInstance';
 
 const PricingPage = () => {
   const router = useRouter();
@@ -38,6 +40,8 @@ const PricingPage = () => {
   
   // Subscription state
   const [showModal, setShowModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [selectedSubscription, setSelectedSubscription] = useState({
     plan: null,
     billingCycle: null
@@ -56,6 +60,13 @@ const PricingPage = () => {
     }
   }, [tab, router.isReady]);
 
+  // Cleanup token when component unmounts
+  useEffect(() => {
+    return () => {
+      storageInstance.removeStorege("token");
+    };
+  }, []);
+
   // Payment integration functions
   const payWithRazorPay = async (orderId) => {
     const res = await loadScript(
@@ -69,9 +80,10 @@ const PricingPage = () => {
 
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
-      order_id: orderId,
-      currency: "INR",
-      name: "Workwise",
+      order_id: orderId, // This is Api key. you will get it from razorpay dashboard > account and settings > API keys
+      // amount: parseInt(amount * 100),
+      currency: "INR", // your 3 letter currency code
+      name: "Workwise", // project or transaction name
       description: "Workwise Subscription",
       image: "/assets/images/logo.png",
       handler: function (response) {
@@ -81,10 +93,7 @@ const PricingPage = () => {
         testRazorPayEndpoint(payload).then(res => {
           if(res.data) {
             console.log("RES DATA => ", res.data);
-            toast.success("Payment successful! Redirecting to dashboard...");
-            setTimeout(() => {
-              router.push('/dashboard/subscription');
-            }, 2000);
+            router.push(`/dashboard/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff
           }
         })
       },
@@ -109,12 +118,55 @@ const PricingPage = () => {
     setAppliedCouponData([]);
     setCouponCode("");
     setShowModal(false);
+    // Clean up token when subscription modal is closed
+    storageInstance.removeStorege("token");
+  };
+
+  const handleRegistrationSuccess = (userData) => {    
+    // Close registration modal
+    setShowRegisterModal(false);
+    
+    // Store user data for subscription registration
+    if (userData && selectedPlan) {      
+      // If we have a token, store it temporarily for API calls
+      if (userData.token) {
+        storageInstance.setStorage("token", userData.token);
+      }
+      
+      // Store the user data temporarily for subscription
+      setSelectedSubscription(prev => ({
+        ...prev,
+        userData: userData
+      }));
+      
+      // Proceed with subscription modal
+      handleShowModal(selectedPlan);
+    } else {
+      toast.error("Registration successful but user data missing. Please try again.");
+    }
+  };
+
+  const handleRegistrationClose = () => {
+    setShowRegisterModal(false);
+    setSelectedPlan(null);
+    // Clean up any stored token
+    storageInstance.removeStorege("token");
   };
 
   const handleShowModal = (plan) => {
+    // Use specific subscription IDs for Silver and Gold plans
+    let subscriptionId;
+    if (plan.name === "Silver") {
+      subscriptionId = "21";
+    } else if (plan.name === "Gold") {
+      subscriptionId = "23";
+    } else {
+      subscriptionId = `plan_${plan.name.toLowerCase()}_${Date.now()}`; // Fallback for other plans
+    }
+
     // Create billing cycle data structure based on plan
     const billingCycle = {
-      id: `plan_${plan.name.toLowerCase()}`,
+      id: subscriptionId,
       duration: 12, // Yearly
       label: "Yearly",
       price: plan.price.replace(/[^\d]/g, ''), // Extract numeric price
@@ -147,26 +199,58 @@ const PricingPage = () => {
       toast.error("Enter coupon code");
       return;
     }
-    
-    // For demo purposes, simulate coupon application
-    // In real implementation, this would call the API
     const payload = {
       sub_id: selectedSubscription.billingCycle?.id,
       coupon_code: couponCode,
     };
-    
-    // Simulate API call
-    setTimeout(() => {
-      if (couponCode.toLowerCase() === 'demo10') {
-        const discountAmount = Math.floor(parseInt(selectedSubscription.billingCycle.price) * 0.1);
-        setAppliedCouponData([{
-          coupon_discount_price: discountAmount
-        }]);
-        toast.success("Coupon Applied - 10% discount!");
-      } else {
-        toast.error("Invalid coupon code");
-      }
-    }, 500);
+    applyCoupon(payload)
+      .then((res) => {
+        if (res?.status === 1) {
+          toast.success("Coupon Applied");
+          setAppliedCouponData(res.data);
+        } else if (res.status === 2) {
+          toast.error(res?.errors?.coupon_code);
+          return;
+        } else {
+          toast.error("Internal server error");
+          return;
+        }
+      })
+      .catch((error) => {
+        if (error?.message) {
+          toast.error(error.message.response.data.message, {
+            position: "top-right",
+          });
+        }
+
+        if (error.response?.status === 400) {
+          if (error.response.data.status === 2) {
+            let txt = "";
+            for (let x in error.response.data.errors) {
+              txt = error.response.data.errors[x];
+            }
+            toast.error(txt, {
+              position: "top-right",
+            });
+          } else if (error.response.data.status === 3) {
+            let txt = "";
+            for (let x in error.response.data.errors) {
+              txt = error.response.data.errors[x];
+            }
+            toast.error(txt, {
+              position: "top-right",
+            });
+          } else {
+            toast.error(error.response.data.message, {
+              position: "top-right",
+            });
+          }
+        } else {
+          toast.error(error.message, {
+            position: "top-right",
+          });
+        }
+      });
   };
 
   const proceedToBuy = () => {
@@ -178,25 +262,60 @@ const PricingPage = () => {
       setShowModal(false);
       return;
     }
-
     const payload = {
       sub_id: (selectedSubscription.billingCycle?.id).toString(),
       coupon_code: couponCode,
+      // Include user data for subscription registration
+      user_email: selectedSubscription.userData?.email,
+      user_name: selectedSubscription.userData?.name,
+      user_mobile: selectedSubscription.userData?.mobile,
+      organization_name: selectedSubscription.userData?.organization_name,
+      register_as: selectedSubscription.userData?.register_as
     };
+    
+    proceedToSubscription(payload)
+      .then(async (res) => {
+        if (res?.status) {
+          await payWithRazorPay(res?.data);
+          setShowModal(false);
+          setCouponCode("");
+        }
+      })
+      .catch((error) => {
+        if (error?.message) {
+          toast.error(error.message.response.data.message, {
+            position: "top-right",
+          });
+        }
 
-    // Simulate API call for demo
-    toast.info("Processing payment...");
-    setTimeout(async () => {
-      try {
-        // Generate a mock order ID
-        const mockOrderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        await payWithRazorPay(mockOrderId);
-        setShowModal(false);
-        setCouponCode("");
-      } catch (error) {
-        toast.error("Payment processing failed. Please try again.");
-      }
-    }, 1000);
+        if (error.response?.status === 400) {
+          if (error.response.data.status === 2) {
+            let txt = "";
+            for (let x in error.response.data.errors) {
+              txt = error.response.data.errors[x];
+            }
+            toast.error(txt, {
+              position: "top-right",
+            });
+          } else if (error.response.data.status === 3) {
+            let txt = "";
+            for (let x in error.response.data.errors) {
+              txt = error.response.data.errors[x];
+            }
+            toast.error(txt, {
+              position: "top-right",
+            });
+          } else {
+            toast.error(error.response.data.message, {
+              position: "top-right",
+            });
+          }
+        } else {
+          toast.error(error.message, {
+            position: "top-right",
+          });
+        }
+      });
   };
 
   const handleContactUs = () => {
@@ -213,16 +332,18 @@ const PricingPage = () => {
 
   const handleUpgradeSilver = () => {
     console.log('Upgrade to Silver clicked');
-    // Show subscription modal for Silver plan
+    // Store selected plan and show registration modal
     const silverPlan = pricingData.sellers.plans.find(p => p.name === 'Silver');
-    handleShowModal(silverPlan);
+    setSelectedPlan(silverPlan);
+    setShowRegisterModal(true);
   };
 
   const handleGetGoldAccess = () => {
     console.log('Get Gold Access clicked');
-    // Show subscription modal for Gold plan
+    // Store selected plan and show registration modal
     const goldPlan = pricingData.sellers.plans.find(p => p.name === 'Gold');
-    handleShowModal(goldPlan);
+    setSelectedPlan(goldPlan);
+    setShowRegisterModal(true);
   };
 
   return (
@@ -624,6 +745,16 @@ const PricingPage = () => {
           </section>
         </>
       )}
+
+      {/* Registration Modal */}
+      <RegisterUserModal
+        showModal={showRegisterModal}
+        setShowModal={setShowRegisterModal}
+        showButton={false}
+        onRegistrationSuccess={handleRegistrationSuccess}
+        onClose={handleRegistrationClose}
+        isPaidSubscription={true}
+      />
 
       {/* Subscription Modal */}
       <SubscriptionModal

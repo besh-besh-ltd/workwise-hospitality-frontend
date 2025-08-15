@@ -6,8 +6,12 @@ import Register from "../register";
 export default function RegisterUserModal({ 
   showModal, 
   setShowModal, 
-  showButton = true 
+  showButton = true,
+  onRegistrationSuccess,
+  onClose,
+  isPaidSubscription = false
 }) {
+ 
   // Use internal state if props not provided (for backwards compatibility)
   const [internalShowModal, setInternalShowModal] = useState(false);
   const modalShow = showModal !== undefined ? showModal : internalShowModal;
@@ -39,7 +43,10 @@ export default function RegisterUserModal({
 
       <Modal
         show={modalShow}
-        onHide={() => setModalShow(false)}
+        onHide={() => {
+          setModalShow(false);
+          if (onClose) onClose();
+        }}
         centered
         backdrop="static"
         style={{ backdropFilter: "blur(5px)" }}
@@ -48,7 +55,12 @@ export default function RegisterUserModal({
           <Modal.Title className="p-4">Register As Vendor</Modal.Title>
         </Modal.Header>
         <Modal.Body className="p-4">
-          <Register registerAs={"vendor"} />
+          {console.log("Rendering Register component with onRegistrationSuccess:", typeof onRegistrationSuccess)}
+          <Register 
+            registerAs={"vendor"} 
+            onRegistrationSuccess={onRegistrationSuccess}
+            isPaidSubscription={isPaidSubscription}
+          />
         </Modal.Body>
       </Modal>
     </>

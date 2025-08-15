@@ -1,4 +1,4 @@
-import { RegisterService } from "@/services/Auth";
+import { RegisterService, LoginService } from "@/services/Auth";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Field, Form, Formik } from "formik";
@@ -10,7 +10,7 @@ import { useRouter } from "next/router";
 import { getCountryCodes } from "@/services/cms";
 
   {/* registerAs = vendor or buyer valid values */}
-const Register = ({registerAs}) => {
+const Register = ({registerAs, onRegistrationSuccess, isPaidSubscription = false}) => {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showCPassword, setShowCPassword] = useState(false);
@@ -97,9 +97,10 @@ const Register = ({registerAs}) => {
    
    const { countryCode, confirm_password, ...updatedValues } = { 
     ...values, 
-    mobile: fullMobile 
+    mobile: fullMobile,
+    // Set status to 1 (approved) for paid subscriptions to bypass admin approval
+    ...(isPaidSubscription && { status: 1 })
   };
-    console.log("check again",updatedValues);
     RegisterService(updatedValues)
       .then((response) => {
         setloading(false);
@@ -107,46 +108,64 @@ const Register = ({registerAs}) => {
         toast.success(response.message, {
           position: "top-center",
         });
-        setTimeout(() => {
-          router.push({
-            pathname: "/",
-            query: { user_registered: 1 },
-          });
-        }, 1000);
+        
+        // If callback is provided, authenticate user and call it with user data
+        if (onRegistrationSuccess && typeof onRegistrationSuccess === 'function') {
+          
+          // Automatically authenticate the user with the same credentials
+          const loginData = {
+            email: updatedValues.email,
+            password: updatedValues.password
+          };
+          
+          LoginService(loginData, false)
+            .then((loginResponse) => {
+              // Call the success callback with user data and token
+              onRegistrationSuccess({
+                ...updatedValues,
+                token: loginResponse.token
+              });
+            })
+            .catch((loginError) => {
+              // Even if auto-login fails, still call the callback
+              onRegistrationSuccess(updatedValues);
+            });
+        } else {
+          // Default behavior - redirect to home page
+          setTimeout(() => {
+            router.push({
+              pathname: "/",
+              query: { user_registered: 1 },
+            });
+          }, 1000);
+        }
       })
       .catch((error) => {
         setloading(false);
-
-        if (error?.message) {
-          toast.error(error.message.response.data.message, {
+        // Handle different error structures
+        if (error?.response?.data?.message) {
+          // Standard API error response
+          toast.error(error.response.data.message, {
             position: "top-center",
           });
-        }
-
-        if (error.response?.status === 400) {
-          if (error.response.data.status === 2) {
-            let txt = "";
-            for (let x in error.response.data.errors) {
-              txt = error.response.data.errors[x];
-            }
-            toast.error(txt, {
-              position: "top-center",
-            });
-          } else if (error.response.data.status === 3) {
-            let txt = "";
-            for (let x in error.response.data.errors) {
-              txt = error.response.data.errors[x];
-            }
-            toast.error(txt, {
-              position: "top-center",
-            });
-          } else {
-            toast.error(error.response.data.message, {
-              position: "top-center",
-            });
+        } else if (error?.response?.data?.errors) {
+          // Validation errors
+          let errorMessage = "";
+          for (let x in error.response.data.errors) {
+            errorMessage = error.response.data.errors[x];
+            break; // Show first error
           }
-        } else {
+          toast.error(errorMessage, {
+            position: "top-center",
+          });
+        } else if (error?.message) {
+          // Generic error message
           toast.error(error.message, {
+            position: "top-center",
+          });
+        } else {
+          // Fallback error message
+          toast.error("Registration failed. Please try again.", {
             position: "top-center",
           });
         }
