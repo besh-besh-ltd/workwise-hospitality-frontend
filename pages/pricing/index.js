@@ -18,13 +18,32 @@ import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { HeroSection } from '@/components/ui/HeroSection';
 
+// Import subscription components and services
+import SubscriptionModal from '@/components/modal/SubscriptionModal';
+import { 
+  proceedToSubscription, 
+  applyCoupon, 
+  loadScript, 
+  testRazorPayEndpoint 
+} from '@/services/subscription';
+
 // Import data
 import { pricingData } from '@/components/constants/pricingData';
+import { toast, ToastContainer } from 'react-toastify';
 
 const PricingPage = () => {
   const router = useRouter();
   const { tab } = router.query;
   const [activeTab, setActiveTab] = useState('buyers');
+  
+  // Subscription state
+  const [showModal, setShowModal] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState({
+    plan: null,
+    billingCycle: null
+  });
+  const [appliedCouponData, setAppliedCouponData] = useState([]);
+  const [couponCode, setCouponCode] = useState("");
 
   // Set initial tab based on URL parameter
   useEffect(() => {
@@ -37,24 +56,173 @@ const PricingPage = () => {
     }
   }, [tab, router.isReady]);
 
+  // Payment integration functions
+  const payWithRazorPay = async (orderId) => {
+    const res = await loadScript(
+      "https://checkout.razorpay.com/v1/checkout.js"
+    );
+
+    if (!res) {
+      toast.error("Razorpay SDK failed to load. Are you online?");
+      return;
+    }
+
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+      order_id: orderId,
+      currency: "INR",
+      name: "Workwise",
+      description: "Workwise Subscription",
+      image: "/assets/images/logo.png",
+      handler: function (response) {
+        const payload = {
+          order_id: orderId
+        };
+        testRazorPayEndpoint(payload).then(res => {
+          if(res.data) {
+            console.log("RES DATA => ", res.data);
+            toast.success("Payment successful! Redirecting to dashboard...");
+            setTimeout(() => {
+              router.push('/dashboard/subscription');
+            }, 2000);
+          }
+        })
+      },
+      prefill: {
+        name: "Workwise",
+        email: "",
+        contact: "",
+      },
+      notes: {
+        address: "India",
+      },
+      theme: {
+        color: "#158993",
+      },
+    };
+
+    const paymentObject = new window.Razorpay(options);
+    paymentObject.open();
+  };
+
+  const handleClose = () => {
+    setAppliedCouponData([]);
+    setCouponCode("");
+    setShowModal(false);
+  };
+
+  const handleShowModal = (plan) => {
+    // Create billing cycle data structure based on plan
+    const billingCycle = {
+      id: `plan_${plan.name.toLowerCase()}`,
+      duration: 12, // Yearly
+      label: "Yearly",
+      price: plan.price.replace(/[^\d]/g, ''), // Extract numeric price
+      currency: "INR",
+      discount_price: plan.price.replace(/[^\d]/g, ''),
+      plan_type: plan.name === "Free" ? "f" : "p",
+      Offers: [],
+      active: false,
+      start_date: new Date(),
+      end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+    };
+
+    setSelectedSubscription({
+      plan: {
+        plan_name: plan.name,
+        plan_type: plan.name === "Free" ? "f" : "p",
+        feature: plan.features.map(f => ({ feature_name: f.name }))
+      },
+      billingCycle: billingCycle
+    });
+    setShowModal(true);
+  };
+
+  const handleCpuponCode = (e) => {
+    setCouponCode(e.target.value);
+  };
+
+  const applyCouponToPlan = () => {
+    if (couponCode === "") {
+      toast.error("Enter coupon code");
+      return;
+    }
+    
+    // For demo purposes, simulate coupon application
+    // In real implementation, this would call the API
+    const payload = {
+      sub_id: selectedSubscription.billingCycle?.id,
+      coupon_code: couponCode,
+    };
+    
+    // Simulate API call
+    setTimeout(() => {
+      if (couponCode.toLowerCase() === 'demo10') {
+        const discountAmount = Math.floor(parseInt(selectedSubscription.billingCycle.price) * 0.1);
+        setAppliedCouponData([{
+          coupon_discount_price: discountAmount
+        }]);
+        toast.success("Coupon Applied - 10% discount!");
+      } else {
+        toast.error("Invalid coupon code");
+      }
+    }, 500);
+  };
+
+  const proceedToBuy = () => {
+    if (selectedSubscription.plan.plan_name === "Free") {
+      toast.success("Free plan activated! Redirecting to dashboard...");
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+      setShowModal(false);
+      return;
+    }
+
+    const payload = {
+      sub_id: (selectedSubscription.billingCycle?.id).toString(),
+      coupon_code: couponCode,
+    };
+
+    // Simulate API call for demo
+    toast.info("Processing payment...");
+    setTimeout(async () => {
+      try {
+        // Generate a mock order ID
+        const mockOrderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        await payWithRazorPay(mockOrderId);
+        setShowModal(false);
+        setCouponCode("");
+      } catch (error) {
+        toast.error("Payment processing failed. Please try again.");
+      }
+    }, 1000);
+  };
+
   const handleContactUs = () => {
     console.log('Contact Us clicked');
     // Route to contact form or CRM
+    router.push('/contactus');
   };
 
   const handleStartFree = () => {
     console.log('Start for Free clicked');
-    // Route to signup with tag "pricing-page"
+    // Route to for-vendors page
+    router.push('/for-vendors');
   };
 
   const handleUpgradeSilver = () => {
     console.log('Upgrade to Silver clicked');
-    // Route to sales CRM with tag "pricing-page"
+    // Show subscription modal for Silver plan
+    const silverPlan = pricingData.sellers.plans.find(p => p.name === 'Silver');
+    handleShowModal(silverPlan);
   };
 
   const handleGetGoldAccess = () => {
     console.log('Get Gold Access clicked');
-    // Route to sales CRM with tag "pricing-page"
+    // Show subscription modal for Gold plan
+    const goldPlan = pricingData.sellers.plans.find(p => p.name === 'Gold');
+    handleShowModal(goldPlan);
   };
 
   return (
@@ -286,9 +454,9 @@ const PricingPage = () => {
                     >
                       <ShoppingBag size={16} style={{ color: 'white' }} />
                     </div>
-                                      <h2 className="fs-2 fw-bold text-dark mb-0">
-                    {pricingData.sellers.title}
-                  </h2>
+                    <h2 className="fs-2 fw-bold text-dark mb-0">
+                      {pricingData.sellers.title}
+                    </h2>
                   </div>
                 </div>
               </div>
@@ -389,16 +557,16 @@ const PricingPage = () => {
                 <div className="col-lg-8">
                   <div className="rounded p-4" style={{ backgroundColor: 'var(--light-grey-bg)' }}>
                     <h5 className="fw-bold text-dark mb-3 text-center">All plans include:</h5>
-                                         <div className="row">
-                       {pricingData.sellers.allPlansInclude.map((feature, index) => (
-                         <div key={index} className="col-md-4">
-                           <div className="d-flex align-items-center mb-2">
-                             <Check size={16} className="me-2" style={{ color: 'var(--green-color)' }} />
-                             <span style={{ fontSize: '0.9rem' }}>{feature}</span>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
+                    <div className="row">
+                      {pricingData.sellers.allPlansInclude.map((feature, index) => (
+                        <div key={index} className="col-md-4">
+                          <div className="d-flex align-items-center mb-2">
+                            <Check size={16} className="me-2" style={{ color: 'var(--green-color)' }} />
+                            <span style={{ fontSize: '0.9rem' }}>{feature}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -456,6 +624,21 @@ const PricingPage = () => {
           </section>
         </>
       )}
+
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        show={showModal}
+        onHide={handleClose}
+        proceedToBuy={proceedToBuy}
+        selectedSubscription={selectedSubscription}
+        applyCouponToPlan={applyCouponToPlan}
+        appliedCouponData={appliedCouponData}
+        handleCpuponCode={handleCpuponCode}
+        couponCode={couponCode}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer />
     </div>
   );
 };
