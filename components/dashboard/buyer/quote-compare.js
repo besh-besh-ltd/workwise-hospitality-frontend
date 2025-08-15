@@ -51,7 +51,6 @@ const QuoteCompare = () => {
   const [myRFQs, setmyRFQs] = useState([]);
   const [currentRFQ, setcurrentRFQ] = useState(null);
   const [quotes, setquotes] = useState([]);
-  const [showOverallComparison, setshowOverallComparison] = useState(true);
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
@@ -61,7 +60,6 @@ const QuoteCompare = () => {
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
-  const [showLPRModal, setShowLPRModal] = useState(false);
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
@@ -74,9 +72,7 @@ const QuoteCompare = () => {
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
 
- const handleNormalizeFilterChange =()=>{
-  console.log("nothing to do");
- }
+
   useEffect(() => {
     if (rfq) {
       getRespectiveQuotes();
@@ -1117,6 +1113,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
               <h3 className="heading">Compare Received Quote</h3>
             </div>
             <div className="col-md-8">
+            {rfq && quotes && quotes.length >0 && (
               <div className="btn-options float-end">
                 {/*Negotiation Module Button*/}
                 <span
@@ -1137,16 +1134,13 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                 )}
 
                 {/* Download quote & Close Rfq Buttons */}
-                {rfq && showOverallComparison && (
                   <span onClick={handleDownloadQuote}>
                     {" "}
                     {downloadLoading
                       ? "Generating Excel file...."
                       : "Download as Excel"}{" "}
                   </span>
-                )}
 
-                {rfq && quotes && quotes.length > 0 && (
                   <>
                     {quotes[0]?.rfq[0]?.status == 1 && (
                       <span onClick={handleRFqClose}>
@@ -1161,15 +1155,13 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </span>
                     )}
                   </>
-                )}
 
-              {rfq && quotes && quotes.length > 0 && (
                 <span onClick={handleNormalizeClick}>
                   {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
                 </span>
-              )}
 
               </div>
+            )}
             </div>
           </div>
         </div>
