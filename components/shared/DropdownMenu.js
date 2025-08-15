@@ -86,31 +86,56 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
   };
 
   const handleMouseLeave = (e) => {
-    if (!isMobile) {
-      setIsHovering(false);
-      
-      // Check if mouse is leaving the entire dropdown area (trigger + dropdown)
-      const relatedTarget = e.relatedTarget;
-      
-      // If moving to another dropdown area, don't close immediately
-      if (relatedTarget && (
-        relatedTarget.closest('.dropdown-menu') || 
-        relatedTarget.closest('.dropdown-trigger') ||
-        relatedTarget.closest('[data-dropdown]')
-      )) {
-        return;
-      }
+    if (!isMobile && e) {
+      try {
+        setIsHovering(false);
+        
+        // Check if mouse is leaving the entire dropdown area (trigger + dropdown)
+        const relatedTarget = e?.relatedTarget;
+        
+        // Simple approach: check if moving within our own dropdown system
+        const isMovingWithinDropdown = relatedTarget && (
+          dropdownRef.current?.contains(relatedTarget) || 
+          triggerRef.current?.contains(relatedTarget)
+        );
+        
+        // If moving within our dropdown system, don't close
+        if (isMovingWithinDropdown) {
+          return;
+        }
 
-      // Only close if actually leaving the dropdown system
-      if (!dropdownRef.current?.contains(relatedTarget) && !triggerRef.current?.contains(relatedTarget)) {
+        // Also check if moving to any element with dropdown-related classes
+        let isMovingToDropdownElement = false;
+        if (relatedTarget && relatedTarget.classList && typeof relatedTarget.classList.contains === 'function') {
+          try {
+            isMovingToDropdownElement = 
+              relatedTarget.classList.contains('dropdown-menu') ||
+              relatedTarget.classList.contains('dropdown-trigger') ||
+              relatedTarget.hasAttribute('data-dropdown');
+          } catch (error) {
+            // If there's an error accessing classList, assume it's not a dropdown element
+            isMovingToDropdownElement = false;
+          }
+        }
+        
+        if (isMovingToDropdownElement) {
+          return;
+        }
+
+        // Close the dropdown after a delay
         timeoutRef.current = setTimeout(() => {
-          // Use the ref value instead of state to avoid stale closure issues
           if (!isHoveringRef.current) {
             setOpen(false);
             setNestedOpen(null);
             dropdownManager.clearActive();
           }
         }, 150);
+      } catch (error) {
+        // If any error occurs, just close the dropdown safely
+        console.warn('Error in handleMouseLeave:', error);
+        setOpen(false);
+        setNestedOpen(null);
+        dropdownManager.clearActive();
       }
     }
   };
@@ -130,22 +155,37 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
       isHoveringRef.current = false;
       
       // Check if moving to another dropdown area
-      const relatedTarget = e.relatedTarget;
-      if (relatedTarget && (
-        relatedTarget.closest('.dropdown-menu') || 
-        relatedTarget.closest('.dropdown-trigger') ||
-        relatedTarget.closest('[data-dropdown]')
-      )) {
+      const relatedTarget = e?.relatedTarget;
+      
+      // Simple approach: check if moving within our own dropdown system
+      const isMovingWithinDropdown = relatedTarget && (
+        dropdownRef.current?.contains(relatedTarget) || 
+        triggerRef.current?.contains(relatedTarget)
+      );
+      
+      if (isMovingWithinDropdown) {
         return;
       }
 
-      // Check if moving within the same dropdown (e.g., from menu to nested menu)
-      if (relatedTarget && dropdownRef.current?.contains(relatedTarget)) {
+      // Also check if moving to any element with dropdown-related classes
+      let isMovingToDropdownElement = false;
+      if (relatedTarget && relatedTarget.classList && typeof relatedTarget.classList.contains === 'function') {
+        try {
+          isMovingToDropdownElement = 
+            relatedTarget.classList.contains('dropdown-menu') ||
+            relatedTarget.classList.contains('dropdown-trigger') ||
+            relatedTarget.hasAttribute('data-dropdown');
+        } catch (error) {
+          // If there's an error accessing classList, assume it's not a dropdown element
+          isMovingToDropdownElement = false;
+        }
+      }
+      
+      if (isMovingToDropdownElement) {
         return;
       }
 
       timeoutRef.current = setTimeout(() => {
-        // Use the ref value instead of state to avoid stale closure issues
         if (!isHoveringRef.current) {
           setOpen(false);
           setNestedOpen(null);
