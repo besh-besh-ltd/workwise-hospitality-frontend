@@ -152,7 +152,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
         </OverlayTrigger>
       </td>
       {data.type == "simplified" ? (
-        <td>
+        <td style={{maxWidth: 300}}>
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
             <div className="d-flex flex-column gap-2">
@@ -160,7 +160,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 <Button
                   variant="success"
                   size="sm"
-                  style={{ padding: "8px 0", maxWidth: "120px" }}
+                  style={{ padding: "8px 0", width: "100%" }}
                   onClick={() => handleDownload(data.download_url)}
                 >
                   Download
@@ -174,23 +174,39 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                   <Button
                     variant="success"
                     size="sm"
-                    style={{ padding: "8px 0", maxWidth: "120px" }}
+                    style={{ padding: "8px 0", width: "140px" }}
                   >
                     View
                   </Button>
                 </Link>
               </div>
-              <Button
-                onClick={async () => {
-                  console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
-                  await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name)
-                }}
-                variant="primary"
-                size="sm"
-                style={{ padding: "8px 0", width: "100%" }}
-              >
-                Create RFQ using this
-              </Button>
+              <div className="d-flex gap-2 justify-content-between">
+                <Button
+                  onClick={async () => {
+                    console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
+                    await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name)
+                  }}
+                  variant="primary"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "100%" }}
+                >
+                  Create RFQ
+                </Button>
+                {data.raw_file_url && (
+                  <Link
+                    href={data.raw_file_url}
+                    target="__blank"
+                  >
+                    <Button
+                      variant="success"
+                      size="sm"
+                      style={{ padding: "8px 0", width: "140px" }}
+                    >
+                      Get Original
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </div>
           ) : (
             "-"
@@ -200,6 +216,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
         <td className="text-end">
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
+            <div className="d-flex gap-2">
             <Link
               href={data.is_published == 1 ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.persisted_rfq_id}` : `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
               passHref
@@ -212,8 +229,36 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 View RFQ
               </Button>
             </Link>
+            {data.raw_file_url && (
+              <Link
+                href={data.raw_file_url}
+                target="__blank"
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "140px" }}
+                >
+                  Get Original
+                </Button>
+              </Link>
+            )}
+            </div>
           ) : (
-            "-"
+            data.raw_file_url ? (
+              <Link
+                href={data.raw_file_url}
+                target="__blank"
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "140px" }}
+                >
+                  Get Original
+                </Button>
+              </Link>
+            ) : "-"
           )}
         </td>
       )}
