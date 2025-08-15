@@ -3,7 +3,7 @@ import FullLoader from "@/components/shared/FullLoader";
 import InputModal from "@/components/shared/InputModal";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { downloadQuotesDetails, getTargetPriceHistory, updateTargetPrice } from "@/services/rfq";
+import { downloadQuotesDetails,  updateTargetPrice } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal, extractfileName, handleNormalize } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -81,23 +81,23 @@ const openModalForVariant = (variantId) => {
     
     return fileArr;
   }
-  const getPricehistory = async (rfq_product_id) => {
-    try {
-      const data = await getTargetPriceHistory(rfq_product_id);
+  // const getPricehistory = async (rfq_product_id) => {
+  //   try {
+  //     const data = await getTargetPriceHistory(rfq_product_id);
 
   
-      if (data.length > 0) {
-        settargetPriceHistory(data);
-      } else {
-        setTargetPrice([]);
-      }
+  //     if (data.length > 0) {
+  //       settargetPriceHistory(data);
+  //     } else {
+  //       setTargetPrice([]);
+  //     }
   
-      return data || [];
-    } catch (error) {
-      console.log("error in fetching Target History");
-      return [];
-    }
-  };
+  //     return data || [];
+  //   } catch (error) {
+  //     console.log("error in fetching Target History");
+  //     return [];
+  //   }
+  // };
 
 
   const getLowestBidAmount = (all_data) => {
@@ -179,20 +179,20 @@ const openModalForVariant = (variantId) => {
     setl1total(l1totaltemp);
   };
    
-  const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
-    try {
-      const result = await updateTargetPrice(targetPrice, rfq_product_id);
+  // const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
+  //   try {
+  //     const result = await updateTargetPrice(targetPrice, rfq_product_id);
       
-      if (!result) {
-        toast.error("Error updating Target Price");
-      } else {
-        toast.success("Target Price created and vendors have been informed");
-      }
-    } catch (error) {
-      toast.error(error.message || "Failed to update Target Price");
-      console.error("Update target price error:", error);
-    }
-  };
+  //     if (!result) {
+  //       toast.error("Error updating Target Price");
+  //     } else {
+  //       toast.success("Target Price created and vendors have been informed");
+  //     }
+  //   } catch (error) {
+  //     toast.error(error.message || "Failed to update Target Price");
+  //     console.error("Update target price error:", error);
+  //   }
+  // };
 
 
   const getFinalizedTotal = (all_data) => {
@@ -419,7 +419,7 @@ const openModalForVariant = (variantId) => {
                     </th>
                     <th scope="col" className="all_vendors" rowSpan={2}>
                       <p>
-                        Selling Price / Target Price
+                        Selling Price
                       </p>
                     </th>
                     
@@ -869,7 +869,7 @@ const openModalForVariant = (variantId) => {
                                 </tr>
                               )}
 
-                              {/* Target Price Row */}
+                              {/* Target Price Row
                               {item.latest_target_price && (
                                 <tr>
                                   <td
@@ -885,10 +885,10 @@ const openModalForVariant = (variantId) => {
                                     )}
                                   </td>
                                 </tr>
-                              )}
+                              )} */}
 
                               {/* Set Target Price Row */}
-                              <tr>
+                              {/* <tr>
                                 <td colSpan="2" className="pt-2">
                                   <Button
                                     variant="outline-primary"
@@ -918,7 +918,7 @@ const openModalForVariant = (variantId) => {
                                     historyData={targetPriceHistory}
                                   />
                                 </td>
-                              </tr>
+                              </tr> */}
                             </table>
                           </td>
 

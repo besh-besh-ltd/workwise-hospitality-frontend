@@ -346,16 +346,16 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
   });
 };
 
-export const getTargetPriceHistory = (rfq_product_id) =>{
-  return new Promise (async (resolve , reject) =>{
-    try {
-      let response = await axiosInstance.get(`/rfq/targetPriceHistory/${rfq_product_id}`)
-      resolve(response.data)
-    } catch (error) {
-      reject({message : error})
-    }
-  })
-}
+// export const getTargetPriceHistory = (rfq_product_id) =>{
+//   return new Promise (async (resolve , reject) =>{
+//     try {
+//       let response = await axiosInstance.get(`/rfq/targetPriceHistory/${rfq_product_id}`)
+//       resolve(response.data)
+//     } catch (error) {
+//       reject({message : error})
+//     }
+//   })
+// }
 
 export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
@@ -439,13 +439,10 @@ export const finalizeQuotation = (payload) => {
 
 
 
-export const updateTargetPrice = (targetPrice, tbl_rfq_product_id) => {
+export const updateTargetPrice = ({ productId, vendorIds, targetPrice }) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post('/rfq/negotiate', {
-        target_price : targetPrice,
-        rfq_product_id : tbl_rfq_product_id
-      });
+      let response = await axiosInstance.post('/rfq/negotiate', { productId, vendorIds, targetPrice });
       resolve(response.data);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
