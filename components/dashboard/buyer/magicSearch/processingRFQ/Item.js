@@ -90,6 +90,13 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
     }
   };
 
+  const processType = {
+    simplified: { label: "BOQ Simplification", color: "success" },
+    rfq: { label: "BOQ To RFQ", color: "primary" },
+    "cost-estimation": { label: "Cost Estimation", color: "warning" },
+    "tender-summary": { label: "Tender Summary", color: "secondary" },
+  };
+
   const status = statusBadge[data.status] || {
     variant: "secondary",
     label: "Unknown",
@@ -116,11 +123,11 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
       </td>
       <td>
         <Badge
-          bg={data.type === "simplified" ? "success" : "primary"}
+          bg={processType[data.type]?.color || "primary"}
           className="px-3 py-2"
           style={{ fontWeight: 600 }}
         >
-          {data.type === "simplified" ? "BOQ Simplified" : "BOQ To RFQ"}
+          {processType[data.type]?.label || 'Unknown'}
         </Badge>
       </td>
       <td>
@@ -212,7 +219,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
             "-"
           )}
         </td>
-      ) : (
+      ) : data.type == 'rfq' ? (
         <td className="text-end">
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
@@ -260,6 +267,26 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
               </Link>
             ) : "-"
           )}
+        </td>
+      ) : (
+        <td>
+          {data.status === "completed" ||
+          data.status === "partially_completed" ? (
+            <div className="d-flex gap-2">
+              <Link
+                href={`/ai-tools/cost-estimation/${data.id}`}
+                passHref
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "140px" }}
+                >
+                  View Estimation
+                </Button>
+              </Link>
+            </div>
+          ) : "-"}
         </td>
       )}
     </tr>
