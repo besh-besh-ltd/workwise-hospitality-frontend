@@ -90,6 +90,13 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
     }
   };
 
+  const processType = {
+    simplified: { label: "BOQ Simplification", color: "success" },
+    rfq: { label: "BOQ To RFQ", color: "primary" },
+    "cost-estimation": { label: "Cost Estimation", color: "warning" },
+    "tender-summary": { label: "Tender Summary", color: "secondary" },
+  };
+
   const status = statusBadge[data.status] || {
     variant: "secondary",
     label: "Unknown",
@@ -116,11 +123,11 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
       </td>
       <td>
         <Badge
-          bg={data.type === "simplified" ? "success" : "primary"}
+          bg={processType[data.type]?.color || "primary"}
           className="px-3 py-2"
           style={{ fontWeight: 600 }}
         >
-          {data.type === "simplified" ? "BOQ Simplified" : "BOQ To RFQ"}
+          {processType[data.type]?.label || 'Unknown'}
         </Badge>
       </td>
       <td>
@@ -152,7 +159,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
         </OverlayTrigger>
       </td>
       {data.type == "simplified" ? (
-        <td>
+        <td style={{maxWidth: 300}}>
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
             <div className="d-flex flex-column gap-2">
@@ -160,7 +167,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 <Button
                   variant="success"
                   size="sm"
-                  style={{ padding: "8px 0", maxWidth: "120px" }}
+                  style={{ padding: "8px 0", width: "100%" }}
                   onClick={() => handleDownload(data.download_url)}
                 >
                   Download
@@ -174,32 +181,49 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                   <Button
                     variant="success"
                     size="sm"
-                    style={{ padding: "8px 0", maxWidth: "120px" }}
+                    style={{ padding: "8px 0", width: "140px" }}
                   >
                     View
                   </Button>
                 </Link>
               </div>
-              <Button
-                onClick={async () => {
-                  console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
-                  await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name)
-                }}
-                variant="primary"
-                size="sm"
-                style={{ padding: "8px 0", width: "100%" }}
-              >
-                Create RFQ using this
-              </Button>
+              <div className="d-flex gap-2 justify-content-between">
+                <Button
+                  onClick={async () => {
+                    console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
+                    await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name)
+                  }}
+                  variant="primary"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "100%" }}
+                >
+                  Create RFQ
+                </Button>
+                {data.raw_file_url && (
+                  <Link
+                    href={data.raw_file_url}
+                    target="__blank"
+                  >
+                    <Button
+                      variant="success"
+                      size="sm"
+                      style={{ padding: "8px 0", width: "140px" }}
+                    >
+                      Get Original
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </div>
           ) : (
             "-"
           )}
         </td>
-      ) : (
+      ) : data.type == 'rfq' ? (
         <td className="text-end">
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
+            <div className="d-flex gap-2">
             <Link
               href={data.is_published == 1 ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.persisted_rfq_id}` : `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
               passHref
@@ -212,9 +236,57 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 View RFQ
               </Button>
             </Link>
+            {data.raw_file_url && (
+              <Link
+                href={data.raw_file_url}
+                target="__blank"
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "140px" }}
+                >
+                  Get Original
+                </Button>
+              </Link>
+            )}
+            </div>
           ) : (
-            "-"
+            data.raw_file_url ? (
+              <Link
+                href={data.raw_file_url}
+                target="__blank"
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "140px" }}
+                >
+                  Get Original
+                </Button>
+              </Link>
+            ) : "-"
           )}
+        </td>
+      ) : (
+        <td>
+          {data.status === "completed" ||
+          data.status === "partially_completed" ? (
+            <div className="d-flex gap-2">
+              <Link
+                href={`/ai-tools/cost-estimation/${data.id}`}
+                passHref
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  style={{ padding: "8px 0", width: "140px" }}
+                >
+                  View Estimation
+                </Button>
+              </Link>
+            </div>
+          ) : "-"}
         </td>
       )}
     </tr>
