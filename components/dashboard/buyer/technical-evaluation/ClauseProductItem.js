@@ -24,12 +24,11 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
     const [responseLoading, setResponseLoading] = useState(false);
     const [vendors, setVendors] = useState(null);
     const [selectedVendor, setSelectedVendor] = useState(null);
-    const [summarisedDeviation , setSummarisedDeviation] = useState();
+    // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
     
  
-
     const addToTechnicallyAccepted = async (vendor = null) => {
         const payload = {
             vendor_id: vendor ? vendor.vendor_id : selectedVendor ? selectedVendor.vendor_id : _selectedVendor.value,
