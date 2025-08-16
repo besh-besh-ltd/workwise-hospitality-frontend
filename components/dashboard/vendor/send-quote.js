@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
+import { extractQuotation, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -8,11 +8,13 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, extractParsedNumber, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
 import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
+import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
+import { IoMdInformationCircleOutline } from "react-icons/io";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -61,6 +63,11 @@ const SendQuotePageComp = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
+  const [extractedQuotes, setExtractedQuotes] = useState({
+    show: false,
+    data: null,
+  })
+  const [extractingQuotes, setExtractingQuotes] = useState(false);
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -70,7 +77,46 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 // Save the initial payment terms list from backend
 const originalPaymentTermsListRef = useRef(null);
 
+  /**
+   * Main transformer
+   * @param {Array<object>} items
+   * @returns {Array<object>}
+   */
+  function normalizeExtractedItems(items) {
+    return (items || []).filter(it => it.id != 0).map((it) => {
+      const quantityNum = it.quantity.value;
+      const unit = (it.quantity && it.quantity.unit) || "";
 
+      const basePriceNum = it.base_price.value;
+
+      const freight = moneyOrPercent(it.freight);
+      const packaging = moneyOrPercent(it.packaging);
+
+      // Taxes are typically percentage
+      const tax = moneyOrPercent(it.taxes, true);
+      if (typeof tax.value === "number" && it.taxes && it.taxes.unit === "%") {
+        tax.mode = "%";
+      }
+
+      const deliveryPeriod =
+        typeof it.delivery_period === "number"
+          ? it.delivery_period
+          : toNumber(it.delivery_period);
+
+      return {
+        id: it.id,
+        rfq_product_name: rfqDetails.products?.find(product => product.id == it.id)?.name || it.item_name,
+        raw_product_name: it.item_name,
+        quantity: quantityNum,
+        unit,
+        base_price: basePriceNum,
+        freight,
+        packaging,
+        tax,
+        delivery_period: deliveryPeriod ?? null,
+      };
+    });
+  }
 
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
@@ -605,6 +651,7 @@ return { deletedTerms, createdTerms, updatedTerms };
 
   const uploadGlobalDocumentFiles = async (e) => {
     try {
+      setExtractingQuotes(true);
       const filePath = await handleFileUpload(e, token);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
@@ -612,11 +659,33 @@ return { deletedTerms, createdTerms, updatedTerms };
         filePath
       ]);
 
+      await handleQuotationDocumentUpload(e.target?.files?.[0]);
+
     } catch (error) {
       let message = error.message;
       toast.error(message);
-    }
+    } finally { setExtractingQuotes(false); }
   };
+
+  const handleQuotationDocumentUpload = async (file) => {
+    try {
+      const response = await extractQuotation(file, rfqDetails)
+      const extracted = response.data?.result?.extracted?.Details;
+
+      if(extracted) {
+        setExtractedQuotes((prev) => ({
+          ...prev,
+          data: normalizeExtractedItems(extracted),
+          show: true,
+        }));
+      } else {
+        toast.info("No Quotations found in given document")
+      }
+    } catch (error) {
+      console.error("QUOTE EXTRACTION ERROR:", error);
+      toast.error("Something went wrong while extraction details from quotation document, please try again later!");
+    }
+  }
 
   const removeGlobalFiles = (file_url) => {
     const newFileLinks = globalDocumentFiles.filter((fileItem) => fileItem !== file_url);
@@ -659,6 +728,41 @@ return { deletedTerms, createdTerms, updatedTerms };
       }))
     }
   }
+
+  const overrideQuote = (overrideQuotes) => {
+    if (overrideQuotes && Array.isArray(overrideQuotes)) {
+      const overrideQuoteIds = overrideQuotes.map(quote => quote.id);
+      const updatedProduts = quoteProducts
+        .map((product) => {
+          if (overrideQuoteIds.includes(product.id)) {
+            const quote = overrideQuotes.find(quote => product.id === quote.id);
+            if(quote) {
+              product.unit_price = quote.base_price;
+              if (typeof quote.freight.value === "number") {
+                product.freight_price = quote.freight.value;
+                product.freight_mode = quote.freight.unit;
+              }
+              if (typeof quote.packaging.value === "number") {
+                product.package_price = quote.packaging.value;
+                product.package_mode = quote.packaging.unit;
+              }
+              if (typeof quote.tax.value === "number") {
+                product.tax = quote.tax.value;
+                product.tax_mode = quote.tax.unit;
+              }
+              product.delivery_period = quote.delivery_period;
+            }
+          }
+
+          return product;
+        });
+
+      calculateTotal(updatedProduts);
+
+      setExtractedQuotes(prev => ({...prev, show: false}));
+      toast.info("Quoted has been overrided to respective products")
+    }
+  };
 
   useEffect(() => {
     updateChargesByGlobal("freight");
@@ -705,6 +809,10 @@ return { deletedTerms, createdTerms, updatedTerms };
     updateChargesByGlobal("tax");
     calculateTotal(updated, true, 'tax');
   }, [globalTax]);
+
+  useEffect(() => {
+    console.log("EXTRACTED DATA:", extractedQuotes.data)
+  }, [extractedQuotes.data])
 
   return (
     <>
@@ -1048,17 +1156,26 @@ return { deletedTerms, createdTerms, updatedTerms };
           </div>
         )}
 
+        <div
+          className="alert alert-sm alert-info d-flex align-items-start mb-0 px-3 py-2 mb-2"
+          role="alert"
+        >
+          <small>
+            Upload your document and our AI will automatically fetch given quotes for you.
+          </small>
+        </div>
         <label
           className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer" }}
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
         >
           <FontAwesomeIcon icon={faFile} className="me-2" />
-          Upload Quotation Document
+          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
           <input
             type="file"
             accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
             onChange={(e) => uploadGlobalDocumentFiles(e)}
             multiple
+            disabled={extractingQuotes}
           />
         </label>
 
@@ -1774,6 +1891,14 @@ return { deletedTerms, createdTerms, updatedTerms };
           setregretModal(false);
         }}
       />
+      {extractedQuotes.data && (
+        <QuotesOverrideModal
+          show={extractedQuotes.show}
+          onClose={() => setExtractedQuotes(prev => ({...prev, show: false}))}
+          quotes={extractedQuotes.data}
+          overrideQuote={overrideQuote}
+        />
+      )}
     </>
   );
 };
