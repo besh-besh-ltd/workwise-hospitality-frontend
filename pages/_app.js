@@ -101,6 +101,16 @@ export default function App({ Component, pageProps }) {
               </>
             )}
 
+            <Script
+              id="freshchat-loader"
+              src="//in.fw-cdn.com/32510222/1385154.js"
+              strategy="afterInteractive"
+              onLoad={() => {
+                console.log('FreshChat loaded');
+              }}
+              data-chat="true"
+            />
+
             <Component {...pageProps} />
 
           </Layout>
