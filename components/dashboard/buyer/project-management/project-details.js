@@ -130,17 +130,12 @@ const ProjectDetails = () => {
         }
     };
    useEffect(() => {
-        console.log("ProjectID changed:", projectID);
         if (projectID && projectID !== 'undefined') {
             getProjectBudgetData();
         }
     }, [projectID]);
 
-    // Debug state changes
-    useEffect(() => {
-        if(projectBudget)
-        console.log("Project Budget State Updated:", projectBudget);
-    }, [projectBudget]);  
+  
 
 
     const handleDropdownChange = (e) => {
@@ -202,8 +197,8 @@ const ProjectDetails = () => {
         setOpenEditProject(false);
         updateProject(projectIdRef.current, payload)
             .then((res) => {
-                toast.success(res.message, { position: "top-right", });
-                // Call getProjectDetails instead of getProjects which doesn't exist
+                toast.success(`Project "${res?.data?.name}" has been updated successfully!`, { position: "top-right" });
+                 // Call getProjectDetails instead of getProjects which doesn't exist
                 getProjectDetails();
             })
             .catch((error) => {
@@ -581,7 +576,7 @@ const ProjectDetails = () => {
                             alignItems: "center",
                           }}
                         >
-                          <h3 className="title">Project Budget</h3>
+                          <h3 className="title">Project Procurement Budget</h3>
                           {!projectDetails?.budget ||
                           projectDetails?.budget == 0 ? (
                             <button
@@ -599,11 +594,14 @@ const ProjectDetails = () => {
                           ) : (
                             <div style={{ textAlign: "right" }}>
                               <p style={{ margin: "0", fontWeight: "500" }}>
-                                Budget: {projectDetails?.budget}
+                                Budget: {" "} ₹{projectDetails?.budget}
                               </p>
                               <p style={{ margin: "0", fontWeight: "500" }}>
-                                Avail Budget:{" "}
-                                {projectDetails?.budget - avlBudget}
+                                Available Budget: ₹
+                                {Math.max(
+                                  0,
+                                  projectDetails?.budget - avlBudget
+                                )}
                               </p>
                             </div>
                           )}
@@ -686,7 +684,12 @@ const ProjectDetails = () => {
                             <div className="d-flex justify-content-between mt-2">
                               <span className="fw-bold">Available Budget:</span>
                               <span className="text-danger fw-bold">
-                                ₹{projectDetails?.budget - (avlBudget || 0)}
+                                ₹
+                                {Math.max(
+                                  0,
+                                  (projectDetails?.budget ?? 0) -
+                                    (avlBudget ?? 0)
+                                )}
                               </span>
                             </div>
                           </div>

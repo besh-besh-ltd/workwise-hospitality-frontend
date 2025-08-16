@@ -220,7 +220,8 @@ const Search = ({ title = "Preffered Vendors", type }) => {
     isLoggedIn,
     debouncedVendorName, // Use debouncedVendorName instead of vendorName,
     myVendorType,
-    selectedMakes
+    selectedMakes,
+    search_key
   ]);
 
   // When a new product is selected, update the search bar value
@@ -603,7 +604,8 @@ const clearVendorFilters = () => {
 
     // Set the search key and update the selected product
     getMakeList(item?.variant_id)
-    setSearch_key(item.variant_name);
+    const productName = item.variant_name || item.product_name || '';
+    setSearch_key(productName);
     setCat_id(item.category_id);
     setcurrentSelectedProduct(item);
     setbulkRFQVendors([]);
@@ -615,7 +617,7 @@ const clearVendorFilters = () => {
     const { rfq_id, sheet_id } = router.query;
 
     // Update the URL to include the selected product's slug and preserve rfq_id if it exists
-    const productSlug = item.slug || cleanAndAddHyphen(item.variant_name || item.product_name || '');
+    const productSlug = item.slug || cleanAndAddHyphen(productName);
     const newUrl = rfq_id && sheet_id
       ? `/vendor/${productSlug}?rfq_id=${rfq_id}&sheet_id=${sheet_id}`
       : rfq_id && !sheet_id ? `/vendor/${productSlug}?rfq_id=${rfq_id}` 

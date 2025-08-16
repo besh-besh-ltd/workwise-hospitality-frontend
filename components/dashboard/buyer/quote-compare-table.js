@@ -21,7 +21,10 @@ const QuoteCompareTable = ({
   proditem,
   alreadyFinalized,
   isRfqClosed = false,
-  availableBudget
+  availableBudget,
+  targetPrice,
+  targetHistory,
+  normalizeFilter
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
@@ -38,7 +41,7 @@ const QuoteCompareTable = ({
   useEffect(() => {
     calculateLowestQuote();
   }, []);
-
+//  console.log("logging the quotations recived ", quotations);
   const calculateLowestQuote = () => {
     const removeRegretQuotes = quotations.filter((item) => item.quote_details.is_regret != 1);
     if (removeRegretQuotes.length > 0) {
@@ -52,8 +55,8 @@ const QuoteCompareTable = ({
           const curQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || curItemQuoteDetails.quantity
           const lowQuantity = proditem.product_details[0].rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity
 
-          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity)
-          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity)
+          const currentTotal = calculateTotal(curItemQuoteDetails, curQuantity, normalizeFilter)
+          const lowestTotal = calculateTotal(lowestQuoteDetails, lowQuantity, normalizeFilter)
 
           if (curItemQuoteDetails.unit_price > 0) {
             let curLowest = lowest;
@@ -84,7 +87,6 @@ const QuoteCompareTable = ({
       setLowestQuote(quoteWithLowestPrice);
     }
   };
-
   const handleNegotiate = (item) => {
     setVendorData(item?.quote_details?.vendor_details);
     setActiveModal('common');
@@ -102,7 +104,7 @@ const QuoteCompareTable = ({
   const handleViewFinalizationHistory = () => {
     setActiveModal('finalize_history');
   }
-
+ 
   return (
     <>
       <div
@@ -124,6 +126,9 @@ const QuoteCompareTable = ({
               <div className="table-si-row fw-semibold table-grey-row">
                 Total Rate
               </div>
+              <div className="table-si-row fw-semibold">
+                Target Price
+              </div>
               <div className="table-si-row">Delivery Period (In Days)</div>
               <div className="table-si-row table-grey-row">Comments</div>
               <div className="table-si-row">Vendor Documents</div>
@@ -131,7 +136,6 @@ const QuoteCompareTable = ({
                 Terms & Conditions
               </div>
               <div className="table-si-row">Payment Terms</div>
-              <div className="table-si-row">Created By</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -326,8 +330,8 @@ const QuoteCompareTable = ({
                           : "table-grey-row"
                       }`}
                     >
-                      {calculateTotal(item, quantity)}
-                      {itemUpdated &&
+                     {calculateTotal(item, quantity, normalizeFilter)}
+                       {itemUpdated &&
                         calculateTotal(itemUpdated, quantity) !=
                           calculateTotal(item, quantity) && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
@@ -341,18 +345,27 @@ const QuoteCompareTable = ({
                         </span>
                       )}
                     </div>
+                    <div
+                      className={`table-si-row fw-semibold ${
+                        item.is_lowest
+                          ? "bg-success text-white d-flex justify-content-between"
+                          : ""
+                      } `} // highlights in yellow-orange
+                    >
+                      ₹{item.quote_details.latest_target_price}
+                    </div>
                     <div className="table-si-row">
                       {item.delivery_period != ""
                         ? parseInt(item.delivery_period) <= 1
-                          ? `${item.delivery_period} Day`
-                          : `${item.delivery_period} Days`
-                        : "--"}
+                          ? `${item.delivery_period || 0} Day`
+                          : `${item.delivery_period || 0} Days`
+                        : "-"}
                       {itemUpdated &&
                         itemUpdated.delivery_period != item.delivery_period && (
                           <span className="d-block buyer-individual-quote-compare-text-strike ">
                             {parseInt(itemUpdated.delivery_period) <= 1
-                              ? `${itemUpdated.delivery_period} Day`
-                              : `${itemUpdated.delivery_period} Days`}
+                              ? `${itemUpdated.delivery_period || 0} Day`
+                              : `${itemUpdated.delivery_period || 0} Days`}
                           </span>
                         )}
                     </div>
@@ -372,7 +385,7 @@ const QuoteCompareTable = ({
                       {item.document_files ? (
                         <>{renderFileLink(item.document_files)}</>
                       ) : (
-                        <span>N/A</span>
+                        <span>-</span>
                       )}
                     </div>
                     <div className="table-si-row table-grey-row">
@@ -384,21 +397,37 @@ const QuoteCompareTable = ({
                           )}
                         </>
                       ) : (
-                        <span>N/A</span>
+                        <span>-</span>
                       )}
                     </div>
                     <div className="table-si-row">
-                      {item?.global_payment_term ? (
                         <ReadMore
-                          content={item?.global_payment_term}
+                          content={item?.global_payment_term || ""}
                           maxLines={2}
                         />
-                      ) : (
-                        "NA"
-                      )}
-                    </div>
-                    <div className="table-si-row">
-                      {item?.quote_details?.created_by || "-"}
+
+                    {/* Payment terms list */}
+                    {(() => {
+                      const terms =item?.payment_terms                   
+                      return (
+                        <div className="">
+                          {terms.length ? (
+                            <ul className="">
+                              {terms.map((t, i) => (
+                                <li key={t.id ?? i} className="d-flex justify-content-between py-1">
+                                  <span className="text-capitalize">
+                                    {!t.comment ? ` ${t.type} ${t.days ? t.days + ' days' : ''} ` : ""}
+
+                                    {t.comment ? t.comment  : null}
+                                  </span>
+                                  <span className="fw-semibold">{t.value != null ? `${t.value}%` : "-"}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : "-"}
+                        </div>
+                      );
+                    })()}
                     </div>
                   </div>
                 );

@@ -166,7 +166,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                   Download
                 </Button>
                 <Link
-                  href={`/boq-automation/view?jsonUrl=${encodeURIComponent(
+                  href={`/dashboard/buyer/boq-automation/view?jsonUrl=${encodeURIComponent(
                     getDownloadURL(data.download_url, true)
                   )}`}
                   passHref
@@ -183,7 +183,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
               <Button
                 onClick={async () => {
                   console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
-                  await handleCreateRFQ(getDownloadURL(data.download_url), data.file_name)
+                  await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name)
                 }}
                 variant="primary"
                 size="sm"
@@ -201,7 +201,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
           {data.status === "completed" ||
           data.status === "partially_completed" ? (
             <Link
-              href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
+              href={data.is_published == 1 ? `/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data.persisted_rfq_id}` : `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data.persisted_rfq_id}`}
               passHref
             >
               <Button

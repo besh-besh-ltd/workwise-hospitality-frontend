@@ -4,7 +4,7 @@ import {
   getHierarchy,
   updateHierarchy,
 } from "@/services/general";
-import { formatToINRShort } from "@/utils/sharedFunctions";
+import { addCommasToNumber, formatToINRShort } from "@/utils/sharedFunctions";
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -17,15 +17,17 @@ import {
   Tab,
   Dropdown,
   Badge,
+  Container,
 } from "react-bootstrap";
 import { BsArrowRight } from "react-icons/bs";
+import { TbHierarchy } from "react-icons/tb";
 import { toast } from "react-toastify";
 
 const ApprovalHierarchyPage = () => {
   const [tab, setTab] = useState("display");
   const [users, setUsers] = useState([]);
 
-  const [hierarchy, setHierarchy] = useState([]);
+  const [hierarchy, setHierarchy] = useState(null);
   const [removableApprovers, setRemovableApprovers] = useState([]);
   const [isEdit, setIsEdit] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,30 +69,35 @@ const ApprovalHierarchyPage = () => {
   };
 
   const handleAddUser = () => {
+    const data = { ...formData }
+    if(!data.userId || (!data.active == undefined) || !data.level) return;
+
+    if(!data.bypass_cap) data.bypass_cap = 0;
+
     let updatableHierarchy = [...hierarchy];
 
-    if (updatableHierarchy.find((h) => h.id === parseInt(formData.userId))) {
+    if (updatableHierarchy.find((h) => h.id === parseInt(data.userId))) {
       updatableHierarchy = updatableHierarchy.filter(
-        (h) => h.id != parseInt(formData.userId)
+        (h) => h.id != parseInt(data.userId)
       );
     }
 
-    const user = users.find((u) => u.id === parseInt(formData.userId));
+    const user = users.find((u) => u.id === parseInt(data.userId));
     if (
       !user ||
-      updatableHierarchy.find((h) => h.level === parseInt(formData.level))
+      updatableHierarchy.find((h) => h.level === parseInt(data.level))
     ) {
       updatableHierarchy = updatableHierarchy.filter(
-        (h) => h.level != parseInt(formData.level)
+        (h) => h.level != parseInt(data.level)
       );
     }
     setHierarchy([
       ...updatableHierarchy,
       {
         ...user,
-        bypass_cap: parseInt(formData.bypass_cap),
-        active: formData.active,
-        level: parseInt(formData.level),
+        bypass_cap: parseInt(data.bypass_cap),
+        active: data.active,
+        level: parseInt(data.level),
       },
     ]);
     setFormData({ userId: "", bypass_cap: "", active: true, level: "" });
@@ -149,9 +156,9 @@ const ApprovalHierarchyPage = () => {
 
   const shiftUser = (id, direction) => {
     const idx = hierarchy.findIndex((u) => u.id === id);
-    if (direction === "left" && !hierarchy.some(h => h.level == (hierarchy[idx].level + 1))) return;
+    if (direction === "left" && ((hierarchy[idx].level - 1) <= 0 || !hierarchy.some(h => h.level == (hierarchy[idx].level - 1)))) return;
 
-    const newLevel = hierarchy[idx].level + (direction === "left" ? 1 : -1);
+    const newLevel = hierarchy[idx].level + (direction === "left" ? -1 : 1);
     const existHierarcyWithLevel = hierarchy.find((u) => u.level === newLevel);
     if (existHierarcyWithLevel) {
       existHierarcyWithLevel.level = hierarchy[idx].level;
@@ -160,6 +167,12 @@ const ApprovalHierarchyPage = () => {
     updated[idx].level = newLevel;
     setHierarchy(updated);
   };
+
+  const isHighestApprover = (user, hierarchy) => {
+    const activeUsers = hierarchy.filter(h => h.active)
+    if(activeUsers.length <= 0) return false;
+    return activeUsers[activeUsers.length - 1].id == user.id;
+  }
 
   useEffect(() => {
     fetchCompanyUsers();
@@ -195,91 +208,127 @@ const ApprovalHierarchyPage = () => {
               {tab === "display" && (
                 <div className="mx-4 mb-4">
                   <h4 className="mb-3 fw-medium">Purchase Order Hierarchy</h4>
-                  <div className="d-flex flex-wrap gap-3">
-                    {hierarchy
-                      .sort((a, b) => b.level - a.level)
-                      .map((user, index, self) => (
-                        <>
-                          <Card
-                            key={user.id}
-                            style={{ width: "320px", position: "relative" }}
-                            className="shadow-sm"
-                          >
-                            <Card.Body>
-                              <h6 className="mb-1">{user.name}</h6>
-                              <p className="mb-2 small text-muted">
-                                {user.email}
-                              </p>
-                              <p className="mb-0">
-                                <strong>Level:</strong> {user.level}
-                              </p>
-                              <p className="mb-1">
-                                <strong>Bypass:</strong> ₹
-                                {user.bypass_cap
-                                  ? formatToINRShort(user.bypass_cap)
-                                  : "-"}
-                                <small className="fw-medium"> {index == self.length - 1 ? ' (Highest Approver)' : ''}</small>
-                              </p>
-                              <p className="mb-0">
-                                <strong>Status: </strong>
-                                <Badge
-                                  bg={user.active ? "success" : "secondary"}
-                                >
-                                  {user.active ? "Active" : "Inactive"}
-                                </Badge>
-                              </p>
-                              <Dropdown className="mt-3">
-                                <Dropdown.Toggle variant="light" size="sm">
-                                  Options
-                                </Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                  <Dropdown.Item
-                                    onClick={() => shiftUser(user.id, "left")}
-                                  >
-                                    Shift Left
-                                  </Dropdown.Item>
-                                  <Dropdown.Item
-                                    onClick={() => shiftUser(user.id, "right")}
-                                  >
-                                    Shift Right
-                                  </Dropdown.Item>
-                                  <Dropdown.Item
-                                    onClick={() => handleEdit(user)}
-                                  >
-                                    Edit
-                                  </Dropdown.Item>
-                                </Dropdown.Menu>
-                              </Dropdown>
-                            </Card.Body>
-                          </Card>
-                          {index < self.length - 1 && (
-                            <div className="d-flex flex-column justify-content-center">
-                              <BsArrowRight
-                                className={`${
-                                  self[index + 1].active
-                                    ? "text-success"
-                                    : "text-danger"
-                                }`}
-                                size={35}
-                              />
-                              {!self[index + 1].active && (
-                                <p className="fw-semibold mb-0 text-danger">
-                                  SKIP
+                  {hierarchy ? (
+                    <div className="d-flex flex-wrap gap-3">
+                      {hierarchy
+                        .sort((a, b) => a.level - b.level)
+                        .map((user, index, self) => (
+                          <>
+                            <Card
+                              key={user.id}
+                              style={{ width: "320px", position: "relative" }}
+                              className="shadow-sm"
+                            >
+                              <Card.Body>
+                                <h6 className="mb-1">{user.name}</h6>
+                                <p className="mb-2 small text-muted">
+                                  {user.email}
                                 </p>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      ))}
-                  </div>
-                  <Button
-                    disabled={saving}
-                    onClick={handleSaveChanges}
-                    variant="primary"
-                    className="mt-4 p-2"
-                  >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </Button>
+                                <p className="mb-0">
+                                  <strong>Level:</strong> {user.level}
+                                </p>
+                                <p className="mb-1">
+                                  <strong>Bypass:</strong> ₹
+                                  {user.bypass_cap
+                                    ? formatToINRShort(user.bypass_cap)
+                                    : "-"}
+                                  {isHighestApprover(user, hierarchy) && (
+                                    <small className="fw-medium">
+                                      {" "}
+                                      (Highest Approver)
+                                    </small>
+                                  )}
+                                </p>
+                                <p className="mb-0">
+                                  <strong>Status: </strong>
+                                  <Badge
+                                    bg={user.active ? "success" : "secondary"}
+                                  >
+                                    {user.active ? "Active" : "Inactive"}
+                                  </Badge>
+                                </p>
+                                <Dropdown className="mt-3">
+                                  <Dropdown.Toggle variant="light" size="sm">
+                                    Options
+                                  </Dropdown.Toggle>
+                                  <Dropdown.Menu>
+                                    <Dropdown.Item
+                                      onClick={() => shiftUser(user.id, "left")}
+                                    >
+                                      Shift Left
+                                    </Dropdown.Item>
+                                    <Dropdown.Item
+                                      onClick={() =>
+                                        shiftUser(user.id, "right")
+                                      }
+                                    >
+                                      Shift Right
+                                    </Dropdown.Item>
+                                    <Dropdown.Item
+                                      onClick={() => handleEdit(user)}
+                                    >
+                                      Edit
+                                    </Dropdown.Item>
+                                  </Dropdown.Menu>
+                                </Dropdown>
+                              </Card.Body>
+                            </Card>
+                            {index < self.length - 1 && (
+                              <div className="d-flex flex-column justify-content-center">
+                                <BsArrowRight
+                                  className={`${
+                                    self[index + 1].active
+                                      ? "text-success"
+                                      : "text-danger"
+                                  }`}
+                                  size={35}
+                                />
+                                {!self[index + 1].active && (
+                                  <p className="fw-semibold mb-0 text-danger">
+                                    SKIP
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ))}
+                    </div>
+                  ) : (
+                    <div
+                      className="d-flex flex-column"
+                      style={{ maxWidth: 400 }}
+                    >
+                      <div
+                        className="mb-3 text-primary"
+                        style={{ fontSize: 56 }}
+                      >
+                        <TbHierarchy />
+                      </div>
+                      <h4 className="mb-2 fw-semibold">
+                        No PO Hierarchy Found
+                      </h4>
+                      <p className="mb-4 text-muted">
+                        Create a hierarchy to start organizing your POs.
+                      </p>
+                      <Button
+                        variant="primary"
+                        className="p-2"
+                        onClick={() => {}}
+                      >
+                        Create Hierarchy
+                      </Button>
+                    </div>
+                  )}
+                  {hierarchy && (
+                    <Button
+                      disabled={saving}
+                      onClick={handleSaveChanges}
+                      variant="primary"
+                      className="mt-4 p-2"
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  )}
                 </div>
               )}
               {tab === "create" && (
@@ -305,6 +354,7 @@ const ApprovalHierarchyPage = () => {
                       <Form.Label>Bypass Cap (₹)</Form.Label>
                       <Form.Control
                         type="number"
+                        min={0}
                         value={formData.bypass_cap}
                         onChange={(e) =>
                           setFormData({
@@ -339,7 +389,13 @@ const ApprovalHierarchyPage = () => {
                         <option value="false">Inactive</option>
                       </Form.Select>
                     </Form.Group>
-                    <Button onClick={handleAddUser} className="mt-1 p-2">
+                    <Button
+                      disabled={
+                        (!formData.active == undefined) || !formData.level || !formData.userId
+                      }
+                      onClick={handleAddUser}
+                      className="mt-1 p-2"
+                    >
                       Add User
                     </Button>
                     <p className="mt-2">
@@ -352,19 +408,19 @@ const ApprovalHierarchyPage = () => {
                   <Col md={7}>
                     <h6 className="mb-2.5">Preview:</h6>
                     {hierarchy
-                      .sort((a, b) => b.level - a.level)
+                      .sort((a, b) => a.level - b.level)
                       .map((user) => (
-                        <Card key={user.id} className="mb-2">
+                        <Card key={user.id} className={`mb-2`}>
                           <Card.Body>
                             <div className="d-flex justify-content-between">
                               <div>
-                                <strong>{user.name}</strong>
+                                <strong>{user.name} {isHighestApprover(user, hierarchy) ? <small className="text-muted fw-medium">(Highest Approver)</small>: ""}</strong>
                                 <br />
                                 <small>{user.email}</small>
                                 <br />
                                 <small>
                                   Level: {user.level} | ₹
-                                  {user.bypass_cap.toLocaleString()} |{" "}
+                                  {addCommasToNumber(user.bypass_cap)} |{" "}
                                   <Badge
                                     bg={user.active ? "success" : "secondary"}
                                   >
@@ -390,11 +446,14 @@ const ApprovalHierarchyPage = () => {
                         </Card>
                       ))}
                     <Button
+                      disabled={saving}
                       variant="success"
                       className="mt-1 p-2"
-                      onClick={() => setTab("display")}
+                      onClick={async () => {
+                        await handleSaveChanges();
+                      }}
                     >
-                      Create Hierarchy
+                      {saving ? "Saving..." : isEdit ? "Update Hierarchy" : "Create Hierarchy"}
                     </Button>
                   </Col>
                 </Row>
@@ -415,6 +474,7 @@ const ApprovalHierarchyPage = () => {
               <Form.Label>Bypass Cap (₹)</Form.Label>
               <Form.Control
                 type="number"
+                min={0}
                 value={editData.bypass_cap}
                 onChange={(e) =>
                   setEditData({
