@@ -142,7 +142,8 @@ const transformData = (data) => {
       email: quote.quote_details.vendor_details.email,
       mobile: quote.quote_details.vendor_details.mobile,
       organization_name: quote.quote_details.vendor_details.organization_name,
-      latest_target_price : quote.quote_details.latest_target_price
+      latest_target_price : quote.quote_details.latest_target_price,
+      is_regret : quote.quote_details.is_regret
     }));
 
     return {
