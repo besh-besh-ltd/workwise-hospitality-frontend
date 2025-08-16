@@ -8,8 +8,6 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
-  getTargetPriceHistory,
-  handleUploadFile,
   handleUploadFileInFormData,
   saveExcelInDB,
   updateTargetPrice,
@@ -152,21 +150,8 @@ const transformData = (data) => {
     };
   });
 };
-// const getPricehistory = async (rfq_product_id) => {
-//   try {
-//     const data = await getTargetPriceHistory(rfq_product_id);
 
-//     if (data.length > 0) {
-//       settargetPriceHistory(data);
-//     } else {
-//       setTargetPrice([]);
-//     }
 
-//     return data || [];
-//   } catch (error) {
-//     return [];
-//   }
-// };
 const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
@@ -177,10 +162,6 @@ const getAvailableBudget = async (projectId) => {
   }
 };
 
-// useEffect(() => {
-//  if(availableBudget){
-//  console.log("Available Budget:", availableBudget);
-//   } }, [availableBudget]);
 
 const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
@@ -399,10 +380,16 @@ const generateExcelFile = (api_data) => {
     amount_array.push("Total Amount");
 
     paymentTermsArray.push(
-      item.global_payment_term[0].details
-        ? item.global_payment_term[0].details
-        : "-"
+      [
+        item.global_payment_term?.[0]?.details || "",
+        ...(item.payment_terms || []).map(pt =>
+          pt.comment
+            ? `${pt.value || ""}% - ${pt.comment}`
+            : `${pt.type || ""}${pt.days ? " " + pt.days + " days" : ""}${pt.value ? " - " + pt.value + "%" : ""}`
+        )
+      ].filter(Boolean).join(", ") || "-"
     );
+
     paymentTermsArray.push("");
     paymentTermsArray.push("");
     paymentTermsArray.push("");

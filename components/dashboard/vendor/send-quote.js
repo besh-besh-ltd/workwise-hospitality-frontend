@@ -1088,7 +1088,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
   <div className="col-lg-4 col-12 d-flex">
     <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body">
+      <div className="card-body d-flex flex-column">
+      
+      {globalPaymentTerms && (
+      <>
         <div className="mb-3 d-flex align-items-center justify-content-between">
           <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
         </div>
@@ -1099,18 +1102,19 @@ return { deletedTerms, createdTerms, updatedTerms };
           placeholder="100% Against Proforma Invoice"
           onChange={(e) => setglobalPaymentTerms(e.target.value)}
         />
+        </>
+      )}
 
         <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
         <textarea
-          className="form-control"
-          rows={3}
-          value={globalComment}
-          placeholder="Placeholder text for global comment"
-          onChange={(e) => setglobalComment(e.target.value)}
-        />
-      </div>
+          className="form-control flex-grow-1"
+        value={globalComment}
+        placeholder="Placeholder text for global comment"
+        onChange={(e) => setglobalComment(e.target.value)}
+      />
     </div>
   </div>
+</div>
 
   {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
   <div className="col-lg-5 col-12">
@@ -1791,19 +1795,21 @@ const PaymentTermsEditor = ({ value, onChange }) => {
 
     const setRows = (next) => onChange && onChange(next);
 
-    const removeRow = (index) => {
+    const markDeleted = (index) => {
      const updated = [...rows];
-     const row = updated[index];
-   
-     if (!row?.id) {
-       updated.splice(index, 1);
-     } else {
-       updated[index] = { ...row, action: "delete" };
-     }
-   
-     setRows(updated);
-   };
+     const row = updated[index] || {};
+    updated[index] = { ...row, action: "delete" };
+    setRows(updated);
+  };
 
+  const restoreRow = (index) => {
+    const updated = [...rows];
+    const row = updated[index];
+    if (!row) return;
+    const { action, ...rest } = row;
+    updated[index] = rest;
+    setRows(updated);
+  };
 
   const updateRow = (index, patch) =>
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -1812,7 +1818,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
     <div>
       {rows.map((row, index) => {
         const isCredit = row.type === "credit";
-        const isDeleted = row.action == "delete";
+        const isDeleted = row.action === "delete";
         return (
           <div key={index} className="row g-2 align-items-end mb-2">
             <div className="col-3">
@@ -1829,25 +1835,24 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                 }
                 min={0}
                 max={100}
-                disabled={ isDeleted}
+                disabled={isDeleted}
               />
             </div>
 
             <div className="col-3">
               <label className="form-label mb-1">Type</label>
               <select
-                     disabled={ isDeleted}
                 className="form-select"
                 value={row.type}
                 onChange={(e) => {
                   const nextType = e.target.value;
                   updateRow(index, {
                     type: nextType,
-                    // when switching, clear the field that won't be used
                     days: nextType === "credit" ? row.days : "",
-                    comment: nextType === "credit" ? "" : row.comment,
+                    comment: nextType === "credit" ? "" : (row.comment ?? ""),
                   });
                 }}
+                disabled={isDeleted}
               >
                 <option value="advance">Advance</option>
                 <option value="credit">Credit</option>
@@ -1875,7 +1880,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
             ) : (
               <div className="col-4">
                 <label className="form-label mb-1">
-                  Comment 
+                  Comment
                 </label>
                 <input
                   type="text"
@@ -1883,27 +1888,40 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-                disabled={ isDeleted}
+               disabled={ isDeleted}
                 />
               </div>
             )}
 
-{ row.action !== "delete" &&
-
             <div className="col-2 d-flex mb-1">
-       <SmartButton
-        onClick={() => removeRow(index)}
-        theme={"red"}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="X"
-        // icon = {<FontAwesomeIcon icon={faRemove} />}
-      />
+              {!isDeleted ? (
+                <SmartButton
+                  onClick={() => markDeleted(index)}
+                  theme={"red"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Remove"
+                />
+              ) : (
+                <SmartButton
+                  onClick={() => restoreRow(index)}
+                  theme={"secondary"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Restore"
+                />
+              )}
             </div>
-}
+
+            {/* Small status line below inputs when deleted */}
+            {isDeleted && (
+              <div className="col-12 mt-0">
+                <small className="text-danger">
+                  you removed this term. Click "Restore" to add it back.
+                </small>
+              </div>
+            )}
           </div>
         );
       })}
-
     </div>
   );
 };
