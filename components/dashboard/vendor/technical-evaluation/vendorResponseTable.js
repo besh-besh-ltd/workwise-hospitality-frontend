@@ -14,10 +14,6 @@ import ReadMore from "@/components/shared/ReadMore";
 
 const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token }) => {
 
-  console.log("product",product);
-
-  console.log("other usger"  ,  otherUser);
-
   const [buyerClauses, setBuyerClauses] = useState(null);
   const [vendorResponse, setVendorResponse] = useState(null);
   const [chatMap, setChatMap] = useState(null);
@@ -378,6 +374,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         data={clauseItem}
                         userData={currentUserProfile}
                         otherUser={otherUser}
+                        product = {product}
                         token ={token}
                       />
                     }

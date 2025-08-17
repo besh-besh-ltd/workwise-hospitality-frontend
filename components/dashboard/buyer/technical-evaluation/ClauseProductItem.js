@@ -33,6 +33,9 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
  
     const addToTechnicallyAccepted = async (vendor = null) => {
         const payload = {
+            product :  product?.product_details,
+            rfq_id : rfq_id,
+            vendor :  vendor ? vendor : selectedVendor ? selectedVendor : _selectedVendor,
             vendor_id: vendor ? vendor.vendor_id : selectedVendor ? selectedVendor.vendor_id : _selectedVendor.value,
             rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
             status: 1,
