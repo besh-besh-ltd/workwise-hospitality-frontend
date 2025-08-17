@@ -70,7 +70,7 @@ const NormalizeInfoModal = ({ show, onClose }) => {
           <div style={styles.modal}>
             <div style={styles.header}>
               <h5 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-                Normalizing Quotes…
+                Cost Normalizer - Wisely AI
               </h5>
               <button
                 type="button"
@@ -88,10 +88,6 @@ const NormalizeInfoModal = ({ show, onClose }) => {
               </p>
 
               <ol style={styles.list}>
-                <li>
-                  <b>Convert costs to %</b> — Freight, Packaging, and Tax amounts are converted
-                  into a percentage of the base product cost.
-                </li>
                 <li>
                   <b>Fill missing data</b> — If Freight/Packaging is missing, use the average %.
                   If Tax is missing, use the median %.

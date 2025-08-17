@@ -1056,6 +1056,100 @@ return { deletedTerms, createdTerms, updatedTerms };
                   </div>
                   
        
+        {/* AI file upload start here */}
+       <div>
+
+         <div className="d-flex align-items-center my-3">
+           <hr className="flex-grow-1" />
+           <span className="mx-3  fw-semibold">
+         Smart Quotation Assist - Wisely 
+           </span>
+           <hr className="flex-grow-1" />
+         </div>
+
+
+        <label
+          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
+        >
+          <FontAwesomeIcon icon={faFile} className="me-2" />
+          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
+          <input
+            type="file"
+            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            multiple
+            disabled={extractingQuotes}
+          />
+        </label>
+
+           {/*  start: recently upload files */}
+           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+          <div className="row">
+           <p className="fw-medium mb-1">New Uploaded Files:</p>
+            <div className="d-flex gap-4" >
+              {globalDocumentFiles.map((doc_file) => {
+               return (
+                  <p
+                  key={doc_file}
+                  href={doc_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                  onClick={(e) => {
+                      e.preventDefault()
+                      removeGlobalFiles(doc_file)
+                    }}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                   {extractfileName(doc_file)}
+                  </span>
+                </p>
+ 
+              )
+            })}
+            </div>
+         </div>
+          )}
+
+        {previousGlobalFiles?.length > 0 && (
+          <div className=" mb-3">
+            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
+            <div className="d-flex gap-4 ">
+              {previousGlobalFiles.map((prev_file) => (
+                <a
+                  key={prev_file}
+                  href={prev_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                    {extractfileName(prev_file)}
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </div>
+        )}
+
+       </div>
+        {/* AI file upload over here */}
+       <div className="d-flex align-items-center my-3">
+         <hr className="flex-grow-1" />
+         <span className="mx-3  fw-semibold">
+           OR send quotation manually
+         </span>
+         <hr className="flex-grow-1" />
+       </div>
+
 <div className="row align-items-stretch">
   {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
   <div className="col-lg-3 col-12 d-flex">
@@ -1131,73 +1225,6 @@ return { deletedTerms, createdTerms, updatedTerms };
           </div>
         </div>
 
-        {/* Quote Document */}
-        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
-
-        {previousGlobalFiles?.length > 0 && (
-          <div className="border rounded-2 px-2 py-2 mb-3">
-            <p className="fw-medium text-center mb-2">Previously Uploaded Files</p>
-            <div className="row g-2 overflow-x-auto">
-              {previousGlobalFiles.map((prev_file) => (
-                <div key={prev_file} className="col-12 col-md-6">
-                  <a
-                    href={prev_file}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="d-inline-flex align-items-center gap-2 text-truncate"
-                    style={{ maxWidth: 260 }}
-                  >
-                    <FontAwesomeIcon icon={faDownload} />
-                    {extractfileName(prev_file)}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div
-          className="alert alert-sm alert-info d-flex align-items-start mb-0 px-3 py-2 mb-2"
-          role="alert"
-        >
-          <small>
-            Upload your document and our AI will automatically fetch given quotes for you.
-          </small>
-        </div>
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
-        >
-          <FontAwesomeIcon icon={faFile} className="me-2" />
-          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadGlobalDocumentFiles(e)}
-            multiple
-            disabled={extractingQuotes}
-          />
-        </label>
-
-
-                        <div className="row">
-                          {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-                            globalDocumentFiles.map((doc_file) => {
-                              return (
-                                <div key={doc_file} className="col-md-6 d-flex justify-content-center align-items-center gap-2 mb-1">
-                                  <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
-                                  <span className="btn-close btn-close-sm"
-                                    aria-label="Close"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      removeGlobalFiles(doc_file)
-                                    }}>
-                                  </span>
-                                </div>
-                              )
-                            })
-                          )}
-                        </div>
       </div>
     </div>
   </div>
