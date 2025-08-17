@@ -372,6 +372,7 @@ useEffect(() => {
                                     refetch={listProducts}
                                     selectedVendor={vendorMap.get(product.id)}
                                     selectedVendors={selectedVendors.map(vendor => vendor.value)}
+                                    
                                   />
 
                                 </div>
