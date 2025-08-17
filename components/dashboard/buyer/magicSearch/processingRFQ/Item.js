@@ -31,7 +31,7 @@ const getDownloadURL = (url, excelToJson = false) => {
   return url;
 }
 
-const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
+const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
   const calculateTimeTaken = (start, end) => {
     if (!start || !end) return "—";
 
@@ -117,7 +117,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
 
   return (
     <tr key={data.id}>
-      <td className="fw-semibold">{data.id}</td>
+      <td className="fw-semibold">{index}</td>
       <td className="fw-semibold">
         {data.file_name}
       </td>
@@ -148,11 +148,11 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
           <button className="bg-transparent border-0" onClick={onViewErrors}>
             <span style={{ cursor: data.errors ? "pointer" : "default" }}>
               {data.errors && typeof data.errors == "object"
-                ? data.errors?.actual && Array.isArray(data.errors?.actual)
+                ? data.errors?.actual && Array.isArray(data.errors.actual) && data.errors.actual.length > 0
                   ? `Contain ${data.errors?.actual?.length || 1} Error${
                       (data.errors?.actual?.length || 1) > 1 ? "s" : ""
                     }`
-                  : "Contain Errors"
+                  : "—"
                 : "—"}
             </span>
           </button>
@@ -167,7 +167,7 @@ const DraftRFQItem = ({ data, onViewErrors, handleCreateRFQ }) => {
                 <Button
                   variant="success"
                   size="sm"
-                  style={{ padding: "8px 0", width: "100%" }}
+                  style={{ padding: "8px 0", width: "140px" }}
                   onClick={() => handleDownload(data.download_url)}
                 >
                   Download

@@ -4,6 +4,7 @@ import axios from "axios";
 
 // This is the base URL for the AI server
   const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL || "https://test.letsworkwise.com/";
+  const quotationAIServerUrl = process.env.NEXT_PUBLIC_QUOTATION_AI_SERVER_URL || "https://test.letsworkwise.com/";
 
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {
@@ -1031,4 +1032,16 @@ export const saveExcelInDB = (rfq_id, file_path) => {
       reject({ message: error });
     }
   });
+};
+
+/** Extracts quotation from given quotation document in respective to given rfq data */
+export const extractQuotation = (quotation_document, rfq_data) => {
+  if(!quotation_document || !rfq_data) throw new Error("Missing required payload, aborting extraction");
+
+  const formData = new FormData();
+  formData.append("file", quotation_document);
+  formData.append("rfq_json", JSON.stringify(rfq_data));
+  formData.append("mode", "vlm")
+
+  return axios.post(`${quotationAIServerUrl}/extract_quotation`, formData);
 };
