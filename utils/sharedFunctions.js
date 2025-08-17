@@ -526,3 +526,58 @@ export const safeTwoDecimals = (val) => {
   if (isNaN(num)) return 0;
   return parseFloat(num.toFixed(2));
 };
+
+export const toNumber = (x) => {
+  if (typeof x === "number" && Number.isFinite(x)) return x;
+  if (typeof x === "string") {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+};
+
+export const extractParsedNumber = (obj) => {
+  if (!obj || !obj.value) return null;
+  const { parsedValue, source } = obj.value || {};
+  if (typeof parsedValue === "number") return parsedValue;
+  if (typeof source === "string") return toNumber(source);
+  return null;
+};
+
+/**
+ * Convert a field (freight/packaging/taxes) into { value, mode }
+ * - If numeric: mode is "%" when unit is "%", otherwise "₹"
+ * - If non-numeric string: keep text and mode ""
+ * - defaultPercent=true forces "%" when numeric and unit missing
+ */
+export const moneyOrPercent = (input, defaultPercent = false) => {
+  if (!input) return { value: "", mode: "" };
+
+  // Text case (common for freight/packaging descriptions)
+  if (typeof input.value === "string" && !(input.value && input.value.parsedValue != null)) {
+    const text = input.value;
+    // Try to extract first number if any
+    const match = text.match(/-?\d+(\.\d+)?/);
+    if (match) {
+      const num = toNumber(match[0]);
+      if (num !== null) {
+        const unit = input.unit || "";
+        return { value: num, mode: unit === "%" ? "%" : "₹" };
+      }
+    }
+    return { value: text, mode: "" };
+  } else if (typeof input.value === "number" && !(input.value && input.value.parsedValue != null)) {
+    const text = input.value;
+    const unit = input.unit || "";
+    
+    return { value: text, mode: unit === "%" ? "%" : "₹" };
+  }
+
+  // Structured numeric case
+  const num = extractParsedNumber(input);
+  const unit = (input && input.unit) || "";
+  if (num !== null) {
+    return { value: num, mode: unit === "%" || defaultPercent ? "%" : "₹" };
+  }
+  return { value: "", mode: "" };
+};
