@@ -143,6 +143,49 @@ const ColourfulCard = ({
         {note && (
           <div className="text-muted text-center small mt-2 d-none d-lg-block">{note}</div>
         )}
+
+        {/* Mobile Learn More Section */}
+        <div className="d-lg-none">
+          {/* Show first feature or a summary on mobile */}
+          {features && features.length > 0 && (
+            <div className="mb-3">
+              <div className="d-flex align-items-start">
+                <div
+                  className="d-flex align-items-center justify-content-center me-3 p-2"
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: `${iconColor}26`,
+                  }}
+                >
+                  <FontAwesomeIcon
+                    icon={getIcon(features[0].icon)}
+                    style={{ color: iconColor, fontSize: "14px" }}
+                  />
+                </div>
+                <div>
+                  <strong className="small">{features[0].title}</strong>
+                  <div className="text-muted small">{features[0].description}</div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Learn More Link */}
+          <div className="text-center">
+            <span 
+              className="text-decoration-none fw-bold d-inline-flex align-items-center small"
+              style={{ color: iconColor || '#007bff' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClick();
+              }}
+            >
+              Learn more →
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

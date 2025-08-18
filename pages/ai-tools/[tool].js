@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { 
@@ -37,6 +37,7 @@ const AiToolPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -45,10 +46,28 @@ const AiToolPage = () => {
   const [technicalSummary, setTechnicalSummary] = useState(false)
   const [showTechnicalSummaryModal, setShowTechnicalSummaryModal] = useState(false)
   const swSubscription = useSelector((data) => data.swSubscription);
+  const uploadSectionRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Handle body scroll lock for technical summary modal
+  useEffect(() => {
+    if (showTechnicalSummaryModal) {
+      document.body.classList.add('modal-open');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = 'unset';
+    };
+  }, [showTechnicalSummaryModal]);
 
   if (!mounted || !router.isReady) {
     return <div>Loading...</div>;
@@ -201,27 +220,51 @@ const AiToolPage = () => {
     setSummary(summaryResponse.markup);
   };
 
-  const handleTechnicalSummaryRequest = async (formData) => {
+    const handleTechnicalSummaryRequest = async (formData) => {
     try {
-      const response = await handleTechnicalSummary(file, formData);
-      
-      if (response.didUserRegister) {
+      const raw = await handleTechnicalSummary(file, formData);
+      const data = raw?.data || raw; // Normalize axios response/data
+  
+      if (data?.didUserRegister) {
         const isLoginSuccess = await handleUserLogin({
-          email: response.user.email,
-          password: response.user.password,
+          email: data.user.email,
+          password: data.user.password,
         });
         if (!isLoginSuccess) throw new Error("Login Failed!");
       }
       
-      if (response.status === 1) {
-        setTechnicalSummary(response);
+      if ((data?.status ?? 1) === 1) {
+        // Parse the response according to the actual JSON structure
+        let technicalSpecs = [];
+        
+        if (data.clauses?.structuredData) {
+          technicalSpecs = data.clauses.structuredData;
+        } else if (data.structuredData) {
+          technicalSpecs = data.structuredData;
+        } else if (Array.isArray(data.clauses)) {
+          technicalSpecs = data.clauses;
+        }
+  
+        // Normalize the data structure for the modal
+        const normalized = {
+          status: data?.status ?? 1,
+          message: data?.message || "Technical document analyzed successfully",
+          structuredData: {
+            technicalSpecifications: technicalSpecs
+          }
+        };
+  
+        console.log('Normalized Technical Summary:', normalized);
+        
+        setTechnicalSummary(normalized);
         setShowFormModal(false);
         setShowTechnicalSummaryModal(true);
         toast.success("Technical document analyzed successfully!");
       } else {
-        throw new Error(response.message || "Failed to analyze technical document");
+        throw new Error(data?.message || "Failed to analyze technical document");
       }
     } catch (error) {
+      console.error('Technical Summary Error:', error);
       throw error;
     }
   };
@@ -260,7 +303,7 @@ const AiToolPage = () => {
   };
 
   const handleWatchDemo = () => {
-    console.log('Watch Demo clicked');
+    setShowDemoModal(true);
   };
 
   const handleTryForFree = () => {
@@ -331,7 +374,7 @@ const AiToolPage = () => {
             primaryButton={{
               label: toolData.hero.primaryButton.label,
               variant: "black",
-              onClick: () => {}
+              onClick: () => uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
             secondaryButton={{
               label: "Watch Demo",
@@ -392,7 +435,7 @@ const AiToolPage = () => {
         </section>
 
         {/* File Upload Section */}
-        <section className="py-5 bg-white">
+        <section className="py-5 bg-white" ref={uploadSectionRef}>
           <div className="container">
             <div className="row justify-content-center">
               <div className="col-lg-8">
@@ -555,109 +598,26 @@ const AiToolPage = () => {
                     <span>Generate accurate cost estimates in minutes</span>
                   </li>
                 </ul>
-                <button className="btn btn-primary">
+                <button className="btn btn-primary" onClick={handleWatchDemo}>
                   <FontAwesomeIcon icon={faPlay} className="me-2" /> Watch Demo
                 </button>
               </div>
               <div className="col-md-6 text-center">
-                <div
-                  style={{
-                    borderRadius: "12px",
-                    backgroundColor: "#0F172A",
-                    padding: "1rem",
-                    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
-                  }}
-                >
-                  <div className="d-flex justify-content-between align-items-center mb-2 px-2">
-                    <div className="d-flex gap-2">
-                      <span
-                        className="rounded-circle"
-                        style={{
-                          backgroundColor: "#EF4444",
-                          width: 12,
-                          height: 12,
-                        }}
-                      ></span>
-                      <span
-                        className="rounded-circle"
-                        style={{
-                          backgroundColor: "#FACC15",
-                          width: 12,
-                          height: 12,
-                        }}
-                      ></span>
-                      <span
-                        className="rounded-circle"
-                        style={{
-                          backgroundColor: "#22C55E",
-                          width: 12,
-                          height: 12,
-                        }}
-                      ></span>
-                    </div>
-                    <div className="text-white small">Workwise AI Demo</div>
-                  </div>
-                  <div
-                    className="d-flex flex-column justify-content-center align-items-center"
-                    style={{
-                      backgroundColor: "#0F172A",
-                      borderRadius: "8px",
-                      height: "220px",
-                    }}
-                  >
-                    <div
-                      className="rounded-circle d-flex justify-content-center align-items-center"
-                      style={{
-                        width: 48,
-                        height: 48,
-                        backgroundColor: "#E5E7EB",
-                      }}
-                    >
-                      <FontAwesomeIcon
-                        icon={faPlay}
-                        style={{ color: "#0F172A" }}
-                      />
-                    </div>
-                    <div className="text-white-50 mt-2">Click to play demo</div>
-                  </div>
+                <div className="ratio ratio-16x9 rounded-3 overflow-hidden shadow" style={{backgroundColor: '#000'}}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/-JPa1MX2HVE?rel=0`}
+                    title="Workwise AI Demo"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    style={{ border: 0 }}
+                  />
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Sample Output Preview Section */}
-        <section className="py-5 text-center">
-          <div className="container">
-            <h2 className="fw-bold mb-2">Sample Output Preview</h2>
-            <p className="text-muted mb-4">
-              Powerful AI-driven solutions to streamline your workflow and boost productivity
-            </p>
-
-            <div className="row g-4 mb-3">
-              <div className="col-md-6">
-                <FilePreview
-                  title="Procurement Analysis Report"
-                  description="Preview format only — your data stays secure"
-                  image="/assets/images/placeholder.jpeg"
-                  showPreview={false}
-                />
-              </div>
-              <div className="col-md-6">
-                <FilePreview
-                  title="Bill of Quantities (BOQ)"
-                  description="Preview format only — your data stays secure"
-                  image="/assets/images/placeholder.jpeg"
-                  showPreview={false}
-                />
-              </div>
-            </div>
-
-            <button className="btn btn-secondary" disabled>
-              <FontAwesomeIcon icon={faEyeSlash} className="me-2" /> View Full Sample
-            </button>
-          </div>
-        </section>
+        {/* Sample Output Preview Section - hidden per request (modal-only UX) */}
 
         {/* Trust Signals Section */}
         {/* <section className="py-5 bg-light">
@@ -716,6 +676,34 @@ const AiToolPage = () => {
           onSubmit={handleFormSubmit}
           successMessage="Your file has been uploaded successfully! You will receive an email once it's processed."
         />
+
+        {/* Demo Video Modal */}
+        {showDemoModal && (
+          <div 
+            className="modal show d-block" 
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1050 }}
+          >
+            <div className="modal-dialog modal-lg modal-dialog-centered">
+              <div className="modal-content border-0 shadow">
+                <div className="modal-header border-0 pb-0">
+                  <h5 className="modal-title fw-bold">Product Demo</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowDemoModal(false)} />
+                </div>
+                <div className="modal-body">
+                  <div className="ratio ratio-16x9">
+                    <iframe
+                      src={`https://www.youtube.com/embed/-JPa1MX2HVE?autoplay=1&rel=0`}
+                      title="Workwise Demo"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      style={{ border: 0 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Success Modal */}
         {showSuccessModal && (
@@ -854,16 +842,8 @@ const AiToolPage = () => {
             }
           `}</style>
         </div>
-        {/* Bottom CTA Section */}
-        {/* <CtaSection
-          title={toolData.bottomCta.title}
-          primaryButton={{
-            ...toolData.bottomCta.button,
-            variant: "white",
-            onClick: handleBookCall
-          }}
-        /> */}
-      </div>) : <TenderSummary summary={summary}/>}
+        {/* Bottom CTA Section intentionally omitted to keep modal-only UX */}
+      </div>) : null} 
 
       {/* Technical Summary Modal */}
       {showTechnicalSummaryModal && technicalSummary && (
@@ -871,7 +851,12 @@ const AiToolPage = () => {
           className="modal show d-block" 
           style={{ 
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1050
+            zIndex: 1050,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%'
           }}
         >
           <div className="modal-dialog modal-xl modal-dialog-centered">
@@ -885,9 +870,14 @@ const AiToolPage = () => {
                 ></button>
               </div>
               <div className="modal-body">
+                {/* Debug Info */}
+                <div className="alert alert-info mb-3">
+                  <small>Debug: {JSON.stringify(Object.keys(technicalSummary || {}))}</small>
+                </div>
+                
                 <div className="row g-4">
                   {/* Technical Specifications */}
-                  {technicalSummary.structuredData?.technicalSpecifications && (
+                  {technicalSummary.structuredData?.technicalSpecifications && technicalSummary.structuredData.technicalSpecifications.length > 0 && (
                     <div className="col-12">
                       <div className="card border-0 shadow-sm">
                         <div className="card-header bg-light border-0">
@@ -907,11 +897,14 @@ const AiToolPage = () => {
                                       <p className="mb-0 text-muted">{clause}</p>
                                     ) : (
                                       <div>
-                                        {clause.parameter && (
-                                          <span className="fw-medium">{clause.parameter}: </span>
+                                        {clause.key && (
+                                          <span className="fw-medium">{clause.key}: </span>
                                         )}
                                         {clause.value && (
                                           <span className="text-muted">{clause.value}</span>
+                                        )}
+                                        {clause.parameter && (
+                                          <span className="fw-medium">{clause.parameter}: </span>
                                         )}
                                         {clause.unit && (
                                           <span className="text-muted"> {clause.unit}</span>
@@ -926,6 +919,23 @@ const AiToolPage = () => {
                               </div>
                             ))}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fallback: Show raw data if structured format fails */}
+                  {(!technicalSummary.structuredData?.technicalSpecifications || technicalSummary.structuredData.technicalSpecifications.length === 0) && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-header bg-light border-0">
+                          <h6 className="mb-0">
+                            <i className="fas fa-cog me-2 text-primary"></i>
+                            Technical Data (Raw)
+                          </h6>
+                        </div>
+                        <div className="card-body">
+                          <pre className="text-muted small">{JSON.stringify(technicalSummary, null, 2)}</pre>
                         </div>
                       </div>
                     </div>

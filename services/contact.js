@@ -10,3 +10,14 @@ export const contactUsFormService = (values) => {
 		}
 	});
 };
+
+export const registerInterestService = (values) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			let response = await axiosInstance.post(`/cms/register-interest`, values);
+			resolve(response);
+		} catch (error) {
+			reject({ message: error });
+		}
+	});
+};

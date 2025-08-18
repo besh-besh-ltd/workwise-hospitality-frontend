@@ -59,18 +59,32 @@ export const vendorPageData = {
       }
     ],
     
-    // PSU logos for carousel
+    // PSU logos for carousel (synced with public/assets/images/companylogo)
     psuLogos: [
-      "/assets/images/companylogo/Indian-Oil-Emblem.png",
+      "/assets/images/companylogo/aai.png",
       "/assets/images/companylogo/bhel.png",
-      "/assets/images/companylogo/ntpc.png", 
-      "/assets/images/companylogo/ongc.jpg",
-      "/assets/images/companylogo/gail.png",
-      "/assets/images/companylogo/sail.png",
       "/assets/images/companylogo/bpcl.png",
+      "/assets/images/companylogo/bpil.png",
+      "/assets/images/companylogo/cet.png",
       "/assets/images/companylogo/cil.png",
+      "/assets/images/companylogo/EIL.png",
+      "/assets/images/companylogo/gail.png",
+      "/assets/images/companylogo/grse.png",
+      "/assets/images/companylogo/HP logo.png",
+      "/assets/images/companylogo/iggl.png",
+      "/assets/images/companylogo/Indian-Oil-Emblem.png",
+      "/assets/images/companylogo/mrpl.png",
+      "/assets/images/companylogo/msetc.png",
+      "/assets/images/companylogo/nalco.png",
       "/assets/images/companylogo/nhpc.png",
-      "/assets/images/companylogo/nmdc.png"
+      "/assets/images/companylogo/nmdc.png",
+      "/assets/images/companylogo/npcil.png",
+      "/assets/images/companylogo/ntpc.png",
+      "/assets/images/companylogo/oil.png",
+      "/assets/images/companylogo/pdil.png",
+      "/assets/images/companylogo/pgci.png",
+      "/assets/images/companylogo/sail.png",
+      "/assets/images/companylogo/vedanta.png"
     ],
 
     testimonials: [
