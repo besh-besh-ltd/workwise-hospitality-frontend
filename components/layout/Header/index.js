@@ -319,7 +319,7 @@ const Header = () => {
   const router = useRouter();
 
   const { pathname } = router;
-  const { user_registered, loggedin } = router.query;
+  const { user_registered, loggedin, auth } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("register");
   const [sticky, setSticky] = useState("");
@@ -419,6 +419,12 @@ const Header = () => {
     if (user_registered == 1) {
       toast.success("Now login to get started!");
       handleChange(setActiveAuthTab("login"));
+      handleChange(setOpenAuthModal(true));
+    }
+
+    // Open login modal directly when ?auth=login is present
+    if (auth === 'login') {
+      handleChange(setActiveAuthTab('login'));
       handleChange(setOpenAuthModal(true));
     }
 
@@ -580,6 +586,7 @@ const Header = () => {
                         <li
                           className="login"
                           onClick={() => {
+                            handleChange(setActiveAuthTab('login'));
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
@@ -596,6 +603,7 @@ const Header = () => {
                         <li
                           className="signup book-call d-none d-md-block"
                           onClick={() => {
+                            handleChange(setActiveAuthTab('book-a-call'));
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
@@ -770,7 +778,7 @@ const Header = () => {
                 {!loggedinUser && (
                   <>
                     <li className="mobile-login">
-                      <Link href="javascript:void(0)" onClick={() => window.open('https://letsworkwise.com/?user_registered=1', '_blank')} style={{ color: '#fff' }}>
+                      <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }} style={{ color: '#fff' }}>
                         Login
                       </Link>
                     </li>
@@ -816,7 +824,7 @@ const Header = () => {
       {/* Sticky Mobile CTA */}
       {!loggedinUser && !pathname?.startsWith("/vendor") && (
         <div className="sticky-mobile-cta">
-          <Link href="javascript:void(0)" onClick={() => window.open('https://letsworkwise.com/?user_registered=1', '_blank')}>
+          <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }}>
             <FontAwesomeIcon icon={faMessage} />
           </Link>
         </div>
