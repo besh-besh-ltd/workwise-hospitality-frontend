@@ -321,7 +321,7 @@ const AiToolPage = () => {
         <meta name="description" content={`${toolData.hero.subtitle} - ${toolData.hero.title}`} />
       </Head>
 
-      {!summary && !technicalSummary ? (<div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
+      {!summary ? (<div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         <style jsx>{`
           .floatingIcon {
             position: absolute;
@@ -843,7 +843,7 @@ const AiToolPage = () => {
           `}</style>
         </div>
         {/* Bottom CTA Section intentionally omitted to keep modal-only UX */}
-      </div>) : null} 
+      </div>) : <TenderSummary summary={summary} />} 
 
       {/* Technical Summary Modal */}
       {showTechnicalSummaryModal && technicalSummary && (
