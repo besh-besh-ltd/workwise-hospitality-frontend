@@ -54,7 +54,7 @@ const QuoteCompare = () => {
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
   const [freightFilter, setFreightFilter] = useState(false);
-  const [normalizeFilter, setNormalizeFilter] = useState({});
+  const [normalizeFilter, setNormalizeFilter] = useState(false);
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
@@ -1077,6 +1077,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     if (rfq) {
       setTA_Filter(false);
       setFreightFilter(false);
+      setNormalizeFilter(false);
     }
   }, [rfq]);
 
