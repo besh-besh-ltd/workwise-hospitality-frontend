@@ -285,7 +285,7 @@ const websiteMenu = [
     label: "Insights & Resources", 
     type: "dropdown",
     options: [
-      { label: "Blogs", href: "/blogs" },
+      { label: "Blogs", href: "https://blog.letsworkwise.com/", external: true },
       { label: "Events", href: "/insights/events" },
       { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
       { label: "AI in Procurement – Use Cases", href: "/insights/ai-procurement" },
@@ -310,7 +310,7 @@ const websiteMenu = [
       { label: "Buyer Pricing (Success based model)", href: "/pricing", action: "buyer-pricing" },
       { label: "Supplier Plans (Subscription tiers)", href: "/pricing", action: "supplier-pricing" },
               { label: "Claim Pilot Project Access for Free", href: "/pilot-project" },
-      { label: "Book a Call for Custom Quote", href: "javascript:void(0)", action: "book-call" },
+
     ]
   },
 ];
@@ -490,22 +490,21 @@ const Header = () => {
               </Link>
             </div>
 
-            {/* Website Navigation - Show for non-logged in users and public pages only */}
-            {(!loggedinUser || 
-              (!loggedinUser && mainNavs.includes(pathname)) ||
-              (!loggedinUser && pathname?.startsWith("/solutions")) ||
-              false ||
-              (!loggedinUser && pathname?.startsWith("/insights")) ||
-              (!loggedinUser && pathname?.startsWith("/modules")) ||
-              (!loggedinUser && pathname?.startsWith("/work-with-us")) ||
-              (!loggedinUser && pathname?.startsWith("/who-we-serve")) ||
-              (!loggedinUser && pathname?.startsWith("/why-workwise")) ||
-              (!loggedinUser && pathname?.startsWith("/earn-with-us")) ||
-              (!loggedinUser && pathname?.startsWith("/pricing")) ||
-              (!loggedinUser && pathname?.startsWith("/blogs")) ||
-              (!loggedinUser && pathname?.startsWith("/for-vendors")) ||
-              (!loggedinUser && pathname?.startsWith("/contactus")) ||
-              (!loggedinUser && pathname?.startsWith("/aboutus"))) && (
+            {/* Website Navigation - Show for public pages and all users */}
+            {(mainNavs.includes(pathname) ||
+              pathname?.startsWith("/solutions") ||
+              pathname?.startsWith("/insights") ||
+              pathname?.startsWith("/modules") ||
+              pathname?.startsWith("/work-with-us") ||
+              pathname?.startsWith("/who-we-serve") ||
+              pathname?.startsWith("/why-workwise") ||
+              pathname?.startsWith("/earn-with-us") ||
+              pathname?.startsWith("/pricing") ||
+              pathname?.startsWith("/blogs") ||
+              pathname?.startsWith("/for-vendors") ||
+              pathname?.startsWith("/contactus") ||
+              pathname?.startsWith("/aboutus") ||
+              pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   {/* START: website navbar - static pages content */}
@@ -767,7 +766,7 @@ const Header = () => {
                 {!loggedinUser && (
                   <>
                     <li className="mobile-login">
-                      <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)} style={{ color: '#fff' }}>
+                      <Link href="javascript:void(0)" onClick={() => window.open('https://letsworkwise.com/?user_registered=1', '_blank')} style={{ color: '#fff' }}>
                         Login
                       </Link>
                     </li>
@@ -813,7 +812,7 @@ const Header = () => {
       {/* Sticky Mobile CTA */}
       {!loggedinUser && !pathname?.startsWith("/vendor") && (
         <div className="sticky-mobile-cta">
-          <Link href="javascript:void(0)" onClick={() => setOpenAuthModal(true)}>
+          <Link href="javascript:void(0)" onClick={() => window.open('https://letsworkwise.com/?user_registered=1', '_blank')}>
             <FontAwesomeIcon icon={faMessage} />
           </Link>
         </div>
