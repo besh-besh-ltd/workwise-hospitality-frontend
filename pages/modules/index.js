@@ -42,7 +42,8 @@ const ModulePage = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = storageInstance.getItem("access-token");
+        // Align with global auth storage: token is stored under key 'token'
+        const token = storageInstance.getStorage("token");
         if (token) {
           const userDetails = await getUserDetails();
           if (userDetails && userDetails.name) {
@@ -114,10 +115,13 @@ const ModulePage = () => {
       case 'rfq':
       case 'boq':
         if (loggedinUser) {
-          router.push('/boq-automation');
+          router.push('/dashboard/buyer/boq-automation');
         } else {
-          // Open login modal or redirect to login
-          window.open('https://letsworkwise.com/?user_registered=1', '_blank');
+          // Trigger login modal with login tab via query param consumed by Header
+          router.replace({
+            pathname: router.pathname,
+            query: { ...router.query, auth: 'login' }
+          }, undefined, { shallow: true });
         }
         break;
       case 'vendors':
