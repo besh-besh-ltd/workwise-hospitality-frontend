@@ -8,8 +8,6 @@ import {
   getAllClauses,
   getQuotes,
   getRfqs,
-  getTargetPriceHistory,
-  handleUploadFile,
   handleUploadFileInFormData,
   saveExcelInDB,
   updateTargetPrice,
@@ -71,6 +69,7 @@ const QuoteCompare = () => {
  const [openModalId, setOpenModalId] = useState(null);
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
+ 
 
 
   useEffect(() => {
@@ -152,21 +151,8 @@ const transformData = (data) => {
     };
   });
 };
-// const getPricehistory = async (rfq_product_id) => {
-//   try {
-//     const data = await getTargetPriceHistory(rfq_product_id);
 
-//     if (data.length > 0) {
-//       settargetPriceHistory(data);
-//     } else {
-//       setTargetPrice([]);
-//     }
 
-//     return data || [];
-//   } catch (error) {
-//     return [];
-//   }
-// };
 const getAvailableBudget = async (projectId) => {
   try {
     const response = await getProjectAvailableBudget(projectId);
@@ -177,10 +163,6 @@ const getAvailableBudget = async (projectId) => {
   }
 };
 
-// useEffect(() => {
-//  if(availableBudget){
-//  console.log("Available Budget:", availableBudget);
-//   } }, [availableBudget]);
 
 const openModalForVariant = (variantId) => {
   setOpenModals(prev => ({ ...prev, [variantId]: true }));
@@ -399,10 +381,16 @@ const generateExcelFile = (api_data) => {
     amount_array.push("Total Amount");
 
     paymentTermsArray.push(
-      item.global_payment_term[0].details
-        ? item.global_payment_term[0].details
-        : "-"
+      [
+        item.global_payment_term?.[0]?.details || "",
+        ...(item.payment_terms || []).map(pt =>
+          pt.comment
+            ? `${pt.value || ""}% - ${pt.comment}`
+            : `${pt.type || ""}${pt.days ? " " + pt.days + " days" : ""}${pt.value ? " - " + pt.value + "%" : ""}`
+        )
+      ].filter(Boolean).join(", ") || "-"
     );
+
     paymentTermsArray.push("");
     paymentTermsArray.push("");
     paymentTermsArray.push("");
@@ -1081,6 +1069,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     if (rfq) {
       setTA_Filter(false);
       setFreightFilter(false);
+      setNormalizeFilter(false);
     }
   }, [rfq]);
 
@@ -1114,27 +1103,27 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
               <h3 className="heading">Compare Received Quote</h3>
             </div>
             <div className="col-md-8">
-            {rfq && quotes && quotes.length >0 && (
-              <div className="btn-options float-end">
-                {/*Negotiation Module Button*/}
-                <span
-                  onClick={() => {
-                    setOpenInputModal(true); // Make sure this matches the state variable name
-                  }}
-                >
-                  Negotiation
-                </span>
-                {openInputModal && (
-                  <InputModal
-                    show={openInputModal}
-                    onHide={() => setOpenInputModal(false)}
-                    onSubmit={handleSubmitTargetPrice}
-                    products={transformData(quotes)} // directly passing API response
-                    modalTitle="Set Target Price for Vendor"
-                  />
-                )}
+              {rfq && quotes && quotes.length > 0 && (
+                <div className="btn-options float-end">
+                  {/*Negotiation Module Button*/}
+                  <span
+                    onClick={() => {
+                      setOpenInputModal(true); // Make sure this matches the state variable name
+                    }}
+                  >
+                    Negotiation
+                  </span>
+                  {openInputModal && (
+                    <InputModal
+                      show={openInputModal}
+                      onHide={() => setOpenInputModal(false)}
+                      onSubmit={handleSubmitTargetPrice}
+                      products={transformData(quotes)} // directly passing API response
+                      modalTitle="Set Target Price for Vendor"
+                    />
+                  )}
 
-                {/* Download quote & Close Rfq Buttons */}
+                  {/* Download quote & Close Rfq Buttons */}
                   <span onClick={handleDownloadQuote}>
                     {" "}
                     {downloadLoading
@@ -1156,13 +1145,11 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </span>
                     )}
                   </>
-
                 <span onClick={handleNormalizeClick}>
                   {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
                 </span>
-
-              </div>
-            )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1441,22 +1428,24 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         </div>
                       )}
 
-                     {!normalizeFilter && 
-                      <div className="form-check form-switch page-link fs-6">
-                        <input
-                          className="form-check-input border-dark-subtle"
-                          type="checkbox"
-                          role="switch"
-                          checked={freightFilter}
-                          id="freight_check"
-                          onChange={handleFreightFilterChange}
-                        />
-                        <label className="form-check-label" for="freight_check">
-                          View quotes without freight
-                        </label>
-                      </div>
-                      }
-
+                      {!normalizeFilter && (
+                        <div className="form-check form-switch page-link fs-6">
+                          <input
+                            className="form-check-input border-dark-subtle"
+                            type="checkbox"
+                            role="switch"
+                            checked={freightFilter}
+                            id="freight_check"
+                            onChange={handleFreightFilterChange}
+                          />
+                          <label
+                            className="form-check-label"
+                            for="freight_check"
+                          >
+                            View quotes without freight
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1902,12 +1891,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       </section>
 
       <NormalizeInfoModal
-  show={showNormalizeModal}
-  // secondsLeft={normSecondsLeft}
-  onClose={handleCloseNormalizeModal}
-/>
-
-
+        show={showNormalizeModal}
+        // secondsLeft={normSecondsLeft}
+        onClose={handleCloseNormalizeModal}
+      />
     </>
   );
 };

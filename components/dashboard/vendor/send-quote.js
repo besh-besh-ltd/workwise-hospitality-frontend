@@ -83,7 +83,15 @@ const originalPaymentTermsListRef = useRef(null);
    * @returns {Array<object>}
    */
   function normalizeExtractedItems(items) {
-    return (items || []).filter(it => it.id != 0).map((it) => {
+    const seen = new Set();
+    const unique = (items || []).filter((it) => {
+      if (it.id === 0) return false;
+      if (seen.has(it.id)) return false;
+      seen.add(it.id);
+      return true;
+    });
+    
+    return unique.map((it) => {
       const quantityNum = it.quantity.value;
       const unit = (it.quantity && it.quantity.unit) || "";
 
@@ -737,7 +745,9 @@ return { deletedTerms, createdTerms, updatedTerms };
           if (overrideQuoteIds.includes(product.id)) {
             const quote = overrideQuotes.find(quote => product.id === quote.id);
             if(quote) {
-              product.unit_price = quote.base_price;
+              if (typeof quote.base_price === "number") {
+                product.unit_price = quote.base_price;
+              }
               if (typeof quote.freight.value === "number") {
                 product.freight_price = quote.freight.value;
                 product.freight_mode = quote.freight.unit;
@@ -1056,6 +1066,100 @@ return { deletedTerms, createdTerms, updatedTerms };
                   </div>
                   
        
+        {/* AI file upload start here */}
+       <div>
+
+         <div className="d-flex align-items-center my-3">
+           <hr className="flex-grow-1" />
+           <span className="mx-3  fw-semibold">
+         Smart Quotation Assist - Wisely 
+           </span>
+           <hr className="flex-grow-1" />
+         </div>
+
+
+        <label
+          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
+        >
+          <FontAwesomeIcon icon={faFile} className="me-2" />
+          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
+          <input
+            type="file"
+            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            multiple
+            disabled={extractingQuotes}
+          />
+        </label>
+
+           {/*  start: recently upload files */}
+           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+          <div className="row">
+           <p className="fw-medium mb-1">New Uploaded Files:</p>
+            <div className="d-flex gap-4" >
+              {globalDocumentFiles.map((doc_file) => {
+               return (
+                  <p
+                  key={doc_file}
+                  href={doc_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                  onClick={(e) => {
+                      e.preventDefault()
+                      removeGlobalFiles(doc_file)
+                    }}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                   {extractfileName(doc_file)}
+                  </span>
+                </p>
+ 
+              )
+            })}
+            </div>
+         </div>
+          )}
+
+        {previousGlobalFiles?.length > 0 && (
+          <div className=" mb-3">
+            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
+            <div className="d-flex gap-4 ">
+              {previousGlobalFiles.map((prev_file) => (
+                <a
+                  key={prev_file}
+                  href={prev_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                    {extractfileName(prev_file)}
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </div>
+        )}
+
+       </div>
+        {/* AI file upload over here */}
+       <div className="d-flex align-items-center my-3">
+         <hr className="flex-grow-1" />
+         <span className="mx-3  fw-semibold">
+           OR send quotation manually
+         </span>
+         <hr className="flex-grow-1" />
+       </div>
+
 <div className="row align-items-stretch">
   {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
   <div className="col-lg-3 col-12 d-flex">
@@ -1131,73 +1235,6 @@ return { deletedTerms, createdTerms, updatedTerms };
           </div>
         </div>
 
-        {/* Quote Document */}
-        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
-
-        {previousGlobalFiles?.length > 0 && (
-          <div className="border rounded-2 px-2 py-2 mb-3">
-            <p className="fw-medium text-center mb-2">Previously Uploaded Files</p>
-            <div className="row g-2 overflow-x-auto">
-              {previousGlobalFiles.map((prev_file) => (
-                <div key={prev_file} className="col-12 col-md-6">
-                  <a
-                    href={prev_file}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="d-inline-flex align-items-center gap-2 text-truncate"
-                    style={{ maxWidth: 260 }}
-                  >
-                    <FontAwesomeIcon icon={faDownload} />
-                    {extractfileName(prev_file)}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div
-          className="alert alert-sm alert-info d-flex align-items-start mb-0 px-3 py-2 mb-2"
-          role="alert"
-        >
-          <small>
-            Upload your document and our AI will automatically fetch given quotes for you.
-          </small>
-        </div>
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
-        >
-          <FontAwesomeIcon icon={faFile} className="me-2" />
-          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadGlobalDocumentFiles(e)}
-            multiple
-            disabled={extractingQuotes}
-          />
-        </label>
-
-
-                        <div className="row">
-                          {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-                            globalDocumentFiles.map((doc_file) => {
-                              return (
-                                <div key={doc_file} className="col-md-6 d-flex justify-content-center align-items-center gap-2 mb-1">
-                                  <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
-                                  <span className="btn-close btn-close-sm"
-                                    aria-label="Close"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      removeGlobalFiles(doc_file)
-                                    }}>
-                                  </span>
-                                </div>
-                              )
-                            })
-                          )}
-                        </div>
       </div>
     </div>
   </div>
@@ -1205,7 +1242,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
   <div className="col-lg-4 col-12 d-flex">
     <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body">
+      <div className="card-body d-flex flex-column">
+      
+      {globalPaymentTerms && (
+      <>
         <div className="mb-3 d-flex align-items-center justify-content-between">
           <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
         </div>
@@ -1216,18 +1256,19 @@ return { deletedTerms, createdTerms, updatedTerms };
           placeholder="100% Against Proforma Invoice"
           onChange={(e) => setglobalPaymentTerms(e.target.value)}
         />
+        </>
+      )}
 
         <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
         <textarea
-          className="form-control"
-          rows={3}
-          value={globalComment}
-          placeholder="Placeholder text for global comment"
-          onChange={(e) => setglobalComment(e.target.value)}
-        />
-      </div>
+          className="form-control flex-grow-1"
+        value={globalComment}
+        placeholder="Placeholder text for global comment"
+        onChange={(e) => setglobalComment(e.target.value)}
+      />
     </div>
   </div>
+</div>
 
   {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
   <div className="col-lg-5 col-12">
@@ -1916,19 +1957,21 @@ const PaymentTermsEditor = ({ value, onChange }) => {
 
     const setRows = (next) => onChange && onChange(next);
 
-    const removeRow = (index) => {
+    const markDeleted = (index) => {
      const updated = [...rows];
-     const row = updated[index];
-   
-     if (!row?.id) {
-       updated.splice(index, 1);
-     } else {
-       updated[index] = { ...row, action: "delete" };
-     }
-   
-     setRows(updated);
-   };
+     const row = updated[index] || {};
+    updated[index] = { ...row, action: "delete" };
+    setRows(updated);
+  };
 
+  const restoreRow = (index) => {
+    const updated = [...rows];
+    const row = updated[index];
+    if (!row) return;
+    const { action, ...rest } = row;
+    updated[index] = rest;
+    setRows(updated);
+  };
 
   const updateRow = (index, patch) =>
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -1937,7 +1980,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
     <div>
       {rows.map((row, index) => {
         const isCredit = row.type === "credit";
-        const isDeleted = row.action == "delete";
+        const isDeleted = row.action === "delete";
         return (
           <div key={index} className="row g-2 align-items-end mb-2">
             <div className="col-3">
@@ -1954,25 +1997,24 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                 }
                 min={0}
                 max={100}
-                disabled={ isDeleted}
+                disabled={isDeleted}
               />
             </div>
 
             <div className="col-3">
               <label className="form-label mb-1">Type</label>
               <select
-                     disabled={ isDeleted}
                 className="form-select"
                 value={row.type}
                 onChange={(e) => {
                   const nextType = e.target.value;
                   updateRow(index, {
                     type: nextType,
-                    // when switching, clear the field that won't be used
                     days: nextType === "credit" ? row.days : "",
-                    comment: nextType === "credit" ? "" : row.comment,
+                    comment: nextType === "credit" ? "" : (row.comment ?? ""),
                   });
                 }}
+                disabled={isDeleted}
               >
                 <option value="advance">Advance</option>
                 <option value="credit">Credit</option>
@@ -2000,7 +2042,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
             ) : (
               <div className="col-4">
                 <label className="form-label mb-1">
-                  Comment 
+                  Comment
                 </label>
                 <input
                   type="text"
@@ -2008,27 +2050,40 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-                disabled={ isDeleted}
+               disabled={ isDeleted}
                 />
               </div>
             )}
 
-{ row.action !== "delete" &&
-
             <div className="col-2 d-flex mb-1">
-       <SmartButton
-        onClick={() => removeRow(index)}
-        theme={"red"}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="X"
-        // icon = {<FontAwesomeIcon icon={faRemove} />}
-      />
+              {!isDeleted ? (
+                <SmartButton
+                  onClick={() => markDeleted(index)}
+                  theme={"red"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Remove"
+                />
+              ) : (
+                <SmartButton
+                  onClick={() => restoreRow(index)}
+                  theme={"secondary"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Restore"
+                />
+              )}
             </div>
-}
+
+            {/* Small status line below inputs when deleted */}
+            {isDeleted && (
+              <div className="col-12 mt-0">
+                <small className="text-danger">
+                  you removed this term. Click "Restore" to add it back.
+                </small>
+              </div>
+            )}
           </div>
         );
       })}
-
     </div>
   );
 };
