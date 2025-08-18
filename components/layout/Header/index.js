@@ -505,6 +505,7 @@ const Header = () => {
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
+               pathname?.startsWith("/ai-tools") ||
               pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
@@ -724,20 +725,22 @@ const Header = () => {
         </div>
 
         {/* Mobile Menu */}
-        {menuClass && (!loggedinUser || 
-          false ||
-          (!loggedinUser && pathname?.startsWith("/insights")) ||
-          (!loggedinUser && pathname?.startsWith("/modules")) ||
-          (!loggedinUser && pathname?.startsWith("/work-with-us")) ||
-          (!loggedinUser && pathname?.startsWith("/who-we-serve")) ||
-          (!loggedinUser && pathname?.startsWith("/why-workwise")) ||
-          (!loggedinUser && pathname?.startsWith("/earn-with-us")) ||
-          (!loggedinUser && pathname?.startsWith("/pricing")) ||
-          (!loggedinUser && pathname?.startsWith("/blogs")) ||
-          (!loggedinUser && pathname?.startsWith("/for-vendors")) ||
-          (!loggedinUser && pathname?.startsWith("/contactus")) ||
-          (!loggedinUser && pathname?.startsWith("/aboutus")) ||
-          (!loggedinUser && pathname?.startsWith("/solutions"))) && (
+        {menuClass && (
+            mainNavs.includes(pathname) ||
+            pathname?.startsWith("/solutions") ||
+            pathname?.startsWith("/insights") ||
+            pathname?.startsWith("/modules") ||
+            pathname?.startsWith("/work-with-us") ||
+            pathname?.startsWith("/who-we-serve") ||
+            pathname?.startsWith("/why-workwise") ||
+            pathname?.startsWith("/earn-with-us") ||
+            pathname?.startsWith("/pricing") ||
+            pathname?.startsWith("/blogs") ||
+            pathname?.startsWith("/for-vendors") ||
+            pathname?.startsWith("/contactus") ||
+            pathname?.startsWith("/aboutus")||
+            pathname?.startsWith("/ai-tools")
+          ) && (
           <div className="mobile-menu">
             <nav className="main-menu" style={{ color: '#fff' }}>
               <ul>
