@@ -1,7 +1,7 @@
 "use client";
 import { getUserDetails } from "@/services/Auth";
 import storageInstance from "@/utils/storageInstance";
-import { faBell, faUser } from "@fortawesome/free-regular-svg-icons";
+import { faBell, faUser, faMessage } from "@fortawesome/free-regular-svg-icons";
 import { faGear, faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
@@ -19,7 +19,7 @@ const initialMainNavs = [
   "/for-vendors",
   "/IEW-2025",
   "/solutions",
-  // "/blogs",
+  "/blogs",
   "/validate-otp",
   "/forget-password",
   "/privacypolicy",
@@ -28,6 +28,40 @@ const initialMainNavs = [
   "/dashboard/vendor/inquiries-details",
   "/dashboard/buyer/rfq-management-vendor/vendor-profile",
   "/newHomePageDesign",
+  // New pages for comprehensive navigation
+  "/ai-tools",
+  "/ai-tools/boq-simplification",
+  "/ai-tools/cost-estimation",
+  "/ai-tools/tender-summary",
+  "/ai-tools/technical-summary",
+  "/insights",
+  "/insights/events",
+  "/insights/news",
+  "/insights/procurement-guide",
+  "/insights/ai-procurement",
+  "/insights/epc-trends",
+  "/modules",
+  "/modules/boq",
+  "/modules/rfq",
+  "/modules/payments",
+  "/modules/evaluation",
+  "/modules/negotiation",
+  "/modules/vendors",
+  "/work-with-us",
+  "/work-with-us/TeamTimeline",
+  "/work-with-us/careers",
+  "/who-we-serve",
+  "/who-we-serve/Stakeholder",
+  "/who-we-serve/IndustryPage",
+  "/why-workwise",
+  "/why-workwise/TrustSecurity",
+  "/why-workwise/our-story",
+  "/why-workwise/success-stories",
+  "/earn-with-us",
+  "/earn-with-us/EarnWithUs",
+  "/pricing",
+  "/pricing/pilot",
+  "/pilot-project",
 ];
 
 const roleMenus = {
@@ -195,25 +229,103 @@ const roleMenus = {
   ],
 };
 
+// Comprehensive website navigation menu structure
 const websiteMenu = [
-  { href: "/", label: "Home" },
-  { href: "/aboutus", label: "About Us" },
-  { href: "/vendor/all", label: "Find a Vendor" },
-  { href: "/solutions/*", label: "Our Solutions" },
-  { href: "/for-vendors", label: "For Vendor" },
-  { href: "/contactus", label: "Contact Us" },
+  { 
+    label: "Our Offerings", 
+    type: "dropdown",
+    options: [
+      { label: "BOQ Understanding & Simplification", href: "/modules/boq" },
+      { label: "RFQ Creation & Management", href: "/modules/rfq" },
+      { label: "Supplier Discovery & Vendor Management", href: "/modules/vendors" },
+      { label: "Technical & Commercial Evaluation", href: "/modules/evaluation" },
+      { label: "Negotiation Management", href: "/modules/negotiation" },
+      { label: "PO & Payment Lifecycle Management", href: "/modules/payments" },
+    ]
+  },
+  { 
+    label: "Who We Serve", 
+    type: "dropdown",
+    options: [
+      { label: "Stakeholders", href: "/who-we-serve/Stakeholder" },
+      { label: "Industries We Serve", href: "/who-we-serve/IndustryPage" },
+      { 
+        label: "Disciplines We Cover", 
+        type: "nested-dropdown",
+        options: [
+          { label: "Civil", href: "/solutions/civil" },
+          { label: "Mechanical", href: "/solutions/mechanical" },
+          { label: "Electrical", href: "/solutions/electrical" },
+          { label: "Chemical", href: "/solutions/chemical" },
+          { label: "Fire Engineering", href: "/solutions/fire-engineering" },
+        ]
+      },
+    ]
+  },
+  { 
+    label: "Why Workwise", 
+    type: "dropdown",
+    options: [
+      { label: "Customer Success Stories", href: "/why-workwise/success-stories" },
+      { label: "Trust & Security", href: "/why-workwise/TrustSecurity" },
+      { label: "Our Story", href: "/why-workwise/our-story" },
+    ]
+  },
+  { 
+    label: "Tools", 
+    type: "dropdown",
+    options: [
+      { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
+      { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
+      { label: "Tender Summary", href: "/ai-tools/tender-summary" },
+      { label: "Technical Document Summary", href: "/ai-tools/technical-summary" },
+    ]
+  },
+  { 
+    label: "Insights & Resources", 
+    type: "dropdown",
+    options: [
+      { label: "Blogs", href: "https://blog.letsworkwise.com/", external: true },
+      { label: "Events", href: "/insights/events" },
+      { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
+      { label: "AI in Procurement – Use Cases", href: "/insights/ai-procurement" },
+      { label: "Trends in EPC Procurement", href: "/insights/epc-trends" },
+      { label: "Workwise in News", href: "/insights/news" },
+    ]
+  },
+  { 
+    label: "Work With Us", 
+    type: "dropdown",
+    options: [
+      { label: "Meet the Team", href: "/work-with-us/TeamTimeline" },
+      { label: "We are hiring!", href: "/work-with-us/careers" },
+      { label: "Earn With Us", href: "/earn-with-us/EarnWithUs" },
+      { label: "Contact Us", href: "/contactus" },
+    ]
+  },
+  { 
+    label: "Pricing", 
+    type: "dropdown",
+    options: [
+      { label: "Buyer Pricing (Success based model)", href: "/pricing", action: "buyer-pricing" },
+      { label: "Supplier Plans (Subscription tiers)", href: "/pricing", action: "supplier-pricing" },
+              { label: "Claim Pilot Project Access for Free", href: "/pilot-project" },
+
+    ]
+  },
 ];
 
 const Header = () => {
   const router = useRouter();
 
   const { pathname } = router;
-  const { user_registered, loggedin } = router.query;
+  const { user_registered, loggedin, auth } = router.query;
   const [openAuthModal, setOpenAuthModal] = useState(false);
   const [activeAuthTab, setActiveAuthTab] = useState("register");
   const [sticky, setSticky] = useState("");
   const [menuClass, setMenuClass] = useState(false);
   const [popoverVisible, setPopoverVisible] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const popoverRef = useRef(null);
   const [loggedinUser, setLoggedinUser] = useState(null);
   const [currentUserType, setcurrentUserType] = useState("vendor");
@@ -235,18 +347,29 @@ const Header = () => {
     }
   };
 
-
   // Set State Change
   const handleChange = (setState) => (event) => {
     setState(event);
   };
 
-
+  // determine if current route should use transparent header at the very top
+  const shouldUseTransparent = () => {
+    const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
+    return !isPrivate && (pathname === "/");
+  };
 
   const isSticky = () => {
     const scrollTop = window.scrollY;
     const stickyClass = scrollTop >= 50 ? "sticky" : "";
+    const scrolled = scrollTop > 10;
     handleChange(setSticky(stickyClass));
+    setIsScrolled(scrolled);
+    // Only add the at-top helper when we are on a page that uses transparent header
+    if (!scrolled && shouldUseTransparent()) {
+      document.body.classList.add("at-top");
+    } else {
+      document.body.classList.remove("at-top");
+    }
   };
 
   const setUserDetails = () => {
@@ -259,7 +382,7 @@ const Header = () => {
     setcurrentUserType(storageInstance.getStorage("current-user-type"));
   };
 
-    const handleLogout = (e) => {
+  const handleLogout = (e) => {
     e.preventDefault();
     storageInstance.removeStorege("token");
     storageInstance.removeStorege("current-user-type");
@@ -269,7 +392,7 @@ const Header = () => {
     router.push("/");
   };
 
-    useEffect(() => {
+  useEffect(() => {
     setMenuClass(false);
   }, [router]);
 
@@ -281,7 +404,7 @@ const Header = () => {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     window.addEventListener("scroll", isSticky);
     if (window.scrollY > 100) {
       isSticky();
@@ -296,6 +419,12 @@ const Header = () => {
     if (user_registered == 1) {
       toast.success("Now login to get started!");
       handleChange(setActiveAuthTab("login"));
+      handleChange(setOpenAuthModal(true));
+    }
+
+    // Open login modal directly when ?auth=login is present
+    if (auth === 'login') {
+      handleChange(setActiveAuthTab('login'));
       handleChange(setOpenAuthModal(true));
     }
 
@@ -322,12 +451,19 @@ const Header = () => {
     }
   }, [router, pathname]);
 
-
-
   return (
     <>
       <header
-        className={`main-header ${sticky} ${menuClass ? "menu-open" : ""}`}
+        className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
+          const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
+          if (isPrivate || (loggedinUser && loggedinUser?.name)) {
+            return "always-white"; // never transparent for logged-in areas
+          }
+          if (pathname === "/") {
+            return isScrolled ? "scrolled hero-page" : "transparent hero-page";
+          }
+          return "scrolled"; // default public pages are white
+        })()}`}
       >
         <div className="container-fluid">
           <div className="header-container">
@@ -352,51 +488,69 @@ const Header = () => {
                 <Image
                   src="/assets/images/logo1.png"
                   alt="Workwise"
-                  className=""
+                  className={`logo-image ${(!isScrolled && shouldUseTransparent()) ? "logo-white" : ""}`}
                   width={160}
                   height={41}
                   priority={true}
                 />
               </Link>
             </div>
-            {/* for Login Users only */}
 
+            {/* Website Navigation - Show for public pages and all users */}
             {(mainNavs.includes(pathname) ||
-              (!loggedinUser &&
-                (pathname?.startsWith("/vendor") ||
-                  pathname?.startsWith("/solutions")))) && (
+              pathname?.startsWith("/solutions") ||
+              pathname?.startsWith("/insights") ||
+              pathname?.startsWith("/ai-tools") ||
+              pathname?.startsWith("/modules") ||
+              pathname?.startsWith("/work-with-us") ||
+              pathname?.startsWith("/who-we-serve") ||
+              pathname?.startsWith("/why-workwise") ||
+              pathname?.startsWith("/earn-with-us") ||
+              pathname?.startsWith("/pricing") ||
+              pathname?.startsWith("/blogs") ||
+              pathname?.startsWith("/for-vendors") ||
+              pathname?.startsWith("/contactus") ||
+              pathname?.startsWith("/aboutus") ||
+               pathname?.startsWith("/ai-tools") ||
+              pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
                   {/* START: website navbar - static pages content */}
                   <nav className="main-menu">
                     <ul>
-                    {websiteMenu.map((item) =>
-                        item.label === 'Our Solutions' ? (
+                                            {websiteMenu.map((item, index) => (
+                        item.type === 'dropdown' ? (
                           <DropdownMenu
-                            key={item.href}
-                            label="Our Solutions"
-                            options={[
-                              { label: 'Civil', href: '/solutions/civil' },
-                              { label: 'Mechanical', href: '/solutions/mechanical' },
-                              { label: 'Electrical', href: '/solutions/electrical' },
-                              { label: 'Chemical', href: '/solutions/chemical' },
-                              { label: 'Fire Engineering', href: '/solutions/fire-engineering' },
-                            ]}
+                            key={index}
+                            label={item.label}
+                            options={item.options}
+                            href={item.href}
+                            onAction={(action) => {
+                              if (action === 'open-auth-modal') {
+                                setOpenAuthModal(true);
+                              }
+                            }}
                           />
                         ) : (
                           <li
-                            key={item.href}
+                            key={index}
                             className={router.pathname === item.href ? 'active' : ''}
                           >
                              <Link href={item.href}>{item.label}</Link>
                           </li>
                         )
-                      )}
+                      ))}
                     </ul>
                   </nav>
                   {/* END: website navbar - static pages content */}
 
-                  {/* {!loggedinUser && !loggedinUser?.name && ( */}
+                  {/* Supplier CTA Button - show on desktop too */}
+                  <div className="supplier-cta d-none d-md-block">
+                    <Link href="/for-vendors" className="btn-supplier">
+                      For Suppliers
+                    </Link>
+                  </div>
+
                   <div
                     className={`extra-buttons hideDesktop ${
                       loggedinUser && loggedinUser?.name && "hasloggedinuser"
@@ -432,6 +586,24 @@ const Header = () => {
                         <li
                           className="login"
                           onClick={() => {
+                            handleChange(setActiveAuthTab('login'));
+                            handleChange(setOpenAuthModal(true));
+                          }}
+                        >
+                          <Link href="javascript:void(0)">
+                            Login
+                          </Link>
+                        </li>
+                        {/* Mobile-only: show For Suppliers instead of Book a Call */}
+                        <li className="signup d-block d-md-none">
+                          <Link href="/for-vendors" className="btn-supplier" style={{ color: '#000' }}>
+                            For Suppliers
+                          </Link>
+                        </li>
+                        <li
+                          className="signup book-call d-none d-md-block"
+                          onClick={() => {
+                            handleChange(setActiveAuthTab('book-a-call'));
                             handleChange(setOpenAuthModal(true));
                           }}
                         >
@@ -446,36 +618,25 @@ const Header = () => {
                       </ul>
                     )}
                   </div>
+                </div>
 
-                  {/* )} */}
-                  <div
-                    className={`menu-ctrl ${menuClass ? "button-active" : ""}`}
+                {/* Mobile Menu Toggle */}
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`}>
+                  <label
+                    htmlFor="menu-toggle"
+                    onClick={() => setMenuClass(!menuClass)}
+                    className={(!isScrolled && shouldUseTransparent()) ? 'menu-ctrl-transparent' : ''}
                   >
-                    <label
-                      onClick={() => handleChange(setMenuClass(!menuClass))}
-                    >
-                      <svg
-                        width="100"
-                        height="100"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          className="line--1"
-                          d="M0 40h62c13 0 6 28-4 18L35 35"
-                        />
-                        <path className="line--2" d="M0 50h70" />
-                        <path
-                          className="line--3"
-                          d="M0 60h62c13 0 6-28-4-18L35 65"
-                        />
-                      </svg>
-                    </label>
-                  </div>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </label>
                 </div>
               </>
             )}
 
-            {loggedinUser && loggedinUser?.name ? (
+            {/* Logged-in User Navigation - Show for dashboard and user-specific pages */}
+            {loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) ? (
               <>
                 {!mainNavs.includes(pathname) && (
                   <div className="header-right header-center align-items-center forLoggedIn">
@@ -483,7 +644,7 @@ const Header = () => {
                       {loggedinUser?.name && !mainNavs.includes(pathname) && (
                         <div className="header-right header-center align-items-center forLoggedIn">
                           <nav className="main-menu">
-                            <ul className="d-flex justify-content-center w-100">
+                            <ul className="d-flex justify-content-start w-100">
                               {roleMenus[currentUserType]
                                 ?.filter(
                                   (menuType) => menuClass || menuType.targetMenu == "nav"
@@ -503,59 +664,8 @@ const Header = () => {
                         </div>
                       )}
                     </nav>
-
-                    <div className="extra-buttons dashboard-area-buttons hideDesktop">
-                      <ul>
-                        <li
-                          className="login"
-                          onClick={() => {
-                            router.push(
-                              `/dashboard/${currentUserType}/editprofile`
-                            );
-                          }}
-                        >
-                          <Link href="">
-                            {" "}
-                            <FontAwesomeIcon icon={faUser} />{" "}
-                            <span>My Profile </span>
-                          </Link>
-                        </li>
-                        <li className="signup" onClick={handleLogout}>
-                          <Link href="">
-                            <FontAwesomeIcon icon={faSignOut} />{" "}
-                            <span>Logout</span>
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-                    <div
-                      className={`menu-ctrl ${
-                        menuClass ? "button-active" : ""
-                      }`}
-                    >
-                      <label
-                        onClick={() => handleChange(setMenuClass(!menuClass))}
-                      >
-                        <svg
-                          width="100"
-                          height="100"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            className="line--1"
-                            d="M0 40h62c13 0 6 28-4 18L35 35"
-                          />
-                          <path className="line--2" d="M0 50h70" />
-                          <path
-                            className="line--3"
-                            d="M0 60h62c13 0 6-28-4-18L35 65"
-                          />
-                        </svg>
-                      </label>
-                    </div>
                   </div>
                 )}
-
 
                 <div className="header-right align-items-center forLoggedIn hidemobile">
                   <nav className="main-menu">
@@ -601,30 +711,135 @@ const Header = () => {
                             Change Password
                           </Link>
                         </li>
-                        <li className="">
-                          <Link href="/" onClick={handleLogout}>
+
+                        <li>
+                          <Link
+                            href=""
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleLogout(e);
+                            }}
+                          >
                             Logout
                           </Link>
                         </li>
                       </ul>
                     </div>
                   )}
-
                 </div>
               </>
             ) : null}
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {menuClass && (
+            mainNavs.includes(pathname) ||
+            pathname?.startsWith("/solutions") ||
+            pathname?.startsWith("/insights") ||
+            pathname?.startsWith("/modules") ||
+            pathname?.startsWith("/work-with-us") ||
+            pathname?.startsWith("/who-we-serve") ||
+            pathname?.startsWith("/why-workwise") ||
+            pathname?.startsWith("/earn-with-us") ||
+            pathname?.startsWith("/pricing") ||
+            pathname?.startsWith("/blogs") ||
+            pathname?.startsWith("/for-vendors") ||
+            pathname?.startsWith("/contactus") ||
+            pathname?.startsWith("/aboutus")||
+            pathname?.startsWith("/ai-tools")
+          ) && (
+          <div className="mobile-menu">
+            <nav className="main-menu" style={{ color: '#fff' }}>
+              <ul>
+                {websiteMenu.map((item, index) => (
+                  <li key={index}>
+                    {item.type === 'dropdown' ? (
+                      <DropdownMenu
+                        label={item.label}
+                        options={item.options}
+                        href={item.href}
+                        onAction={(action) => {
+                          if (action === 'open-auth-modal') {
+                            setOpenAuthModal(true);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Link href={item.href} style={{ color: '#fff' }}>{item.label}</Link>
+                    )}
+                  </li>
+                ))}
+                <li>
+                  <Link href="/for-vendors" className="btn-supplier-mobile" style={{ color: '#fff' }}>
+                    For Suppliers
+                  </Link>
+                </li>
+                {!loggedinUser && (
+                  <>
+                    <li className="mobile-login">
+                      <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }} style={{ color: '#fff' }}>
+                        Login
+                      </Link>
+                    </li>
+                    {/* Hide Book a Call in mobile menu; For Suppliers CTA is present above */}
+                  </>
+                )}
+              </ul>
+            </nav>
+          </div>
+        )}
+
+        {/* Mobile Menu for Logged-in Users */}
+        {menuClass && loggedinUser && loggedinUser?.name && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")) && (
+          <div className="mobile-menu">
+            <nav className="main-menu">
+              <ul>
+                {roleMenus[currentUserType]
+                  ?.filter((menuType) => menuType.targetMenu == "nav")
+                  ?.map((item) => (
+                    <li
+                      key={item.href}
+                      className={pathname === item.href ? "active" : ""}
+                    >
+                      <Link href={item.href}>{item.label}</Link>
+                    </li>
+                  ))}
+                <li>
+                  <Link href={`/dashboard/${currentUserType}`}>
+                    <FontAwesomeIcon icon={faUser} /> My Account
+                  </Link>
+                </li>
+                <li>
+                  <Link href="javascript:void(0)" onClick={handleLogout}>
+                    <FontAwesomeIcon icon={faSignOut} /> Logout
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        )}
       </header>
 
-      {/* ------------- Auth Modal ------------- */}
+      {/* Sticky Mobile CTA */}
+      {!loggedinUser && !pathname?.startsWith("/vendor") && (
+        <div className="sticky-mobile-cta">
+          <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }}>
+            <FontAwesomeIcon icon={faMessage} />
+          </Link>
+        </div>
+      )}
+
+
+
+      {/* Auth Modal */}
       <LoginContainer
-        loading={loading}
-        setloading={setloading}
         openAuthModal={openAuthModal}
         setOpenAuthModal={setOpenAuthModal}
         activeAuthTab={activeAuthTab}
         setActiveAuthTab={setActiveAuthTab}
+        loading={loading}
+        setloading={setloading}
       />
     </>
   );
