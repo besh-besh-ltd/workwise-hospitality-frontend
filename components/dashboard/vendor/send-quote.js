@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
+import { extractQuotation, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -8,11 +8,13 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
-import { faDownload } from "@fortawesome/free-solid-svg-icons";
+import { extractfileName, extractParsedNumber, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
+import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
+import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
+import { IoMdInformationCircleOutline } from "react-icons/io";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -29,22 +31,6 @@ const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
         label="₹"
       />
-      {/* <button
-        type="button"
-        className={`btn ${currentMode === 'percentage' ? 'btn-primary' : 'btn-outline-primary'}`}
-        onClick={() => onToggle('percentage')}
-        style={{ fontSize: '11px', padding: '2px 8px' }}
-      >
-        in %
-      </button>
-      <button
-        type="button"
-        className={`btn ${currentMode === 'absolute' ? 'btn-primary' : 'btn-outline-primary'}`}
-        onClick={() => onToggle('absolute')}
-        style={{ fontSize: '11px', padding: '2px 8px' }}
-      >
-        in ₹
-      </button> */}
     </div>
   );
 };
@@ -77,6 +63,68 @@ const SendQuotePageComp = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
+  const [extractedQuotes, setExtractedQuotes] = useState({
+    show: false,
+    data: null,
+  })
+  const [extractingQuotes, setExtractingQuotes] = useState(false);
+
+  // structured payment terms rows
+const [paymentTermsRows, setPaymentTermsRows] = useState([
+  // {id:null, value: "", type: "advance", days: "", comment: ""},
+]);
+
+// Save the initial payment terms list from backend
+const originalPaymentTermsListRef = useRef(null);
+
+  /**
+   * Main transformer
+   * @param {Array<object>} items
+   * @returns {Array<object>}
+   */
+  function normalizeExtractedItems(items) {
+    const seen = new Set();
+    const unique = (items || []).filter((it) => {
+      if (it.id === 0) return false;
+      if (seen.has(it.id)) return false;
+      seen.add(it.id);
+      return true;
+    });
+    
+    return unique.map((it) => {
+      const quantityNum = it.quantity.value;
+      const unit = (it.quantity && it.quantity.unit) || "";
+
+      const basePriceNum = it.base_price.value;
+
+      const freight = moneyOrPercent(it.freight);
+      const packaging = moneyOrPercent(it.packaging);
+
+      // Taxes are typically percentage
+      const tax = moneyOrPercent(it.taxes, true);
+      if (typeof tax.value === "number" && it.taxes && it.taxes.unit === "%") {
+        tax.mode = "%";
+      }
+
+      const deliveryPeriod =
+        typeof it.delivery_period === "number"
+          ? it.delivery_period
+          : toNumber(it.delivery_period);
+
+      return {
+        id: it.id,
+        rfq_product_name: rfqDetails.products?.find(product => product.id == it.id)?.name || it.item_name,
+        raw_product_name: it.item_name,
+        quantity: quantityNum,
+        unit,
+        base_price: basePriceNum,
+        freight,
+        packaging,
+        tax,
+        delivery_period: deliveryPeriod ?? null,
+      };
+    });
+  }
 
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
@@ -111,19 +159,11 @@ const SendQuotePageComp = () => {
       getRFQdetails();
     }
     
-    // Changes by Agnij 2024-07-29 [Add debug logging for URL parameters]
-    console.log("URL parameters:", {
-      id: router.query.id,
-      token: router.query.token,
-      type: router.query.type,
-      showTechEvalRestrictions: router.query.showTechEvalRestrictions,
-      parsedValue: router.query.showTechEvalRestrictions === 'true'
-    });
+
     
     // Update the tech evaluation restriction flag
     const restrictionsEnabled = router.query.showTechEvalRestrictions === 'true';
     setShowTechEvalRestrictions(restrictionsEnabled);
-    console.log("Tech eval restrictions:", restrictionsEnabled ? "Enabled" : "Disabled");
   }, [router, router.query]);
 
   // Changes by Agnij <2024-07-30> [Add debug logging for reverse auction status]
@@ -228,6 +268,11 @@ const SendQuotePageComp = () => {
         if (res.data.quote_details) {
           setglobalComment(res.data.quote_details.global_comment || ""); // Set globalComment from API or fallback to empty string
           setglobalPaymentTerms(res.data.quote_details.global_payment_term || ""); // Set globalPaymentTerms from API or fallback to empty string
+
+          //  one state and useRef for payment terms to track newly added, updated, and deleted terms
+          const paymetTermData = res.data.quotations[0]?.payment_terms || []
+          setPaymentTermsRows(paymetTermData); // Set structured payment terms rows
+          originalPaymentTermsListRef.current  = paymetTermData
         }
 
         if (res.data.terms_and_conditions_files) {
@@ -391,18 +436,65 @@ const SendQuotePageComp = () => {
     setquoteProducts(d);
   }
 
+
+
+  // 
+  const getPaymentTermsChanges = () => {
+  
+  // newly added term, no id in objects
+const createdTerms = 
+  paymentTermsRows
+    .filter(t => !t.id && t.action !== "delete")
+    .map(({ id, action, ...rest }) => rest)
+
+
+// DELETE: only ids
+const deletedTerms = paymentTermsRows
+  .filter(t => t.id && t.action === "delete")
+  .map(t => t.id);
+
+// UPDATE: full object incl. id, exclude action
+const updatedTerms = 
+  paymentTermsRows
+    .filter(c => {
+      const o = originalPaymentTermsListRef.current.find(x => x.id === c.id);
+      return (
+        c.id &&
+        c.action !== "delete" &&
+        o && (
+          c.type !== o.type ||
+          c.value !== o.value ||
+          (c.days ?? null) !== (o.days ?? null) ||
+          (c.comment ?? "") !== (o.comment ?? "")
+        )
+      );
+    })
+    .map(({ action, ...rest }) => rest)
+
+
+return { deletedTerms, createdTerms, updatedTerms };
+};
+
+
   const handleSendQuote = () => {
+
+    // return 0
     let payload = {
       rfq_id: rfqDetails.id,
       rfq_no: rfqDetails.rfq_no,
       status: 1,
       products: [],
       globalPaymentTerms,
+      global_payment_term_list: paymentTermsRows,    // NEW structured array
       globalComment,
       term_and_condition_files: globalDocumentFiles
     };
 
     if (alreadyQuoted) {
+
+      const paymentTermsUpdate = getPaymentTermsChanges(paymentTermsRows, originalPaymentTermsListRef.current);
+      payload.global_payment_term_list = paymentTermsUpdate;
+
       let quote_id = rfqDetails.quotations[0].id;
       const updatedProducts = quoteProducts.map(product => {
         if(product.unit_price == 0) {
@@ -442,7 +534,7 @@ const SendQuotePageComp = () => {
     else {
       let isEmpty = false;
       let allFinalizedProducts = [];
-      rfqDetails.finalizations.map((item) =>
+      rfqDetails?.finalizations?.map((item) =>
         allFinalizedProducts.push(item.product_id)
       );
       let filteredquoteProducts = quoteProducts.filter((item) => {
@@ -510,7 +602,7 @@ const SendQuotePageComp = () => {
   const handleRegretQuote = ({ reqret_reason }, resetForm) => {
     let isEmpty = false;
     let allFinalizedProducts = [];
-    rfqDetails.finalizations.map((item) =>
+    rfqDetails?.finalizations?.map((item) =>
       allFinalizedProducts.push(item.product_id)
     );
     let filteredquoteProducts = quoteProducts.filter((item) => {
@@ -559,7 +651,7 @@ const SendQuotePageComp = () => {
         filePath
       )
     } catch (error) {
-      console.log(error)
+      console.error(error)
       let message = error.message?.response?.data?.errors?.file?.message;
       toast.error(message);
     }
@@ -567,6 +659,7 @@ const SendQuotePageComp = () => {
 
   const uploadGlobalDocumentFiles = async (e) => {
     try {
+      setExtractingQuotes(true);
       const filePath = await handleFileUpload(e, token);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
@@ -574,11 +667,33 @@ const SendQuotePageComp = () => {
         filePath
       ]);
 
+      await handleQuotationDocumentUpload(e.target?.files?.[0]);
+
     } catch (error) {
       let message = error.message;
       toast.error(message);
-    }
+    } finally { setExtractingQuotes(false); }
   };
+
+  const handleQuotationDocumentUpload = async (file) => {
+    try {
+      const response = await extractQuotation(file, rfqDetails)
+      const extracted = response.data?.result?.extracted?.Details;
+
+      if(extracted) {
+        setExtractedQuotes((prev) => ({
+          ...prev,
+          data: normalizeExtractedItems(extracted),
+          show: true,
+        }));
+      } else {
+        toast.info("No Quotations found in given document")
+      }
+    } catch (error) {
+      console.error("QUOTE EXTRACTION ERROR:", error);
+      toast.error("Something went wrong while extraction details from quotation document, please try again later!");
+    }
+  }
 
   const removeGlobalFiles = (file_url) => {
     const newFileLinks = globalDocumentFiles.filter((fileItem) => fileItem !== file_url);
@@ -621,6 +736,43 @@ const SendQuotePageComp = () => {
       }))
     }
   }
+
+  const overrideQuote = (overrideQuotes) => {
+    if (overrideQuotes && Array.isArray(overrideQuotes)) {
+      const overrideQuoteIds = overrideQuotes.map(quote => quote.id);
+      const updatedProduts = quoteProducts
+        .map((product) => {
+          if (overrideQuoteIds.includes(product.id)) {
+            const quote = overrideQuotes.find(quote => product.id === quote.id);
+            if(quote) {
+              if (typeof quote.base_price === "number") {
+                product.unit_price = quote.base_price;
+              }
+              if (typeof quote.freight.value === "number") {
+                product.freight_price = quote.freight.value;
+                product.freight_mode = quote.freight.unit;
+              }
+              if (typeof quote.packaging.value === "number") {
+                product.package_price = quote.packaging.value;
+                product.package_mode = quote.packaging.unit;
+              }
+              if (typeof quote.tax.value === "number") {
+                product.tax = quote.tax.value;
+                product.tax_mode = quote.tax.unit;
+              }
+              product.delivery_period = quote.delivery_period;
+            }
+          }
+
+          return product;
+        });
+
+      calculateTotal(updatedProduts);
+
+      setExtractedQuotes(prev => ({...prev, show: false}));
+      toast.info("Quoted has been overrided to respective products")
+    }
+  };
 
   useEffect(() => {
     updateChargesByGlobal("freight");
@@ -667,6 +819,10 @@ const SendQuotePageComp = () => {
     updateChargesByGlobal("tax");
     calculateTotal(updated, true, 'tax');
   }, [globalTax]);
+
+  useEffect(() => {
+    console.log("EXTRACTED DATA:", extractedQuotes.data)
+  }, [extractedQuotes.data])
 
   return (
     <>
@@ -776,13 +932,6 @@ const SendQuotePageComp = () => {
                                 height={20}
                               />
                             </td>
-                            {/* <td>
-                            <PlaceholderLoading
-                              shape="rect"
-                              width={50}
-                              height={20}
-                            />
-                          </td> */}
                             <td>
                               <PlaceholderLoading
                                 shape="rect"
@@ -881,207 +1030,279 @@ const SendQuotePageComp = () => {
               <div className="col-md-12">
                 <div className="quote-sec-table">
                   <div className="quote-sec-table-top">
-                    <h3 className="title">RFQ No. #{rfqDetails.rfq_no}</h3>
-                    <div className="row">
 
                       {/* RFQ Details Section */}
-                      <div className="col-md-4 col-xs-12">
-                        {rfqDetails?.company_name && (
-                          <p>
-                            <b>Buyer</b> : {rfqDetails?.company_name}.
-                          </p>
-                        )}
-                        {rfqDetails?.contact_name && (
-                          <p>
-                            <b>Contact Person</b> : {rfqDetails?.contact_name}
-                          </p>
-                        )}
-                        {rfqDetails?.response_email && (
-                          <p>
-                            <b>Email</b> : {rfqDetails?.response_email}
-                          </p>
-                        )}
-                        {rfqDetails?.contact_number && (
-                          <p>
-                            <b>Contact Number</b> :
-                            {rfqDetails?.contact_number}
-                          </p>
-                        )}
+                                      <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
+                    {rfqDetails?.company_name && (
+                      <div className="text-start">
+                        <strong>RFQ No:</strong>
+                        <div>#{rfqDetails.rfq_no}</div>
                       </div>
-
-                      {/* Global Inputs Section */}
-                      <div className="col-md-4 col-xs-12 ">
-                        <h3 className="fs-6 fw-semibold mb-2">
-                          Global Costing
-                        </h3>
-                        <div className="row mb-4">
-                          <div className="inputBox form-group col-4">
-                            <label>Freight</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min={0}
-                              value={globalFreight}
-                              placeholder={chargesMode.freight.global == "percentage" ? "3%" : "₹950"}
-                              onChange={(e) => {setglobalFreight(e.target.value || "")}}
-                              onWheel={(e) => e.target.blur()}
-                            />
-                            <PercentageAbsoluteToggle
-                              currentMode={
-                                chargesMode.freight.global
-                              }
-                              onToggle={(value) => {
-                                setChargesMode((prev) => ({
-                                  ...prev,
-                                  freight: {
-                                    ...prev.freight,
-                                    global: value,
-                                  },
-                                }));
-                              }}
-                            />
-                          </div>
-                          <div className="inputBox form-group col-4">
-                            <label>Packaging</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min={0}
-                              value={globalPackaging}
-                              placeholder={chargesMode.package.global == "percentage" ? "4%" : "₹1450"}
-                              onChange={(e) => setglobalPackaging(e.target.value || "")}
-                              onWheel={(e) => e.target.blur()}
-                            />
-                            <PercentageAbsoluteToggle
-                              currentMode={
-                                chargesMode.package.global
-                              }
-                              onToggle={(value) => {
-                                setChargesMode((prev) => ({
-                                  ...prev,
-                                  package: {
-                                    ...prev.package,
-                                    global: value,
-                                  },
-                                }));
-                              }}
-                            />
-                          </div>
-                          <div className="inputBox form-group col-4">
-                            <label>TAX</label>
-                            <input
-                              type="number"
-                              className="form-control"
-                              min={0}
-                              value={globalTax}
-                              placeholder={chargesMode.tax.global == "percentage" ? "18%" : "₹18940"}
-                              onChange={(e) => setglobalTax(e.target.value || "")}
-                              onWheel={(e) => e.target.blur()}
-                            />
-                            <PercentageAbsoluteToggle
-                              currentMode={
-                                chargesMode.tax.global
-                              }
-                              onToggle={(value) => {
-                                setChargesMode((prev) => ({
-                                  ...prev,
-                                  tax: {
-                                    ...prev.tax,
-                                    global: value,
-                                  },
-                                }));
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="row">
-                          <div className="col-md-12 col-lg-6 pe-2 mb-4">
-                            <h3 className="fs-6 fw-semibold mb-2">Payment Terms</h3>
-                            <div className="inputBox form-group">
-                              <textarea
-                                type="text"
-                                className="form-control"
-                                value={globalPaymentTerms}
-                                placeholder="100% Against Proforma Invoice"
-                                onChange={(e) =>
-                                  setglobalPaymentTerms(e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="col-md-12 col-lg-6 pe-2 mb-4">
-                            <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
-                            <div className="inputBox form-group">
-                              <textarea
-                                type="text"
-                                className="form-control"
-                                value={globalComment}
-                                placeholder="Placeholder text for global comment"
-                                onChange={(e) => setglobalComment(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        </div>
+                    )}
+                    {rfqDetails?.contact_name && (
+                      <div className="text-start">
+                        <strong>Contact Person:</strong>
+                        <div>{rfqDetails.contact_name}</div>
                       </div>
-
-                      <div className="col-lg-1"></div>
-
-                      {/* Global File Upload Section */}
-                      <div className="col-md-6 col-lg-3">
-                        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
-
-                        {previousGlobalFiles && previousGlobalFiles.length > 0 &&
-                          <div className="border rounded-2 px-2 mb-2">
-                            <p className="fw-medium text-sm text-center mb-1 ">Previously Uploaded Files</p>
-                            <div className="row">
-                              {previousGlobalFiles.map((prev_file) => {
-                                return (
-                                  <div key={prev_file} className="col-md-6">
-                                    <a href={prev_file} target="_blank" className="page-link text-truncate mb-1" style={{ maxWidth: "200px" }}>
-                                      <FontAwesomeIcon icon={faDownload} className="ms-0 me-2" />
-                                      {extractfileName(prev_file)}
-                                    </a>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        }
-
-                        <label className="upload uploadInlineFile d-flex align-items-center justify-content-center mb-1">
-                          <FontAwesomeIcon icon={faFile} className="me-2" /> Upload Quotation Document
-                          <input
-                            type="file"
-                            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                            onChange={(e) => uploadGlobalDocumentFiles(e)}
-                            multiple={true}
-                          />
-                        </label>
-
-
-                        <div className="row">
-                          {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-                            globalDocumentFiles.map((doc_file) => {
-                              return (
-                                <div key={doc_file} className="col-md-6 d-flex justify-content-center align-items-center gap-2 mb-1">
-                                  <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
-                                  <span className="btn-close btn-close-sm"
-                                    aria-label="Close"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      removeGlobalFiles(doc_file)
-                                    }}>
-                                  </span>
-                                </div>
-                              )
-                            })
-                          )}
-                        </div>
-
+                    )}
+                    {rfqDetails?.contact_name && (
+                      <div className="text-start">
+                        <strong>Contact Person:</strong>
+                        <div>{rfqDetails.contact_name}</div>
                       </div>
+                    )}
+                    {rfqDetails?.response_email && (
+                      <div className="text-start">
+                        <strong>Email:</strong>
+                        <div>{rfqDetails.response_email}</div>
+                      </div>
+                    )}
+                    {rfqDetails?.contact_number && (
+                      <div className="text-start">
+                        <strong>Contact Number:</strong>
+                        <div>{rfqDetails.contact_number}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+       
+        {/* AI file upload start here */}
+       {/* <div>
 
-                    </div>
+         <div className="d-flex align-items-center my-3">
+           <hr className="flex-grow-1" />
+           <span className="mx-3  fw-semibold">
+         Smart Quotation Assist - Wisely 
+           </span>
+           <hr className="flex-grow-1" />
+         </div>
+
+
+        <label
+          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
+        >
+          <FontAwesomeIcon icon={faFile} className="me-2" />
+          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
+          <input
+            type="file"
+            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            multiple
+            disabled={extractingQuotes}
+          />
+        </label>
+
+           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+          <div className="row">
+           <p className="fw-medium mb-1">New Uploaded Files:</p>
+            <div className="d-flex gap-4" >
+              {globalDocumentFiles.map((doc_file) => {
+               return (
+                  <p
+                  key={doc_file}
+                  href={doc_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                  onClick={(e) => {
+                      e.preventDefault()
+                      removeGlobalFiles(doc_file)
+                    }}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                   {extractfileName(doc_file)}
+                  </span>
+                </p>
+ 
+              )
+            })}
+            </div>
+         </div>
+          )}
+
+
+       </div>
+       <div className="d-flex align-items-center my-3">
+         <hr className="flex-grow-1" />
+         <span className="mx-3  fw-semibold">
+           OR send quotation manually
+         </span>
+         <hr className="flex-grow-1" />
+       </div> */}
+
+        {previousGlobalFiles?.length > 0 && (
+          <div className=" mb-3">
+            <p className="fw-medium mb-1">Previously attached files in quotation. </p>
+            <div className="d-flex gap-4 ">
+              {previousGlobalFiles.map((prev_file) => (
+                <a
+                  key={prev_file}
+                  href={prev_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                    {extractfileName(prev_file)}
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </div>
+        )}
+
+<div className="row align-items-stretch">
+  {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
+  <div className="col-lg-3 col-12 d-flex">
+    <div className="card border shadow-sm rounded-3 w-100 h-100">
+      <div className="card-body">
+        <h3 className="fs-6 fw-semibold mb-3">Global Costing</h3>
+
+        <div className="row g-3 mb-4">
+          {/* Freight */}
+          <div className="col-12 col-sm-4">
+            <label className="form-label">Freight</label>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              value={globalFreight}
+              placeholder={chargesMode.freight.global === "percentage" ? "3%" : "₹950"}
+              onChange={(e) => setglobalFreight(e.target.value || "")}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            <div className="mt-2">
+              <PercentageAbsoluteToggle
+                currentMode={chargesMode.freight.global}
+                onToggle={(value) =>
+                  setChargesMode((prev) => ({ ...prev, freight: { ...prev.freight, global: value } }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* Packaging */}
+          <div className="col-12 col-sm-4">
+            <label className="form-label">Packaging</label>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              value={globalPackaging}
+              placeholder={chargesMode.package.global === "percentage" ? "4%" : "₹1450"}
+              onChange={(e) => setglobalPackaging(e.target.value || "")}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            <div className="mt-2">
+              <PercentageAbsoluteToggle
+                currentMode={chargesMode.package.global}
+                onToggle={(value) =>
+                  setChargesMode((prev) => ({ ...prev, package: { ...prev.package, global: value } }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* TAX */}
+          <div className="col-12 col-sm-4">
+            <label className="form-label">TAX</label>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              value={globalTax}
+              placeholder={chargesMode.tax.global === "percentage" ? "18%" : "₹18940"}
+              onChange={(e) => setglobalTax(e.target.value || "")}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            <div className="mt-2">
+              <PercentageAbsoluteToggle
+                currentMode={chargesMode.tax.global}
+                onToggle={(value) =>
+                  setChargesMode((prev) => ({ ...prev, tax: { ...prev.tax, global: value } }))
+                }
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
+  <div className="col-lg-4 col-12 d-flex">
+    <div className="card border shadow-sm rounded-3 w-100 h-100">
+      <div className="card-body d-flex flex-column">
+      
+      {globalPaymentTerms && (
+      <>
+        <div className="mb-3 d-flex align-items-center justify-content-between">
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+        </div>
+        <textarea
+          className="form-control mb-3"
+          rows={3}
+          value={globalPaymentTerms}
+          placeholder="100% Against Proforma Invoice"
+          onChange={(e) => setglobalPaymentTerms(e.target.value)}
+        />
+        </>
+      )}
+
+        <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
+        <textarea
+          className="form-control flex-grow-1"
+        value={globalComment}
+        placeholder="Placeholder text for global comment"
+        onChange={(e) => setglobalComment(e.target.value)}
+      />
+    </div>
+  </div>
+</div>
+
+  {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
+  <div className="col-lg-5 col-12">
+
+   <div className="border rounded-3 p-3" >
+          <div className="d-flex align-items-center justify-content-between mb-2">
+          <div>
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+            <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
+            </div>
+
+        <SmartButton
+              onClick={() =>
+                setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
+              }
+        theme={'primary'}
+        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        label="Add Term"
+        icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
+      />
+
+
+          </div>
+
+          <PaymentTermsEditor
+            value={paymentTermsRows}
+            onChange={setPaymentTermsRows}
+          />
+        </div>
+  </div>
+
+</div>
+
+
+
                   </div>
                   <div className="table-responsive">
                     <div className="table-container">
@@ -1710,8 +1931,160 @@ const SendQuotePageComp = () => {
           setregretModal(false);
         }}
       />
+      {extractedQuotes.data && (
+        <QuotesOverrideModal
+          show={extractedQuotes.show}
+          onClose={() => setExtractedQuotes(prev => ({...prev, show: false}))}
+          quotes={extractedQuotes.data}
+          overrideQuote={overrideQuote}
+        />
+      )}
     </>
   );
 };
 
 export default SendQuotePageComp;
+
+
+
+
+
+
+//  PaymentTermsUIOnly component
+const PaymentTermsEditor = ({ value, onChange }) => {
+  const rows = Array.isArray(value) ? value : [];
+
+    const setRows = (next) => onChange && onChange(next);
+
+    const markDeleted = (index) => {
+     const updated = [...rows];
+     const row = updated[index] || {};
+    updated[index] = { ...row, action: "delete" };
+    setRows(updated);
+  };
+
+  const restoreRow = (index) => {
+    const updated = [...rows];
+    const row = updated[index];
+    if (!row) return;
+    const { action, ...rest } = row;
+    updated[index] = rest;
+    setRows(updated);
+  };
+
+  const updateRow = (index, patch) =>
+    setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+
+  return (
+    <div>
+      {rows.map((row, index) => {
+        const isCredit = row.type === "credit";
+        const isDeleted = row.action === "delete";
+        return (
+          <div key={index} className="row g-2 align-items-end mb-2">
+            <div className="col-3">
+              <label className="form-label mb-1">% of Amount</label>
+              <input
+                type="number"
+                className="form-control"
+                placeholder="e.g., 30"
+                value={row.value}
+                onChange={(e) =>
+                  updateRow(index, {
+                    value: e.target.value === "" ? "" : Number(e.target.value),
+                  })
+                }
+                min={0}
+                max={100}
+                disabled={isDeleted}
+              />
+            </div>
+
+            <div className="col-3">
+              <label className="form-label mb-1">Type</label>
+              <select
+                className="form-select"
+                value={row.type}
+                onChange={(e) => {
+                  const nextType = e.target.value;
+                  updateRow(index, {
+                    type: nextType,
+                    days: nextType === "credit" ? row.days : "",
+                    comment: nextType === "credit" ? "" : (row.comment ?? ""),
+                  });
+                }}
+                disabled={isDeleted}
+              >
+                <option value="advance">Advance</option>
+                <option value="credit">Credit</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            {isCredit ? (
+              <div className="col-4">
+                <label className="form-label mb-1">Credit Days</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  placeholder="e.g., 30"
+                  value={row.days}
+                  onChange={(e) =>
+                    updateRow(index, {
+                      days: e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
+                  min={1}
+                disabled={ isDeleted}
+                />
+              </div>
+            ) : (
+              <div className="col-4">
+                <label className="form-label mb-1">
+                  Comment
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
+                  value={row.comment || ""}
+                  onChange={(e) => updateRow(index, { comment: e.target.value })}
+               disabled={ isDeleted}
+                />
+              </div>
+            )}
+
+            <div className="col-2 d-flex mb-1">
+              {!isDeleted ? (
+                <SmartButton
+                  onClick={() => markDeleted(index)}
+                  theme={"red"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Remove"
+                />
+              ) : (
+                <SmartButton
+                  onClick={() => restoreRow(index)}
+                  theme={"secondary"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Restore"
+                />
+              )}
+            </div>
+
+            {/* Small status line below inputs when deleted */}
+            {isDeleted && (
+              <div className="col-12 mt-0">
+                <small className="text-danger">
+                  you removed this term. Click "Restore" to add it back.
+                </small>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+

@@ -3,20 +3,24 @@ import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
 import ReadMore from "@/components/shared/ReadMore";
 import { renderFileLink } from "@/utils/elementFunctions";
-import { calculateTotal } from "@/utils/sharedFunctions";
+import { calculateTotal, handleNormalize } from "@/utils/sharedFunctions";
 import { Badge } from "react-bootstrap";
+
+
+/**
+ * @updated by mukul 08-08-2025 - normilize total
+ */
 
 const addCommasToNumber = (num) => {
   if (num === null || num === undefined) return '0';
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
+const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter }) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
-
   const toggleBreakup = (productIdx, vendorId) => {
     setBreakupOpen(prev => ({
       ...prev,
@@ -28,8 +32,17 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
     setLoading(true);
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
-        const data = res.data || [];
+        let data = res.data || [];
+        
+        // If normalize filter is enabled, normalize the quotes
+        if(normalizeFilter){
+          data =   handleNormalize(data)
+          // setProducts(normalizedData);
+        }
+
         setProducts(data);
+
+
         // Find max number of quoting vendors for any product
         let maxV = 0;
         data.forEach(item => {
@@ -38,15 +51,17 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
         });
         setMaxVendors(maxV);
         setLoading(false);
+
       })
       .catch(() => setLoading(false));
-  }, [rfq_id, TA_Filter, freightFilter]);
+  }, [rfq_id, TA_Filter, freightFilter, normalizeFilter]);
 
   if (loading) return <FullLoader />;
   const hasAnyQuotes = products.some(
     item => item.quotations && item.quotations.some(q => q.id != null && q.is_regret !== 1 && q.quote_details && q.quote_details[0])
   );
   if (!hasAnyQuotes) return <h4 className="mt-4 text-center">No Quotes Yet!</h4>;
+
 
   return (
     <div className="card card-body shadow-sm p-4" style={{ borderRadius: 18, marginTop: 16 }}>
@@ -64,6 +79,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 120, maxWidth: maxVendors > 2 ? 180 : 300, width: maxVendors > 2 ? 180 : 300 }}>Product Name</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 300, maxWidth: maxVendors > 2 ? 220 : 350, width: maxVendors > 2 ? 220 : 350 }}>Product Details</th>
               <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Quantity</th>
+              {/* <th style={{ background: '#2d5ba7', color: '#fff', minWidth: 80, maxWidth: maxVendors > 2 ? 100 : 150, width: maxVendors > 2 ? 100 : 150 }}>Target Price</th> */}
               {[...Array(maxVendors)].map((_, idx) => (
                 <th key={idx} style={{ background: '#2d5ba7', color: '#fff', minWidth: 160, borderTopRightRadius: idx === maxVendors - 1 ? 12 : 0 }}>
                   {`Lowest ${idx + 1}`} ({`L${idx + 1}`})
@@ -82,7 +98,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                 .map(q => {
                   const details = q.quote_details[0];
                   const quantity = details.rfq_details?.find(spec => spec.title === 'Quantity')?.value || details.quantity;
-                  return { ...q, cost: calculateTotal(details, quantity) };
+                  return { ...q, cost: calculateTotal(details, quantity, normalizeFilter) };
                 })
                 .sort((a, b) => a.cost - b.cost);
               // For regrets, keep them in a separate map by vendor id
@@ -117,6 +133,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       return unit ? `${qty} ${unit}` : qty;
                     })()}
                   </td>
+                  {/* {latest_target_price && (<td>₹{latest_target_price}</td>)} */}
                   {[...Array(maxVendors)].map((_, vIdx) => {
                     const q = quotingVendors[vIdx];
                     if (q) {
@@ -366,6 +383,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter }) => {
                       );
                     }
                   })}
+                  
                 </tr>
               );
             })}

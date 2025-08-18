@@ -2,8 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import VendorList from "./vendorList.js";
 import ChatBox from "./chatBox.js";
-import { listQueryMessages, listQueries, getRfqDetails } from "@/services/rfq";
+import { listQueryMessages, listQueries, getRfqDetails, broadcastMessage } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
+import { toast } from "react-toastify";
+import { Button } from "react-bootstrap";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 const QueryComponent = () => {
   const router = useRouter();
@@ -17,14 +21,29 @@ const QueryComponent = () => {
   const [debouncedVendorName, setDebouncedVendorName] = useState(vendorName);
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [selectedVendorIds, setSelectedVendorIds] = useState([]);
+
+    const selectedVendors = vendors.filter((v) => selectedVendorIds.includes(v.user_id));
+
+
+// Toggle selection
+const handleToggleVendor = (vendorId) => {
+  setSelectedVendorIds((prev) =>
+    prev.includes(vendorId)
+      ? prev.filter((id) => id !== vendorId)
+      : [...prev, vendorId]
+  );
+};
+
+
 
   const loadVendors = async (name = "") => {
     setVendorsLoading(true);
     try {
       const payload = { rfq_id, user_name: name };
       const response = await listQueries(payload, token);
-      setVendors(response.data);
-      if (!selectedVendor) {
+      setVendors(response.data || []);
+      if (!selectedVendor && response.data?.length) {
         handleSelectVendor(response.data[0]);
       }
     } catch (error) {
@@ -34,30 +53,29 @@ const QueryComponent = () => {
     }
   };
 
+
   const loadMessages = async () => {
     if (rfq_id && selectedVendor) {
-      // setMessagesLoading(true);
       try {
         const payload = { rfq_id, receiver_id: selectedVendor.user_id };
         const response = await listQueryMessages(payload, token);
-        setMessages(response.data);
+        setMessages(response.data || []);
       } catch (error) {
         console.error("Error fetching messages:", error);
       }
-      //  finally {
-      //   setMessagesLoading(false);
-      // }
     }
   };
 
-  const handleSelectVendor = (vendor) => {
-    setSelectedVendor(vendor);
-    setVendors((prevVendors) =>
-      prevVendors.map((v) =>
-        v.user_id === vendor.user_id ? { ...v, unseen_count: 0 } : v
-      )
-    );
-  };
+// Handle click on vendor name (single selection)
+const handleSelectVendor = (vendor) => {
+  setSelectedVendorIds([vendor.user_id]);
+  setSelectedVendor(vendor);
+  setVendors((prev) =>
+    prev.map((v) =>
+      v.user_id === vendor.user_id ? { ...v, unseen_count: 0 } : v
+    )
+  );
+};
 
   const loadRfqDetails = async () => {
     try {
@@ -79,6 +97,7 @@ const QueryComponent = () => {
   const handleMessageSent = async () => {
     await loadMessages();
     await loadVendors();
+    await loadRfqDetails()
   };
 
   useEffect(() => {
@@ -102,52 +121,71 @@ const QueryComponent = () => {
     loadMessages();
   }, [rfq_id, selectedVendor]);
 
+  // When multi-select, clear single vendor view; when 1 selected, set it
+  useEffect(() => {
+  if (selectedVendorIds.length > 1) {
+    setMessages([]);
+    setSelectedVendor(null);
+  } else if (selectedVendorIds.length === 1) {
+    const vendor = vendors.find(v => v.user_id === selectedVendorIds[0]);
+    if (vendor) {
+      setSelectedVendor(vendor);
+    }
+    } else {
+      setSelectedVendor(null);
+      setMessages([]);
+    }
+  }, [selectedVendorIds, vendors]);
+
   return (
     <>
-      <section className="small-size-heading buyer-common-header">
-        <div className="container-fluid">
-          <h1 className="heading">{`Queries for RFQ#${rfqDetails?.rfq_no}`}</h1>
-        </div>
-      </section>
-      <div className="container-fluid">
-        <div className="row">
-          {role === "buyer" ? (
-            <div className="col-md-4 my-3">
-              <VendorList
-                vendors={vendors}
-                onSelectVendor={handleSelectVendor}
-                vendorName={vendorName}
-                setVendorName={setVendorName}
-                loading={vendorsLoading}
-              />
-            </div>
-          ) : null}
-          <div
-            className={`col-md-${
-              role === "buyer" ? "8" : "12"
-            } p-3 my-3 border rounded shadow-sm`}
-            style={{ height: "65vh" }}
-          >
-            {messagesLoading ? (
-              <div className="hasFullLoader h-100">
-                <FullLoader />
-              </div>
-            ) : selectedVendor ? (
-              <ChatBox
-                messages={messages}
-                vendor={selectedVendor}
-                rfq_id={rfq_id}
-                role={role}
-                onMessageSent={handleMessageSent}
-                vendorwithoutlogintoken={token}
-              />
-            ) : (
-              <p>Select a vendor to view messages</p>
-            )}
-          </div>
-        </div>
+  <section className="small-size-heading buyer-common-header ">
+    <div className="container-fluid">
+      <div className="d-flex justify-content-between align-items-center">
+        <h1 className="heading">{`Queries for RFQ#${rfqDetails?.rfq_no}`}</h1>
       </div>
-    </>
+    </div>
+  </section>
+
+  <div className="container-fluid">
+    <div className="row">
+      {role === "buyer" ? (
+        <div className="col-md-4 my-3">
+          <VendorList
+  vendors={vendors}
+  onSelectVendor={handleSelectVendor}
+  onToggleVendor={handleToggleVendor}
+  selectedVendorIds={selectedVendorIds}
+  vendorName={vendorName}
+  setVendorName={setVendorName}
+  loading={vendorsLoading}
+/>
+        </div>
+      ) : null}
+
+      <div
+        className={`col-md-${role === "buyer" ? "8" : "12"} p-3 my-3 border rounded shadow-sm`}
+        style={{ height: "65vh" }}
+      >
+        {messagesLoading ? (
+  <div className="hasFullLoader h-100">
+    <FullLoader />
+  </div>
+) : (
+  <ChatBox
+    messages={messages}
+    vendor={selectedVendor}
+    rfq_id={rfq_id}
+    role={role}
+    onMessageSent={handleMessageSent}
+    vendorwithoutlogintoken={token}
+    selectedVendors={selectedVendors}   // <-- PASS THE ARRAY FOR BROADCAST
+  />
+)}
+      </div>
+    </div>
+ </div>
+</>
   );
 };
 

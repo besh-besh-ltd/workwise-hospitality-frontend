@@ -4,6 +4,7 @@ import axios from "axios";
 
 // This is the base URL for the AI server
   const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL || "https://test.letsworkwise.com/";
+  const quotationAIServerUrl = process.env.NEXT_PUBLIC_QUOTATION_AI_SERVER_URL || "https://test.letsworkwise.com/";
 
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {
@@ -244,10 +245,16 @@ export const getRFQS = (payload) => {
     }
   });
 };
-export const getRFQById = (id, token) => {
+export const getRFQById = (id, token, includeVendors = false) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/getRfqById/${id}${token !== undefined ? `?token=${token}` : ''}`);
+      let response = await axiosInstance.get(
+        `/rfq/getRfqById/${id}${
+          token !== undefined
+            ? `?token=${token}&includeVendors=${includeVendors}`
+            : `?includeVendors=${includeVendors}`
+        }`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -340,6 +347,17 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
   });
 };
 
+// export const getTargetPriceHistory = (rfq_product_id) =>{
+//   return new Promise (async (resolve , reject) =>{
+//     try {
+//       let response = await axiosInstance.get(`/rfq/targetPriceHistory/${rfq_product_id}`)
+//       resolve(response.data)
+//     } catch (error) {
+//       reject({message : error})
+//     }
+//   })
+// }
+
 export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -420,15 +438,26 @@ export const finalizeQuotation = (payload) => {
   });
 };
 
+
+
+export const updateTargetPrice = ({ productId, vendorIds, targetPrice }) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.post('/rfq/negotiate', { productId, vendorIds, targetPrice });
+      resolve(response.data);
+    } catch (error) {
+      reject(error.response?.data || { message: error.message });
+    }
+  });
+};
 /* 
 START :: Initiate magic search
 */
-export const persistMagicSearchJob = async (file_name, type = 'rfq') => {
-  const token = localStorage.getItem("token");
-
+export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_url) => {
   const payload = {
     file_name,
-    type
+    type,
+    raw_file_url
   }
   let response = await axiosInstance.post(`/rfq/initiate-magic-search`, payload);
   return response;
@@ -556,6 +585,17 @@ export const getRfqDetails = (payload, token = null) => {
     }
   });
 };
+
+export const broadcastMessage = ( payload ) =>{
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.post('/rfq/send-query-message-to-vendor', payload)
+      resolve(response)
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 
 export const sendQueryMessage = (payload,token=null ) => {
   return new Promise(async (resolve, reject) => {
@@ -992,4 +1032,16 @@ export const saveExcelInDB = (rfq_id, file_path) => {
       reject({ message: error });
     }
   });
+};
+
+/** Extracts quotation from given quotation document in respective to given rfq data */
+export const extractQuotation = (quotation_document, rfq_data) => {
+  if(!quotation_document || !rfq_data) throw new Error("Missing required payload, aborting extraction");
+
+  const formData = new FormData();
+  formData.append("file", quotation_document);
+  formData.append("rfq_json", JSON.stringify(rfq_data));
+  formData.append("mode", "vlm")
+
+  return axios.post(`${quotationAIServerUrl}/extract_quotation`, formData);
 };

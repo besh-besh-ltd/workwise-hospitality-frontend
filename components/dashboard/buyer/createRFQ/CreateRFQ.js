@@ -132,11 +132,8 @@ const CreateRFQ = () => {
     vendors: {},
   })
 
-
-  useEffect(()=>{
-    console.log("cheking the files here",termFiles );
-  },[termFiles])
   const [vendors, setVendors] = useState({});
+  const [viewProductFilter, setViewProductFilter] = useState({});
   const [addableVendors, setAddableVendors] = useState([]);
   const [termsChanged, setTermsChanged] = useState(false);
   const [termFilesChanged, setTermFilesChanged] = useState(false);
@@ -873,7 +870,15 @@ useEffect(() => {
           setonecountrycode(extractedCountryCode);
         }
         dispatch(intializeRfq(draftRes.data));
-        
+        draftRes.data.rfq_products
+          .map((product) => product.id)
+          .forEach((productId) => {
+            setViewProductFilter((prev) => ({
+              ...prev,
+              [productId]: false,
+            }));
+          });
+
         // Update document title
         document.title = `Edit Draft RFQ #${id}`;
         
@@ -902,6 +907,7 @@ useEffect(() => {
       
       if (draftRfqId && draftRfqId !== -1) {
         draftRes = await getDraftById(draftRfqId, selectedSheet?.value);
+        console.log("DRAFT PRODUCTS: ", draftRes.data.products)
         document.title = `Edit Draft RFQ #${draftRfqId}`;
 
         const isMagicRfqFromFlag = draftRes?.data?.rfq_form_data?.rfq_added_from === 'magic';
@@ -1385,164 +1391,182 @@ useEffect(() => {
 
     return (
       <>
-        <div className="w-100 mb-2">
-          <div className=" d-flex justify-content-between align-items-end w-100">
-            <div className="row g-3" style={{ width: "100%" }}>
-              <div className="col-md-3">
-                <CommonFormInput
-                  isMulti = {true} 
-                  type="multiselect"
-                  options={initialFilterOptions.countries.map((item) => ({
-                    label: item.country_name,
-                    value: item.id,
-                  }))}
-                  name="country"
-                  label="Country"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("country")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-              <div className="col-md-3">
-                <CommonFormInput
-                  disabled={
-                    !getFilterValue("country") ||
-                    getFilterValue("country").length <= 0
-                  }
-                  isMulti = {true} 
-                  type="multiselect"
-                  options={getFilteredStates().map((item) => ({
-                    label: item.state_name,
-                    value: item.id,
-                  }))}
-                  name="state"
-                  label="State"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("state")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-              <div className="col-md-3">
-                <CommonFormInput
-                  disabled={
-                    !getFilterValue("country") ||
-                    getFilterValue("country").length <= 0
-                  }
-                   isMulti = {true} 
-                  type="multiselect"
-                  options={getFilteredCities().map((item) => ({
-                    label: item.city_name,
-                    value: item.id,
-                  }))}
-                  name="city"
-                  label="City"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("city")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-              <div className="col-md-3">
-                <CommonFormInput
-                  type="multiselect"
-                  options={myVendorOptions}
-                  name="vendor_info"
-                  label="My Vendors"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("vendor_info")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-            </div>
-          </div>
-          <div className=" d-flex justify-content-between align-items-end w-100">
-            <div className="row g-3" style={{ width: "100%" }}>
-              <div className="col-md-3">
-                <CommonFormInput
-                  isMulti = {true} 
-                  type="multiselect"
-                  options={initialFilterOptions.vendorTypes}
-                  name="vendor_type"
-                  label="Vendor Types"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("vendor_type")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-              <div className="col-md-3">
-                <CommonFormInput
-                  type="multiselect"
-                  options={vendorConditions}
-                  name="prev_worked_with"
-                  label="Previously Worked With"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("prev_worked_with")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-              <div className="col-md-3">
-                <CommonFormInput
-                   isMulti = {true} 
-                  type="multiselect"
-                  options={initialFilterOptions.approvedBy.map((item) => ({
-                    label: item.vendor_approve,
-                    value: item.id,
-                  }))}
-                  name="vendor_approved_by"
-                  label="Vendor Approved By"
-                  labelBold
-                  placeholder="Select"
-                  values={getFilterValue("vendor_approved_by")}
-                  onChange={(newVal, action) =>
-                    forwardFilterUpdate(newVal, action)
-                  }
-                />
-              </div>
-              {!isGlobalFilter && (
-                <div className="col-md-3">
-                  <CommonFormInput
-                     isMulti = {true} 
-                    type="multiselect"
-                    options={
-                      initialFilterOptions.productMakes?.[product.id]
-                        ? initialFilterOptions.productMakes[product.id].map(
-                            (item) => ({
-                              label: item.make_name,
-                              value: item.id,
-                            })
-                          )
-                        : []
-                    }
-                    name="productMakes"
-                    label="Product Makes"
-                    labelBold
-                    placeholder="Select"
-                    values={getFilterValue("productMakes")}
-                    onChange={(newVal, action) =>
-                      forwardFilterUpdate(newVal, action)
-                    }
-                  />
+        <div className="w-100 d-flex flex-column gap-2 align-items-end mb-3">
+          {product && (
+            <button
+              className="minimal-btn"
+              style={{ width: "fit-content" }}
+              onClick={() =>
+                setViewProductFilter((prev) => ({
+                  ...prev,
+                  [product.id]: !prev[product.id],
+                }))
+              }
+            >
+              {viewProductFilter[product.id] ? "Close" : "Open"} Filter
+            </button>
+          )}
+          {(!product || viewProductFilter[product.id]) && (
+            <div className="w-100 mb-2">
+              <div className=" d-flex justify-content-between align-items-end w-100">
+                <div className="row g-3" style={{ width: "100%" }}>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      isMulti={true}
+                      type="multiselect"
+                      options={initialFilterOptions.countries.map((item) => ({
+                        label: item.country_name,
+                        value: item.id,
+                      }))}
+                      name="country"
+                      label="Country"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("country")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      disabled={
+                        !getFilterValue("country") ||
+                        getFilterValue("country").length <= 0
+                      }
+                      isMulti={true}
+                      type="multiselect"
+                      options={getFilteredStates().map((item) => ({
+                        label: item.state_name,
+                        value: item.id,
+                      }))}
+                      name="state"
+                      label="State"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("state")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      disabled={
+                        !getFilterValue("country") ||
+                        getFilterValue("country").length <= 0
+                      }
+                      isMulti={true}
+                      type="multiselect"
+                      options={getFilteredCities().map((item) => ({
+                        label: item.city_name,
+                        value: item.id,
+                      }))}
+                      name="city"
+                      label="City"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("city")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      type="multiselect"
+                      options={myVendorOptions}
+                      name="vendor_info"
+                      label="My Vendors"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("vendor_info")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
+              <div className=" d-flex justify-content-between align-items-end w-100">
+                <div className="row g-3" style={{ width: "100%" }}>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      isMulti={true}
+                      type="multiselect"
+                      options={initialFilterOptions.vendorTypes}
+                      name="vendor_type"
+                      label="Vendor Types"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("vendor_type")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      type="multiselect"
+                      options={vendorConditions}
+                      name="prev_worked_with"
+                      label="Previously Worked With"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("prev_worked_with")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <CommonFormInput
+                      isMulti={true}
+                      type="multiselect"
+                      options={initialFilterOptions.approvedBy.map((item) => ({
+                        label: item.vendor_approve,
+                        value: item.id,
+                      }))}
+                      name="vendor_approved_by"
+                      label="Vendor Approved By"
+                      labelBold
+                      placeholder="Select"
+                      values={getFilterValue("vendor_approved_by")}
+                      onChange={(newVal, action) =>
+                        forwardFilterUpdate(newVal, action)
+                      }
+                    />
+                  </div>
+                  {!isGlobalFilter && (
+                    <div className="col-md-3">
+                      <CommonFormInput
+                        isMulti={true}
+                        type="multiselect"
+                        options={
+                          initialFilterOptions.productMakes?.[product.id]
+                            ? initialFilterOptions.productMakes[product.id].map(
+                                (item) => ({
+                                  label: item.make_name,
+                                  value: item.id,
+                                })
+                              )
+                            : []
+                        }
+                        name="productMakes"
+                        label="Product Makes"
+                        labelBold
+                        placeholder="Select"
+                        values={getFilterValue("productMakes")}
+                        onChange={(newVal, action) =>
+                          forwardFilterUpdate(newVal, action)
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </>
     );
