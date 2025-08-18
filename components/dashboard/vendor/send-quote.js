@@ -1067,7 +1067,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                   
        
         {/* AI file upload start here */}
-       <div>
+       {/* <div>
 
          <div className="d-flex align-items-center my-3">
            <hr className="flex-grow-1" />
@@ -1093,7 +1093,6 @@ return { deletedTerms, createdTerms, updatedTerms };
           />
         </label>
 
-           {/*  start: recently upload files */}
            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
           <div className="row">
            <p className="fw-medium mb-1">New Uploaded Files:</p>
@@ -1125,9 +1124,19 @@ return { deletedTerms, createdTerms, updatedTerms };
          </div>
           )}
 
+
+       </div>
+       <div className="d-flex align-items-center my-3">
+         <hr className="flex-grow-1" />
+         <span className="mx-3  fw-semibold">
+           OR send quotation manually
+         </span>
+         <hr className="flex-grow-1" />
+       </div> */}
+
         {previousGlobalFiles?.length > 0 && (
           <div className=" mb-3">
-            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
+            <p className="fw-medium mb-1">Previously attached files in quotation. </p>
             <div className="d-flex gap-4 ">
               {previousGlobalFiles.map((prev_file) => (
                 <a
@@ -1149,16 +1158,6 @@ return { deletedTerms, createdTerms, updatedTerms };
             </div>
           </div>
         )}
-
-       </div>
-        {/* AI file upload over here */}
-       <div className="d-flex align-items-center my-3">
-         <hr className="flex-grow-1" />
-         <span className="mx-3  fw-semibold">
-           OR send quotation manually
-         </span>
-         <hr className="flex-grow-1" />
-       </div>
 
 <div className="row align-items-stretch">
   {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
