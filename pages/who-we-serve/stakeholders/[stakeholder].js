@@ -170,7 +170,7 @@ const StakeholderPage = () => {
             <h2 className="fs-1 fw-bold text-dark mb-3">🎯 Why Choose Workwise?</h2>
             <p className="text-muted fs-5 mb-0">Get measurable results from day one with features built specifically for procurement teams.</p>
           </div>
-          <div className="row g-4">
+          <div className="row g-4 justify-content-center">
             {data.benefits.map((b, idx) => (
               <div key={idx} className="col-lg-4 col-md-6">
                 <FeatureCard
@@ -185,7 +185,17 @@ const StakeholderPage = () => {
             ))}
           </div>
           <div className="text-center mt-5">
-            <Button className="w-auto" variant="primary" size="lg">📞 Book a Call</Button>
+            <Button 
+              className="w-auto" 
+              variant="primary" 
+              size="lg"
+              onClick={() => {
+                // Redirect to contact us for now - ideally should open book a call modal
+                window.location.href = '/contactus';
+              }}
+            >
+              📞 Book a Call
+            </Button>
           </div>
         </div>
       </section>
@@ -372,7 +382,16 @@ const StakeholderPage = () => {
             ))}
           </div>
           <div className="text-center mt-4">
-            <Button className="w-auto" variant="secondary" size="lg">💬 Let's Talk</Button>
+            <Button 
+              className="w-auto" 
+              variant="secondary" 
+              size="lg"
+              onClick={() => {
+                window.location.href = '/contactus';
+              }}
+            >
+              💬 Let's Talk
+            </Button>
           </div>
         </div>
       </section>
@@ -384,7 +403,7 @@ const StakeholderPage = () => {
             <h2 className="fs-1 fw-bold text-dark mb-3">⚙️ Functionalities That Matter</h2>
             <p className="text-muted fs-5 mb-0">Powerful features designed to streamline every step of your procurement process.</p>
           </div>
-          <div className="row g-4">
+          <div className="row g-4 justify-content-center">
             {data.features.map((f, idx) => (
               <div key={idx} className="col-lg-4 col-md-6">
                 <FeatureCard 
@@ -399,7 +418,19 @@ const StakeholderPage = () => {
             ))}
           </div>
           <div className="text-center mt-5">
-            <Button className="w-auto" variant="primary" size="lg">🎬 See It in Action</Button>
+            <Button 
+              className="w-auto" 
+              variant="primary" 
+              size="lg"
+              onClick={() => {
+                const videoSection = document.getElementById('video-section');
+                if (videoSection) {
+                  videoSection.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+            >
+              🎬 See It in Action
+            </Button>
           </div>
         </div>
       </section>
@@ -514,7 +545,7 @@ const StakeholderPage = () => {
       </section>
 
       {/* See Workwise in Action Section */}
-      <section className="py-5" style={{ background: '#1E293B' }}>
+      <section id="video-section" className="py-5" style={{ background: '#1E293B' }}>
         <div className="container">
           {/* Header */}
           <div className="text-center mb-5">
@@ -532,7 +563,7 @@ const StakeholderPage = () => {
               <div className="card border-0 shadow-lg" style={{ borderRadius: '20px', overflow: 'hidden' }}>
                 <div className="ratio ratio-16x9">
                   <iframe
-                    src={data.video.url}
+                    src="https://www.youtube.com/embed/-JPa1MX2HVE?si=DcUYfxiaX1Sd0akG"
                     title="YouTube video player"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerPolicy="strict-origin-when-cross-origin"
@@ -555,7 +586,16 @@ const StakeholderPage = () => {
             </div>
             
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
-              <Button className="w-auto" variant="white" size="lg">📅 Book a Demo</Button>
+              <Button 
+                className="w-auto" 
+                variant="white" 
+                size="lg"
+                onClick={() => {
+                  window.location.href = '/contactus';
+                }}
+              >
+                📅 Book a Demo
+              </Button>
               <Button 
                 className="w-auto text-white border-white" 
                 variant="outline-white" 
@@ -564,6 +604,9 @@ const StakeholderPage = () => {
                   color: 'white',
                   borderColor: 'white',
                   background: 'transparent'
+                }}
+                onClick={() => {
+                  window.location.href = '/contactus';
                 }}
               >
                 💬 Let's Talk
@@ -644,7 +687,16 @@ const StakeholderPage = () => {
             </div>
           </div>
           <div className="text-center mt-5">
-            <Button className="w-auto" variant="primary" size="lg">📞 Book a Call</Button>
+            <Button 
+              className="w-auto" 
+              variant="primary" 
+              size="lg"
+              onClick={() => {
+                window.location.href = '/contactus';
+              }}
+            >
+              📞 Book a Call
+            </Button>
           </div>
         </div>
       </section>
@@ -668,7 +720,16 @@ const StakeholderPage = () => {
             </div>
           </div>
           <div className="text-center mt-5">
-            <Button className="w-auto" variant="secondary" size="lg">💬 Let's Talk</Button>
+            <Button 
+              className="w-auto" 
+              variant="secondary" 
+              size="lg"
+              onClick={() => {
+                window.location.href = '/contactus';
+              }}
+            >
+              💬 Let's Talk
+            </Button>
           </div>
         </div>
       </section>

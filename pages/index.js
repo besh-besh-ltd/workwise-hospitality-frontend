@@ -16,6 +16,8 @@ import { ColourfulCard } from '@/components/ui/ColourfulCard';
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
 import { Button } from '@/components/ui/Button';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
+import BookCall from '@/components/bookCall';
+import { Modal } from 'react-bootstrap';
 import { useEffect, useRef, useState } from 'react';
 
 // Import data
@@ -90,13 +92,16 @@ export default function Home() {
     );
   };
   const handleBookCall = () => {
-    // Handle book a call action
-    console.log('Book a call clicked');
+    // Open the CallNowModal
+    setShowCallModal(true);
   };
 
   const handleTryFreeTools = () => {
-    // Handle try free tools action
-    console.log('Try free tools clicked');
+    // Scroll to tools section
+    const toolsSection = document.getElementById('free-tools-section');
+    if (toolsSection) {
+      toolsSection.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleExploreVendorTools = () => {
@@ -105,12 +110,15 @@ export default function Home() {
   };
 
   const handleVendorSupport = () => {
-    // Handle vendor support action
-    console.log('Vendor support clicked');
+    // Redirect to contact us page
+    window.location.href = '/contactus';
   };
 
   // FAQ: track which category is expanded
   const [openCategoryIndex, setOpenCategoryIndex] = useState(null);
+
+  // CallNowModal state
+  const [showCallModal, setShowCallModal] = useState(false);
 
   const handleToolClick = (toolName) => {
     console.log(`${toolName} clicked`);
@@ -329,7 +337,7 @@ export default function Home() {
         </div>
         
         {/* Free Tools Section */}
-        <section className="py-5">
+        <section id="free-tools-section" className="py-5">
           <div className="container">
             {/* Header */}
             <div className="text-center mb-5">
@@ -1355,6 +1363,22 @@ export default function Home() {
 
         
       </main>
+
+      {/* CallNowModal */}
+      <Modal
+        show={showCallModal}
+        onHide={() => setShowCallModal(false)}
+        centered
+        backdrop="static"
+        style={{ backdropFilter: "blur(5px)" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="p-4">Contact Us</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <BookCall />
+        </Modal.Body>
+      </Modal>
     </>
   )
 }

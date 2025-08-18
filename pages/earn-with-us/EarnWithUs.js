@@ -1,6 +1,8 @@
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { HeroSection } from '@/components/ui/HeroSection'
 import React, { useEffect, useRef, useState } from 'react'
+import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
+import { contactUsFormService, registerInterestService } from '@/services/contact';
 
 // Import data
 import { earnWithUsData } from '@/components/constants/earnWithUsData';
@@ -161,7 +163,7 @@ const HowItWorksSection = ({
 };
 
 
-const WebinarComponent = () => {
+const WebinarComponent = ({ onRegister }) => {
   return (
     <div className="container-fluid p-0">
       <div 
@@ -328,6 +330,7 @@ const WebinarComponent = () => {
                   border: 'none',
                   borderRadius: '8px'
                 }} 
+                onClick={() => onRegister && onRegister('Webinar Registration')}
               >
                 <FaUsers className="me-2" />
                 {earnWithUsData.webinar.ctaButton}
@@ -354,7 +357,7 @@ const WebinarComponent = () => {
 };
 
 
-const WhoIsThisForComponent = () => {
+const WhoIsThisForComponent = ({ onJoin }) => {
   const allItems = earnWithUsData.targetAudience;
   return (
     <div className="container py-5">
@@ -394,7 +397,7 @@ const WhoIsThisForComponent = () => {
                 <p className="text-muted mb-4" style={{ fontSize: '1.05rem', lineHeight: '1.6', maxWidth: '600px', margin: '0 auto 2rem' }}>
                   Have contacts in industrial, manufacturing, or procurement sectors? You're a perfect fit!
                 </p>
-                <button className="btn btn-primary w-auto px-4 py-3 fw-semibold d-inline-flex align-items-center" style={{ border: 'none', borderRadius: '8px', fontSize: '1rem' }}>
+                <button onClick={() => onJoin && onJoin('Partner Registration')} className="btn btn-primary w-auto px-4 py-3 fw-semibold d-inline-flex align-items-center" style={{ border: 'none', borderRadius: '8px', fontSize: '1rem' }}>
                   <FaUserPlus className="me-2" size={16} />
                   Join as a Partner
                 </button>
@@ -588,7 +591,7 @@ const WorkwisePartnerComponent = () => {
 
 
 
-const JoinPartnersCTAComponent = () => {
+const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
   return (
     <div 
       className="py-5"
@@ -634,6 +637,7 @@ const JoinPartnersCTAComponent = () => {
               {/* Primary CTA - Register */}
               <button 
                 className="btn btn-lg px-5 py-3 fw-semibold d-flex align-items-center"
+                onClick={onPrimaryClick}
                 style={{ 
                   backgroundColor: '#2E5BBB',
                   color: 'white',
@@ -651,6 +655,7 @@ const JoinPartnersCTAComponent = () => {
               {/* Secondary CTA - Talk to Team */}
               <button 
                 className="btn btn-lg px-5 py-3 fw-semibold d-flex align-items-center"
+                onClick={onSecondaryClick}
                 style={{ 
                   backgroundColor: 'rgba(255,255,255,0.9)',
                   color: '#2E5BBA',
@@ -677,6 +682,31 @@ const JoinPartnersCTAComponent = () => {
 
 
 const EarnWithUs = () => {
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState('Register Your Interest');
+
+  const openRegister = (title) => {
+    if (title) setModalTitle(title);
+    setShowRegisterModal(true);
+  };
+
+  const handleSecondaryCTA = () => {
+    window.location.href = '/contactus';
+  };
+
+  const onSubmitRegister = async (values) => {
+    const payload = {
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      subject: modalTitle,
+      comment: values.message || 'Earn With Us form submission',
+      submitted_from: 'earn-with-us'
+    };
+    // Hit the alias endpoint that reuses contact-us controller
+    await registerInterestService(payload);
+  };
+
   return (
     <>
     <HeroSection
@@ -686,25 +716,40 @@ const EarnWithUs = () => {
     label: earnWithUsData.hero.primaryButton.label,
     variant: earnWithUsData.hero.primaryButton.variant,
     icon: "person-plus",
-    onClick: () => console.log("Register clicked")
+    onClick: () => openRegister('Partner Registration')
   }}
   secondaryButton={{
     label: earnWithUsData.hero.secondaryButton.label,
     variant: earnWithUsData.hero.secondaryButton.variant,
-    onClick: () => console.log("Learn more clicked")
+    onClick: handleSecondaryCTA
   }}
 />
-<HowItWorksSection />
-<WebinarComponent />
+<HowItWorksSection ctaButton={{ onClick: () => openRegister('Make an Introduction') }} />
+<WebinarComponent onRegister={openRegister} />
 <WorkwisePartnerComponent />
-<WhoIsThisForComponent />
+<WhoIsThisForComponent onJoin={openRegister} />
 <PartnerStatsSection/>
 
 <FaqSection />
 
-<JoinPartnersCTAComponent />
+<JoinPartnersCTAComponent onPrimaryClick={() => openRegister('Register To Become A Partner')} onSecondaryClick={handleSecondaryCTA} />
 
-
+      {/* Register Interest Modal */}
+      <RegisterFormModal
+        show={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        title={modalTitle}
+        subtitle={"Please fill in your details and our team will contact you shortly."}
+        fields={[
+          { name: 'name', label: 'Full Name', type: 'text', required: true, placeholder: 'Enter your name' },
+          { name: 'email', label: 'Email', type: 'email', required: true, placeholder: 'you@example.com' },
+          { name: 'phone', label: 'Phone', type: 'text', required: true, placeholder: '+91-XXXXXXXXXX' },
+          { name: 'message', label: 'Message', type: 'textarea', required: false, placeholder: 'Optional message' },
+          { name: 'agree', label: 'I agree to be contacted by Workwise', type: 'checkbox', required: true },
+        ]}
+        onSubmit={onSubmitRegister}
+        successMessage={"Thanks! Our partnership team will reach out soon."}
+      />
     </>
   )
 }

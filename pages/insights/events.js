@@ -13,6 +13,7 @@ import { CtaSection } from '@/components/ui/CtaSection';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
+import { registerInterestService } from '@/services/contact';
 import { DynamicCard } from '@/components/ui/DynamicCard';
 import { HeroSection } from '@/components/ui/HeroSection';
 
@@ -38,8 +39,16 @@ const EventsPage = () => {
   };
 
   const handleFormSubmit = async (formData) => {
-    console.log('Event registration form submitted:', { event: selectedEvent, formData });
-    // Here you would typically send the data to your backend
+    // Align payload keys to backend expectations (same as contact-us)
+    const payload = {
+      name: formData.fullName,
+      email: formData.workEmail,
+      phone: formData.phoneNumber,
+      subject: selectedEvent ? `Event Registration: ${selectedEvent.name}` : 'Event Updates',
+      comment: formData.companyName ? `Company: ${formData.companyName}` : 'Event form submission',
+      submitted_from: 'events'
+    };
+    await registerInterestService(payload);
     setShowModal(false);
   };
 

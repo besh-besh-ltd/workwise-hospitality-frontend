@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/Button';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { CtaSection } from '@/components/ui/CtaSection';
 import RegisterUserModal from '../modal/RegisterUserModal';
+import BookCall from '@/components/bookCall';
+import { Modal } from 'react-bootstrap';
 
 // Import data
 import { vendorPageData } from '@/components/constants/vendorPageData';
@@ -88,8 +90,8 @@ const ForVendors = () => {
 
   const handleTalkToVendorTeam = () => {
     console.log('Talk to vendor team clicked');
-    // Handle talk to vendor team action
-    window.open('mailto:vendors@workwise.in', '_blank');
+    // Open book a call modal
+    setShowCallModal(true);
   };
 
   const handleJoinNow = () => {
@@ -97,17 +99,20 @@ const ForVendors = () => {
     setShowRegistrationModal(true);
   };
 
-  const handleSeeToolsInAction = () => {
-    console.log('See tools in action clicked');
-    // Navigate to tools page
-    window.open('/ai-tools', '_blank');
-  };
+  // const handleSeeToolsInAction = () => {
+  //   console.log('See tools in action clicked');
+  //   // Navigate to tools page
+  //   window.open('/ai-tools', '_blank');
+  // };
 
   // FAQ: track which category is expanded
   const [openCategoryIndex, setOpenCategoryIndex] = useState(null);
   
   // Registration modal state
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  
+  // Book a call modal state
+  const [showCallModal, setShowCallModal] = useState(false);
 
   return (
     <>
@@ -227,6 +232,10 @@ const ForVendors = () => {
             ...vendorPageData.hero.secondaryButton,
             onClick: handleTalkToVendorTeam
           }}
+          visualContent={{
+            video: <HeroVideo /> 
+          }}
+          mobileVideoContent={<HeroVideo />}
           layout="split"
           size="medium"
           textAlign="left"
@@ -476,7 +485,7 @@ const ForVendors = () => {
             {/* CTA */}
             <div className="text-center">
               <Button
-                onClick={handleSeeToolsInAction}
+                onClick={() => window.open('/ai-tools', '_blank')}
                 className="w-auto"
                 variant="outline-primary"
                 size="lg"
@@ -644,6 +653,22 @@ const ForVendors = () => {
           setShowModal={setShowRegistrationModal}
           showButton={false}
         />
+
+        {/* Book a Call Modal */}
+        <Modal
+          show={showCallModal}
+          onHide={() => setShowCallModal(false)}
+          centered
+          backdrop="static"
+          style={{ backdropFilter: "blur(5px)" }}
+        >
+          <Modal.Header closeButton>
+            <Modal.Title className="p-4">Contact Us</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="p-4">
+            <BookCall />
+          </Modal.Body>
+        </Modal>
       </main>
     </>
   );

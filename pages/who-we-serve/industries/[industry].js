@@ -1,6 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import Slider from 'react-slick';
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 import { FaWrench, FaPhone } from 'react-icons/fa';
 import { FaUsers, FaFileAlt, FaSitemap, FaClipboardCheck } from 'react-icons/fa';
 import { FaBolt, FaBuilding, FaCogs } from 'react-icons/fa';
@@ -11,6 +14,7 @@ import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { HeroSection } from '@/components/ui/HeroSection';
 import Layout from '@/components/layout';
+import { homepageData } from '@/components/constants/homepageData';
 
 // Import default data (Power). Additional industries can be added to this map.
 import { industryPageData as powerData, industriesPageData } from '@/components/constants/industryPageData';
@@ -81,24 +85,48 @@ const WorkwiseModules = ({ className = '', title, modules, onLearnMore }) => {
 const TestimonialsSection = ({ className = '', title, testimonials }) => {
   const displayTestimonials = testimonials || [];
   return (
-    <section className={`py-5 bg-light ${className}`}>
+    <>
+      <style jsx>{`
+        .company-logos-carousel .slick-slide {
+          display: flex !important;
+          justify-content: center;
+          align-items: center;
+        }
+        .company-logos-carousel .slick-track {
+          display: flex !important;
+          align-items: center;
+        }
+        .company-logos-carousel .slick-list {
+          overflow: hidden;
+        }
+        .company-logos-carousel .slick-slide img {
+          margin: 0 auto;
+        }
+      `}</style>
+      <section className={`py-5 bg-light ${className}`}>
       <div className="container">
         <div className="text-center mb-5">
           <h2 className="h4 fw-bold text-dark">{title}</h2>
         </div>
-        <div className="d-flex justify-content-center align-items-center gap-4 mb-5 flex-wrap">
-          {[1, 2, 3, 4, 5].map((logo) => (
-            <div
-              key={logo}
-              className="bg-white rounded shadow-sm d-flex align-items-center justify-content-center"
-              style={{ width: '100px', height: '60px', backgroundColor: '#f8f9ff' }}
-            >
-              <div
-                className="d-flex align-items-center justify-content-center"
-                style={{ width: '40px', height: '40px', backgroundColor: '#6c63ff', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}
-              />
-            </div>
-          ))}
+        <div className="company-logos-carousel mb-5">
+          <Slider {...homepageData.carouselSettings}>
+            {homepageData.companyLogos.map((logo, index) => (
+              <div key={index} className="px-2">
+                <img
+                  src={logo}
+                  alt=""
+                  style={{
+                    maxWidth: '120px',
+                    maxHeight: '60px',
+                    objectFit: 'contain',
+                    filter: 'none',
+                    opacity: '1',
+                    transition: 'transform 0.2s ease'
+                  }}
+                />
+              </div>
+            ))}
+          </Slider>
         </div>
         <div className="row g-4">
           {displayTestimonials.map((t) => (
@@ -121,7 +149,8 @@ const TestimonialsSection = ({ className = '', title, testimonials }) => {
           ))}
         </div>
       </div>
-    </section>
+      </section>
+    </>
   );
 };
 
@@ -148,7 +177,7 @@ const AllDisciplines = ({ className = '', title, disciplines }) => {
                   {d.icon === 'fan' && <FaFan style={{ color: '#4285f4' }} size={24} />}
                 </div>
                 <div className="fw-semibold text-dark">
-                  <Link href={`/disciplines/${slugify(d.label)}`}>{d.label}</Link>
+                  <Link href={`/solutions/${slugify(d.label)}`}>{d.label}</Link>
                 </div>
               </div>
             </div>

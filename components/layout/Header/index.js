@@ -494,6 +494,7 @@ const Header = () => {
             {(mainNavs.includes(pathname) ||
               pathname?.startsWith("/solutions") ||
               pathname?.startsWith("/insights") ||
+              pathname?.startsWith("/ai-tools") ||
               pathname?.startsWith("/modules") ||
               pathname?.startsWith("/work-with-us") ||
               pathname?.startsWith("/who-we-serve") ||

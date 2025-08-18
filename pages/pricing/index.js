@@ -327,7 +327,7 @@ const PricingPage = () => {
   const handleStartFree = () => {
     console.log('Start for Free clicked');
     // Route to for-vendors page
-    router.push('/for-vendors');
+    setShowRegisterModal(true);
   };
 
   const handleUpgradeSilver = () => {

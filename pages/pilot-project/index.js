@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/Button';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
 import { FeatureCard } from '@/components/ui/FeatureCard';
+import BookCall from '@/components/bookCall';
+import { Modal } from 'react-bootstrap';
 
 // Import data
 import { pilotProjectData } from '@/components/constants/pilotProjectData';
@@ -26,6 +28,7 @@ const pageInfo = {
 
 const PilotProjectPage = () => {
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
 
 
 
@@ -36,7 +39,7 @@ const PilotProjectPage = () => {
   };
 
   const handleClaimPilot = () => {
-    setShowFormModal(true);
+    setShowCallModal(true);
   };
 
   return (
@@ -290,6 +293,22 @@ const PilotProjectPage = () => {
           onSubmit={handleFormSubmit}
           successMessage="Thanks! We'll contact you within 24 hours to set up your pilot project."
         />
+
+        {/* Book a Call Modal */}
+        <Modal
+          show={showCallModal}
+          onHide={() => setShowCallModal(false)}
+          centered
+          backdrop="static"
+          style={{ backdropFilter: "blur(5px)" }}
+        >
+          <Modal.Header closeButton>
+            <Modal.Title className="p-4">Contact Us</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="p-4">
+            <BookCall />
+          </Modal.Body>
+        </Modal>
       </main>
     </>
   );

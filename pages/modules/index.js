@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { getUserDetails } from '@/services/Auth';
+import storageInstance from '@/utils/storageInstance';
 import { 
   Upload, 
   Tag, 
@@ -23,6 +25,8 @@ import { TestimonialCard } from '@/components/ui/TestimonialCard';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { Button } from '@/components/ui/Button';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
+import BookCall from '@/components/bookCall';
+import { Modal } from 'react-bootstrap';
 
 // Import data
 import { modulePageData } from '@/components/constants/modulePageData';
@@ -30,9 +34,38 @@ import { modulePageData } from '@/components/constants/modulePageData';
 const ModulePage = () => {
   const router = useRouter();
   const { module } = router.query;
+  const [loggedinUser, setLoggedinUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showCallModal, setShowCallModal] = useState(false);
+
+  // Check user authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = storageInstance.getItem("access-token");
+        if (token) {
+          const userDetails = await getUserDetails();
+          if (userDetails && userDetails.name) {
+            setLoggedinUser(userDetails);
+          }
+        }
+      } catch (error) {
+        // Silently handle auth errors
+        console.log('Auth check failed:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (typeof window !== 'undefined') {
+      checkAuth();
+    } else {
+      setLoading(false);
+    }
+  }, []);
   
   // Wait for router to be ready to avoid hydration mismatch
-  if (!router.isReady) {
+  if (!router.isReady || loading) {
     return <div>Loading...</div>;
   }
   
@@ -76,13 +109,38 @@ const ModulePage = () => {
   const stepIcons = getStepIcons(currentModule);
 
   const handlePrimaryAction = () => {
-    // Handle primary CTA based on module
-    console.log(`${moduleData.hero.primaryButton.label} clicked`);
+    // Handle primary CTA based on module and authentication status
+    switch (currentModule) {
+      case 'rfq':
+      case 'boq':
+        if (loggedinUser) {
+          router.push('/boq-automation');
+        } else {
+          // Open login modal or redirect to login
+          window.open('https://letsworkwise.com/?user_registered=1', '_blank');
+        }
+        break;
+      case 'vendors':
+        router.push('/vendor/all'); // find vendor page
+        break;
+      case 'evaluation':
+        router.push('/ai-tools/technical-summary'); // technical summary tool
+        break;
+      case 'negotiation':
+        router.push('/vendor/all'); // find vendor (temporary solution)
+        break;
+      case 'payments':
+        // Payments CTA yet to be finalized - for now open contact modal
+        setShowCallModal(true);
+        break;
+      default:
+        console.log(`${moduleData.hero.primaryButton.label} clicked`);
+    }
   };
 
   const handleSecondaryAction = () => {
-    // Handle secondary CTA
-    console.log('Book a Call clicked');
+    // Handle secondary CTA - usually "Book a Call" - open modal
+    setShowCallModal(true);
   };
 
 
@@ -238,6 +296,22 @@ const ModulePage = () => {
           />
         </div>
       </div>
+
+      {/* Book a Call Modal */}
+      <Modal
+        show={showCallModal}
+        onHide={() => setShowCallModal(false)}
+        centered
+        backdrop="static"
+        style={{ backdropFilter: "blur(5px)" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="p-4">Contact Us</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <BookCall />
+        </Modal.Body>
+      </Modal>
     </div>
   );
 };
