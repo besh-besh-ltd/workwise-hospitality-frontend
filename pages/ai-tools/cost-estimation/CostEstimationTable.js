@@ -84,7 +84,7 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
         </thead>
         <tbody>
           {tableData.map((row, index) => {
-            const total = row.highest_price + (row.serviceCharge ?? 0) + (row.additionalCharges ?? 0);
+            const total = row.average_price + (row.serviceCharge ?? 0) + (row.additionalCharges ?? 0);
             return (
               <tr key={index}>
                 <td>{index + 1}</td>
@@ -110,7 +110,10 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
                     onChange={(e) => handleInputChange(index, "additionalCharges", e.target.value)}
                   />
                 </td>
-                <td style={{minWidth: 150}}><strong>₹{addCommasToNumber(total)}</strong></td>
+                <td style={{minWidth: 150}}>
+                  <strong>₹{addCommasToNumber(total)}</strong>
+                  <small className="d-block">(Using Avg. Price)</small>
+                </td>
               </tr>
             );
           })}

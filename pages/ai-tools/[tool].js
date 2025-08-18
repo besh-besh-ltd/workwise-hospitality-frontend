@@ -22,7 +22,7 @@ import FilePreview from '@/components/ui/FilePreview';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
-import { getBOQexcelToJsonAI, handleCostEstimation, handleTenderSummary, handleTechnicalSummary, startCostEstimationProcess } from '@/services/rfq';
+import { getBOQexcelToJsonAI, handleCostEstimation, handleTenderSummary, handleTechnicalSummary, startCostEstimationProcess, getSImplifiedVersionOfBOQ } from '@/services/rfq';
 import { toast } from 'react-toastify';
 import { LoginService, SWSubscribe } from '@/services/Auth';
 import { useSelector } from 'react-redux';
@@ -151,26 +151,54 @@ const AiToolPage = () => {
     }
   };
 
+  const handleBoqSimplificaitonRequest = async (formData) => {
+    const persistJob = await handleCostEstimation(
+      fileName,
+      "simplified",
+      formData
+    );
+    const webhook = persistJob.webhook;
+
+    if (persistJob.didUserRegister) {
+      const isLoginSuccess = await handleUserLogin({
+        email: persistJob.user.email,
+        password: persistJob.user.password,
+      });
+      if (!isLoginSuccess) throw new Error("Login Failed!");
+    }
+
+    const startResponse = await getSImplifiedVersionOfBOQ(file, webhook);
+    const response = startResponse.data;
+
+    if (startResponse) {
+      toast.success(response.message);
+      setShowFormModal(false);
+      setShowSuccessModal(true);
+    } else {
+      throw new Error(
+        "Server is too busy to handle your request, please try again in some time..."
+      );
+    }
+  };
+
   const handleTenderSummaryRequest = async (formData) => {
-    const summary = await handleTenderSummary(
+    const summaryResponse = await handleTenderSummary(
       fileName,
       formData
     );
     
-    if (summary.didUserRegister) {
+    if (summaryResponse.didUserRegister) {
       const isLoginSuccess = await handleUserLogin({
-        email: summary.user.email,
-        password: summary.user.password,
+        email: summaryResponse.user.email,
+        password: summaryResponse.user.password,
       });
       if (!isLoginSuccess) throw new Error("Login Failed!");
-      else if(isLoginSuccess && summary.markup)
-        setSummary(summary.markup)
     }
-    
 
-    if(summary.status == 2) {
+    if(summaryResponse.status == 2) {
       toast.error("Summary cannot be generated for given file at the time, please try again later!")
     }
+    setSummary(summaryResponse.markup);
   };
 
   const handleTechnicalSummaryRequest = async (formData) => {
@@ -212,6 +240,10 @@ const AiToolPage = () => {
         case 'technical-summary':
           handleTechnicalSummaryRequest(formData);
           break;
+        
+        case 'boq-simplification':
+          handleBoqSimplificaitonRequest(formData);
+          break;
       }
     } catch (error) {
       setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
@@ -238,7 +270,6 @@ const AiToolPage = () => {
   const handleBookDemo = () => {
     console.log('Book Demo clicked');
   };
-
 
   return (
     <>
