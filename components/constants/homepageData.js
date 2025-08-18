@@ -103,7 +103,7 @@ export const homepageData = {
     },
     {
       title: "Project Cost Estimator",
-      subtitle: "Upload your BOQ to estimate project cost instantly.",
+      subtitle: " Upload your BOQ to get AI-generated pricing across products, services, and manpower.",
       bgGradient: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
       icon: "calculator",
       features: [
