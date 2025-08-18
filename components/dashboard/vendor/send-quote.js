@@ -83,7 +83,15 @@ const originalPaymentTermsListRef = useRef(null);
    * @returns {Array<object>}
    */
   function normalizeExtractedItems(items) {
-    return (items || []).filter(it => it.id != 0).map((it) => {
+    const seen = new Set();
+    const unique = (items || []).filter((it) => {
+      if (it.id === 0) return false;
+      if (seen.has(it.id)) return false;
+      seen.add(it.id);
+      return true;
+    });
+    
+    return unique.map((it) => {
       const quantityNum = it.quantity.value;
       const unit = (it.quantity && it.quantity.unit) || "";
 
@@ -737,7 +745,9 @@ return { deletedTerms, createdTerms, updatedTerms };
           if (overrideQuoteIds.includes(product.id)) {
             const quote = overrideQuotes.find(quote => product.id === quote.id);
             if(quote) {
-              product.unit_price = quote.base_price;
+              if (typeof quote.base_price === "number") {
+                product.unit_price = quote.base_price;
+              }
               if (typeof quote.freight.value === "number") {
                 product.freight_price = quote.freight.value;
                 product.freight_mode = quote.freight.unit;
