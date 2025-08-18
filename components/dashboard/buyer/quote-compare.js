@@ -191,20 +191,12 @@ const openModalForVariant = (variantId) => {
 
 
 const handleNormalizeClick = () => {
-  setNormalizeFilter(prev => {
-    const currentVal = prev[rfq] || false;
-    const updated = {
-      ...prev,
-      [rfq]: !currentVal
-    };
-
-    // If it's being set to true => trigger modal as well
-    if (!currentVal) {
-      setShowNormalizeModal(true);
-    }
-
-    return updated;
-  });
+  if (normalizeFilter) {
+    setNormalizeFilter(false);
+  } else {
+    setNormalizeFilter(true);
+    setShowNormalizeModal(true);
+  }
 };
 
 const handleCloseNormalizeModal = () => {
@@ -1153,12 +1145,9 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </span>
                     )}
                   </>
-
-                  <span onClick={handleNormalizeClick}>
-                    {normalizeFilter[rfq]
-                      ? "Remove Normalize Quotes"
-                      : "Normalize Quotes Smartly"}
-                  </span>
+                <span onClick={handleNormalizeClick}>
+                  {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
+                </span>
                 </div>
               )}
             </div>
