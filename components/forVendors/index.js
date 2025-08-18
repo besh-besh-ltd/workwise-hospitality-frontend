@@ -89,9 +89,10 @@ const ForVendors = () => {
   };
 
   const handleTalkToVendorTeam = () => {
-    console.log('Talk to vendor team clicked');
-    // Open book a call modal
-    setShowCallModal(true);
+    // Redirect to contact us page instead of opening modal
+    if (typeof window !== 'undefined') {
+      window.location.href = '/contactus';
+    }
   };
 
   const handleJoinNow = () => {
