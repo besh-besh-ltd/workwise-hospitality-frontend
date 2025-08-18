@@ -1,3 +1,4 @@
+import { isInteger } from "lodash";
 import React, { useMemo, useState, useEffect } from "react";
 import { IoMdInformationCircleOutline } from "react-icons/io";
 
@@ -67,7 +68,7 @@ export const QuotesOverrideModal = ({
         aria-modal="true"
       >
         <div
-          className="modal-dialog modal-xl modal-dialog-scrollable"
+          className="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered"
           style={{ maxWidth: "70vw", width: "70vw" }} // 85% screen width
         >
           <div className="modal-content shadow">
@@ -80,22 +81,15 @@ export const QuotesOverrideModal = ({
                   Review, select, and click Confirm to override current entries.
                 </span>
               </div>
-              <button
-                type="button"
-                className="btn-close"
-                aria-label="Close"
-                onClick={onClose}
-              />
             </div>
 
             <div className="modal-body pt-0">
               <div
-                className="alert alert-warning d-flex align-items-start"
+                className="alert alert-warning d-flex align-items-center gap-1"
                 role="alert"
               >
-                <IoMdInformationCircleOutline/>
                 <div>
-                  Warning: Once confirmed, all the selected quotes will override
+                  <span className="fw-medium">Warning:</span> Once confirmed, all the selected quotes will override
                   existing entries and cannot be retrieved.
                 </div>
               </div>
@@ -157,9 +151,9 @@ export const QuotesOverrideModal = ({
                         <td>{q.quantity ?? "-"}</td>
                         <td className="text-uppercase">{q.unit || "-"}</td>
                         <td>
-                          {q.base_price != null
+                          {q.base_price != null && isInteger(q.base_price)
                             ? `₹${q.base_price.toLocaleString()}`
-                            : "-"}
+                            : "N/A"}
                         </td>
                         <td>{formatMoneyOrPercent(q.freight)}</td>
                         <td>{formatMoneyOrPercent(q.packaging)}</td>
@@ -167,7 +161,7 @@ export const QuotesOverrideModal = ({
                         <td>
                           {q.delivery_period != null
                             ? `${q.delivery_period} days`
-                            : "-"}
+                            : "N/A"}
                         </td>
                       </tr>
                     ))}
@@ -183,27 +177,31 @@ export const QuotesOverrideModal = ({
               </div>
             </div>
 
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleConfirm}
-                disabled={selectedIds.length === 0}
-                title={
-                  selectedIds.length === 0
-                    ? "Select at least one quote"
-                    : "Confirm override"
-                }
-              >
-                Confirm Override ({selectedIds.length})
-              </button>
+            <div className="modal-footer justify-content-between ms-2">
+              <small className="text-muted">This AI can make mistakes, please review every field carefully before confirming any overrides.</small>
+              <div className="d-flex gap-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary p-2"
+                  onClick={onClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary p-2"
+                  style={{width: 215}}
+                  onClick={handleConfirm}
+                  disabled={selectedIds.length === 0}
+                  title={
+                    selectedIds.length === 0
+                      ? "Select at least one quote"
+                      : "Confirm override"
+                  }
+                >
+                  Confirm Override ({selectedIds.length})
+                </button>
+              </div>
             </div>
           </div>
         </div>
