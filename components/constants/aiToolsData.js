@@ -682,7 +682,7 @@ export const aiToolsData = {
       subtitle: "We'll share your result on email. Free usage is limited to 1 file.",
       fields: [
         {
-          name: "fullName",
+          name: "name",
           label: "Full Name",
           type: "text",
           required: true,
@@ -703,14 +703,14 @@ export const aiToolsData = {
           placeholder: "Enter your designation"
         },
         {
-          name: "workEmail",
+          name: "email",
           label: "Work Email",
           type: "email",
           required: true,
           placeholder: "Enter your work email"
         },
         {
-          name: "phoneNumber",
+          name: "phone",
           label: "Phone Number",
           type: "tel",
           required: false,

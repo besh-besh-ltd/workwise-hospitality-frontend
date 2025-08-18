@@ -223,7 +223,7 @@ const AiToolPage = () => {
     const handleTechnicalSummaryRequest = async (formData) => {
     try {
       const raw = await handleTechnicalSummary(file, formData);
-      const data = raw?.data || raw; // Normalize axios response/data
+      const data = raw; // Normalize axios response/data
   
       if (data?.didUserRegister) {
         const isLoginSuccess = await handleUserLogin({
@@ -237,7 +237,7 @@ const AiToolPage = () => {
         // Parse the response according to the actual JSON structure
         let technicalSpecs = [];
         
-        if (data.clauses?.structuredData) {
+        if (data?.clauses?.structuredData) {
           technicalSpecs = data.clauses.structuredData;
         } else if (data.structuredData) {
           technicalSpecs = data.structuredData;
@@ -861,7 +861,7 @@ const AiToolPage = () => {
         >
           <div className="modal-dialog modal-xl modal-dialog-centered">
             <div className="modal-content border-0 shadow">
-              <div className="modal-header border-0 pb-0">
+              <div className="modal-header border-0 pb-0 px-4 pt-3">
                 <h4 className="modal-title fw-bold">Technical Document Summary</h4>
                 <button
                   type="button"
@@ -870,11 +870,6 @@ const AiToolPage = () => {
                 ></button>
               </div>
               <div className="modal-body">
-                {/* Debug Info */}
-                <div className="alert alert-info mb-3">
-                  <small>Debug: {JSON.stringify(Object.keys(technicalSummary || {}))}</small>
-                </div>
-                
                 <div className="row g-4">
                   {/* Technical Specifications */}
                   {technicalSummary.structuredData?.technicalSpecifications && technicalSummary.structuredData.technicalSpecifications.length > 0 && (

@@ -494,7 +494,7 @@ export const handleTechnicalSummary = async (file, userData) => {
   }
   
   let response = await axiosFormData.post(`/rfq/technical-summary`, formData);
-  return response.data;
+  return response;
 };
 
 
