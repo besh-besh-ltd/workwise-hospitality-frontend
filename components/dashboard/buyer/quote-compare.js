@@ -54,7 +54,7 @@ const QuoteCompare = () => {
   const [TA_Filter, setTA_Filter] = useState(false);
   const [TEavailable, setTEavailable] = useState(false);
   const [freightFilter, setFreightFilter] = useState(false);
-  const [normalizeFilter, setNormalizeFilter] = useState(false);
+  const [normalizeFilter, setNormalizeFilter] = useState({});
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
@@ -69,6 +69,7 @@ const QuoteCompare = () => {
  const [openModalId, setOpenModalId] = useState(null);
  const[openInputModal , setOpenInputModal] =useState(false)
  const [showNormalizeModal, setShowNormalizeModal] = useState(false);
+ 
 
 
   useEffect(() => {
@@ -190,12 +191,20 @@ const openModalForVariant = (variantId) => {
 
 
 const handleNormalizeClick = () => {
-  if (normalizeFilter) {
-    setNormalizeFilter(false);
-  } else {
-    setNormalizeFilter(true);
-    setShowNormalizeModal(true);
-  }
+  setNormalizeFilter(prev => {
+    const currentVal = prev[rfq] || false;
+    const updated = {
+      ...prev,
+      [rfq]: !currentVal
+    };
+
+    // If it's being set to true => trigger modal as well
+    if (!currentVal) {
+      setShowNormalizeModal(true);
+    }
+
+    return updated;
+  });
 };
 
 const handleCloseNormalizeModal = () => {
@@ -1101,27 +1110,27 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
               <h3 className="heading">Compare Received Quote</h3>
             </div>
             <div className="col-md-8">
-            {rfq && quotes && quotes.length >0 && (
-              <div className="btn-options float-end">
-                {/*Negotiation Module Button*/}
-                <span
-                  onClick={() => {
-                    setOpenInputModal(true); // Make sure this matches the state variable name
-                  }}
-                >
-                  Negotiation
-                </span>
-                {openInputModal && (
-                  <InputModal
-                    show={openInputModal}
-                    onHide={() => setOpenInputModal(false)}
-                    onSubmit={handleSubmitTargetPrice}
-                    products={transformData(quotes)} // directly passing API response
-                    modalTitle="Set Target Price for Vendor"
-                  />
-                )}
+              {rfq && quotes && quotes.length > 0 && (
+                <div className="btn-options float-end">
+                  {/*Negotiation Module Button*/}
+                  <span
+                    onClick={() => {
+                      setOpenInputModal(true); // Make sure this matches the state variable name
+                    }}
+                  >
+                    Negotiation
+                  </span>
+                  {openInputModal && (
+                    <InputModal
+                      show={openInputModal}
+                      onHide={() => setOpenInputModal(false)}
+                      onSubmit={handleSubmitTargetPrice}
+                      products={transformData(quotes)} // directly passing API response
+                      modalTitle="Set Target Price for Vendor"
+                    />
+                  )}
 
-                {/* Download quote & Close Rfq Buttons */}
+                  {/* Download quote & Close Rfq Buttons */}
                   <span onClick={handleDownloadQuote}>
                     {" "}
                     {downloadLoading
@@ -1144,12 +1153,13 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     )}
                   </>
 
-                <span onClick={handleNormalizeClick}>
-                  {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
-                </span>
-
-              </div>
-            )}
+                  <span onClick={handleNormalizeClick}>
+                    {normalizeFilter[rfq]
+                      ? "Remove Normalize Quotes"
+                      : "Normalize Quotes Smartly"}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1428,22 +1438,24 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         </div>
                       )}
 
-                     {!normalizeFilter && 
-                      <div className="form-check form-switch page-link fs-6">
-                        <input
-                          className="form-check-input border-dark-subtle"
-                          type="checkbox"
-                          role="switch"
-                          checked={freightFilter}
-                          id="freight_check"
-                          onChange={handleFreightFilterChange}
-                        />
-                        <label className="form-check-label" for="freight_check">
-                          View quotes without freight
-                        </label>
-                      </div>
-                      }
-
+                      {!normalizeFilter && (
+                        <div className="form-check form-switch page-link fs-6">
+                          <input
+                            className="form-check-input border-dark-subtle"
+                            type="checkbox"
+                            role="switch"
+                            checked={freightFilter}
+                            id="freight_check"
+                            onChange={handleFreightFilterChange}
+                          />
+                          <label
+                            className="form-check-label"
+                            for="freight_check"
+                          >
+                            View quotes without freight
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1889,12 +1901,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       </section>
 
       <NormalizeInfoModal
-  show={showNormalizeModal}
-  // secondsLeft={normSecondsLeft}
-  onClose={handleCloseNormalizeModal}
-/>
-
-
+        show={showNormalizeModal}
+        // secondsLeft={normSecondsLeft}
+        onClose={handleCloseNormalizeModal}
+      />
     </>
   );
 };
