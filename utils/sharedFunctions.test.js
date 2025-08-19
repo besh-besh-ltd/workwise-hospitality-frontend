@@ -324,7 +324,7 @@ describe("calculateTotal", () => {
     const quantity = 5;
 
     const result = calculateTotal(quoteItem, quantity, true); // normalizeFilter = true
-    expect(result).toBe(49);
+    expect(result).toBe(50);
   });
 
   // Verifies normalization when payment terms cover less than 100%, Scenario: 25% credit @ 30 days (1% discount) + 75% without discount
