@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 
-const DURATION = 10;   // seconds
+const DURATION = 15;   // seconds
 const SPARKLE_MS = 1500;
 
 const NormalizeInfoModal = ({ show, onClose }) => {
@@ -70,7 +70,7 @@ const NormalizeInfoModal = ({ show, onClose }) => {
           <div style={styles.modal}>
             <div style={styles.header}>
               <h5 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-                Cost Normalizer - Wisely AI
+                AI Cost Normalizer
               </h5>
               <button
                 type="button"
@@ -82,32 +82,45 @@ const NormalizeInfoModal = ({ show, onClose }) => {
               </button>
             </div>
 
-            <div style={styles.body}>
-              <p style={styles.lead}>
-                Normalization ensures every vendor’s quote is compared on the same terms.
-              </p>
+        <hr style={{ margin: "0 20px", borderColor: "#e6ecff" }} />
 
-              <ol style={styles.list}>
-                <li>
-                  <b>Fill missing data</b> — If Freight/Packaging is missing, use the average %.
-                  If Tax is missing, use the median %.
-                </li>
-                <li>
-                  <b>Payment term adjustment</b> — Each term has a percentage of the total cost
-                  and days until payment:
-                  <ul style={styles.sublist}>
-                    <li><b>Advance</b> (0 days) → No deduction.</li>
-                    <li><b>Credit</b> → Deduct <code>1% per 30 days</code>.</li>
-                  </ul>
-                  Formula: <code>adjusted = % × total × (1 − (days ÷ 30) × 0.01)</code>.
-                  Leftover % (if total terms &lt; 100%) → No deduction.
-                </li>
-              </ol>
+         <div style={styles.body}>         
+           <div style={{ marginBottom: 12 }}>
+             <p style={{ fontWeight: 500, marginBottom: 4 }}>1. What this does</p>
+             <ul style={{ margin: 0, paddingLeft: 18 }}>
+               <li>Gives you a clear, like-for-like vendor comparison</li>
+               <li>Adjusts all quotes into a single net present cost</li>
+             </ul>
+           </div>
+         
+           <div style={{ marginBottom: 12 }}>
+             <p style={{ fontWeight: 500, marginBottom: 4 }}>2. How we normalize cost</p>
+             <ul style={{ margin: 0, paddingLeft: 18 }}>
+               <li>Fills in missing heads (freight, packaging, taxes) using project defaults/RFQ baseline</li>
+               <li>Highlights assumed values so you can review/edit</li>
+             </ul>
+           </div>
+         
+           <div style={{ marginBottom: 12 }}>
+             <p style={{ fontWeight: 500, marginBottom: 4 }}>3. How we handle payment terms</p>
+             <ul style={{ margin: 0, paddingLeft: 18 }}>
+               <li>Converts all payment schedules into today’s money</li>
+               <li>Advance payments: add interest cost</li>
+               <li>Credit terms: subtract interest benefit</li>
+               <li>Default rate: 1% per month (0.033% per day)</li>
+             </ul>
+           </div>
+         
+           <div>
+             <p style={{ fontWeight: 500, marginBottom: 4 }}>4. Assumptions</p>
+             <ul style={{ margin: 0, paddingLeft: 18 }}>
+               <li>Interest rate = 1% per month (editable)</li>
+               <li>Missing heads filled from project defaults</li>
+               <li>All adjustments transparent &amp; reversible</li>
+             </ul>
+           </div>
+         </div>
 
-              <p style={styles.note}>
-                Result: pricing differences reflect real costs, not missing data or varying terms.
-              </p>
-            </div>
 
             <div style={styles.footer}>
               <div style={styles.progressOuter}>
