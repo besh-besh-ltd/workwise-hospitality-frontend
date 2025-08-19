@@ -4,6 +4,7 @@ import axios from "axios";
 
 // This is the base URL for the AI server
   const aiServerBaseURL = process.env.NEXT_PUBLIC_AI_SERVER_URL || "https://test.letsworkwise.com/";
+  const quotationAIServerUrl = process.env.NEXT_PUBLIC_QUOTATION_AI_SERVER_URL || "https://test.letsworkwise.com/";
 
 export const getTerms = (values) => {
   return new Promise(async (resolve, reject) => {
@@ -462,6 +463,41 @@ export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_ur
   return response;
 };
 
+export const handleCostEstimation = async (file_name, type = 'rfq', userData) => {
+  const payload = {
+    file_name,
+    type,
+    ...userData,
+  }
+  let response = await axiosInstance.post(`/rfq/estimate-cost`, payload);
+  return response;
+};
+
+export const handleTenderSummary = async (file_name, userData) => {
+  const payload = {
+    file_name,
+    ...userData,
+  }
+  let response = await axiosInstance.post(`/rfq/tender-summary`, payload);
+  return response;
+};
+
+export const handleTechnicalSummary = async (file, userData) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Add user data if provided
+  if (userData) {
+    Object.keys(userData).forEach(key => {
+      formData.append(key, userData[key]);
+    });
+  }
+  
+  let response = await axiosFormData.post(`/rfq/technical-summary`, formData);
+  return response;
+};
+
+
 
 /* 
 START :: AI server functions 
@@ -480,6 +516,21 @@ export const getBOQexcelToJsonAI = (file, webhook, customInstructions = "") => {
     formData.append("webhook", webhook);
 
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+export const startCostEstimationProcess = (file, webhook) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  
+  if(webhook)
+    formData.append("webhook", webhook);
+
+  return axios.post(`${aiServerBaseURL}/estimate-cost`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "multipart/form-data",
@@ -1031,4 +1082,27 @@ export const saveExcelInDB = (rfq_id, file_path) => {
       reject({ message: error });
     }
   });
+};
+
+export const getCostEstimationData = (persistent_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-cost-estimation/${persistent_id}`);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+/** Extracts quotation from given quotation document in respective to given rfq data */
+export const extractQuotation = (quotation_document, rfq_data) => {
+  if(!quotation_document || !rfq_data) throw new Error("Missing required payload, aborting extraction");
+
+  const formData = new FormData();
+  formData.append("file", quotation_document);
+  formData.append("rfq_json", JSON.stringify(rfq_data));
+  formData.append("mode", "vlm")
+
+  return axios.post(`${quotationAIServerUrl}/extract_quotation`, formData);
 };

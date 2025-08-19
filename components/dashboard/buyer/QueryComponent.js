@@ -97,6 +97,7 @@ const handleSelectVendor = (vendor) => {
   const handleMessageSent = async () => {
     await loadMessages();
     await loadVendors();
+    await loadRfqDetails()
   };
 
   useEffect(() => {

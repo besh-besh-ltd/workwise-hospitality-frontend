@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
+import { extractQuotation, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -8,11 +8,13 @@ import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { extractfileName, handleFileUpload } from "@/utils/sharedFunctions";
+import { extractfileName, extractParsedNumber, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
 import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
 import { renderFileLink } from "@/utils/elementFunctions";
 import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
+import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
+import { IoMdInformationCircleOutline } from "react-icons/io";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -61,6 +63,11 @@ const SendQuotePageComp = () => {
   const [currentLowest, setCurrentLowest] = useState(null);
   const [techEvalStatuses, setTechEvalStatuses] = useState({});
   const [showTechEvalRestrictions, setShowTechEvalRestrictions] = useState(false);
+  const [extractedQuotes, setExtractedQuotes] = useState({
+    show: false,
+    data: null,
+  })
+  const [extractingQuotes, setExtractingQuotes] = useState(false);
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -70,7 +77,54 @@ const [paymentTermsRows, setPaymentTermsRows] = useState([
 // Save the initial payment terms list from backend
 const originalPaymentTermsListRef = useRef(null);
 
+  /**
+   * Main transformer
+   * @param {Array<object>} items
+   * @returns {Array<object>}
+   */
+  function normalizeExtractedItems(items) {
+    const seen = new Set();
+    const unique = (items || []).filter((it) => {
+      if (it.id === 0) return false;
+      if (seen.has(it.id)) return false;
+      seen.add(it.id);
+      return true;
+    });
+    
+    return unique.map((it) => {
+      const quantityNum = it.quantity.value;
+      const unit = (it.quantity && it.quantity.unit) || "";
 
+      const basePriceNum = it.base_price.value;
+
+      const freight = moneyOrPercent(it.freight);
+      const packaging = moneyOrPercent(it.packaging);
+
+      // Taxes are typically percentage
+      const tax = moneyOrPercent(it.taxes, true);
+      if (typeof tax.value === "number" && it.taxes && it.taxes.unit === "%") {
+        tax.mode = "%";
+      }
+
+      const deliveryPeriod =
+        typeof it.delivery_period === "number"
+          ? it.delivery_period
+          : toNumber(it.delivery_period);
+
+      return {
+        id: it.id,
+        rfq_product_name: rfqDetails.products?.find(product => product.id == it.id)?.name || it.item_name,
+        raw_product_name: it.item_name,
+        quantity: quantityNum,
+        unit,
+        base_price: basePriceNum,
+        freight,
+        packaging,
+        tax,
+        delivery_period: deliveryPeriod ?? null,
+      };
+    });
+  }
 
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
@@ -605,6 +659,7 @@ return { deletedTerms, createdTerms, updatedTerms };
 
   const uploadGlobalDocumentFiles = async (e) => {
     try {
+      setExtractingQuotes(true);
       const filePath = await handleFileUpload(e, token);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
@@ -612,11 +667,33 @@ return { deletedTerms, createdTerms, updatedTerms };
         filePath
       ]);
 
+      await handleQuotationDocumentUpload(e.target?.files?.[0]);
+
     } catch (error) {
       let message = error.message;
       toast.error(message);
-    }
+    } finally { setExtractingQuotes(false); }
   };
+
+  const handleQuotationDocumentUpload = async (file) => {
+    try {
+      const response = await extractQuotation(file, rfqDetails)
+      const extracted = response.data?.result?.extracted?.Details;
+
+      if(extracted) {
+        setExtractedQuotes((prev) => ({
+          ...prev,
+          data: normalizeExtractedItems(extracted),
+          show: true,
+        }));
+      } else {
+        toast.info("No Quotations found in given document")
+      }
+    } catch (error) {
+      console.error("QUOTE EXTRACTION ERROR:", error);
+      toast.error("Something went wrong while extraction details from quotation document, please try again later!");
+    }
+  }
 
   const removeGlobalFiles = (file_url) => {
     const newFileLinks = globalDocumentFiles.filter((fileItem) => fileItem !== file_url);
@@ -659,6 +736,43 @@ return { deletedTerms, createdTerms, updatedTerms };
       }))
     }
   }
+
+  const overrideQuote = (overrideQuotes) => {
+    if (overrideQuotes && Array.isArray(overrideQuotes)) {
+      const overrideQuoteIds = overrideQuotes.map(quote => quote.id);
+      const updatedProduts = quoteProducts
+        .map((product) => {
+          if (overrideQuoteIds.includes(product.id)) {
+            const quote = overrideQuotes.find(quote => product.id === quote.id);
+            if(quote) {
+              if (typeof quote.base_price === "number") {
+                product.unit_price = quote.base_price;
+              }
+              if (typeof quote.freight.value === "number") {
+                product.freight_price = quote.freight.value;
+                product.freight_mode = quote.freight.unit;
+              }
+              if (typeof quote.packaging.value === "number") {
+                product.package_price = quote.packaging.value;
+                product.package_mode = quote.packaging.unit;
+              }
+              if (typeof quote.tax.value === "number") {
+                product.tax = quote.tax.value;
+                product.tax_mode = quote.tax.unit;
+              }
+              product.delivery_period = quote.delivery_period;
+            }
+          }
+
+          return product;
+        });
+
+      calculateTotal(updatedProduts);
+
+      setExtractedQuotes(prev => ({...prev, show: false}));
+      toast.info("Quoted has been overrided to respective products")
+    }
+  };
 
   useEffect(() => {
     updateChargesByGlobal("freight");
@@ -705,6 +819,10 @@ return { deletedTerms, createdTerms, updatedTerms };
     updateChargesByGlobal("tax");
     calculateTotal(updated, true, 'tax');
   }, [globalTax]);
+
+  useEffect(() => {
+    console.log("EXTRACTED DATA:", extractedQuotes.data)
+  }, [extractedQuotes.data])
 
   return (
     <>
@@ -948,6 +1066,100 @@ return { deletedTerms, createdTerms, updatedTerms };
                   </div>
                   
        
+        {/* AI file upload start here */}
+       <div>
+
+         <div className="d-flex align-items-center my-3">
+           <hr className="flex-grow-1" />
+           <span className="mx-3  fw-semibold">
+         Smart Quotation Assist - Wisely 
+           </span>
+           <hr className="flex-grow-1" />
+         </div>
+
+
+        <label
+          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
+        >
+          <FontAwesomeIcon icon={faFile} className="me-2" />
+          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
+          <input
+            type="file"
+            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            multiple
+            disabled={extractingQuotes}
+          />
+        </label>
+
+           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+          <div className="row">
+           <p className="fw-medium mb-1">New Uploaded Files:</p>
+            <div className="d-flex gap-4" >
+              {globalDocumentFiles.map((doc_file) => {
+               return (
+                  <p
+                  key={doc_file}
+                  href={doc_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                  onClick={(e) => {
+                      e.preventDefault()
+                      removeGlobalFiles(doc_file)
+                    }}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                   {extractfileName(doc_file)}
+                  </span>
+                </p>
+ 
+              )
+            })}
+            </div>
+         </div>
+          )}
+
+
+        {previousGlobalFiles?.length > 0 && (
+          <div className=" mb-3">
+            <p className="fw-medium mb-1">Previously attached files in quotation. </p>
+            <div className="d-flex gap-4 ">
+              {previousGlobalFiles.map((prev_file) => (
+                <a
+                  key={prev_file}
+                  href={prev_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                    {extractfileName(prev_file)}
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </div>
+        )}
+
+       </div>
+       <div className="d-flex align-items-center my-3">
+         <hr className="flex-grow-1" />
+         <span className="mx-3  fw-semibold">
+           OR send quotation manually
+         </span>
+         <hr className="flex-grow-1" />
+       </div> 
+
+
 <div className="row align-items-stretch">
   {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
   <div className="col-lg-3 col-12 d-flex">
@@ -1023,64 +1235,6 @@ return { deletedTerms, createdTerms, updatedTerms };
           </div>
         </div>
 
-        {/* Quote Document */}
-        <h3 className="fs-6 fw-semibold mb-2">Quote Document</h3>
-
-        {previousGlobalFiles?.length > 0 && (
-          <div className="border rounded-2 px-2 py-2 mb-3">
-            <p className="fw-medium text-center mb-2">Previously Uploaded Files</p>
-            <div className="row g-2 overflow-x-auto">
-              {previousGlobalFiles.map((prev_file) => (
-                <div key={prev_file} className="col-12 col-md-6">
-                  <a
-                    href={prev_file}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="d-inline-flex align-items-center gap-2 text-truncate"
-                    style={{ maxWidth: 260 }}
-                  >
-                    <FontAwesomeIcon icon={faDownload} />
-                    {extractfileName(prev_file)}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer" }}
-        >
-          <FontAwesomeIcon icon={faFile} className="me-2" />
-          Upload Quotation Document
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadGlobalDocumentFiles(e)}
-            multiple
-          />
-        </label>
-
-
-                        <div className="row">
-                          {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-                            globalDocumentFiles.map((doc_file) => {
-                              return (
-                                <div key={doc_file} className="col-md-6 d-flex justify-content-center align-items-center gap-2 mb-1">
-                                  <a href={doc_file} className="page-link text-truncate" target="_blank" style={{ maxWidth: "140px" }}>{extractfileName(doc_file)}</a>
-                                  <span className="btn-close btn-close-sm"
-                                    aria-label="Close"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      removeGlobalFiles(doc_file)
-                                    }}>
-                                  </span>
-                                </div>
-                              )
-                            })
-                          )}
-                        </div>
       </div>
     </div>
   </div>
@@ -1088,7 +1242,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
   <div className="col-lg-4 col-12 d-flex">
     <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body">
+      <div className="card-body d-flex flex-column">
+      
+      {globalPaymentTerms && (
+      <>
         <div className="mb-3 d-flex align-items-center justify-content-between">
           <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
         </div>
@@ -1099,18 +1256,19 @@ return { deletedTerms, createdTerms, updatedTerms };
           placeholder="100% Against Proforma Invoice"
           onChange={(e) => setglobalPaymentTerms(e.target.value)}
         />
+        </>
+      )}
 
         <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
         <textarea
-          className="form-control"
-          rows={3}
-          value={globalComment}
-          placeholder="Placeholder text for global comment"
-          onChange={(e) => setglobalComment(e.target.value)}
-        />
-      </div>
+          className="form-control flex-grow-1"
+        value={globalComment}
+        placeholder="Placeholder text for global comment"
+        onChange={(e) => setglobalComment(e.target.value)}
+      />
     </div>
   </div>
+</div>
 
   {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
   <div className="col-lg-5 col-12">
@@ -1774,6 +1932,14 @@ return { deletedTerms, createdTerms, updatedTerms };
           setregretModal(false);
         }}
       />
+      {extractedQuotes.data && (
+        <QuotesOverrideModal
+          show={extractedQuotes.show}
+          onClose={() => setExtractedQuotes(prev => ({...prev, show: false}))}
+          quotes={extractedQuotes.data}
+          overrideQuote={overrideQuote}
+        />
+      )}
     </>
   );
 };
@@ -1791,19 +1957,21 @@ const PaymentTermsEditor = ({ value, onChange }) => {
 
     const setRows = (next) => onChange && onChange(next);
 
-    const removeRow = (index) => {
+    const markDeleted = (index) => {
      const updated = [...rows];
-     const row = updated[index];
-   
-     if (!row?.id) {
-       updated.splice(index, 1);
-     } else {
-       updated[index] = { ...row, action: "delete" };
-     }
-   
-     setRows(updated);
-   };
+     const row = updated[index] || {};
+    updated[index] = { ...row, action: "delete" };
+    setRows(updated);
+  };
 
+  const restoreRow = (index) => {
+    const updated = [...rows];
+    const row = updated[index];
+    if (!row) return;
+    const { action, ...rest } = row;
+    updated[index] = rest;
+    setRows(updated);
+  };
 
   const updateRow = (index, patch) =>
     setRows(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -1812,7 +1980,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
     <div>
       {rows.map((row, index) => {
         const isCredit = row.type === "credit";
-        const isDeleted = row.action == "delete";
+        const isDeleted = row.action === "delete";
         return (
           <div key={index} className="row g-2 align-items-end mb-2">
             <div className="col-3">
@@ -1829,25 +1997,24 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                 }
                 min={0}
                 max={100}
-                disabled={ isDeleted}
+                disabled={isDeleted}
               />
             </div>
 
             <div className="col-3">
               <label className="form-label mb-1">Type</label>
               <select
-                     disabled={ isDeleted}
                 className="form-select"
                 value={row.type}
                 onChange={(e) => {
                   const nextType = e.target.value;
                   updateRow(index, {
                     type: nextType,
-                    // when switching, clear the field that won't be used
                     days: nextType === "credit" ? row.days : "",
-                    comment: nextType === "credit" ? "" : row.comment,
+                    comment: nextType === "credit" ? "" : (row.comment ?? ""),
                   });
                 }}
+                disabled={isDeleted}
               >
                 <option value="advance">Advance</option>
                 <option value="credit">Credit</option>
@@ -1875,7 +2042,7 @@ const PaymentTermsEditor = ({ value, onChange }) => {
             ) : (
               <div className="col-4">
                 <label className="form-label mb-1">
-                  Comment 
+                  Comment
                 </label>
                 <input
                   type="text"
@@ -1883,27 +2050,40 @@ const PaymentTermsEditor = ({ value, onChange }) => {
                   placeholder={row.type === "other" ? "Describe payment term" : "Note (optional)"}
                   value={row.comment || ""}
                   onChange={(e) => updateRow(index, { comment: e.target.value })}
-                disabled={ isDeleted}
+               disabled={ isDeleted}
                 />
               </div>
             )}
 
-{ row.action !== "delete" &&
-
             <div className="col-2 d-flex mb-1">
-       <SmartButton
-        onClick={() => removeRow(index)}
-        theme={"red"}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="X"
-        // icon = {<FontAwesomeIcon icon={faRemove} />}
-      />
+              {!isDeleted ? (
+                <SmartButton
+                  onClick={() => markDeleted(index)}
+                  theme={"red"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Remove"
+                />
+              ) : (
+                <SmartButton
+                  onClick={() => restoreRow(index)}
+                  theme={"secondary"}
+                  style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+                  label="Restore"
+                />
+              )}
             </div>
-}
+
+            {/* Small status line below inputs when deleted */}
+            {isDeleted && (
+              <div className="col-12 mt-0">
+                <small className="text-danger">
+                  you removed this term. Click "Restore" to add it back.
+                </small>
+              </div>
+            )}
           </div>
         );
       })}
-
     </div>
   );
 };

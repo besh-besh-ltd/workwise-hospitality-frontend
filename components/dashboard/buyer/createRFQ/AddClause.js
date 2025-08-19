@@ -265,6 +265,7 @@ function AddClauseModal({ show, onClose, product, rfq_id, onClauseChange }) {
                         <Nav.Item>
                             <Nav.Link onClick={()=>setActive('clause')} eventKey="clause">Clauses</Nav.Link>
                         </Nav.Item>
+
                         <Nav.Item>
                             <Nav.Link onClick={()=>setActive('bulkclause')} eventKey="bulkclause">Add Bulk Clauses</Nav.Link>
                         </Nav.Item>

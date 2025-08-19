@@ -80,7 +80,7 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {myProcessingRFQs.map((item) => {
+                  {myProcessingRFQs.map((item, index) => {
                     return (
                       <ProcessingRFQItem
                         key={`processing_rfq_item_${item.id}`}
@@ -89,6 +89,7 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
                           getAllProcessingRFQs();
                         }}
                         data={item}
+                        index={(page - 1) * limit + index + 1}
                         onViewErrors={() => {
                           setActiveRFQ(item);
                           setShowErrorModal(true);

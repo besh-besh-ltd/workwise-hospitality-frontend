@@ -1,16 +1,14 @@
 
 import FullLoader from "@/components/shared/FullLoader";
-import InputModal from "@/components/shared/InputModal";
 import LPRModal from "@/components/shared/LPRModal";
 import ReadMore from "@/components/shared/ReadMore";
-import { downloadQuotesDetails,  updateTargetPrice } from "@/services/rfq";
+import { downloadQuotesDetails } from "@/services/rfq";
 import { renderFileLink } from "@/utils/elementFunctions";
 import { calculateTotal, extractfileName, handleNormalize } from "@/utils/sharedFunctions";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
-import { Badge, Button } from "react-bootstrap";
-import { toast } from "react-toastify";
+import { Button } from "react-bootstrap";
 import "react-tooltip/dist/react-tooltip.css";
 
 /**
@@ -24,12 +22,9 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [data, setdata] = useState([]);
   const [l1total, setl1total] = useState(0);
   const [finalizedTotal, setFinalizedTotal] = useState(0);
-  const [totalRfqProducts, settotalRfqProducts] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
-  const [openModalId, setOpenModalId] = useState(null);
-  const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
   
   useEffect(() => {
     handleDownloadQuote();
@@ -81,23 +76,6 @@ const openModalForVariant = (variantId) => {
     
     return fileArr;
   }
-  // const getPricehistory = async (rfq_product_id) => {
-  //   try {
-  //     const data = await getTargetPriceHistory(rfq_product_id);
-
-  
-  //     if (data.length > 0) {
-  //       settargetPriceHistory(data);
-  //     } else {
-  //       setTargetPrice([]);
-  //     }
-  
-  //     return data || [];
-  //   } catch (error) {
-  //     console.log("error in fetching Target History");
-  //     return [];
-  //   }
-  // };
 
 
   const getLowestBidAmount = (all_data) => {
@@ -174,26 +152,10 @@ const openModalForVariant = (variantId) => {
       return item;
     });
 
-    settotalRfqProducts(totalRFQItems);
     setdata(edited_data);
     setl1total(l1totaltemp);
   };
    
-  // const handleSubmitTargetPrice = async (targetPrice, rfq_product_id) => {
-  //   try {
-  //     const result = await updateTargetPrice(targetPrice, rfq_product_id);
-      
-  //     if (!result) {
-  //       toast.error("Error updating Target Price");
-  //     } else {
-  //       toast.success("Target Price created and vendors have been informed");
-  //     }
-  //   } catch (error) {
-  //     toast.error(error.message || "Failed to update Target Price");
-  //     console.error("Update target price error:", error);
-  //   }
-  // };
-
 
   const getFinalizedTotal = (all_data) => {
     let l1totaltemp = 0;
@@ -248,7 +210,7 @@ const openModalForVariant = (variantId) => {
           const quoteDetails = q_item[0]?.quote_details[0]
           const quantity = quoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || quoteDetails.quantity
           
-          priceInfo.total = priceInfo.total + parseInt(calculateTotal(quoteDetails, quantity));
+          priceInfo.total = priceInfo.total + parseInt(calculateTotal(quoteDetails, quantity, normalizeFilter));
           priceInfo.packaging = priceInfo.packaging + parseInt(quoteDetails?.package_price);
           priceInfo.tax = priceInfo.tax + parseInt(quoteDetails?.tax);
           priceInfo.freight = priceInfo.freight + parseInt(quoteDetails?.freight_price);
@@ -475,6 +437,19 @@ const openModalForVariant = (variantId) => {
                                 ? item.product_details[0]?.name
                                 : "-"}
                             </p>
+                            {selling_price && (
+                              <div className="d-flex justify-content-center">
+                                <Badge
+                                  bg="success"
+                                  className="d-flex gap-1 px-3"
+                                >
+                                  <p className="fw-medium">Selling Price: </p>
+                                  <p className="fw-semibold">
+                                    {addCommasToNumber(selling_price)}
+                                  </p>
+                                </Badge>
+                              </div>
+                            )}
                           </td>
                           <td>
                             <div
@@ -1285,7 +1260,7 @@ const openModalForVariant = (variantId) => {
                     )}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={5} scope="col">
                       TOTAL
                     </th>
 
@@ -1300,7 +1275,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={5} scope="col">
                       FINALIZED VENDOR
                     </th>
 
@@ -1314,7 +1289,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={6} scope="col" className="bggray">
+                    <th colSpan={5} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
@@ -1330,7 +1305,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={5} scope="col">
                       Delivery{" "}
                     </th>
 
@@ -1346,7 +1321,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={5} scope="col">
                       Payment{" "}
                     </th>
 
@@ -1382,7 +1357,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={5} scope="col">
                       Vendor comment{" "}
                     </th>
 
@@ -1403,7 +1378,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={6} scope="col">
+                    <th colSpan={5} scope="col">
                       Attached Files{" "}
                     </th>
 
