@@ -30,20 +30,15 @@ const TestimonialCard = React.forwardRef(({
       {...props}
     >
       <div className="card-body p-3 p-md-3 p-lg-4">
-        {/* Quote Icon - Compact sizing */}
-        <div className="text-warning mb-2" style={{ 
-          fontSize: 'clamp(1.5rem, 3vw, 3rem)',
-          lineHeight: '1'
-        }}>
-          "
-        </div>
-
-        {/* Quote Text - Compact sizing */}
+        {/* Quote Text with opening and closing marks */}
         <blockquote className="text-dark mb-3" style={{ 
-          fontSize: 'clamp(0.85rem, 2vw, 1rem)', 
-          lineHeight: '1.4'
+          fontSize: 'clamp(0.9rem, 2vw, 1.05rem)', 
+          lineHeight: '1.5',
+          margin: 0
         }}>
-          {quote}
+          <span style={{ color: '#FBB928', marginRight: 6, fontSize: '1.6em', lineHeight: 1, fontWeight: 500 }}>“</span>
+          <span>{quote}</span>
+          <span style={{ color: '#FBB928', marginLeft: 6, fontSize: '1.6em', lineHeight: 1, fontWeight: 500 }}>”</span>
         </blockquote>
 
         {/* Author Info */}

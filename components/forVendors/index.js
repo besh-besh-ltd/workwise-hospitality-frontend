@@ -273,7 +273,14 @@ const ForVendors = () => {
                                 suffix={number.replace(/[0-9]/g, '')} 
                               />
                               <div className="text-muted fw-medium mt-1" style={{ fontSize: '0.9rem' }}>
-                                {remainingText}
+                                {stat.title === 'Business Volume' && remainingText.startsWith('Cr ')
+                                  ? (
+                                    <>
+                                      <span style={{ color: '#0EA5E9', fontWeight: 600 }}>Cr</span>{' '}
+                                      {remainingText.slice(3)}
+                                    </>
+                                  )
+                                  : remainingText}
                               </div>
                             </div>
                           );
@@ -337,13 +344,13 @@ const ForVendors = () => {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                         style={{
-                          width: '64px',
-                          height: '64px',
+                          width: '48px',
+                          height: '48px',
                           background: feature.iconBg,
                           color: 'white'
                         }}
                       >
-                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '24px' }} />
+                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '16px' }} />
                       </div>
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
                     </div>
@@ -353,8 +360,8 @@ const ForVendors = () => {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle me-3"
                         style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '32px',
+                          height: '32px',
                           background: feature.iconBg,
                           color: 'white',
                           flexShrink: 0
@@ -435,9 +442,36 @@ const ForVendors = () => {
             {/* Video Player */}
             <div className="row justify-content-center mb-5">
               <div className="col-12">
-                <HeroVideo />
+                <div 
+                  className="video-container"
+                  style={{
+                    position: 'relative',
+                    paddingBottom: '56.25%', // 16:9 aspect ratio
+                    height: 0,
+                    overflow: 'hidden',
+                    maxWidth: '100%',
+                    backgroundColor: '#000',
+                    borderRadius: '16px'
+                  }}
+                >
+                  <iframe
+                    src="https://www.youtube.com/embed/-JPa1MX2HVE?autoplay=0&rel=0&modestbranding=1"
+                    title="How Workwise Helps You Get More Orders"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      border: 'none',
+                      borderRadius: '16px'
+                    }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
                 <p className="text-center text-white mt-3 mb-0" style={{ opacity: 0.8 }}>
-                  See how suppliers use our platform to grow their business
+                  Powered by AI from IIT Bombay
                 </p>
               </div>
             </div>
@@ -483,18 +517,7 @@ const ForVendors = () => {
               ))}
                 </div>
 
-            {/* CTA */}
-            <div className="text-center">
-              <Button
-                onClick={() => window.open('/ai-tools', '_blank')}
-                className="w-auto"
-                variant="outline-primary"
-                size="lg"
-              >
-                <FontAwesomeIcon icon={faEye} style={{ fontSize: '20px' }} />
-                See Tools in Action
-              </Button>
-                  </div>
+
                 </div>
         </section>
 
@@ -556,7 +579,7 @@ const ForVendors = () => {
             {/* CTA */}
             <div className="text-center mt-4">
               <p className="text-muted mb-3">
-                <a href="/pricing" className="text-decoration-none fw-bold">
+                <a href="/pricing?tab=supplier" className="text-decoration-none fw-bold">
                   See Full Comparison →
                 </a>
               </p>

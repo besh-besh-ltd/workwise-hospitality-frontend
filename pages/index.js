@@ -304,16 +304,6 @@ export default function Home() {
           size="large"
           textAlign="left"
         >
-          {/* Secondary Text - Only for index.js */}
-          <div className="text-center mt-4">
-            <p className="text-white fw-medium mb-0" style={{ 
-              fontSize: '1.1rem', 
-              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-              opacity: 0.9
-            }}>
-              Still not convinced? Scroll below!
-            </p>
-          </div>
         </HeroSection>
         {/* Floating Icons */}
          <div
@@ -345,7 +335,7 @@ export default function Home() {
                 4 Tools That Make Procurement 10X Faster & Smarter
               </h2>
               <p className="text-muted fs-5 mb-0">
-                Try our free tools, made for project buyers like you. Save hours, avoid errors, and get instant insights.
+                Try our <span style={{ color: '#0EA5E9', fontWeight: '600' }}>free</span> tools, made for project buyers like you. Save hours, avoid errors, and get instant insights.
               </p>
             </div>
 
@@ -370,22 +360,7 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Unified CTA */}
-            <div className="text-center">
-              <Button
-                onClick={handleTryFreeTools}
-                className="w-auto"
-                variant="secondary"
-                size="lg"
-              >
-                <FontAwesomeIcon icon={faBriefcase} style={{ fontSize: '20px' }} />
-                Try These Free Tools Now
-              </Button>
-              <div className="mt-3">
-                <p className="text-muted mb-1">Free to use. Just verify your mobile via OTP.</p>
-                <p className="text-muted small">No login required. Just drag & drop your file.</p>
-              </div>
-            </div>
+
           </div>
         </section>
 
@@ -467,13 +442,13 @@ export default function Home() {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                         style={{
-                          width: '64px',
-                          height: '64px',
+                          width: '48px',
+                          height: '48px',
                           background: feature.iconBg,
                           color: 'white'
                         }}
                       >
-                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '24px' }} />
+                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '16px' }} />
                       </div>
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
                     </div>
@@ -483,8 +458,8 @@ export default function Home() {
                       <div 
                           className={`d-flex align-items-center justify-content-center rounded-circle me-3`}
                         style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '32px',
+                          height: '32px',
                           background: feature.iconBg,
                           color: 'white',
                           flexShrink: 0
@@ -839,10 +814,14 @@ export default function Home() {
             <div className="text-center mb-5">
             <h2 className="fs-1 fw-bold text-white mb-3" style={{ fontSize: '2.5rem' }}>
                 See How Workwise Simplifies{' '}
-                <span style={{ color: '#8B5CF6' }}>Project Procurement</span>
+                <span style={{
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>Project Procurement</span>
               </h2>
               <p className="text-white mb-0" style={{ fontSize: '1.1rem', opacity: 0.9 }}>
-                Watch a quick walkthrough of how Workwise takes you from BOQ to final PO— faster, smarter, and more profitably.
+                Watch a quick walkthrough of how Workwise takes you from BOQ to final PO- faster, smarter, and more profitably.
               </p>
             </div>
 
@@ -859,27 +838,25 @@ export default function Home() {
             {/* CTA Section */}
             <div className="text-center">
               <div className="d-flex align-items-center justify-content-center mb-4">
-                <span style={{ fontSize: '20px', marginRight: '8px' }}>❤️</span>
                 <span className="text-white fw-medium" style={{ fontSize: '1.1rem' }}>Liked the Demo? Let's Talk.</span>
               </div>
               
                       <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
                 <Button 
                   onClick={handleBookCall}
-                  className="btn fw-bold text-white px-4 py-3 w-auto"
-                  style={{background: '#8B5CF6', border: 'none', borderRadius: '8px'}}
+                  className="btn fw-medium text-dark px-4 py-3 w-auto"
+                  style={{
+                    background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    filter: 'brightness(1.05) saturate(1.05)',
+                    boxShadow: '0 8px 24px rgba(255,165,0,0.35)'
+                  }}
                 >
                   <FontAwesomeIcon icon={faPhone} className="me-2" />
                   Book a Call
                 </Button>
-                         <Button 
-                  onClick={handleTryFreeTools}
-                  className="btn fw-bold px-4 py-3 w-auto"
-                  style={{border: '2px solid #6B7280', color: '#6B7280', borderRadius: '8px', background: 'transparent'}}
-                >
-                  <FontAwesomeIcon icon={faWrench} className="me-2" />
-                  Try Free Tools
-                </Button>
+
               </div>
 
               {/* Features */}
@@ -916,7 +893,7 @@ export default function Home() {
                 Why Workwise Is a No-Brainer for Project Procurement
               </h2>
               <p className="text-muted fs-5 mb-4">
-                Compare the reality of traditional procurement vs what it looks like with Workwise — and decide for yourself.
+                Compare the reality of traditional procurement vs what it looks like with Workwise - and decide for yourself.
               </p>
 
             </div>
@@ -1033,11 +1010,11 @@ export default function Home() {
                       </td>
                       <td className="px-4 py-3 text-danger">
                         <FontAwesomeIcon icon={faHourglassHalf} className="me-2" />
-                        3–4 weeks (avg)
+                        3–4 months (avg)
                       </td>
                       <td className="px-4 py-3 text-success">
                         <FontAwesomeIcon icon={faBolt} className="me-2" />
-                        4–5 days (avg)
+                        3–4 weeks (avg)
                       </td>
                     </tr>
                     <tr style={{ background: 'rgba(0,0,0,0.02)' }}>
@@ -1067,21 +1044,16 @@ export default function Home() {
                       <div className="card border-0 shadow-sm" style={{ background: 'rgba(0,0,0,0.02)' }}>
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📦</span>
                             <h6 className="fw-bold text-dark mb-0">BOQ Handling</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faExclamationTriangle} className="text-danger me-2" />
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual, error-prone formatting</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faCheck} className="text-success me-2" />
+                                <small className="text-success fw-bold me-2">With:</small>
                                 <span className="text-success" style={{ fontSize: '0.9rem' }}>Upload & get clean, structured BOQ</span>
                               </div>
                             </div>
@@ -1095,22 +1067,17 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>🧾</span>
                             <h6 className="fw-bold text-dark mb-0">RFQ Creation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faCopy} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Copy‑paste & delays</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Copy-paste & delays</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faRocket} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto‑generated & sent instantly</span>
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto-generated & sent instantly</span>
                               </div>
                             </div>
                           </div>
@@ -1123,22 +1090,17 @@ export default function Home() {
                       <div className="card border-0 shadow-sm" style={{ background: 'rgba(0,0,0,0.02)' }}>
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>🔍</span>
                             <h6 className="fw-bold text-dark mb-0">Vendor Discovery</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faPhone} className="text-danger me-2" />
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>Calling old vendors, outdated lists</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faBuilding} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU‑approved vendors</span>
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU-approved vendors</span>
                               </div>
                             </div>
                           </div>
@@ -1151,21 +1113,16 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📊</span>
                             <h6 className="fw-bold text-dark mb-0">Quote Evaluation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faTable} className="text-danger me-2" />
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual comparisons, messy Excel</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faChartLine} className="text-success me-2" />
+                                <small className="text-success fw-bold me-2">With:</small>
                                 <span className="text-success" style={{ fontSize: '0.9rem' }}>Smart chart + deviation check</span>
                               </div>
                             </div>
@@ -1179,21 +1136,16 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>💬</span>
                             <h6 className="fw-bold text-dark mb-0">Negotiation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faEnvelope} className="text-danger me-2" />
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>Endless phone/email back-and-forth</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faWrench} className="text-success me-2" />
+                                <small className="text-success fw-bold me-2">With:</small>
                                 <span className="text-success" style={{ fontSize: '0.9rem' }}>Reverse auction or digital workflows</span>
                               </div>
                             </div>
@@ -1207,21 +1159,16 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📋</span>
                             <h6 className="fw-bold text-dark mb-0">PO & Payment Tracking</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faQuestionCircle} className="text-danger me-2" />
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>No single source of truth</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faEye} className="text-success me-2" />
+                                <small className="text-success fw-bold me-2">With:</small>
                                 <span className="text-success" style={{ fontSize: '0.9rem' }}>Track both sides till final payment</span>
                               </div>
                             </div>
@@ -1235,22 +1182,17 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>⏱️</span>
                             <h6 className="fw-bold text-dark mb-0">Procurement Timeline</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faHourglassHalf} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>3-4 months (avg)</span>
                               </div>
-                            </div>
-                            <div className="d-flex align-items-center">
-                              <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faBolt} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>4-5 days (avg)</span>
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
                               </div>
                             </div>
                           </div>
@@ -1263,7 +1205,6 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>💰</span>
                             <h6 className="fw-bold text-dark mb-0">Savings Per Project</h6>
                           </div>
                           <div className="d-flex flex-column g-2">

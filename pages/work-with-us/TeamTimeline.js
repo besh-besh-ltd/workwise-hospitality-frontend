@@ -2,8 +2,10 @@
 // HeroSectionTeam.jsx
 // ----------------------------------------------------
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '@/components/layout';
 import { FaUser ,FaUsers, FaLinkedin , FaCalendarAlt , FaRocket , FaArrowRight} from "react-icons/fa";
+import { teamTimelineData } from '@/components/constants/teamTimelineData';
 
 const TeamPageWithNavbar = () => {
   return (
@@ -23,12 +25,12 @@ const TeamPageWithNavbar = () => {
             <div className="col-lg-10 col-xl-8">
               {/* Title - White text */}
               <h1 className="fw-bold display-4 mb-4 text-white">
-                Meet the Team Behind Workwise
+                {teamTimelineData.hero.title}
               </h1>
               
               {/* Subtitle - White text */}
               <p className="lead fw-normal text-white mx-auto lh-base" style={{ maxWidth: "700px" }}>
-                We're a mix of engineers, operators, and domain experts solving India's toughest procurement problems — one project at a time.
+                {teamTimelineData.hero.subtitle}
               </p>
             </div>
           </div>
@@ -42,80 +44,7 @@ const TeamPageWithNavbar = () => {
 
 
 const FoundersTeamComponent = () => {
-  const leadershipTeam = [
-    {
-      id: 1,
-      name: 'Rahul Sharma',
-      title: 'Founder & CEO',
-      titleColor: '#2E5BBA',
-      description: 'IIT Bombay, 11+ years in industrial tech',
-      image: 'https://via.placeholder.com/80x80/4285F4/ffffff?text=RS'
-    },
-    {
-      id: 2,
-      name: 'Vikram Mehta',
-      title: 'Co-Founder & CTO',
-      titleColor: '#41B8A8',
-      description: 'IIT Delhi, Ex-Amazon, 8+ years in tech',
-      image: 'https://via.placeholder.com/80x80/6c757d/ffffff?text=VM'
-    },
-    {
-      id: 3,
-      name: 'Priya Desai',
-      title: 'Co-Founder & COO',
-      titleColor: '#FFA500',
-      description: 'ISB, 9+ years in supply chain management',
-      image: 'https://via.placeholder.com/80x80/dc3545/ffffff?text=PD'
-    }
-  ];
-
-  const engineeringTeam = [
-    {
-      id: 1,
-      name: 'Arjun Kumar',
-      title: 'Lead Engineer',
-      description: 'BITS Pilani, ML/AI specialist',
-      image: 'https://via.placeholder.com/80x80/28a745/ffffff?text=AK'
-    },
-    {
-      id: 2,
-      name: 'Rohan Verma',
-      title: 'Backend Developer',
-      description: 'NIT Trichy, 5+ years in cloud architecture',
-      image: 'https://via.placeholder.com/80x80/17a2b8/ffffff?text=RV'
-    },
-    {
-      id: 3,
-      name: 'Neha Gupta',
-      title: 'Frontend Developer',
-      description: 'IIIT Hyderabad, UX/UI specialist',
-      image: 'https://via.placeholder.com/80x80/e83e8c/ffffff?text=NG'
-    }
-  ];
-
-  const productOperationsTeam = [
-    {
-      id: 1,
-      name: 'Anjali Reddy',
-      title: 'Product Manager',
-      description: 'IIM Ahmedabad, Ex-Flipkart',
-      image: 'https://via.placeholder.com/80x80/fd7e14/ffffff?text=AR'
-    },
-    {
-      id: 2,
-      name: 'Sameer Joshi',
-      title: 'Operations Manager',
-      description: 'XLRI, 7+ years in supply chain',
-      image: 'https://via.placeholder.com/80x80/20c997/ffffff?text=SJ'
-    },
-    {
-      id: 3,
-      name: 'Meera Shah',
-      title: 'Customer Success',
-      description: 'MDI Gurgaon, Ex-Microsoft',
-      image: 'https://via.placeholder.com/80x80/6f42c1/ffffff?text=MS'
-    }
-  ];
+  const { teamBehindWorkwise } = teamTimelineData;
 
   const TeamCard = ({ member, isLeadership = false }) => (
     <div className="col-lg-4 col-md-6 mb-4">
@@ -146,11 +75,20 @@ const FoundersTeamComponent = () => {
               <h5 className="mb-0 fw-bold text-dark" style={{ fontSize: '1.1rem' }}>
                 {member.name}
               </h5>
-              <FaLinkedin 
-                className="text-primary" 
-                size={16} 
-                style={{ opacity: 0.7, cursor: 'pointer' }}
-              />
+              {member.linkedin && (
+                <a 
+                  href={member.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-decoration-none"
+                >
+                  <FaLinkedin 
+                    className="text-primary" 
+                    size={16} 
+                    style={{ opacity: 0.7, cursor: 'pointer' }}
+                  />
+                </a>
+              )}
             </div>
             
             <p 
@@ -197,7 +135,7 @@ const FoundersTeamComponent = () => {
                 <FaUsers className="text-secondary" size={20} />
               </div>
               <h2 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
-                Founders & Whole Team
+                Founder & Whole Team
               </h2>
             </div>
             {/* Orange underline */}
@@ -212,37 +150,13 @@ const FoundersTeamComponent = () => {
             ></div>
           </div>
 
-          {/* Leadership Section */}
-          <div className="mb-5">
-            <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Leadership
-            </h3>
-            <div className="row">
-              {leadershipTeam.map((member) => (
-                <TeamCard key={member.id} member={member} isLeadership={true} />
-              ))}
-            </div>
-          </div>
-
-          {/* Engineering Section */}
-          <div className="mb-5">
-            <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Engineering
-            </h3>
-            <div className="row">
-              {engineeringTeam.map((member) => (
-                <TeamCard key={member.id} member={member} />
-              ))}
-            </div>
-          </div>
-
-          {/* Product & Operations Section */}
+          {/* Whole Team Section */}
           <div className="mb-4">
             <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Product & Operations
+              Team behind Workwise
             </h3>
             <div className="row">
-              {productOperationsTeam.map((member) => (
+              {teamBehindWorkwise.map((member) => (
                 <TeamCard key={member.id} member={member} />
               ))}
             </div>
@@ -257,48 +171,7 @@ const FoundersTeamComponent = () => {
 
 
 const OurJourneyComponent = () => {
-  const journeyMilestones = [
-    {
-      id: 1,
-      year: '2020',
-      yearColor: '#2E5BBA',
-      title: 'Founded in Bangalore',
-      description: 'Initial team of 3 set out to solve procurement challenges',
-      circleColor: '#2E5BBA'
-    },
-    {
-      id: 2,
-      year: '2021',
-      yearColor: '#2E5BBA',
-      title: 'First Major Client',
-      description: 'Secured first enterprise client and raised seed funding',
-      circleColor: '#2E5BBA'
-    },
-    {
-      id: 3,
-      year: '2022',
-      yearColor: '#41B8A8',
-      title: 'Team Expansion',
-      description: 'Grew to 15 team members and expanded product offerings',
-      circleColor: '#41B8A8'
-    },
-    {
-      id: 4,
-      year: '2023',
-      yearColor: '#41B8A8',
-      title: 'Series A Funding',
-      description: 'Raised $8M in Series A to accelerate growth and innovation',
-      circleColor: '#41B8A8'
-    },
-    {
-      id: 5,
-      year: '2024',
-      yearColor: '#FFA500',
-      title: 'Today & Beyond',
-      description: 'Serving 50+ enterprise clients across India and Southeast Asia',
-      circleColor: '#FFA500'
-    }
-  ];
+  const { journeyMilestones } = teamTimelineData;
 
   return (
     <div 
@@ -464,6 +337,8 @@ const OurJourneyComponent = () => {
 
 function MissionRecruitmentBanner() {
   const [isHovered, setIsHovered] = useState(false);
+  const { missionSection } = teamTimelineData;
+  const router = useRouter();
 
   return (
     <section
@@ -495,14 +370,13 @@ function MissionRecruitmentBanner() {
           </span>
 
           <h1 className="fw-bold display-5 mb-0 text-dark">
-            Want&nbsp;to&nbsp;Join&nbsp;the&nbsp;Mission?
+            {missionSection.title}
           </h1>
         </div>
 
         {/* Description */}
         <p className="fs-5 text-muted mb-4">
-          We're always looking for sharp, mission-driven folks across AI, sales,
-          procurement, and product.
+          {missionSection.description}
         </p>
 
         {/* CTA */}
@@ -511,9 +385,10 @@ function MissionRecruitmentBanner() {
           className="btn btn-dark btn-lg d-inline-flex align-items-center gap-2 px-4 py-3 fw-semibold"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          onClick={() => router.push('/work-with-us/careers')}
           style={{ transition: "transform .3s", minWidth: "280px" }}
         >
-          See&nbsp;Open&nbsp;Roles
+          {missionSection.buttonText}
           <FaArrowRight
             className="arrow-icon"
             style={{

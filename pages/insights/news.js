@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { 
   Download,
   Mail,
@@ -14,16 +15,24 @@ import { HeroSection } from '@/components/ui/HeroSection';
 import { newsData } from '@/components/constants/newsData';
 
 const NewsPage = () => {
+  const router = useRouter();
   const handleViewArticle = (url) => {
     window.open(url, '_blank');
   };
 
   const handleDownloadPressKit = () => {
-    console.log('Download Press Kit clicked');
+    // Open the global contact/book-a-call modal used across the site
+    const bookCallButton = document.querySelector('.btn-popup-form');
+    if (bookCallButton) {
+      bookCallButton.click();
+      return;
+    }
+    // Fallback: navigate to contact page
+    router.push('/contactus');
   };
 
   const handleMediaContact = () => {
-    console.log('Media Contact clicked');
+    router.push('/contactus');
   };
 
   const [openYear, setOpenYear] = useState(2024);
