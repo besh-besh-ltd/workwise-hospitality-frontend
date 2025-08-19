@@ -35,7 +35,7 @@ const SearchItem = ({
           )}
         </div>
 
-        <div className="mdl-con-btm mb-4">
+        <div className="mdl-con-btm mb-4 h-auto" >
           {data.id == "**" && !data.sp && (
             <div className="list_item_disabled">
               <span>You need to purchase subscription to view this vendor</span>
@@ -51,7 +51,18 @@ const SearchItem = ({
           )}
           <div className="row">
             <div className="ps-5 col-md-9 ">
-              <h3 className="h3 mt-3 mb-3">{data.company_name}</h3>
+          <h4
+            className="h3 mt-3 mb-3 text-truncate"
+            style={{
+              maxWidth: "100%",        // set width limit
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            // title={data.company_name}   // tooltip on hover
+          >
+            {data?.company_name}
+          </h4>
               {type == "vendors" && (
                 <>
                   <div className="mdl-con-text">
