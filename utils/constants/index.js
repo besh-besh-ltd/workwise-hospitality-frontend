@@ -110,3 +110,5 @@ export const blogData = [
       {value : "trader", label : "Trader"},
       {value: 'wholesaler', label: 'Wholesaler' } 
 ];
+
+export const ALLOWED_PO_USERS = [2, 7, 8, 10]
