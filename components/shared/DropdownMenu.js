@@ -302,12 +302,12 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
   };
 
   const handleNestedMouseEnter = (index) => {
-    clearTimeout(nestedTimeoutRef.current);
-    setNestedOpen(index);
+      clearTimeout(nestedTimeoutRef.current);
+      setNestedOpen(index);
   };
 
   const handleNestedMouseLeave = () => {
-    nestedTimeoutRef.current = setTimeout(() => setNestedOpen(null), 100);
+      nestedTimeoutRef.current = setTimeout(() => setNestedOpen(null), 100);
   };
 
   return (
@@ -386,9 +386,9 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 top: 'calc(100% + 8px)',
                 left: 0,
                 minWidth: 340,
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                background: 'transparent',
+                backdropFilter: 'none',
+                boxShadow: 'none',
                 borderRadius: 16,
                 padding: '8px 0',
                 margin: 0,
@@ -398,7 +398,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: open ? 'flex' : 'none',
                 flexDirection: 'column',
-                border: '1px solid rgba(0, 0, 0, 0.08)',
+                border: 'none',
                 textAlign: 'left',
                 alignItems: 'stretch',
                 zIndex: 1001,
@@ -479,7 +479,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       onMouseLeave={(e) => {
                         if (!isMobile) {
                         handleNestedMouseLeave();
-                        e.currentTarget.style.color = isMobile ? '#fff' : '#333';
+                        e.currentTarget.style.color = '#fff';
                         e.currentTarget.style.background = 'transparent';
                         e.currentTarget.style.transform = 'translateX(0)';
                         }
@@ -493,7 +493,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                         transition: 'all 0.2s ease',
                         borderRadius: '8px',
                         margin: '0',
-                        color: isMobile ? '#fff' : '#333',
+                        color: '#fff',
                         fontSize: '0.9rem',
                         cursor: 'pointer',
                         textAlign: 'left',
@@ -527,19 +527,34 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                             left: isMobile ? 0 : 'calc(100% + 4px)',
                             top: isMobile ? 'auto' : 0,
                             minWidth: isMobile ? '100%' : 300,
-                            background: isMobile ? 'transparent' : 'rgba(255, 255, 255, 0.95)',
-                            backdropFilter: isMobile ? 'none' : 'blur(10px)',
-                            boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.12)',
+                            background: 'transparent',
+                            backdropFilter: 'none',
+                            boxShadow: 'none',
                             borderRadius: isMobile ? 0 : 16,
                             padding: isMobile ? '0' : '8px 0',
                             margin: 0,
                             display: 'flex',
                             flexDirection: 'column',
-                            border: isMobile ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
+                            border: 'none',
                             animation: isMobile ? 'none' : 'slideInRight 0.2s ease-out',
                             isolation: 'isolate'
                           }}
                         >
+                          {/* Nested dropdown header */}
+                          <div style={{
+                            padding: isMobile ? '12px 40px' : '12px 20px',
+                            fontSize: isMobile ? '16px' : '0.85rem',
+                            fontWeight: 600,
+                            color: '#fff',
+                            opacity: 0.9,
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                            marginBottom: '4px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            {opt.label} Options
+                          </div>
+                          
                           {opt.options.map((nestedOpt, nestedIndex) => (
                             <li key={nestedOpt.href || nestedIndex} style={{ listStyle: 'none' }}>
                               <a
@@ -553,7 +568,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                                   transition: 'all 0.2s ease',
                                   borderRadius: isMobile ? 0 : '8px',
                                   margin: '0',
-                                  color: isMobile ? '#fff' : '#333',
+                                  color: '#fff',
                                   fontSize: isMobile ? '18px' : '0.9rem',
                                   textAlign: 'left',
                                   whiteSpace: 'normal',
@@ -566,7 +581,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                                   e.currentTarget.style.transform = 'translateX(4px)';
                                 }}
                                 onMouseLeave={e => {
-                                  e.currentTarget.style.color = isMobile ? '#fff' : '#333';
+                                  e.currentTarget.style.color = '#fff';
                                   e.currentTarget.style.background = 'transparent';
                                   e.currentTarget.style.transform = 'translateX(0)';
                                 }}
@@ -597,7 +612,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                         transition: 'all 0.2s ease',
                         borderRadius: isMobile ? 0 : '8px',
                         margin: '0',
-                        color: opt.isHighlighted ? '#FF6B35' : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? (isMobile ? 'rgba(255,255,255,0.6)' : '#aaa') : (isMobile ? '#fff' : '#333')),
+                        color: opt.isHighlighted ? '#FF6B35' : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? 'rgba(255,255,255,0.6)' : '#fff'),
                         fontSize: isMobile ? '18px' : '0.9rem', 
                         textAlign: 'left',
                         whiteSpace: 'normal',
@@ -629,7 +644,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                             e.currentTarget.style.color = '#FF6B35';
                             e.currentTarget.style.background = 'rgba(255, 107, 53, 0.1)';
                           } else {
-                            e.currentTarget.style.color = '#333';
+                            e.currentTarget.style.color = '#fff';
                             e.currentTarget.style.background = 'transparent';
                           }
                           e.currentTarget.style.transform = 'translateX(0)';

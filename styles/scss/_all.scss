@@ -1054,8 +1054,13 @@ body.at-top {
   border-radius: 4px;
   cursor: pointer;
 
+  /* Hamburger menu should always be visible and consistent */
+  span {
+    background: var(--black-color) !important;
+  }
+  
   &.menu-ctrl-transparent span {
-    background-color: white;
+    background: var(--black-color) !important;
   }
 
   label {
@@ -8401,8 +8406,43 @@ td:hover .tooltip_custom {
   /* Mobile menu styling */
   .mobile-menu {
     text-align: left !important;
-    background: linear-gradient(135deg, #1e3a8a, #3b82f6) !important;
+    background: transparent !important;
     padding: 20px 0 !important;
+    
+    /* Ensure all text is white in mobile menu */
+    * {
+      color: #fff !important;
+    }
+    
+    /* Mobile menu items styling */
+    ul li {
+      color: #fff !important;
+      
+      a, span {
+        color: #fff !important;
+        font-size: 20px !important;
+        padding: 16px 25px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+      }
+    }
+    
+    /* Nested dropdown styling for mobile */
+    .dropdown-menu {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      
+      li {
+        background: transparent !important;
+        
+        a, span {
+          color: #fff !important;
+          padding: 14px 40px !important;
+          font-size: 18px !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+      }
+    }
   }
   
   .mobile-menu ul {
