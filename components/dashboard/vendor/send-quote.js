@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { extractfileName, extractParsedNumber, handleFileUpload, moneyOrPercent, toNumber } from "@/utils/sharedFunctions";
 import { faDeleteLeft, faDownload, faMinus, faPlus, faRemove } from "@fortawesome/free-solid-svg-icons";
@@ -659,7 +660,6 @@ return { deletedTerms, createdTerms, updatedTerms };
 
   const uploadGlobalDocumentFiles = async (e) => {
     try {
-      setExtractingQuotes(true);
       const filePath = await handleFileUpload(e, token);
 
       setGlobalDocumentFiles((prevGlobalDocumentFiles) => [
@@ -667,13 +667,23 @@ return { deletedTerms, createdTerms, updatedTerms };
         filePath
       ]);
 
-      await handleQuotationDocumentUpload(e.target?.files?.[0]);
-
     } catch (error) {
       let message = error.message;
       toast.error(message);
-    } finally { setExtractingQuotes(false); }
+    }
   };
+
+  const uploadExtractionDocument = async (e) => {
+    try {
+      setExtractingQuotes(true);
+      await handleQuotationDocumentUpload(e.target?.files?.[0]);
+    } catch (error) {
+      let message = typeof error.message == 'string' ? error.message : "Something went wrong in extracting Quotes from uploaded document";
+      toast.error(message);
+    } finally { 
+      setExtractingQuotes(false); 
+    }
+  }
 
   const handleQuotationDocumentUpload = async (file) => {
     try {
@@ -687,7 +697,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           show: true,
         }));
       } else {
-        toast.info("No Quotations found in given document")
+        toast.info("No Quotations found in given document. If you think this is wrong, please contact our support team!")
       }
     } catch (error) {
       console.error("QUOTE EXTRACTION ERROR:", error);
@@ -760,7 +770,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                 product.tax = quote.tax.value;
                 product.tax_mode = quote.tax.unit;
               }
-              product.delivery_period = quote.delivery_period;
+              product.delivery_period = String(quote.delivery_period);
             }
           }
 
@@ -1082,12 +1092,12 @@ return { deletedTerms, createdTerms, updatedTerms };
           className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
           style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
         >
-          <FontAwesomeIcon icon={faFile} className="me-2" />
-          {extractingQuotes ? 'Extracing quotes from document' : 'Upload Quotation Document'}
+          <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" />
+          {extractingQuotes ? 'Extracing quotes from document...' : 'Upload document to extract quotes'}
           <input
             type="file"
             accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            onChange={(e) => uploadExtractionDocument(e)}
             multiple
             disabled={extractingQuotes}
           />
@@ -1151,14 +1161,14 @@ return { deletedTerms, createdTerms, updatedTerms };
         )}
 
        </div>
-        {/* AI file upload over here */}
        <div className="d-flex align-items-center my-3">
          <hr className="flex-grow-1" />
          <span className="mx-3  fw-semibold">
            OR send quotation manually
          </span>
          <hr className="flex-grow-1" />
-       </div>
+       </div> 
+
 
 <div className="row align-items-stretch">
   {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
@@ -1235,6 +1245,76 @@ return { deletedTerms, createdTerms, updatedTerms };
           </div>
         </div>
 
+        <label
+          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer" }}
+        >
+          <FontAwesomeIcon icon={faFile} className="me-2" />
+          Upload Quotation Document
+          <input
+            type="file"
+            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+            onChange={(e) => uploadGlobalDocumentFiles(e)}
+            multiple
+          />
+        </label>
+
+           {/*  start: recently upload files */}
+           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+          <div className="row">
+           <p className="fw-medium mb-1">New Uploaded Files:</p>
+            <div className="d-flex gap-4" >
+              {globalDocumentFiles.map((doc_file) => {
+               return (
+                  <p
+                  key={doc_file}
+                  href={doc_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                  onClick={(e) => {
+                      e.preventDefault()
+                      removeGlobalFiles(doc_file)
+                    }}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                   {extractfileName(doc_file)}
+                  </span>
+                </p>
+ 
+              )
+            })}
+            </div>
+         </div>
+          )}
+
+        {previousGlobalFiles?.length > 0 && (
+          <div className=" mb-3">
+            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
+            <div className="d-flex gap-4 ">
+              {previousGlobalFiles.map((prev_file) => (
+                <a
+                  key={prev_file}
+                  href={prev_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                    {extractfileName(prev_file)}
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </div>
+        )}
       </div>
     </div>
   </div>

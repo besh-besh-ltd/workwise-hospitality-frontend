@@ -62,7 +62,7 @@ const TimelineItem = ({ title, name, icon, time, remarks }) => (
   </div>
 );
 
-const renderDueDateCell = (dueDateStr) => {
+const renderDueDateCell = (dueDateStr, isTask = false) => {
   const today = new Date();
   const dueDate = new Date(dueDateStr);
   const timeDiff = dueDate - today;
@@ -77,10 +77,10 @@ const renderDueDateCell = (dueDateStr) => {
     dayDiff > 0
       ? `Due in ${dayDiff} day${dayDiff > 1 ? "s" : ""}`
       : dayDiff === 0
-      ? "Due Today"
-      : `Past ${Math.abs(dayDiff)} day${Math.abs(dayDiff) > 1 ? "s" : ""}`;
+      ? isTask ? "Completed Today" : "Due Today"
+      : `${isTask ? "Completed" : "Past"} ${Math.abs(dayDiff)} day${Math.abs(dayDiff) > 1 ? "s" : ""} ${isTask ? "ago" : ""}`;
 
-  const textColor = dayDiff < 0 ? "text-danger" : dayDiff < 5 ? "text-warning" : "text-success";
+  const textColor = dayDiff < 0 ? isTask ? "text-success" : "text-danger" : dayDiff < 5 ? isTask ? "text-success" : "text-warning" : "text-success";
 
   return (
     <td className={`fw-semibold ${textColor}`}>
@@ -485,7 +485,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                 tasks.data.map((task) => (
                   <tr key={task.id}>
                     {renderDueDateCell(
-                      new Date(task.completion_date).toDateString()
+                      new Date(task.completion_date).toDateString(),
+                      true
                     )}
                     <td>
                       #<strong>{po_number}</strong>

@@ -4,6 +4,7 @@ import {
   getHierarchy,
   updateHierarchy,
 } from "@/services/general";
+import { ALLOWED_PO_USERS } from "@/utils/constants";
 import { addCommasToNumber, formatToINRShort } from "@/utils/sharedFunctions";
 import React, { useState, useEffect } from "react";
 import {
@@ -27,7 +28,7 @@ const ApprovalHierarchyPage = () => {
   const [tab, setTab] = useState("display");
   const [users, setUsers] = useState([]);
 
-  const [hierarchy, setHierarchy] = useState(null);
+  const [hierarchy, setHierarchy] = useState([]);
   const [removableApprovers, setRemovableApprovers] = useState([]);
   const [isEdit, setIsEdit] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,7 +58,7 @@ const ApprovalHierarchyPage = () => {
     try {
       const res = await getHierarchy("po");
       if (res.data && res.data.length > 0) {
-        setHierarchy(res.data[0].approvers);
+        setHierarchy(res.data?.[0].approvers ?? []);
         setIsEdit(true);
       }
     } catch (error) {
@@ -208,7 +209,7 @@ const ApprovalHierarchyPage = () => {
               {tab === "display" && (
                 <div className="mx-4 mb-4">
                   <h4 className="mb-3 fw-medium">Purchase Order Hierarchy</h4>
-                  {hierarchy ? (
+                  {hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 ? (
                     <div className="d-flex flex-wrap gap-3">
                       {hierarchy
                         .sort((a, b) => a.level - b.level)
@@ -313,13 +314,13 @@ const ApprovalHierarchyPage = () => {
                       <Button
                         variant="primary"
                         className="p-2"
-                        onClick={() => {}}
+                        onClick={() => setTab("create")}
                       >
                         Create Hierarchy
                       </Button>
                     </div>
                   )}
-                  {hierarchy && (
+                  {hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 && (
                     <Button
                       disabled={saving}
                       onClick={handleSaveChanges}
@@ -343,7 +344,7 @@ const ApprovalHierarchyPage = () => {
                         }
                       >
                         <option value="">Select</option>
-                        {users.map((u) => (
+                        {users.filter(u => ALLOWED_PO_USERS.includes(u.role) ).map((u) => (
                           <option key={u.id} value={u.id}>
                             {u.name}
                           </option>
@@ -408,7 +409,7 @@ const ApprovalHierarchyPage = () => {
                   <Col md={7}>
                     <h6 className="mb-2.5">Preview:</h6>
                     {hierarchy
-                      .sort((a, b) => a.level - b.level)
+                      ?.sort((a, b) => a.level - b.level)
                       .map((user) => (
                         <Card key={user.id} className={`mb-2`}>
                           <Card.Body>

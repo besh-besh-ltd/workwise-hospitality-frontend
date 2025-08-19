@@ -5,7 +5,7 @@ import { addCommasToNumber } from "@/utils/sharedFunctions";
 
 const CostEstimationTable = ({ fileName, data, persistence }) => {
     const [tableData, setTableData] = useState(
-    data.map((row) => ({
+    data?.map((row) => ({
       ...row,
       serviceCharge: row.serviceCharge || 0,
       additionalCharges: row.additionalCharges || 0,
@@ -31,7 +31,7 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
       "Total"
     ];
 
-    const rows = tableData.map((row, index) => [
+    const rows = tableData?.map((row, index) => [
       index + 1,
       row.productName,
       row.lowest_price,
@@ -44,7 +44,7 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
 
     const csvContent =
       [headers, ...rows]
-        .map(e => e.join(","))
+        ?.map(e => e.join(","))
         .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -83,7 +83,7 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
           </tr>
         </thead>
         <tbody>
-          {tableData.map((row, index) => {
+          {tableData?.map((row, index) => {
             const total = row.average_price + (row.serviceCharge ?? 0) + (row.additionalCharges ?? 0);
             return (
               <tr key={index}>
