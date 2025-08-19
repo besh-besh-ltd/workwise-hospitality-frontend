@@ -453,6 +453,8 @@ const addRfqIdParam = (rfq_id) => {
 
   const getCategoriesById = (category_id, category_name) => {
     setloading(true)
+
+    router.push("/vendor/all");
     categoryLvlRef.current.set(category_id, category_name)
 
     categoryListById({ category_id })
@@ -478,7 +480,7 @@ const addRfqIdParam = (rfq_id) => {
           ? `/vendor/${categorySlug}?rfq_id=${rfq_id}`
           : `/vendor/${categorySlug}`;
 
-        window.history.pushState(null, null, newUrl);
+        // window.history.pushState(null, null, newUrl);
 
       })
   };
