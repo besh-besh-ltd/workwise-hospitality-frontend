@@ -304,16 +304,6 @@ export default function Home() {
           size="large"
           textAlign="left"
         >
-          {/* Secondary Text - Only for index.js */}
-          <div className="text-center mt-4">
-            <p className="text-white fw-medium mb-0" style={{ 
-              fontSize: '1.1rem', 
-              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-              opacity: 0.9
-            }}>
-              Still not convinced? Scroll below!
-            </p>
-          </div>
         </HeroSection>
         {/* Floating Icons */}
          <div

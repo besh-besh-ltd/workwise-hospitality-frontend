@@ -408,6 +408,12 @@ textarea {
     transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
   }
 
+  /* Reduce horizontal paddings on header container at tighter widths (helps on browser zoom) */
+  .container-fluid {
+    padding-left: clamp(16px, 2vw, 50px);
+    padding-right: clamp(16px, 2vw, 50px);
+  }
+
   /* Transparent state when at top */
   &.transparent {
     background: transparent !important;
@@ -591,9 +597,11 @@ textarea {
     position: relative;
     padding: 12px 0;
     transition: var(--primary-transition);
+    flex-wrap: nowrap;
+    column-gap: clamp(2px, 0.4vw, 10px);
 
     .logo {
-      width: 168px;
+      width: clamp(128px, 12vw, 168px);
 
       img {
         width: 100%;
@@ -608,19 +616,24 @@ textarea {
   }
 
   .main-menu {
+    flex: 1 1 60%;
+    min-width: 0;
     ul {
       list-style: none;
       padding: 0;
       display: flex;
       margin: 0;
       align-items: center;
+      flex-wrap: nowrap;
+      gap: clamp(0px, 0.2vw, 4px);
 
                         li {
                     letter-spacing: 0.5px;
-                    font-size: 0.95rem;
-                    padding: 0 12px;
+                    font-size: clamp(0.7rem, 0.85vw, 0.95rem);
+                    padding: 0 clamp(4px, 0.6vw, 8px);
                     position: relative;
                     text-align: left;
+                    flex: 0 1 auto;
 
                     a, span {
                       color: var(--black-color);
@@ -631,7 +644,7 @@ textarea {
                       background: transparent;
                       line-height: 1.5;
                       position: relative;
-                      padding: 8px 12px;
+                      padding: clamp(3px, 0.45vw, 7px) clamp(6px, 0.6vw, 10px);
                       border-radius: 8px;
                       transition: all 0.2s ease;
                       cursor: pointer;
@@ -663,7 +676,9 @@ textarea {
   .header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: clamp(2px, 0.5vw, 8px);
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   // Supplier CTA Button
@@ -674,8 +689,8 @@ textarea {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      height: 40px;
-      padding: 0 20px;
+      height: clamp(32px, 2.8vw, 40px);
+      padding: 0 clamp(10px, 1.2vw, 20px);
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
       color: var(--black-color);
       font-weight: 500;
@@ -686,8 +701,8 @@ textarea {
       border: none;
       position: relative;
       overflow: hidden;
-      font-size: 0.9rem;
-      min-width: 140px;
+      font-size: clamp(0.8rem, 1.1vw, 0.95rem);
+      min-width: clamp(92px, 8vw, 140px);
       text-align: center;
       white-space: nowrap;
       
@@ -713,6 +728,32 @@ textarea {
         }
       }
     }
+  }
+
+
+  @media (max-width: 1400px) {
+    .main-menu ul { gap: 0 2px; }
+    .main-menu ul li { font-size: 0.82rem; }
+    .main-menu ul li a, .main-menu ul li span { padding: 3px 7px; }
+    .supplier-cta .btn-supplier { min-width: 115px; padding: 0 10px; }
+  }
+
+  @media (max-width: 1280px) {
+    .logo { width: clamp(118px, 11vw, 150px); }
+    .main-menu ul { gap: 0 2px; }
+    .main-menu ul li { font-size: 0.74rem; }
+    .main-menu ul li a, .main-menu ul li span { padding: 2px 6px; }
+    .header-right { gap: 6px; }
+    .supplier-cta .btn-supplier { min-width: 96px; padding: 0 8px; }
+    .extra-buttons ul li.login { display: none !important; }
+  }
+
+  @media (max-width: 1180px) {
+    .logo { width: clamp(110px, 10vw, 140px); }
+    .main-menu ul li { font-size: 0.68rem; }
+    .main-menu ul li a, .main-menu ul li span { padding: 2px 5px; }
+    .supplier-cta .btn-supplier { min-width: 88px; padding: 0 6px; }
+    .header-right { gap: 4px; }
   }
 
   /* Ensure orange supplier button styling also applies when used directly inside header extra-buttons on mobile */
@@ -905,8 +946,8 @@ textarea {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          height: 40px;
-          padding: 0 20px;
+          height: clamp(32px, 2.6vw, 40px);
+          padding: 0 clamp(10px, 1.2vw, 20px);
           transition: all 0.3s ease;
           color: var(--white-color);
           position: relative;
@@ -917,7 +958,7 @@ textarea {
           text-decoration: none;
           border: none;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-          min-width: 140px;
+          min-width: clamp(96px, 10vw, 140px);
           text-align: center;
           white-space: nowrap;
 
@@ -8404,14 +8445,9 @@ td:hover .tooltip_custom {
 }
 
 /* Prevent navbar items from wrapping */
-.main-header .main-menu ul li {
-  white-space: nowrap;
-}
-
+.main-header .main-menu ul li,
 .main-header .main-menu ul li span,
-.main-header .main-menu ul li a {
-  white-space: nowrap;
-}
+.main-header .main-menu ul li a { white-space: nowrap; }
 
 
 .minimal-btn {
