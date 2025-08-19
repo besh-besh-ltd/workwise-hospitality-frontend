@@ -386,11 +386,11 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 top: 'calc(100% + 8px)',
                 left: 0,
                 minWidth: 340,
-                background: 'transparent',
-                backdropFilter: 'none',
-                boxShadow: 'none',
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
                 borderRadius: 16,
-                padding: '8px 0',
+                padding: '12px 0',
                 margin: 0,
                 opacity: open ? 1 : 0,
                 pointerEvents: open ? 'auto' : 'none',
@@ -398,7 +398,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: open ? 'flex' : 'none',
                 flexDirection: 'column',
-                border: 'none',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
                 textAlign: 'left',
                 alignItems: 'stretch',
                 zIndex: 1001,
@@ -479,7 +479,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       onMouseLeave={(e) => {
                         if (!isMobile) {
                         handleNestedMouseLeave();
-                        e.currentTarget.style.color = '#fff';
+                        e.currentTarget.style.color = '#333';
                         e.currentTarget.style.background = 'transparent';
                         e.currentTarget.style.transform = 'translateX(0)';
                         }
@@ -527,15 +527,15 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                             left: isMobile ? 0 : 'calc(100% + 4px)',
                             top: isMobile ? 'auto' : 0,
                             minWidth: isMobile ? '100%' : 300,
-                            background: 'transparent',
-                            backdropFilter: 'none',
-                            boxShadow: 'none',
+                            background: isMobile ? 'transparent' : 'rgba(255, 255, 255, 0.98)',
+                            backdropFilter: isMobile ? 'none' : 'blur(20px)',
+                            boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.12)',
                             borderRadius: isMobile ? 0 : 16,
-                            padding: isMobile ? '0' : '8px 0',
+                            padding: isMobile ? '0' : '12px 0',
                             margin: 0,
                             display: 'flex',
                             flexDirection: 'column',
-                            border: 'none',
+                            border: isMobile ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
                             animation: isMobile ? 'none' : 'slideInRight 0.2s ease-out',
                             isolation: 'isolate'
                           }}
@@ -581,7 +581,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                                   e.currentTarget.style.transform = 'translateX(4px)';
                                 }}
                                 onMouseLeave={e => {
-                                  e.currentTarget.style.color = '#fff';
+                                  e.currentTarget.style.color = isMobile ? '#fff' : '#333';
                                   e.currentTarget.style.background = 'transparent';
                                   e.currentTarget.style.transform = 'translateX(0)';
                                 }}
@@ -612,7 +612,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                         transition: 'all 0.2s ease',
                         borderRadius: isMobile ? 0 : '8px',
                         margin: '0',
-                        color: opt.isHighlighted ? '#FF6B35' : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? 'rgba(255,255,255,0.6)' : '#fff'),
+                        color: opt.isHighlighted ? '#FF6B35' : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? (isMobile ? 'rgba(255,255,255,0.6)' : '#aaa') : (isMobile ? '#fff' : '#333')),
                         fontSize: isMobile ? '18px' : '0.9rem', 
                         textAlign: 'left',
                         whiteSpace: 'normal',
@@ -644,7 +644,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                             e.currentTarget.style.color = '#FF6B35';
                             e.currentTarget.style.background = 'rgba(255, 107, 53, 0.1)';
                           } else {
-                            e.currentTarget.style.color = '#fff';
+                            e.currentTarget.style.color = '#333';
                             e.currentTarget.style.background = 'transparent';
                           }
                           e.currentTarget.style.transform = 'translateX(0)';
