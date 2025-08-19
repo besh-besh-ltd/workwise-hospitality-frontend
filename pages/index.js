@@ -1020,11 +1020,11 @@ export default function Home() {
                       </td>
                       <td className="px-4 py-3 text-danger">
                         <FontAwesomeIcon icon={faHourglassHalf} className="me-2" />
-                        3–4 weeks (avg)
+                        3–4 months (avg)
                       </td>
                       <td className="px-4 py-3 text-success">
                         <FontAwesomeIcon icon={faBolt} className="me-2" />
-                        4–5 days (avg)
+                        3–4 weeks (avg)
                       </td>
                     </tr>
                     <tr style={{ background: 'rgba(0,0,0,0.02)' }}>
@@ -1057,11 +1057,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">BOQ Handling</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Manual, error-prone formatting</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Upload & get clean, structured BOQ</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual, error-prone formatting</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Upload & get clean, structured BOQ</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1076,11 +1080,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">RFQ Creation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Copy‑paste & delays</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto‑generated & sent instantly</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Copy-paste & delays</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto-generated & sent instantly</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1095,11 +1103,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">Vendor Discovery</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Calling old vendors, outdated lists</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU‑approved vendors</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Calling old vendors, outdated lists</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU-approved vendors</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1114,11 +1126,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">Quote Evaluation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Manual comparisons, messy Excel</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Smart chart + deviation check</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual comparisons, messy Excel</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Smart chart + deviation check</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1133,11 +1149,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">Negotiation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Endless phone/email back-and-forth</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Reverse auction or digital workflows</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Endless phone/email back-and-forth</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Reverse auction or digital workflows</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1152,11 +1172,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">PO & Payment Tracking</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>No single source of truth</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Track both sides till final payment</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>No single source of truth</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Track both sides till final payment</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1171,11 +1195,15 @@ export default function Home() {
                             <h6 className="fw-bold text-dark mb-0">Procurement Timeline</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex flex-wrap align-items-center">
-                              <small className="text-danger fw-bold me-2">Without:</small>
-                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
-                              <small className="text-success fw-bold me-2">With:</small>
-                              <span className="text-success" style={{ fontSize: '0.9rem' }}>4-5 days (avg)</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center mb-1">
+                                <small className="text-danger fw-bold me-2">Without:</small>
+                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>3-4 months (avg)</span>
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <small className="text-success fw-bold me-2">With:</small>
+                                <span className="text-success" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1187,7 +1215,6 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>💰</span>
                             <h6 className="fw-bold text-dark mb-0">Savings Per Project</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
