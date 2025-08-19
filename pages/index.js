@@ -824,7 +824,11 @@ export default function Home() {
             <div className="text-center mb-5">
             <h2 className="fs-1 fw-bold text-white mb-3" style={{ fontSize: '2.5rem' }}>
                 See How Workwise Simplifies{' '}
-                <span style={{ color: '#8B5CF6' }}>Project Procurement</span>
+                <span style={{
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>Project Procurement</span>
               </h2>
               <p className="text-white mb-0" style={{ fontSize: '1.1rem', opacity: 0.9 }}>
                 Watch a quick walkthrough of how Workwise takes you from BOQ to final PO- faster, smarter, and more profitably.
@@ -844,15 +848,20 @@ export default function Home() {
             {/* CTA Section */}
             <div className="text-center">
               <div className="d-flex align-items-center justify-content-center mb-4">
-                <span style={{ fontSize: '20px', marginRight: '8px' }}>❤️</span>
                 <span className="text-white fw-medium" style={{ fontSize: '1.1rem' }}>Liked the Demo? Let's Talk.</span>
               </div>
               
                       <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
                 <Button 
                   onClick={handleBookCall}
-                  className="btn fw-bold text-white px-4 py-3 w-auto"
-                  style={{background: '#8B5CF6', border: 'none', borderRadius: '8px'}}
+                  className="btn fw-medium text-dark px-4 py-3 w-auto"
+                  style={{
+                    background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    filter: 'brightness(1.05) saturate(1.05)',
+                    boxShadow: '0 8px 24px rgba(255,165,0,0.35)'
+                  }}
                 >
                   <FontAwesomeIcon icon={faPhone} className="me-2" />
                   Book a Call
@@ -1045,23 +1054,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm" style={{ background: 'rgba(0,0,0,0.02)' }}>
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📦</span>
                             <h6 className="fw-bold text-dark mb-0">BOQ Handling</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faExclamationTriangle} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual, error-prone formatting</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Manual, error-prone formatting</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faCheck} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Upload & get clean, structured BOQ</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Upload & get clean, structured BOQ</span>
                             </div>
                           </div>
                         </div>
@@ -1073,23 +1073,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>🧾</span>
                             <h6 className="fw-bold text-dark mb-0">RFQ Creation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faCopy} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Copy‑paste & delays</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Copy‑paste & delays</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faRocket} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto‑generated & sent instantly</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Auto‑generated & sent instantly</span>
                             </div>
                           </div>
                         </div>
@@ -1101,23 +1092,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm" style={{ background: 'rgba(0,0,0,0.02)' }}>
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>🔍</span>
                             <h6 className="fw-bold text-dark mb-0">Vendor Discovery</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faPhone} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Calling old vendors, outdated lists</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Calling old vendors, outdated lists</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faBuilding} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU‑approved vendors</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>12,000+ PSU‑approved vendors</span>
                             </div>
                           </div>
                         </div>
@@ -1129,23 +1111,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📊</span>
                             <h6 className="fw-bold text-dark mb-0">Quote Evaluation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faTable} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Manual comparisons, messy Excel</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Manual comparisons, messy Excel</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faChartLine} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Smart chart + deviation check</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Smart chart + deviation check</span>
                             </div>
                           </div>
                         </div>
@@ -1157,23 +1130,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>💬</span>
                             <h6 className="fw-bold text-dark mb-0">Negotiation</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faEnvelope} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>Endless phone/email back-and-forth</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>Endless phone/email back-and-forth</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faWrench} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Reverse auction or digital workflows</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Reverse auction or digital workflows</span>
                             </div>
                           </div>
                         </div>
@@ -1185,23 +1149,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>📋</span>
                             <h6 className="fw-bold text-dark mb-0">PO & Payment Tracking</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faQuestionCircle} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>No single source of truth</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>No single source of truth</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faEye} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>Track both sides till final payment</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>Track both sides till final payment</span>
                             </div>
                           </div>
                         </div>
@@ -1213,23 +1168,14 @@ export default function Home() {
                       <div className="card border-0 shadow-sm">
                         <div className="card-body p-3">
                           <div className="d-flex align-items-center mb-2">
-                            <span className="me-2" style={{ fontSize: '1.5rem' }}>⏱️</span>
                             <h6 className="fw-bold text-dark mb-0">Procurement Timeline</h6>
                           </div>
                           <div className="d-flex flex-column g-2">
-                            <div className="d-flex align-items-center mb-2">
+                            <div className="d-flex flex-wrap align-items-center">
                               <small className="text-danger fw-bold me-2">Without:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faHourglassHalf} className="text-danger me-2" />
-                                <span className="text-danger" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center">
+                              <span className="text-danger me-3" style={{ fontSize: '0.9rem' }}>3-4 weeks (avg)</span>
                               <small className="text-success fw-bold me-2">With:</small>
-                              <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faBolt} className="text-success me-2" />
-                                <span className="text-success" style={{ fontSize: '0.9rem' }}>4-5 days (avg)</span>
-                              </div>
+                              <span className="text-success" style={{ fontSize: '0.9rem' }}>4-5 days (avg)</span>
                             </div>
                           </div>
                         </div>

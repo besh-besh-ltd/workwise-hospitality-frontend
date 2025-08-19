@@ -273,7 +273,14 @@ const ForVendors = () => {
                                 suffix={number.replace(/[0-9]/g, '')} 
                               />
                               <div className="text-muted fw-medium mt-1" style={{ fontSize: '0.9rem' }}>
-                                {remainingText}
+                                {stat.title === 'Business Volume' && remainingText.startsWith('Cr ')
+                                  ? (
+                                    <>
+                                      <span style={{ color: '#0EA5E9', fontWeight: 600 }}>Cr</span>{' '}
+                                      {remainingText.slice(3)}
+                                    </>
+                                  )
+                                  : remainingText}
                               </div>
                             </div>
                           );
@@ -337,13 +344,13 @@ const ForVendors = () => {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                         style={{
-                          width: '64px',
-                          height: '64px',
+                          width: '48px',
+                          height: '48px',
                           background: feature.iconBg,
                           color: 'white'
                         }}
                       >
-                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '24px' }} />
+                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '16px' }} />
                       </div>
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
                     </div>
@@ -353,8 +360,8 @@ const ForVendors = () => {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle me-3"
                         style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '32px',
+                          height: '32px',
                           background: feature.iconBg,
                           color: 'white',
                           flexShrink: 0
