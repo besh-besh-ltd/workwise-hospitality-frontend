@@ -3,7 +3,7 @@ import { faRocket, faClock, faShield, faLink, faPhone, faWrench, faTruck, faBrie
 
 export const vendorPageData = {
   hero: {
-    title: "Not Just Leads — Real Enquiries. Real Orders.",
+    title: "Not Just Leads - Real Enquiries. Real Orders.",
     subtitle: "Workwise is built for serious suppliers selling to heavy industries - not just for \"visibility,\" but for actual business. From RFQ to PO, everything happens here.",
     valueProps: [
       {

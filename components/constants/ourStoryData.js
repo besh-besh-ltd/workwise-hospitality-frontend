@@ -3,7 +3,7 @@ export const ourStoryData = {
   // Hero Section Data
   hero: {
     title: "We've Lived the Problems We're Solving",
-    subtitle: "Workwise was born out of first-hand experience in industrial procurement — and a deep desire to fix what's broken.",
+    subtitle: "Workwise was born out of first-hand experience in industrial procurement - and a deep desire to fix what's broken.",
     ctaButton: {
       label: "Meet the People Behind Workwise",
       variant: "primary",
@@ -16,14 +16,14 @@ export const ourStoryData = {
   whyWeBuilt: {
     title: "Why We Built Workwise",
     content: [
-      "Growing up, we witnessed firsthand the challenges faced by our families in the industrial sector — inefficiencies in procurement, on-site frauds, and the never-ending struggle of finding reliable vendors.",
-      "These pain points weren't theory for us — they were part of our daily lives.",
+      "Growing up, we witnessed firsthand the challenges faced by our families in the industrial sector - inefficiencies in procurement, on-site frauds, and the never-ending struggle of finding reliable vendors.",
+      "These pain points weren't theory for us - they were part of our daily lives.",
       "Inspired by these experiences and driven by a passion to make a difference, we embarked on a mission to transform the industry."
     ],
     secondParagraph: [
       "Workwise brings together over four decades of industrial experience with the bold thinking of young engineers from IIT and VIT.",
       "This blend of wisdom and innovation allows us to create something extraordinary.",
-      "Whether you're a buyer seeking reliable vendors or a vendor looking to grow, Workwise is here to support you — as your growth partner."
+      "Whether you're a buyer seeking reliable vendors or a vendor looking to grow, Workwise is here to support you - as your growth partner."
     ]
   },
 
@@ -51,13 +51,13 @@ export const ourStoryData = {
   // Vision Section
   vision: {
     title: "Building the Future of B2B Procurement",
-    subtitle: "A future where procurement becomes the driver of growth — not its bottleneck.",
+    subtitle: "A future where procurement becomes the driver of growth - not its bottleneck.",
     points: [
       "Clients, contractors, and suppliers collaborate seamlessly",
       "Procurement is a strategic advantage, not a roadblock",
       "Innovation and AI enable faster, smarter decisions",
       "Reliable partnerships drive industrial progress",
-      "All stakeholders — big or small — thrive"
+      "All stakeholders - big or small - thrive"
     ]
   },
 
@@ -91,7 +91,7 @@ export const ourStoryData = {
     founder: {
       name: "Siddharth Kothari",
       title: "Founder & CEO",
-      quote: "We're not just building a platform — we're transforming an industry that touches millions of lives.",
+      quote: "We're not just building a platform - we're transforming an industry that touches millions of lives.",
       description: "With over 15 years in industrial procurement, Siddharth has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both buyer and vendor pain points."
     },
     members: [
@@ -119,8 +119,8 @@ export const ourStoryData = {
 
   // Final CTA Section
   finalCta: {
-    title: "Let's Build the Future of Procurement — Together",
-    subtitle: "Whether you're a potential partner, client, or Investor — we'd love to talk about how we can transform procurement together.",
+    title: "Let's Build the Future of Procurement - Together",
+    subtitle: "Whether you're a potential partner, client, or Investor - we'd love to talk about how we can transform procurement together.",
     button: {
       label: "Book a Call with the Workwise Team",
       variant: "white",

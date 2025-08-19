@@ -842,7 +842,7 @@ export default function Home() {
                 <span style={{ color: '#8B5CF6' }}>Project Procurement</span>
               </h2>
               <p className="text-white mb-0" style={{ fontSize: '1.1rem', opacity: 0.9 }}>
-                Watch a quick walkthrough of how Workwise takes you from BOQ to final PO— faster, smarter, and more profitably.
+                Watch a quick walkthrough of how Workwise takes you from BOQ to final PO- faster, smarter, and more profitably.
               </p>
             </div>
 
@@ -916,7 +916,7 @@ export default function Home() {
                 Why Workwise Is a No-Brainer for Project Procurement
               </h2>
               <p className="text-muted fs-5 mb-4">
-                Compare the reality of traditional procurement vs what it looks like with Workwise — and decide for yourself.
+                Compare the reality of traditional procurement vs what it looks like with Workwise - and decide for yourself.
               </p>
 
             </div>

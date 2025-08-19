@@ -2,7 +2,7 @@ export const stakeholdersPageData = {
   epcs: {
     hero: {
       title: "Procurement Built for EPCs Running Complex Multi-Discipline Projects",
-      subtitle: "Cut 75% of your time and save 6–9% cost — from BOQ to final PO",
+      subtitle: "Cut 75% of your time and save 6-9% cost - from BOQ to final PO",
       buttonLabel: "Book a call for your next EPC project",
     },
     benefits: [
@@ -40,7 +40,7 @@ export const stakeholdersPageData = {
       { activity: 'Vendor Coordination', without: 'Endless follow-ups', with: 'Single source of truth' },
     ],
     faqs: [
-      { question: 'Can I bring my own vendors?', answer: 'Yes. Upload vendor lists or invite via link — our team helps onboard them.' },
+      { question: 'Can I bring my own vendors?', answer: 'Yes. Upload vendor lists or invite via link - our team helps onboard them.' },
       { question: 'How much training is needed?', answer: 'None. The system is intuitive, with full support available.' },
       { question: 'Can I track multiple RFQs?', answer: 'Yes. The RFQ dashboard supports multiple projects at once.' },
     ],
@@ -48,7 +48,7 @@ export const stakeholdersPageData = {
   turnkey: {
     hero: {
       title: 'Procurement Built for Turnkey Project Firms',
-      subtitle: 'Cut 75% of coordination time and save 6–9% cost — from BOQ upload to vendor finalization.',
+      subtitle: 'Cut 75% of coordination time and save 6-9% cost - from BOQ upload to vendor finalization.',
       buttonLabel: 'Book a call to see how it fits your turnkey workflow',
     },
     benefits: [
@@ -64,7 +64,7 @@ export const stakeholdersPageData = {
       ],
       certifications: ['ISO', 'AWS', 'IIT-engineered'],
       success: [
-        { quote: 'We used Workwise on a ₹200 Cr turnkey substation project — vendor shortlisting became 5x faster.', author: 'Sr. Project Manager, T&D Turnkey Contractor' },
+        { quote: 'We used Workwise on a ₹200 Cr turnkey substation project - vendor shortlisting became 5x faster.', author: 'Sr. Project Manager, T&D Turnkey Contractor' },
       ],
       cta: { label: "Let's Talk" },
     },
@@ -77,7 +77,7 @@ export const stakeholdersPageData = {
     ],
     industries: ['Oil & Gas', 'Power', 'Infra', 'Renewables', 'Water', 'Petrochem', 'Chemical'],
     disciplines: ['Electrical', 'Mechanical', 'Civil', 'Instrumentation', 'HVAC', 'Fire Safety', 'Piping'],
-    video: { title: 'See How Turnkey Firms Use Workwise', subtitle: 'From messy BOQ to clean RFQs and vendor finalization — see it in action.', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?si=4LjNOagqTcYH1F7l' },
+    video: { title: 'See How Turnkey Firms Use Workwise', subtitle: 'From messy BOQ to clean RFQs and vendor finalization - see it in action.', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?si=4LjNOagqTcYH1F7l' },
     comparison: [
       { activity: 'RFQ Creation', without: 'Manual copy-paste and formatting', with: 'One-click BOQ to RFQ' },
       { activity: 'Vendor Mapping', without: 'Based on past habits', with: 'Access 12,500+ mapped vendors' },
@@ -110,7 +110,7 @@ export const stakeholdersPageData = {
       ],
       certifications: ['ISO', 'AWS', 'IIT-engineered'],
       success: [
-        { quote: 'As consultants, we need fast, accurate evaluations — Workwise helps us deliver better outcomes to clients.', author: 'Director, MEP Consultancy' },
+        { quote: 'As consultants, we need fast, accurate evaluations - Workwise helps us deliver better outcomes to clients.', author: 'Director, MEP Consultancy' },
       ],
       cta: { label: "Let's Talk" },
     },
@@ -122,7 +122,7 @@ export const stakeholdersPageData = {
     ],
     industries: ['Oil & Gas', 'Power', 'Industrial', 'Infrastructure', 'Renewables', 'Chemical', 'Water', 'Petrochem'],
     disciplines: ['Electrical', 'Mechanical', 'Civil', 'HVAC', 'Fire Protection', 'Instrumentation', 'Piping'],
-    video: { title: 'See How Project Consultants Use Workwise', subtitle: 'A fast walkthrough from BOQ to evaluation outputs — tailored for your client deliverables.', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?si=4LjNOagqTcYH1F7l' },
+    video: { title: 'See How Project Consultants Use Workwise', subtitle: 'A fast walkthrough from BOQ to evaluation outputs - tailored for your client deliverables.', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?si=4LjNOagqTcYH1F7l' },
     comparison: [
       { activity: 'BOQ Estimation', without: 'Manual and error-prone', with: 'Instant, structured cost sheet' },
       { activity: 'Technical Checks', without: 'Full document reading', with: 'Auto clause extraction and summary' },
@@ -139,7 +139,7 @@ export const stakeholdersPageData = {
   'industrial-clients': {
     hero: {
       title: 'Procurement Built for Industrial Clients Managing Their Own Projects',
-      subtitle: 'Streamline project procurement with visibility, control, and speed — from BOQ to PO to payment.',
+      subtitle: 'Streamline project procurement with visibility, control, and speed - from BOQ to PO to payment.',
       buttonLabel: 'Book a call to see how this fits your internal workflow',
     },
     benefits: [
@@ -161,7 +161,7 @@ export const stakeholdersPageData = {
     },
     features: [
       { title: 'BOQ to RFQ Engine', description: 'Auto-convert client BOQs into procurement-ready enquiries' },
-      { title: 'Vendor Quote Comparison', description: 'L1–L4 logic, technical and commercial evaluation, deviation checker' },
+      { title: 'Vendor Quote Comparison', description: 'L1-L4 logic, technical and commercial evaluation, deviation checker' },
       { title: 'PO and Payment Tracker', description: 'Milestone-based PO creation and reminders for each stage' },
       { title: 'Role-Based Team Access', description: 'Admins, engineers, and accounts work in sync with access control' },
     ],

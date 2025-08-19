@@ -1,7 +1,7 @@
 export const eventsData = {
   hero: {
     title: "Join Us at India's Leading Industry Events",
-    subtitle: "We regularly participate in exhibitions and conferences — as exhibitors, sponsors, speakers, and delegates. Browse our upcoming and past events, and register your interest to meet us there."
+    subtitle: "We regularly participate in exhibitions and conferences - as exhibitors, sponsors, speakers, and delegates. Browse our upcoming and past events, and register your interest to meet us there."
   },
   filters: {
     eventType: {

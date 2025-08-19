@@ -5,7 +5,7 @@ import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
 export const homepageData = {
   hero: {
     title: "Procurement se Profit Banao",
-    subtitle: "India's #1 Project Procurement Platform — Built for EPCs, Contractors & Industrial Buyers",
+    subtitle: "India's #1 Project Procurement Platform - Built for EPCs, Contractors & Industrial Buyers",
     valueProps: [
       {
         icon: <FontAwesomeIcon icon={faRocket} />,
@@ -277,7 +277,7 @@ export const homepageData = {
     cards: [
       {
         title: "12,500+ PSU-Approved Vendors",
-        description: "Find the right supplier fast — verified OEMs, dealers, and traders.",
+        description: "Find the right supplier fast - verified OEMs, dealers, and traders.",
         icon: faBriefcase,
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)"
       },
@@ -331,7 +331,7 @@ export const homepageData = {
       },
       {
         title: "Supplier Discovery & Vendor Management",
-        description: "Find the right vendors — fast.",
+        description: "Find the right vendors - fast.",
         desktopFeatures: [
           "Access 12,500+ PSU-approved suppliers",
           "Filter by Make, Approval, and Location",
@@ -359,7 +359,7 @@ export const homepageData = {
       },
       {
         title: "Negotiation Management",
-        description: "Negotiate better — online.",
+        description: "Negotiate better - online.",
         desktopFeatures: [
           "Run reverse auctions by default",
           "Customize with English, Dutch, Rank, or Preferential auctions",
@@ -409,7 +409,7 @@ export const homepageData = {
           iconBg: "#F59E0B"
         }
       ],
-      footerText: "Our team works alongside your procurement team — so you can focus on what matters.",
+      footerText: "Our team works alongside your procurement team - so you can focus on what matters.",
       buttonText: "Talk to Our Vendor Support Team →"
     }
   },
@@ -417,7 +417,7 @@ export const homepageData = {
   // Heavy Industries section
   heavyIndustries: {
     headline: "Built for Heavy Industries. Trusted Across Disciplines.",
-    subheadline: "From refineries to substations to utility-scale solar and more — Workwise powers procurement where complexity is high and accuracy matters.",
+    subheadline: "From refineries to substations to utility-scale solar and more - Workwise powers procurement where complexity is high and accuracy matters.",
     industries: [
       {
         name: "Energy (Oil & Gas, Renewables, Hydrogen)",
@@ -499,7 +499,7 @@ export const homepageData = {
         position: "Procurement Head, Power EPC"
       },
       {
-        quote: "The comparison chart saved us from making the wrong vendor choice — super helpful.",
+        quote: "The comparison chart saved us from making the wrong vendor choice - super helpful.",
         author: "Arnav Singh",
         position: "Project Director, Infrastructure Contractor"
       },

@@ -640,7 +640,7 @@ const StakeholderPage = () => {
         <div className="container">
           <div className="text-center mb-5">
             <h2 className="fs-1 fw-bold text-dark mb-3">⚖️ Why Workwise Is a No-Brainer</h2>
-            <p className="text-muted fs-5 mb-0">Compare traditional procurement vs what it looks like with Workwise — and decide for yourself.</p>
+            <p className="text-muted fs-5 mb-0">Compare traditional procurement vs what it looks like with Workwise - and decide for yourself.</p>
           </div>
           <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div className="table-responsive d-none d-lg-block">

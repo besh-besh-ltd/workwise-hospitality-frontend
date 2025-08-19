@@ -1,7 +1,7 @@
 export const pricingData = {
   hero: {
     title: "Flexible Pricing for Every Stakeholder",
-    subtitle: "Whether you're a buyer managing complex capex projects or a supplier looking to grow — Workwise has a plan that fits."
+    subtitle: "Whether you're a buyer managing complex capex projects or a supplier looking to grow - Workwise has a plan that fits."
   },
   buyers: {
     title: "Built to Deliver Value First",
@@ -113,7 +113,7 @@ export const pricingData = {
     faq: [
       {
         question: "What if I don't receive the guaranteed enquiries?",
-        answer: "We ensure minimum outreach — or refund the balance."
+        answer: "We ensure minimum outreach - or refund the balance."
       },
       {
         question: "Can I upgrade from Silver to Gold later?",

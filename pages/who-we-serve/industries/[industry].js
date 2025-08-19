@@ -275,7 +275,7 @@ const IndustryDynamicPage = () => {
       />
       <PowerProcurementChallenges title={data.challengesTitle || 'We Understand the Real-World Challenges of Industry Procurement'} challenges={data.challenges} />
       <CapexProjectsServed title={data.projectsTitle || "Capex Projects We've Served in Industry"} projects={data.projects} />
-      <AllDisciplines title={data.disciplinesTitle || 'All Disciplines — One Platform'} disciplines={data.disciplines} />
+      <AllDisciplines title={data.disciplinesTitle || 'All Disciplines - One Platform'} disciplines={data.disciplines} />
       <TestimonialsSection title={data.testimonialsTitle || 'Used in Projects by Companies You Know'} testimonials={data.testimonials} />
       <WorkwiseModules title={data.modulesTitle || 'Top Workwise Modules for Industry Teams'} modules={data.modules} />
       <PowerTeamsFaq className="mt-5" title={data.faqsTitle || 'Questions Teams Ask Us'} faqs={data.faqs} />
