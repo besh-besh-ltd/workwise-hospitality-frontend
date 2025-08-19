@@ -770,11 +770,7 @@ const Header = () => {
                     )}
                   </li>
                 ))}
-                <li>
-                  <Link href="/for-vendors" className="btn-supplier-mobile" style={{ color: '#fff' }}>
-                    For Suppliers
-                  </Link>
-                </li>
+
                 {!loggedinUser && (
                   <>
                     <li className="mobile-login">

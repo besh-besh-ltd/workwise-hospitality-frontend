@@ -8418,8 +8418,10 @@ td:hover .tooltip_custom {
     list-style: none !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    position: relative !important;
+    position: static !important; /* Changed from relative to static */
     overflow: visible !important;
+    clear: both !important;
+    display: block !important;
   }
   
   .mobile-menu ul li a {
@@ -8430,6 +8432,20 @@ td:hover .tooltip_custom {
     display: block !important;
     font-weight: 500 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  /* Mobile dropdown trigger styling */
+  .mobile-menu ul li span.dropdown-trigger {
+    color: white !important;
+    font-size: 20px !important;
+    text-align: left !important;
+    padding: 16px 25px !important;
+    display: block !important;
+    font-weight: 500 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: static !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
   
   /* Main dropdown items in mobile */
@@ -8446,7 +8462,7 @@ td:hover .tooltip_custom {
   /* Dropdown sub-items in mobile */
   .mobile-menu ul li ul,
   .mobile-menu .dropdown-menu {
-    background: rgba(0, 0, 0, 0.15) !important;
+    background: rgba(0, 0, 0, 0.2) !important;
     border: none !important;
     box-shadow: none !important;
     position: static !important;
@@ -8458,11 +8474,23 @@ td:hover .tooltip_custom {
     backdrop-filter: none !important;
     display: block !important;
     clear: both !important;
+    overflow: visible !important;
+    float: none !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
   }
   
   .mobile-menu ul li ul li,
   .mobile-menu .dropdown-menu li {
     padding: 0 !important;
+    position: static !important;
+    display: block !important;
+    clear: both !important;
+    width: 100% !important;
+    overflow: visible !important;
   }
   
   .mobile-menu ul li ul li a,
@@ -8474,6 +8502,10 @@ td:hover .tooltip_custom {
     text-align: left !important;
     font-weight: 400 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    position: static !important;
   }
   
   .mobile-menu ul li ul li a:hover,
@@ -8516,6 +8548,37 @@ td:hover .tooltip_custom {
     clear: both !important;
     display: block !important;
     width: 100% !important;
+    position: static !important;
+    float: none !important;
+  }
+  
+  /* Mobile Who We Serve grid layout fix */
+  .mobile-menu .dropdown-menu li div[style*="grid"] {
+    position: static !important;
+    clear: both !important;
+    overflow: visible !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Force all mobile dropdown elements to flow properly */
+  .mobile-menu * {
+    position: static !important;
+    transform: none !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+  }
+  
+  /* Exception for the hamburger toggle itself */
+  .menu-ctrl {
+    position: relative !important;
+  }
+  
+  /* Exception for the mobile menu container */
+  .mobile-menu {
+    position: fixed !important;
   }
 }
 
