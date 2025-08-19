@@ -770,7 +770,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                 product.tax = quote.tax.value;
                 product.tax_mode = quote.tax.unit;
               }
-              product.delivery_period = quote.delivery_period;
+              product.delivery_period = String(quote.delivery_period);
             }
           }
 
