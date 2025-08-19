@@ -330,16 +330,20 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
           fontWeight: 500,
           color: isMobile ? '#fff' : 'inherit',
           textDecoration: 'none',
-          padding: '8px 12px',
-          borderRadius: '8px',
+          padding: isMobile ? '16px 25px' : '8px 12px',
+          borderRadius: isMobile ? 0 : '8px',
           transition: 'all 0.2s ease',
           whiteSpace: 'nowrap',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: isMobile ? 'space-between' : 'flex-start',
           position: 'relative',
           zIndex: 1000,
           userSelect: 'none',
-          outline: 'none'
+          outline: 'none',
+          fontSize: isMobile ? '20px' : 'inherit',
+          borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+          width: isMobile ? '100%' : 'auto'
         }}
         className="d-flex align-items-center flex-nowrap dropdown-trigger"
         data-dropdown={label}
@@ -373,6 +377,13 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 display: open ? 'block' : 'none',
                 listStyle: 'none',
                 textAlign: 'left',
+                position: 'static',
+                background: 'transparent',
+                boxShadow: 'none',
+                borderRadius: 0,
+                border: 'none',
+                width: '100%',
+                zIndex: 'auto'
               }
             : {
                 position: 'absolute',
@@ -446,53 +457,49 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 </div>
               </li>
             ) : label === 'Who We Serve' && isMobile ? (
-              <li style={{ listStyle: 'none', width: '100%' }}>
-                <div style={{ padding: '8px 4px' }}>
-                  {/* Stakeholders */}
-                  <div onClick={() => setNestedOpen(nestedOpen === 'stakeholders' ? null : 'stakeholders')} style={{ padding: '10px 8px', fontWeight: 700, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Stakeholders</span>
-                    <FontAwesomeIcon icon={nestedOpen === 'stakeholders' ? faChevronUp : faChevronDown} size="sm"/>
+              <li style={{ listStyle: 'none', width: '100%', display: 'block', overflow: 'visible', clear: 'both' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gap: '4px',
+                    padding: '12px 8px',
+                    background: 'rgba(0, 0, 0, 0.15)',
+                    margin: '8px 0',
+                    maxWidth: '100%',
+                    textAlign: 'center',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '13px', padding: '6px 2px', color: '#fff', borderBottom: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '4px' }}>Stakeholders</div>
+                    <a href="/who-we-serve/stakeholders/epcs" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/epcs'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>EPCs / Contractors</a>
+                    <a href="/who-we-serve/stakeholders/turnkey" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/turnkey'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Turnkey Project Firms</a>
+                    <a href="/who-we-serve/stakeholders/consultants" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/consultants'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Project Consultants</a>
+                    <a href="/who-we-serve/stakeholders/industrial-clients" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/industrial-clients'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Industrial Clients</a>
+                    <a href="/for-vendors" onClick={(e)=>handleOptionClick(e,{href:'/for-vendors'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Vendors & OEMs</a>
                   </div>
-                  {nestedOpen === 'stakeholders' && (
-                    <div style={{ paddingLeft: 12 }}>
-                      <a href="/who-we-serve/stakeholders/epcs" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/epcs'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>EPCs / Contractors</a>
-                      <a href="/who-we-serve/stakeholders/turnkey" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/turnkey'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Turnkey Project Firms</a>
-                      <a href="/who-we-serve/stakeholders/consultants" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/consultants'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Project Consultants</a>
-                      <a href="/who-we-serve/stakeholders/industrial-clients" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/industrial-clients'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Industrial Clients</a>
-                      <a href="/for-vendors" onClick={(e)=>handleOptionClick(e,{href:'/for-vendors'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Vendors & OEMs</a>
-                    </div>
-                  )}
-                  {/* Industries */}
-                  <div onClick={() => setNestedOpen(nestedOpen === 'industries' ? null : 'industries')} style={{ padding: '10px 8px', fontWeight: 700, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Industries</span>
-                    <FontAwesomeIcon icon={nestedOpen === 'industries' ? faChevronUp : faChevronDown} size="sm"/>
+                  <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', padding: '6px 2px', color: '#fff', borderBottom: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '4px' }}>Industries</div>
+                    <a href="/who-we-serve/industries/power" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/power'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Power</a>
+                    <a href="/who-we-serve/industries/energy" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/energy'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Energy</a>
+                    <a href="/who-we-serve/industries/petrochemical" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/petrochemical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Petrochemical & Chemical</a>
+                    <a href="/who-we-serve/industries/steel-cement" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/steel-cement'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Steel & Cement</a>
+                    <a href="/who-we-serve/industries/infrastructure" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/infrastructure'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Infrastructure</a>
+                    <a href="/who-we-serve/industries/heavy-equipment" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/heavy-equipment'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Heavy Engineering & Machine Tools</a>
+                    <a href="/who-we-serve/industries/marine-mining" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/marine-mining'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Marine & Mining</a>
                   </div>
-                  {nestedOpen === 'industries' && (
-                    <div style={{ paddingLeft: 12 }}>
-                      <a href="/who-we-serve/industries/power" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/power'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Power</a>
-                      <a href="/who-we-serve/industries/energy" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/energy'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Energy</a>
-                      <a href="/who-we-serve/industries/petrochemical" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/petrochemical'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Petrochemical & Chemical</a>
-                      <a href="/who-we-serve/industries/steel-cement" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/steel-cement'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Steel & Cement</a>
-                      <a href="/who-we-serve/industries/infrastructure" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/infrastructure'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Infrastructure</a>
-                      <a href="/who-we-serve/industries/heavy-equipment" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/heavy-equipment'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Heavy Engineering & Machine Tools</a>
-                      <a href="/who-we-serve/industries/marine-mining" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/marine-mining'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Marine & Mining</a>
-                    </div>
-                  )}
-                  {/* Disciplines */}
-                  <div onClick={() => setNestedOpen(nestedOpen === 'disciplines' ? null : 'disciplines')} style={{ padding: '10px 8px', fontWeight: 700, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>Disciplines</span>
-                    <FontAwesomeIcon icon={nestedOpen === 'disciplines' ? faChevronUp : faChevronDown} size="sm"/>
+                  <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', padding: '6px 2px', color: '#fff', borderBottom: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '4px' }}>Disciplines</div>
+                    <a href="/solutions/electrical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/electrical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Electrical</a>
+                    <a href="/solutions/mechanical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/mechanical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Mechanical</a>
+                    <a href="/solutions/civil" onClick={(e)=>handleOptionClick(e,{href:'/solutions/civil'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Civil</a>
+                    <a href="/solutions/hvac" onClick={(e)=>handleOptionClick(e,{href:'/solutions/hvac'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>HVAC</a>
+                    <a href="/solutions/fire-engineering" onClick={(e)=>handleOptionClick(e,{href:'/solutions/fire-engineering'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Fire & Safety</a>
+                    <a href="/solutions/chemical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/chemical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Chemical</a>
                   </div>
-                  {nestedOpen === 'disciplines' && (
-                    <div style={{ paddingLeft: 12 }}>
-                      <a href="/solutions/electrical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/electrical'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Electrical</a>
-                      <a href="/solutions/mechanical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/mechanical'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Mechanical</a>
-                      <a href="/solutions/civil" onClick={(e)=>handleOptionClick(e,{href:'/solutions/civil'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Civil</a>
-                      <a href="/solutions/hvac" onClick={(e)=>handleOptionClick(e,{href:'/solutions/hvac'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>HVAC</a>
-                      <a href="/solutions/fire-engineering" onClick={(e)=>handleOptionClick(e,{href:'/solutions/fire-engineering'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Fire & Safety</a>
-                      <a href="/solutions/chemical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/chemical'})} style={{display:'block', padding:'8px 8px', color:'#fff', textDecoration:'none'}}>Chemical</a>
-                    </div>
-                  )}
                 </div>
               </li>
             ) : (
@@ -628,14 +635,14 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       }}
                       style={{
                         display: 'block',
-                        padding: '12px 20px',
-                        fontWeight: opt.isHighlighted ? 600 : 500,
+                        padding: isMobile ? '14px 40px' : '12px 20px',
+                        fontWeight: opt.isHighlighted ? 600 : (isMobile ? 400 : 500),
                         textDecoration: 'none',
                         transition: 'all 0.2s ease',
-                        borderRadius: '8px',
+                        borderRadius: isMobile ? 0 : '8px',
                         margin: '0',
                         color: opt.isHighlighted ? (isMobile ? '#FFD700' : '#FF6B35') : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? (isMobile ? 'rgba(255,255,255,0.6)' : '#aaa') : (isMobile ? '#fff' : '#333')),
-                        fontSize: '0.9rem', 
+                        fontSize: isMobile ? '18px' : '0.9rem', 
                         textAlign: 'left',
                         whiteSpace: 'normal',
                         lineHeight: '1.4',
@@ -644,6 +651,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                         pointerEvents: label === 'Insights & Resources' && isInsightsUpcoming(opt) ? 'none' : 'auto',
                         background: opt.isHighlighted ? (isMobile ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255, 107, 53, 0.1)') : 'transparent',
                         border: opt.isHighlighted ? (isMobile ? '1px solid rgba(255, 215, 0, 0.3)' : '1px solid rgba(255, 107, 53, 0.3)') : 'none',
+                        borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.05)' : 'none'
                       }}
                       onMouseEnter={e => {
                         if (!isMobile) {

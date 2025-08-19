@@ -8413,16 +8413,20 @@ td:hover .tooltip_custom {
   
   .mobile-menu ul li {
     text-align: left !important;
-    font-size: 18px !important; /* Bigger size */
+    font-size: 20px !important; /* Bigger size */
     padding: 0 !important;
     list-style: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    overflow: visible !important;
   }
   
   .mobile-menu ul li a {
     text-align: left !important;
-    font-size: 18px !important;
+    font-size: 20px !important;
     color: white !important; /* White color for main headers */
-    padding: 15px 25px !important;
+    padding: 16px 25px !important;
     display: block !important;
     font-weight: 500 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -8432,9 +8436,9 @@ td:hover .tooltip_custom {
   .mobile-menu > nav > ul > li > div,
   .mobile-menu > nav > ul > li > span {
     color: white !important;
-    font-size: 18px !important;
+    font-size: 20px !important;
     text-align: left !important;
-    padding: 15px 25px !important;
+    padding: 16px 25px !important;
     display: block !important;
     font-weight: 500 !important;
   }
@@ -8442,7 +8446,7 @@ td:hover .tooltip_custom {
   /* Dropdown sub-items in mobile */
   .mobile-menu ul li ul,
   .mobile-menu .dropdown-menu {
-    background: rgba(0, 0, 0, 0.2) !important;
+    background: rgba(0, 0, 0, 0.15) !important;
     border: none !important;
     box-shadow: none !important;
     position: static !important;
@@ -8450,6 +8454,10 @@ td:hover .tooltip_custom {
     z-index: auto !important;
     padding: 0 !important;
     margin: 0 !important;
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    display: block !important;
+    clear: both !important;
   }
   
   .mobile-menu ul li ul li,
@@ -8460,9 +8468,9 @@ td:hover .tooltip_custom {
   .mobile-menu ul li ul li a,
   .mobile-menu .dropdown-menu .dropdown-item,
   .mobile-menu .dropdown-menu a {
-    color: rgba(255, 255, 255, 0.9) !important; /* White subheadings */
-    font-size: 16px !important;
-    padding: 12px 40px !important; /* Indented for hierarchy */
+    color: #fff !important; /* White subheadings */
+    font-size: 18px !important;
+    padding: 14px 40px !important; /* Indented for hierarchy */
     text-align: left !important;
     font-weight: 400 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
@@ -8484,6 +8492,30 @@ td:hover .tooltip_custom {
     margin: 10px 25px !important;
     text-align: center !important;
     font-weight: 600 !important;
+  }
+
+  /* Ensure proper layout and no overlapping */
+  .mobile-menu ul li .dropdown-menu {
+    position: static !important;
+    float: none !important;
+    clear: both !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .mobile-menu ul li span.dropdown-trigger {
+    display: block !important;
+    width: 100% !important;
+    position: relative !important;
+  }
+
+  /* Specific mobile menu item spacing to prevent overlap */
+  .mobile-menu ul li {
+    overflow: visible !important;
+    clear: both !important;
+    display: block !important;
+    width: 100% !important;
   }
 }
 
@@ -8656,6 +8688,198 @@ html, body {
 @media (max-width: 850px) and (min-width: 769px) {
   .dropdown-menu {
     max-width: 90vw !important;
+  }
+}
+
+/* FOOTER REDESIGN STYLES */
+
+/* Footer Top Section */
+.main-footer .footer-top {
+  background-color: #2c3e50;
+  color: #ecf0f1;
+}
+
+.main-footer .footer-logo img {
+  max-width: 180px;
+  height: auto;
+}
+
+/* Footer Social Icons */
+.footer-social-icons .social-icon {
+  color: #ecf0f1;
+  font-size: 1.2rem;
+  transition: color 0.3s ease, transform 0.2s ease;
+  text-decoration: none;
+}
+
+.footer-social-icons .social-icon:hover {
+  color: #428b41;
+  transform: translateY(-2px);
+}
+
+/* Footer Column Headings */
+.main-footer .footer-col h6 {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.footer-section-title {
+  color: #ffffff !important;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Footer Navigation Links */
+.main-footer .footer-navigation ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.main-footer .footer-navigation ul li {
+  margin-bottom: 0.5rem;
+}
+
+.main-footer .footer-navigation ul li a {
+  color: #bdc3c7;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.3s ease, padding-left 0.3s ease;
+  display: inline-block;
+}
+
+.main-footer .footer-navigation ul li a:hover {
+  color: #428b41;
+  padding-left: 5px;
+}
+
+/* SEO Links Styling */
+.footer-seo-links ul {
+  gap: 0.5rem;
+}
+
+.footer-seo-links ul li {
+  margin-bottom: 0.5rem;
+  margin-right: 1.5rem;
+}
+
+.footer-seo-links ul li a {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.view-all-link {
+  font-weight: 600 !important;
+  color: #428b41 !important;
+}
+
+.view-all-link:hover {
+  color: #2e8c2e !important;
+}
+
+/* Trust Badges */
+.trust-badges {
+  gap: 1rem;
+}
+
+.trust-badge {
+  color: #bdc3c7;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.trust-badge svg {
+  color: #428b41;
+}
+
+/* Footer Copyright */
+.main-footer .footer-copyright {
+  background-color: #34495e;
+  color: #ecf0f1;
+  padding: 1rem 0;
+  border-top: 1px solid #4a5f7a;
+}
+
+.main-footer .footer-copyright p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.india-flag {
+  font-size: 1.2rem;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .main-footer .footer-col {
+    margin-bottom: 2rem;
+  }
+  
+  .footer-social-icons {
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  
+  .footer-seo-links ul {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .footer-seo-links ul li {
+    margin-right: 0;
+    margin-bottom: 0.75rem;
+  }
+  
+  .trust-badges {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .trust-badge {
+    width: fit-content;
+  }
+  
+  .main-footer .footer-copyright .container {
+    text-align: center;
+  }
+  
+  .main-footer .footer-copyright .d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* Tablet Responsive */
+@media (min-width: 769px) and (max-width: 992px) {
+  .footer-seo-links ul li {
+    margin-right: 1rem;
+  }
+  
+  .footer-seo-links ul li a {
+    font-size: 0.8rem;
+  }
+}
+
+/* Large Screen Adjustments */
+@media (min-width: 1200px) {
+  .main-footer .footer-navigation ul li a {
+    font-size: 0.95rem;
+  }
+  
+  .footer-seo-links ul li a {
+    font-size: 0.9rem;
   }
 }
 

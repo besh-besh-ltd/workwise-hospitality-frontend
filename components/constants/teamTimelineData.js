@@ -21,7 +21,7 @@ export const teamTimelineData = {
       linkedin: 'https://www.linkedin.com/in/vikram-mehta/',
       titleColor: '#41B8A8',
       description: 'IIT Delhi',
-      image: '/assets/images/team/mukul-jatav.jpeg'
+      image: '/assets/images/team/Siddharth Kothari Profile Picture-reduced size - Siddharth Kothari.jpg'
     },
     {
       id: 3,
@@ -30,7 +30,7 @@ export const teamTimelineData = {
       linkedin: 'https://www.linkedin.com/in/priya-desai/',
       titleColor: '#FFA500',
       description: 'ISB',
-      image: '/assets/images/team/vinnet-singh.jpeg'
+      image: '/assets/images/team/Siddharth Kothari Profile Picture-reduced size - Siddharth Kothari.jpg'
     }
   ],
 
@@ -88,14 +88,22 @@ export const teamTimelineData = {
   productOperationsTeam: [
     {
       id: 1,
-      name: 'Sayanka Sarkar',
-      title: 'Product Team Lead',
-      linkedin: 'https://www.linkedin.com/in/sayanka-sarkar-700392318/',
-      description: 'IIM Ahmedabad',
-      image: '/assets/images/team/WhatsApp Image 2025-08-18 at 11.55.57 AM - Sayanka Sarkar.jpeg'
+      name: 'Amrita Ganguli',
+      title: 'Vendor Relationship Manager',
+      linkedin: 'https://www.linkedin.com/in/amrita-ganguli-a935261b2/',
+      description: 'West Chester University of Pennsylvania',
+      image: '/assets/images/team/20250819_170500 - Amrita Ganguli.jpg'
     },
     {
       id: 2,
+      name: 'Sayanka Sarkar',
+      title: 'Product Team Lead',
+      linkedin: 'https://www.linkedin.com/in/sayanka-sarkar-700392318/',
+      description: 'RSMVV College',
+      image: '/assets/images/team/WhatsApp Image 2025-08-18 at 11.55.57 AM - Sayanka Sarkar.jpeg'
+    },
+    {
+      id: 3,
       name: 'Indrani Nandi',
       title: 'Market Reasearch Associate',
       linkedin: 'https://www.linkedin.com/in/indrani-nandi-a7969318b/',
@@ -103,7 +111,7 @@ export const teamTimelineData = {
       image: '/assets/images/team/IMG_20250120_160823 - Indrani Nandi.jpeg'
     },
     {
-      id: 3,
+      id: 4,
       name: 'Rupsa Tapadar',
       title: 'Data Quality Analyst',
       linkedin: 'https://www.linkedin.com/in/rupsa-tapadar-595a1a339/',
@@ -151,7 +159,7 @@ export const teamTimelineData = {
       image: '/assets/images/team/IMG_3915 - Imran A.jpeg'
     },
     {
-      id: 9,
+      id: 8,
       name: 'Roni Karmakar',
       title: 'Market Research Associate',
       linkedin: 'https://www.linkedin.com/in/roni-karmakar-692399349/',
@@ -159,7 +167,7 @@ export const teamTimelineData = {
       image: '/assets/images/team/Picsart_25-02-12_09-55-28-463 - Roni Karmakar.jpg'
     },
     {
-      id: 10,
+      id: 9,
       name: 'Ayan Majumder',
       title: 'Market Research Associate',
       linkedin: 'https://www.linkedin.com/in/ayan-majumder-0000000000/',
