@@ -19,9 +19,9 @@ const HeroSection = React.forwardRef(({
 }, ref) => {
   // Size configurations
   const sizeConfig = {
-    large: { minHeight: '100vh', paddingTop: '120px', paddingBottom: '60px' },
+    large: { minHeight: '100vh', paddingTop: '80px', paddingBottom: '60px' },
     medium: { minHeight: '60vh', paddingTop: '100px', paddingBottom: '40px' },
-    small: { minHeight: '10vh', paddingTop: '120px', paddingBottom: '20px' }
+    small: { minHeight: '10vh', paddingTop: '100px', paddingBottom: '20px' }
   };
 
   const currentSize = sizeConfig[size];
@@ -60,25 +60,31 @@ const HeroSection = React.forwardRef(({
                   {subtitle}
                 </p>
 
-                {/* Value Props Strip */}
+                {/* Value Props Strip - Hide ISO and ERP on mobile */}
                 {valueProps && valueProps.length > 0 && (
-                  <div className={`d-flex flex-wrap gap-3 mb-5 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
-                    {valueProps.map((prop, index) => (
-                      <div
-                        key={index}
-                        className="d-flex align-items-center gap-2 px-3 py-2 rounded-pill"
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.1)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          backdropFilter: 'blur(10px)'
-                        }}
-                      >
-                        <span style={{ color: prop.color || '#0EA5E9', filter: 'brightness(1.2) contrast(1.3)' }}>
-                          {prop.icon}
-                        </span>
-                        <span className="text-white fw-medium small">{prop.text}</span>
-                      </div>
-                    ))}
+                  <div className={`d-flex flex-wrap gap-3 mb-4 mb-lg-5 ${textAlign === 'center' ? 'justify-content-center' : textAlign === 'right' ? 'justify-content-end' : 'justify-content-start'}`}>
+                    {valueProps.map((prop, index) => {
+                      // Hide ISO-Certified and ERP-Integrated on mobile only for better CTA visibility
+                      const shouldHideOnMobile = prop.text === 'ISO-Certified' || prop.text === 'ERP-Integrated';
+                      const mobileClass = shouldHideOnMobile ? 'd-none d-lg-flex' : 'd-flex';
+                      
+                      return (
+                        <div
+                          key={index}
+                          className={`${mobileClass} align-items-center gap-2 px-3 py-2 rounded-pill`}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            backdropFilter: 'blur(10px)'
+                          }}
+                        >
+                          <span style={{ color: prop.color || '#0EA5E9', filter: 'brightness(1.2) contrast(1.3)' }}>
+                            {prop.icon}
+                          </span>
+                          <span className="text-white fw-medium small">{prop.text}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 

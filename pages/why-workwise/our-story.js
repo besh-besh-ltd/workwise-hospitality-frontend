@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { 
   Rocket,
   Building,
@@ -22,6 +23,7 @@ import { ourStoryData } from '@/components/constants/ourStoryData';
 
 const OurStoryPage = () => {
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -39,24 +41,22 @@ const OurStoryPage = () => {
   };
 
   const handleViewPositions = () => {
-    console.log('View our open positions clicked');
+    router.push('/work-with-us/careers');
   };
 
-  // Team member placeholder image component
-  const TeamMemberImage = ({ name }) => (
-    <div 
-      className="rounded-circle bg-light d-flex align-items-center justify-content-center"
+  // Team member image component
+  const TeamMemberImage = ({ src, name }) => (
+    <img 
+      src={src}
+      alt={name}
+      className="rounded-circle"
       style={{ 
         width: '120px', 
         height: '120px',
-        backgroundColor: '#f8f9fa',
+        objectFit: 'cover',
         border: '2px solid #e9ecef'
       }}
-    >
-      <span className="fw-bold text-muted fs-4">
-        {name.split(' ').map(n => n[0]).join('')}
-      </span>
-    </div>
+    />
   );
 
   // Hero visual placeholder
@@ -313,56 +313,133 @@ const OurStoryPage = () => {
             {ourStoryData.team.title}
           </h2>
 
-          {/* Founder */}
-          <div className="row justify-content-center mb-5">
-            <div className="col-lg-8">
-              <div className="card border-0 shadow-sm">
-                <div className="card-body p-4">
-                  <div className="row align-items-center">
-                    <div className="col-md-3 text-center mb-3 mb-md-0">
-                      <TeamMemberImage name={ourStoryData.team.founder.name} />
-                    </div>
-                    <div className="col-md-9">
-                      <h3 className="fs-3 fw-bold text-dark mb-1">
-                        {ourStoryData.team.founder.name}
-                      </h3>
-                      <p className="text-primary fw-medium mb-3">
-                        {ourStoryData.team.founder.title}
-                      </p>
-                      <blockquote className="fst-italic text-muted mb-3" style={{ fontSize: '1rem' }}>
-                        "{ourStoryData.team.founder.quote}"
-                      </blockquote>
-                      <p className="text-muted mb-0" style={{ fontSize: '0.95rem', lineHeight: '1.6' }}>
-                        {ourStoryData.team.founder.description}
-                      </p>
-                    </div>
+          {/* Team Members Grid - Founder in Middle */}
+          <div className="row g-4 mb-4">
+            {/* First Team Member - Mukul */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[0].image} name={ourStoryData.team.members[0].name} />
                   </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[0].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[0].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[0].description}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Founder - Middle Position - Siddharth */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100" style={{ backgroundColor: '#f8f9fa' }}>
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.founder.image} name={ourStoryData.team.founder.name} />
+                  </div>
+                  <h3 className="fs-3 fw-bold text-dark mb-1">
+                    {ourStoryData.team.founder.name}
+                  </h3>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.founder.title}
+                  </p>
+                  <blockquote className="fst-italic text-muted mb-3" style={{ fontSize: '0.95rem' }}>
+                    "{ourStoryData.team.founder.quote}"
+                  </blockquote>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    With over 15 years in industrial procurement, driving Workwise's vision.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Second Team Member - Ayush */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[1].image} name={ourStoryData.team.members[1].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[1].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[1].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[1].description}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Team Members */}
+          {/* Second Row - Three Team Members */}
           <div className="row g-4 mb-4">
-            {ourStoryData.team.members.map((member, index) => (
-              <div key={index} className="col-md-4">
-                <FeatureCard
-                  icon={Users}
-                  iconBgColor="bg-primary"
-                  iconColor="text-white"
-                  title={member.name}
-                  description={
-                    <div className="text-center">
-                      <p className="text-primary fw-medium mb-3">{member.title}</p>
-                      <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-                        {member.description}
-                      </p>
-                    </div>
-                  }
-                  className="text-center"
-                />
+            {/* Agnij - Left */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[2].image} name={ourStoryData.team.members[2].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[2].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[2].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[2].description}
+                  </p>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Kushal - Center */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[3].image} name={ourStoryData.team.members[3].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[3].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[3].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[3].description}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Vineet - Right */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[4].image} name={ourStoryData.team.members[4].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[4].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[4].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[4].description}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* CTA Link */}

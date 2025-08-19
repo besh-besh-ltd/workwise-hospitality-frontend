@@ -185,7 +185,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your BOQ Has Been Simplified",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Create RFQ from this BOQ"
     },
     outputView: {
@@ -364,7 +364,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your Cost Estimate is Ready",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Get Vendor Quotes in 48 Hours"
     },
     outputView: {
@@ -543,7 +543,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your Tender Summary is Ready",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Create BOQ from this Tender"
     },
     outputView: {
@@ -722,7 +722,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your Technical Summary is Ready",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Try Full Technical Evaluation"
     },
     outputView: {

@@ -3,8 +3,8 @@ import { faRocket, faClock, faShield, faLink, faPhone, faWrench, faTruck, faBrie
 
 export const vendorPageData = {
   hero: {
-    title: "Not Just Leads — Real Enquiries. Real Orders.",
-    subtitle: "Workwise is built for serious suppliers selling to heavy industries - not just for \"visibility,\" but for actual business. From RFQ to PO, everything happens here.",
+    title: "Not Just Leads - Real Enquiries. Real Orders.",
+    subtitle: "Built for serious suppliers selling to heavy industries. From RFQ to PO, everything happens here",
     valueProps: [
       {
         icon: <FontAwesomeIcon icon={faCheckCircle} />,
@@ -46,14 +46,14 @@ export const vendorPageData = {
       {
         title: "Active Suppliers",
         items: [
-          "11000+ Domestic Suppliers",
-          "1500+ International Suppliers"
+          "11000+ Domestic Vendors",
+          "1500+ International Vendors"
         ]
       },
       {
         title: "Business Volume",
         items: [
-          "2300+ Cr Procurement Routed",
+          "2300Cr+ Procurement Routed",
           "500+ Active Projects"
         ]
       }
@@ -131,8 +131,8 @@ export const vendorPageData = {
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)"
       },
       {
-        title: "Role-Based Access",
-        icon: faUsers,
+        title: "AI framework by IIT Bombay",
+        icon: faBrain,
         iconBg: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
       }
     ]
@@ -297,7 +297,7 @@ export const vendorPageData = {
   carouselSettings: {
     dots: false,
     infinite: true,
-    speed: 10000,
+    speed: 5000, // Increased speed (reduced from 10000 for faster movement)
     slidesToShow: 5,
     slidesToScroll: 1,
     autoplay: true,
@@ -315,19 +315,14 @@ export const vendorPageData = {
       {
         breakpoint: 991,
         settings: {
-          slidesToShow: 3,
+          slidesToShow: 4, // Show 4 logos on tablets
         }
       },
       {
-        breakpoint: 768,
+        breakpoint: 767,
         settings: {
-          slidesToShow: 2,
-        }
-      },
-      {
-        breakpoint: 480,
-        settings: {
-          slidesToShow: 2,
+          slidesToShow: 4, // Show 4 logos on mobile as requested
+          speed: 4000 // Even faster on mobile
         }
       }
     ]
