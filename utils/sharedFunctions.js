@@ -220,33 +220,46 @@ export const calculateTotal = (item, quantity, normalizeFilter) => {
 
   let TotalPrice = total_with_fpt + T;
 
- if (normalizeFilter) {
-    let normalizedTotal = 0;
-    let totalPercentDefined = 0; 
+const DELIVERY_DAYS = parseInt(item.delivery_period || 0);
 
-    item?.payment_terms?.forEach(term => {
-      const percentage = parseFloat(term.value) || 0; // x, y, z %
-      const days = parseInt(term.days ?? 0) || 0;
+if (normalizeFilter) {
+  let normalizedTotal = 0;
+  let totalPercentDefined = 0;
 
-      totalPercentDefined += percentage;
+  item?.payment_terms?.forEach(term => {
+    const percentage = parseFloat(term.value) || 0;
+    const type = (term.type || "").toLowerCase();
+    const days = parseInt(term.days || 0);
+    const pctAmount = (percentage / 100) * TotalPrice;
 
-      // Deduction = 1% per 30 days
-      const rawFactor = 1 - (days / 30) * 0.01;
-      const factor = Math.max(0, Math.min(1, rawFactor)); // Clamp to [0,1]
-      
-      // Add this tranche
-      normalizedTotal += (percentage / 100) * TotalPrice * factor;
-    });
+    let factor = 1;
 
-    // NEW — Add leftover percentage without discount
-    if (totalPercentDefined < 100) {
-      const leftoverPercent = 100 - totalPercentDefined;
-      normalizedTotal += (leftoverPercent / 100) * TotalPrice;
+    if (type === "advance") {
+      // Advance logic: factor = 1 + (delivery_days / 30) * 1/100
+      factor = 1 + (DELIVERY_DAYS / 30) * (1 / 100);
+    } else if (type === "credit") {
+      // Credit logic: factor = 1 - (days / 30) * 1/100
+      factor = 1 - (days / 30) * (1 / 100);
+    } else {
+      // 'other' or anything unknown is left over (skip here)
+      return;
     }
 
-    TotalPrice = normalizedTotal || TotalPrice;
+    // Clamp factor between 0 and something reasonable (not mandatory but safe)
+    factor = Math.max(0, factor);
+
+    normalizedTotal += pctAmount * factor;
+    totalPercentDefined += percentage;
+  });
+
+  // Handle leftover (includes "other" type)
+  if (totalPercentDefined < 100) {
+    const leftoverPercent = 100 - totalPercentDefined;
+    normalizedTotal += (leftoverPercent / 100) * TotalPrice;
   }
 
+  TotalPrice = normalizedTotal;
+}
 
   return Math.round(TotalPrice);
 }
@@ -306,11 +319,11 @@ export const handleNormalize = (data) => {
   preNormalized.forEach(item => {                 // <-- changed
     item.quotations.forEach(quote => {
       quote.quote_details?.forEach(detail => {
-        const freight = parseFloat(detail.freight_price);
-        if (!isNaN(freight)) allFreightPrices.push(freight);
+      const freight = parseFloat(detail.freight_price);
+      if (!isNaN(freight) && freight > 0) allFreightPrices.push(freight);
 
-        const pack = parseFloat(detail.package_price);
-        if (!isNaN(pack)) allPackagePrices.push(pack);
+      const pack = parseFloat(detail.package_price);
+      if (!isNaN(pack) && pack > 0) allPackagePrices.push(pack);
 
         const tax = parseFloat(detail.tax);
         if (!isNaN(tax)) allTaxRates.push(tax);
@@ -435,10 +448,10 @@ export const normalizeFlatQuotationData = (data) => {
   preNormalized.forEach(item => {
     item.quotations.forEach(quote => {
       const freight = parseFloat(quote.freight_price);
-      if (!isNaN(freight)) allFreightPrices.push(freight);
+     if (!isNaN(freight) && freight > 0) allFreightPrices.push(freight);
 
-      const pack = parseFloat(quote.package_price);
-      if (!isNaN(pack)) allPackagePrices.push(pack);
+     const pack = parseFloat(quote.package_price);
+     if (!isNaN(pack) && pack > 0) allPackagePrices.push(pack);
 
       const tax = parseFloat(quote.tax);
       if (!isNaN(tax)) allTaxRates.push(tax);
