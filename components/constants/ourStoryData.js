@@ -92,28 +92,50 @@ export const ourStoryData = {
       name: "Siddharth Kothari",
       title: "Founder & CEO",
       quote: "We're not just building a platform - we're transforming an industry that touches millions of lives.",
-      description: "With over 15 years in industrial procurement, Siddharth has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both buyer and vendor pain points."
+      description: "With over 15 years in industrial procurement, Siddharth has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both buyer and vendor pain points.",
+      image: "/assets/images/team/Siddharth Kothari Profile Picture-reduced size - Siddharth Kothari.jpg",
+      linkedin: "https://www.linkedin.com/in/siddharth-kothari-94406938/"
     },
     members: [
       {
-        name: "Priya Desai",
-        title: "CTO",
-        description: "IIT graduate with expertise in AI and machine learning, leading our technical innovation and platform development."
+        name: "Mukul Jatav",
+        title: "Lead Engineer",
+        description: "IIT Patna graduate leading our technical architecture and development, ensuring robust and scalable platform solutions.",
+        image: "/assets/images/team/mukul-jatav.jpeg",
+        linkedin: "https://www.linkedin.com/in/mukul-jatav/"
       },
       {
-        name: "Vikram Mehta",
-        title: "COO",
-        description: "VIT alumnus with extensive experience in operations and supply chain management, ensuring seamless platform operations."
+        name: "Ayush Singh",
+        title: "DevOps Engineer",
+        description: "IIT Delhi graduate managing our infrastructure and deployment pipelines, ensuring reliable and efficient platform operations.",
+        image: "/assets/images/team/ayush-singh.jpeg",
+        linkedin: "https://www.linkedin.com/in/ayush-singh"
       },
       {
-        name: "Ananya Patel",
-        title: "Head of Product",
-        description: "Product strategist with deep understanding of user needs, driving our product roadmap and user experience."
+        name: "Agnij Dutta",
+        title: "Senior Fullstack Intern",
+        description: "IIT Madras graduate contributing to both frontend and backend development, bringing fresh perspectives to our technical solutions.",
+        image: "/assets/images/team/agnij-dutta.jpeg",
+        linkedin: "https://www.linkedin.com/in/agnij-dutta/"
+      },
+      {
+        name: "Kushal Shah",
+        title: "Backend Developer",
+        description: "NIT Trichy graduate building robust backend systems and APIs that power our procurement platform.",
+        image: "/assets/images/team/white_shirt_headshot_edited - Kushal Shah.png",
+        linkedin: "https://www.linkedin.com/in/kushaldevs/"
+      },
+      {
+        name: "Vineet Singh",
+        title: "Software Tester",
+        description: "Masai School graduate ensuring platform quality through comprehensive testing and quality assurance processes.",
+        image: "/assets/images/team/vinnet-singh.jpeg",
+        linkedin: "https://www.linkedin.com/in/vineet-singh-82a394323/"
       }
     ],
     ctaLink: {
       text: "View our open positions",
-      url: "#"
+      url: "/work-with-us/careers"
     }
   },
 

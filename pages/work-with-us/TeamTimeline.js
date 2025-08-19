@@ -2,6 +2,7 @@
 // HeroSectionTeam.jsx
 // ----------------------------------------------------
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '@/components/layout';
 import { FaUser ,FaUsers, FaLinkedin , FaCalendarAlt , FaRocket , FaArrowRight} from "react-icons/fa";
 import { teamTimelineData } from '@/components/constants/teamTimelineData';
@@ -43,7 +44,7 @@ const TeamPageWithNavbar = () => {
 
 
 const FoundersTeamComponent = () => {
-  const { leadershipTeam, engineeringTeam, productOperationsTeam } = teamTimelineData;
+  const { teamBehindWorkwise } = teamTimelineData;
 
   const TeamCard = ({ member, isLeadership = false }) => (
     <div className="col-lg-4 col-md-6 mb-4">
@@ -134,7 +135,7 @@ const FoundersTeamComponent = () => {
                 <FaUsers className="text-secondary" size={20} />
               </div>
               <h2 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
-                Founders & Whole Team
+                Founder & Whole Team
               </h2>
             </div>
             {/* Orange underline */}
@@ -149,37 +150,13 @@ const FoundersTeamComponent = () => {
             ></div>
           </div>
 
-          {/* Leadership Section */}
-          <div className="mb-5">
-            <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Leadership
-            </h3>
-            <div className="row">
-              {leadershipTeam.map((member) => (
-                <TeamCard key={member.id} member={member} isLeadership={true} />
-              ))}
-            </div>
-          </div>
-
-          {/* Engineering Section */}
-          <div className="mb-5">
-            <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Engineering
-            </h3>
-            <div className="row">
-              {engineeringTeam.map((member) => (
-                <TeamCard key={member.id} member={member} />
-              ))}
-            </div>
-          </div>
-
-          {/* Product & Operations Section */}
+          {/* Whole Team Section */}
           <div className="mb-4">
             <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Product & Operations
+              Team behind Workwise
             </h3>
             <div className="row">
-              {productOperationsTeam.map((member) => (
+              {teamBehindWorkwise.map((member) => (
                 <TeamCard key={member.id} member={member} />
               ))}
             </div>
@@ -361,6 +338,7 @@ const OurJourneyComponent = () => {
 function MissionRecruitmentBanner() {
   const [isHovered, setIsHovered] = useState(false);
   const { missionSection } = teamTimelineData;
+  const router = useRouter();
 
   return (
     <section
@@ -407,6 +385,7 @@ function MissionRecruitmentBanner() {
           className="btn btn-dark btn-lg d-inline-flex align-items-center gap-2 px-4 py-3 fw-semibold"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          onClick={() => router.push('/work-with-us/careers')}
           style={{ transition: "transform .3s", minWidth: "280px" }}
         >
           {missionSection.buttonText}

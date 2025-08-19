@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '@/components/layout';
 import { 
   Target, 
   Zap, 
@@ -17,6 +16,8 @@ import { FeatureCard } from '@/components/ui/FeatureCard';
 import { Dropdown } from '@/components/ui/Dropdown';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
 import { HeroSection } from '@/components/ui/HeroSection';
+import ContactUsModal from '@/components/modal/contactUsModal';
+import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 
 // Import data
 import { successStoriesData } from '@/components/constants/successStoriesData';
@@ -28,6 +29,8 @@ const SuccessStoriesPage = () => {
   const [visibleStories, setVisibleStories] = useState(6);
   const [selectedStory, setSelectedStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showBookCall, setShowBookCall] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -37,9 +40,8 @@ const SuccessStoriesPage = () => {
     return <div>Loading...</div>;
   }
 
-  const handleBookCall = () => {
-    console.log('Book a Call clicked');
-  };
+  const handleBookCall = () => setShowBookCall(true);
+  const handleBookDemo = () => setShowRegister(true);
 
   const handleLoadMore = () => {
     setVisibleStories(prev => Math.min(prev + 6, successStoriesData.stories.length));
@@ -60,7 +62,7 @@ const SuccessStoriesPage = () => {
   const displayedStories = filteredStories.slice(0, visibleStories);
 
   return (
-    <Layout>
+    <>
       <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         {/* Hero Section */}
         <HeroSection
@@ -160,10 +162,6 @@ const SuccessStoriesPage = () => {
           ...successStoriesData.cta.primaryButton,
           onClick: handleBookCall
         }}
-        secondaryButton={{
-          ...successStoriesData.cta.secondaryButton,
-          onClick: () => setVisibleStories(successStoriesData.stories.length)
-        }}
       />
 
       {/* Success Story Modal - reduce spacing for mobile */}
@@ -173,8 +171,34 @@ const SuccessStoriesPage = () => {
         story={selectedStory}
         onBookCall={handleBookCall}
       />
+
+      {/* Book a Call Modal */}
+      <ContactUsModal
+        showModal={showBookCall}
+        fromType={"success-stories"}
+        closeModal={() => setShowBookCall(false)}
+      />
+
+      {/* Register (Book a Demo) Modal */}
+      <RegisterFormModal
+        show={showRegister}
+        onClose={() => setShowRegister(false)}
+        title="Book a Demo"
+        subtitle="Tell us a bit about you and we'll reach out shortly."
+        fields={[
+          { name: 'fullName', label: 'Full Name', type: 'text', required: true },
+          { name: 'email', label: 'Work Email', type: 'email', required: true },
+          { name: 'company', label: 'Company', type: 'text', required: true },
+          { name: 'phone', label: 'Phone', type: 'text', required: false },
+          { name: 'terms', label: 'I agree to be contacted by Workwise', type: 'checkbox', required: true }
+        ]}
+        onSubmit={async () => {
+          setShowRegister(false);
+          setShowBookCall(true);
+        }}
+      />
       </div>
-    </Layout>
+    </>
   );
 };
 

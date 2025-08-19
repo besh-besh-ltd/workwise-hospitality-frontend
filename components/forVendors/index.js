@@ -579,7 +579,7 @@ const ForVendors = () => {
             {/* CTA */}
             <div className="text-center mt-4">
               <p className="text-muted mb-3">
-                <a href="/pricing" className="text-decoration-none fw-bold">
+                <a href="/pricing?tab=supplier" className="text-decoration-none fw-bold">
                   See Full Comparison →
                 </a>
               </p>

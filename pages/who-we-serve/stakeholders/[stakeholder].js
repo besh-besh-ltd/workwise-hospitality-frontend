@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { HeroSection } from '@/components/ui/HeroSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
@@ -6,6 +6,8 @@ import { DynamicCard } from '@/components/ui/DynamicCard';
 import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { Button } from '@/components/ui/Button';
+import ContactUsModal from '@/components/modal/contactUsModal';
+import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 import { stakeholdersPageData } from '@/components/constants/stakeholderPageData';
 import { FileText, Users, Briefcase, Calculator, Shield, Clock, Lock } from 'lucide-react';
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
@@ -95,6 +97,9 @@ const StakeholderPage = () => {
     );
   };
 
+  const [showBookCall, setShowBookCall] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+
   return (
     <>
       <style jsx>{`
@@ -159,7 +164,7 @@ const StakeholderPage = () => {
         layout="centered"
         size="medium"
         textAlign="left"
-        primaryButton={{ label: data.hero.buttonLabel, variant: 'black' }}
+        primaryButton={{ label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
         showVisual={false}
       />
 
@@ -189,10 +194,7 @@ const StakeholderPage = () => {
               className="w-auto" 
               variant="primary" 
               size="lg"
-              onClick={() => {
-                // Redirect to contact us for now - ideally should open book a call modal
-                window.location.href = '/contactus';
-              }}
+              onClick={() => setShowBookCall(true)}
             >
               📞 Book a Call
             </Button>
@@ -590,9 +592,7 @@ const StakeholderPage = () => {
                 className="w-auto" 
                 variant="white" 
                 size="lg"
-                onClick={() => {
-                  window.location.href = '/contactus';
-                }}
+                onClick={() => setShowRegister(true)}
               >
                 📅 Book a Demo
               </Button>
@@ -605,9 +605,7 @@ const StakeholderPage = () => {
                   borderColor: 'white',
                   background: 'transparent'
                 }}
-                onClick={() => {
-                  window.location.href = '/contactus';
-                }}
+                onClick={() => setShowBookCall(true)}
               >
                 💬 Let's Talk
               </Button>
@@ -691,9 +689,7 @@ const StakeholderPage = () => {
               className="w-auto" 
               variant="primary" 
               size="lg"
-              onClick={() => {
-                window.location.href = '/contactus';
-              }}
+              onClick={() => setShowBookCall(true)}
             >
               📞 Book a Call
             </Button>
@@ -724,9 +720,7 @@ const StakeholderPage = () => {
               className="w-auto" 
               variant="secondary" 
               size="lg"
-              onClick={() => {
-                window.location.href = '/contactus';
-              }}
+              onClick={() => setShowBookCall(true)}
             >
               💬 Let's Talk
             </Button>
@@ -738,8 +732,29 @@ const StakeholderPage = () => {
       <CtaSection
         title={data.hero.title}
         description={data.hero.subtitle}
-        primaryButton={{ label: data.hero.buttonLabel, variant: 'white' }}
+        primaryButton={{ label: data.hero.buttonLabel, variant: 'white', onClick: () => setShowBookCall(true) }}
         className="mt-0"
+      />
+
+      {/* Global Modals */}
+      <ContactUsModal
+        showModal={showBookCall}
+        fromType={'stakeholders'}
+        closeModal={() => setShowBookCall(false)}
+      />
+      <RegisterFormModal
+        show={showRegister}
+        onClose={() => setShowRegister(false)}
+        title="Book a Demo"
+        subtitle="Tell us a bit about your team."
+        fields={[
+          { name: 'fullName', label: 'Full Name', type: 'text', required: true },
+          { name: 'email', label: 'Work Email', type: 'email', required: true },
+          { name: 'company', label: 'Company', type: 'text', required: true },
+          { name: 'phone', label: 'Phone', type: 'text', required: false },
+          { name: 'terms', label: 'I agree to be contacted by Workwise', type: 'checkbox', required: true }
+        ]}
+        onSubmit={async () => setShowRegister(false)}
       />
     </>
   );
