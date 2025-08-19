@@ -345,7 +345,7 @@ export default function Home() {
                 4 Tools That Make Procurement 10X Faster & Smarter
               </h2>
               <p className="text-muted fs-5 mb-0">
-                Try our free tools, made for project buyers like you. Save hours, avoid errors, and get instant insights.
+                Try our <span style={{ color: '#0EA5E9', fontWeight: '600' }}>free</span> tools, made for project buyers like you. Save hours, avoid errors, and get instant insights.
               </p>
             </div>
 
@@ -370,22 +370,7 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Unified CTA */}
-            <div className="text-center">
-              <Button
-                onClick={handleTryFreeTools}
-                className="w-auto"
-                variant="secondary"
-                size="lg"
-              >
-                <FontAwesomeIcon icon={faBriefcase} style={{ fontSize: '20px' }} />
-                Try These Free Tools Now
-              </Button>
-              <div className="mt-3">
-                <p className="text-muted mb-1">Free to use. Just verify your mobile via OTP.</p>
-                <p className="text-muted small">No login required. Just drag & drop your file.</p>
-              </div>
-            </div>
+
           </div>
         </section>
 
@@ -467,13 +452,13 @@ export default function Home() {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                         style={{
-                          width: '64px',
-                          height: '64px',
+                          width: '48px',
+                          height: '48px',
                           background: feature.iconBg,
                           color: 'white'
                         }}
                       >
-                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '24px' }} />
+                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '16px' }} />
                       </div>
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
                     </div>
@@ -483,8 +468,8 @@ export default function Home() {
                       <div 
                           className={`d-flex align-items-center justify-content-center rounded-circle me-3`}
                         style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '32px',
+                          height: '32px',
                           background: feature.iconBg,
                           color: 'white',
                           flexShrink: 0
@@ -872,14 +857,7 @@ export default function Home() {
                   <FontAwesomeIcon icon={faPhone} className="me-2" />
                   Book a Call
                 </Button>
-                         <Button 
-                  onClick={handleTryFreeTools}
-                  className="btn fw-bold px-4 py-3 w-auto"
-                  style={{border: '2px solid #6B7280', color: '#6B7280', borderRadius: '8px', background: 'transparent'}}
-                >
-                  <FontAwesomeIcon icon={faWrench} className="me-2" />
-                  Try Free Tools
-                </Button>
+
               </div>
 
               {/* Features */}

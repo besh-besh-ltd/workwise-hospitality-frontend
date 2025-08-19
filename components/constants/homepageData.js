@@ -191,7 +191,7 @@ export const homepageData = {
   carouselSettings: {
     dots: false,
     infinite: true,
-    speed: 10000,
+    speed: 5000, // Increased speed (reduced from 10000 for faster movement)
     slidesToShow: 5,
     slidesToScroll: 1,
     autoplay: true,
@@ -209,13 +209,14 @@ export const homepageData = {
       {
         breakpoint: 991,
         settings: {
-          slidesToShow: 3,
+          slidesToShow: 4, // Show 4 logos on tablets
         }
       },
       {
         breakpoint: 767,
         settings: {
-          slidesToShow: 2,
+          slidesToShow: 4, // Show 4 logos on mobile as requested
+          speed: 4000 // Even faster on mobile
         }
       }
     ]
@@ -233,17 +234,17 @@ export const homepageData = {
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)",
         items: [
           "102+ Contractors/EPCs",
-          "26 Consultants",
-          "21 Clients"
+          "26+ Consultants",
+          "21+ Clients"
         ]
       },
       {
-        title: "Sellers on Workwise",
+        title: "PSU Approved Vendors",
         icon: faBuilding,
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
         items: [
-          "11,000+ Domestic Vendors",
-          "1,500+ International Vendors"
+          "11000+ Domestic Vendors",
+          "1500+ International Vendors"
         ]
       }
     ],

@@ -30,10 +30,11 @@ const TestimonialCard = React.forwardRef(({
       {...props}
     >
       <div className="card-body p-3 p-md-3 p-lg-4">
-        {/* Quote Icon - Compact sizing */}
-        <div className="text-warning mb-2" style={{ 
+        {/* Quote Icon - Compact sizing with reduced gap */}
+        <div className="text-warning" style={{ 
           fontSize: 'clamp(1.5rem, 3vw, 3rem)',
-          lineHeight: '1'
+          lineHeight: '1',
+          marginBottom: '0.25rem'
         }}>
           "
         </div>
