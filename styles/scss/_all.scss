@@ -410,8 +410,10 @@ textarea {
 
   /* Reduce horizontal paddings on header container at tighter widths (helps on browser zoom) */
   .container-fluid {
-    padding-left: clamp(16px, 2vw, 50px);
-    padding-right: clamp(16px, 2vw, 50px);
+    padding-left: clamp(8px, 1.5vw, 50px);
+    padding-right: clamp(8px, 1.5vw, 50px);
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   /* Transparent state when at top */
@@ -492,6 +494,8 @@ textarea {
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      z-index: 9999 !important;
+      position: absolute !important;
 
       .dropdown-item {
         color: var(--black-color);
@@ -599,14 +603,21 @@ textarea {
     transition: var(--primary-transition);
     flex-wrap: nowrap;
     column-gap: clamp(2px, 0.4vw, 10px);
+    min-height: 60px;
+    width: 100%;
 
     .logo {
-      width: clamp(128px, 12vw, 168px);
+      width: clamp(100px, 10vw, 168px);
+      flex-shrink: 0;
+      max-width: 168px;
+      min-width: 100px;
 
       img {
         width: 100%;
         height: auto;
         transition: filter 0.3s ease;
+        max-height: 40px;
+        object-fit: contain;
       }
 
       .logo-white {
@@ -616,7 +627,7 @@ textarea {
   }
 
   .main-menu {
-    flex: 1 1 60%;
+    flex: 1 1 auto;
     min-width: 0;
     ul {
       list-style: none;
@@ -625,31 +636,37 @@ textarea {
       margin: 0;
       align-items: center;
       flex-wrap: nowrap;
-      gap: clamp(0px, 0.2vw, 4px);
+      gap: clamp(0px, 0.15vw, 3px);
+      white-space: nowrap;
 
-                        li {
-                    letter-spacing: 0.5px;
-                    font-size: clamp(0.7rem, 0.85vw, 0.95rem);
-                    padding: 0 clamp(4px, 0.6vw, 8px);
-                    position: relative;
-                    text-align: left;
-                    flex: 0 1 auto;
+      li {
+        letter-spacing: 0.3px;
+        font-size: clamp(0.65rem, 0.75vw, 0.9rem);
+        padding: 0 clamp(2px, 0.4vw, 6px);
+        position: relative;
+        text-align: left;
+        flex: 0 0 auto;
+        white-space: nowrap;
+        text-overflow: ellipsis;
 
-                    a, span {
-                      color: var(--black-color);
-                      display: flex;
-                      align-items: center;
-                      border: none;
-                      font-weight: 500;
-                      background: transparent;
-                      line-height: 1.5;
-                      position: relative;
-                      padding: clamp(3px, 0.45vw, 7px) clamp(6px, 0.6vw, 10px);
-                      border-radius: 8px;
-                      transition: all 0.2s ease;
-                      cursor: pointer;
-                      text-align: left;
-                      justify-content: flex-start;
+        a, span {
+          color: var(--black-color);
+          display: flex;
+          align-items: center;
+          border: none;
+          font-weight: 500;
+          background: transparent;
+          line-height: 1.4;
+          position: relative;
+          padding: clamp(2px, 0.35vw, 6px) clamp(4px, 0.5vw, 8px);
+          border-radius: 6px;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          text-align: left;
+          justify-content: flex-start;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          max-width: 100%;
 
                       &:hover {
                         color: var(--secondary-color);
@@ -676,9 +693,10 @@ textarea {
   .header-right {
     display: flex;
     align-items: center;
-    gap: clamp(2px, 0.5vw, 8px);
+    gap: clamp(2px, 0.4vw, 6px);
     flex-wrap: nowrap;
     min-width: 0;
+    flex-shrink: 0;
   }
 
   // Supplier CTA Button
@@ -689,22 +707,24 @@ textarea {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      height: clamp(32px, 2.8vw, 40px);
-      padding: 0 clamp(10px, 1.2vw, 20px);
+      height: clamp(28px, 2.5vw, 36px);
+      padding: 0 clamp(8px, 1vw, 16px);
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
       color: var(--black-color);
       font-weight: 500;
       text-decoration: none;
-      border-radius: 10px;
+      border-radius: 8px;
       transition: all 0.3s ease;
       box-shadow: 0 2px 8px rgba(255, 215, 0, 0.25);
       border: none;
       position: relative;
       overflow: hidden;
-      font-size: clamp(0.8rem, 1.1vw, 0.95rem);
-      min-width: clamp(92px, 8vw, 140px);
+      font-size: clamp(0.7rem, 0.9vw, 0.85rem);
+      min-width: clamp(80px, 7vw, 120px);
+      max-width: clamp(120px, 10vw, 160px);
       text-align: center;
       white-space: nowrap;
+      text-overflow: ellipsis;
       
       &::before {
         content: '';
@@ -731,29 +751,38 @@ textarea {
   }
 
 
+  @media (max-width: 1600px) {
+    .main-menu ul { gap: clamp(0px, 0.1vw, 2px); }
+    .main-menu ul li { font-size: clamp(0.6rem, 0.7vw, 0.8rem); }
+    .main-menu ul li a, .main-menu ul li span { padding: clamp(2px, 0.3vw, 5px) clamp(3px, 0.4vw, 6px); }
+    .supplier-cta .btn-supplier { min-width: clamp(75px, 6.5vw, 110px); padding: 0 clamp(6px, 0.8vw, 10px); }
+    .header-right { gap: clamp(1px, 0.3vw, 4px); }
+  }
+
   @media (max-width: 1400px) {
-    .main-menu ul { gap: 0 2px; }
-    .main-menu ul li { font-size: 0.82rem; }
-    .main-menu ul li a, .main-menu ul li span { padding: 3px 7px; }
-    .supplier-cta .btn-supplier { min-width: 115px; padding: 0 10px; }
+    .main-menu ul { gap: clamp(0px, 0.08vw, 1px); }
+    .main-menu ul li { font-size: clamp(0.58rem, 0.65vw, 0.75rem); }
+    .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.25vw, 4px) clamp(2px, 0.35vw, 5px); }
+    .supplier-cta .btn-supplier { min-width: clamp(70px, 6vw, 100px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
+    .header-right { gap: clamp(1px, 0.25vw, 3px); }
   }
 
   @media (max-width: 1280px) {
-    .logo { width: clamp(118px, 11vw, 150px); }
-    .main-menu ul { gap: 0 2px; }
-    .main-menu ul li { font-size: 0.74rem; }
-    .main-menu ul li a, .main-menu ul li span { padding: 2px 6px; }
-    .header-right { gap: 6px; }
-    .supplier-cta .btn-supplier { min-width: 96px; padding: 0 8px; }
+    .logo { width: clamp(90px, 9vw, 140px); }
+    .main-menu ul { gap: clamp(0px, 0.05vw, 1px); }
+    .main-menu ul li { font-size: clamp(0.55rem, 0.6vw, 0.7rem); }
+    .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.2vw, 3px) clamp(2px, 0.3vw, 4px); }
+    .header-right { gap: clamp(1px, 0.2vw, 3px); }
+    .supplier-cta .btn-supplier { min-width: clamp(65px, 5.5vw, 90px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
     .extra-buttons ul li.login { display: none !important; }
   }
 
   @media (max-width: 1180px) {
-    .logo { width: clamp(110px, 10vw, 140px); }
-    .main-menu ul li { font-size: 0.68rem; }
-    .main-menu ul li a, .main-menu ul li span { padding: 2px 5px; }
-    .supplier-cta .btn-supplier { min-width: 88px; padding: 0 6px; }
-    .header-right { gap: 4px; }
+    .logo { width: clamp(85px, 8.5vw, 130px); }
+    .main-menu ul li { font-size: clamp(0.52rem, 0.58vw, 0.65rem); }
+    .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.15vw, 2px) clamp(1px, 0.25vw, 3px); }
+    .supplier-cta .btn-supplier { min-width: clamp(60px, 5vw, 80px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
+    .header-right { gap: clamp(1px, 0.15vw, 2px); }
   }
 
   /* Ensure orange supplier button styling also applies when used directly inside header extra-buttons on mobile */
@@ -7298,6 +7327,8 @@ h2.pdf-icon {
   .dropdown-menu {
     border: 0;
     box-shadow: 0px 4px 18px 0 rgb(0 0 0 / 14%);
+    z-index: 9999 !important;
+    position: absolute !important;
   }
 
   .dropdown-item {
@@ -7327,6 +7358,8 @@ h2.pdf-icon {
 
   .dropdown-menu.show {
     transform: translate(-133px, 27px) !important;
+    z-index: 9999 !important;
+    position: absolute !important;
   }
 }
 
@@ -8230,6 +8263,8 @@ td:hover .tooltip_custom {
 .dropdown-menu {
   text-align: left !important;
   min-width: 300px !important; /* Increase width by ~100px */
+  z-index: 9999 !important;
+  position: absolute !important;
 }
 
 .dropdown-menu .dropdown-item {
@@ -8331,14 +8366,21 @@ td:hover .tooltip_custom {
 /* Mobile Navigation Improvements */
 @media (max-width: 991px) {
   /* Ensure logo and hamburger are always visible */
+  .main-header {
+    overflow-x: hidden;
+  }
+  
   .main-header .header-container {
     justify-content: space-between !important;
     align-items: center !important;
+    overflow: hidden;
+    width: 100%;
   }
   
   .main-header .logo {
     flex-shrink: 0 !important;
     margin-right: auto !important;
+    width: clamp(65px, 6vw, 90px) !important;
   }
   
   .main-header .menu-ctrl {
@@ -8405,6 +8447,7 @@ td:hover .tooltip_custom {
     box-shadow: none !important;
     position: static !important;
     width: 100% !important;
+    z-index: auto !important;
     padding: 0 !important;
     margin: 0 !important;
   }
@@ -8444,10 +8487,46 @@ td:hover .tooltip_custom {
   }
 }
 
-/* Prevent navbar items from wrapping */
+/* Prevent navbar items from wrapping and handle overflow */
+.main-header {
+  width: 100%;
+}
+
 .main-header .main-menu ul li,
 .main-header .main-menu ul li span,
-.main-header .main-menu ul li a { white-space: nowrap; }
+.main-header .main-menu ul li a {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Additional zoom-level responsive breakpoints */
+@media (max-width: 1100px) {
+  .main-header .logo { width: clamp(80px, 8vw, 120px); }
+  .main-header .main-menu ul li { font-size: clamp(0.5rem, 0.55vw, 0.6rem); }
+  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.12vw, 2px) clamp(1px, 0.2vw, 2px); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(55px, 4.5vw, 70px); font-size: clamp(0.55rem, 0.65vw, 0.65rem); }
+  .main-header .header-right { gap: clamp(1px, 0.1vw, 2px); }
+}
+
+@media (max-width: 1000px) {
+  .main-header .logo { width: clamp(75px, 7.5vw, 110px); }
+  .main-header .main-menu ul li { font-size: clamp(0.48rem, 0.52vw, 0.58rem); }
+  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.1vw, 1px) clamp(1px, 0.15vw, 2px); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(50px, 4vw, 65px); font-size: clamp(0.52rem, 0.6vw, 0.6rem); }
+  .main-header .header-right { gap: clamp(0px, 0.08vw, 1px); }
+}
+
+/* Ensure no horizontal overflow at any zoom level */
+@media (max-width: 900px) {
+  .main-header .header-container {
+    padding: 8px 0;
+    min-height: 50px;
+  }
+  .main-header .logo { width: clamp(70px, 7vw, 100px); }
+  .main-header .main-menu ul li { font-size: clamp(0.45rem, 0.5vw, 0.55rem); }
+  .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: 1px 1px; }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(45px, 3.5vw, 60px); font-size: clamp(0.5rem, 0.58vw, 0.58rem); }
+}
 
 
 .minimal-btn {
@@ -8495,5 +8574,88 @@ td:hover .tooltip_custom {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* COMPREHENSIVE DROPDOWN Z-INDEX AND POSITIONING FIXES */
+
+/* Global dropdown z-index hierarchy */
+.dropdown-menu,
+.main-menu .dropdown-menu,
+.header-right .dropdown-menu,
+[class*="dropdown"] .dropdown-menu {
+  z-index: 9999 !important;
+  position: absolute !important;
+  will-change: transform;
+}
+
+/* Ensure header allows dropdown visibility */
+.main-header {
+  overflow: visible !important;
+}
+
+.main-header .container-fluid,
+.main-header .header-container {
+  overflow: visible !important;
+}
+
+.main-header .main-menu,
+.main-header .main-menu ul {
+  overflow: visible !important;
+}
+
+/* Menu item z-index for dropdown triggers */
+.main-header .main-menu ul li {
+  position: relative;
+  z-index: 1;
+  overflow: visible !important;
+}
+
+/* Higher z-index for active dropdown triggers */
+.main-header .main-menu ul li:hover,
+.main-header .main-menu ul li.show,
+.main-header .main-menu ul li[aria-expanded="true"],
+.main-header .main-menu ul li.dropdown.show {
+  z-index: 10000 !important;
+}
+
+/* Nested dropdown menus get even higher z-index */
+.dropdown-submenu .dropdown-menu,
+.dropdown-menu .dropdown-menu {
+  z-index: 10001 !important;
+  position: absolute !important;
+}
+
+/* Bootstrap dropdown overrides */
+.dropdown.show .dropdown-menu {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* Ensure dropdown arrows/chevrons don't interfere */
+.dropdown-toggle::after {
+  z-index: 1;
+  position: relative;
+}
+
+/* Mobile exceptions - dropdowns should be static on mobile */
+@media (max-width: 768px) {
+  .mobile-menu .dropdown-menu {
+    position: static !important;
+    z-index: auto !important;
+  }
+}
+
+/* Prevent body overflow while allowing dropdown visibility */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Global zoom-level protection */
+@media (max-width: 850px) and (min-width: 769px) {
+  .dropdown-menu {
+    max-width: 90vw !important;
+  }
 }
 
