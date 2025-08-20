@@ -1,12 +1,13 @@
 import React from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  Calendar,
-  MapPin,
-  ExternalLink,
-  FileText,
-  Users,
-  ArrowRight
-} from 'lucide-react';
+  faCalendar,
+  faMapMarkerAlt,
+  faExternalLinkAlt,
+  faFileAlt,
+  faUsers,
+  faArrowRight
+} from '@fortawesome/free-solid-svg-icons';
 
 const DynamicCard = ({
   // Content
@@ -112,13 +113,13 @@ const DynamicCard = ({
   const getDefaultImagePlaceholder = () => {
     switch (type) {
       case 'news':
-        return { icon: FileText, text: 'Publication Logo' };
+        return { icon: faFileAlt, text: 'Publication Logo' };
       case 'event':
-        return { icon: Calendar, text: 'Event Image' };
+        return { icon: faCalendar, text: 'Event Image' };
       case 'testimonial':
-        return { icon: Users, text: 'Profile Image' };
+        return { icon: faUsers, text: 'Profile Image' };
       default:
-        return { icon: FileText, text: 'Image' };
+        return { icon: faFileAlt, text: 'Image' };
     }
   };
 
@@ -154,7 +155,7 @@ const DynamicCard = ({
           />
         ) : (
           <div className="text-center text-muted">
-            <PlaceholderIcon size={size === 'large' ? 64 : size === 'small' ? 32 : 48} />
+            <FontAwesomeIcon icon={PlaceholderIcon} style={{ fontSize: (size === 'large' ? 64 : size === 'small' ? 32 : 48) + 'px' }} />
             <div className={`mt-${size === 'large' ? '3' : '2'}`}>
               {placeholder.text}
             </div>
@@ -192,7 +193,7 @@ const DynamicCard = ({
         <div className="d-flex align-items-center">
           {date && (
             <div className="d-flex align-items-center me-3">
-              <Calendar className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+              <FontAwesomeIcon icon={faCalendar} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
               <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
                 {date}
               </span>
@@ -200,7 +201,7 @@ const DynamicCard = ({
           )}
           {location && (
             <div className="d-flex align-items-center me-3">
-              <MapPin className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+              <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
               <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
                 {venue ? `${location} • ${venue}` : location}
               </span>
@@ -241,7 +242,7 @@ const DynamicCard = ({
       <div className={`d-flex align-items-center ${config.gap}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
         {date && (
           <div className="d-flex align-items-center me-3">
-            <Calendar className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+            <FontAwesomeIcon icon={faCalendar} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
             <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
               {date}
             </span>
@@ -249,7 +250,7 @@ const DynamicCard = ({
         )}
         {location && (
           <div className="d-flex align-items-center">
-            <MapPin className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
             <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
               {venue ? `${location} • ${venue}` : location}
             </span>
@@ -325,7 +326,7 @@ const DynamicCard = ({
               }
             }}
           >
-            {primaryAction.icon && <primaryAction.icon size={size === 'small' ? 12 : 14} className="me-2" />}
+            {primaryAction.icon && <FontAwesomeIcon icon={primaryAction.icon} className="me-2" style={{ fontSize: (size === 'small' ? 12 : 14) + 'px' }} />}
             {primaryAction.label}
           </button>
         )}
@@ -342,7 +343,7 @@ const DynamicCard = ({
             }}
           >
             {secondaryAction.label}
-            {secondaryAction.showArrow && <ExternalLink size={size === 'small' ? 12 : 14} className="ms-1" />}
+            {secondaryAction.showArrow && <FontAwesomeIcon icon={faExternalLinkAlt} className="ms-1" style={{ fontSize: (size === 'small' ? 12 : 14) + 'px' }} />}
           </button>
         )}
       </div>

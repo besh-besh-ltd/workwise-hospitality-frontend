@@ -1,11 +1,6 @@
 import React from 'react';
-import { 
-  X, 
-  MessageCircle, 
-  AlertTriangle, 
-  Wrench, 
-  TrendingUp 
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTimes, faComments, faTriangleExclamation, faWrench, faArrowTrendUp } from '@fortawesome/free-solid-svg-icons';
 
 const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
   if (!show || !story) return null;
@@ -93,7 +88,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
                   onMouseEnter={(e) => e.target.style.backgroundColor = "#f0f0f0"}
                   onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
                 >
-                  <X size={16} color="#000" />
+                  <FontAwesomeIcon icon={faTimes} style={{ fontSize: '16px', color: '#000' }} />
                 </button>
               </div>
             </div>
@@ -107,7 +102,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
 
               {/* Role/Location */}
               <div className="d-flex align-items-center mb-2 mb-md-2">
-                <MessageCircle className="text-primary me-2" size={14} />
+                <FontAwesomeIcon icon={faComments} className="text-primary me-2" style={{ fontSize: '14px' }} />
                 <span className="text-primary fw-medium fs-8">
                   Procurement Manager, {story.industry}, {story.location}
                 </span>
@@ -116,7 +111,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
               {/* The Challenge */}
               <div className="mb-2 mb-md-2">
                 <div className="d-flex align-items-center mb-1 mb-md-1">
-                  <AlertTriangle className="text-warning me-2" size={14} />
+                  <FontAwesomeIcon icon={faTriangleExclamation} className="text-warning me-2" style={{ fontSize: '14px' }} />
                   <h5 className="fw-semibold text-dark mb-0 fs-8">The Challenge:</h5>
                 </div>
                 <p className="text-muted mb-0 lh-base ps-2 ps-md-3 fs-8">
@@ -127,7 +122,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
               {/* What We Did */}
               <div className="mb-2 mb-md-2">
                 <div className="d-flex align-items-center mb-1 mb-md-1">
-                  <Wrench className="text-secondary me-2" size={14} />
+                  <FontAwesomeIcon icon={faWrench} className="text-secondary me-2" style={{ fontSize: '14px' }} />
                   <h5 className="fw-semibold text-dark mb-0 fs-8">What We Did:</h5>
                 </div>
                 <p className="text-muted mb-0 lh-base ps-2 ps-md-3 fs-8">
@@ -138,7 +133,7 @@ const SuccessStoryModal = ({ show, onClose, story, onBookCall }) => {
               {/* The Outcome */}
               <div className="mb-2 mb-md-2">
                 <div className="d-flex align-items-center mb-1 mb-md-1">
-                  <TrendingUp className="text-success me-2" size={14} />
+                  <FontAwesomeIcon icon={faArrowTrendUp} className="text-success me-2" style={{ fontSize: '14px' }} />
                   <h5 className="fw-semibold text-dark mb-0 fs-8">The Outcome:</h5>
                 </div>
                 <p className="text-muted mb-0 lh-base ps-2 ps-md-3 fs-8">

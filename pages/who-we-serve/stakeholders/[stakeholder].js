@@ -9,24 +9,25 @@ import { Button } from '@/components/ui/Button';
 import ContactUsModal from '@/components/modal/contactUsModal';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 import { stakeholdersPageData } from '@/components/constants/stakeholderPageData';
-import { FileText, Users, Briefcase, Calculator, Shield, Clock, Lock } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFileAlt, faUsers, faBriefcase, faCalculator, faShieldAlt, faClock, faLock } from '@fortawesome/free-solid-svg-icons';
 import { TestimonialCard } from '@/components/ui/TestimonialCard';
 
 const iconMap = {
-  file: FileText,
-  users: Users,
-  briefcase: Briefcase,
-  calculator: Calculator,
-  shield: Shield,
-  clock: Clock,
-  lock: Lock,
+  file: (props) => <FontAwesomeIcon icon={faFileAlt} {...props} />,
+  users: (props) => <FontAwesomeIcon icon={faUsers} {...props} />,
+  briefcase: (props) => <FontAwesomeIcon icon={faBriefcase} {...props} />,
+  calculator: (props) => <FontAwesomeIcon icon={faCalculator} {...props} />,
+  shield: (props) => <FontAwesomeIcon icon={faShieldAlt} {...props} />,
+  clock: (props) => <FontAwesomeIcon icon={faClock} {...props} />,
+  lock: (props) => <FontAwesomeIcon icon={faLock} {...props} />,
   // Additional common icons for features
-  fileText: FileText,
-  user: Users,
-  time: Clock,
-  security: Shield,
-  workflow: Briefcase,
-  analysis: Calculator,
+  fileText: (props) => <FontAwesomeIcon icon={faFileAlt} {...props} />,
+  user: (props) => <FontAwesomeIcon icon={faUsers} {...props} />,
+  time: (props) => <FontAwesomeIcon icon={faClock} {...props} />,
+  security: (props) => <FontAwesomeIcon icon={faShieldAlt} {...props} />,
+  workflow: (props) => <FontAwesomeIcon icon={faBriefcase} {...props} />,
+  analysis: (props) => <FontAwesomeIcon icon={faCalculator} {...props} />,
 };
 
 const ComparisonTable = ({ rows }) => (
@@ -172,7 +173,7 @@ const StakeholderPage = () => {
       <section className="py-5">
         <div className="container">
           <div className="text-center mb-5">
-            <h2 className="fs-1 fw-bold text-dark mb-3">🎯 Why Choose Workwise?</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">Why Choose Workwise?</h2>
             <p className="text-muted fs-5 mb-0">Get measurable results from day one with features built specifically for procurement teams.</p>
           </div>
           <div className="row g-4 justify-content-center">
@@ -196,7 +197,7 @@ const StakeholderPage = () => {
               size="lg"
               onClick={() => setShowBookCall(true)}
             >
-              📞 Book a Call
+              Book a Call
             </Button>
           </div>
         </div>
@@ -207,7 +208,7 @@ const StakeholderPage = () => {
         <div className="container">
           {/* Header */}
           <div className="text-center mb-5">
-            <h2 className="fs-1 fw-bold text-dark mb-3">🏢 Trusted by Industry Leaders</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">Trusted by Industry Leaders</h2>
             <p className="text-muted fs-5 mb-0">Join hundreds of companies who trust Workwise with their critical procurement workflows.</p>
           </div>
 
@@ -246,7 +247,7 @@ const StakeholderPage = () => {
                       color: 'white'
                     }}
                   >
-                    🛡️
+                    <FontAwesomeIcon icon={faShieldAlt} size="lg" />
                   </div>
                   <h5 className="fw-bold text-dark mb-0">ISO 27001 Certified</h5>
                 </div>
@@ -261,7 +262,7 @@ const StakeholderPage = () => {
                       flexShrink: 0
                     }}
                   >
-                    🛡️
+                    <FontAwesomeIcon icon={faShieldAlt} />
                   </div>
                   <h6 className="fw-bold text-dark mb-0 text-start">ISO 27001 Certified</h6>
                 </div>
@@ -279,7 +280,7 @@ const StakeholderPage = () => {
                       color: 'white'
                     }}
                   >
-                    🔒
+                    <FontAwesomeIcon icon={faLock} size="lg" />
                   </div>
                   <h5 className="fw-bold text-dark mb-0">Data Encryption</h5>
                 </div>
@@ -294,7 +295,7 @@ const StakeholderPage = () => {
                       flexShrink: 0
                     }}
                   >
-                    🔒
+                    <FontAwesomeIcon icon={faLock} />
                   </div>
                   <h6 className="fw-bold text-dark mb-0 text-start">Data Encryption</h6>
                 </div>
@@ -312,7 +313,7 @@ const StakeholderPage = () => {
                       color: 'white'
                     }}
                   >
-                    ☁️
+                    <FontAwesomeIcon icon={faShieldAlt} size="lg" />
                   </div>
                   <h5 className="fw-bold text-dark mb-0">Cloud Security</h5>
                 </div>
@@ -327,7 +328,7 @@ const StakeholderPage = () => {
                       flexShrink: 0
                     }}
                   >
-                    ☁️
+                    <FontAwesomeIcon icon={faShieldAlt} />
                   </div>
                   <h6 className="fw-bold text-dark mb-0 text-start">Cloud Security</h6>
                 </div>
@@ -345,7 +346,7 @@ const StakeholderPage = () => {
                       color: 'white'
                     }}
                   >
-                    🔐
+                    <FontAwesomeIcon icon={faClock} size="lg" />
                   </div>
                   <h5 className="fw-bold text-dark mb-0">24/7 Monitoring</h5>
                 </div>
@@ -360,7 +361,7 @@ const StakeholderPage = () => {
                       flexShrink: 0
                     }}
                   >
-                    🔐
+                    <FontAwesomeIcon icon={faClock} />
                   </div>
                   <h6 className="fw-bold text-dark mb-0 text-start">24/7 Monitoring</h6>
                 </div>
@@ -370,7 +371,7 @@ const StakeholderPage = () => {
 
           {/* Testimonials */}
           <div className="text-center mb-4">
-            <h3 className="fw-bold text-dark">💬 What Our Customers Say</h3>
+            <h3 className="fw-bold text-dark">What Our Customers Say</h3>
           </div>
           <div className="row g-4 mb-4">
             {data.trust.success.map((s, idx) => (
@@ -392,7 +393,7 @@ const StakeholderPage = () => {
                 window.location.href = '/contactus';
               }}
             >
-              💬 Let's Talk
+              Let's Talk
             </Button>
           </div>
         </div>
@@ -402,7 +403,7 @@ const StakeholderPage = () => {
       <section className="py-5">
         <div className="container">
           <div className="text-center mb-5">
-            <h2 className="fs-1 fw-bold text-dark mb-3">⚙️ Functionalities That Matter</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">Functionalities That Matter</h2>
             <p className="text-muted fs-5 mb-0">Powerful features designed to streamline every step of your procurement process.</p>
           </div>
           <div className="row g-4 justify-content-center">
@@ -431,7 +432,7 @@ const StakeholderPage = () => {
                 }
               }}
             >
-              🎬 See It in Action
+              See It in Action
             </Button>
           </div>
         </div>
@@ -442,7 +443,7 @@ const StakeholderPage = () => {
         <div className="container">
           {/* Header */}
           <div className="text-center mb-5">
-            <h2 className="fs-1 fw-bold text-dark mb-3">🏭 Built for Heavy Industries & Complex Projects</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">Built for Heavy Industries & Complex Projects</h2>
             <p className="text-muted fs-5 mb-0">Serving procurement teams across critical infrastructure and industrial projects worldwide.</p>
           </div>
 
@@ -472,7 +473,7 @@ const StakeholderPage = () => {
                           className="d-flex align-items-center p-3 rounded-3"
                           style={{ background: '#10B98115' }}
                         >
-                          <span className="me-3" style={{ fontSize: '20px' }}>🏭</span>
+                          <FontAwesomeIcon icon={faBriefcase} className="me-3" style={{ fontSize: '20px' }} />
                           <span className="fw-medium text-dark">{industry}</span>
                         </div>
                       </div>
@@ -506,7 +507,7 @@ const StakeholderPage = () => {
                           className="d-flex align-items-center p-3 rounded-3"
                           style={{ background: '#3B82F615' }}
                         >
-                          <span className="me-3" style={{ fontSize: '20px' }}>🔧</span>
+                          <FontAwesomeIcon icon={faBriefcase} className="me-3" style={{ fontSize: '20px' }} />
                           <span className="fw-medium text-dark">{domain}</span>
                         </div>
                       </div>
@@ -552,7 +553,7 @@ const StakeholderPage = () => {
           {/* Header */}
           <div className="text-center mb-5">
             <h2 className="fs-1 fw-bold text-white mb-3" style={{ fontSize: '2.5rem' }}>
-              📹 {data.video.title}
+              {data.video.title}
             </h2>
             <p className="text-white mb-0" style={{ fontSize: '1.1rem', opacity: 0.9 }}>
               {data.video.subtitle}
@@ -583,7 +584,6 @@ const StakeholderPage = () => {
           {/* CTA Section */}
           <div className="text-center">
             <div className="d-flex align-items-center justify-content-center mb-4">
-              <span style={{ fontSize: '20px', marginRight: '8px' }}>💡</span>
               <span className="text-white fw-medium" style={{ fontSize: '1.1rem' }}>Ready to see it in action?</span>
             </div>
             
@@ -594,7 +594,7 @@ const StakeholderPage = () => {
                 size="lg"
                 onClick={() => setShowRegister(true)}
               >
-                📅 Book a Demo
+                Book a Demo
               </Button>
               <Button 
                 className="w-auto text-white border-white" 
@@ -607,7 +607,7 @@ const StakeholderPage = () => {
                 }}
                 onClick={() => setShowBookCall(true)}
               >
-                💬 Let's Talk
+                Let's Talk
               </Button>
             </div>
 
@@ -615,17 +615,17 @@ const StakeholderPage = () => {
             <div className="row justify-content-center">
               <div className="col-auto">
                 <div className="d-flex align-items-center text-white small" style={{ opacity: 0.8 }}>
-                  🛡️ <span className="ms-2">No Credit Card Required</span>
+                  <span className="ms-2">No Credit Card Required</span>
                 </div>
               </div>
               <div className="col-auto">
                 <div className="d-flex align-items-center text-white small" style={{ opacity: 0.8 }}>
-                  ⏱️ <span className="ms-2">15-min Setup</span>
+                  <span className="ms-2">15-min Setup</span>
                 </div>
               </div>
               <div className="col-auto">
                 <div className="d-flex align-items-center text-white small" style={{ opacity: 0.8 }}>
-                  👥 <span className="ms-2">Free Support</span>
+                  <span className="ms-2">Free Support</span>
                 </div>
               </div>
             </div>
@@ -637,7 +637,7 @@ const StakeholderPage = () => {
       <section className="py-5">
         <div className="container">
           <div className="text-center mb-5">
-            <h2 className="fs-1 fw-bold text-dark mb-3">⚖️ Why Workwise Is a No-Brainer</h2>
+            <h2 className="fs-1 fw-bold text-dark mb-3">Why Workwise Is a No-Brainer</h2>
             <p className="text-muted fs-5 mb-0">Compare traditional procurement vs what it looks like with Workwise - and decide for yourself.</p>
           </div>
           <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -691,7 +691,7 @@ const StakeholderPage = () => {
               size="lg"
               onClick={() => setShowBookCall(true)}
             >
-              📞 Book a Call
+              Book a Call
             </Button>
           </div>
         </div>
@@ -702,7 +702,7 @@ const StakeholderPage = () => {
         <div className="container">
           <div className="text-center mb-5">
             <h2 className="fs-1 fw-bold text-dark mb-3" style={{ fontSize: '2.5rem' }}>
-              ❓ Frequently Asked Questions
+              Frequently Asked Questions
             </h2>
             <p className="text-muted mb-0" style={{ fontSize: '1.1rem' }}>
               Common questions about Workwise features, implementation, and procurement workflows.
@@ -722,7 +722,7 @@ const StakeholderPage = () => {
               size="lg"
               onClick={() => setShowBookCall(true)}
             >
-              💬 Let's Talk
+              Let's Talk
             </Button>
           </div>
         </div>
@@ -761,5 +761,3 @@ const StakeholderPage = () => {
 };
 
 export default StakeholderPage;
-
-

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 
 const Dropdown = React.forwardRef(({ 
   label,
@@ -43,10 +44,11 @@ const Dropdown = React.forwardRef(({
           onMouseLeave={(e) => e.target.style.backgroundColor = '#f8f9fa'}
         >
           <span>{value || placeholder}</span>
-          <ChevronDown 
-            className={`dropdown-arrow ${isOpen ? 'rotated' : ''}`} 
-            size={14} 
+          <FontAwesomeIcon 
+            icon={faChevronDown}
+            className={`dropdown-arrow ${isOpen ? 'rotated' : ''}`}
             style={{
+              fontSize: '14px',
               transition: 'transform 0.2s ease',
               color: '#6c757d',
               transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
