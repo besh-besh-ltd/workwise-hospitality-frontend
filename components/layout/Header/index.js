@@ -490,7 +490,7 @@ const Header = () => {
                   alt="Workwise"
                   className={`logo-image ${(!isScrolled && shouldUseTransparent()) ? "logo-white" : ""}`}
                   width={160}
-                  height={41}
+                  height={20}
                   priority={true}
                 />
               </Link>
@@ -600,21 +600,23 @@ const Header = () => {
                             For Suppliers
                           </Link>
                         </li>
-                        <li
-                          className="signup book-call d-none d-md-block"
-                          onClick={() => {
-                            handleChange(setActiveAuthTab('book-a-call'));
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link
-                            id="book-a-call-navigation"
-                            href="javascript:void(0)"
-                            style={{ width: "fit-content", fontSize: "14px" }}
+                        {false && (
+                          <li
+                            className="signup book-call d-none d-md-block"
+                            onClick={() => {
+                              handleChange(setActiveAuthTab('book-a-call'));
+                              handleChange(setOpenAuthModal(true));
+                            }}
                           >
-                            Book a Call
-                          </Link>
-                        </li>
+                            <Link
+                              id="book-a-call-navigation"
+                              href="javascript:void(0)"
+                              style={{ width: "fit-content", fontSize: "14px" }}
+                            >
+                              Book a Call
+                            </Link>
+                          </li>
+                        )}
                       </ul>
                     )}
                   </div>

@@ -377,19 +377,19 @@ export default function Home() {
         {/* Floating Icons */}
          <div
             className="floatingIcon floatA d-none d-lg-block"
-            style={{ top: "30%", left: "55%" }}
+            style={{ top: "15%", left: "55%" }}
           >
             <FaRobot size={20} />
           </div>
           <div
             className="floatingIcon floatB d-none d-md-block"
-            style={{ top: "45%", left: "92%" }}
+            style={{ top: "45%", left: "90%" }}
           >
             <FaMicrochip size={20} />
           </div>
           <div
             className="floatingIcon floatC d-none d-md-block"
-            style={{ top: "65%", left: "55%" }}
+            style={{ top: "70%", left: "55%" }}
           >
             <FaProjectDiagram size={20} />
           </div>

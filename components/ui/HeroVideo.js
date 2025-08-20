@@ -40,7 +40,7 @@ const HeroVideo = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  marginTop: "-20px",
+                  marginTop: "0px",
                 }}
               >
                 <span style={{ marginRight: "-6px", marginBottom: "-5px" }}>
@@ -104,7 +104,7 @@ const HeroVideo = () => {
         .video-container {
           width: 100%;
           max-width: 70%;
-          aspect-ratio: 16 / 9;
+          aspect-ratio: 1 / 1;
           border-radius: 10px;
           overflow: hidden;
           position: relative;
@@ -124,14 +124,14 @@ const HeroVideo = () => {
         @media (max-width: 992px) {
           .video-container {
             max-width: 80%;
-            aspect-ratio: 16 / 9 !important;
+            aspect-ratio: 1 / 1 !important;
           }
         }
 
         @media (max-width: 576px) {
           .video-container {
             max-width: 90%;
-            aspect-ratio: 16 / 9 !important;
+            aspect-ratio: 1 / 1 !important;
           }
         }
       `}</style>
