@@ -24,7 +24,7 @@ const HeroVideo = () => {
                 src="/assets/images/hero-section-thumbnail.png"
                 alt="Video Thumbnail"
                 className="w-100 h-100 rounded-3"
-                style={{ objectFit: "cover" }}
+                style={{ objectFit: "cover", transform: "scale(1)" }}
               />
               <button
                 className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
@@ -57,8 +57,8 @@ const HeroVideo = () => {
               playsInline
               loop
               preload="auto"
-              className="w-100 h-100 rounded-3"
-              style={{ objectFit: "fill" }}
+              className="w-100 h-99 rounded-3"
+              style={{ objectFit: "fill", transform: "scale(1)" }}
             />
           )}
           {/* AI Attribution Badge - placed immediately below the video */}
