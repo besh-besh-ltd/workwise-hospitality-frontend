@@ -5,7 +5,7 @@ import { ProductBreadcrumb } from "@/components/products/utils/Breadcrumb";
 import { ProductSearchBar } from "@/components/products/utils/SearchBar";
 import { CategorySection } from "@/components/products/utils/CategorySection";
 import { BlogSection } from "@/components/products/utils/BlogSection";
-import FAQSection from "../newHomePageDesign/FAQSection";
+// import FAQSection from "../newHomePageDesign/FAQSection";
 import { CATEGORIES, SUBCATEGORIES, products } from "@/utils/constants";
 import { textCapitalize } from "@/utils/sharedFunctions";
 import { AllCategoriesSection } from "@/components/products/utils/AllCategoriesSection";
@@ -192,7 +192,7 @@ const ProductPages = () => {
 
 
         {/* <BlogSection /> */}
-        <FAQSection />
+        {/* <FAQSection /> */}
       </div>
     </>
   );

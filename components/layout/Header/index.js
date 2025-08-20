@@ -17,7 +17,7 @@ const initialMainNavs = [
   "/aboutus",
   "/contactus",
   "/for-vendors",
-  "/IEW-2025",
+  // "/IEW-2025",
   "/solutions",
   "/blogs",
   "/validate-otp",
@@ -307,8 +307,8 @@ const websiteMenu = [
     label: "Pricing", 
     type: "dropdown",
     options: [
-      { label: "Buyer Pricing (Success based model)", href: "/pricing", action: "buyer-pricing" },
-      { label: "Supplier Plans (Subscription tiers)", href: "/pricing", action: "supplier-pricing" },
+      { label: "Buyer pricing", href: "/pricing", action: "buyer-pricing" },
+      { label: "Supplier plans", href: "/pricing", action: "supplier-pricing" },
               { label: "Claim Pilot Project Access for Free", href: "/pilot-project" },
 
     ]

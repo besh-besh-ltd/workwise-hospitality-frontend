@@ -350,7 +350,7 @@ export const modulePageData = {
   // Technical & Commercial Evaluation
   evaluation: {
     hero: {
-      title: "AI‑Powered Technical & Commercial Evaluation-Faster, Smarter, Fairer",
+      title: "AI‑Powered Technical & Commercial Evaluation - Faster, Smarter, and Fairer",
       subtitle: "From extracting technical clauses to IS/BIS/ASTM deviation checks, to normalized commercial comparisons-Workwise gives you full clarity in minutes.",
       primaryButton: {
         label: "Try Evaluation Module",

@@ -24,7 +24,7 @@ const HeroVideo = () => {
                 src="/assets/images/hero-section-thumbnail.png"
                 alt="Video Thumbnail"
                 className="w-100 h-100 rounded-3"
-                style={{ objectFit: "cover" }}
+                style={{ objectFit: "cover", transform: "scale(1)" }}
               />
               <button
                 className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
@@ -57,18 +57,18 @@ const HeroVideo = () => {
               playsInline
               loop
               preload="auto"
-              className="w-100 h-100 rounded-3"
-              style={{ objectFit: "fill" }}
+              className="w-100 h-99 rounded-3"
+              style={{ objectFit: "fill", transform: "scale(1)" }}
             />
           )}
-        </div>
-
-        {/* AI Attribution Badge - placed immediately below the video */}
-        <div className="d-flex align-items-center gap-2 justify-content-center mt-1">
+          {/* AI Attribution Badge - placed immediately below the video */}
+        <div className="d-flex align-items-center gap-2 justify-content-center mt-2" style={{ lineHeight: 1 }}>
           <FaRobot style={{ color: 'white' }} />
           <span className="text-white fw-medium small">Powered by AI from IIT Bombay</span>
         </div>
+        </div>
       </div>
+
 
 
       {/* Background Blur Elements - Adjusted for more room */}
@@ -101,12 +101,13 @@ const HeroVideo = () => {
       <style jsx>{`
         .video-container {
           width: 100%;
-          max-width: 70%;
-          aspect-ratio: 1 / 1;
+          max-width: 100%;
+          aspect-ratio: 4 / 3;
           border-radius: 10px;
           overflow: hidden;
           position: relative;
-          margin: 0 auto;
+          transform: scale(0.85);
+          transform-origin: center center;
         }
 
         .play-button {
@@ -123,6 +124,7 @@ const HeroVideo = () => {
           .video-container {
             max-width: 80%;
             aspect-ratio: 1 / 1 !important;
+            transform: scale(1);
           }
         }
 
