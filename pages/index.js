@@ -636,8 +636,8 @@ export default function Home() {
                            </h4>
                          </div>
 
-                       {/* Description */}
-                       <p className="text-muted mb-3" style={{ 
+                       {/* Desktop Description */}
+                       <p className="text-muted mb-3 d-none d-lg-block" style={{ 
                          fontSize: '0.9rem',
                          lineHeight: '1.4'
                        }}>
@@ -663,7 +663,7 @@ export default function Home() {
                            lineHeight: '1.4'
                          }}>
                            {module.mobileDescription}
-                         </p>
+                       </p>
                        </div>
 
                        {/* Learn More Link */}
@@ -737,7 +737,7 @@ export default function Home() {
                   <p className="text-muted mb-3 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.footerText}</p>
                   <Button 
                     onClick={handleVendorSupport}
-                    className="btn fw-bold text-white px-4 py-3 w-50"
+                    className="btn fw-bold text-white px-4 py-3 w-auto"
                     style={{background: '#F59E0B', border: 'none', borderRadius: '8px'}}
                   >
                     {homepageData.modularOfferings.vendorSupport.buttonText}
