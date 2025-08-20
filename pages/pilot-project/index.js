@@ -139,7 +139,7 @@ const PilotProjectPage = () => {
               </div>
             </div>
           }
-          layout="split"
+          layout="centered"
           size="medium"
           textAlign="left"
         />

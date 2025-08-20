@@ -29,6 +29,8 @@ import {
   FaChartPie
 } from 'react-icons/fa';
 import { FaRocket, FaComments } from 'react-icons/fa';
+import { Modal } from 'react-bootstrap';
+import BookCall from '@/components/bookCall';
 
 
 
@@ -413,6 +415,7 @@ const WhoIsThisForComponent = ({ onJoin }) => {
 
 
 const PartnerStatsSection = () => {
+  const [showCallModal, setShowCallModal] = useState(false);
   const AnimatedCounter = ({ targetValue, duration = 1500, suffix = '' }) => {
     const [value, setValue] = useState(0);
     const ref = useRef(null);
@@ -487,11 +490,29 @@ const PartnerStatsSection = () => {
         </div>
 
         <div className="text-center mt-4">
-          <button className="btn btn-primary w-auto px-4 py-3 fw-semibold" style={{ borderRadius: '10px' }}>
+          <button className="btn btn-primary w-auto px-4 py-3 fw-semibold" style={{ borderRadius: '10px' }}
+          onClick={()=>{setShowCallModal(!showCallModal)}}
+          >
             Start Earning Now
           </button>
         </div>
       </div>
+
+            {/* Book a Call Modal */}
+      <Modal
+        show={showCallModal}
+        onHide={() => setShowCallModal(false)}
+        centered
+        backdrop="static"
+        style={{ backdropFilter: "blur(5px)" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="p-4">Contact Us</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <BookCall />
+        </Modal.Body>
+      </Modal>
     </section>
   );
 };

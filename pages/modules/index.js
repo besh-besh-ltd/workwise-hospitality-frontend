@@ -132,11 +132,11 @@ const ModulePage = () => {
         router.push('/ai-tools/technical-summary'); // technical summary tool
         break;
       case 'negotiation':
-        router.push('/vendor/all'); // find vendor (temporary solution)
+       router.push('/vendor/all');
         break;
       case 'payments':
         // Payments CTA yet to be finalized - for now open contact modal
-        setShowCallModal(true);
+        router.push('/vendor/all');
         break;
       default:
         console.log(`${moduleData.hero.primaryButton.label} clicked`);
