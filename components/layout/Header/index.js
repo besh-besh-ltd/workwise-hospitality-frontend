@@ -311,7 +311,7 @@ const websiteMenu = [
       { label: "Blogs", href: "https://blog.letsworkwise.com/", external: true },
       { label: "Events", href: "/insights/events" },
       { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
-      { label: "AI in Procurement – Use Cases", href: "/insights/ai-procurement" },
+      { label: "AI in Procurement – Use Cases", href: "javascript:void(0)", upcoming: true },
       { label: "Trends in EPC Procurement", href: "/insights/epc-trends" },
       { label: "Workwise in News", href: "/insights/news" },
     ]
