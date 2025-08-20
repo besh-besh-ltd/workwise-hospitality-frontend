@@ -136,11 +136,6 @@ const Footer = () => {
                   </a>
                 </li>
                 <li className="mb-2">
-                  <a href="/procurement-guide" className="text-decoration-none" style={{ color: '#bbb' }}>
-                    Procurement Guide
-                  </a>
-                </li>
-                <li className="mb-2">
                   <a href="/insights/news" className="text-decoration-none" style={{ color: '#bbb' }}>
                     News
                   </a>
@@ -213,7 +208,7 @@ const Footer = () => {
             <div className="col-md-6 mb-3">
               <h6 className="text-white fw-bold mb-3">Legal</h6>
               <div className="d-flex flex-wrap gap-3">
-                <a href="/data-security-policy" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
+                <a href="/why-workwise/TrustSecurity" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
                   Data Security Policy
                 </a>
                 <a href="/privacypolicy" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>

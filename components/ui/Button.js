@@ -8,6 +8,7 @@ const Button = React.forwardRef(({
   label,
   icon = "none", // "arrow", "phone", "none"
   children,
+  style: styleProp,
   ...props 
 }, ref) => {
   const getButtonClasses = () => {
@@ -50,12 +51,30 @@ const Button = React.forwardRef(({
     }
   };
 
+  const getMinWidthBySize = () => {
+    switch (size) {
+      case "sm":
+        return 160;
+      case "lg":
+        return 220;
+      default:
+        return 200; // md/default
+    }
+  };
+
+  // Base style to keep button width stable and avoid hover-based shifts
+  const baseStyle = {
+    whiteSpace: 'nowrap',
+    minWidth: getMinWidthBySize(),
+  };
+
   if (variant === "gradient") {
     return (
       <ReactBootstrapButton
         variant={getVariant()}
         className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
+        style={{ ...baseStyle, ...(styleProp || {}) }}
         {...props}
       >
         {/* Gradient background effect */}
@@ -82,6 +101,7 @@ const Button = React.forwardRef(({
         variant={getVariant()}
         className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
+        style={{ ...baseStyle, ...(styleProp || {}) }}
         {...props}
       >
         <div className="d-flex align-items-center">
@@ -96,6 +116,7 @@ const Button = React.forwardRef(({
       variant={getVariant()}
       className={`${getButtonClasses()} ${className || ''}`}
       ref={ref}
+      style={{ ...baseStyle, ...(styleProp || {}) }}
       {...props}
     >
       <div className="d-flex align-items-center justify-content-center">

@@ -3,7 +3,7 @@ export const stakeholdersPageData = {
     hero: {
       title: "Procurement Built for EPCs Running Complex Multi-Discipline Projects",
       subtitle: "Cut 75% of your time and save 6-9% cost - from BOQ to final PO",
-      buttonLabel: "Book a call for your next EPC project",
+      buttonLabel: "Book a call",
     },
     benefits: [
       { icon: 'file', title: 'BOQ to RFQ in Minutes', description: 'Skip manual formatting and copy-paste chaos' },
@@ -49,7 +49,7 @@ export const stakeholdersPageData = {
     hero: {
       title: 'Procurement Built for Turnkey Project Firms',
       subtitle: 'Cut 75% of coordination time and save 6-9% cost - from BOQ upload to vendor finalization.',
-      buttonLabel: 'Book a call to see how it fits your turnkey workflow',
+      buttonLabel: 'Book a call',
     },
     benefits: [
       { icon: 'file', title: 'BOQ to RFQ in Minutes', description: 'Skip manual formatting and copy-paste chaos' },
@@ -95,7 +95,7 @@ export const stakeholdersPageData = {
     hero: {
       title: 'Procurement Tools Built for Project Consultants',
       subtitle: 'Fast-track estimations, standardize comparisons, and support your clients with real-time procurement clarity.',
-      buttonLabel: 'Book a call to see how this fits your consulting workflow',
+      buttonLabel: 'Book a call',
     },
     benefits: [
       { icon: 'calculator', title: 'Quick BOQ-Based Cost Estimation', description: 'Upload client BOQ and generate preliminary project cost ranges' },
@@ -140,7 +140,7 @@ export const stakeholdersPageData = {
     hero: {
       title: 'Procurement Built for Industrial Clients Managing Their Own Projects',
       subtitle: 'Streamline project procurement with visibility, control, and speed - from BOQ to PO to payment.',
-      buttonLabel: 'Book a call to see how this fits your internal workflow',
+      buttonLabel: 'Book a call',
     },
     benefits: [
       { icon: 'shield', title: 'Control Over Project Spend', description: 'Track each quote, vendor, PO, and milestone in one system' },

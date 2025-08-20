@@ -737,7 +737,7 @@ export default function Home() {
                   <p className="text-muted mb-3 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.footerText}</p>
                   <Button 
                     onClick={handleVendorSupport}
-                    className="btn fw-bold text-white px-4 py-3 w-auto"
+                    className="btn fw-bold text-white px-4 py-3"
                     style={{background: '#F59E0B', border: 'none', borderRadius: '8px'}}
                   >
                     {homepageData.modularOfferings.vendorSupport.buttonText}
@@ -913,11 +913,11 @@ export default function Home() {
                       <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
                 <Button 
                   onClick={handleBookCall}
-                  className="btn fw-medium text-dark px-4 py-3 w-auto"
+                  className="btn fw-medium text-dark px-4 py-3"
+                  size="md"
                   style={{
                     background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
                     border: 'none',
-                    width:"400px",
                     borderRadius: '8px',
                     filter: 'brightness(1.05) saturate(1.05)',
                     boxShadow: '0 8px 24px rgba(255,165,0,0.35)'

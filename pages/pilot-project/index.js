@@ -222,7 +222,7 @@ const PilotProjectPage = () => {
                 icon="arrow"
                 onClick={handleClaimPilot}
                 size="lg"
-                className="w-auto"
+                className=""
               />
             </div>
           </div>
@@ -272,7 +272,7 @@ const PilotProjectPage = () => {
                 variant="gradient"
                 onClick={handleClaimPilot}
                 size="lg"
-                className="w-auto"
+                className=""
               />
               <div className="mt-3">
                 <small className="text-muted">

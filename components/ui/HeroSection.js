@@ -104,7 +104,7 @@ const HeroSection = React.forwardRef(({
                       icon={primaryButton.icon || "none"}
                       size="md"
                       onClick={primaryButton.onClick}
-                      className="w-auto"
+                      style={{ minWidth: '200px' }}
                     />
                   )}
                   {secondaryButton && (
@@ -114,7 +114,7 @@ const HeroSection = React.forwardRef(({
                       icon={secondaryButton.icon || "phone"}
                       size="md"
                       onClick={secondaryButton.onClick}
-                      className="w-auto"
+                      style={{ minWidth: '200px' }}
                     />
                   )}
                 </div>
@@ -205,7 +205,7 @@ const HeroSection = React.forwardRef(({
                     icon={primaryButton.icon || "none"}
                     size="lg"
                     onClick={primaryButton.onClick}
-                    className="w-auto"
+                    style={{ minWidth: '200px' }}
                   />
                 )}
                 {secondaryButton && (
@@ -215,7 +215,7 @@ const HeroSection = React.forwardRef(({
                     icon={secondaryButton.icon || "phone"}
                     size="lg"
                     onClick={secondaryButton.onClick}
-                    className="w-auto"
+                    style={{ minWidth: '200px' }}
                   />
                 )}
               </div>
@@ -274,7 +274,7 @@ const HeroSection = React.forwardRef(({
                       icon={primaryButton.icon || "none"}
                       size="lg"
                       onClick={primaryButton.onClick}
-                      className="w-auto"
+                      style={{ minWidth: '240px' }}
                     />
                   )}
                   {secondaryButton && (
@@ -284,7 +284,7 @@ const HeroSection = React.forwardRef(({
                       icon={secondaryButton.icon || "phone"}
                       size="lg"
                       onClick={secondaryButton.onClick}
-                      className="w-auto"
+                      style={{ minWidth: '240px' }}
                     />
                   )}
                 </div>
