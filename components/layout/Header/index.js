@@ -460,7 +460,8 @@ const Header = () => {
             return "always-white"; // never transparent for logged-in areas
           }
           if (pathname === "/") {
-            return isScrolled ? "scrolled hero-page" : "transparent hero-page";
+            // Force non-transparent header when mobile menu is open to match scrolled styling
+            return (menuClass || isScrolled) ? "scrolled hero-page" : "transparent hero-page";
           }
           return "scrolled"; // default public pages are white
         })()}`}
@@ -511,7 +512,6 @@ const Header = () => {
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
-              pathname?.startsWith("/ai-tools") ||
               (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
               pathname === "/") && (
               <>
@@ -689,7 +689,7 @@ const Header = () => {
                 </div>
 
                 {/* Mobile Menu Toggle */}
-                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`}>
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`} style={{ marginLeft: '8px' }}>
                   <label
                     htmlFor="menu-toggle"
                     onClick={() => setMenuClass(!menuClass)}

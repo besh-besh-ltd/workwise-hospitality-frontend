@@ -834,71 +834,7 @@ textarea {
     }
   }
 
-  // Mobile Menu
-  .mobile-menu {
-    position: fixed;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    z-index: 1021;
-    max-height: calc(100vh - 100%);
-    overflow-y: auto;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    
-    .main-menu {
-      padding: 24px 0;
-      
-      ul {
-        flex-direction: column;
-        
-        li {
-          padding: 0;
-          margin: 0;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-          
-          &:last-child {
-            border-bottom: none;
-          }
-          
-          a {
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            transition: all 0.2s ease;
-            font-weight: 500;
-            text-align: left;
-            
-            &:hover {
-              background: rgba(66, 139, 65, 0.08);
-              color: var(--secondary-color);
-              transform: translateX(8px);
-            }
-          }
-          
-          .btn-supplier-mobile {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: var(--black-color);
-            font-weight: 600;
-            margin: 12px 24px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.25);
-            
-            &:hover {
-              background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
-              color: var(--black-color);
-              transform: translateY(-2px);
-              box-shadow: 0 6px 16px rgba(255, 215, 0, 0.35);
-            }
-          }
-        }
-      }
-    }
-  }
+
 
   
 
@@ -919,11 +855,15 @@ textarea {
     .menu-ctrl {
       display: block;
     }
+    
+    .mobile-menu {
+      display: block !important;
+    }
   }
 
   @media (min-width: 769px) {
     .mobile-menu {
-      display: none;
+      display: none !important;
     }
     
     .menu-ctrl {
@@ -1055,14 +995,14 @@ body.at-top {
       display: block;
       width: 25px;
       height: 3px;
-      background: var(--black-color);
+      background: var(--black-color) !important;
       margin: 5px auto;
       transition: all 0.3s ease;
       border-radius: 2px;
     }
     
     &:hover span {
-      background: var(--black-color);
+      background: var(--black-color) !important;
     }
   }
   
@@ -8335,8 +8275,17 @@ td:hover .tooltip_custom {
   /* Mobile menu styling */
   .mobile-menu {
     text-align: left !important;
-    background: transparent !important;
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3b82f6 100%) !important;
     padding: 20px 0 !important;
+    position: fixed !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 1021 !important;
+    max-height: calc(100vh - 100%) !important;
+    overflow-y: auto !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(20px) !important;
     
     /* Ensure all text is white in mobile menu */
     * {
