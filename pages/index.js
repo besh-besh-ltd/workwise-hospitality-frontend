@@ -281,6 +281,75 @@ export default function Home() {
           .faq-category-content.faq-expanded * {
             visibility: visible;
           }
+
+          /* Mobile-first responsive design */
+          @media (max-width: 767px) {
+            /* Ensure proper spacing in mobile carousel */
+            .company-logos-carousel .slick-slide {
+              padding: 0 8px !important;
+              margin: 0 4px !important;
+            }
+            
+            .company-logos-carousel .slick-track {
+              margin-left: 0 !important;
+              margin-right: 0 !important;
+            }
+            
+            .company-logos-carousel .slick-list {
+              padding: 0 10px !important;
+            }
+            
+            .company-logos-carousel .slick-slide img {
+              max-width: 100px !important;
+              max-height: 50px !important;
+              margin: 0 auto !important;
+            }
+          }
+          
+          /* Desktop carousel spacing */
+          @media (min-width: 768px) {
+            .company-logos-carousel .slick-slide {
+              padding: 0 12px !important;
+              margin: 0 6px !important;
+            }
+            
+            .company-logos-carousel .slick-list {
+              padding: 0 20px !important;
+            }
+            
+            .company-logos-carousel .slick-slide img {
+              max-width: 120px !important;
+              max-height: 60px !important;
+              margin: 0 auto !important;
+            }
+          }
+          
+          /* Ensure carousel logos don't overlap */
+          .company-logos-carousel .slick-slide {
+            opacity: 1 !important;
+            transition: opacity 0.3s ease !important;
+          }
+          
+          .company-logos-carousel .slick-slide:hover {
+            opacity: 0.8 !important;
+          }
+          
+          /* Fix carousel track alignment */
+          .company-logos-carousel .slick-track {
+            display: flex !important;
+            align-items: center !important;
+          }
+          
+          .company-logos-carousel .slick-slide {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          
+          /* Ensure clear section separation */
+          section + section {
+            border-top: 1px solid rgba(0,0,0,0.05);
+          }
         `}</style>
         {/* Hero Section */}
         <div style={{position: 'relative'}}>

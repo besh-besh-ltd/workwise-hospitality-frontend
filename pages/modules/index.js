@@ -150,6 +150,42 @@ const ModulePage = () => {
 
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
+      {/* Custom CSS for enhanced shadows */}
+      <style jsx>{`
+        .shadow-lg {
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+          transition: all 0.3s ease;
+        }
+        
+        .shadow-lg:hover {
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+          transform: translateY(-2px);
+        }
+        
+        .rounded-4 {
+          border-radius: 1rem !important;
+        }
+        
+        /* Ensure cards have consistent height */
+        .col-md-4 {
+          display: flex !important;
+        }
+        
+        .col-md-4 > div {
+          width: 100% !important;
+        }
+        
+        /* Enhanced card styling */
+        .card {
+          border: none !important;
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+        }
+        
+        .card:hover {
+          background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+        }
+      `}</style>
+      
       {/* Hero Section */}
       <HeroSection
         title={moduleData.hero.title}
@@ -178,12 +214,14 @@ const ModulePage = () => {
           <div className="row g-4">
             {moduleData.benefits.features.map((feature, index) => (
               <div key={index} className="col-md-4">
-                <FeatureCard
-                  icon={featureIcons[index]}
-                  iconBgColor={feature.iconBgColor}
-                  iconColor={feature.iconColor}
-                  description={feature.title}
-                />
+                <div className="shadow-lg rounded-4">
+                  <FeatureCard
+                    icon={featureIcons[index]}
+                    iconBgColor={feature.iconBgColor}
+                    iconColor={feature.iconColor}
+                    description={feature.title}
+                  />
+                </div>
               </div>
             ))}
           </div>
