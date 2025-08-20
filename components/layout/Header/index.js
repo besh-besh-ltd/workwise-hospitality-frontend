@@ -17,7 +17,7 @@ const initialMainNavs = [
   "/aboutus",
   "/contactus",
   "/for-vendors",
-  "/IEW-2025",
+  // "/IEW-2025",
   "/solutions",
   "/blogs",
   "/validate-otp",
