@@ -101,12 +101,13 @@ const HeroVideo = () => {
       <style jsx>{`
         .video-container {
           width: 100%;
-          max-width: 70%;
+          max-width: 100%;
           aspect-ratio: 1 / 1;
           border-radius: 10px;
           overflow: hidden;
           position: relative;
-          margin: 0 auto;
+          transform: scale(0.85);
+          transform-origin: center center;
         }
 
         .play-button {
@@ -123,6 +124,7 @@ const HeroVideo = () => {
           .video-container {
             max-width: 80%;
             aspect-ratio: 1 / 1 !important;
+            transform: scale(1);
           }
         }
 

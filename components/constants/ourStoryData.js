@@ -92,7 +92,7 @@ export const ourStoryData = {
       name: "Siddharth Kothari",
       title: "Founder & CEO",
       quote: "We're not just building a platform - we're transforming an industry that touches millions of lives.",
-      description: "With over 15 years in industrial procurement, Siddharth has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both buyer and vendor pain points.",
+      description: "With over 15 years in industrial procurement, Siddharth has witnessed firsthand the inefficiencies that plague the sector. His vision for Workwise comes from a deep understanding of both the buyer and the vendor pain points.",
       image: "/assets/images/team/Siddharth Kothari Profile Picture-reduced size - Siddharth Kothari.jpg",
       linkedin: "https://www.linkedin.com/in/siddharth-kothari-94406938/"
     },

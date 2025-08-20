@@ -87,7 +87,7 @@ export const successStoriesData = {
     {
       id: 3,
       industry: "Infrastructure",
-      achievement: "Streamlined BOQ process, saved 8 days on project planning",
+      achievement: "Streamlined the BOQ process, saved 8 days on project planning",
       stakeholderType: "Consultant",
       location: "Delhi NCR",
       icon: "wrench",
