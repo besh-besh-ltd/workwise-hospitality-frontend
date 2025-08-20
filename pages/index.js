@@ -917,13 +917,14 @@ export default function Home() {
                   style={{
                     background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
                     border: 'none',
+                    width:"400px",
                     borderRadius: '8px',
                     filter: 'brightness(1.05) saturate(1.05)',
                     boxShadow: '0 8px 24px rgba(255,165,0,0.35)'
                   }}
                 >
                   <FontAwesomeIcon icon={faPhone} className="me-2" />
-                  Book a Call
+                  Book a Call oj
                 </Button>
 
               </div>
