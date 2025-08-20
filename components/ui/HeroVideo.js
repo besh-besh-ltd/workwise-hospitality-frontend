@@ -61,14 +61,14 @@ const HeroVideo = () => {
               style={{ objectFit: "fill" }}
             />
           )}
-        </div>
-
-        {/* AI Attribution Badge - placed immediately below the video */}
-        <div className="d-flex align-items-center gap-2 justify-content-center mt-1">
+          {/* AI Attribution Badge - placed immediately below the video */}
+        <div className="d-flex align-items-center gap-2 justify-content-center mt-2" style={{ lineHeight: 1 }}>
           <FaRobot style={{ color: 'white' }} />
           <span className="text-white fw-medium small">Powered by AI from IIT Bombay</span>
         </div>
+        </div>
       </div>
+
 
 
       {/* Background Blur Elements - Adjusted for more room */}
