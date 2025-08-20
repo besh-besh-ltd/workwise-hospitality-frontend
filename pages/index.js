@@ -924,7 +924,7 @@ export default function Home() {
                   }}
                 >
                   <FontAwesomeIcon icon={faPhone} className="me-2" />
-                  Book a Call oj
+                  Book a Call
                 </Button>
 
               </div>
