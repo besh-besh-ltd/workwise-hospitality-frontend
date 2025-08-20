@@ -192,7 +192,6 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
-              className="w-25"
               variant="primary" 
               size="lg"
               onClick={() => setShowBookCall(true)}

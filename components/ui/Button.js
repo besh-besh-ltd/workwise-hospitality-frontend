@@ -79,26 +79,15 @@ const Button = React.forwardRef(({
     }
   };
 
-  // Base style to keep button width stable and avoid hover-based shifts
+  // Base style with auto width for all buttons
   const baseStyle = {
     whiteSpace: 'nowrap',
-    minWidth: getMinWidthBySize(),
-  };
-
-  // Check if we're in mobile view
-  // const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-  
-  // Mobile-specific styles for centering and w-auto
-  const mobileStyles = isMobile ? {
     width: 'auto',
     minWidth: 'auto',
-    display: 'block',
-    margin: '0 auto',
-    textAlign: 'center'
-  } : {};
+  };
 
-  // Apply mobile styles only on mobile
-  const finalStyle = isMobile ? { ...baseStyle, ...mobileStyles, ...(styleProp || {}) } : { ...baseStyle, ...(styleProp || {}) };
+  // Apply styles
+  const finalStyle = { ...baseStyle, ...(styleProp || {}) };
 
   if (variant === "gradient") {
     return (

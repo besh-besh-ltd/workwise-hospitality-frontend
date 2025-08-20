@@ -104,7 +104,6 @@ const HeroSection = React.forwardRef(({
                       icon={primaryButton.icon || "none"}
                       size="md"
                       onClick={primaryButton.onClick}
-                      style={{ minWidth: '200px' }}
                     />
                   )}
                   {secondaryButton && (
@@ -114,7 +113,6 @@ const HeroSection = React.forwardRef(({
                       icon={secondaryButton.icon || "phone"}
                       size="md"
                       onClick={secondaryButton.onClick}
-                      style={{ minWidth: '200px' }}
                     />
                   )}
                 </div>
@@ -205,7 +203,7 @@ const HeroSection = React.forwardRef(({
                     icon={primaryButton.icon || "none"}
                     size="lg"
                     onClick={primaryButton.onClick}
-                    style={{ minWidth: '200px' }}
+                    classname="w-auto"
                   />
                 )}
                 {secondaryButton && (
@@ -215,7 +213,7 @@ const HeroSection = React.forwardRef(({
                     icon={secondaryButton.icon || "phone"}
                     size="lg"
                     onClick={secondaryButton.onClick}
-                    style={{ minWidth: '200px' }}
+                    classname="w-auto"
                   />
                 )}
               </div>
@@ -274,7 +272,7 @@ const HeroSection = React.forwardRef(({
                       icon={primaryButton.icon || "none"}
                       size="lg"
                       onClick={primaryButton.onClick}
-                      style={{ minWidth: '240px' }}
+                      classname="w-auto"
                     />
                   )}
                   {secondaryButton && (
@@ -284,7 +282,7 @@ const HeroSection = React.forwardRef(({
                       icon={secondaryButton.icon || "phone"}
                       size="lg"
                       onClick={secondaryButton.onClick}
-                      style={{ minWidth: '240px' }}
+                      classname="w-auto"
                     />
                   )}
                 </div>

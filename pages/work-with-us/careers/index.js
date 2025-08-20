@@ -291,7 +291,6 @@ const CareersPage = () => {
                         label="Apply Now"
                         variant="primary"
                         onClick={() => handleApplyNow(position)}
-                        className="w-100"
                       />
                     </div>
                   </div>
@@ -544,14 +543,12 @@ const CareersPage = () => {
                     variant="white"
                     onClick={() => document.getElementById('open-positions')?.scrollIntoView({ behavior: 'smooth' })}
                     size="lg"
-                    className=""
                   />
                   <Button
                     label="Contact HR Team"
                     variant="outline-white"
                     onClick={() => document.getElementById('application-form')?.scrollIntoView({ behavior: 'smooth' })}
                     size="lg"
-                    className=""
                   />
                 </div>
               </div>

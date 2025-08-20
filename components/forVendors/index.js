@@ -479,7 +479,7 @@ const ForVendors = () => {
              <div className="text-center">
                <Button 
                  onClick={() => setShowRegistrationModal(true)}
-                 className="btn-secondary fw-bold text-white px-4 py-3"
+                 className="btn-secondary fw-bold text-white px-4 py-2 w-auto"
                >
                  <FontAwesomeIcon icon={faRocket} className="me-2" />
                  Create Your Free Supplier Account

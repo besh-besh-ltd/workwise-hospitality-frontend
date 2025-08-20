@@ -512,11 +512,10 @@ const PricingPage = () => {
                         variant="dark"
                         icon="arrow-right"
                         onClick={handleContactUs}
-                        className="px-4 px-md-5 py-3 mb-4 mb-md-5 w-100 w-md-auto"
+                        className="px-4 px-md-5 py-3 mb-4 mb-md-5"
                         style={{ 
                           fontSize: '1rem', 
-                          fontWeight: '600',
-                          minWidth: 'auto'
+                          fontWeight: '600'
                         }}
                       />
                     </div>
@@ -819,7 +818,6 @@ const PricingPage = () => {
                             plan.name === 'Silver' ? handleUpgradeSilver :
                             handleGetGoldAccess
                           }
-                          className="w-100"
                           style={{
                             backgroundColor: plan.name === 'Silver' ? 'var(--orange-color)' : 'var(--black-color)',
                             borderColor: plan.name === 'Silver' ? 'var(--orange-color)' : 'var(--black-color)',
