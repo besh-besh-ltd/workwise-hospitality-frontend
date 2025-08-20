@@ -377,19 +377,19 @@ export default function Home() {
         {/* Floating Icons */}
          <div
             className="floatingIcon floatA d-none d-lg-block"
-            style={{ top: "15%", left: "55%" }}
+            style={{ top: "19%", left: "52%" }}
           >
             <FaRobot size={20} />
           </div>
           <div
             className="floatingIcon floatB d-none d-md-block"
-            style={{ top: "45%", left: "90%" }}
+            style={{ top: "45%", left: "93%" }}
           >
             <FaMicrochip size={20} />
           </div>
           <div
             className="floatingIcon floatC d-none d-md-block"
-            style={{ top: "70%", left: "55%" }}
+            style={{ top: "76%", left: "52%" }}
           >
             <FaProjectDiagram size={20} />
           </div>
@@ -895,10 +895,10 @@ export default function Home() {
             </div>
 
             {/* Video Player */}
-            <div className="row justify-content-center mb-5">
+            <div className="row justify-content-center mb-3">
               <div className="col-12">
                 <HeroVideo /> 
-                <p className="text-center text-white mt-3 mb-0" style={{ opacity: 0.8 }}>
+                <p className="text-center text-white mt-2 mb-0" style={{ opacity: 0.8 }}>
                   This video shows a real example using a sample BOQ
                 </p>
               </div>
@@ -917,6 +917,7 @@ export default function Home() {
                   style={{
                     background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
                     border: 'none',
+                    width:"400px",
                     borderRadius: '8px',
                     filter: 'brightness(1.05) saturate(1.05)',
                     boxShadow: '0 8px 24px rgba(255,165,0,0.35)'

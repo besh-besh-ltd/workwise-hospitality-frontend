@@ -126,7 +126,7 @@ export const homepageData = {
       buttonText: "Try Now",
       buttonVariant: "primary",
       iconColor: "#8B5CF6",
-      note: "Free for projects up to ₹50 lakhs"
+      note: "Free processing for 1 project"
       ,url: "/ai-tools/cost-estimation"
     },
     {
@@ -459,7 +459,7 @@ export const homepageData = {
         color: "#8B5CF6"
       },
       {
-        name: "Marine, mining and more",
+        name: "Marine, mining, and more",
         icon: "⛏️",
         color: "#6B7280"
       }

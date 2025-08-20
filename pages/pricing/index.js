@@ -564,7 +564,6 @@ const PricingPage = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      <ShoppingBag size={16} style={{ color: 'white' }} />
                     </div>
                     <h2 className="fs-2 fw-bold text-dark mb-0">
                       {pricingData.sellers.title}
