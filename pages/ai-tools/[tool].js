@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { 
-  Upload, 
-  CheckCircle, 
-  Download,
-} from 'lucide-react';
+import { faUpload, faCircleCheck, faDownload } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faCloudArrowUp, faPlay, faLock, faEyeSlash, faUsers, faListAlt, faFileAlt, faCalculator } from '@fortawesome/free-solid-svg-icons';
 import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt, FaMicrochip, FaRobot } from 'react-icons/fa';
@@ -19,6 +15,7 @@ import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { CtaSection } from '@/components/ui/CtaSection';
 import FilePreview from '@/components/ui/FilePreview';
+import BookCall from '@/components/bookCall';
 
 // Import data
 import { aiToolsData } from '@/components/constants/aiToolsData';
@@ -47,6 +44,7 @@ const AiToolPage = () => {
   const [showTechnicalSummaryModal, setShowTechnicalSummaryModal] = useState(false)
   const swSubscription = useSelector((data) => data.swSubscription);
   const uploadSectionRef = useRef(null);
+  const [showBookCall, setShowBookCall] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -307,11 +305,11 @@ const AiToolPage = () => {
   };
 
   const handleTryForFree = () => {
-    console.log('Try for Free clicked');
+    uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleBookDemo = () => {
-    console.log('Book Demo clicked');
+    setShowBookCall(true);
   };
 
   return (
@@ -499,7 +497,7 @@ const AiToolPage = () => {
                       style={{ minWidth: "300px" }}
                       disabled={!file}
                     >
-                      <Upload size={16} className="me-2" />
+                      <FontAwesomeIcon icon={faUpload} className="me-2" style={{ fontSize: '16px' }} />
                       {toolData.hero.primaryButton.label}
                     </button>
                   </div>
@@ -727,7 +725,7 @@ const AiToolPage = () => {
                         color: '#155724'
                       }}
                     >
-                      <CheckCircle size={40} />
+                      <FontAwesomeIcon icon={faCircleCheck} style={{ fontSize: '40px' }} />
                     </div>
                   </div>
                   <h4 className="fw-bold text-dark mb-3">File Uploaded Successfully!</h4>
@@ -777,7 +775,7 @@ const AiToolPage = () => {
                       onClick={handleDownload}
                       className="btn btn-outline-primary px-4 py-2"
                     >
-                      <Download size={16} className="me-2" />
+                      <FontAwesomeIcon icon={faDownload} className="me-2" style={{ fontSize: '16px' }} />
                       {toolData.outputView.downloadText}
                     </button>
                     <button
@@ -1194,6 +1192,26 @@ const AiToolPage = () => {
                 >
                   Download JSON
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Book a Call Modal */}
+      {showBookCall && (
+        <div 
+          className="modal show d-block" 
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1050 }}
+        >
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '600px' }}>
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header border-0 pb-0">
+                <h5 className="modal-title fw-bold">Book a Call</h5>
+                <button type="button" className="btn-close" onClick={() => setShowBookCall(false)} />
+              </div>
+              <div className="modal-body">
+                <BookCall />
               </div>
             </div>
           </div>

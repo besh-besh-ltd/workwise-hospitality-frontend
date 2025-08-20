@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSearch } from '@fortawesome/free-solid-svg-icons';
 
 const SearchBar = ({ 
   placeholder = "Search events...",
@@ -49,10 +50,7 @@ const SearchBar = ({
               zIndex: 10
             }}
           >
-            <Search 
-              size={16} 
-              style={{ color: '#6c757d' }}
-            />
+            <FontAwesomeIcon icon={faSearch} style={{ color: '#6c757d', fontSize: '16px' }} />
           </div>
         </div>
       </form>

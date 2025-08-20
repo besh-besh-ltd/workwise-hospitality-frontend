@@ -156,7 +156,7 @@ const ColourfulCard = ({
                 handleClick();
               }}
             >
-              Learn more →
+              Try Now →
             </span>
           </div>
         </div>

@@ -302,16 +302,12 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
   };
 
   const handleNestedMouseEnter = (index) => {
-    if (!isMobile) {
       clearTimeout(nestedTimeoutRef.current);
       setNestedOpen(index);
-    }
   };
 
   const handleNestedMouseLeave = () => {
-    if (!isMobile) {
       nestedTimeoutRef.current = setTimeout(() => setNestedOpen(null), 100);
-    }
   };
 
   return (
@@ -390,11 +386,11 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 top: 'calc(100% + 8px)',
                 left: 0,
                 minWidth: 340,
-                background: 'transparent',
-                backdropFilter: 'none',
-                boxShadow: 'none',
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(20px)',
+                // boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
                 borderRadius: 16,
-                padding: '8px 0',
+                padding: '12px 0',
                 margin: 0,
                 opacity: open ? 1 : 0,
                 pointerEvents: open ? 'auto' : 'none',
@@ -402,7 +398,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: open ? 'flex' : 'none',
                 flexDirection: 'column',
-                border: 'none',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
                 textAlign: 'left',
                 alignItems: 'stretch',
                 zIndex: 1001,
@@ -424,81 +420,35 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                     gridTemplateColumns: '1fr 1fr 1fr',
                     gap: '8px',
                     padding: '12px 16px',
-                    minWidth: 540,
+                    minWidth: 600,
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '1rem', padding: '8px 8px', opacity: 0.9, color: '#fff' }}>Stakeholders</div>
-                    <a href="/who-we-serve/stakeholders/epcs" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/epcs'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>EPCs / Contractors</a>
-                    <a href="/who-we-serve/stakeholders/turnkey" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/turnkey'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Turnkey Project Firms</a>
-                    <a href="/who-we-serve/stakeholders/consultants" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/consultants'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Project Consultants</a>
-                    <a href="/who-we-serve/stakeholders/industrial-clients" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/industrial-clients'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Industrial Clients</a>
-                    <a href="/for-vendors" onClick={(e)=>handleOptionClick(e,{href:'/for-vendors'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Vendors & OEMs</a>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', padding: '8px 8px', opacity: 0.9, color: '#333' }}>Stakeholders</div>
+                    <a href="/who-we-serve/stakeholders/epcs" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/epcs'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>EPCs / Contractors</a>
+                    <a href="/who-we-serve/stakeholders/turnkey" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/turnkey'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Turnkey Project Firms</a>
+                    <a href="/who-we-serve/stakeholders/consultants" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/consultants'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Project Consultants</a>
+                    <a href="/who-we-serve/stakeholders/industrial-clients" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/industrial-clients'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Industrial Clients</a>
+                    <a href="/for-vendors" onClick={(e)=>handleOptionClick(e,{href:'/for-vendors'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Vendors & OEMs</a>
                   </div>
-                  <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
-                    <div style={{ fontWeight: 700, fontSize: '1rem', padding: '8px 8px', opacity: 0.9, color: '#fff' }}>Industries</div>
-                    <a href="/who-we-serve/industries/power" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/power'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Power</a>
-                    <a href="/who-we-serve/industries/energy" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/energy'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Energy</a>
-                    <a href="/who-we-serve/industries/petrochemical" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/petrochemical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Petrochemical & Chemical</a>
-                    <a href="/who-we-serve/industries/steel-cement" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/steel-cement'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Steel & Cement</a>
-                    <a href="/who-we-serve/industries/infrastructure" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/infrastructure'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Infrastructure</a>
-                    <a href="/who-we-serve/industries/heavy-equipment" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/heavy-equipment'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Heavy Engineering & Machine Tools</a>
-                    <a href="/who-we-serve/industries/marine-mining" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/marine-mining'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Marine & Mining</a>
+                  <div style={{ borderLeft: '1px solid rgba(0,0,0,0.1)', paddingLeft: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', padding: '8px 8px', opacity: 0.9, color: '#333' }}>Industries</div>
+                    <a href="/who-we-serve/industries/power" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/power'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Power</a>
+                    <a href="/who-we-serve/industries/energy" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/energy'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Energy</a>
+                    <a href="/who-we-serve/industries/petrochemical" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/petrochemical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Petrochemical & Chemical</a>
+                    <a href="/who-we-serve/industries/steel-cement" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/steel-cement'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Steel & Cement</a>
+                    <a href="/who-we-serve/industries/infrastructure" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/infrastructure'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Infrastructure</a>
+                    <a href="/who-we-serve/industries/heavy-equipment" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/heavy-equipment'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Heavy Engineering & Machine Tools</a>
+                    <a href="/who-we-serve/industries/marine-mining" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/marine-mining'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Marine & Mining</a>
                   </div>
-                  <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
-                    <div style={{ fontWeight: 700, fontSize: '1rem', padding: '8px 8px', opacity: 0.9, color: '#fff' }}>Disciplines</div>
-                    <a href="/solutions/electrical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/electrical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Electrical</a>
-                    <a href="/solutions/mechanical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/mechanical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Mechanical</a>
-                    <a href="/solutions/civil" onClick={(e)=>handleOptionClick(e,{href:'/solutions/civil'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Civil</a>
-                    <a href="/solutions/hvac" onClick={(e)=>handleOptionClick(e,{href:'/solutions/hvac'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>HVAC</a>
-                    <a href="/solutions/fire-engineering" onClick={(e)=>handleOptionClick(e,{href:'/solutions/fire-engineering'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Fire & Safety</a>
-                    <a href="/solutions/chemical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/chemical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#fff', whiteSpace: 'normal', wordWrap: 'break-word'}}>Chemical</a>
-                  </div>
-                </div>
-              </li>
-            ) : label === 'Who We Serve' && isMobile ? (
-              <li style={{ listStyle: 'none', width: '100%', display: 'block', overflow: 'visible', clear: 'both' }}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr 1fr',
-                    gap: '4px',
-                    padding: '12px 8px',
-                    background: 'transparent',
-                    margin: '8px 0',
-                    maxWidth: '100%',
-                    textAlign: 'center',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '13px', padding: '6px 2px', color: '#fff', borderBottom: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '4px' }}>Stakeholders</div>
-                    <a href="/who-we-serve/stakeholders/epcs" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/epcs'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>EPCs / Contractors</a>
-                    <a href="/who-we-serve/stakeholders/turnkey" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/turnkey'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Turnkey Project Firms</a>
-                    <a href="/who-we-serve/stakeholders/consultants" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/consultants'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Project Consultants</a>
-                    <a href="/who-we-serve/stakeholders/industrial-clients" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/stakeholders/industrial-clients'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Industrial Clients</a>
-                    <a href="/for-vendors" onClick={(e)=>handleOptionClick(e,{href:'/for-vendors'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Vendors & OEMs</a>
-                  </div>
-                  <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 4 }}>
-                    <div style={{ fontWeight: 700, fontSize: '13px', padding: '6px 2px', color: '#fff', borderBottom: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '4px' }}>Industries</div>
-                    <a href="/who-we-serve/industries/power" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/power'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Power</a>
-                    <a href="/who-we-serve/industries/energy" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/energy'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Energy</a>
-                    <a href="/who-we-serve/industries/petrochemical" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/petrochemical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Petrochemical & Chemical</a>
-                    <a href="/who-we-serve/industries/steel-cement" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/steel-cement'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Steel & Cement</a>
-                    <a href="/who-we-serve/industries/infrastructure" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/infrastructure'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Infrastructure</a>
-                    <a href="/who-we-serve/industries/heavy-equipment" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/heavy-equipment'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Heavy Engineering & Machine Tools</a>
-                    <a href="/who-we-serve/industries/marine-mining" onClick={(e)=>handleOptionClick(e,{href:'/who-we-serve/industries/marine-mining'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Marine & Mining</a>
-                  </div>
-                  <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 4 }}>
-                    <div style={{ fontWeight: 700, fontSize: '13px', padding: '6px 2px', color: '#fff', borderBottom: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '4px' }}>Disciplines</div>
-                    <a href="/solutions/electrical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/electrical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Electrical</a>
-                    <a href="/solutions/mechanical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/mechanical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Mechanical</a>
-                    <a href="/solutions/civil" onClick={(e)=>handleOptionClick(e,{href:'/solutions/civil'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Civil</a>
-                    <a href="/solutions/hvac" onClick={(e)=>handleOptionClick(e,{href:'/solutions/hvac'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>HVAC</a>
-                    <a href="/solutions/fire-engineering" onClick={(e)=>handleOptionClick(e,{href:'/solutions/fire-engineering'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Fire & Safety</a>
-                    <a href="/solutions/chemical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/chemical'})} style={{display:'block', padding:'4px 2px', color:'#fff', textDecoration:'none', fontSize:'11px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', lineHeight: '1.2'}}>Chemical</a>
+                  <div style={{ borderLeft: '1px solid rgba(0,0,0,0.1)', paddingLeft: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', padding: '8px 8px', opacity: 0.9, color: '#333' }}>Disciplines</div>
+                    <a href="/solutions/electrical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/electrical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Electrical</a>
+                    <a href="/solutions/mechanical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/mechanical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Mechanical</a>
+                    <a href="/solutions/civil" onClick={(e)=>handleOptionClick(e,{href:'/solutions/civil'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Civil</a>
+                    <a href="/solutions/hvac" onClick={(e)=>handleOptionClick(e,{href:'/solutions/hvac'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>HVAC</a>
+                    <a href="/solutions/fire-engineering" onClick={(e)=>handleOptionClick(e,{href:'/solutions/fire-engineering'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Fire & Safety</a>
+                    <a href="/solutions/chemical" onClick={(e)=>handleOptionClick(e,{href:'/solutions/chemical'})} style={{display:'block', padding:'8px 12px', textDecoration:'none', color:'#333', whiteSpace: 'normal', wordWrap: 'break-word', fontSize: '16px'}}>Chemical</a>
                   </div>
                 </div>
               </li>
@@ -512,21 +462,20 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 }}>
                   {opt.type === 'nested-dropdown' ? (
                     // Nested dropdown item
-                    <div /* disabled for who we serve */
+                    <div 
+                      onClick={() => {
+                        if (isMobile) {
+                          setNestedOpen(nestedOpen === index ? null : index);
+                        }
+                      }}
                       onMouseEnter={(e) => {
                         if (!isMobile) {
                         handleNestedMouseEnter(index);
-                        e.currentTarget.style.color = 'var(--secondary-color)';
-                        e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                        e.currentTarget.style.transform = 'translateX(4px)';
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isMobile) {
                         handleNestedMouseLeave();
-                        e.currentTarget.style.color = '#fff';
-                        e.currentTarget.style.background = 'transparent';
-                        e.currentTarget.style.transform = 'translateX(0)';
                         }
                       }}
                       style={{
@@ -568,23 +517,38 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       {nestedOpen === index && (
                         <ul
                           style={{
-                            position: 'absolute',
-                            left: 'calc(100% + 4px)',
-                            top: 0,
-                            minWidth: 300, /* Increased by 100px */
-                            background: 'transparent',
-                            backdropFilter: 'none',
-                            boxShadow: 'none',
-                            borderRadius: 16,
-                            padding: '8px 0',
+                            position: isMobile ? 'static' : 'absolute',
+                            left: isMobile ? 0 : 'calc(100% + 4px)',
+                            top: isMobile ? 'auto' : 0,
+                            minWidth: isMobile ? '100%' : 300,
+                            background: isMobile ? 'transparent' : 'rgba(255, 255, 255, 0.98)',
+                            backdropFilter: isMobile ? 'none' : 'blur(20px)',
+                            boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.12)',
+                            borderRadius: isMobile ? 0 : 16,
+                            padding: isMobile ? '0' : '12px 0',
                             margin: 0,
                             display: 'flex',
                             flexDirection: 'column',
-                            border: 'none',
-                            animation: 'slideInRight 0.2s ease-out',
+                            border: isMobile ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
+                            animation: isMobile ? 'none' : 'slideInRight 0.2s ease-out',
                             isolation: 'isolate'
                           }}
                         >
+                          {/* Nested dropdown header */}
+                          <div style={{
+                            padding: isMobile ? '12px 40px' : '12px 20px',
+                            fontSize: isMobile ? '16px' : '0.85rem',
+                            fontWeight: 600,
+                            color: '#fff',
+                            opacity: 0.9,
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                            marginBottom: '4px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            {opt.label} Options
+                          </div>
+                          
                           {opt.options.map((nestedOpt, nestedIndex) => (
                             <li key={nestedOpt.href || nestedIndex} style={{ listStyle: 'none' }}>
                               <a
@@ -592,27 +556,18 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                                 onClick={(e) => handleOptionClick(e, nestedOpt)}
                                 style={{
                                   display: 'block',
-                                  padding: '12px 20px',
-                                  fontWeight: 500,
+                                  padding: isMobile ? '14px 40px' : '12px 20px',
+                                  fontWeight: isMobile ? 400 : 500,
                                   textDecoration: 'none',
                                   transition: 'all 0.2s ease',
-                                  borderRadius: '8px',
+                                  borderRadius: isMobile ? 0 : '8px',
                                   margin: '0',
                                   color: '#fff',
-                                  fontSize: '0.9rem',
+                                  fontSize: isMobile ? '18px' : '0.9rem',
                                   textAlign: 'left',
                                   whiteSpace: 'normal',
                                   lineHeight: '1.4',
-                                }}
-                                onMouseEnter={e => {
-                                  e.currentTarget.style.color = 'var(--secondary-color)';
-                                  e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                                  e.currentTarget.style.transform = 'translateX(4px)';
-                                }}
-                                onMouseLeave={e => {
-                                  e.currentTarget.style.color = '#fff';
-                                  e.currentTarget.style.background = 'transparent';
-                                  e.currentTarget.style.transform = 'translateX(0)';
+                                  borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
                                 }}
                               >
                                 {nestedOpt.label}
@@ -635,13 +590,13 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       }}
                       style={{
                         display: 'block',
-                        padding: isMobile ? '14px 40px' : '12px 20px',
+                        padding: isMobile ? '14px 40px' : '10px 15px',
                         fontWeight: opt.isHighlighted ? 600 : (isMobile ? 400 : 500),
                         textDecoration: 'none',
                         transition: 'all 0.2s ease',
                         borderRadius: isMobile ? 0 : '8px',
                         margin: '0',
-                        color: opt.isHighlighted ? '#FF6B35' : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? 'rgba(255,255,255,0.6)' : '#fff'),
+                        color: opt.isHighlighted ? '#FF6B35' : (label === 'Insights & Resources' && isInsightsUpcoming(opt) ? (isMobile ? 'rgba(255,255,255,0.6)' : '#aaa') : (isMobile ? '#fff' : '#333')),
                         fontSize: isMobile ? '18px' : '0.9rem', 
                         textAlign: 'left',
                         whiteSpace: 'normal',
@@ -656,31 +611,25 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       onMouseEnter={e => {
                         if (!isMobile) {
                           if (!(label === 'Insights & Resources' && isInsightsUpcoming(opt))) {
-                            if (opt.isHighlighted) {
-                              e.currentTarget.style.color = '#FF4500';
-                              e.currentTarget.style.background = 'rgba(255, 107, 53, 0.2)';
-                            } else {
-                              e.currentTarget.style.color = 'var(--secondary-color)';
-                              e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                            }
+                            e.currentTarget.style.color = opt.isHighlighted ? '#FF6B35' : 'var(--secondary-color)';
+                            e.currentTarget.style.background = opt.isHighlighted
+                              ? 'rgba(255, 107, 53, 0.2)'
+                              : 'rgba(66, 139, 65, 0.08)';
                             e.currentTarget.style.transform = 'translateX(4px)';
                           }
                         }
                       }}
                       onMouseLeave={e => {
                         if (!isMobile) {
-                          if (opt.isHighlighted) {
-                            e.currentTarget.style.color = '#FF6B35';
-                            e.currentTarget.style.background = 'rgba(255, 107, 53, 0.1)';
-                          } else {
-                            e.currentTarget.style.color = '#fff';
-                            e.currentTarget.style.background = 'transparent';
-                          }
+                          e.currentTarget.style.color = '#333';
+                          e.currentTarget.style.background = opt.isHighlighted
+                            ? 'rgba(255, 107, 53, 0.1)'
+                            : 'transparent';
                           e.currentTarget.style.transform = 'translateX(0)';
                         }
                       }}
                     >
-                      <span>{opt.label}</span>
+                      {opt.label}
                       {label === 'Insights & Resources' && isInsightsUpcoming(opt) && (
                         <span style={{
                           marginLeft: 8,

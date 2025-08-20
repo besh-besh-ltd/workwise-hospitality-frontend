@@ -648,13 +648,12 @@ const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
                   boxShadow: '0 4px 12px rgba(122, 119, 119, 0.15)'
                 }}
               >
-                <FaUserPlus className="me-2" size={18} />
                 {earnWithUsData.bottomCta.primaryButton.label}
               </button>
 
               {/* Secondary CTA - Talk to Team */}
               <button 
-                className="btn btn-lg px-5 py-3 fw-semibold d-flex align-items-center"
+                className="btn btn-lg px-5 py-3 fw-semibold w-auto d-flex align-items-center"
                 onClick={onSecondaryClick}
                 style={{ 
                   backgroundColor: 'rgba(255,255,255,0.9)',
@@ -666,7 +665,6 @@ const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                 }}
               >
-                <FaComments className="me-2" size={18} />
                 {earnWithUsData.bottomCta.secondaryButton.label}
               </button>
             </div>

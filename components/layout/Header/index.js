@@ -455,8 +455,8 @@ const Header = () => {
     <>
       <header
         className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
-          const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
-          if (isPrivate || (loggedinUser && loggedinUser?.name)) {
+          const isPrivate = pathname?.startsWith("/dashboard");
+          if (isPrivate ) {
             return "always-white"; // never transparent for logged-in areas
           }
           if (pathname === "/") {
@@ -490,7 +490,7 @@ const Header = () => {
                   alt="Workwise"
                   className={`logo-image ${(!isScrolled && shouldUseTransparent()) ? "logo-white" : ""}`}
                   width={160}
-                  height={41}
+                  height={20}
                   priority={true}
                 />
               </Link>
@@ -511,7 +511,8 @@ const Header = () => {
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
-               pathname?.startsWith("/ai-tools") ||
+              pathname?.startsWith("/ai-tools") ||
+              (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
               pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
@@ -551,6 +552,70 @@ const Header = () => {
                     </Link>
                   </div>
 
+                  {/* Logged-in profile icon on public navbar*/}
+                  {loggedinUser && loggedinUser?.name && !(
+                    pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")
+                  ) && (
+                    <div className="header-right align-items-center forLoggedIn hidemobile">
+                      <nav className="main-menu">
+                        <ul>
+                          <li className="">
+                            <Link href="" onClick={handleUserIconClick}>
+                              <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+
+                      {popoverVisible && (
+                        <div className="popover-account" ref={popoverRef}>
+                          <ul className="vertical-links">
+                            {roleMenus[currentUserType]
+                              ?.filter((menuType) => menuType.targetMenu == "popup")
+                              ?.map((item) => (
+                                <li
+                                  key={item.href}
+                                  className={pathname === item.href ? "active" : ""}
+                                >
+                                  <Link
+                                    href={item.href}
+                                    onClick={() => setPopoverVisible(false)}
+                                  >
+                                    {item.label}
+                                  </Link>
+                                </li>
+                              ))}
+
+                            <li
+                              className={
+                                router.pathname == "/change-password" ? "active" : ""
+                              }
+                            >
+                              <Link
+                                href={`/change-password?redirect_url=${window.location.pathname}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Change Password
+                              </Link>
+                            </li>
+
+                            <li>
+                              <Link
+                                href=""
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleLogout(e);
+                                }}
+                              >
+                                Logout
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div
                     className={`extra-buttons hideDesktop ${
                       loggedinUser && loggedinUser?.name && "hasloggedinuser"
@@ -583,7 +648,7 @@ const Header = () => {
                     {/* FOR NON LOGGED IN  */}
                     {!loggedinUser && !loggedinUser?.name && (
                       <ul>
-                        <li
+                       {false && ( <li
                           className="login"
                           onClick={() => {
                             handleChange(setActiveAuthTab('login'));
@@ -594,27 +659,30 @@ const Header = () => {
                             Login
                           </Link>
                         </li>
+                        )}
                         {/* Mobile-only: show For Suppliers instead of Book a Call */}
                         <li className="signup d-block d-md-none">
                           <Link href="/for-vendors" className="btn-supplier" style={{ color: '#000' }}>
                             For Suppliers
                           </Link>
                         </li>
-                        <li
-                          className="signup book-call d-none d-md-block"
-                          onClick={() => {
-                            handleChange(setActiveAuthTab('book-a-call'));
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link
-                            id="book-a-call-navigation"
-                            href="javascript:void(0)"
-                            style={{ width: "fit-content", fontSize: "14px" }}
+                        
+                          <li
+                            className="signup book-call d-none d-md-block"
+                            onClick={() => {
+                              handleChange(setActiveAuthTab('book-a-call'));
+                              handleChange(setOpenAuthModal(true));
+                            }}
                           >
-                            Book a Call
-                          </Link>
-                        </li>
+                            <Link
+                              id="book-a-call-navigation"
+                              href="javascript:void(0)"
+                              style={{ width: "fit-content", fontSize: "14px" }}
+                            >
+                              Book a Call
+                            </Link>
+                          </li>
+                        
                       </ul>
                     )}
                   </div>
@@ -672,7 +740,7 @@ const Header = () => {
                     <ul>
                       <li className="">
                         <Link href="" onClick={handleUserIconClick}>
-                          <FontAwesomeIcon icon={faUser} />
+                          <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
                         </Link>
                       </li>
                     </ul>

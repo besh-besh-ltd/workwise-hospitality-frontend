@@ -410,7 +410,7 @@ textarea {
 
   /* Reduce horizontal paddings on header container at tighter widths (helps on browser zoom) */
   .container-fluid {
-    padding-left: clamp(8px, 1.5vw, 50px);
+    padding-left: clamp(12px, 1.8vw, 60px);
     padding-right: clamp(8px, 1.5vw, 50px);
     max-width: 100%;
     overflow-x: hidden;
@@ -485,7 +485,7 @@ textarea {
     }
 
     .menu-ctrl span {
-      background-color: #ffffff;
+      background-color: var(--black-color);
     }
 
     /* Dropdown menu styling for transparent state */
@@ -607,16 +607,16 @@ textarea {
     width: 100%;
 
     .logo {
-      width: clamp(100px, 10vw, 168px);
+      width: clamp(110px, 12vw, 180px);
       flex-shrink: 0;
-      max-width: 168px;
-      min-width: 100px;
+      max-width: 200px;
+      min-width: 120px;
 
       img {
         width: 100%;
         height: auto;
         transition: filter 0.3s ease;
-        max-height: 40px;
+        max-height: 50px;
         object-fit: contain;
       }
 
@@ -707,7 +707,7 @@ textarea {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      height: clamp(28px, 2.5vw, 36px);
+      height: clamp(28px, 2.5vw, 43px);
       padding: 0 clamp(8px, 1vw, 16px);
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
       color: var(--black-color);
@@ -753,35 +753,35 @@ textarea {
 
   @media (max-width: 1600px) {
     .main-menu ul { gap: clamp(0px, 0.1vw, 2px); }
-    .main-menu ul li { font-size: clamp(0.6rem, 0.7vw, 0.8rem); }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(2px, 0.3vw, 5px) clamp(3px, 0.4vw, 6px); }
-    .supplier-cta .btn-supplier { min-width: clamp(75px, 6.5vw, 110px); padding: 0 clamp(6px, 0.8vw, 10px); }
+    .supplier-cta .btn-supplier { min-width: clamp(70px, 6.5vw, 110px); padding: 0 clamp(6px, 0.8vw, 10px); }
     .header-right { gap: clamp(1px, 0.3vw, 4px); }
   }
 
   @media (max-width: 1400px) {
     .main-menu ul { gap: clamp(0px, 0.08vw, 1px); }
-    .main-menu ul li { font-size: clamp(0.58rem, 0.65vw, 0.75rem); }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.25vw, 4px) clamp(2px, 0.35vw, 5px); }
-    .supplier-cta .btn-supplier { min-width: clamp(70px, 6vw, 100px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
+    .supplier-cta .btn-supplier { min-width: clamp(64px, 6vw, 100px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
     .header-right { gap: clamp(1px, 0.25vw, 3px); }
   }
 
   @media (max-width: 1280px) {
-    .logo { width: clamp(90px, 9vw, 140px); }
+    .logo { width: clamp(80px, 8vw, 100px); }
     .main-menu ul { gap: clamp(0px, 0.05vw, 1px); }
-    .main-menu ul li { font-size: clamp(0.55rem, 0.6vw, 0.7rem); }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.2vw, 3px) clamp(2px, 0.3vw, 4px); }
     .header-right { gap: clamp(1px, 0.2vw, 3px); }
-    .supplier-cta .btn-supplier { min-width: clamp(65px, 5.5vw, 90px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
+    .supplier-cta .btn-supplier { min-width: clamp(60px, 5.5vw, 90px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
     .extra-buttons ul li.login { display: none !important; }
   }
 
   @media (max-width: 1180px) {
-    .logo { width: clamp(85px, 8.5vw, 130px); }
-    .main-menu ul li { font-size: clamp(0.52rem, 0.58vw, 0.65rem); }
+    .logo { width: clamp(85px, 8.5vw, 110px); }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.15vw, 2px) clamp(1px, 0.25vw, 3px); }
-    .supplier-cta .btn-supplier { min-width: clamp(60px, 5vw, 80px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
+    .supplier-cta .btn-supplier { min-width: clamp(56px, 5vw, 80px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
     .header-right { gap: clamp(1px, 0.15vw, 2px); }
   }
 
@@ -895,33 +895,7 @@ textarea {
     }
   }
 
-  // Sticky Mobile CTA
-  .sticky-mobile-cta {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 1020;
-    display: none;
-    
-    a {
-      display: block;
-      padding: 12px 24px;
-      background: var(--secondary-color);
-      color: var(--white-color);
-      text-decoration: none;
-      border-radius: 25px;
-      font-weight: 600;
-      box-shadow: 0 4px 12px rgba(66, 139, 65, 0.3);
-      transition: all 0.3s ease;
-      
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(66, 139, 65, 0.4);
-        color: var(--white-color);
-        text-decoration: none;
-      }
-    }
-  }
+  
 
   // Responsive styles
   @media (max-width: 768px) {
@@ -987,7 +961,7 @@ textarea {
           text-decoration: none;
           border: none;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-          min-width: clamp(96px, 10vw, 140px);
+          min-width: clamp(90px, 9.5vw, 120px);
           text-align: center;
           white-space: nowrap;
 
@@ -1054,8 +1028,13 @@ body.at-top {
   border-radius: 4px;
   cursor: pointer;
 
+  /* Hamburger menu should always be visible and consistent */
+  span {
+    background: var(--black-color) !important;
+  }
+  
   &.menu-ctrl-transparent span {
-    background-color: white;
+    background: var(--black-color) !important;
   }
 
   label {
@@ -1078,7 +1057,7 @@ body.at-top {
     }
     
     &:hover span {
-      background: var(--secondary-color);
+      background: var(--black-color);
     }
   }
   
@@ -2768,16 +2747,6 @@ body.at-top {
                 transform: scale(1.1);
               }
             }
-
-            img {
-              width: 100%;
-              border-radius: 20px 20px 0px 0px;
-              transition: var(--primary-transition);
-
-              &:hover {
-                transform: scale(1.1);
-              }
-            }
           }
         }
 
@@ -2836,16 +2805,6 @@ body.at-top {
             margin: 0;
             transform: scale(1);
             transition: var(--primary-transition);
-
-            img {
-              width: 100%;
-              border-radius: 20px 20px 0px 0px;
-              transition: var(--primary-transition);
-
-              &:hover {
-                transform: scale(1.1);
-              }
-            }
 
             img {
               width: 100%;
@@ -6287,6 +6246,7 @@ body.at-top {
           li {
             font-weight: 400;
             font-size: 14px;
+            line-height: 22px;
             color: #5b5b5b;
             margin-bottom: 20px;
           }
@@ -6301,9 +6261,10 @@ body.at-top {
       }
 
       .btn-primary {
-        background-color: var(--white-color);
+        // background-color: var(--primary-color);
         border: 1px solid var(--primary-color);
-        color: var(--primary-color);
+        // color: var(--white-color);
+        // height: 40px;
       }
     }
   }
@@ -7124,9 +7085,7 @@ h2.pdf-icon {
   text-align: center;
 }
 
-.mdl-con-btm {
-  position: relative;
-}
+ 
 
 .removeSelectedProduct {
   position: absolute;
@@ -8172,19 +8131,7 @@ td:hover .tooltip_custom {
   color: #6c757d;
 }
 
-// Minimal buttons
-.minimal-btn {
-  padding: 0.3rem 0.8rem;
-  background: transparent;
-  outline: none;
-  border: 1px solid black;
-  border-radius: 10px;
-  font-size: 15px;
-
-  :disabled {
-    border: 1px solid #00000067 !important;
-  }
-}
+ 
 
 // AI tools Styles
 
@@ -8259,25 +8206,7 @@ td:hover .tooltip_custom {
   width: 85vw;
 }
 
-/* Dropdown Menu Improvements */
-.dropdown-menu {
-  text-align: left !important;
-  min-width: 300px !important; /* Increase width by ~100px */
-  z-index: 9999 !important;
-  position: absolute !important;
-}
-
-.dropdown-menu .dropdown-item {
-  text-align: left !important;
-  white-space: normal !important;
-  line-height: 1.4 !important;
-  padding: 8px 16px !important;
-}
-
-.dropdown-menu .dropdown-item h6,
-.dropdown-menu .dropdown-item span {
-  text-align: left !important;
-}
+ 
 
 /* Comprehensive dropdown alignment fixes */
 .main-menu ul {
@@ -8380,7 +8309,7 @@ td:hover .tooltip_custom {
   .main-header .logo {
     flex-shrink: 0 !important;
     margin-right: auto !important;
-    width: clamp(65px, 6vw, 90px) !important;
+    width: clamp(65px, 6vw, 80px) !important;
   }
   
   .main-header .menu-ctrl {
@@ -8401,8 +8330,43 @@ td:hover .tooltip_custom {
   /* Mobile menu styling */
   .mobile-menu {
     text-align: left !important;
-    background: linear-gradient(135deg, #1e3a8a, #3b82f6) !important;
+    background: transparent !important;
     padding: 20px 0 !important;
+    
+    /* Ensure all text is white in mobile menu */
+    * {
+      color: #fff !important;
+    }
+    
+    /* Mobile menu items styling */
+    ul li {
+      color: #fff !important;
+      
+      a, span {
+        color: #fff !important;
+        font-size: 20px !important;
+        padding: 16px 25px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+      }
+    }
+    
+    /* Nested dropdown styling for mobile */
+    .dropdown-menu {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      
+      li {
+        background: transparent !important;
+        
+        a, span {
+          color: #fff !important;
+          padding: 14px 40px !important;
+          font-size: 18px !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+      }
+    }
   }
   
   .mobile-menu ul {
@@ -8596,18 +8560,18 @@ td:hover .tooltip_custom {
 
 /* Additional zoom-level responsive breakpoints */
 @media (max-width: 1100px) {
-  .main-header .logo { width: clamp(80px, 8vw, 120px); }
-  .main-header .main-menu ul li { font-size: clamp(0.5rem, 0.55vw, 0.6rem); }
+  .main-header .logo { width: clamp(80px, 8vw, 80px); }
+  .main-header .main-menu ul li { font-size: clamp(0.9rem, 1vw, 1rem); }
   .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.12vw, 2px) clamp(1px, 0.2vw, 2px); }
-  .main-header .supplier-cta .btn-supplier { min-width: clamp(55px, 4.5vw, 70px); font-size: clamp(0.55rem, 0.65vw, 0.65rem); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(50px, 4.5vw, 70px); font-size: clamp(0.55rem, 0.65vw, 0.65rem); }
   .main-header .header-right { gap: clamp(1px, 0.1vw, 2px); }
 }
 
 @media (max-width: 1000px) {
   .main-header .logo { width: clamp(75px, 7.5vw, 110px); }
-  .main-header .main-menu ul li { font-size: clamp(0.48rem, 0.52vw, 0.58rem); }
+  .main-header .main-menu ul li { font-size: clamp(0.9rem, 1vw, 1rem); }
   .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.1vw, 1px) clamp(1px, 0.15vw, 2px); }
-  .main-header .supplier-cta .btn-supplier { min-width: clamp(50px, 4vw, 65px); font-size: clamp(0.52rem, 0.6vw, 0.6rem); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(46px, 4vw, 65px); font-size: clamp(0.52rem, 0.6vw, 0.6rem); }
   .main-header .header-right { gap: clamp(0px, 0.08vw, 1px); }
 }
 
@@ -8618,21 +8582,13 @@ td:hover .tooltip_custom {
     min-height: 50px;
   }
   .main-header .logo { width: clamp(70px, 7vw, 100px); }
-  .main-header .main-menu ul li { font-size: clamp(0.45rem, 0.5vw, 0.55rem); }
+  .main-header .main-menu ul li { font-size: clamp(0.9rem, 1vw, 1rem); }
   .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: 1px 1px; }
-  .main-header .supplier-cta .btn-supplier { min-width: clamp(45px, 3.5vw, 60px); font-size: clamp(0.5rem, 0.58vw, 0.58rem); }
+  .main-header .supplier-cta .btn-supplier { min-width: clamp(42px, 3.5vw, 60px); font-size: clamp(0.5rem, 0.58vw, 0.58rem); }
 }
 
 
-.minimal-btn {
-  /* your minimal style base */
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
+.minimal-btn { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.3s ease; }
 
 /* Solid primary */
 .btn-primary-minimal {
@@ -8681,6 +8637,8 @@ button:disabled {
   z-index: 9999 !important;
   position: absolute !important;
   will-change: transform;
+  min-width: 300px !important;
+  text-align: left !important;
 }
 
 /* Ensure header allows dropdown visibility */

@@ -281,6 +281,75 @@ export default function Home() {
           .faq-category-content.faq-expanded * {
             visibility: visible;
           }
+
+          /* Mobile-first responsive design */
+          @media (max-width: 767px) {
+            /* Ensure proper spacing in mobile carousel */
+            .company-logos-carousel .slick-slide {
+              padding: 0 8px !important;
+              margin: 0 4px !important;
+            }
+            
+            .company-logos-carousel .slick-track {
+              margin-left: 0 !important;
+              margin-right: 0 !important;
+            }
+            
+            .company-logos-carousel .slick-list {
+              padding: 0 10px !important;
+            }
+            
+            .company-logos-carousel .slick-slide img {
+              max-width: 100px !important;
+              max-height: 50px !important;
+              margin: 0 auto !important;
+            }
+          }
+          
+          /* Desktop carousel spacing */
+          @media (min-width: 768px) {
+            .company-logos-carousel .slick-slide {
+              padding: 0 12px !important;
+              margin: 0 6px !important;
+            }
+            
+            .company-logos-carousel .slick-list {
+              padding: 0 20px !important;
+            }
+            
+            .company-logos-carousel .slick-slide img {
+              max-width: 120px !important;
+              max-height: 60px !important;
+              margin: 0 auto !important;
+            }
+          }
+          
+          /* Ensure carousel logos don't overlap */
+          .company-logos-carousel .slick-slide {
+            opacity: 1 !important;
+            transition: opacity 0.3s ease !important;
+          }
+          
+          .company-logos-carousel .slick-slide:hover {
+            opacity: 0.8 !important;
+          }
+          
+          /* Fix carousel track alignment */
+          .company-logos-carousel .slick-track {
+            display: flex !important;
+            align-items: center !important;
+          }
+          
+          .company-logos-carousel .slick-slide {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          
+          /* Ensure clear section separation */
+          section + section {
+            border-top: 1px solid rgba(0,0,0,0.05);
+          }
         `}</style>
         {/* Hero Section */}
         <div style={{position: 'relative'}}>
@@ -308,19 +377,19 @@ export default function Home() {
         {/* Floating Icons */}
          <div
             className="floatingIcon floatA d-none d-lg-block"
-            style={{ top: "30%", left: "55%" }}
+            style={{ top: "15%", left: "55%" }}
           >
             <FaRobot size={20} />
           </div>
           <div
             className="floatingIcon floatB d-none d-md-block"
-            style={{ top: "45%", left: "92%" }}
+            style={{ top: "45%", left: "90%" }}
           >
             <FaMicrochip size={20} />
           </div>
           <div
             className="floatingIcon floatC d-none d-md-block"
-            style={{ top: "65%", left: "55%" }}
+            style={{ top: "70%", left: "55%" }}
           >
             <FaProjectDiagram size={20} />
           </div>
@@ -1211,14 +1280,12 @@ export default function Home() {
                             <div className="d-flex align-items-center mb-2">
                               <small className="text-danger fw-bold me-2">Without:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faTimes} className="text-danger me-2" />
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>Missed opportunities</span>
                               </div>
                             </div>
                             <div className="d-flex align-items-center">
                               <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faPercent} className="text-success me-2" />
                                 <span className="text-success" style={{ fontSize: '0.9rem' }}>6-9% cost savings</span>
                               </div>
                             </div>
