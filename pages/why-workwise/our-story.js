@@ -24,7 +24,7 @@ const OurStoryPage = () => {
     return <div>Loading...</div>;
   }
   const handleMeetPeople = () => {
-    console.log('Meet the People Behind Workwise clicked');
+    router.push('/work-with-us/TeamTimeline');
   };
 
   const handleBookCall = () => setShowBookCall(true);
@@ -76,7 +76,7 @@ const OurStoryPage = () => {
       <HeroSection
         title={ourStoryData.hero.title}
         subtitle={ourStoryData.hero.subtitle}
-        layout="split"
+        layout="centered"
         size="medium"
         primaryButton={{
           label: ourStoryData.hero.ctaButton.label,

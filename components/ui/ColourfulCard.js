@@ -150,7 +150,7 @@ const ColourfulCard = ({
           <div className="text-center">
             <span 
               className="text-decoration-none fw-bold d-inline-flex align-items-center small"
-              style={{ color: iconColor || '#007bff' }}
+              style={{ color: iconColor || '#007bff', fontSize: '16px' }}
               onClick={(e) => {
                 e.stopPropagation();
                 handleClick();

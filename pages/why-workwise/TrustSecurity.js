@@ -179,7 +179,7 @@ const TrustSecurity = () => {
       <HeroSection
         title={trustSecurityData.hero.title}
         subtitle={trustSecurityData.hero.description}
-        layout="split"
+        layout="centered"
         size="medium"
         showVisual={true}
         primaryButton={{

@@ -192,7 +192,6 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
-              className="w-auto" 
               variant="primary" 
               size="lg"
               onClick={() => setShowBookCall(true)}
@@ -386,7 +385,6 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-4">
             <Button 
-              className="w-auto" 
               variant="secondary" 
               size="lg"
               onClick={() => {
@@ -422,7 +420,6 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
-              className="w-auto" 
               variant="primary" 
               size="lg"
               onClick={() => {
@@ -589,7 +586,6 @@ const StakeholderPage = () => {
             
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center mb-4">
               <Button 
-                className="w-auto" 
                 variant="white" 
                 size="lg"
                 onClick={() => setShowRegister(true)}
@@ -597,7 +593,7 @@ const StakeholderPage = () => {
                 Book a Demo
               </Button>
               <Button 
-                className="w-auto text-white border-white" 
+                className="text-white border-white" 
                 variant="outline-white" 
                 size="lg"
                 style={{
@@ -686,7 +682,6 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
-              className="w-auto" 
               variant="primary" 
               size="lg"
               onClick={() => setShowBookCall(true)}
@@ -717,7 +712,6 @@ const StakeholderPage = () => {
           </div>
           <div className="text-center mt-5">
             <Button 
-              className="w-auto" 
               variant="secondary" 
               size="lg"
               onClick={() => setShowBookCall(true)}

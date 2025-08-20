@@ -140,7 +140,8 @@ const DynamicCard = ({
           alignItems: 'center',
           justifyContent: 'center',
           borderBottom: imagePosition === 'top' ? '1px solid var(--border-color)' : 'none',
-          borderRight: imagePosition === 'left' ? '1px solid var(--border-color)' : 'none'
+          borderRight: imagePosition === 'left' ? '1px solid var(--border-color)' : 'none',
+          overflow: 'hidden'
         }}
       >
         {image ? (
@@ -150,7 +151,8 @@ const DynamicCard = ({
             style={{ 
               width: '100%', 
               height: '100%', 
-              objectFit: 'cover' 
+              objectFit: 'cover',
+              objectPosition: 'center'
             }}
           />
         ) : (
@@ -174,7 +176,8 @@ const DynamicCard = ({
               fontSize: size === 'large' ? '0.8rem' : '0.75rem',
               fontWeight: '600',
               backgroundColor: getCategoryColor(category || status, type).bg,
-              color: getCategoryColor(category || status, type).text
+              color: getCategoryColor(category || status, type).text,
+              zIndex: 1
             }}
           >
             {category || status}
@@ -356,14 +359,17 @@ const DynamicCard = ({
       style={{ 
         borderRadius: '8px', 
         overflow: 'hidden',
+        minHeight: '400px',
+        display: 'flex',
+        flexDirection: 'column',
         ...style
       }}
       {...props}
     >
       {imagePosition === 'left' ? (
-        <div className="d-flex">
+        <div className="d-flex h-100">
           {renderImage()}
-          <div className={`card-body ${config.padding} flex-grow-1`}>
+          <div className={`card-body ${config.padding} flex-grow-1 d-flex flex-column`}>
             {renderMetadata()}
             <h5 className="card-title fw-bold text-dark mb-2" style={{ fontSize: config.titleSize, lineHeight: '1.3' }}>
               {title}
@@ -375,17 +381,19 @@ const DynamicCard = ({
             )}
             {renderParticipationTypes()}
             {description && (
-              <p className="text-muted mb-3" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
+              <p className="text-muted mb-3 flex-grow-1" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
                 {description}
               </p>
             )}
-            {renderActions()}
+            <div className="mt-auto">
+              {renderActions()}
+            </div>
           </div>
         </div>
       ) : (
         <>
           {renderImage()}
-          <div className={`card-body ${config.padding}`}>
+          <div className={`card-body ${config.padding} d-flex flex-column h-100`}>
             {type === 'event' ? renderEventMetadata() : type === 'news' ? renderNewsMetadata() : renderMetadata()}
             <h5 className="card-title fw-bold text-dark mb-2" style={{ fontSize: config.titleSize, lineHeight: '1.3' }}>
               {title}
@@ -397,23 +405,25 @@ const DynamicCard = ({
             )}
             {renderParticipationTypes()}
             {description && (
-              <p className="text-muted mb-3" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
+              <p className="text-muted mb-3 flex-grow-1" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
                 {description}
               </p>
             )}
-            {type === 'news' ? (
-              <div className="d-flex align-items-center justify-content-between">
-                <span className="text-primary" style={{ 
-                  fontSize: config.descriptionSize, 
-                  fontWeight: '500' 
-                }}>
-                  {publisher}
-                </span>
-                {renderActions()}
-              </div>
-            ) : (
-              renderActions()
-            )}
+            <div className="mt-auto">
+              {type === 'news' ? (
+                <div className="d-flex align-items-center justify-content-between">
+                  <span className="text-primary" style={{ 
+                    fontSize: config.descriptionSize, 
+                    fontWeight: '500' 
+                  }}>
+                    {publisher}
+                  </span>
+                  {renderActions()}
+                </div>
+              ) : (
+                renderActions()
+              )}
+            </div>
           </div>
         </>
       )}

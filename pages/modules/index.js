@@ -132,11 +132,11 @@ const ModulePage = () => {
         router.push('/ai-tools/technical-summary'); // technical summary tool
         break;
       case 'negotiation':
-        router.push('/vendor/all'); // find vendor (temporary solution)
+       router.push('/vendor/all');
         break;
       case 'payments':
         // Payments CTA yet to be finalized - for now open contact modal
-        setShowCallModal(true);
+        router.push('/vendor/all');
         break;
       default:
         console.log(`${moduleData.hero.primaryButton.label} clicked`);
@@ -180,10 +180,52 @@ const ModulePage = () => {
         .card {
           border: none !important;
           background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+          height: 100% !important;
         }
         
         .card:hover {
           background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+        }
+        
+        /* Mobile card sizing fixes */
+        @media (max-width: 768px) {
+          .col-md-4 {
+            margin-bottom: 1rem !important;
+          }
+          
+          .card {
+            min-height: auto !important;
+            height: auto !important;
+          }
+          
+          .card-body {
+            padding: 1.5rem !important;
+          }
+          
+          /* Ensure all cards have consistent height on mobile */
+          .row .col-md-4 {
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .row .col-md-4 > div {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .row .col-md-4 .card {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .row .col-md-4 .card .card-body {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+          }
         }
       `}</style>
       
@@ -191,6 +233,7 @@ const ModulePage = () => {
       <HeroSection
         title={moduleData.hero.title}
         subtitle={moduleData.hero.subtitle}
+        layout="centered"
         primaryButton={{
           ...moduleData.hero.primaryButton,
           onClick: handlePrimaryAction
@@ -214,8 +257,8 @@ const ModulePage = () => {
           
           <div className="row g-4">
             {moduleData.benefits.features.map((feature, index) => (
-              <div key={index} className="col-md-4">
-                <div className="shadow-lg rounded-4">
+              <div key={index} className="col-md-4 d-flex">
+                <div className="shadow-lg rounded-4 w-100">
                   <FeatureCard
                     icon={(props) => <FontAwesomeIcon icon={featureIcons[index]} {...props} />}
                     iconBgColor={feature.iconBgColor}
@@ -240,7 +283,7 @@ const ModulePage = () => {
           
           <div className="row g-4">
             {moduleData.howItWorks.steps.map((step, index) => (
-              <div key={index} className="col-md-4">
+              <div key={index} className="col-md-4 d-flex">
                 <FeatureCard
                   icon={(props) => <FontAwesomeIcon icon={stepIcons[index]} {...props} />}
                   iconBgColor="bg-light"
@@ -335,7 +378,6 @@ const ModulePage = () => {
             variant={moduleData.hero.primaryButton.variant || 'primary'}
             icon={moduleData.hero.primaryButton.icon || 'none'}
             onClick={handlePrimaryAction}
-            className="w-100"
           />
         </div>
       </div>

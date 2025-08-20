@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button as ReactBootstrapButton } from 'react-bootstrap';
 
 const Button = React.forwardRef(({ 
@@ -8,8 +8,26 @@ const Button = React.forwardRef(({
   label,
   icon = "none", // "arrow", "phone", "none"
   children,
+  style: styleProp,
   ...props 
 }, ref) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // Check on mount
+    checkMobile();
+    
+    // Add event listener
+    window.addEventListener('resize', checkMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const getButtonClasses = () => {
     let classes = "";
     
@@ -50,12 +68,34 @@ const Button = React.forwardRef(({
     }
   };
 
+  const getMinWidthBySize = () => {
+    switch (size) {
+      case "sm":
+        return 160;
+      case "lg":
+        return 220;
+      default:
+        return 200; // md/default
+    }
+  };
+
+  // Base style with auto width for all buttons
+  const baseStyle = {
+    whiteSpace: 'nowrap',
+    width: 'auto',
+    minWidth: 'auto',
+  };
+
+  // Apply styles
+  const finalStyle = { ...baseStyle, ...(styleProp || {}) };
+
   if (variant === "gradient") {
     return (
       <ReactBootstrapButton
         variant={getVariant()}
         className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
+        style={finalStyle}
         {...props}
       >
         {/* Gradient background effect */}
@@ -82,9 +122,10 @@ const Button = React.forwardRef(({
         variant={getVariant()}
         className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
+        style={finalStyle}
         {...props}
       >
-        <div className="d-flex align-items-center">
+        <div className="d-flex align-items-center justify-content-center">
           <span>{label || children}</span>
         </div>
       </ReactBootstrapButton>
@@ -96,6 +137,7 @@ const Button = React.forwardRef(({
       variant={getVariant()}
       className={`${getButtonClasses()} ${className || ''}`}
       ref={ref}
+      style={finalStyle}
       {...props}
     >
       <div className="d-flex align-items-center justify-content-center">

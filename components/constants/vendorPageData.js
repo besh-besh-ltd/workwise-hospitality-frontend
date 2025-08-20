@@ -12,18 +12,8 @@ export const vendorPageData = {
         color: "#10B981"
       },
       {
-        icon: <FontAwesomeIcon icon={faBuilding} />,
-        text: "PSU Approved",
-        color: "#10B981"
-      },
-      {
         icon: <FontAwesomeIcon icon={faShield} />,
         text: "Secure & Private",
-        color: "#10B981"
-      },
-      {
-        icon: <FontAwesomeIcon icon={faMoneyBill} />,
-        text: "No Bidding Fees",
         color: "#10B981"
       }
     ],

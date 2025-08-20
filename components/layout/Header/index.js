@@ -247,17 +247,40 @@ const websiteMenu = [
     label: "Who We Serve", 
     type: "dropdown",
     options: [
-      { label: "Stakeholders", href: "/who-we-serve/Stakeholder" },
-      { label: "Industries We Serve", href: "/who-we-serve/IndustryPage" },
+      { 
+        label: "Stakeholders", 
+        type: "nested-dropdown",
+        options: [
+          { label: "EPCs / Contractors", href: "/who-we-serve/Stakeholder/epcs" },
+          { label: "Turnkey Project Firms", href: "/who-we-serve/Stakeholder/turnkey" },
+          { label: "Project Consultants", href: "/who-we-serve/Stakeholder/consultants" },
+          { label: "Industrial Clients", href: "/who-we-serve/Stakeholder/industrial-clients" },
+          { label: "Vendors & OEMs", href: "/for-vendors" },
+        ]
+      },
+      { 
+        label: "Industries We Serve", 
+        type: "nested-dropdown",
+        options: [
+          { label: "Power", href: "/who-we-serve/IndustryPage/power" },
+          { label: "Energy", href: "/who-we-serve/IndustryPage/energy" },
+          { label: "Petrochemical & Chemical", href: "/who-we-serve/IndustryPage/petrochemical" },
+          { label: "Steel & Cement", href: "/who-we-serve/IndustryPage/steel-cement" },
+          { label: "Infrastructure", href: "/who-we-serve/IndustryPage/infrastructure" },
+          { label: "Heavy Engineering & Machine Tools", href: "/who-we-serve/IndustryPage/heavy-equipment" },
+          { label: "Marine & Mining", href: "/who-we-serve/IndustryPage/marine-mining" },
+        ]
+      },
       { 
         label: "Disciplines We Cover", 
         type: "nested-dropdown",
         options: [
-          { label: "Civil", href: "/solutions/civil" },
-          { label: "Mechanical", href: "/solutions/mechanical" },
           { label: "Electrical", href: "/solutions/electrical" },
+          { label: "Mechanical", href: "/solutions/mechanical" },
+          { label: "Civil", href: "/solutions/civil" },
+          { label: "HVAC", href: "/solutions/hvac" },
+          { label: "Fire & Safety", href: "/solutions/fire-engineering" },
           { label: "Chemical", href: "/solutions/chemical" },
-          { label: "Fire Engineering", href: "/solutions/fire-engineering" },
         ]
       },
     ]
@@ -288,7 +311,7 @@ const websiteMenu = [
       { label: "Blogs", href: "https://blog.letsworkwise.com/", external: true },
       { label: "Events", href: "/insights/events" },
       { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
-      { label: "AI in Procurement – Use Cases", href: "/insights/ai-procurement" },
+      { label: "AI in Procurement – Use Cases", href: "javascript:void(0)", upcoming: true },
       { label: "Trends in EPC Procurement", href: "/insights/epc-trends" },
       { label: "Workwise in News", href: "/insights/news" },
     ]
@@ -460,7 +483,8 @@ const Header = () => {
             return "always-white"; // never transparent for logged-in areas
           }
           if (pathname === "/") {
-            return isScrolled ? "scrolled hero-page" : "transparent hero-page";
+            // Force non-transparent header when mobile menu is open to match scrolled styling
+            return (menuClass || isScrolled) ? "scrolled hero-page" : "transparent hero-page";
           }
           return "scrolled"; // default public pages are white
         })()}`}
@@ -511,7 +535,6 @@ const Header = () => {
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
-              pathname?.startsWith("/ai-tools") ||
               (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
               pathname === "/") && (
               <>
@@ -689,7 +712,7 @@ const Header = () => {
                 </div>
 
                 {/* Mobile Menu Toggle */}
-                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`}>
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`} style={{ marginLeft: '8px' }}>
                   <label
                     htmlFor="menu-toggle"
                     onClick={() => setMenuClass(!menuClass)}

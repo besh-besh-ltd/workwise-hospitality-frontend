@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faCloudArrowUp, faPlay, faLock, faEyeSlash, faUsers, faListAlt, faFileAlt, faCalculator } from '@fortawesome/free-solid-svg-icons';
 import { FaUpload, FaBrain, FaCheckCircle, FaBuilding, FaHardHat, FaProjectDiagram, FaBolt, FaMicrochip, FaRobot } from 'react-icons/fa';
 import Slider from 'react-slick';
+import * as XLSX from 'xlsx';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
@@ -271,24 +272,27 @@ const AiToolPage = () => {
     try {
       switch(toolData.slug) {
         case 'cost-estimation':
-          handleCostEstimationRequest(formData);
+          await handleCostEstimationRequest(formData);
           break;
         
         case 'tender-summary':
-          handleTenderSummaryRequest(formData);
+          await handleTenderSummaryRequest(formData);
           break;
           
         case 'technical-summary':
-          handleTechnicalSummaryRequest(formData);
+          await handleTechnicalSummaryRequest(formData);
           break;
         
         case 'boq-simplification':
-          handleBoqSimplificaitonRequest(formData);
+          await handleBoqSimplificaitonRequest(formData);
           break;
       }
     } catch (error) {
       setFormError(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
       toast.error(error?.response?.data?.message ?? error.message ?? "Something went wrong while uploading your file, please try again in sometime!")
+    } finally {
+       setFile(null);
+       setFileName(null);
     }
   };
 
@@ -1177,20 +1181,25 @@ const AiToolPage = () => {
                   type="button"
                   className="btn btn-primary"
                   onClick={() => {
-                    // Download functionality
-                    const summaryText = JSON.stringify(technicalSummary, null, 2);
-                    const blob = new Blob([summaryText], { type: 'application/json' });
+                    const dataArray = technicalSummary.structuredData.technicalSpecifications;
+                    const ws = XLSX.utils.json_to_sheet(dataArray);
+
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { type: 'application/octet-stream' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'technical-summary.json';
+                    a.download = 'technical-summary.xlsx';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                   }}
                 >
-                  Download JSON
+                  Download Excel
                 </button>
               </div>
             </div>
