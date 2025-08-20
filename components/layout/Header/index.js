@@ -455,7 +455,7 @@ const Header = () => {
     <>
       <header
         className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
-          const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
+          const isPrivate = pathname?.startsWith("/dashboard");
           if (isPrivate ) {
             return "always-white"; // never transparent for logged-in areas
           }
@@ -511,7 +511,8 @@ const Header = () => {
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
-               pathname?.startsWith("/ai-tools") ||
+              pathname?.startsWith("/ai-tools") ||
+              pathname?.startsWith("/vendor") ||
               pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
