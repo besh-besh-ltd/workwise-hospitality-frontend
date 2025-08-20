@@ -388,7 +388,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                 minWidth: 340,
                 background: 'rgba(255, 255, 255, 0.98)',
                 backdropFilter: 'blur(20px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                // boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
                 borderRadius: 16,
                 padding: '12px 0',
                 margin: 0,
@@ -471,17 +471,11 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       onMouseEnter={(e) => {
                         if (!isMobile) {
                         handleNestedMouseEnter(index);
-                        e.currentTarget.style.color = 'var(--secondary-color)';
-                        e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                        e.currentTarget.style.transform = 'translateX(4px)';
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isMobile) {
                         handleNestedMouseLeave();
-                        e.currentTarget.style.color = '#333';
-                        e.currentTarget.style.background = 'transparent';
-                        e.currentTarget.style.transform = 'translateX(0)';
                         }
                       }}
                       style={{
@@ -575,16 +569,6 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                                   lineHeight: '1.4',
                                   borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
                                 }}
-                                onMouseEnter={e => {
-                                  e.currentTarget.style.color = 'var(--secondary-color)';
-                                  e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                                  e.currentTarget.style.transform = 'translateX(4px)';
-                                }}
-                                onMouseLeave={e => {
-                                  e.currentTarget.style.color = isMobile ? '#fff' : '#333';
-                                  e.currentTarget.style.background = 'transparent';
-                                  e.currentTarget.style.transform = 'translateX(0)';
-                                }}
                               >
                                 {nestedOpt.label}
                               </a>
@@ -606,7 +590,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       }}
                       style={{
                         display: 'block',
-                        padding: isMobile ? '14px 40px' : '12px 20px',
+                        padding: isMobile ? '14px 40px' : '10px 15px',
                         fontWeight: opt.isHighlighted ? 600 : (isMobile ? 400 : 500),
                         textDecoration: 'none',
                         transition: 'all 0.2s ease',
@@ -627,31 +611,23 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       onMouseEnter={e => {
                         if (!isMobile) {
                           if (!(label === 'Insights & Resources' && isInsightsUpcoming(opt))) {
-                            if (opt.isHighlighted) {
-                              e.currentTarget.style.color = '#FF4500';
-                              e.currentTarget.style.background = 'rgba(255, 107, 53, 0.2)';
-                            } else {
-                              e.currentTarget.style.color = 'var(--secondary-color)';
-                              e.currentTarget.style.background = 'rgba(66, 139, 65, 0.08)';
-                            }
+                            e.currentTarget.style.background = opt.isHighlighted
+                              ? 'rgba(255, 107, 53, 0.2)'
+                              : 'rgba(66, 139, 65, 0.08)';
                             e.currentTarget.style.transform = 'translateX(4px)';
                           }
                         }
                       }}
                       onMouseLeave={e => {
                         if (!isMobile) {
-                          if (opt.isHighlighted) {
-                            e.currentTarget.style.color = '#FF6B35';
-                            e.currentTarget.style.background = 'rgba(255, 107, 53, 0.1)';
-                          } else {
-                            e.currentTarget.style.color = '#333';
-                            e.currentTarget.style.background = 'transparent';
-                          }
+                          e.currentTarget.style.background = opt.isHighlighted
+                            ? 'rgba(255, 107, 53, 0.1)'
+                            : 'transparent';
                           e.currentTarget.style.transform = 'translateX(0)';
                         }
                       }}
                     >
-                      <span>{opt.label}</span>
+                      {opt.label}
                       {label === 'Insights & Resources' && isInsightsUpcoming(opt) && (
                         <span style={{
                           marginLeft: 8,
