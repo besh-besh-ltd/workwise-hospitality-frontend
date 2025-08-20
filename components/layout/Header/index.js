@@ -561,7 +561,7 @@ const Header = () => {
                         <ul>
                           <li className="">
                             <Link href="" onClick={handleUserIconClick}>
-                              <FontAwesomeIcon icon={faUser} />
+                              <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
                             </Link>
                           </li>
                         </ul>
