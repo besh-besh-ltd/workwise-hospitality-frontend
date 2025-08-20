@@ -708,14 +708,14 @@ const RfqManagementPreview = () => {
                         </button>
 
                         {type == "buyer-view" &&
-                          (rfqDetails.total_quotes_received > 0 ? (
+                          (rfqDetails?.is_quotes_present  ? (
                             <Link
                               href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
                             >
                               <button
                                 type="button"
                                 className="btn btn-secondary "
-                                // style={{ width: "260px" }}
+                                style={{ width: "270px" }}
                               >
                                 Compare Received Quotes
                               </button>
