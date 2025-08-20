@@ -1281,14 +1281,12 @@ export default function Home() {
                             <div className="d-flex align-items-center mb-2">
                               <small className="text-danger fw-bold me-2">Without:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faTimes} className="text-danger me-2" />
                                 <span className="text-danger" style={{ fontSize: '0.9rem' }}>Missed opportunities</span>
                               </div>
                             </div>
                             <div className="d-flex align-items-center">
                               <small className="text-success fw-bold me-2">With:</small>
                               <div className="d-flex align-items-center">
-                                <FontAwesomeIcon icon={faPercent} className="text-success me-2" />
                                 <span className="text-success" style={{ fontSize: '0.9rem' }}>6-9% cost savings</span>
                               </div>
                             </div>
