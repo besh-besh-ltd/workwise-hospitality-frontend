@@ -485,7 +485,7 @@ textarea {
     }
 
     .menu-ctrl span {
-      background-color: #ffffff;
+      background-color: var(--black-color);
     }
 
     /* Dropdown menu styling for transparent state */
@@ -707,7 +707,7 @@ textarea {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      height: clamp(28px, 2.5vw, 36px);
+      height: clamp(28px, 2.5vw, 43px);
       padding: 0 clamp(8px, 1vw, 16px);
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
       color: var(--black-color);
@@ -753,7 +753,7 @@ textarea {
 
   @media (max-width: 1600px) {
     .main-menu ul { gap: clamp(0px, 0.1vw, 2px); }
-    .main-menu ul li { font-size: 15px; }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(2px, 0.3vw, 5px) clamp(3px, 0.4vw, 6px); }
     .supplier-cta .btn-supplier { min-width: clamp(70px, 6.5vw, 110px); padding: 0 clamp(6px, 0.8vw, 10px); }
     .header-right { gap: clamp(1px, 0.3vw, 4px); }
@@ -761,7 +761,7 @@ textarea {
 
   @media (max-width: 1400px) {
     .main-menu ul { gap: clamp(0px, 0.08vw, 1px); }
-    .main-menu ul li { font-size: 15px; }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.25vw, 4px) clamp(2px, 0.35vw, 5px); }
     .supplier-cta .btn-supplier { min-width: clamp(64px, 6vw, 100px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
     .header-right { gap: clamp(1px, 0.25vw, 3px); }
@@ -770,7 +770,7 @@ textarea {
   @media (max-width: 1280px) {
     .logo { width: clamp(80px, 8vw, 100px); }
     .main-menu ul { gap: clamp(0px, 0.05vw, 1px); }
-    .main-menu ul li { font-size: 15px; }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.2vw, 3px) clamp(2px, 0.3vw, 4px); }
     .header-right { gap: clamp(1px, 0.2vw, 3px); }
     .supplier-cta .btn-supplier { min-width: clamp(60px, 5.5vw, 90px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
@@ -779,7 +779,7 @@ textarea {
 
   @media (max-width: 1180px) {
     .logo { width: clamp(85px, 8.5vw, 110px); }
-    .main-menu ul li { font-size: 15px; }
+    .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: clamp(1px, 0.15vw, 2px) clamp(1px, 0.25vw, 3px); }
     .supplier-cta .btn-supplier { min-width: clamp(56px, 5vw, 80px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
     .header-right { gap: clamp(1px, 0.15vw, 2px); }
@@ -1057,7 +1057,7 @@ body.at-top {
     }
     
     &:hover span {
-      background: var(--secondary-color);
+      background: var(--black-color);
     }
   }
   

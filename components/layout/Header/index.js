@@ -551,6 +551,70 @@ const Header = () => {
                     </Link>
                   </div>
 
+                  {/* Logged-in profile icon on public navbar (same as dashboard) */}
+                  {loggedinUser && loggedinUser?.name && !(
+                    pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")
+                  ) && (
+                    <div className="header-right align-items-center forLoggedIn hidemobile">
+                      <nav className="main-menu">
+                        <ul>
+                          <li className="">
+                            <Link href="" onClick={handleUserIconClick}>
+                              <FontAwesomeIcon icon={faUser} />
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+
+                      {popoverVisible && (
+                        <div className="popover-account" ref={popoverRef}>
+                          <ul className="vertical-links">
+                            {roleMenus[currentUserType]
+                              ?.filter((menuType) => menuType.targetMenu == "popup")
+                              ?.map((item) => (
+                                <li
+                                  key={item.href}
+                                  className={pathname === item.href ? "active" : ""}
+                                >
+                                  <Link
+                                    href={item.href}
+                                    onClick={() => setPopoverVisible(false)}
+                                  >
+                                    {item.label}
+                                  </Link>
+                                </li>
+                              ))}
+
+                            <li
+                              className={
+                                router.pathname == "/change-password" ? "active" : ""
+                              }
+                            >
+                              <Link
+                                href={`/change-password?redirect_url=${window.location.pathname}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Change Password
+                              </Link>
+                            </li>
+
+                            <li>
+                              <Link
+                                href=""
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleLogout(e);
+                                }}
+                              >
+                                Logout
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div
                     className={`extra-buttons hideDesktop ${
                       loggedinUser && loggedinUser?.name && "hasloggedinuser"
