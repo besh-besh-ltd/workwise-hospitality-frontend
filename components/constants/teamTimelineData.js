@@ -19,7 +19,7 @@ export const teamTimelineData = {
       name: 'Kushal Shah',
       title: 'Backend Developer',
       linkedin: 'https://www.linkedin.com/in/kushaldevs/',
-      description: 'NIT Trichy',
+      description: 'Multi-disciplinary engineer',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690879254-e4f189bd-9071-43eb-86f8-a9cfe45fd0be.png'
     },
     
@@ -28,7 +28,7 @@ export const teamTimelineData = {
       name: 'Vineet Singh',
       title: 'Software Tester',
       linkedin: 'https://www.linkedin.com/in/vineet-singh-82a394323/',
-      description: 'Masai School',
+      description: 'Quality assurance expert',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690822965-38b06a10-91b1-4098-b179-7e8e60de6769.jpeg'
     },
     {
@@ -44,7 +44,7 @@ export const teamTimelineData = {
       name: 'Ayush Singh',
       title: 'DevOps Engineer',
       linkedin: 'http://linkedin.com/in/ayush-singh-76a477208',
-      description: 'IIT Delhi',
+      description: 'Backbone of Infrastructure',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755691657042-5b73a231-e72e-4de9-8623-819a0bb1292a.jpeg'
     },
     {
@@ -68,7 +68,7 @@ export const teamTimelineData = {
       name: 'Sayanka Sarkar',
       title: 'Product Team Lead',
       linkedin: 'https://www.linkedin.com/in/sayanka-sarkar-700392318/',
-      description: 'RSMVV College',
+      description: 'Product strategy innovator',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690839125-b110d651-e6ad-43a8-b9f6-187ccbd6f7cd.jpeg'
     },
     {
@@ -76,7 +76,7 @@ export const teamTimelineData = {
       name: 'Indrani Nandi',
       title: 'Market Research Associate',
       linkedin: 'https://www.linkedin.com/in/indrani-nandi-a7969318b/',
-      description: 'Greater Kolkata College of Engineering and Management',
+      description: 'Market analytics enthusiast',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755692281903-b95894b0-83c5-450e-95bc-37cbce28018c.jpeg'
     },
     {
@@ -84,7 +84,7 @@ export const teamTimelineData = {
       name: 'Rupsa Tapadar',
       title: 'Data Quality Analyst',
       linkedin: 'https://www.linkedin.com/in/rupsa-tapadar-595a1a339/',
-      description: 'Brahmananda Keshab Chandra College',
+      description: 'Data precision specialist',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690870027-f5f212e2-607a-4192-8bb6-f916fde3f431.jpg'
     },
     {
@@ -101,7 +101,7 @@ export const teamTimelineData = {
       name: 'Suchorita Choudhury',
       title: 'Data Analyst',
       linkedin: 'https://www.linkedin.com/in/suchorita-choudhury-2558bb32a/',
-      description: 'Muralidhar Girls College',
+      description: 'Business intelligence expert',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690861316-51d08607-f5ca-44d4-8703-7eaa1ac304bc.jpg'
     },
     {
@@ -109,7 +109,7 @@ export const teamTimelineData = {
       name: 'Payel Haldar',
       title: 'Customer Success',
       linkedin: 'https://www.linkedin.com/in/payel-haldar-1153b9246/',
-      description: 'Camellia Institute of Technology',
+      description: 'Client relationship champion',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690848213-4f3a917f-f5c9-4dd8-a06f-0a48c2c809d3.jpg'
     },
     
@@ -118,7 +118,7 @@ export const teamTimelineData = {
       name: 'Chandana Pramanik',
       title: 'Market Research Associate',
       linkedin: 'https://www.linkedin.com/in/chandana-pramanik-627b76310/',
-      description: 'Rabindra Bharati University',
+      description: 'Consumer insights researcher',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690807842-6ea5a52c-3cce-4883-9334-3244db409ef2.jpeg'
     },
     {
@@ -126,7 +126,7 @@ export const teamTimelineData = {
       name: 'Rudra Sankar Bhattacharya',
       title: 'Market Research Associate',
       linkedin: 'https://www.linkedin.com/in/rudra-sankar-bhattacharya-2a0368200/',
-      description: 'Guru Nanak Institute Of Technology',
+      description: 'Strategic research analyst',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690830984-d7aac6a0-db26-4d1f-bdd9-2280f263aaeb.jpg'
     },
     {
@@ -134,7 +134,7 @@ export const teamTimelineData = {
       name: 'Imran Ansari',
       title: 'Sales Lead',
       linkedin: 'https://www.linkedin.com/in/imran-ansari-87b073182',
-      description: 'Kirori Mal College',
+      description: 'Revenue growth strategist',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690798567-5035e600-fec1-4310-a217-4b0c2530a4c8.jpeg'
     },
     {

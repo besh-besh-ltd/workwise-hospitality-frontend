@@ -146,9 +146,9 @@ const EventsPage = () => {
 
           {/* Events Grid */}
           {upcomingEvents.length > 0 ? (
-            <div className="row g-4">
+            <div className="row g-4 justify-content-center">
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="col-md-6 col-lg-4">
+                <div key={event.id} className="col-md-6 col-lg-5 col-xl-4">
                   <DynamicCard
                     type="event"
                     size="medium"
@@ -192,9 +192,9 @@ const EventsPage = () => {
 
           {/* Events Grid */}
           {pastEvents.length > 0 ? (
-            <div className="row g-4">
+            <div className="row g-4 justify-content-center">
               {pastEvents.map((event) => (
-                <div key={event.id} className="col-md-6 col-lg-4">
+                <div key={event.id} className="col-md-6 col-lg-5 col-xl-4">
                   <DynamicCard
                     type="event"
                     size="medium"

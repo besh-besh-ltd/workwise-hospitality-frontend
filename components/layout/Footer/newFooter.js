@@ -136,11 +136,6 @@ const Footer = () => {
                   </a>
                 </li>
                 <li className="mb-2">
-                  <a href="/procurement-guide" className="text-decoration-none" style={{ color: '#bbb' }}>
-                    Procurement Guide
-                  </a>
-                </li>
-                <li className="mb-2">
                   <a href="/insights/news" className="text-decoration-none" style={{ color: '#bbb' }}>
                     News
                   </a>
@@ -155,34 +150,23 @@ const Footer = () => {
               <h6 className="text-white fw-bold mb-3">Find Suppliers by Location</h6>
               <div className="row">
                 <div className="col-md-4 mb-3">
-                  <div className="d-flex flex-wrap gap-2">
-                    <a href="/vendor/supplier-ahmedabad-gujarat" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
-                      Supplier in Ahmedabad
-                    </a>
-                    <span style={{ color: '#666' }}>|</span>
-                    <a href="/vendor/supplier-vadodara-gujarat" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
-                      Supplier in Vadodara
-                    </a>
-                  </div>
-                </div>
-                <div className="col-md-4 mb-3">
-                  <a href="/vendor/electrical-item-vendor-bhiwandi-maharashtra" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
-                    Electrical Item Vendor in Bhiwandi
+                  <a href="https://letsworkwise.com/vendor/erw-pipe-line-pipes-erw-Ahmedabad" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
+                    ERW Pipe Line Pipes in Ahmedabad
                   </a>
                 </div>
                 <div className="col-md-4 mb-3">
-                  <a href="/vendor/fire-safety-supplier-chennai-tamilnadu" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
-                    Fire Safety Supplier in Chennai
+                  <a href="https://letsworkwise.com/vendor/line-pipes-erw-Kolkata" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
+                    Line Pipes ERW in Kolkata
                   </a>
                 </div>
                 <div className="col-md-4 mb-3">
-                  <a href="/vendor/mechanical-fabrication-vendor-pune-maharashtra" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
-                    Mechanical Fabrication Vendors in Pune
+                  <a href="https://letsworkwise.com/vendor/gi-pipe-delhi" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
+                    GI Pipe in Delhi
                   </a>
                 </div>
                 <div className="col-md-4 mb-3">
-                  <a href="/vendor/cable-tray-manufacturer-delhi" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
-                    Cable Tray Manufacturer in Delhi
+                  <a href="https://letsworkwise.com/vendor/flanges-mumbai" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
+                    Flanges in Mumbai
                   </a>
                 </div>
                 <div className="col-md-4 mb-3">
@@ -213,7 +197,7 @@ const Footer = () => {
             <div className="col-md-6 mb-3">
               <h6 className="text-white fw-bold mb-3">Legal</h6>
               <div className="d-flex flex-wrap gap-3">
-                <a href="/data-security-policy" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
+                <a href="/why-workwise/TrustSecurity" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
                   Data Security Policy
                 </a>
                 <a href="/privacypolicy" className="text-decoration-none" style={{ color: '#bbb', fontSize: '13px' }}>
