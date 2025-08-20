@@ -512,7 +512,7 @@ const Header = () => {
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
               pathname?.startsWith("/ai-tools") ||
-              pathname?.startsWith("/vendor") ||
+              (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
               pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
