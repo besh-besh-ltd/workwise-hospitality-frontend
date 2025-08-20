@@ -305,13 +305,13 @@ export const vendorPageData = {
       {
         breakpoint: 991,
         settings: {
-          slidesToShow: 4, // Show 4 logos on tablets
+          slidesToShow: 3, // Show 4 logos on tablets
         }
       },
       {
         breakpoint: 767,
         settings: {
-          slidesToShow: 4, // Show 4 logos on mobile as requested
+          slidesToShow: 2, // Show 4 logos on mobile as requested
           speed: 4000 // Even faster on mobile
         }
       }
