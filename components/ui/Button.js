@@ -98,7 +98,7 @@ const Button = React.forwardRef(({
       ref={ref}
       {...props}
     >
-      <div className="d-flex align-items-center">
+      <div className="d-flex align-items-center justify-content-center">
         <span>{label || children}</span>
       </div>
     </ReactBootstrapButton>

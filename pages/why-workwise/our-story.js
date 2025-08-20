@@ -1,19 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  Rocket,
-  Building,
-  Target,
-  Globe,
-  Users,
-  CheckCircle,
-  Star,
-  Phone,
-  ArrowRight
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRocket, faBuilding, faCrosshairs, faGlobe, faUsers, faCircleCheck, faStar, faPhone, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
 // Import reusable components
-import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { HeroSection } from '@/components/ui/HeroSection';
@@ -23,6 +13,7 @@ import { ourStoryData } from '@/components/constants/ourStoryData';
 
 const OurStoryPage = () => {
   const [mounted, setMounted] = useState(false);
+  const [showBookCall, setShowBookCall] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -36,9 +27,7 @@ const OurStoryPage = () => {
     console.log('Meet the People Behind Workwise clicked');
   };
 
-  const handleBookCall = () => {
-    console.log('Book a Call with the Workwise Team clicked');
-  };
+  const handleBookCall = () => setShowBookCall(true);
 
   const handleViewPositions = () => {
     router.push('/work-with-us/careers');
@@ -66,13 +55,13 @@ const OurStoryPage = () => {
         <div className="bg-white bg-opacity-20 rounded p-4">
           <div className="d-flex align-items-center justify-content-center mb-3">
             <div className="bg-white bg-opacity-30 rounded-circle p-3 me-3">
-              <Users size={24} />
+              <FontAwesomeIcon icon={faUsers} style={{ fontSize: '24px' }} />
             </div>
             <div className="bg-white bg-opacity-30 rounded-circle p-3 me-3">
-              <Building size={24} />
+              <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '24px' }} />
             </div>
             <div className="bg-white bg-opacity-30 rounded-circle p-3">
-              <Target size={24} />
+              <FontAwesomeIcon icon={faCrosshairs} style={{ fontSize: '24px' }} />
             </div>
           </div>
           <p className="mb-0 small">Our Journey from Pain to Platform</p>
@@ -146,7 +135,7 @@ const OurStoryPage = () => {
             {/* Left Column */}
             <div className="col-md-6">
               <FeatureCard
-                icon={CheckCircle}
+                icon={(props) => <FontAwesomeIcon icon={faCircleCheck} {...props} />}
                 iconBgColor="bg-success"
                 iconColor="text-white"
                 title={ourStoryData.mission.leftColumn.title}
@@ -154,7 +143,7 @@ const OurStoryPage = () => {
                   <div className="d-flex flex-column gap-3">
                     {ourStoryData.mission.leftColumn.benefits.map((benefit, index) => (
                       <div key={index} className="d-flex align-items-center">
-                        <CheckCircle className="text-success me-3" size={20} />
+                        <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                         <span className="text-muted">{benefit}</span>
                       </div>
                     ))}
@@ -167,7 +156,7 @@ const OurStoryPage = () => {
             {/* Right Column */}
             <div className="col-md-6">
               <FeatureCard
-                icon={CheckCircle}
+                icon={(props) => <FontAwesomeIcon icon={faCircleCheck} {...props} />}
                 iconBgColor="bg-success"
                 iconColor="text-white"
                 title={ourStoryData.mission.rightColumn.title}
@@ -175,7 +164,7 @@ const OurStoryPage = () => {
                   <div className="d-flex flex-column gap-3">
                     {ourStoryData.mission.rightColumn.benefits.map((benefit, index) => (
                       <div key={index} className="d-flex align-items-center">
-                        <CheckCircle className="text-success me-3" size={20} />
+                        <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                         <span className="text-muted">{benefit}</span>
                       </div>
                     ))}
@@ -211,7 +200,7 @@ const OurStoryPage = () => {
                 <div className="d-flex flex-column gap-3">
                   {ourStoryData.vision.points.map((point, index) => (
                     <div key={index} className="d-flex align-items-center">
-                      <CheckCircle className="text-success me-3" size={20} />
+                      <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                       <span className="text-muted">{point}</span>
                     </div>
                   ))}
@@ -449,7 +438,7 @@ const OurStoryPage = () => {
               className="btn btn-link text-primary p-0 border-0"
               style={{ textDecoration: 'none' }}
             >
-              {ourStoryData.team.ctaLink.text} <ArrowRight size={16} />
+              {ourStoryData.team.ctaLink.text} <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
             </button>
           </div>
         </div>
@@ -464,6 +453,23 @@ const OurStoryPage = () => {
           onClick: handleBookCall
         }}
       />
+      {showBookCall && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '600px' }}>
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header border-0 pb-0">
+                <h5 className="modal-title fw-bold">Book a Call</h5>
+                <button type="button" className="btn-close" onClick={() => setShowBookCall(false)} />
+              </div>
+              <div className="modal-body">
+                {/* Reuse global BookCall form */}
+                {/* Lazy require to avoid import cycles if any */}
+                {require('@/components/bookCall').default && React.createElement(require('@/components/bookCall').default)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

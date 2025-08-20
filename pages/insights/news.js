@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  Download,
-  Mail,
-  ExternalLink,
-  FileText
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDownload, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 
 // Import components
 import { DynamicCard } from '@/components/ui/DynamicCard';
@@ -153,7 +149,7 @@ const NewsPage = () => {
                     fontWeight: '500'
                   }}
                 >
-                  <Download size={16} className="me-2" />
+                  <FontAwesomeIcon icon={faDownload} className="me-2" style={{ fontSize: '16px' }} />
                   Download Press Kit
                 </button>
                 
@@ -169,7 +165,7 @@ const NewsPage = () => {
                     fontWeight: '500'
                   }}
                 >
-                  <Mail size={16} className="me-2" />
+                  <FontAwesomeIcon icon={faEnvelope} className="me-2" style={{ fontSize: '16px' }} />
                   Media Contact
                 </button>
               </div>

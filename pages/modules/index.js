@@ -2,21 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { getUserDetails } from '@/services/Auth';
 import storageInstance from '@/utils/storageInstance';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  Upload, 
-  Tag, 
-  Download, 
-  FileText, 
-  Brain, 
-  CheckCircle,
-  TrendingUp,
-  HelpCircle,
-  Search,
-  Users,
-  BarChart3,
-  MessageSquare,
-  CreditCard
-} from 'lucide-react';
+  faUpload,
+  faTag,
+  faDownload,
+  faFileAlt,
+  faBrain,
+  faCircleCheck,
+  faArrowTrendUp,
+  faCircleQuestion,
+  faSearch,
+  faUsers,
+  faChartBar,
+  faMessage,
+  faCreditCard
+} from '@fortawesome/free-solid-svg-icons';
 
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
@@ -83,12 +84,12 @@ const ModulePage = () => {
   // Icon mapping for different modules
   const getFeatureIcons = (moduleType) => {
     const iconMap = {
-      boq: [Upload, Tag, Download],
-      rfq: [FileText, MessageSquare, BarChart3],
-      vendors: [Search, Users, CheckCircle],
-      evaluation: [BarChart3, TrendingUp, Download],
-      negotiation: [MessageSquare, CheckCircle, FileText],
-      payments: [CreditCard, BarChart3, Users]
+      boq: [faUpload, faTag, faDownload],
+      rfq: [faFileAlt, faMessage, faChartBar],
+      vendors: [faSearch, faUsers, faCircleCheck],
+      evaluation: [faChartBar, faArrowTrendUp, faDownload],
+      negotiation: [faMessage, faCircleCheck, faFileAlt],
+      payments: [faCreditCard, faChartBar, faUsers]
     };
     return iconMap[moduleType] || [Upload, Tag, Download];
   };
@@ -96,14 +97,14 @@ const ModulePage = () => {
   // Icon mapping for how it works steps
   const getStepIcons = (moduleType) => {
     const iconMap = {
-      boq: [FileText, Brain, Download],
-      rfq: [FileText, Brain, MessageSquare],
-      vendors: [Search, Upload, Users],
-      evaluation: [FileText, BarChart3, Download],
-      negotiation: [MessageSquare, BarChart3, FileText],
-      payments: [FileText, CheckCircle, CreditCard]
+      boq: [faFileAlt, faBrain, faDownload],
+      rfq: [faFileAlt, faBrain, faMessage],
+      vendors: [faSearch, faUpload, faUsers],
+      evaluation: [faFileAlt, faChartBar, faDownload],
+      negotiation: [faMessage, faChartBar, faFileAlt],
+      payments: [faFileAlt, faCircleCheck, faCreditCard]
     };
-    return iconMap[moduleType] || [FileText, Brain, Download];
+    return iconMap[moduleType] || [faFileAlt, faBrain, faDownload];
   };
 
   const featureIcons = getFeatureIcons(currentModule);
@@ -216,7 +217,7 @@ const ModulePage = () => {
               <div key={index} className="col-md-4">
                 <div className="shadow-lg rounded-4">
                   <FeatureCard
-                    icon={featureIcons[index]}
+                    icon={(props) => <FontAwesomeIcon icon={featureIcons[index]} {...props} />}
                     iconBgColor={feature.iconBgColor}
                     iconColor={feature.iconColor}
                     description={feature.title}
@@ -241,7 +242,7 @@ const ModulePage = () => {
             {moduleData.howItWorks.steps.map((step, index) => (
               <div key={index} className="col-md-4">
                 <FeatureCard
-                  icon={stepIcons[index]}
+                  icon={(props) => <FontAwesomeIcon icon={stepIcons[index]} {...props} />}
                   iconBgColor="bg-light"
                   iconColor="text-muted"
                   description={step.title}
@@ -285,7 +286,7 @@ const ModulePage = () => {
                   <div className="d-flex flex-column gap-3">
                     {moduleData.customerSayings.realOutcomes.items.map((item, index) => (
                       <div key={index} className="d-flex align-items-center">
-                        <CheckCircle className="text-success me-3" size={20} />
+                        <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                         <span className="text-muted">{item}</span>
                       </div>
                     ))}
@@ -315,7 +316,7 @@ const ModulePage = () => {
       {/* Final CTA Section */}
       <CtaSection
         title={moduleData.finalCta.title}
-        icon={HelpCircle}
+        icon={(props) => <FontAwesomeIcon icon={faCircleQuestion} {...props} />}
         primaryButton={{
           ...moduleData.finalCta.primaryButton,
           onClick: handlePrimaryAction

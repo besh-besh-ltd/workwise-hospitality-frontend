@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Target, 
-  Zap, 
-  Building, 
-  Wrench, 
-  Settings, 
-  Waves,
-  MapPin,
-  Phone
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCrosshairs, faBolt, faBuilding, faWrench, faGear, faWater, faMapMarkerAlt, faPhone } from '@fortawesome/free-solid-svg-icons';
 
 // Import reusable components
 import { CtaSection } from '@/components/ui/CtaSection';
@@ -216,17 +208,17 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
   const getIcon = () => {
     switch (story.icon) {
       case 'zap':
-        return Zap;
+        return faBolt;
       case 'building':
-        return Building;
+        return faBuilding;
       case 'wrench':
-        return Wrench;
+        return faWrench;
       case 'settings':
-        return Settings;
+        return faGear;
       case 'waves':
-        return Waves;
+        return faWater;
       default:
-        return Target;
+        return faCrosshairs;
     }
   };
 
@@ -266,7 +258,7 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
 
   return (
     <FeatureCard
-      icon={IconComponent}
+      icon={(props) => <FontAwesomeIcon icon={IconComponent} {...props} />}
       iconBgColor="bg-light"
       iconColor={getIconColor()}
       title={story.industry}
@@ -286,7 +278,7 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
 
           {/* Location */}
           <div className="d-flex align-items-center mb-3">
-            <MapPin className="text-muted me-1" size={12} />
+            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: '12px' }} />
             <span className="text-muted small" style={{ fontSize: '0.8rem' }}>{story.location}</span>
           </div>
 
