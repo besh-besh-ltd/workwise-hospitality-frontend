@@ -552,7 +552,7 @@ const Header = () => {
                     </Link>
                   </div>
 
-                  {/* Logged-in profile icon on public navbar (same as dashboard) */}
+                  {/* Logged-in profile icon on public navbar*/}
                   {loggedinUser && loggedinUser?.name && !(
                     pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")
                   ) && (
@@ -739,7 +739,7 @@ const Header = () => {
                     <ul>
                       <li className="">
                         <Link href="" onClick={handleUserIconClick}>
-                          <FontAwesomeIcon icon={faUser} />
+                          <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
                         </Link>
                       </li>
                     </ul>
