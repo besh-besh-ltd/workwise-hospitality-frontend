@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button as ReactBootstrapButton } from 'react-bootstrap';
 
 const Button = React.forwardRef(({ 
@@ -11,6 +11,23 @@ const Button = React.forwardRef(({
   style: styleProp,
   ...props 
 }, ref) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    // Check on mount
+    checkMobile();
+    
+    // Add event listener
+    window.addEventListener('resize', checkMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const getButtonClasses = () => {
     let classes = "";
     
@@ -68,13 +85,28 @@ const Button = React.forwardRef(({
     minWidth: getMinWidthBySize(),
   };
 
+  // Check if we're in mobile view
+  // const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  
+  // Mobile-specific styles for centering and w-auto
+  const mobileStyles = isMobile ? {
+    width: 'auto',
+    minWidth: 'auto',
+    display: 'block',
+    margin: '0 auto',
+    textAlign: 'center'
+  } : {};
+
+  // Apply mobile styles only on mobile
+  const finalStyle = isMobile ? { ...baseStyle, ...mobileStyles, ...(styleProp || {}) } : { ...baseStyle, ...(styleProp || {}) };
+
   if (variant === "gradient") {
     return (
       <ReactBootstrapButton
         variant={getVariant()}
         className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
-        style={{ ...baseStyle, ...(styleProp || {}) }}
+        style={finalStyle}
         {...props}
       >
         {/* Gradient background effect */}
@@ -101,10 +133,10 @@ const Button = React.forwardRef(({
         variant={getVariant()}
         className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
-        style={{ ...baseStyle, ...(styleProp || {}) }}
+        style={finalStyle}
         {...props}
       >
-        <div className="d-flex align-items-center">
+        <div className="d-flex align-items-center justify-content-center">
           <span>{label || children}</span>
         </div>
       </ReactBootstrapButton>
@@ -116,7 +148,7 @@ const Button = React.forwardRef(({
       variant={getVariant()}
       className={`${getButtonClasses()} ${className || ''}`}
       ref={ref}
-      style={{ ...baseStyle, ...(styleProp || {}) }}
+      style={finalStyle}
       {...props}
     >
       <div className="d-flex align-items-center justify-content-center">
