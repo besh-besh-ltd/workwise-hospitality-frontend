@@ -895,33 +895,7 @@ textarea {
     }
   }
 
-  // Sticky Mobile CTA
-  .sticky-mobile-cta {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 1020;
-    display: none;
-    
-    a {
-      display: block;
-      padding: 12px 24px;
-      background: var(--secondary-color);
-      color: var(--white-color);
-      text-decoration: none;
-      border-radius: 25px;
-      font-weight: 600;
-      box-shadow: 0 4px 12px rgba(66, 139, 65, 0.3);
-      transition: all 0.3s ease;
-      
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(66, 139, 65, 0.4);
-        color: var(--white-color);
-        text-decoration: none;
-      }
-    }
-  }
+  
 
   // Responsive styles
   @media (max-width: 768px) {
@@ -2773,16 +2747,6 @@ body.at-top {
                 transform: scale(1.1);
               }
             }
-
-            img {
-              width: 100%;
-              border-radius: 20px 20px 0px 0px;
-              transition: var(--primary-transition);
-
-              &:hover {
-                transform: scale(1.1);
-              }
-            }
           }
         }
 
@@ -2841,16 +2805,6 @@ body.at-top {
             margin: 0;
             transform: scale(1);
             transition: var(--primary-transition);
-
-            img {
-              width: 100%;
-              border-radius: 20px 20px 0px 0px;
-              transition: var(--primary-transition);
-
-              &:hover {
-                transform: scale(1.1);
-              }
-            }
 
             img {
               width: 100%;
@@ -7131,9 +7085,7 @@ h2.pdf-icon {
   text-align: center;
 }
 
-.mdl-con-btm {
-  position: relative;
-}
+ 
 
 .removeSelectedProduct {
   position: absolute;
@@ -8179,19 +8131,7 @@ td:hover .tooltip_custom {
   color: #6c757d;
 }
 
-// Minimal buttons
-.minimal-btn {
-  padding: 0.3rem 0.8rem;
-  background: transparent;
-  outline: none;
-  border: 1px solid black;
-  border-radius: 10px;
-  font-size: 15px;
-
-  :disabled {
-    border: 1px solid #00000067 !important;
-  }
-}
+ 
 
 // AI tools Styles
 
@@ -8266,25 +8206,7 @@ td:hover .tooltip_custom {
   width: 85vw;
 }
 
-/* Dropdown Menu Improvements */
-.dropdown-menu {
-  text-align: left !important;
-  min-width: 300px !important; /* Increase width by ~100px */
-  z-index: 9999 !important;
-  position: absolute !important;
-}
-
-.dropdown-menu .dropdown-item {
-  text-align: left !important;
-  white-space: normal !important;
-  line-height: 1.4 !important;
-  padding: 8px 16px !important;
-}
-
-.dropdown-menu .dropdown-item h6,
-.dropdown-menu .dropdown-item span {
-  text-align: left !important;
-}
+ 
 
 /* Comprehensive dropdown alignment fixes */
 .main-menu ul {
@@ -8387,7 +8309,7 @@ td:hover .tooltip_custom {
   .main-header .logo {
     flex-shrink: 0 !important;
     margin-right: auto !important;
-    width: clamp(65px, 6vw, 90px) !important;
+    width: clamp(65px, 6vw, 80px) !important;
   }
   
   .main-header .menu-ctrl {
@@ -8638,7 +8560,7 @@ td:hover .tooltip_custom {
 
 /* Additional zoom-level responsive breakpoints */
 @media (max-width: 1100px) {
-  .main-header .logo { width: clamp(80px, 8vw, 120px); }
+  .main-header .logo { width: clamp(80px, 8vw, 80px); }
   .main-header .main-menu ul li { font-size: clamp(0.5rem, 0.55vw, 0.6rem); }
   .main-header .main-menu ul li a, .main-header .main-menu ul li span { padding: clamp(1px, 0.12vw, 2px) clamp(1px, 0.2vw, 2px); }
   .main-header .supplier-cta .btn-supplier { min-width: clamp(55px, 4.5vw, 70px); font-size: clamp(0.55rem, 0.65vw, 0.65rem); }
@@ -8666,15 +8588,7 @@ td:hover .tooltip_custom {
 }
 
 
-.minimal-btn {
-  /* your minimal style base */
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
+.minimal-btn { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.3s ease; }
 
 /* Solid primary */
 .btn-primary-minimal {
@@ -8723,6 +8637,8 @@ button:disabled {
   z-index: 9999 !important;
   position: absolute !important;
   will-change: transform;
+  min-width: 300px !important;
+  text-align: left !important;
 }
 
 /* Ensure header allows dropdown visibility */
