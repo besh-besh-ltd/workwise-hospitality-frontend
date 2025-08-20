@@ -8301,7 +8301,7 @@ td:hover .tooltip_custom {
     max-height: calc(100vh - 100%) !important;
     overflow-y: auto !important;
     border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(20px) !important;
+    backdrop-filter: blur(50px) !important;
     
     /* Ensure all text is white in mobile menu */
     * {

@@ -737,7 +737,7 @@ export default function Home() {
                   <p className="text-muted mb-3 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.footerText}</p>
                   <Button 
                     onClick={handleVendorSupport}
-                    className="btn fw-bold text-white px-4 py-3 w-auto"
+                    className="btn fw-bold text-white px-3 px-sm-4 py-2 py-sm-3 w-100 w-sm-auto"
                     style={{background: '#F59E0B', border: 'none', borderRadius: '8px'}}
                   >
                     {homepageData.modularOfferings.vendorSupport.buttonText}
