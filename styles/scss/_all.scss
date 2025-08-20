@@ -979,7 +979,7 @@ body.at-top {
   }
   
   &.menu-ctrl-transparent span {
-    background: var(--black-color) !important;
+    background: #fff !important; /* White when navbar is transparent */
   }
 
   label {
@@ -1004,6 +1004,21 @@ body.at-top {
     &:hover span {
       background: var(--black-color) !important;
     }
+  }
+  
+  /* When transparent, make hamburger lines white */
+  &.menu-ctrl-transparent label span {
+    background: #fff !important;
+  }
+  
+  &.menu-ctrl-transparent label:hover span {
+    background: #fff !important;
+  }
+  
+  /* Force white hamburger when transparent navbar */
+  &.menu-ctrl-transparent span,
+  &.menu-ctrl-transparent label span {
+    background: #fff !important;
   }
   
   &.button-active {
@@ -8260,6 +8275,7 @@ td:hover .tooltip_custom {
   .main-header .menu-ctrl {
     flex-shrink: 0 !important;
     margin-left: auto !important;
+    background: #fff !important;
   }
   
   /* Hide login button in tight spaces, keep only book a call */
@@ -8275,7 +8291,7 @@ td:hover .tooltip_custom {
   /* Mobile menu styling */
   .mobile-menu {
     text-align: left !important;
-    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #3b82f6 100%) !important;
+    background: transparent !important; /* Completely transparent */
     padding: 20px 0 !important;
     position: fixed !important;
     top: 100% !important;
@@ -8340,6 +8356,21 @@ td:hover .tooltip_custom {
     overflow: visible !important;
     clear: both !important;
     display: block !important;
+    
+    /* Prevent any horizontal overflow */
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    
+    /* Ensure nested dropdowns are contained */
+    .dropdown-menu {
+      position: static !important;
+      width: 100% !important;
+      left: 0 !important;
+      right: 0 !important;
+      top: auto !important;
+      transform: none !important;
+      overflow: visible !important;
+    }
   }
   
   .mobile-menu ul li a {
@@ -8364,6 +8395,17 @@ td:hover .tooltip_custom {
     position: static !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    
+    /* Ensure dropdown arrow is properly positioned */
+    .dropdown-arrow {
+      float: right !important;
+      margin-left: 10px !important;
+      transition: transform 0.3s ease !important;
+    }
+    
+    &.expanded .dropdown-arrow {
+      transform: rotate(180deg) !important;
+    }
   }
   
   /* Main dropdown items in mobile */
@@ -8380,7 +8422,7 @@ td:hover .tooltip_custom {
   /* Dropdown sub-items in mobile */
   .mobile-menu ul li ul,
   .mobile-menu .dropdown-menu {
-    background: rgba(0, 0, 0, 0.2) !important;
+    background: transparent !important;
     border: none !important;
     box-shadow: none !important;
     position: static !important;
@@ -8399,6 +8441,34 @@ td:hover .tooltip_custom {
     top: auto !important;
     bottom: auto !important;
     transform: none !important;
+    
+    /* Ensure nested dropdowns appear directly below parent */
+    li {
+      position: static !important;
+      display: block !important;
+      width: 100% !important;
+      clear: both !important;
+    }
+    
+    /* Nested dropdown items should be indented and appear below */
+    .dropdown-menu {
+      position: static !important;
+      width: 100% !important;
+      left: 0 !important;
+      right: auto !important;
+      top: auto !important;
+      transform: none !important;
+      box-shadow: none !important;
+      border: none !important;
+      background: transparent !important;
+      
+      li {
+        position: static !important;
+        display: block !important;
+        width: 100% !important;
+        clear: both !important;
+      }
+    }
   }
   
   .mobile-menu ul li ul li,
@@ -8416,7 +8486,7 @@ td:hover .tooltip_custom {
   .mobile-menu .dropdown-menu a {
     color: #fff !important; /* White subheadings */
     font-size: 18px !important;
-    padding: 14px 40px !important; /* Indented for hierarchy */
+    padding: 14px 0px !important; /* Reduced left indentation */
     text-align: left !important;
     font-weight: 400 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
@@ -8436,7 +8506,7 @@ td:hover .tooltip_custom {
   /* For suppliers and login buttons */
   .mobile-menu .btn-supplier-mobile,
   .mobile-menu .mobile-book-call a {
-    background: rgba(255, 255, 255, 0.2) !important;
+    background: transparent !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
     border-radius: 8px !important;
     margin: 10px 25px !important;

@@ -247,17 +247,40 @@ const websiteMenu = [
     label: "Who We Serve", 
     type: "dropdown",
     options: [
-      { label: "Stakeholders", href: "/who-we-serve/Stakeholder" },
-      { label: "Industries We Serve", href: "/who-we-serve/IndustryPage" },
+      { 
+        label: "Stakeholders", 
+        type: "nested-dropdown",
+        options: [
+          { label: "EPCs / Contractors", href: "/who-we-serve/Stakeholder/epcs" },
+          { label: "Turnkey Project Firms", href: "/who-we-serve/Stakeholder/turnkey" },
+          { label: "Project Consultants", href: "/who-we-serve/Stakeholder/consultants" },
+          { label: "Industrial Clients", href: "/who-we-serve/Stakeholder/industrial-clients" },
+          { label: "Vendors & OEMs", href: "/for-vendors" },
+        ]
+      },
+      { 
+        label: "Industries We Serve", 
+        type: "nested-dropdown",
+        options: [
+          { label: "Power", href: "/who-we-serve/IndustryPage/power" },
+          { label: "Energy", href: "/who-we-serve/IndustryPage/energy" },
+          { label: "Petrochemical & Chemical", href: "/who-we-serve/IndustryPage/petrochemical" },
+          { label: "Steel & Cement", href: "/who-we-serve/IndustryPage/steel-cement" },
+          { label: "Infrastructure", href: "/who-we-serve/IndustryPage/infrastructure" },
+          { label: "Heavy Engineering & Machine Tools", href: "/who-we-serve/IndustryPage/heavy-equipment" },
+          { label: "Marine & Mining", href: "/who-we-serve/IndustryPage/marine-mining" },
+        ]
+      },
       { 
         label: "Disciplines We Cover", 
         type: "nested-dropdown",
         options: [
-          { label: "Civil", href: "/solutions/civil" },
-          { label: "Mechanical", href: "/solutions/mechanical" },
           { label: "Electrical", href: "/solutions/electrical" },
+          { label: "Mechanical", href: "/solutions/mechanical" },
+          { label: "Civil", href: "/solutions/civil" },
+          { label: "HVAC", href: "/solutions/hvac" },
+          { label: "Fire & Safety", href: "/solutions/fire-engineering" },
           { label: "Chemical", href: "/solutions/chemical" },
-          { label: "Fire Engineering", href: "/solutions/fire-engineering" },
         ]
       },
     ]

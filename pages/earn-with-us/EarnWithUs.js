@@ -710,6 +710,7 @@ const EarnWithUs = () => {
     <HeroSection
   title={earnWithUsData.hero.title}
   subtitle={earnWithUsData.hero.subtitle}
+  layout="centered"
   primaryButton={{
     label: earnWithUsData.hero.primaryButton.label,
     variant: earnWithUsData.hero.primaryButton.variant,

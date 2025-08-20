@@ -191,6 +191,7 @@ const ModulePage = () => {
       <HeroSection
         title={moduleData.hero.title}
         subtitle={moduleData.hero.subtitle}
+        layout="centered"
         primaryButton={{
           ...moduleData.hero.primaryButton,
           onClick: handlePrimaryAction

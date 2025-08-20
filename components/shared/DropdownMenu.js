@@ -518,36 +518,28 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                         <ul
                           style={{
                             position: isMobile ? 'static' : 'absolute',
-                            left: isMobile ? 0 : 'calc(100% + 4px)',
+                            left: isMobile ? '0' : 'calc(100% + 4px)',
                             top: isMobile ? 'auto' : 0,
                             minWidth: isMobile ? '100%' : 300,
+                            width: isMobile ? '100%' : 'auto',
+                            maxWidth: isMobile ? '100%' : 'none',
                             background: isMobile ? 'transparent' : 'rgba(255, 255, 255, 0.98)',
                             backdropFilter: isMobile ? 'none' : 'blur(20px)',
                             boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.12)',
                             borderRadius: isMobile ? 0 : 16,
-                            padding: isMobile ? '0' : '12px 0',
-                            margin: 0,
-                            display: 'flex',
+                            padding: isMobile ? '12px 0' : '12px 0',
+                            margin: isMobile ? '16px 0 0 20px' : 0,
+                            display: isMobile ? 'block' : 'flex',
                             flexDirection: 'column',
                             border: isMobile ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
                             animation: isMobile ? 'none' : 'slideInRight 0.2s ease-out',
-                            isolation: 'isolate'
+                            isolation: 'isolate',
+                            overflow: isMobile ? 'visible' : 'visible',
+                            clear: isMobile ? 'both' : 'none',
+                            float: isMobile ? 'none' : 'none'
                           }}
                         >
-                          {/* Nested dropdown header */}
-                          <div style={{
-                            padding: isMobile ? '12px 40px' : '12px 20px',
-                            fontSize: isMobile ? '16px' : '0.85rem',
-                            fontWeight: 600,
-                            color: '#fff',
-                            opacity: 0.9,
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                            marginBottom: '4px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px'
-                          }}>
-                            {opt.label} Options
-                          </div>
+                          {/* No header needed for nested dropdowns */}
                           
                           {opt.options.map((nestedOpt, nestedIndex) => (
                             <li key={nestedOpt.href || nestedIndex} style={{ listStyle: 'none' }}>
@@ -556,17 +548,17 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                                 onClick={(e) => handleOptionClick(e, nestedOpt)}
                                 style={{
                                   display: 'block',
-                                  padding: isMobile ? '14px 40px' : '12px 20px',
+                                  padding: isMobile ? '16px 25px' : '12px 20px',
                                   fontWeight: isMobile ? 400 : 500,
                                   textDecoration: 'none',
                                   transition: 'all 0.2s ease',
                                   borderRadius: isMobile ? 0 : '8px',
-                                  margin: '0',
+                                  margin: isMobile ? '8px 0' : '0',
                                   color: '#fff',
                                   fontSize: isMobile ? '18px' : '0.9rem',
                                   textAlign: 'left',
                                   whiteSpace: 'normal',
-                                  lineHeight: '1.4',
+                                  lineHeight: '1.6',
                                   borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
                                 }}
                               >
