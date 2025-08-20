@@ -648,7 +648,7 @@ const Header = () => {
                     {/* FOR NON LOGGED IN  */}
                     {!loggedinUser && !loggedinUser?.name && (
                       <ul>
-                        <li
+                       {false && ( <li
                           className="login"
                           onClick={() => {
                             handleChange(setActiveAuthTab('login'));
@@ -659,13 +659,14 @@ const Header = () => {
                             Login
                           </Link>
                         </li>
+                        )}
                         {/* Mobile-only: show For Suppliers instead of Book a Call */}
                         <li className="signup d-block d-md-none">
                           <Link href="/for-vendors" className="btn-supplier" style={{ color: '#000' }}>
                             For Suppliers
                           </Link>
                         </li>
-                        {false && (
+                        
                           <li
                             className="signup book-call d-none d-md-block"
                             onClick={() => {
@@ -681,7 +682,7 @@ const Header = () => {
                               Book a Call
                             </Link>
                           </li>
-                        )}
+                        
                       </ul>
                     )}
                   </div>
