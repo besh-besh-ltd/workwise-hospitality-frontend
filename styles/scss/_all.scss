@@ -607,16 +607,16 @@ textarea {
     width: 100%;
 
     .logo {
-      width: clamp(100px, 10vw, 168px);
+      width: clamp(120px, 12vw, 200px);
       flex-shrink: 0;
-      max-width: 168px;
-      min-width: 100px;
+      max-width: 200px;
+      min-width: 120px;
 
       img {
         width: 100%;
         height: auto;
         transition: filter 0.3s ease;
-        max-height: 40px;
+        max-height: 50px;
         object-fit: contain;
       }
 
@@ -6292,6 +6292,7 @@ body.at-top {
           li {
             font-weight: 400;
             font-size: 14px;
+            line-height: 22px;
             color: #5b5b5b;
             margin-bottom: 20px;
           }
@@ -6306,9 +6307,10 @@ body.at-top {
       }
 
       .btn-primary {
-        background-color: var(--white-color);
+        // background-color: var(--primary-color);
         border: 1px solid var(--primary-color);
-        color: var(--primary-color);
+        // color: var(--white-color);
+        // height: 40px;
       }
     }
   }
