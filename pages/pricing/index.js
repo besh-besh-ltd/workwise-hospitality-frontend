@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  Wrench,
-  ShoppingBag,
-  Check,
-  X,
-  Star,
-  Compass,
-  Settings,
-  BarChart3,
-  Info
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faWrench, faShoppingBag, faCheck, faTimes, faStar, faCompass, faGear, faChartBar, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
 // Import existing components
 import { Button } from '@/components/ui/Button';
@@ -438,7 +429,7 @@ const PricingPage = () => {
                             justifyContent: 'center'
                           }}
                         >
-                          <Wrench size={16} style={{ color: 'white' }} />
+                          <FontAwesomeIcon icon={faWrench} style={{ color: 'white', fontSize: '16px' }} />
                         </div>
                         <h2 className="fs-2 fw-bold text-dark mb-0">
                           {pricingData.buyers.title}
@@ -628,9 +619,9 @@ const PricingPage = () => {
                             <div key={featureIndex} className="d-flex align-items-center mb-3">
                               <div className="me-3">
                                 {feature.included ? (
-                                  <Check size={16} style={{ color: 'var(--green-color)' }} />
+                                  <FontAwesomeIcon icon={faCheck} style={{ color: 'var(--green-color)', fontSize: '16px' }} />
                                 ) : (
-                                  <X size={16} style={{ color: 'var(--pink-color)' }} />
+                                  <FontAwesomeIcon icon={faTimes} style={{ color: 'var(--pink-color)', fontSize: '16px' }} />
                                 )}
                               </div>
                               <div className="flex-grow-1">
@@ -643,7 +634,7 @@ const PricingPage = () => {
                                   </span>
                                 )}
                                 {feature.note && (
-                                  <Info size={12} className="ms-1 text-muted" />
+                                  <FontAwesomeIcon icon={faInfoCircle} className="ms-1 text-muted" style={{ fontSize: '12px' }} />
                                 )}
                               </div>
                             </div>
@@ -682,7 +673,7 @@ const PricingPage = () => {
                       {pricingData.sellers.allPlansInclude.map((feature, index) => (
                         <div key={index} className="col-md-4">
                           <div className="d-flex align-items-center mb-2">
-                            <Check size={16} className="me-2" style={{ color: 'var(--green-color)' }} />
+                            <FontAwesomeIcon icon={faCheck} className="me-2" style={{ color: 'var(--green-color)', fontSize: '16px' }} />
                             <span style={{ fontSize: '0.9rem' }}>{feature}</span>
                           </div>
                         </div>

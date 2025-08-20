@@ -199,24 +199,32 @@ export const homepageData = {
     cssEase: "linear",
     pauseOnHover: false,
     arrows: false,
+    centerMode: false,
+    centerPadding: '0px',
     responsive: [
       {
         breakpoint: 1200,
         settings: {
           slidesToShow: 4,
+          centerMode: false,
+          centerPadding: '0px'
         }
       },
       {
         breakpoint: 991,
         settings: {
           slidesToShow: 4, // Show 4 logos on tablets
+          centerMode: false,
+          centerPadding: '0px'
         }
       },
       {
         breakpoint: 767,
         settings: {
-          slidesToShow: 4, // Show 4 logos on mobile as requested
-          speed: 4000 // Even faster on mobile
+          slidesToShow: 3, // Show 3 logos on mobile to prevent overlap
+          speed: 4000, // Even faster on mobile
+          centerMode: false,
+          centerPadding: '0px'
         }
       }
     ]

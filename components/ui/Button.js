@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, Phone } from 'lucide-react';
+import { Button as ReactBootstrapButton } from 'react-bootstrap';
 
 const Button = React.forwardRef(({ 
   className, 
@@ -11,42 +11,15 @@ const Button = React.forwardRef(({
   ...props 
 }, ref) => {
   const getButtonClasses = () => {
-    let classes = "btn";
-    
-    // Variant classes
-    switch (variant) {
-      case "primary":
-        classes += " btn-primary";
-        break;
-      case "secondary":
-        classes += " btn-secondary";
-        break;
-      case "outline":
-        classes += " btn-outline-primary";
-        break;
-      case "outline-white":
-        classes += " btn-outline-light";
-        break;
-      case "white":
-        classes += " btn-light";
-        break;
-      case "black":
-        classes += " btn-primary position-relative overflow-hidden";
-        break;
-      case "gradient":
-        classes += " btn-primary position-relative overflow-hidden";
-        break;
-      default:
-        classes += " btn-primary";
-    }
+    let classes = "";
     
     // Size classes
     switch (size) {
       case "sm":
-        classes += " btn-sm px-4 py-2";
+        classes += " px-4 py-2";
         break;
       case "lg":
-        classes += " btn-lg px-5 py-2.5";
+        classes += " px-5 py-2.5";
         break;
       default:
         classes += " px-5 py-3";
@@ -56,21 +29,32 @@ const Button = React.forwardRef(({
     return classes;
   };
 
-  const getIcon = () => {
-    switch (icon) {
-      case "arrow":
-        return <ArrowUpRight className="ms-2" size={16} />;
-      case "phone":
-        return <Phone className="me-2" size={16} />;
+  const getVariant = () => {
+    switch (variant) {
+      case "primary":
+        return "primary";
+      case "secondary":
+        return "secondary";
+      case "outline":
+        return "outline-primary";
+      case "outline-white":
+        return "outline-light";
+      case "white":
+        return "light";
+      case "black":
+        return "primary";
+      case "gradient":
+        return "primary";
       default:
-        return null;
+        return "primary";
     }
   };
 
   if (variant === "gradient") {
     return (
-      <button
-        className={`${getButtonClasses()} ${className || ''}`}
+      <ReactBootstrapButton
+        variant={getVariant()}
+        className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
         ref={ref}
         {...props}
       >
@@ -87,24 +71,37 @@ const Button = React.forwardRef(({
         {/* Content */}
         <div className="d-flex align-items-center justify-content-center">
           <span className="text-white">{label || children}</span>
-          {getIcon()}
         </div>
-      </button>
+      </ReactBootstrapButton>
+    );
+  }
+
+  if (variant === "black") {
+    return (
+      <ReactBootstrapButton
+        variant={getVariant()}
+        className={`position-relative overflow-hidden ${getButtonClasses()} ${className || ''}`}
+        ref={ref}
+        {...props}
+      >
+        <div className="d-flex align-items-center">
+          <span>{label || children}</span>
+        </div>
+      </ReactBootstrapButton>
     );
   }
 
   return (
-    <button
+    <ReactBootstrapButton
+      variant={getVariant()}
       className={`${getButtonClasses()} ${className || ''}`}
       ref={ref}
       {...props}
     >
-      <div className="d-flex align-items-center">
-        {icon === "phone" && getIcon()}
+      <div className="d-flex align-items-center justify-content-center">
         <span>{label || children}</span>
-        {icon === "arrow" && getIcon()}
       </div>
-    </button>
+    </ReactBootstrapButton>
   );
 });
 
