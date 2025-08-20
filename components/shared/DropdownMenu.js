@@ -611,6 +611,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       onMouseEnter={e => {
                         if (!isMobile) {
                           if (!(label === 'Insights & Resources' && isInsightsUpcoming(opt))) {
+                            e.currentTarget.style.color = opt.isHighlighted ? '#FF6B35' : 'var(--secondary-color)';
                             e.currentTarget.style.background = opt.isHighlighted
                               ? 'rgba(255, 107, 53, 0.2)'
                               : 'rgba(66, 139, 65, 0.08)';
@@ -620,6 +621,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                       }}
                       onMouseLeave={e => {
                         if (!isMobile) {
+                          e.currentTarget.style.color = '#333';
                           e.currentTarget.style.background = opt.isHighlighted
                             ? 'rgba(255, 107, 53, 0.1)'
                             : 'transparent';
