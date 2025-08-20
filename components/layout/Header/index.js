@@ -456,7 +456,7 @@ const Header = () => {
       <header
         className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
           const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
-          if (isPrivate || (loggedinUser && loggedinUser?.name)) {
+          if (isPrivate ) {
             return "always-white"; // never transparent for logged-in areas
           }
           if (pathname === "/") {
