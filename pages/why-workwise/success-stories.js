@@ -16,9 +16,9 @@ import { FeatureCard } from '@/components/ui/FeatureCard';
 import { Dropdown } from '@/components/ui/Dropdown';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
 import { HeroSection } from '@/components/ui/HeroSection';
-import ContactUsModal from '@/components/modal/contactUsModal';
+import BookCall from '@/components/bookCall';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
-
+import { Modal } from 'react-bootstrap';
 // Import data
 import { successStoriesData } from '@/components/constants/successStoriesData';
 
@@ -173,11 +173,20 @@ const SuccessStoriesPage = () => {
       />
 
       {/* Book a Call Modal */}
-      <ContactUsModal
-        showModal={showBookCall}
-        fromType={"success-stories"}
-        closeModal={() => setShowBookCall(false)}
-      />
+      <Modal
+        show={showBookCall}
+        onHide={() => setShowBookCall(false)}
+        centered
+        backdrop="static"
+        style={{ backdropFilter: "blur(5px)" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="p-4">Contact Us</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <BookCall />
+        </Modal.Body>
+      </Modal>
 
       {/* Register (Book a Demo) Modal */}
       <RegisterFormModal
