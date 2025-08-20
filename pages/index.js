@@ -377,7 +377,7 @@ export default function Home() {
         {/* Floating Icons */}
          <div
             className="floatingIcon floatA d-none d-lg-block"
-            style={{ top: "14%", left: "52%" }}
+            style={{ top: "19%", left: "52%" }}
           >
             <FaRobot size={20} />
           </div>
@@ -895,10 +895,10 @@ export default function Home() {
             </div>
 
             {/* Video Player */}
-            <div className="row justify-content-center mb-5">
+            <div className="row justify-content-center mb-3">
               <div className="col-12">
                 <HeroVideo /> 
-                <p className="text-center text-white mt-3 mb-0" style={{ opacity: 0.8 }}>
+                <p className="text-center text-white mt-2 mb-0" style={{ opacity: 0.8 }}>
                   This video shows a real example using a sample BOQ
                 </p>
               </div>

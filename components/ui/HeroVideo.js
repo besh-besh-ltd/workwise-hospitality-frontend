@@ -102,7 +102,7 @@ const HeroVideo = () => {
         .video-container {
           width: 100%;
           max-width: 100%;
-          aspect-ratio: 1 / 1;
+          aspect-ratio: 4 / 3;
           border-radius: 10px;
           overflow: hidden;
           position: relative;
