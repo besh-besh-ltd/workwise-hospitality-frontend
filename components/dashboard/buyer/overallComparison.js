@@ -9,7 +9,6 @@ import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
-import "react-tooltip/dist/react-tooltip.css";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -139,7 +138,7 @@ const openModalForVariant = (variantId) => {
         const lowestQuoteDetails = lowest.quote_details[0];
         const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
+        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
         item.quotations.map((q) => {
           if (q.id == lowest.id) {
             q.is_lowest = true;
@@ -437,6 +436,19 @@ const openModalForVariant = (variantId) => {
                                 ? item.product_details[0]?.name
                                 : "-"}
                             </p>
+                            {selling_price && (
+                              <div className="d-flex justify-content-center">
+                                <Badge
+                                  bg="success"
+                                  className="d-flex gap-1 px-3"
+                                >
+                                  <p className="fw-medium">Selling Price: </p>
+                                  <p className="fw-semibold">
+                                    {addCommasToNumber(selling_price)}
+                                  </p>
+                                </Badge>
+                              </div>
+                            )}
                           </td>
                           <td>
                             <div
@@ -1321,7 +1333,7 @@ const openModalForVariant = (variantId) => {
                               content={
                                 item.global_payment_term[0].details
                                   ? item.global_payment_term[0].details
-                                  : "-"
+                                  : ""
                               }
                             />
 

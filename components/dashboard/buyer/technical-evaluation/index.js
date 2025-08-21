@@ -25,7 +25,7 @@ const BuyerTechnicalEvaluation = () => {
   const [projects, setProjects] = useState(null);
   const [selectedproject, setSelectedproject] = useState(null);
   const [clauseInfo, setClauseInfo] = useState(null);
-  const [selectedVendors, setSelectedVendors] = useState([]);
+  const [selectedVendorsMap, setSelectedVendorsMap] = useState(new Map());
 
   const getAllProjects = () => {
     getProjectList()
@@ -321,6 +321,7 @@ useEffect(() => {
                         if (clauseMap.get(rfqProduct.rfq_product_id)) {
                           const product = currentRfq.products.find(product => product.id == rfqProduct.rfq_product_id)
                           if(!product) return null;
+                          const productSelectedVendors = selectedVendorsMap.get(product.id) || [];
                           return (
                             <div className="quote-sec-table-sub pt-0" key={`product_${product.id}`}>
                               <div className="row">
@@ -348,9 +349,9 @@ useEffect(() => {
                                         defaultOptions
                                         placeholder="Select"
                                         isClearable
-                                        value={selectedVendors}
+                                        value={productSelectedVendors}
                                         onChange={(selectedOptions) => {
-                                          setSelectedVendors(selectedOptions);
+                                          setSelectedVendorsMap(prev => new Map(prev).set(product.id, selectedOptions || []));
                                         }}
                                         noOptionsMessage={() => "No vendors responded"}
                                       />
@@ -371,7 +372,7 @@ useEffect(() => {
                                     vendors={rfqProduct?.vendors ?? []}
                                     refetch={listProducts}
                                     selectedVendor={vendorMap.get(product.id)}
-                                    selectedVendors={selectedVendors.map(vendor => vendor.value)}
+                                    selectedVendors={productSelectedVendors.map(vendor => vendor.value)}
                                   />
 
                                 </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import FullLoader from "@/components/shared/FullLoader";
 import { downloadQuotesDetails } from "@/services/rfq";
 import ReadMore from "@/components/shared/ReadMore";
@@ -55,6 +55,41 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
       })
       .catch(() => setLoading(false));
   }, [rfq_id, TA_Filter, freightFilter, normalizeFilter]);
+
+  // ...
+
+  //  Calculate column sums   L1, L2, L3, L4...
+const columnSums = useMemo(() => {
+  const sums = Array.from({ length: maxVendors }, () => 0);
+
+  products.forEach((item) => {
+    const quotingVendors = item.quotations
+      .filter(
+        (q) =>
+          q.id != null &&
+          q.is_regret !== 1 &&
+          q.quote_details &&
+          q.quote_details[0]
+      )
+      .map((q) => {
+        const details = q.quote_details[0];
+        const quantity =
+          details.rfq_details?.find((spec) => spec.title === "Quantity")
+            ?.value || details.quantity;
+        return {
+          cost: Number(calculateTotal(details, quantity, normalizeFilter)) || 0,
+        };
+      })
+      .sort((a, b) => a.cost - b.cost);
+
+    quotingVendors.forEach((q, idx) => {
+      if (idx < sums.length) sums[idx] += q.cost;
+    });
+  });
+
+  return sums;
+}, [products, maxVendors, normalizeFilter]);
+
 
   if (loading) return <FullLoader />;
   const hasAnyQuotes = products.some(
@@ -388,6 +423,33 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
               );
             })}
           </tbody>
+
+           <tfoot>
+           <tr>
+             {/* Span the static columns: Sl. No, Product Name, Product Details, Quantity */}
+             <td colSpan={4}
+                 style={{
+                   fontWeight: 700,
+                   textAlign: "left",
+                   overflow: "hidden",
+                 }}>
+               Total
+             </td>
+         
+             {[...Array(maxVendors)].map((_, idx) => (
+               <td key={`sum_${idx}`}
+                   style={{
+                     background: "#eef3ff",
+                     fontWeight: 700,
+                     textAlign: "center",
+                     borderTop: "2px solid #2d5ba7",
+                     minWidth: 200
+                   }}>
+                 {addCommasToNumber(Math.round(columnSums[idx] || 0))}
+               </td>
+             ))}
+           </tr>
+          </tfoot>
         </table>
       </div>
     </div>

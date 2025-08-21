@@ -1,7 +1,7 @@
 import { use, useEffect, useState } from "react";
 import DynamicCard from "@/components/products/utils/DynamicCard";
 import DynamicBlog from "@/components/products/utils/DynamicBlog";
-import FAQSection from "../newHomePageDesign/FAQSection";
+// import FAQSection from "../newHomePageDesign/FAQSection";
 import { blogData ,products} from "@/utils/constants";
 
 const Products = () => {
@@ -80,7 +80,7 @@ const Products = () => {
       </div>
 
       {/* Faqs */}
-       <FAQSection />
+       {/* <FAQSection /> */}
     </>
   );
 };

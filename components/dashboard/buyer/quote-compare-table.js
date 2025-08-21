@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEnvelope } from "@fortawesome/free-regular-svg-icons";
-import { faAward, faPhone } from "@fortawesome/free-solid-svg-icons";
+import { faCheckCircle, faEnvelope, faUser } from "@fortawesome/free-regular-svg-icons";
+import { faAward, faHistory, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "react-bootstrap/Dropdown";
 import CommonModal from "@/components/modal/CommonModal";
@@ -129,13 +129,13 @@ const QuoteCompareTable = ({
               <div className="table-si-row fw-semibold">
                 Target Price
               </div>
-              <div className="table-si-row">Delivery Period (In Days)</div>
-              <div className="table-si-row table-grey-row">Comments</div>
-              <div className="table-si-row">Vendor Documents</div>
-              <div className="table-si-row table-grey-row">
+              <div className="table-si-row table-grey-row">Delivery Period (In Days)</div>
+              <div className="table-si-row ">Comments</div>
+              <div className="table-si-row table-grey-row">Vendor Documents</div>
+              <div className="table-si-row ">
                 Terms & Conditions
               </div>
-              <div className="table-si-row">Payment Terms</div>
+              <div className="table-si-row table-grey-row">Payment Terms</div>
             </div>
             {quotations &&
               quotations.length > 0 &&
@@ -200,17 +200,19 @@ const QuoteCompareTable = ({
                             !item.finalization &&
                             !isRfqClosed && (
                               <Dropdown.Item
-                                className="negotiate-link"
+                                className=""
                                 href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
                               >
+                              <FontAwesomeIcon icon={faPhone} className="me-2" />
                                 Negotiate
                               </Dropdown.Item>
                             )}
                           <Dropdown.Item
                             target="_blank"
                             href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
-                            className="view-link"
+                            className=""
                           >
+                           <FontAwesomeIcon icon={faUser} className="me-2"/> 
                             View Profile
                           </Dropdown.Item>
                           {!item.quote_details.is_regret == 1 &&
@@ -224,8 +226,9 @@ const QuoteCompareTable = ({
                                   setCurrentItem(item);
                                   // handleFinalize(item, proditem);
                                 }}
-                                className="finalize-link"
+                                className=""
                               >
+                                <FontAwesomeIcon icon={faCheckCircle} className="me-2"/> 
                                 Finalize
                               </Dropdown.Item>
                             )}
@@ -240,8 +243,9 @@ const QuoteCompareTable = ({
                                   previous_quotes: item.previous_quotes,
                                 });
                               }}
-                              className="history-link"
+                              className=""
                             >
+                            <FontAwesomeIcon icon={faHistory} className="me-2" />
                               Quote History
                             </Dropdown.Item>
                           )}
@@ -346,15 +350,18 @@ const QuoteCompareTable = ({
                       )}
                     </div>
                     <div
-                      className={`table-si-row fw-semibold ${
+                      className={`table-si-row  ${
                         item.is_lowest
                           ? "bg-success text-white d-flex justify-content-between"
                           : ""
                       } `} // highlights in yellow-orange
                     >
-                      ₹{item.quote_details.latest_target_price}
+                      {item.quote_details.latest_target_price 
+                     ? `₹ ${item.quote_details.latest_target_price}` 
+                     : "-"}
+
                     </div>
-                    <div className="table-si-row">
+                    <div className="table-si-row table-grey-row">
                       {item.delivery_period != ""
                         ? parseInt(item.delivery_period) <= 1
                           ? `${item.delivery_period || 0} Day`
@@ -369,26 +376,26 @@ const QuoteCompareTable = ({
                           </span>
                         )}
                     </div>
-                    <div className="table-si-row table-grey-row">
+                    <div className="table-si-row ">
                       {item?.comment ? (
                         <ReadMore content={item?.comment} maxLines={2} />
                       ) : (
-                        "--"
+                        "-"
                       )}
                       {item?.global_comment ? (
                         <ReadMore content={item?.global_comment} maxLines={2} />
                       ) : (
-                        "--"
+                        "-"
                       )}
                     </div>
-                    <div className="table-si-row">
+                    <div className="table-si-row table-grey-row">
                       {item.document_files ? (
                         <>{renderFileLink(item.document_files)}</>
                       ) : (
                         <span>-</span>
                       )}
                     </div>
-                    <div className="table-si-row table-grey-row">
+                    <div className="table-si-row">
                       {item.global_document_files ? (
                         <>
                           {renderFileLink(
@@ -400,7 +407,7 @@ const QuoteCompareTable = ({
                         <span>-</span>
                       )}
                     </div>
-                    <div className="table-si-row">
+                    <div className="table-si-row table-grey-row">
                         <ReadMore
                           content={item?.global_payment_term || ""}
                           maxLines={2}

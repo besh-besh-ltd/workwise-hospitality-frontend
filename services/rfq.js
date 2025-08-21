@@ -463,6 +463,41 @@ export const persistMagicSearchJob = async (file_name, type = 'rfq', raw_file_ur
   return response;
 };
 
+export const handleCostEstimation = async (file_name, type = 'rfq', userData) => {
+  const payload = {
+    file_name,
+    type,
+    ...userData,
+  }
+  let response = await axiosInstance.post(`/rfq/estimate-cost`, payload);
+  return response;
+};
+
+export const handleTenderSummary = async (file_name, userData) => {
+  const payload = {
+    file_name,
+    ...userData,
+  }
+  let response = await axiosInstance.post(`/rfq/tender-summary`, payload);
+  return response;
+};
+
+export const handleTechnicalSummary = async (file, userData) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Add user data if provided
+  if (userData) {
+    Object.keys(userData).forEach(key => {
+      formData.append(key, userData[key]);
+    });
+  }
+  
+  let response = await axiosFormData.post(`/rfq/technical-summary`, formData);
+  return response;
+};
+
+
 
 /* 
 START :: AI server functions 
@@ -481,6 +516,21 @@ export const getBOQexcelToJsonAI = (file, webhook, customInstructions = "") => {
     formData.append("webhook", webhook);
 
   return axios.post(`${aiServerBaseURL}/boq_to_structured_boq_and_match`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+export const startCostEstimationProcess = (file, webhook) => {
+  const token = localStorage.getItem("token");
+  const formData = new FormData();
+  formData.append("file", file);  
+  if(webhook)
+    formData.append("webhook", webhook);
+
+  return axios.post(`${aiServerBaseURL}/estimate-cost`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "multipart/form-data",
@@ -1027,6 +1077,17 @@ export const saveExcelInDB = (rfq_id, file_path) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/save-excel`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const getCostEstimationData = (persistent_id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      let response = await axiosInstance.get(`/rfq/get-cost-estimation/${persistent_id}`);
       resolve(response);
     } catch (error) {
       reject({ message: error });
