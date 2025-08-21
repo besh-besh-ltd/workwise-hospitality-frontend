@@ -8964,3 +8964,29 @@ html, body {
   }
 }
 
+/* Compact desktop mode for ~133% browser zoom
+   Slightly reduce logo, nav text and CTA sizes without affecting mobile */
+@media (min-width: 992px) and (min-resolution: 1.3dppx) and (max-resolution: 1.38dppx) {
+  .main-header .header-container { padding: 6px 0; min-height: 50px; }
+  .main-header .logo { width: clamp(78px, 7.5vw, 130px); }
+  .main-header .main-menu ul li { font-size: 13px; }
+  .main-header .main-menu ul li a,
+  .main-header .main-menu ul li span { padding: 0 clamp(0px, 0.01vw, 1px); }
+
+  .main-header .supplier-cta .btn-supplier,
+  .main-header .extra-buttons ul li.book-call a,
+  .main-header #book-a-call-navigation {
+    height: clamp(24px, 2vw, 34px);
+    min-width: clamp(68px, 5.5vw, 100px);
+    max-width: clamp(100px, 9vw, 140px);
+    font-size: clamp(0.6rem, 0.8vw, 0.78rem) !important;
+    padding: 0 clamp(6px, 0.7vw, 10px) !important;
+    border-radius: 8px;
+    width: auto !important; /* override inline fit-content */
+    display: inline-flex;
+  }
+
+  /* tiny gap between Supplier and Book a Call */
+  .main-header .extra-buttons { margin-left: 6px; }
+}
+
