@@ -36,7 +36,7 @@ const dropdownManager = {
   }
 };
 
-const DropdownMenu = ({ label, options, href, onAction }) => {
+const DropdownMenu = ({ label, options, href, onAction, forceMobile = false }) => {
   const [open, setOpen] = useState(false);
   const [nestedOpen, setNestedOpen] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -49,11 +49,11 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
   const dropdownId = useRef(`${label}-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => setIsMobile(forceMobile || window.innerWidth <= 768);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [forceMobile]);
 
   // Register with dropdown manager
   useEffect(() => {
@@ -480,7 +480,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                         }
                       }}
                       style={{
-                        display: 'flex',
+                        display: isMobile ? 'block' : 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '12px 20px',
@@ -529,7 +529,7 @@ const DropdownMenu = ({ label, options, href, onAction }) => {
                             boxShadow: isMobile ? 'none' : '0 8px 32px rgba(0,0,0,0.12)',
                             borderRadius: isMobile ? 0 : 16,
                             padding: isMobile ? '12px 0' : '12px 0',
-                            margin: isMobile ? '16px 0 0 20px' : 0,
+                            margin: isMobile ? '8px 0 0 0' : 0,
                             display: isMobile ? 'block' : 'flex',
                             flexDirection: 'column',
                             border: isMobile ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',

@@ -850,6 +850,7 @@ const Header = () => {
                         label={item.label}
                         options={item.options}
                         href={item.href}
+                        forceMobile={true}
                         onAction={(action) => {
                           if (action === 'open-auth-modal') {
                             setOpenAuthModal(true);
