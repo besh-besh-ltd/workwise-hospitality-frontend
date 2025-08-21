@@ -305,14 +305,16 @@ export const vendorPageData = {
       {
         breakpoint: 991,
         settings: {
-          slidesToShow: 3, // Show 4 logos on tablets
+          slidesToShow: 3, // Show 3 logos on tablets
         }
       },
       {
         breakpoint: 767,
         settings: {
-          slidesToShow: 2, // Show 4 logos on mobile as requested
-          speed: 4000 // Even faster on mobile
+          slidesToShow: 2, // Show 2 logos on mobile for equal spacing
+          speed: 4000, // Even faster on mobile
+          centerMode: true, // Center the logos for equal spacing
+          centerPadding: '20px' // Equal padding on both sides
         }
       }
     ]

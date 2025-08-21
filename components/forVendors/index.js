@@ -298,7 +298,7 @@ const ForVendors = () => {
               <div className="company-logos-carousel">
                 <Slider {...vendorPageData.carouselSettings}>
                   {vendorPageData.trustSection.psuLogos.map((logo, index) => (
-                    <div key={index} className="px-2">
+                    <div key={index}>
                       <img
                         src={logo}
                         alt=""
