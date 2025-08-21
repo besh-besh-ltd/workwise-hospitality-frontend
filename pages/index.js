@@ -352,7 +352,7 @@ export default function Home() {
           }
         `}</style>
         {/* Hero Section */}
-        <div style={{position: 'relative'}}>
+        {/* <div style={{position: 'relative'}}> */}
         <HeroSection
           title={homepageData.hero.title}
           subtitle={homepageData.hero.subtitle}
@@ -374,7 +374,7 @@ export default function Home() {
           textAlign="left"
         >
         </HeroSection>
-        {/* Floating Icons */}
+        {/* Floating Icons
          <div
             className="floatingIcon floatA d-none d-lg-block"
             style={{ top: "19%", left: "52%" }}
@@ -393,7 +393,7 @@ export default function Home() {
           >
             <FaProjectDiagram size={20} />
           </div>
-        </div>
+        </div> */}
         
         {/* Free Tools Section */}
         <section id="free-tools-section" className="py-5">
