@@ -712,11 +712,10 @@ const Header = () => {
                 </div>
 
                 {/* Mobile Menu Toggle */}
-                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`} style={{ marginLeft: '8px' }}>
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""} ${(!isScrolled && shouldUseTransparent() && !menuClass) ? 'menu-ctrl-transparent' : ''}`} style={{ marginLeft: '8px' }}>
                   <label
                     htmlFor="menu-toggle"
                     onClick={() => setMenuClass(!menuClass)}
-                    className={(!isScrolled && shouldUseTransparent()) ? 'menu-ctrl-transparent' : ''}
                   >
                     <span></span>
                     <span></span>
