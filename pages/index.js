@@ -350,6 +350,14 @@ export default function Home() {
           section + section {
             border-top: 1px solid rgba(0,0,0,0.05);
           }
+
+          /* Video section sizing (desktop) */
+          @media (min-width: 992px) {
+            .video-section-player { 
+              max-width: 820px; 
+              margin: 0 auto; 
+            }
+          }
         `}</style>
         {/* Hero Section */}
         {/* <div style={{position: 'relative'}}> */}
@@ -737,7 +745,8 @@ export default function Home() {
                   <p className="text-muted mb-3 d-none d-md-block">{homepageData.modularOfferings.vendorSupport.footerText}</p>
                   <Button 
                     onClick={handleVendorSupport}
-                    className="btn fw-bold text-white px-3 px-sm-4 py-2 py-sm-3"
+                    className="btn fw-bold text-white w-auto"
+                    type="button"
                     style={{background: '#F59E0B', border: 'none', borderRadius: '8px'}}
                   >
                     {homepageData.modularOfferings.vendorSupport.buttonText}
@@ -897,7 +906,9 @@ export default function Home() {
             {/* Video Player */}
             <div className="row justify-content-center mb-3">
               <div className="col-12">
-                <HeroVideo /> 
+                <div className="video-section-player">
+                  <HeroVideo />
+                </div>
                 <p className="text-center text-white mt-2 mb-0" style={{ opacity: 0.8 }}>
                   This video shows a real example using a sample BOQ
                 </p>
