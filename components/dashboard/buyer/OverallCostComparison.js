@@ -433,7 +433,7 @@ const columnSums = useMemo(() => {
                    textAlign: "left",
                    overflow: "hidden",
                  }}>
-               Column Total
+               Total
              </td>
          
              {[...Array(maxVendors)].map((_, idx) => (

@@ -213,7 +213,7 @@ export const homepageData = {
       {
         breakpoint: 991,
         settings: {
-          slidesToShow: 4, // Show 4 logos on tablets
+          slidesToShow: 3, // Show 4 logos on tablets
           centerMode: false,
           centerPadding: '0px'
         }
@@ -221,7 +221,7 @@ export const homepageData = {
       {
         breakpoint: 767,
         settings: {
-          slidesToShow: 3, // Show 3 logos on mobile to prevent overlap
+          slidesToShow: 2, // Show 3 logos on mobile to prevent overlap
           speed: 4000, // Even faster on mobile
           centerMode: false,
           centerPadding: '0px'
