@@ -6,6 +6,9 @@ import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
 const HeroVideo = () => {
   const [videoPlayed, setVideoPlayed] = useState(false);
   const videoRef = useRef(null);
+  const handlePlay = () => {
+    setVideoPlayed(true);
+  };
 
   useEffect(() => {
     if (videoRef.current) {
@@ -29,7 +32,7 @@ const HeroVideo = () => {
       <div className="d-flex flex-column align-items-center">
         <div className="video-container position-relative">
           {!videoPlayed ? (
-            <div className="thumbnail-container position-relative">
+            <div className="thumbnail-container position-relative" onClick={handlePlay} style={{ cursor: 'pointer' }}>
               <img
                 src="/assets/images/hero-section-thumbnail.png"
                 alt="Video Thumbnail"
@@ -38,7 +41,8 @@ const HeroVideo = () => {
               />
               <button
                 className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
-                onClick={() => setVideoPlayed(true)}
+                type="button"
+                onClick={handlePlay}
                 style={{
                   background: "rgba(46, 91, 168, 0.8)",
                   width: "70px",
@@ -51,7 +55,7 @@ const HeroVideo = () => {
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: "0px",
-                  zIndex: 2
+                  zIndex: "auto"
                 }}
               >
                 <span style={{ marginRight: "-6px", marginBottom: "-5px" }}>
@@ -61,9 +65,9 @@ const HeroVideo = () => {
               <button
                 type="button"
                 aria-label="Play video"
-                onClick={() => setVideoPlayed(true)}
+                onClick={handlePlay}
                 className="position-absolute top-0 start-0 w-100 h-100"
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', zIndex: 1 }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', zIndex: "auto" }}
               />
             </div>
           ) : (
@@ -123,8 +127,7 @@ const HeroVideo = () => {
           border-radius: 10px;
           overflow: hidden;
           position: relative;
-          transform: scale(0.85);
-          transform-origin: center center;
+          z-index: 2;
         }
 
         .play-button {
@@ -141,7 +144,6 @@ const HeroVideo = () => {
           .video-container {
             max-width: 80%;
             aspect-ratio: 1 / 1 !important;
-            transform: scale(1);
           }
         }
 
