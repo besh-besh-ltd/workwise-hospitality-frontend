@@ -13,6 +13,16 @@ const HeroVideo = () => {
     }
   }, []);
 
+  // Ensure playback starts on mobile after user interaction
+  useEffect(() => {
+    if (videoPlayed && videoRef.current) {
+      const maybePromise = videoRef.current.play();
+      if (maybePromise && typeof maybePromise.catch === 'function') {
+        maybePromise.catch(() => {});
+      }
+    }
+  }, [videoPlayed]);
+
   return (
     <div className="position-relative">
       {/* Main Video Container */}
@@ -41,24 +51,31 @@ const HeroVideo = () => {
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: "0px",
+                  zIndex: 2
                 }}
               >
                 <span style={{ marginRight: "-6px", marginBottom: "-5px" }}>
                   <FontAwesomeIcon icon={faPlay} color="white" size="lg" />
                 </span>
               </button>
+              <button
+                type="button"
+                aria-label="Play video"
+                onClick={() => setVideoPlayed(true)}
+                className="position-absolute top-0 start-0 w-100 h-100"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', zIndex: 1 }}
+              />
             </div>
           ) : (
             <video
               ref={videoRef}
               src="/videos/hero_video.mp4"
-              autoPlay
               controls
               playsInline
               loop
               preload="auto"
               className="w-100 h-99 rounded-3"
-              style={{ objectFit: "fill", transform: "scale(1)" }}
+              style={{ objectFit: "contain", transform: "scale(1)" }}
             />
           )}
           {/* AI Attribution Badge - placed immediately below the video */}
