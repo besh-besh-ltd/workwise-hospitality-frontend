@@ -695,16 +695,6 @@ textarea {
     }
   }
 
-  // Header right section - ensure proper alignment
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: clamp(2px, 0.4vw, 6px);
-    flex-wrap: nowrap;
-    min-width: 0;
-    flex-shrink: 0;
-  }
-
   // Supplier CTA Button
   .supplier-cta {
     margin-right: 0;
@@ -1707,10 +1697,6 @@ body.at-top {
       }
 
       &:hover {
-        // &::before {
-        //     opacity: 0;
-        // }
-
         figure {
           transform: scale(1.1);
         }
@@ -3810,7 +3796,6 @@ body.at-top {
         }
 
         .table-footer {
-          // Your table footer styles
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -3827,7 +3812,6 @@ body.at-top {
             align-items: center;
 
             .page-link {
-              // Page link styles
               padding: 5px 10px;
               margin: 0 5px;
               color: #999999;
@@ -3838,7 +3822,6 @@ body.at-top {
             }
 
             input[type="text"] {
-              // Input box styles if needed
               padding: 9px 5px;
               border: 1px solid #ccc;
               border-radius: 6px;
@@ -4463,7 +4446,6 @@ body.at-top {
           font-size: 14px;
           line-height: 24px;
           color: #525252;
-          // margin-right: 50px;
         }
 
         .table-container {
@@ -7155,7 +7137,6 @@ h2.pdf-icon {
           }
         }
 
-        // reserved hook for last two rows spacing (kept non-empty to satisfy linter)
         .table-si-row:last-child,
         .table-si-row:nth-last-child(2) { height: auto; }
 
@@ -8185,67 +8166,6 @@ td:hover .tooltip_custom {
 }
 
 .main-menu ul li ul li > * {
-  text-align: left !important;
-}
-
-/* Force left alignment in all dropdown elements */
-.main-menu ul li ul {
-  text-align: left !important;
-}
-
-.main-menu ul li ul li {
-  text-align: left !important;
-  justify-content: flex-start !important;
-}
-
-.main-menu ul li ul li a,
-.main-menu ul li ul li div,
-.main-menu ul li ul li span {
-  text-align: left !important;
-  justify-content: flex-start !important;
-  align-items: flex-start !important;
-}
-
-/* Override any center alignment */
-.main-menu ul li ul li > * {
-  text-align: left !important;
-  justify-content: flex-start !important;
-}
-
-/* Specific override for Bootstrap centering classes */
-.main-menu .justify-content-center,
-.main-menu .text-center,
-.main-menu .d-flex.justify-content-center {
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
-
-/* Force all dropdown content to left align */
-.main-menu ul li > ul,
-.main-menu ul li > ul li,
-.main-menu ul li > ul li > *,
-.main-menu ul li > ul li > a,
-.main-menu ul li > ul li > div,
-.main-menu ul li > ul li > span {
-  text-align: left !important;
-  align-items: flex-start !important;
-}
-
-/* Specific fixes for nested dropdown items */
-.main-menu ul li > ul li > div {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.main-menu ul li > ul li > div > span {
-  text-align: left !important;
-  width: 100% !important;
-  display: block !important;
-}
-
-.main-menu ul li > ul li > a {
-  width: 100% !important;
-  box-sizing: border-box !important;
   text-align: left !important;
 }
 

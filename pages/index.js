@@ -105,10 +105,7 @@ export default function Home() {
     }
   };
 
-  const handleExploreVendorTools = () => {
-    // Handle explore vendor tools action
-    console.log('Explore vendor tools clicked');
-  };
+  const handleExploreVendorTools = () => {};
 
   const handleVendorSupport = () => {
     // Redirect to contact us page
@@ -124,10 +121,7 @@ export default function Home() {
   // Demo video modal state for "See How Workwise Simplifies" section
   const [showPortalDemoModal, setShowPortalDemoModal] = useState(false);
 
-  const handleToolClick = (toolName) => {
-    console.log(`${toolName} clicked`);
-    // Navigate to specific tool page
-  };
+  const handleToolClick = (toolName) => {};
 
   return (
     <>

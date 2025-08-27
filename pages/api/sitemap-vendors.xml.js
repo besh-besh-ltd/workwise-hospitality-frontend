@@ -30,7 +30,6 @@ const createSitemap = (urls) => `<?xml version="1.0" encoding="UTF-8"?>
 
 export default async function sitemapVendorsXml(req, res) {
   const vendors = await getVendors();
-  console.log(vendors?.[0])
   const urls = vendors?.map(slug => ({
     loc: `/vendor/${slug}`,
     changefreq: 'weekly',

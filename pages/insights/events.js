@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendar, faMapMarkerAlt, faSearch, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faCalendar, faClock } from '@fortawesome/free-solid-svg-icons';
 
-// Import reusable components
-import { Button } from '@/components/ui/Button';
-import { CtaSection } from '@/components/ui/CtaSection';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
@@ -26,11 +23,6 @@ const EventsPage = () => {
   const handleRegisterInterest = (event) => {
     setSelectedEvent(event);
     setShowModal(true);
-  };
-
-  const handleViewHighlights = (event) => {
-    console.log('View highlights for event:', event);
-    // Here you would typically navigate to event highlights page
   };
 
   const handleFormSubmit = async (formData) => {

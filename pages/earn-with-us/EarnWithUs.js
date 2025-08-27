@@ -2,7 +2,7 @@ import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { HeroSection } from '@/components/ui/HeroSection'
 import React, { useEffect, useRef, useState } from 'react'
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
-import { contactUsFormService, registerInterestService } from '@/services/contact';
+import { registerInterestService } from '@/services/contact';
 
 // Import data
 import { earnWithUsData } from '@/components/constants/earnWithUsData';
@@ -12,23 +12,14 @@ import {
   FaVideo, 
   FaFileAlt,
   FaUsers,
-  FaPlay,
-  FaTrendingUp,
-  FaTarget,
-  FaCoins,
-  FaSitemap,
-  FaHome,
-  FaNetworkWired,
   FaUser,
-  FaHardHat,
   FaHeadset,
-  FaBullseye, FaDollarSign, FaCreditCard, FaChartLine,
+  FaDollarSign, FaCreditCard, FaChartLine,
   FaHandshake,
   FaUserPlus,
-  FaLink,
-  FaChartPie
+
 } from 'react-icons/fa';
-import { FaRocket, FaComments } from 'react-icons/fa';
+import { FaRocket} from 'react-icons/fa';
 import { Modal } from 'react-bootstrap';
 import BookCall from '@/components/bookCall';
 
