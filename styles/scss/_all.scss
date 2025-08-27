@@ -1076,46 +1076,7 @@ body.at-top {
 }
 
 /* Sticky Mobile CTA - global (outside header) */
-.sticky-mobile-cta {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 1020;
-  display: none;
-
-  a {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 56px;
-    height: 56px;
-    padding: 0;
-    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-    color: var(--black-color);
-    text-decoration: none;
-    border-radius: 50%;
-    font-weight: 600;
-    box-shadow: 0 6px 16px rgba(255, 165, 0, 0.35);
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 18px rgba(255, 165, 0, 0.45);
-      color: var(--black-color);
-      text-decoration: none;
-    }
-
-    svg {
-      font-size: 22px;
-    }
-  }
-}
-
-@media (max-width: 768px) {
-  .sticky-mobile-cta {
-    display: block;
-  }
-}
+/* sticky mobile CTA removed; actions now reside inside mobile menu */
 
 /* Common Heading area*/
 .btn {
@@ -8320,9 +8281,7 @@ td:hover .tooltip_custom {
   }
   
   /* Hide login in mobile menu, keep only book a call */
-  .mobile-menu .mobile-login {
-    display: none !important;
-  }
+  /* allow login to appear in mobile menu */
   
   /* Mobile menu styling */
   .mobile-menu {
@@ -8417,6 +8376,31 @@ td:hover .tooltip_custom {
     display: block !important;
     font-weight: 500 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* Bottom actions inside hamburger menu */
+  .mobile-actions {
+    padding: 15px 25px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    display: flex !important;
+    gap: 12px !important;
+    justify-content: flex-start !important;
+
+    .action-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 10px 16px !important;
+      border-radius: 8px !important;
+      font-weight: 600 !important;
+      text-decoration: none !important;
+      color: #fff !important;
+      border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    }
+
+    .action-btn.book-call {
+      background: rgba(255, 255, 255, 0.1) !important;
+    }
   }
   
   /* Mobile dropdown trigger styling */
