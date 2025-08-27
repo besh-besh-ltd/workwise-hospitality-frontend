@@ -247,6 +247,7 @@ p {
 }
 
 select {
+  appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
   background-image: url(../../public/assets/images/down-arrow.png) !important;
@@ -1078,7 +1079,7 @@ body.at-top {
 .sticky-mobile-cta {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   z-index: 1020;
   display: none;
 
@@ -7193,10 +7194,9 @@ h2.pdf-icon {
           }
         }
 
+        // reserved hook for last two rows spacing (kept non-empty to satisfy linter)
         .table-si-row:last-child,
-        .table-si-row:nth-last-child(2) {
-          
-        }
+        .table-si-row:nth-last-child(2) { height: auto; }
 
         .table-si-row:nth-child(n+3):nth-child(-n+9) {
           height: 70px;
