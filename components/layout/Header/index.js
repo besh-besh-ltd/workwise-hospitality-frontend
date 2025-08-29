@@ -17,6 +17,7 @@ const initialMainNavs = [
   "/aboutus",
   "/contactus",
   "/for-vendors",
+  "/vendor/all",
   // "/IEW-2025",
   "/solutions",
   "/blogs",
@@ -298,6 +299,7 @@ const websiteMenu = [
     label: "Tools", 
     type: "dropdown",
     options: [
+      { label: "Vendor Inventory", href: "/vendor/all" },
       { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
       { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
       { label: "Tender Summary", href: "/ai-tools/tender-summary" },
