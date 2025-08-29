@@ -2,6 +2,7 @@ import Head from 'next/head'
 import { Inter } from 'next/font/google'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTruck, faBriefcase, faFileAlt, faListUl, faCalculator, faFileContract, faRocket, faPlay, faShield, faUsers, faBuilding, faCloud, faLock, faBrain, faHammer, faSearch, faWrench, faPhone, faClock, faEye, faTimes, faCheck, faExclamationTriangle, faPaperPlane, faCopy, faTable, faChartLine, faEnvelope, faQuestionCircle, faHourglassHalf, faBolt, faDollarSign, faPercent, faCheckSquare, faChartColumn, faComments, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { FaMicrochip, FaProjectDiagram, FaRobot, FaWrench } from 'react-icons/fa';
 
@@ -104,10 +105,7 @@ export default function Home() {
     }
   };
 
-  const handleExploreVendorTools = () => {
-    // Handle explore vendor tools action
-    console.log('Explore vendor tools clicked');
-  };
+  const handleExploreVendorTools = () => {};
 
   const handleVendorSupport = () => {
     // Redirect to contact us page
@@ -120,10 +118,10 @@ export default function Home() {
   // CallNowModal state
   const [showCallModal, setShowCallModal] = useState(false);
 
-  const handleToolClick = (toolName) => {
-    console.log(`${toolName} clicked`);
-    // Navigate to specific tool page
-  };
+  // Demo video modal state for "See How Workwise Simplifies" section
+  const [showPortalDemoModal, setShowPortalDemoModal] = useState(false);
+
+  const handleToolClick = (toolName) => {};
 
   return (
     <>
@@ -903,13 +901,31 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Video Player */}
+            {/* Video Player (clickable thumbnail opens modal) */}
             <div className="row justify-content-center mb-3">
-              <div className="col-12">
-                <div className="video-section-player">
-                  <HeroVideo />
+              <div className="col-12 d-flex flex-column align-items-center">
+                <div className="video-section w-100" style={{ maxWidth: '900px' }}>
+                  <button
+                    id="portal-demo-video-btn"
+                    onClick={() => setShowPortalDemoModal(true)}
+                    className="video-button"
+                    style={{
+                      width: '100%',
+                      aspectRatio: '16 / 7',
+                      background: 'url(/assets/images/hero.png) center / contain no-repeat',
+                      borderRadius: '18px',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faCirclePlay} className="video-play-icon" style={{ fontSize: 50, color: '#000000', opacity: 0.9 }} />
+                  </button>
                 </div>
-                <p className="text-center text-white mt-2 mb-0" style={{ opacity: 0.8 }}>
+                <p className="text-center text-white mt-3 mb-0" style={{ opacity: 0.8 }}>
                   This video shows a real example using a sample BOQ
                 </p>
               </div>
@@ -964,6 +980,15 @@ export default function Home() {
             </div>
           </div>
         </section>
+        {/* Styled-jsx for video section responsiveness */}
+        <style jsx>{`
+          @media (max-width: 768px) {
+            .video-button { aspect-ratio: 4 / 3; }
+          }
+          @media (max-width: 480px) {
+            .video-button { aspect-ratio: 2 / 1; }
+          }
+        `}</style>
 
         {/* Why Workwise Is a No-Brainer for Project Procurement Section */}
         <section className="py-5">
@@ -1399,6 +1424,40 @@ export default function Home() {
           <BookCall />
         </Modal.Body>
       </Modal>
+
+      {/* Portal Demo Video Modal (custom lightweight overlay) */}
+      {showPortalDemoModal && (
+        <div
+          className="modal fade show d-block p-4"
+          tabIndex="-1"
+          role="dialog"
+          style={{ background: 'rgba(0, 0, 0, 0.6)' }}
+          onClick={() => setShowPortalDemoModal(false)}
+        >
+          <div
+            className="modal-dialog modal-xl modal-dialog-centered"
+            role="document"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title p-4 text-center fw-bold">workwise Demo</h5>
+                <button type="button" className="btn-close" onClick={() => setShowPortalDemoModal(false)}></button>
+              </div>
+              <div className="modal-body d-flex justify-content-center">
+                <iframe
+                  width="100%"
+                  height="500px"
+                  src={`https://www.youtube.com/embed/-JPa1MX2HVE?autoplay=1`}
+                  title="YouTube Video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

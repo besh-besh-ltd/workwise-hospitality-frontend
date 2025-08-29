@@ -53,7 +53,6 @@ const ModulePage = () => {
         }
       } catch (error) {
         // Silently handle auth errors
-        console.log('Auth check failed:', error);
       } finally {
         setLoading(false);
       }
@@ -91,7 +90,7 @@ const ModulePage = () => {
       negotiation: [faMessage, faCircleCheck, faFileAlt],
       payments: [faCreditCard, faChartBar, faUsers]
     };
-    return iconMap[moduleType] || [Upload, Tag, Download];
+    return iconMap[moduleType] || [faUpload, faTag, faDownload];
   };
 
   // Icon mapping for how it works steps
@@ -139,7 +138,7 @@ const ModulePage = () => {
         router.push('/vendor/all');
         break;
       default:
-        console.log(`${moduleData.hero.primaryButton.label} clicked`);
+        // no-op
     }
   };
 

@@ -247,6 +247,7 @@ p {
 }
 
 select {
+  appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
   background-image: url(../../public/assets/images/down-arrow.png) !important;
@@ -663,7 +664,7 @@ textarea {
           background: transparent;
           line-height: 1.4;
           position: relative;
-          padding: clamp(2px, 0.35vw, 6px) clamp(4px, 0.5vw, 8px);
+          padding: clamp(2px, 0.35vw, 6px) clamp(4px, 0.5vw, 10px);
           border-radius: 6px;
           transition: all 0.2s ease;
           cursor: pointer;
@@ -694,16 +695,6 @@ textarea {
     }
   }
 
-  // Header right section - ensure proper alignment
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: clamp(2px, 0.4vw, 6px);
-    flex-wrap: nowrap;
-    min-width: 0;
-    flex-shrink: 0;
-  }
-
   // Supplier CTA Button
   .supplier-cta {
     margin-right: 0;
@@ -725,7 +716,7 @@ textarea {
       position: relative;
       overflow: hidden;
       font-size: clamp(0.7rem, 0.9vw, 0.85rem);
-      min-width: clamp(80px, 7vw, 120px);
+      min-width: clamp(70px, 7vw, 120px);
       max-width: clamp(120px, 10vw, 160px);
       text-align: center;
       white-space: nowrap;
@@ -760,18 +751,18 @@ textarea {
     .main-menu ul { gap: 0px; }
     .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: 0px clamp(0px, 0.02vw, 1px); }
-    .supplier-cta .btn-supplier { min-width: clamp(70px, 6.5vw, 110px); padding: 0 clamp(6px, 0.8vw, 10px); }
+    .supplier-cta .btn-supplier { min-width: clamp(70px, 6.5vw, 120px); padding: 0 clamp(6px, 0.8vw, 10px); }
     .header-right { gap: 0px; }
-    .extra-buttons ul li.book-call a { min-width: clamp(70px, 6.5vw, 110px); padding: 0 clamp(6px, 0.8vw, 10px); }
+    .extra-buttons ul li.book-call a { min-width: clamp(70px, 6.5vw, 120px); padding: 0 clamp(6px, 0.8vw, 10px); }
   }
 
   @media (max-width: 1400px) {
     .main-menu ul { gap: 0px; }
     .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: 0px clamp(0px, 0.015vw, 1px); }
-    .supplier-cta .btn-supplier { min-width: clamp(64px, 6vw, 100px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
+    .supplier-cta .btn-supplier { min-width: clamp(70px, 6vw, 120px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
     .header-right { gap: 0px; }
-    .extra-buttons ul li.book-call a { min-width: clamp(64px, 6vw, 100px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
+    .extra-buttons ul li.book-call a { min-width: clamp(70px, 6vw, 120px); padding: 0 clamp(5px, 0.7vw, 8px); font-size: clamp(0.65rem, 0.8vw, 0.8rem); }
   }
 
   @media (max-width: 1280px) {
@@ -780,18 +771,18 @@ textarea {
     .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: 0px clamp(0px, 0.01vw, 1px); }
     .header-right { gap: 0px; }
-    .supplier-cta .btn-supplier { min-width: clamp(60px, 5.5vw, 90px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
+    .supplier-cta .btn-supplier { min-width: clamp(70px, 5.5vw, 100px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
     .extra-buttons ul li.login { display: none !important; }
-    .extra-buttons ul li.book-call a { min-width: clamp(60px, 5.5vw, 90px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
+    .extra-buttons ul li.book-call a { min-width: clamp(70px, 5.5vw, 100px); padding: 0 clamp(4px, 0.6vw, 6px); font-size: clamp(0.6rem, 0.75vw, 0.75rem); }
   }
 
   @media (max-width: 1180px) {
     .logo { width: clamp(85px, 8.5vw, 110px); }
     .main-menu ul li { font-size: 14px; }
     .main-menu ul li a, .main-menu ul li span { padding: 0px clamp(0px, 0.005vw, 1px); }
-    .supplier-cta .btn-supplier { min-width: clamp(56px, 5vw, 80px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
+    .supplier-cta .btn-supplier { min-width: clamp(70px, 5vw, 100px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
     .header-right { gap: 0px; }
-    .extra-buttons ul li.book-call a { min-width: clamp(56px, 5vw, 80px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
+    .extra-buttons ul li.book-call a { min-width: clamp(70px, 5vw, 100px); padding: 0 clamp(3px, 0.5vw, 5px); font-size: clamp(0.58rem, 0.7vw, 0.7rem); }
   }
 
   /* Ensure orange supplier button styling also applies when used directly inside header extra-buttons on mobile */
@@ -799,8 +790,8 @@ textarea {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 36px;
-    padding: 0 16px;
+    height: 45px;
+    padding: 0 25px;
     background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
     color: var(--black-color) !important;
     font-weight: 600;
@@ -812,8 +803,8 @@ textarea {
     position: relative;
     overflow: hidden;
     font-size: 0.9rem;
-    min-width: 100px;
-    max-width: 120px;
+    min-width: 150px;
+    max-width: 180px;
     text-align: center;
     white-space: nowrap;
 
@@ -933,7 +924,7 @@ textarea {
           text-decoration: none;
           border: none;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-          min-width: clamp(90px, 9.5vw, 120px);
+          min-width: clamp(100px, 9.5vw, 150px);
           text-align: center;
           white-space: nowrap;
 
@@ -964,10 +955,10 @@ textarea {
         /* Book a Call button - match For Suppliers button size */
         &.book-call a {
           height: clamp(28px, 2.5vw, 43px);
-          min-width: clamp(80px, 7vw, 120px);
-          max-width: clamp(120px, 10vw, 160px);
+          min-width: clamp(100px, 7vw, 150px);
+          max-width: clamp(150px, 10vw, 180px);
           font-size: clamp(0.7rem, 0.9vw, 0.85rem);
-          padding: 0 clamp(8px, 1vw, 16px);
+          padding: 0 clamp(8px, 1vw, 20px);
         }
       }
     }
@@ -1075,46 +1066,7 @@ body.at-top {
 }
 
 /* Sticky Mobile CTA - global (outside header) */
-.sticky-mobile-cta {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1020;
-  display: none;
-
-  a {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 56px;
-    height: 56px;
-    padding: 0;
-    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-    color: var(--black-color);
-    text-decoration: none;
-    border-radius: 50%;
-    font-weight: 600;
-    box-shadow: 0 6px 16px rgba(255, 165, 0, 0.35);
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 18px rgba(255, 165, 0, 0.45);
-      color: var(--black-color);
-      text-decoration: none;
-    }
-
-    svg {
-      font-size: 22px;
-    }
-  }
-}
-
-@media (max-width: 768px) {
-  .sticky-mobile-cta {
-    display: block;
-  }
-}
+/* sticky mobile CTA removed; actions now reside inside mobile menu */
 
 /* Common Heading area*/
 .btn {
@@ -1745,10 +1697,6 @@ body.at-top {
       }
 
       &:hover {
-        // &::before {
-        //     opacity: 0;
-        // }
-
         figure {
           transform: scale(1.1);
         }
@@ -3848,7 +3796,6 @@ body.at-top {
         }
 
         .table-footer {
-          // Your table footer styles
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -3865,7 +3812,6 @@ body.at-top {
             align-items: center;
 
             .page-link {
-              // Page link styles
               padding: 5px 10px;
               margin: 0 5px;
               color: #999999;
@@ -3876,7 +3822,6 @@ body.at-top {
             }
 
             input[type="text"] {
-              // Input box styles if needed
               padding: 9px 5px;
               border: 1px solid #ccc;
               border-radius: 6px;
@@ -4501,7 +4446,6 @@ body.at-top {
           font-size: 14px;
           line-height: 24px;
           color: #525252;
-          // margin-right: 50px;
         }
 
         .table-container {
@@ -7194,9 +7138,7 @@ h2.pdf-icon {
         }
 
         .table-si-row:last-child,
-        .table-si-row:nth-last-child(2) {
-          
-        }
+        .table-si-row:nth-last-child(2) { height: auto; }
 
         .table-si-row:nth-child(n+3):nth-child(-n+9) {
           height: 70px;
@@ -8227,67 +8169,6 @@ td:hover .tooltip_custom {
   text-align: left !important;
 }
 
-/* Force left alignment in all dropdown elements */
-.main-menu ul li ul {
-  text-align: left !important;
-}
-
-.main-menu ul li ul li {
-  text-align: left !important;
-  justify-content: flex-start !important;
-}
-
-.main-menu ul li ul li a,
-.main-menu ul li ul li div,
-.main-menu ul li ul li span {
-  text-align: left !important;
-  justify-content: flex-start !important;
-  align-items: flex-start !important;
-}
-
-/* Override any center alignment */
-.main-menu ul li ul li > * {
-  text-align: left !important;
-  justify-content: flex-start !important;
-}
-
-/* Specific override for Bootstrap centering classes */
-.main-menu .justify-content-center,
-.main-menu .text-center,
-.main-menu .d-flex.justify-content-center {
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
-
-/* Force all dropdown content to left align */
-.main-menu ul li > ul,
-.main-menu ul li > ul li,
-.main-menu ul li > ul li > *,
-.main-menu ul li > ul li > a,
-.main-menu ul li > ul li > div,
-.main-menu ul li > ul li > span {
-  text-align: left !important;
-  align-items: flex-start !important;
-}
-
-/* Specific fixes for nested dropdown items */
-.main-menu ul li > ul li > div {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.main-menu ul li > ul li > div > span {
-  text-align: left !important;
-  width: 100% !important;
-  display: block !important;
-}
-
-.main-menu ul li > ul li > a {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  text-align: left !important;
-}
-
 /* Mobile Navigation Improvements */
 @media (max-width: 991px) {
   /* Ensure logo and hamburger are always visible */
@@ -8311,7 +8192,7 @@ td:hover .tooltip_custom {
   .main-header .menu-ctrl {
     flex-shrink: 0 !important;
     margin-left: auto !important;
-    background: #fff !important;
+    background: transparent !important;
   }
   
   /* Hide login button in tight spaces, keep only book a call */
@@ -8320,9 +8201,7 @@ td:hover .tooltip_custom {
   }
   
   /* Hide login in mobile menu, keep only book a call */
-  .mobile-menu .mobile-login {
-    display: none !important;
-  }
+  /* allow login to appear in mobile menu */
   
   /* Mobile menu styling */
   .mobile-menu {
@@ -8417,6 +8296,31 @@ td:hover .tooltip_custom {
     display: block !important;
     font-weight: 500 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* Bottom actions inside hamburger menu */
+  .mobile-actions {
+    padding: 15px 25px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    display: flex !important;
+    gap: 12px !important;
+    justify-content: flex-start !important;
+
+    .action-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 10px 16px !important;
+      border-radius: 8px !important;
+      font-weight: 600 !important;
+      text-decoration: none !important;
+      color: #fff !important;
+      border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    }
+
+    .action-btn.book-call {
+      background: rgba(255, 255, 255, 0.1) !important;
+    }
   }
   
   /* Mobile dropdown trigger styling */
@@ -8966,12 +8870,12 @@ html, body {
 
 /* Compact desktop mode for ~133% browser zoom
    Slightly reduce logo, nav text and CTA sizes without affecting mobile */
-@media (min-width: 992px) and (min-resolution: 1.3dppx) and (max-resolution: 1.38dppx) {
+@media (min-width: 800px){
   .main-header .header-container { padding: 6px 0; min-height: 50px; }
   .main-header .logo { width: clamp(78px, 7.5vw, 130px); }
   .main-header .main-menu ul li { font-size: 13px; }
   .main-header .main-menu ul li a,
-  .main-header .main-menu ul li span { padding: 0 clamp(0px, 0.01vw, 1px); }
+  .main-header .main-menu ul li span { padding: 0 clamp(0px, 0.01vw, 0px); }
 
   .main-header .supplier-cta .btn-supplier,
   .main-header .extra-buttons ul li.book-call a,

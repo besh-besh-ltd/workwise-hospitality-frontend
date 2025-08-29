@@ -253,7 +253,7 @@ const AiToolPage = () => {
           }
         };
   
-        console.log('Normalized Technical Summary:', normalized);
+        // normalized payload prepared for modal rendering
         
         setTechnicalSummary(normalized);
         setShowFormModal(false);
@@ -296,13 +296,9 @@ const AiToolPage = () => {
     }
   };
 
-  const handleBookCall = () => {
-    console.log('Book a Call clicked');
-  };
+  const handleBookCall = () => setShowBookCall(true);
 
-  const handleDownload = () => {
-    console.log('Download clicked');
-  };
+  const handleDownload = () => {};
 
   const handleWatchDemo = () => {
     setShowDemoModal(true);

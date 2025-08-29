@@ -33,9 +33,7 @@ const PilotProjectPage = () => {
 
 
   const handleFormSubmit = async (values) => {
-    console.log('Pilot form submitted:', values);
-    // Here you would typically send the data to your backend
-    // For now, just log it
+    // TODO: integrate with backend endpoint
   };
 
   const handleClaimPilot = () => {
