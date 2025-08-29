@@ -1214,7 +1214,6 @@ const clearVendorFilters = () => {
                         selectedCity={selectedCity}
                         setselectedCity={setselectedCity}
                         vendorMetaData={vendorMetaData}
-                        setOpenAuthModal={setOpenAuthModal}
                       />
                     </div>
                   </div>

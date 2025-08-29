@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlay } from '@fortawesome/free-solid-svg-icons';
-import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
+import { FaRobot } from 'react-icons/fa';
 
 const HeroVideo = () => {
   const [videoPlayed, setVideoPlayed] = useState(false);

@@ -17,6 +17,7 @@ const initialMainNavs = [
   "/aboutus",
   "/contactus",
   "/for-vendors",
+  "/vendor/all",
   // "/IEW-2025",
   "/solutions",
   "/blogs",
@@ -298,6 +299,7 @@ const websiteMenu = [
     label: "Tools", 
     type: "dropdown",
     options: [
+      { label: "Vendor Inventory", href: "/vendor/all" },
       { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
       { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
       { label: "Tender Summary", href: "/ai-tools/tender-summary" },
@@ -712,11 +714,10 @@ const Header = () => {
                 </div>
 
                 {/* Mobile Menu Toggle */}
-                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`} style={{ marginLeft: '8px' }}>
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""} ${(!isScrolled && shouldUseTransparent() && !menuClass) ? 'menu-ctrl-transparent' : ''}`} style={{ marginLeft: '8px' }}>
                   <label
                     htmlFor="menu-toggle"
                     onClick={() => setMenuClass(!menuClass)}
-                    className={(!isScrolled && shouldUseTransparent()) ? 'menu-ctrl-transparent' : ''}
                   >
                     <span></span>
                     <span></span>
@@ -862,19 +863,32 @@ const Header = () => {
                     )}
                   </li>
                 ))}
-
-                {!loggedinUser && (
-                  <>
-                    <li className="mobile-login">
-                      <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }} style={{ color: '#fff' }}>
-                        Login
-                      </Link>
-                    </li>
-                    {/* Hide Book a Call in mobile menu; For Suppliers CTA is present above */}
-                  </>
-                )}
               </ul>
             </nav>
+            {!loggedinUser && (
+              <div className="mobile-actions">
+                <Link
+                  href="javascript:void(0)"
+                  className="action-btn login"
+                  onClick={() => {
+                    handleChange(setActiveAuthTab('login'));
+                    handleChange(setOpenAuthModal(true));
+                  }}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="javascript:void(0)"
+                  className="action-btn book-call"
+                  onClick={() => {
+                    handleChange(setActiveAuthTab('book-a-call'));
+                    handleChange(setOpenAuthModal(true));
+                  }}
+                >
+                  Book a Call
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -909,14 +923,7 @@ const Header = () => {
         )}
       </header>
 
-      {/* Sticky Mobile CTA */}
-      {!loggedinUser && !pathname?.startsWith("/vendor") && (
-        <div className="sticky-mobile-cta">
-          <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }}>
-            <FontAwesomeIcon icon={faMessage} />
-          </Link>
-        </div>
-      )}
+      {/* Removed sticky mobile CTA in favor of actions inside hamburger menu */}
 
 
 

@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { useEffect, useRef, useState } from 'react';
 
@@ -114,6 +115,9 @@ const ForVendors = () => {
   
   // Book a call modal state
   const [showCallModal, setShowCallModal] = useState(false);
+
+  // Hero video modal state
+  const [showHeroVideoModal, setShowHeroVideoModal] = useState(false);
 
   return (
     <>
@@ -234,9 +238,67 @@ const ForVendors = () => {
             onClick: handleTalkToVendorTeam
           }}
           visualContent={{
-            video: <HeroVideo /> 
+            video: (
+              <div className="position-relative">
+                <button
+                  onClick={() => setShowHeroVideoModal(true)}
+                  className="video-button w-100 h-100"
+                  style={{
+                    background: 'url(/assets/images/blog-1.jpg) center / cover no-repeat',
+                    borderRadius: '16px',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '300px'
+                  }}
+                >
+                  <FontAwesomeIcon 
+                    icon={faCirclePlay} 
+                    className="video-play-icon" 
+                    style={{ 
+                      fontSize: 60, 
+                      color: '#ffffff', 
+                      opacity: 0.9,
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                    }} 
+                  />
+                </button>
+              </div>
+            )
           }}
-          mobileVideoContent={<HeroVideo />}
+          mobileVideoContent={(
+            <div className="position-relative">
+              <button
+                onClick={() => setShowHeroVideoModal(true)}
+                className="video-button w-100 h-100"
+                style={{
+                  background: 'url(/assets/images/video-img.jpg) center / cover no-repeat',
+                  borderRadius: '16px',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  minHeight: '250px'
+                }}
+              >
+                <FontAwesomeIcon 
+                  icon={faCirclePlay} 
+                  className="video-play-icon" 
+                  style={{ 
+                    fontSize: 50, 
+                    color: '#ffffff', 
+                    opacity: 0.9,
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                  }} 
+                />
+              </button>
+            </div>
+          )}
           layout="split"
           size="medium"
           textAlign="left"
@@ -692,6 +754,40 @@ const ForVendors = () => {
             <BookCall />
           </Modal.Body>
         </Modal>
+
+        {/* Hero Video Modal */}
+        {showHeroVideoModal && (
+          <div
+            className="modal fade show d-block p-4"
+            tabIndex="-1"
+            role="dialog"
+            style={{ background: 'rgba(0, 0, 0, 0.6)' }}
+            onClick={() => setShowHeroVideoModal(false)}
+          >
+            <div
+              className="modal-dialog modal-xl modal-dialog-centered"
+              role="document"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title p-4 text-center fw-bold">Workwise for Vendors</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowHeroVideoModal(false)}></button>
+                </div>
+                <div className="modal-body d-flex justify-content-center">
+                  <iframe
+                    width="100%"
+                    height="500px"
+                    src="https://www.youtube.com/embed/r6yHCHZsWj0?autoplay=1"
+                    title="Workwise for Vendors"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );
