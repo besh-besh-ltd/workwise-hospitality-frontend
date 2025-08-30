@@ -893,6 +893,7 @@ const EditProfile = () => {
                         </div>
                         {selectedBrochureFiles.length > 0 && (
                           <button
+                            id="upload_brochure-documents_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile"
                             href="#"
                             onClick={(e) => {
@@ -927,6 +928,7 @@ const EditProfile = () => {
                         </div>
                         {selectedDocumentsFiles.length > 0 && (
                           <button
+                            id="upload_documents-documents_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile"
                             href="#"
                             onClick={(e) => {
@@ -959,6 +961,7 @@ const EditProfile = () => {
                         </div>
                         {selectedPTRFiles.length > 0 && (
                           <button
+                            id="upload_ptr-documents_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile"
                             href="#"
                             onClick={(e) => {
@@ -973,6 +976,7 @@ const EditProfile = () => {
                     </div>
 
                     <button
+                      id="save_changes-edit_profile-vendor_edit_profile_page"
                       type="submit"
                       className="btn btn-secondary edit-profile mb-4"
                     >
@@ -991,6 +995,7 @@ const EditProfile = () => {
                       <span className="title"> Manage SPOC </span>
 
                       <button
+                        id="create_new_spoc-spoc_section-vendor_edit_profile_page"
                         className="btn btn-primary"
                         onClick={() =>
                           setOpenAddSpoc({ status: true, type: "create-spoc" })
@@ -1051,6 +1056,7 @@ const EditProfile = () => {
                                       <td>
                                         {/* Edit Button */}
                                         <span
+                                          id="edit_spoc_list-spoc_table-vendor_edit_profile_page"
                                           role="button"
                                           className="cursor-pointer me-3" // Adds some gap between icons
                                           onClick={() => {
@@ -1072,6 +1078,7 @@ const EditProfile = () => {
 
                                         {/* Delete Button */}
                                         <span
+                                          id="delete_spoc_list-spoc_table-vendor_edit_profile_page"
                                           role="button"
                                           className="cursor-pointer text-danger"
                                           onClick={() =>

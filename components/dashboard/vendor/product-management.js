@@ -317,6 +317,7 @@ const ProductManagement = () => {
                         </div>
                         <div className="d-flex mt-4 col-md-4">
                           <button
+                            id="upload_xlsx_product_management-page"
                             type="button"
                             className="btn btn-primary mr-2"
                             onClick={() => uploadToServer()}
@@ -325,6 +326,7 @@ const ProductManagement = () => {
                           </button>
                           <div className="d-flex justify-content-end col-md-4">
                             <button
+                              id="cancel_bulk_upload-product_management-page"
                               type="button"
                               className="btn btn-secondary mr-2"
                               onClick={() => {
@@ -386,6 +388,7 @@ const ProductManagement = () => {
 
                       <div className="action-btm ">
                         <button
+                          id="search_products-product_management-page"
                           className="btn btn-primary"
                           onClick={() => {
                             getProducts();
@@ -399,6 +402,7 @@ const ProductManagement = () => {
                     <div className="col-5 d-flex justify-content-end ">
                       <Link
                         href="#"
+                        id="export_products-product_management-page"
                         className="btn btn-primary "
                         style={{ width: "35%" }}
                         onClick={() => {

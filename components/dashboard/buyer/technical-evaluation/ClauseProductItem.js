@@ -394,6 +394,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                         toggleChat(clauseItem.clause_id);
                                         setSelectedVendor(vendor);
                                       }}
+                                      id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
                                     >
                                      Deviation
                                     </button>
@@ -459,6 +460,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                         className="btn btn-secondary border-0 p-2"
                                         style={{ width: "220px", marginRight: 10 }}
                                         onClick={() => addToTechnicallyAccepted()}
+                                        id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Accepted
                                     </button>
@@ -467,6 +469,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                         className="btn btn-danger border-0 p-2"
                                         style={{ width: "255px" }}
                                         onClick={() => setOpenModal(true)}
+                                        id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Not Accepted
                                     </button>
@@ -527,6 +530,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                                     className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
                                                     style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
                                                     onClick={() => toggleChat(clauseItem.clause_id)}
+                                                    id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                                                 >
                                                     Explanation / Deviation
                                                 </button>

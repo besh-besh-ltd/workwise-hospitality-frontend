@@ -493,6 +493,7 @@ const QuoteCompareTable = ({
                     setCurrentItem(lowestQuote);
                     // handleFinalize(lowestQuote, proditem)
                   }}
+                  id="finalize_vendor-quote_actions-quote_compare_table"
                 >
                   Finalize
                 </button>

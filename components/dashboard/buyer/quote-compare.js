@@ -1124,7 +1124,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   )}
 
                   {/* Download quote & Close Rfq Buttons */}
-                  <span onClick={handleDownloadQuote}>
+                  <span id="download_quote_actions-quote_compare_page" onClick={handleDownloadQuote}>
                     {" "}
                     {downloadLoading
                       ? "Generating Excel file...."
@@ -1133,7 +1133,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
                   <>
                     {quotes[0]?.rfq[0]?.status == 1 && (
-                      <span onClick={handleRFqClose}>
+                      <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
                         {closeRFqLoading
                           ? "Processing request..."
                           : "Mark RFQ as Closed"}
@@ -1231,7 +1231,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     {hasMoreQuotes && !loading && myRFQs.length >= 10 && (
                       <Link
                         href="#"
-                        className="d-flex justify-content-end px-3 pe-auto"
+                        id="load_more_rfqs-quote_list-quote_compare_page" className="d-flex justify-content-end px-3 pe-auto"
                         onClick={loadMoreRFQs}
                       >
                         <span className="link-primary">...Load More</span>
@@ -1358,7 +1358,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         zIndex: activeTab === "product" ? 2 : 1,
                         transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab("product")}
+                    onClick={() => setActiveTab('product')}
+                    id="product_tab-quote_tabs-quote_compare_page"
                     >
                       Product Wise Comparison
                     </Link>
@@ -1385,7 +1386,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         zIndex: activeTab === "category" ? 2 : 1,
                         transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab("category")}
+                    onClick={() => setActiveTab('category')}
                     >
                       Category wise Comparison
                     </Link>
@@ -1407,7 +1408,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         zIndex: activeTab === "cost" ? 2 : 1,
                         transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab("cost")}
+                    onClick={() => setActiveTab('cost')}
                     >
                       Overall Cost Comparison
                     </Link>
@@ -1525,7 +1526,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                     <div>
                                       <div className="d-flex gap-2">
                                         <Button
-                                          variant="primary"
+                                          id="view_lpr_button-quote_actions-quote_compare_page"
+                                      variant="primary"
                                           size="sm"
                                           className="position-relative p-2 px-2"
                                           onClick={() =>

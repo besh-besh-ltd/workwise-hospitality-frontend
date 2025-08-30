@@ -1978,6 +1978,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                         {pageType != "update-quote" &&
 
                           <button
+                            id="regret_quote-quote_actions-send_quote_page"
                             type="submit"
                             className="btn btn-primary"
                             onClick={() => setregretModal(true)}
@@ -1989,6 +1990,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
                         <button
+                          id="send_quote-quote_actions-send_quote_page"
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}

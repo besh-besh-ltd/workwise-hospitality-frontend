@@ -172,6 +172,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
               data-bs-dismiss="modal"
               aria-label="Close"
               onClick={closeChat}
+              id="close_chat-chat_actions-buyer_vendor_chat"
             >
             </button>
           </div>
@@ -320,6 +321,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
                   cursor: 'pointer',
                 }}
                 onClick={handleSendMessage}
+                id="send_chat_message-chat_actions-buyer_vendor_chat"
               >
                 Send
                 <FontAwesomeIcon

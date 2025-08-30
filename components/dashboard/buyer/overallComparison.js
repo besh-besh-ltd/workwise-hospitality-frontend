@@ -801,6 +801,7 @@ const openModalForVariant = (variantId) => {
                                   variant="link"
                                   size="sm"
                                   onClick={() => openModalForVariant(key)}
+                                    id={`view_lpr_history_${key}-lpr_section-overall_comparison_page`}
                                 >
                                   View LPR History
                                 </Button>
@@ -815,6 +816,7 @@ const openModalForVariant = (variantId) => {
                                   variant="link"
                                   size="sm"
                                   onClick={() => openModalForVariant(key)}
+                                  id={`view_lpr_history_${key}_no_lpr-lpr_section-overall_comparison_page`}
                                 >
                                   View LPR History
                                 </Button>

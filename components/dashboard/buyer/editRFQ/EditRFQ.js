@@ -1168,6 +1168,7 @@ const EditRFQ = () => {
                               }));
                             }}
                             className="default-btn"
+                            id={`restore_product_${product.id}-product_actions-edit_rfq_page`}
                           >
                             Restore
                           </button>
@@ -1319,6 +1320,7 @@ const EditRFQ = () => {
           <button 
             className="btn btn-primary mt-3" 
             onClick={() => window.location.reload()}
+            id="reload_page-error_actions-edit_rfq_page"
           >
             Reload Page
           </button>
@@ -1336,6 +1338,7 @@ const EditRFQ = () => {
           <button 
             className="btn btn-primary" 
             onClick={() => window.location.reload()}
+            id="reload_page_loading-error_actions-edit_rfq_page"
           >
             Reload Page
           </button>
@@ -1600,7 +1603,8 @@ const EditRFQ = () => {
         <div className="mb-4 d-flex justify-content-end">
           <button
             onClick={() => setShowAddProductModal(true)}
-            className="btn btn-primary btn-sm">
+            className="btn btn-primary btn-sm"
+            id="add_product-product_actions-edit_rfq_page">
             Add A Product
           </button>
         </div>
@@ -2062,6 +2066,7 @@ const EditRFQ = () => {
                           e.preventDefault();
                         }
                       }}
+                      id="update_rfq-rfq_actions-edit_rfq_page"
                     >
                       {storeLoading || loading ? "Updating..." : "Update RFQ"}
                     </button>
@@ -2074,6 +2079,7 @@ const EditRFQ = () => {
                       style={{ height: "fit-content" }} 
                     className="btn btn-danger px-4"
                     onClick={() => router.push("/dashboard/buyer/rfq-management")}
+                    id="cancel_edit-rfq_actions-edit_rfq_page"
                   >
                     Cancel
                     </button>

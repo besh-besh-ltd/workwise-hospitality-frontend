@@ -59,6 +59,7 @@ const FilterSection = ({ title, setFilterData }) => {
                 <div className="col-md-2 col-lg-2">
                     <label>Search RFQ No.</label>
                     <input
+                        id="search_rfq_no-filter_section-manage_rfq_page"
                         className="form-control react-select" 
                         style={{ borderRadius: '0.25rem', borderColor: '#ced4da', boxShadow: 'none' }}
                         value={rfqNo}
@@ -75,6 +76,7 @@ const FilterSection = ({ title, setFilterData }) => {
                 <div className="col-md-3 col-lg-2">
                     <label>RFQ Type</label>
                     <Select
+                        id="rfq_type_filter-filter_section-manage_rfq_page"
                         options={[
                             { label: "Budgetary", value: "budgetary" },
                             { label: "Firm", value: "firm" }
@@ -89,6 +91,7 @@ const FilterSection = ({ title, setFilterData }) => {
                 <div className="col-md-3 col-lg-2">
                     <label>Reverse Auction</label>
                     <Select
+                        id="reverse_auction_filter-filter_section-manage_rfq_page"
                         options={[
                             { label: "Enabled", value: "1" },
                             { label: "Disabled", value: "0" }
@@ -103,6 +106,7 @@ const FilterSection = ({ title, setFilterData }) => {
                 <div className="col-md-3 col-lg-2">
                     <label>Select Project</label>
                     <Select
+                        id="select_project_filter-filter_section-manage_rfq_page"
                         options={projects}
                         onChange={handleFilterChange}
                         name="project_id"
@@ -114,6 +118,7 @@ const FilterSection = ({ title, setFilterData }) => {
                 <div className="col-md-3 col-lg-2">
                     <label>Sort By</label>
                     <Select
+                        id="sort_by_filter-filter_section-manage_rfq_page"
                         options={[
                             { label: "Latest to Oldest", value: "DESC" },
                             { label: "Oldest to Latest", value: "ASC" }
@@ -122,7 +127,7 @@ const FilterSection = ({ title, setFilterData }) => {
                         name="sort"
                         placeholder="Select"
                         defaultValue={{ label: "Latest to Oldest", value: "DESC" }}
-                    />
+                        />
                 </div>
 
             </div>

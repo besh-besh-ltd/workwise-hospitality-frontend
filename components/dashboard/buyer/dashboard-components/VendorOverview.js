@@ -86,6 +86,7 @@ const VendorOverview = () => {
                                 aria-label="Search by Vendor Name"
                                 aria-describedby="vendor_search"
                                 onChange={(e) => setVendorSearchKey(e.target.value)}
+                                id="search_vendor_name-vendor_search-vendor_overview_page"
                             />
                         </div>
 
@@ -104,6 +105,7 @@ const VendorOverview = () => {
                                                             aria-label="View Vendor Profile"
                                                             target='_blank'
                                                             rel="noopener noreferrer"
+                                                            id={`view_vendor_profile_${vendorItem.vendor_id}-vendor_search-vendor_overview_page`}
                                                         >
                                                             <span className="d-block fw-medium">
                                                                 {vendorItem.company_name || vendorItem.vendor_name}
@@ -165,6 +167,7 @@ const VendorOverview = () => {
                                                             aria-label="View Vendor Profile"
                                                             target='_blank'
                                                             rel="noopener noreferrer"
+                                                            id={`view_top_vendor_${vendorItem.user_id}-top_vendors-vendor_overview_page`}
                                                         >
                                                             <div>
                                                                 <span className="d-block">{vendorItem.company_name || vendorItem.organization_name || vendorItem.name}</span>
@@ -228,7 +231,7 @@ const VendorOverview = () => {
                                                                 {prodItem.product_categories?.map(category => category.category_name).join(" | ")}
                                                             </span>
                                                         </div>
-                                                        <span className="border border-primary text-primary text-nowrap text-sm px-3 py-1 rounded-3 text-center">
+                                                        <span className="border border-primary text-primary text-nowrap text-sm px-3 py-1 rounded-3 text-center" id={`view_top_product_${prodItem.product_id}-top_products-vendor_overview_page`}>
                                                             {prodItem.rfq_count} {prodItem.rfq_count > 1 ? 'RFQs' : 'RFQ'}
                                                         </span>
                                                     </td>

@@ -1412,7 +1412,8 @@ useEffect(() => {
                 <div className="row g-3" style={{ width: "100%" }}>
                   <div className="col-md-3">
                     <CommonFormInput
-                      isMulti={true}
+                      id={`country_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                  isMulti={true}
                       type="multiselect"
                       options={initialFilterOptions.countries.map((item) => ({
                         label: item.country_name,
@@ -1430,7 +1431,8 @@ useEffect(() => {
                   </div>
                   <div className="col-md-3">
                     <CommonFormInput
-                      disabled={
+                      id={`state_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                  disabled={
                         !getFilterValue("country") ||
                         getFilterValue("country").length <= 0
                       }
@@ -1452,7 +1454,8 @@ useEffect(() => {
                   </div>
                   <div className="col-md-3">
                     <CommonFormInput
-                      disabled={
+                      id={`city_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                  disabled={
                         !getFilterValue("country") ||
                         getFilterValue("country").length <= 0
                       }
@@ -1474,7 +1477,8 @@ useEffect(() => {
                   </div>
                   <div className="col-md-3">
                     <CommonFormInput
-                      type="multiselect"
+                      id={`my_vendors_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                  type="multiselect"
                       options={myVendorOptions}
                       name="vendor_info"
                       label="My Vendors"
@@ -1492,7 +1496,8 @@ useEffect(() => {
                 <div className="row g-3" style={{ width: "100%" }}>
                   <div className="col-md-3">
                     <CommonFormInput
-                      isMulti={true}
+                      id={`vendor_types_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                  isMulti={true}
                       type="multiselect"
                       options={initialFilterOptions.vendorTypes}
                       name="vendor_type"
@@ -1507,7 +1512,8 @@ useEffect(() => {
                   </div>
                   <div className="col-md-3">
                     <CommonFormInput
-                      type="multiselect"
+                      id={`previously_worked_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                  type="multiselect"
                       options={vendorConditions}
                       name="prev_worked_with"
                       label="Previously Worked With"
@@ -1521,7 +1527,8 @@ useEffect(() => {
                   </div>
                   <div className="col-md-3">
                     <CommonFormInput
-                      isMulti={true}
+                     id={`vendor_approved_by_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                   isMulti={true}
                       type="multiselect"
                       options={initialFilterOptions.approvedBy.map((item) => ({
                         label: item.vendor_approve,
@@ -1540,7 +1547,8 @@ useEffect(() => {
                   {!isGlobalFilter && (
                     <div className="col-md-3">
                       <CommonFormInput
-                        isMulti={true}
+                     id={`product_makes_filter_${product ? product.id : 'global'}-vendor_filters-create_rfq_page`}
+                     isMulti={true}
                         type="multiselect"
                         options={
                           initialFilterOptions.productMakes?.[product.id]
@@ -1807,6 +1815,7 @@ useEffect(() => {
                       rfqDetails !== -1 ? `?rfq_id=${rfqDetails}` : ""
                     }`}
                     className="btn btn-primary"
+                    id="add_products-create_rfq_page"
                   >
                     Add Products
                   </Link>
@@ -1817,6 +1826,7 @@ useEffect(() => {
                     <div className="col-md-3">
                       <h4>Select Project</h4>
                       <Select
+                        id="select_project-create_rfq_page"
                         options={projects}
                         value={projects.find(
                           (project) =>
@@ -1841,6 +1851,7 @@ useEffect(() => {
                       <div className="col-md-3">
                         <h4>Select Sheet</h4>
                         <Select
+                          id="select_sheet-create_rfq_page"
                           name="sheetName"
                           options={sheetNameList}
                           value={selectedSheet}
@@ -1976,6 +1987,7 @@ useEffect(() => {
                           : ""
                       }`}
                       className="me-2"
+                      id="add_more_products-create_rfq_page"
                     >
                       Add More Products
                     </Link>
@@ -2096,10 +2108,10 @@ useEffect(() => {
                                     Upload Your Terms (Optional)
                                   </label>
                                   <input
+                                    id="upload_terms-create_rfq_page"
                                     type="file"
                                     accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
                                     className="custom-file-input"
-                                    id="customFile"
                                     multiple
                                     onChange={(e) => handleTermFiles("add", e)}
                                   />
@@ -2144,6 +2156,7 @@ useEffect(() => {
                               <div className="row mt-2">
                                 <div className="col-md-6">
                                   <FormikField
+                                    id="email_input-contact_info-create_rfq_page"
                                     label="Email"
                                     value={rfqFormDataFromStore.response_email}
                                     enableHandleChange={true}
@@ -2157,6 +2170,7 @@ useEffect(() => {
                                 </div>
                                 <div className="col-md-6">
                                   <FormikField
+                                    id="contact_person_input-contact_info-create_rfq_page"
                                     label="Contact person"
                                     value={rfqFormDataFromStore.contact_name}
                                     enableHandleChange={true}
@@ -2177,6 +2191,7 @@ useEffect(() => {
                                   <div className="d-flex">
                                     {/* Country Code Dropdown */}
                                     <Field
+                                      id="country_code-dropdown-contact_info-create_rfq_page"
                                       as="select"
                                       name="countryCode"
                                       className="form-select"
@@ -2207,6 +2222,7 @@ useEffect(() => {
 
                                     {/* Mobile Number Input */}
                                     <Field
+                                      id="contact_number-input-contact_info-create_rfq_page"
                                       type="text"
                                       name="contact_number"
                                       className={`form-control ${
@@ -2267,6 +2283,7 @@ useEffect(() => {
                               <div className="row mb-2">
                                 <div className="col-md-4">
                                   <FormikField
+                                    id="rfq_type-dropdown-rfq_details-create_rfq_page"
                                     label="RFQ Type"
                                     value={rfqFormDataFromStore.rfq_type}
                                     enableHandleChange={true}
@@ -2289,6 +2306,7 @@ useEffect(() => {
 
                                 <div className="col-md-4">
                                   <FormikField
+                                    id="procurement_end_date-rfq_details-create_rfq_page"
                                     label="Procurement end date"
                                     value={rfqFormDataFromStore.bid_end_date}
                                     enableHandleChange={true}
@@ -2303,6 +2321,7 @@ useEffect(() => {
 
                                 <div className="col-md-4">
                                   <FormikField
+                                    id="reverse_auction-toggle-rfq_details-create_rfq_page"
                                     label="Reverse Auction"
                                     value={rfqFormDataFromStore.reverse_auction}
                                     defaultValue={0}
@@ -2311,7 +2330,7 @@ useEffect(() => {
                                     type="select"
                                     selectOptions={[
                                       { label: "Enable", value: 1 },
-                                      { label: "Disable", value: 0 },
+                                      {label: "Disable", value: 0 },
                                     ]}
                                     isRequired={true}
                                     name="reverse_auction"
@@ -2328,6 +2347,7 @@ useEffect(() => {
                                         <span className="text-danger">*</span>
                                       </label>
                                       <input
+                                        id="auction_start_date-rfq_details-create_rfq_page"
                                         type="datetime-local"
                                         name="ra_start_date"
                                         className="form-control"
@@ -2357,6 +2377,7 @@ useEffect(() => {
                                         <span className="text-danger">*</span>
                                       </label>
                                       <input
+                                        id="auction_end_date-rfq_details-create_rfq_page"
                                         type="datetime-local"
                                         name="ra_end_date"
                                         className="form-control"
@@ -2386,6 +2407,7 @@ useEffect(() => {
 
                                 <div className="col-md-12">
                                   <FormikField
+                                    id="delivery_location-rfq_details-create_rfq_page"
                                     label="Delivery location"
                                     value={rfqFormDataFromStore.location}
                                     enableHandleChange={true}
@@ -2403,6 +2425,7 @@ useEffect(() => {
                                 type="submit"
                                 className="btn btn-secondary mt-2 me-3"
                                 disabled={!isValid}
+                                id="create_rfq-rfq_actions-create_rfq_page"
                               >
                                 Create RFQ
                               </button>
@@ -2413,6 +2436,7 @@ useEffect(() => {
                                 onClick={handleSaveDraft}
                                 // fix here
                                 // disabled={!isValid}
+                                id="save_draft-rfq_actions-create_rfq_page"
                               >
                                 Save Changes
                               </button>

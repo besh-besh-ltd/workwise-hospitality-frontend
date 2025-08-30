@@ -874,6 +874,7 @@ const EditProductReview = () => {
                                                         remove(index);
                                                       }}
                                                       className="btn btn-primary"
+                                                      id="remove_variation-variations_section-edit_product_review_page"
                                                     >
                                                       Remove
                                                     </Link>
@@ -892,6 +893,7 @@ const EditProductReview = () => {
                                             attributeValue: "",
                                           })
                                         }
+                                        id="add_variation_field-variations_section-edit_product_review_page"
                                       >
                                         Add Field
                                       </button>
@@ -907,6 +909,7 @@ const EditProductReview = () => {
                       <button
                         type="submit"
                         className="page-link btn btn-secondary"
+                        id="save_product-edit_product_review_page"
                       >
                         Save
                       </button>

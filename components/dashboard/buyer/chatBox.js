@@ -81,11 +81,20 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
   return (
     <div className="d-flex flex-column h-100">
       <div className="mb-3 border-bottom pb-2 d-flex">
-        <h5 className="me-auto mb-0">
-          {isBroadcastMode
-            ? `Send message to ${selectedVendors.length} vendors`
-            : vendor?.company_name ?? "Select a vendor to continue the conversation"}
-        </h5>
+        <h5 className="me-auto mb-0">{vendor?.company_name ?? "-"}</h5>
+        {role === 'buyer' ?
+          <Link
+            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.user_id}`}
+            className="p-0 mx-2 d-flex align-items-center"
+            aria-label="View Vendor Profile"
+            target="_blank"
+            rel="noopener noreferrer"
+            id="details_button-query_header-queries_page"
+          >
+            <FontAwesomeIcon icon={faInfoCircle} size="lg" className="me-1" />
+            Details
+          </Link>
+          : null}
       </div>
 
       <div className="chat-messages flex-grow-1 mb-3" style={{ overflowY: "auto" }}>
@@ -171,6 +180,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
                     aria-label="Remove"
                     onClick={() => handleRemoveFile(file.name)}
                     style={{ fontSize: "0.8rem" }}
+                    id={`remove_file_${idx}-chat_files-chat_box`}
                   />
                 </span>
               </div>
@@ -181,6 +191,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
 
       <div className="chat-input d-flex align-items-center border-top pt-2">
         <input
+          id="browse_attachments-message_input-queries_page"
           type="file"
           multiple
           onChange={handleFileUpload}
@@ -189,6 +200,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
         />
 
         <input
+          id="type_message-message_input-queries_page"
           type="text"
           className="form-control me-2"
           value={messageText}
@@ -200,6 +212,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
           className="btn btn-secondary p-2"
           onClick={handleSendMessage}
           disabled={sendButtonLoading}
+          id="send_message-message_input-queries_page"
         >
           {sendButtonLoading ? "Sending..." : "Send"}
         </button>

@@ -1047,6 +1047,7 @@ const handleSelectChange = (selectedOption, {name}) => {
                                           {values.variations.length > 1 && (
                                             <div className="col-md-3">
                                               <button
+                                                id="remove_variation-variations_section-add_products_page"
                                                 href="/"
                                                 onClick={(event) => {
                                                   event.preventDefault();
@@ -1066,6 +1067,7 @@ const handleSelectChange = (selectedOption, {name}) => {
                                         </div>
                                       ))}
                                       <button
+                                        id="add_variation_field-variations_section-add_products_page"
                                         type="button"
                                         className="btn btn-primary"
                                         onClick={() =>
@@ -1090,6 +1092,7 @@ const handleSelectChange = (selectedOption, {name}) => {
                       </div>
 
                       <button
+                        id="save_product-add_products_page"
                         type="submit"
                         className=" mt-4 btn btn-secondary"
                                               >

@@ -262,6 +262,7 @@ const ProjectDetails = () => {
                           backgroundColor: "var(--primary-color)",
                         }}
                         onClick={() => setOpenEditProject(true)}
+                                            id="edit_project-project_actions-project_details_page"
                       >
                         <FontAwesomeIcon icon={faEdit} className="me-2" />
                         Edit
@@ -544,6 +545,7 @@ const ProjectDetails = () => {
                                     !selectedFiles.length ||
                                     !dropdownValue
                                   }
+                                                    id="save_project_files-file_upload-project_details_page"
                                 >
                                   {uploading ? "Uploading..." : "Save Files"}
                                 </button>
