@@ -18,6 +18,20 @@ import { getCities, getCountries, getStates } from "@/services/cms";
 import { EditOnlyProfileSchema } from "@/utils/schema";
 import { faCommentsDollar } from "@fortawesome/free-solid-svg-icons";
 
+// User type mapping utility
+const getUserTypeLabel = (userType) => {
+  const userTypeMap = {
+    2: "Procurement",
+    3: "Vendor",
+    4: "Vendor SPOC",
+    7: "Company Admin",
+    8: "Top Management",
+    9: "Engineering",
+    10: "Finance"
+  };
+  return userTypeMap[userType] || "User";
+};
+
 const initialUserDetails = {
   name: "",
   email: "",
@@ -56,6 +70,7 @@ const EditProfile = () => {
     initializeCompanyDetails
   );
   const [locationOptions, setLocationOptions] = useState(initializeLocation);
+  const [userType, setUserType] = useState(null);
 
   const [mainLoading, setMainLoading] = useState(false);
   const [profileImageLoading, setProfileImageLoading] = useState(false);
@@ -93,6 +108,9 @@ const EditProfile = () => {
       //  company is editable only if user type is 3 or 7 ( company admin )
       isCompanyEditableForUserRef.current =
         data?.user_type === 3 || data?.user_type === 7;
+
+      // Set user type for display
+      setUserType(data?.user_type);
 
       // user profile logo
       setUserProfileLogo(data?.logo);
@@ -223,7 +241,23 @@ const EditProfile = () => {
       </Head>
       <section className="buyer-common-header sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">Edit profile</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="heading">Edit profile</h1>
+            {userType && (
+              <div style={{
+                display: 'inline-block',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '14px',
+                fontWeight: '500',
+                border: '1px solid #d1d5db'
+              }}>
+                {getUserTypeLabel(userType)}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
