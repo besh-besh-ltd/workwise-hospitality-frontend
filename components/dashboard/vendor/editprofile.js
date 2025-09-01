@@ -75,6 +75,21 @@ const EditProfile = () => {
   const [countryCode , setCountryCode] = useState([]);
   const [onecountrycode , setonecountrycode] = useState("");
   const [extractedCountryCode , setextractedCountryCode] = useState("");
+  const [userType, setUserType] = useState(null);
+
+  // User type mapping utility
+  const getUserTypeLabel = (userType) => {
+    const userTypeMap = {
+      2: "Procurement",
+      3: "Seller",
+      4: "Other",
+      7: "Admin",
+      8: "Management",
+      9: "Engineering",
+      10: "Finance"
+    };
+    return userTypeMap[userType] || "User";
+  };
 
   // Nature of business options - hardcoded from admin panel
   const businessOptions = [
@@ -218,6 +233,9 @@ const EditProfile = () => {
       
       setextractedCountryCode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "+91" : "+91");
       setonecountrycode(res.data.mobile ? res.data.mobile.match(/^\+\d{1,4}/)?.[0] || "+91" : "+91");
+
+      // Set user type for display
+      setUserType(res.data?.user_type);
 
       setUserDetails({
         name: res.data.name || "",
@@ -459,7 +477,23 @@ const EditProfile = () => {
       {createLoading && <Loader />}
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
-          <h1 className="heading">Edit profile</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="heading">Edit profile</h1>
+            {userType && (
+              <div style={{
+                display: 'inline-block',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '14px',
+                fontWeight: '500',
+                border: '1px solid #d1d5db'
+              }}>
+                {getUserTypeLabel(userType)}
+              </div>
+            )}
+          </div>
         </div>
       </section>
       <section className="vendor-edit-sec-1">
