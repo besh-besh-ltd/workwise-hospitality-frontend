@@ -175,6 +175,7 @@ const ManageAccountsPage = () => {
                         }
                         placeholder="Select Role"
                         isClearable
+                        id="filter_by_role-account_filters-manage_accounts_page"
                       />
                     </div>
 
@@ -187,6 +188,7 @@ const ManageAccountsPage = () => {
                         }
                         placeholder="Select Status"
                         isClearable
+                        id="filter_by_status-account_filters-manage_accounts_page"
                       />
                     </div>
 
@@ -198,6 +200,7 @@ const ManageAccountsPage = () => {
                         width="fit-content"
                         className="p-3"
                           icon={<FontAwesomeIcon icon={faUserPlus} />}
+                        id="create_new_account-account_actions-manage_accounts_page"
                       />
                     </div>
                   </div>
@@ -255,6 +258,7 @@ const ManageAccountsPage = () => {
                                     onClick={() => {
                                       handleEditAccount(account);
                                     }}
+                                    id={`edit_account_${account.id}-account_actions-manage_accounts_page`}
                                   />
                                 </td>
                               </tr>

@@ -505,6 +505,7 @@ const ProjectDetails = () => {
                                   onChange={handleFileChange}
                                   disabled={uploading}
                                   ref={fileInputRef}
+                                  id="file_select-file_upload-project_details_page"
                                 />
                               </div>
 
@@ -711,6 +712,7 @@ const ProjectDetails = () => {
                             href="/dashboard/buyer/vendor-management"
                             className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
                             style={{ flex: "0 0 250px" }}
+                            id="upload_vendors-rfq_actions-project_details_page"
                           >
                             {" "}
                             <FontAwesomeIcon
@@ -720,9 +722,10 @@ const ProjectDetails = () => {
                             Upload your Vendors
                           </Link>
                           <Link
-                            href="/dashboard/buyer/magic-search"
+                            href="/boq-automation"
                             className="page-link backBtn btn btn-secondary text-sm text-white px-2 mt-0 "
                             style={{ flex: "0 0 250px" }}
+                            id="generate_rfq_from_boq-rfq_actions-project_details_page"
                           >
                             {" "}
                             <FontAwesomeIcon
@@ -835,6 +838,7 @@ const ProjectDetails = () => {
                                     <Link
                                       href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfqItem?.rfq_details?.id}`}
                                       className="page-link"
+                                      id={`view_rfq_${rfqItem?.rfq_details?.rfq_no}-rfq_list-project_details_page`}
                                     >
                                       View
                                     </Link>

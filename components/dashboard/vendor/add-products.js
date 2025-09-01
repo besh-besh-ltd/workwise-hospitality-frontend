@@ -1092,7 +1092,7 @@ const handleSelectChange = (selectedOption, {name}) => {
                       </div>
 
                       <button
-                        id="save_product-add_products_page"
+                        id="save_product-add_products-vendor_add_products_page"
                         type="submit"
                         className=" mt-4 btn btn-secondary"
                                               >

@@ -282,7 +282,7 @@ const EditProfile = () => {
                       required
                     />
                     <div className="text-end">
-                      <button type="submit" className="btn btn-secondary">
+                      <button type="submit" className="btn btn-secondary" id="save_contact_details-contact_details-edit_profile_page">
                         Save
                       </button>
                     </div>
@@ -430,7 +430,7 @@ const EditProfile = () => {
                       </div>
                       {isCompanyEditableForUserRef.current && (
                         <div className="col-12 text-end">
-                          <button type="submit" className="btn btn-secondary">
+                          <button type="submit" className="btn btn-secondary" id="save_company_details-company_details-edit_profile_page">
                             Save
                           </button>
                         </div>

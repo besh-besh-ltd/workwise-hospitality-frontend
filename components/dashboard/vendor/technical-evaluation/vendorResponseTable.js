@@ -330,6 +330,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                               className="page-link d-block mx-auto"
                               style={{ textDecoration: "none" }}
                               onClick={() => handleAttachFileClick(clauseItem.clause_id)}
+                              id={`upload_file_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                             >
                               <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
                               Upload

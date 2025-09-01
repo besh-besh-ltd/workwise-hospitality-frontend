@@ -390,6 +390,7 @@ const ProjectDetailsPage = () => {
                           onClick={() => setShowEditModal(true)}
                           width="fit-content"
                           className="p-3"
+                          id="edit_project-project_actions-project_details_page"
                         />
                       </div>
 
@@ -466,6 +467,7 @@ const ProjectDetailsPage = () => {
                             type="button"
                             className="btn btn-primary text-sm px-3"
                             onClick={() => setOpenEditProject(true)}
+                            id="add_budget-project_budget-project_details_page"
                           >
                             <FontAwesomeIcon icon={faEdit} className="me-2" />
                             Add Budget
@@ -585,6 +587,7 @@ const ProjectDetailsPage = () => {
                           onClick={() => setShowAddTeamModal(true)}
                           width="fit-content"
                           className="p-3"
+                          id="add_team_member-team_management-project_details_page"
                         />
                       </div>
 
@@ -643,6 +646,7 @@ const ProjectDetailsPage = () => {
                                         }}
                                         width="fit-content"
                                         className="px-3 py-1 "
+                                        id={`delete_team_member_${member.user_id}-team_actions-project_details_page`}
                                       />
                                     </td>
                                   </tr>
