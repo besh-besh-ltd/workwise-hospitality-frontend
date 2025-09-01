@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { useEffect, useRef, useState } from 'react';
 
@@ -114,6 +115,9 @@ const ForVendors = () => {
   
   // Book a call modal state
   const [showCallModal, setShowCallModal] = useState(false);
+
+  // Video play state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); 
 
   return (
     <>
@@ -234,9 +238,105 @@ const ForVendors = () => {
             onClick: handleTalkToVendorTeam
           }}
           visualContent={{
-            video: <HeroVideo /> 
+            video: (
+              <div className="position-relative">
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      el.addEventListener('play', () => setIsVideoPlaying(true));
+                      el.addEventListener('pause', () => setIsVideoPlaying(false));
+                      el.addEventListener('ended', () => setIsVideoPlaying(false));
+                    }
+                  }}
+                  className="w-100 h-100"
+                  style={{
+                    borderRadius: '16px',
+                    minHeight: '300px',
+                    objectFit: 'cover'
+                  }}
+                  controls={isVideoPlaying}
+                  poster="/assets/images/blog-1.jpg"
+                >
+                  <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                {!isVideoPlaying && (
+                  <div 
+                    className="position-absolute top-50 start-50 translate-middle"
+                    style={{ zIndex: 10 }}
+                  >
+                    <FontAwesomeIcon 
+                      icon={faCirclePlay} 
+                      className="video-play-icon" 
+                      style={{ 
+                        fontSize: 60, 
+                        color: '#ffffff', 
+                        opacity: 0.9,
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                        cursor: 'pointer'
+                      }} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const video = e.target.closest('.position-relative').querySelector('video');
+                        if (video) {
+                          video.play();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )
           }}
-          mobileVideoContent={<HeroVideo />}
+          mobileVideoContent={(
+            <div className="position-relative">
+              <video
+                ref={(el) => {
+                  if (el) {
+                    el.addEventListener('play', () => setIsVideoPlaying(true));
+                    el.addEventListener('pause', () => setIsVideoPlaying(false));
+                    el.addEventListener('ended', () => setIsVideoPlaying(false));
+                  }
+                }}
+                className="w-100 h-100"
+                style={{
+                  borderRadius: '16px',
+                  minHeight: '250px',
+                  objectFit: 'cover'
+                }}
+                controls={isVideoPlaying}
+                poster="/assets/images/video-img.jpg"
+              >
+                <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              {!isVideoPlaying && (
+                <div 
+                  className="position-absolute top-50 start-50 translate-middle"
+                  style={{ zIndex: 10 }}
+                >
+                  <FontAwesomeIcon 
+                    icon={faCirclePlay} 
+                    className="video-play-icon" 
+                    style={{ 
+                      fontSize: 50, 
+                      color: '#ffffff', 
+                      opacity: 0.9,
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                      cursor: 'pointer'
+                    }} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const video = e.target.closest('.position-relative').querySelector('video');
+                      if (video) {
+                        video.play();
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           layout="split"
           size="medium"
           textAlign="left"
@@ -454,7 +554,7 @@ const ForVendors = () => {
                   }}
                 >
                   <iframe
-                    src="https://www.youtube.com/embed/-JPa1MX2HVE?autoplay=0&rel=0&modestbranding=1"
+                    src="https://www.youtube.com/embed/r6yHCHZsWj0?si=k_wbFbUPrl_ZWlbJ"
                     title="How Workwise Helps You Get More Orders"
                     style={{
                       position: 'absolute',
@@ -692,6 +792,8 @@ const ForVendors = () => {
             <BookCall />
           </Modal.Body>
         </Modal>
+
+
       </main>
     </>
   );

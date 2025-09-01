@@ -115,8 +115,7 @@ const PricingPage = () => {
         };
         testRazorPayEndpoint(payload).then(res => {
           if(res.data) {
-            console.log("RES DATA => ", res.data);
-            router.push(`/dashboard/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff
+            router.push(`/dashboard/subscription/confirmation`);
           }
         })
       },
@@ -342,19 +341,14 @@ const PricingPage = () => {
   };
 
   const handleContactUs = () => {
-    console.log('Contact Us clicked');
-    // Route to contact form or CRM
     router.push('/contactus');
   };
 
   const handleStartFree = () => {
-    console.log('Start for Free clicked');
-    // Route to for-vendors page
     setShowRegisterModal(true);
   };
 
   const handleUpgradeSilver = () => {
-    console.log('Upgrade to Silver clicked');
     // Store selected plan and show registration modal
     const silverPlan = pricingData.sellers.plans.find(p => p.name === 'Silver');
     setSelectedPlan(silverPlan);
@@ -362,7 +356,6 @@ const PricingPage = () => {
   };
 
   const handleGetGoldAccess = () => {
-    console.log('Get Gold Access clicked');
     // Store selected plan and show registration modal
     const goldPlan = pricingData.sellers.plans.find(p => p.name === 'Gold');
     setSelectedPlan(goldPlan);
