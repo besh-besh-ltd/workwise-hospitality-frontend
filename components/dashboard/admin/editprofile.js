@@ -24,7 +24,7 @@ const getUserTypeLabel = (userType) => {
     2: "Procurement",
     3: "Seller",
     4: "Other",
-    7: "Company Admin",
+    7: "Admin",
     8: "Management",
     9: "Engineering",
     10: "Finance"
