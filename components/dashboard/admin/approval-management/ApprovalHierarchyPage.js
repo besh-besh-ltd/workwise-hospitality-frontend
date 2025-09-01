@@ -210,8 +210,35 @@ const ApprovalHierarchyPage = () => {
                 <div className="mx-4 mb-4">
                   <h4 className="mb-3 fw-medium">Purchase Order Hierarchy</h4>
                   {hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 ? (
-                    <div className="d-flex flex-wrap gap-3">
-                      {hierarchy
+                    <div className="d-flex gap-3">
+                      <Card
+                        style={{ width: "320px", position: "relative" }}
+                        className="shadow-sm"
+                      >
+                        <Card.Body>
+                          <h6 className="mb-1">Kushal Shah</h6>
+                          <p className="mb-2 small text-muted">
+                            kushal@letsworkwise.com
+                          </p>
+                          <p className="mb-1">
+                            <strong>Level:</strong> Final Approver
+                          </p>
+                          <p className="mb-0">
+                            <strong>Status: </strong> 
+                            <Badge
+                              bg="success"
+                            >
+                              Active
+                            </Badge>
+                          </p>
+                          <button className="btn btn-light p-2 mt-5">Edit</button>
+                        </Card.Body>
+                      </Card>
+
+                      <div class="vr mx-2"></div>
+
+                      <div className="d-flex flex-wrap gap-3">
+                        {hierarchy
                         .sort((a, b) => a.level - b.level)
                         .map((user, index, self) => (
                           <>
@@ -225,11 +252,11 @@ const ApprovalHierarchyPage = () => {
                                 <p className="mb-2 small text-muted">
                                   {user.email}
                                 </p>
-                                <p className="mb-0">
+                                <p className="mb-1">
                                   <strong>Level:</strong> {user.level}
                                 </p>
                                 <p className="mb-1">
-                                  <strong>Bypass:</strong> ₹
+                                  <strong>Approval Amount:</strong> ₹
                                   {user.bypass_cap
                                     ? formatToINRShort(user.bypass_cap)
                                     : "-"}
@@ -293,6 +320,7 @@ const ApprovalHierarchyPage = () => {
                             )}
                           </>
                         ))}
+                      </div>
                     </div>
                   ) : (
                     <div
@@ -446,6 +474,33 @@ const ApprovalHierarchyPage = () => {
                           </Card.Body>
                         </Card>
                       ))}
+
+                      <hr/>
+
+                      <Card className={`mb-2`}>
+                          <Card.Body>
+                            <div className="d-flex justify-content-between">
+                              <div>
+                                <strong>Kushal Shah</strong> <small className="text-muted fw-medium">(Final Approver)</small>
+                                <br />
+                                <small>kushal@letsworkwise.com</small>
+                                <br />
+                                <small>
+                                  <Badge
+                                    bg={"success"}
+                                  >
+                                    {"Active"}
+                                  </Badge>
+                                </small>
+                              </div>
+                              <button
+                                className="btn btn-primary p-2"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </Card.Body>
+                        </Card>
                     <Button
                       disabled={saving}
                       variant="success"
