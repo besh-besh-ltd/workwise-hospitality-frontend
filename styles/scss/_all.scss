@@ -7495,9 +7495,9 @@ a.btn.disabled {
   //   border-radius: 24px 0 0 0;
   // }
 
-  .table-si-row:last-child {
-    border-radius: 0 24px 0 0;
-  }
+  // .table-si-row:last-child {
+  //   border-radius: 0 24px 0 0;
+  // } // Mukul commented this line because it breaks the styling for the individual comparison chart. last row
 }
 
 .review-container {
