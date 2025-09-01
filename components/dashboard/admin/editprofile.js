@@ -22,10 +22,10 @@ import { faCommentsDollar } from "@fortawesome/free-solid-svg-icons";
 const getUserTypeLabel = (userType) => {
   const userTypeMap = {
     2: "Procurement",
-    3: "Vendor",
-    4: "Vendor SPOC",
+    3: "Seller",
+    4: "Other",
     7: "Company Admin",
-    8: "Top Management",
+    8: "Management",
     9: "Engineering",
     10: "Finance"
   };
