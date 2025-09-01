@@ -7138,7 +7138,8 @@ h2.pdf-icon {
         }
 
         .table-si-row:last-child,
-        .table-si-row:nth-last-child(2) { height: auto; }
+        // .table-si-row:nth-last-child(2) { height: auto; } // // Mukul commented this line because it breaks the styling for the product wise comparison chart.
+
 
         .table-si-row:nth-child(n+3):nth-child(-n+9) {
           height: 70px;
