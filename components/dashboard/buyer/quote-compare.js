@@ -1110,6 +1110,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     onClick={() => {
                       setOpenInputModal(true); // Make sure this matches the state variable name
                     }}
+                    id="negotiation_button-top_actions-compare_quotes_page"
                   >
                     Negotiation
                   </span>
@@ -1145,7 +1146,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </span>
                     )}
                   </>
-                <span onClick={handleNormalizeClick}>
+                <span onClick={handleNormalizeClick} id="normalize_quotes_button-top_actions-compare_quotes_page">
                   {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
                 </span>
                 </div>
@@ -1176,6 +1177,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     name="rfq_type"
                     placeholder="Ex. 123456"
                     isClearable
+                    id="search_rfq_no-quotes_received-compare_quotes_page"
                   />
                 </div>
                 <div className="py-2">
@@ -1191,6 +1193,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     name="project_id"
                     placeholder="Select"
                     isClearable
+                    id="select_project_filter-quotes_received-compare_quotes_page"
                   />
                 </div>
                 {!loading && myRFQs && myRFQs.length === 0 ? (
@@ -1213,6 +1216,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             className={`${
                               item.id == rfq ? "text-white" : "text-dark"
                             }`}
+                            id={`rfq_item_${item.rfq_no}-quotes_received-compare_quotes_page`}
                           >
                             RFQ #{item?.rfq_no}
                             {item.project_name && item.project_name != "" && (
@@ -1387,6 +1391,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         transition: "background 0.2s, color 0.2s",
                       }}
                     onClick={() => setActiveTab('category')}
+                    id="category_tab-quote_tabs-quote_compare_page"
                     >
                       Category wise Comparison
                     </Link>
@@ -1409,6 +1414,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         transition: "background 0.2s, color 0.2s",
                       }}
                     onClick={() => setActiveTab('cost')}
+                    id="overall_cost_tab-quote_tabs-quote_compare_page"
                     >
                       Overall Cost Comparison
                     </Link>
@@ -1420,10 +1426,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             type="checkbox"
                             role="switch"
                             checked={TA_Filter}
-                            id="TA_check"
+                            id="ta_filter_toggle-quote_tabs-quote_compare_page"
                             onChange={handleTAFilterChange}
                           />
-                          <label className="form-check-label" for="TA_check">
+                          <label className="form-check-label" for="ta_filter_toggle-quote_tabs-quote_compare_page">
                             View Technically Accepted Vendors
                           </label>
                         </div>
@@ -1436,12 +1442,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             type="checkbox"
                             role="switch"
                             checked={freightFilter}
-                            id="freight_check"
+                            id="freight_filter_toggle-quote_tabs-quote_compare_page"
                             onChange={handleFreightFilterChange}
                           />
                           <label
                             className="form-check-label"
-                            for="freight_check"
+                            for="freight_filter_toggle-quote_tabs-quote_compare_page"
                           >
                             View quotes without freight
                           </label>

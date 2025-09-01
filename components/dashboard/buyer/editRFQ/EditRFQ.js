@@ -1421,6 +1421,7 @@ const EditRFQ = () => {
                       setHasUnsavedChanges={setHasUnsavedChanges}
                       getDraftInitialData={fetchInitialData}
                       saveDraft={() => {}}
+                      pageRoute="edit_rfq_page"
                       onSpecValueChange={(change) => {
                         setRfqData((prev) => ({
                           ...prev,

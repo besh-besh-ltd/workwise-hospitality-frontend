@@ -281,6 +281,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
                   cursor: 'pointer',
                 }}
                 onClick={handleFileClick}
+                id="attach_file-chat_actions-buyer_vendor_chat"
               >
                 <FontAwesomeIcon
                   icon={faPaperclip}

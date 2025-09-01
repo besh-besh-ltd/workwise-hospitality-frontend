@@ -276,12 +276,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                     <Dropdown.Menu>
                                       <Dropdown.Item
                                         href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer`}
+                                        id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
                                       >
                                         Talk with vendor
                                       </Dropdown.Item>
                                       <Dropdown.Item
                                         target="_blank"
                                         href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
+                                        id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
                                       >
                                         View Profile
                                       </Dropdown.Item>
@@ -292,6 +294,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                             onClick={() =>
                                               addToTechnicallyAccepted(vendor)
                                             }
+                                            id={`accept_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
                                           >
                                             Accept
                                           </Dropdown.Item>
@@ -305,6 +308,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                               });
                                               setOpenModal(true);
                                             }}
+                                            id={`reject_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
                                           >
                                             Reject
                                           </Dropdown.Item>
