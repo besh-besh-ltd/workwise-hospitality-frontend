@@ -116,8 +116,8 @@ const ForVendors = () => {
   // Book a call modal state
   const [showCallModal, setShowCallModal] = useState(false);
 
-  // Hero video modal state
-  const [showHeroVideoModal, setShowHeroVideoModal] = useState(false);
+  // Video play state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); 
 
   return (
     <>
@@ -240,63 +240,101 @@ const ForVendors = () => {
           visualContent={{
             video: (
               <div className="position-relative">
-                <button
-                  onClick={() => setShowHeroVideoModal(true)}
-                  className="video-button w-100 h-100"
-                  style={{
-                    background: 'url(/assets/images/blog-1.jpg) center / cover no-repeat',
-                    borderRadius: '16px',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    minHeight: '300px'
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      el.addEventListener('play', () => setIsVideoPlaying(true));
+                      el.addEventListener('pause', () => setIsVideoPlaying(false));
+                      el.addEventListener('ended', () => setIsVideoPlaying(false));
+                    }
                   }}
+                  className="w-100 h-100"
+                  style={{
+                    borderRadius: '16px',
+                    minHeight: '300px',
+                    objectFit: 'cover'
+                  }}
+                  controls={isVideoPlaying}
+                  poster="/assets/images/blog-1.jpg"
                 >
-                  <FontAwesomeIcon 
-                    icon={faCirclePlay} 
-                    className="video-play-icon" 
-                    style={{ 
-                      fontSize: 60, 
-                      color: '#ffffff', 
-                      opacity: 0.9,
-                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                    }} 
-                  />
-                </button>
+                  <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                {!isVideoPlaying && (
+                  <div 
+                    className="position-absolute top-50 start-50 translate-middle"
+                    style={{ zIndex: 10 }}
+                  >
+                    <FontAwesomeIcon 
+                      icon={faCirclePlay} 
+                      className="video-play-icon" 
+                      style={{ 
+                        fontSize: 60, 
+                        color: '#ffffff', 
+                        opacity: 0.9,
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                        cursor: 'pointer'
+                      }} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const video = e.target.closest('.position-relative').querySelector('video');
+                        if (video) {
+                          video.play();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )
           }}
           mobileVideoContent={(
             <div className="position-relative">
-              <button
-                onClick={() => setShowHeroVideoModal(true)}
-                className="video-button w-100 h-100"
-                style={{
-                  background: 'url(/assets/images/video-img.jpg) center / cover no-repeat',
-                  borderRadius: '16px',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  minHeight: '250px'
+              <video
+                ref={(el) => {
+                  if (el) {
+                    el.addEventListener('play', () => setIsVideoPlaying(true));
+                    el.addEventListener('pause', () => setIsVideoPlaying(false));
+                    el.addEventListener('ended', () => setIsVideoPlaying(false));
+                  }
                 }}
+                className="w-100 h-100"
+                style={{
+                  borderRadius: '16px',
+                  minHeight: '250px',
+                  objectFit: 'cover'
+                }}
+                controls={isVideoPlaying}
+                poster="/assets/images/video-img.jpg"
               >
-                <FontAwesomeIcon 
-                  icon={faCirclePlay} 
-                  className="video-play-icon" 
-                  style={{ 
-                    fontSize: 50, 
-                    color: '#ffffff', 
-                    opacity: 0.9,
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                  }} 
-                />
-              </button>
+                <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              {!isVideoPlaying && (
+                <div 
+                  className="position-absolute top-50 start-50 translate-middle"
+                  style={{ zIndex: 10 }}
+                >
+                  <FontAwesomeIcon 
+                    icon={faCirclePlay} 
+                    className="video-play-icon" 
+                    style={{ 
+                      fontSize: 50, 
+                      color: '#ffffff', 
+                      opacity: 0.9,
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                      cursor: 'pointer'
+                    }} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const video = e.target.closest('.position-relative').querySelector('video');
+                      if (video) {
+                        video.play();
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
           layout="split"
@@ -516,7 +554,7 @@ const ForVendors = () => {
                   }}
                 >
                   <iframe
-                    src="https://www.youtube.com/embed/-JPa1MX2HVE?autoplay=0&rel=0&modestbranding=1"
+                    src="https://www.youtube.com/embed/r6yHCHZsWj0?si=k_wbFbUPrl_ZWlbJ"
                     title="How Workwise Helps You Get More Orders"
                     style={{
                       position: 'absolute',
@@ -755,39 +793,7 @@ const ForVendors = () => {
           </Modal.Body>
         </Modal>
 
-        {/* Hero Video Modal */}
-        {showHeroVideoModal && (
-          <div
-            className="modal fade show d-block p-4"
-            tabIndex="-1"
-            role="dialog"
-            style={{ background: 'rgba(0, 0, 0, 0.6)' }}
-            onClick={() => setShowHeroVideoModal(false)}
-          >
-            <div
-              className="modal-dialog modal-xl modal-dialog-centered"
-              role="document"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title p-4 text-center fw-bold">Workwise for Vendors</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowHeroVideoModal(false)}></button>
-                </div>
-                <div className="modal-body d-flex justify-content-center">
-                  <iframe
-                    width="100%"
-                    height="500px"
-                    src="https://www.youtube.com/embed/r6yHCHZsWj0?autoplay=1"
-                    title="Workwise for Vendors"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
       </main>
     </>
   );
