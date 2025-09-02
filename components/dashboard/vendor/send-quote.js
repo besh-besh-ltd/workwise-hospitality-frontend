@@ -1077,7 +1077,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                   
        
         {/* AI file upload start here */}
-       <div>
+       {/* <div>
 
          <div className="d-flex align-items-center my-3">
            <hr className="flex-grow-1" />
@@ -1103,7 +1103,7 @@ return { deletedTerms, createdTerms, updatedTerms };
           />
         </label>
 
-           {/*  start: recently upload files */}
+//             start: recently upload files 
            {globalDocumentFiles && globalDocumentFiles.length > 0 && (
           <div className="row">
            <p className="fw-medium mb-1">New Uploaded Files:</p>
@@ -1167,7 +1167,7 @@ return { deletedTerms, createdTerms, updatedTerms };
            OR send quotation manually
          </span>
          <hr className="flex-grow-1" />
-       </div> 
+       </div>  */}
 
 
 <div className="row align-items-stretch">
