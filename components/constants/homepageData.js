@@ -5,7 +5,7 @@ import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
 export const homepageData = {
   hero: {
     title: "Procurement se Profit Banao",
-    subtitle: "India's #1 Project Procurement Platform — Built for EPCs, Contractors & Industrial Buyers",
+    subtitle: "India's #1 Project Procurement Platform - Built for EPCs, Contractors & Industrial Buyers",
     valueProps: [
       {
         icon: <FontAwesomeIcon icon={faRocket} />,
@@ -126,7 +126,7 @@ export const homepageData = {
       buttonText: "Try Now",
       buttonVariant: "primary",
       iconColor: "#8B5CF6",
-      note: "Free for projects up to ₹50 lakhs"
+      note: "Free processing for 1 project"
       ,url: "/ai-tools/cost-estimation"
     },
     {
@@ -191,7 +191,7 @@ export const homepageData = {
   carouselSettings: {
     dots: false,
     infinite: true,
-    speed: 10000,
+    speed: 5000, // Increased speed (reduced from 10000 for faster movement)
     slidesToShow: 5,
     slidesToScroll: 1,
     autoplay: true,
@@ -199,23 +199,32 @@ export const homepageData = {
     cssEase: "linear",
     pauseOnHover: false,
     arrows: false,
+    centerMode: false,
+    centerPadding: '0px',
     responsive: [
       {
         breakpoint: 1200,
         settings: {
           slidesToShow: 4,
+          centerMode: false,
+          centerPadding: '0px'
         }
       },
       {
         breakpoint: 991,
         settings: {
-          slidesToShow: 3,
+          slidesToShow: 3, // Show 4 logos on tablets
+          centerMode: false,
+          centerPadding: '0px'
         }
       },
       {
         breakpoint: 767,
         settings: {
-          slidesToShow: 2,
+          slidesToShow: 2, // Show 3 logos on mobile to prevent overlap
+          speed: 4000, // Even faster on mobile
+          centerMode: false,
+          centerPadding: '0px'
         }
       }
     ]
@@ -233,17 +242,17 @@ export const homepageData = {
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)",
         items: [
           "102+ Contractors/EPCs",
-          "26 Consultants",
-          "21 Clients"
+          "26+ Consultants",
+          "21+ Clients"
         ]
       },
       {
-        title: "Sellers on Workwise",
+        title: "PSU Approved Vendors",
         icon: faBuilding,
         iconBg: "linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)",
         items: [
-          "11,000+ Domestic Vendors",
-          "1,500+ International Vendors"
+          "11000+ Domestic Vendors",
+          "1500+ International Vendors"
         ]
       }
     ],
@@ -277,7 +286,7 @@ export const homepageData = {
     cards: [
       {
         title: "12,500+ PSU-Approved Vendors",
-        description: "Find the right supplier fast — verified OEMs, dealers, and traders.",
+        description: "Find the right supplier fast - verified OEMs, dealers, and traders.",
         icon: faBriefcase,
         iconBg: "linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%)"
       },
@@ -331,7 +340,7 @@ export const homepageData = {
       },
       {
         title: "Supplier Discovery & Vendor Management",
-        description: "Find the right vendors — fast.",
+        description: "Find the right vendors - fast.",
         desktopFeatures: [
           "Access 12,500+ PSU-approved suppliers",
           "Filter by Make, Approval, and Location",
@@ -359,7 +368,7 @@ export const homepageData = {
       },
       {
         title: "Negotiation Management",
-        description: "Negotiate better — online.",
+        description: "Negotiate better - online.",
         desktopFeatures: [
           "Run reverse auctions by default",
           "Customize with English, Dutch, Rank, or Preferential auctions",
@@ -409,7 +418,7 @@ export const homepageData = {
           iconBg: "#F59E0B"
         }
       ],
-      footerText: "Our team works alongside your procurement team — so you can focus on what matters.",
+      footerText: "Our team works alongside your procurement team - so you can focus on what matters.",
       buttonText: "Talk to Our Vendor Support Team →"
     }
   },
@@ -417,7 +426,7 @@ export const homepageData = {
   // Heavy Industries section
   heavyIndustries: {
     headline: "Built for Heavy Industries. Trusted Across Disciplines.",
-    subheadline: "From refineries to substations to utility-scale solar and more — Workwise powers procurement where complexity is high and accuracy matters.",
+    subheadline: "From refineries to substations to utility-scale solar and more - Workwise powers procurement where complexity is high and accuracy matters.",
     industries: [
       {
         name: "Energy (Oil & Gas, Renewables, Hydrogen)",
@@ -450,7 +459,7 @@ export const homepageData = {
         color: "#8B5CF6"
       },
       {
-        name: "Marine, mining and more",
+        name: "Marine, mining, and more",
         icon: "⛏️",
         color: "#6B7280"
       }
@@ -499,7 +508,7 @@ export const homepageData = {
         position: "Procurement Head, Power EPC"
       },
       {
-        quote: "The comparison chart saved us from making the wrong vendor choice — super helpful.",
+        quote: "The comparison chart saved us from making the wrong vendor choice - super helpful.",
         author: "Arnav Singh",
         position: "Project Director, Infrastructure Contractor"
       },

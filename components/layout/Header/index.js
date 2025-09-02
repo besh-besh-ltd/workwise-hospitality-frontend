@@ -17,7 +17,8 @@ const initialMainNavs = [
   "/aboutus",
   "/contactus",
   "/for-vendors",
-  "/IEW-2025",
+  "/vendor/all",
+  // "/IEW-2025",
   "/solutions",
   "/blogs",
   "/validate-otp",
@@ -51,8 +52,8 @@ const initialMainNavs = [
   "/work-with-us/TeamTimeline",
   "/work-with-us/careers",
   "/who-we-serve",
-  "/who-we-serve/Stakeholder",
-  "/who-we-serve/IndustryPage",
+  "/who-we-serve/stakeholders",
+  "/who-we-serve/industries",
   "/why-workwise",
   "/why-workwise/TrustSecurity",
   "/why-workwise/our-story",
@@ -247,17 +248,40 @@ const websiteMenu = [
     label: "Who We Serve", 
     type: "dropdown",
     options: [
-      { label: "Stakeholders", href: "/who-we-serve/Stakeholder" },
-      { label: "Industries We Serve", href: "/who-we-serve/IndustryPage" },
+      { 
+        label: "Stakeholders", 
+        type: "nested-dropdown",
+        options: [
+          { label: "EPCs / Contractors", href: "/who-we-serve/stakeholders/epcs" },
+          { label: "Turnkey Project Firms", href: "/who-we-serve/stakeholders/turnkey" },
+          { label: "Project Consultants", href: "/who-we-serve/stakeholders/consultants" },
+          { label: "Industrial Clients", href: "/who-we-serve/stakeholders/industrial-clients" },
+          { label: "Vendors & OEMs", href: "/for-vendors" },
+        ]
+      },
+      { 
+        label: "Industries We Serve", 
+        type: "nested-dropdown",
+        options: [
+          { label: "Power", href: "/who-we-serve/industries/power" },
+          { label: "Energy", href: "/who-we-serve/industries/energy" },
+          { label: "Petrochemical & Chemical", href: "/who-we-serve/industries/petrochemical" },
+          { label: "Steel & Cement", href: "/who-we-serve/industries/steel-cement" },
+          { label: "Infrastructure", href: "/who-we-serve/industries/infrastructure" },
+          { label: "Heavy Engineering & Machine Tools", href: "/who-we-serve/industries/heavy-equipment" },
+          { label: "Marine & Mining", href: "/who-we-serve/industries/marine-mining" },
+        ]
+      },
       { 
         label: "Disciplines We Cover", 
         type: "nested-dropdown",
         options: [
-          { label: "Civil", href: "/solutions/civil" },
-          { label: "Mechanical", href: "/solutions/mechanical" },
           { label: "Electrical", href: "/solutions/electrical" },
+          { label: "Mechanical", href: "/solutions/mechanical" },
+          { label: "Civil", href: "/solutions/civil" },
+          { label: "HVAC", href: "/solutions/hvac" },
+          { label: "Fire & Safety", href: "/solutions/fire-engineering" },
           { label: "Chemical", href: "/solutions/chemical" },
-          { label: "Fire Engineering", href: "/solutions/fire-engineering" },
         ]
       },
     ]
@@ -275,6 +299,7 @@ const websiteMenu = [
     label: "Tools", 
     type: "dropdown",
     options: [
+      { label: "Vendor Inventory", href: "/vendor/all" },
       { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
       { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
       { label: "Tender Summary", href: "/ai-tools/tender-summary" },
@@ -288,7 +313,7 @@ const websiteMenu = [
       { label: "Blogs", href: "https://blog.letsworkwise.com/", external: true },
       { label: "Events", href: "/insights/events" },
       { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
-      { label: "AI in Procurement – Use Cases", href: "/insights/ai-procurement" },
+      { label: "AI in Procurement - Use Cases", href: "javascript:void(0)", upcoming: true },
       { label: "Trends in EPC Procurement", href: "/insights/epc-trends" },
       { label: "Workwise in News", href: "/insights/news" },
     ]
@@ -307,8 +332,8 @@ const websiteMenu = [
     label: "Pricing", 
     type: "dropdown",
     options: [
-      { label: "Buyer Pricing (Success based model)", href: "/pricing", action: "buyer-pricing" },
-      { label: "Supplier Plans (Subscription tiers)", href: "/pricing", action: "supplier-pricing" },
+      { label: "Buyer pricing", href: "/pricing", action: "buyer-pricing" },
+      { label: "Supplier plans", href: "/pricing", action: "supplier-pricing" },
               { label: "Claim Pilot Project Access for Free", href: "/pilot-project" },
 
     ]
@@ -455,12 +480,13 @@ const Header = () => {
     <>
       <header
         className={`main-header ${sticky} ${menuClass ? "menu-open" : ""} ${(() => {
-          const isPrivate = pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor");
-          if (isPrivate || (loggedinUser && loggedinUser?.name)) {
+          const isPrivate = pathname?.startsWith("/dashboard");
+          if (isPrivate ) {
             return "always-white"; // never transparent for logged-in areas
           }
           if (pathname === "/") {
-            return isScrolled ? "scrolled hero-page" : "transparent hero-page";
+            // Force non-transparent header when mobile menu is open to match scrolled styling
+            return (menuClass || isScrolled) ? "scrolled hero-page" : "transparent hero-page";
           }
           return "scrolled"; // default public pages are white
         })()}`}
@@ -490,7 +516,7 @@ const Header = () => {
                   alt="Workwise"
                   className={`logo-image ${(!isScrolled && shouldUseTransparent()) ? "logo-white" : ""}`}
                   width={160}
-                  height={41}
+                  height={20}
                   priority={true}
                 />
               </Link>
@@ -511,7 +537,7 @@ const Header = () => {
               pathname?.startsWith("/for-vendors") ||
               pathname?.startsWith("/contactus") ||
               pathname?.startsWith("/aboutus") ||
-               pathname?.startsWith("/ai-tools") ||
+              (pathname?.startsWith("/vendor") && !(loggedinUser && loggedinUser?.name)) ||
               pathname === "/") && (
               <>
                 <div className="header-right align-items-center normalMenu">
@@ -551,6 +577,70 @@ const Header = () => {
                     </Link>
                   </div>
 
+                  {/* Logged-in profile icon on public navbar*/}
+                  {loggedinUser && loggedinUser?.name && !(
+                    pathname?.startsWith("/dashboard") || pathname?.startsWith("/vendor")
+                  ) && (
+                    <div className="header-right align-items-center forLoggedIn hidemobile">
+                      <nav className="main-menu">
+                        <ul>
+                          <li className="">
+                            <Link href="" onClick={handleUserIconClick}>
+                              <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
+                            </Link>
+                          </li>
+                        </ul>
+                      </nav>
+
+                      {popoverVisible && (
+                        <div className="popover-account" ref={popoverRef}>
+                          <ul className="vertical-links">
+                            {roleMenus[currentUserType]
+                              ?.filter((menuType) => menuType.targetMenu == "popup")
+                              ?.map((item) => (
+                                <li
+                                  key={item.href}
+                                  className={pathname === item.href ? "active" : ""}
+                                >
+                                  <Link
+                                    href={item.href}
+                                    onClick={() => setPopoverVisible(false)}
+                                  >
+                                    {item.label}
+                                  </Link>
+                                </li>
+                              ))}
+
+                            <li
+                              className={
+                                router.pathname == "/change-password" ? "active" : ""
+                              }
+                            >
+                              <Link
+                                href={`/change-password?redirect_url=${window.location.pathname}`}
+                                onClick={() => setPopoverVisible(false)}
+                              >
+                                Change Password
+                              </Link>
+                            </li>
+
+                            <li>
+                              <Link
+                                href=""
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleLogout(e);
+                                }}
+                              >
+                                Logout
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div
                     className={`extra-buttons hideDesktop ${
                       loggedinUser && loggedinUser?.name && "hasloggedinuser"
@@ -583,7 +673,7 @@ const Header = () => {
                     {/* FOR NON LOGGED IN  */}
                     {!loggedinUser && !loggedinUser?.name && (
                       <ul>
-                        <li
+                       {false && ( <li
                           className="login"
                           onClick={() => {
                             handleChange(setActiveAuthTab('login'));
@@ -594,38 +684,40 @@ const Header = () => {
                             Login
                           </Link>
                         </li>
+                        )}
                         {/* Mobile-only: show For Suppliers instead of Book a Call */}
                         <li className="signup d-block d-md-none">
                           <Link href="/for-vendors" className="btn-supplier" style={{ color: '#000' }}>
                             For Suppliers
                           </Link>
                         </li>
-                        <li
-                          className="signup book-call d-none d-md-block"
-                          onClick={() => {
-                            handleChange(setActiveAuthTab('book-a-call'));
-                            handleChange(setOpenAuthModal(true));
-                          }}
-                        >
-                          <Link
-                            id="book-a-call-navigation"
-                            href="javascript:void(0)"
-                            style={{ width: "fit-content", fontSize: "14px" }}
+                        
+                          <li
+                            className="signup book-call d-none d-md-block"
+                            onClick={() => {
+                              handleChange(setActiveAuthTab('book-a-call'));
+                              handleChange(setOpenAuthModal(true));
+                            }}
                           >
-                            Book a Call
-                          </Link>
-                        </li>
+                            <Link
+                              id="book-a-call-navigation"
+                              href="javascript:void(0)"
+                              style={{ width: "fit-content", fontSize: "14px" }}
+                            >
+                              Book a Call
+                            </Link>
+                          </li>
+                        
                       </ul>
                     )}
                   </div>
                 </div>
 
                 {/* Mobile Menu Toggle */}
-                <div className={`menu-ctrl ${menuClass ? "button-active" : ""}`}>
+                <div className={`menu-ctrl ${menuClass ? "button-active" : ""} ${(!isScrolled && shouldUseTransparent() && !menuClass) ? 'menu-ctrl-transparent' : ''}`} style={{ marginLeft: '8px' }}>
                   <label
                     htmlFor="menu-toggle"
                     onClick={() => setMenuClass(!menuClass)}
-                    className={(!isScrolled && shouldUseTransparent()) ? 'menu-ctrl-transparent' : ''}
                   >
                     <span></span>
                     <span></span>
@@ -672,7 +764,7 @@ const Header = () => {
                     <ul>
                       <li className="">
                         <Link href="" onClick={handleUserIconClick}>
-                          <FontAwesomeIcon icon={faUser} />
+                          <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
                         </Link>
                       </li>
                     </ul>
@@ -759,6 +851,7 @@ const Header = () => {
                         label={item.label}
                         options={item.options}
                         href={item.href}
+                        forceMobile={true}
                         onAction={(action) => {
                           if (action === 'open-auth-modal') {
                             setOpenAuthModal(true);
@@ -770,23 +863,32 @@ const Header = () => {
                     )}
                   </li>
                 ))}
-                <li>
-                  <Link href="/for-vendors" className="btn-supplier-mobile" style={{ color: '#fff' }}>
-                    For Suppliers
-                  </Link>
-                </li>
-                {!loggedinUser && (
-                  <>
-                    <li className="mobile-login">
-                      <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }} style={{ color: '#fff' }}>
-                        Login
-                      </Link>
-                    </li>
-                    {/* Hide Book a Call in mobile menu; For Suppliers CTA is present above */}
-                  </>
-                )}
               </ul>
             </nav>
+            {!loggedinUser && (
+              <div className="mobile-actions">
+                <Link
+                  href="javascript:void(0)"
+                  className="action-btn login"
+                  onClick={() => {
+                    handleChange(setActiveAuthTab('login'));
+                    handleChange(setOpenAuthModal(true));
+                  }}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="javascript:void(0)"
+                  className="action-btn book-call"
+                  onClick={() => {
+                    handleChange(setActiveAuthTab('book-a-call'));
+                    handleChange(setOpenAuthModal(true));
+                  }}
+                >
+                  Book a Call
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -821,14 +923,7 @@ const Header = () => {
         )}
       </header>
 
-      {/* Sticky Mobile CTA */}
-      {!loggedinUser && !pathname?.startsWith("/vendor") && (
-        <div className="sticky-mobile-cta">
-          <Link href="javascript:void(0)" onClick={() => { handleChange(setActiveAuthTab('login')); handleChange(setOpenAuthModal(true)); }}>
-            <FontAwesomeIcon icon={faMessage} />
-          </Link>
-        </div>
-      )}
+      {/* Removed sticky mobile CTA in favor of actions inside hamburger menu */}
 
 
 

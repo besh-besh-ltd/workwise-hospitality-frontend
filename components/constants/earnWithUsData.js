@@ -13,7 +13,7 @@ export const earnWithUsData = {
   },
 
   howItWorks: {
-    title: "How This Works — In 4 Simple Steps",
+    title: "How This Works - In 4 Simple Steps",
     steps: [
       {
         id: 1,

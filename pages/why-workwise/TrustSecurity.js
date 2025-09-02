@@ -102,7 +102,7 @@ const SecurityFeatures = ({
 const AuditReadySection = ({ 
   className = '',
   title = "Audit-Ready. Private. Always in Control.",
-  subtitle = "Workwise ensures full transparency for your team — and complete confidentiality from vendors.",
+  subtitle = "Workwise ensures full transparency for your team - and complete confidentiality from vendors.",
   features,
   ...props 
 }) => {
@@ -179,7 +179,7 @@ const TrustSecurity = () => {
       <HeroSection
         title={trustSecurityData.hero.title}
         subtitle={trustSecurityData.hero.description}
-        layout="split"
+        layout="centered"
         size="medium"
         showVisual={true}
         primaryButton={{

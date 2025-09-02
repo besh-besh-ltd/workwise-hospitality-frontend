@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  Wrench,
-  ShoppingBag,
-  Check,
-  X,
-  Star,
-  Compass,
-  Settings,
-  BarChart3,
-  Info
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faWrench, faShoppingBag, faCheck, faTimes, faStar, faCompass, faGear, faChartBar, faInfoCircle, faShieldAlt, faLock, faClock } from '@fortawesome/free-solid-svg-icons';
 
 // Import existing components
 import { Button } from '@/components/ui/Button';
@@ -48,6 +39,38 @@ const PricingPage = () => {
   });
   const [appliedCouponData, setAppliedCouponData] = useState([]);
   const [couponCode, setCouponCode] = useState("");
+
+  // Animated Counter Component
+  const AnimatedCounter = ({ targetValue, suffix = '', duration = 1500 }) => {
+    const [value, setValue] = React.useState(0);
+    const ref = React.useRef(null);
+    const hasAnimated = React.useRef(false);
+    React.useEffect(() => {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasAnimated.current) {
+            hasAnimated.current = true;
+            const start = performance.now();
+            const animate = (now) => {
+              const elapsed = now - start;
+              const progress = Math.min(elapsed / duration, 1);
+              const eased = 1 - Math.pow(1 - progress, 3);
+              setValue(Math.floor(eased * targetValue));
+              if (progress < 1) requestAnimationFrame(animate);
+            };
+            requestAnimationFrame(animate);
+          }
+        });
+      }, { threshold: 0.4 });
+      if (ref.current) observer.observe(ref.current);
+      return () => observer.disconnect();
+    }, [targetValue, duration]);
+    return (
+      <div ref={ref} className="fw-bold" style={{ fontSize: '1.75rem' }}>
+        {value.toLocaleString()}<span>{suffix}</span>
+      </div>
+    );
+  };
 
   // Set initial tab based on URL parameter
   useEffect(() => {
@@ -92,8 +115,7 @@ const PricingPage = () => {
         };
         testRazorPayEndpoint(payload).then(res => {
           if(res.data) {
-            console.log("RES DATA => ", res.data);
-            router.push(`/dashboard/subscription/confirmation`); // after payment completes on stripe this function will be called and you can do your stuff
+            router.push(`/dashboard/subscription/confirmation`);
           }
         })
       },
@@ -319,19 +341,14 @@ const PricingPage = () => {
   };
 
   const handleContactUs = () => {
-    console.log('Contact Us clicked');
-    // Route to contact form or CRM
     router.push('/contactus');
   };
 
   const handleStartFree = () => {
-    console.log('Start for Free clicked');
-    // Route to for-vendors page
     setShowRegisterModal(true);
   };
 
   const handleUpgradeSilver = () => {
-    console.log('Upgrade to Silver clicked');
     // Store selected plan and show registration modal
     const silverPlan = pricingData.sellers.plans.find(p => p.name === 'Silver');
     setSelectedPlan(silverPlan);
@@ -339,7 +356,6 @@ const PricingPage = () => {
   };
 
   const handleGetGoldAccess = () => {
-    console.log('Get Gold Access clicked');
     // Store selected plan and show registration modal
     const goldPlan = pricingData.sellers.plans.find(p => p.name === 'Gold');
     setSelectedPlan(goldPlan);
@@ -438,7 +454,7 @@ const PricingPage = () => {
                             justifyContent: 'center'
                           }}
                         >
-                          <Wrench size={16} style={{ color: 'white' }} />
+                          <FontAwesomeIcon icon={faWrench} style={{ color: 'white', fontSize: '16px' }} />
                         </div>
                         <h2 className="fs-2 fw-bold text-dark mb-0">
                           {pricingData.buyers.title}
@@ -489,11 +505,10 @@ const PricingPage = () => {
                         variant="dark"
                         icon="arrow-right"
                         onClick={handleContactUs}
-                        className="px-4 px-md-5 py-3 mb-4 mb-md-5 w-100 w-md-auto"
+                        className="px-4 px-md-5 py-3 mb-4 mb-md-5"
                         style={{ 
                           fontSize: '1rem', 
-                          fontWeight: '600',
-                          minWidth: 'auto'
+                          fontWeight: '600'
                         }}
                       />
                     </div>
@@ -503,44 +518,182 @@ const PricingPage = () => {
                 {/* Trusted by Industry Leaders Section */}
                 <div className="text-center mt-5">
                   <h3 className="fs-4 fw-bold text-dark mb-4">Trusted by Industry Leaders</h3>
-                  <div className="row g-4 justify-content-center">
-                    <div className="col-md-3 col-6">
-                      <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
-                        <div className="card-body p-3 text-center">
-                          <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>⭐</span>
+                  <p className="text-muted mb-4">Join hundreds of companies who trust Workwise with their critical procurement workflows.</p>
+                  
+                  {/* Stats Cards */}
+                  <div className="row g-4 mb-5 justify-content-center">
+                    <div className="col-lg-4 col-md-6 col-6">
+                      <div className="card h-90 border-0 shadow-lg rounded-4" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)', minHeight: '160px' }}>
+                        <div className="card-body p-5 text-center">
+                          <div className="mb-4 d-flex align-items-center justify-content-center">
+                            <AnimatedCounter targetValue={12500} />
+                            <span>+</span>
                           </div>
-                          <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>ISO 9001:2015</span>
+                          <div className="text-muted fw-medium" style={{ fontSize: '1rem' }}>
+                            Vendors onboarded
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="col-md-3 col-6">
-                      <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
-                        <div className="card-body p-3 text-center">
-                          <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>🛡️</span>
+                    <div className="col-lg-4 col-md-6 col-6">
+                      <div className="card h-90 border-0 shadow-lg rounded-4" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)', minHeight: '160px' }}>
+                        <div className="card-body p-5 text-center">
+                          <div className="mb-4 d-flex align-items-center justify-content-center">
+                            <AnimatedCounter targetValue={100} />
+                            <span>+</span>
                           </div>
-                          <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>ISO 27001</span>
+                          <div className="text-muted fw-medium" style={{ fontSize: '1rem' }}>
+                            EPC clients
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="col-md-3 col-6">
-                      <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
-                        <div className="card-body p-3 text-center">
-                          <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>🏛️</span>
+                    <div className="col-lg-4 col-md-6 col-6">
+                      <div className="card h-90 border-0 shadow-lg rounded-4" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)', minHeight: '160px' }}>
+                        <div className="card-body p-5 text-center">
+                          <div className="mb-4 d-flex align-items-center justify-content-center">
+                            <AnimatedCounter targetValue={1500} />
+                            <span>+</span>
                           </div>
-                          <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>Govt. Approved</span>
+                          <div className="text-muted fw-medium" style={{ fontSize: '1rem' }}>
+                            International vendors
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="col-md-3 col-6">
-                      <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '8px' }}>
-                        <div className="card-body p-3 text-center">
-                          <div className="mb-2">
-                            <span style={{ fontSize: '32px', color: 'var(--orange-color)' }}>🤝</span>
+                  </div>
+
+                  {/* Security Features */}
+                  <div className="row g-2 mb-5">
+                    <div className="col-lg-3 col-md-6">
+                      <div className="card h-100 border-0 shadow-sm rounded-4">
+                        <div className="card-body px-2 py-4 text-center d-none d-md-block">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
+                            style={{
+                              width: '64px',
+                              height: '64px',
+                              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                              color: 'white'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShieldAlt} size="lg" />
                           </div>
-                          <span className="text-dark fw-medium" style={{ fontSize: '0.9rem' }}>PSU Partner</span>
+                          <h5 className="fw-bold text-dark mb-0">ISO 27001 Certified</h5>
+                        </div>
+                        <div className="card-body px-2 py-4 d-md-none d-flex align-items-center">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle me-3"
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                              color: 'white',
+                              flexShrink: 0
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShieldAlt} />
+                          </div>
+                          <h6 className="fw-bold text-dark mb-0 text-start">ISO 27001 Certified</h6>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-lg-3 col-md-6">
+                      <div className="card h-100 border-0 shadow-sm rounded-4">
+                        <div className="card-body px-2 py-4 text-center d-none d-md-block">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
+                            style={{
+                              width: '64px',
+                              height: '64px',
+                              background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                              color: 'white'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faLock} size="lg" />
+                          </div>
+                          <h5 className="fw-bold text-dark mb-0">Data Encryption</h5>
+                        </div>
+                        <div className="card-body px-2 py-4 d-md-none d-flex align-items-center">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle me-3"
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                              color: 'white',
+                              flexShrink: 0
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faLock} />
+                          </div>
+                          <h6 className="fw-bold text-dark mb-0 text-start">Data Encryption</h6>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-lg-3 col-md-6">
+                      <div className="card h-100 border-0 shadow-sm rounded-4">
+                        <div className="card-body px-2 py-4 text-center d-none d-md-block">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
+                            style={{
+                              width: '64px',
+                              height: '64px',
+                              background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                              color: 'white'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShieldAlt} size="lg" />
+                          </div>
+                          <h5 className="fw-bold text-dark mb-0">Cloud Security</h5>
+                        </div>
+                        <div className="card-body px-2 py-4 d-md-none d-flex align-items-center">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle me-3"
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                              color: 'white',
+                              flexShrink: 0
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShieldAlt} />
+                          </div>
+                          <h6 className="fw-bold text-dark mb-0 text-start">Cloud Security</h6>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-lg-3 col-md-6">
+                      <div className="card h-100 border-0 shadow-sm rounded-4">
+                        <div className="card-body px-2 py-4 text-center d-none d-md-block">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
+                            style={{
+                              width: '64px',
+                              height: '64px',
+                              background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                              color: 'white'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faClock} size="lg" />
+                          </div>
+                          <h5 className="fw-bold text-dark mb-0">24/7 Monitoring</h5>
+                        </div>
+                        <div className="card-body px-2 py-4 d-md-none d-flex align-items-center">
+                          <div 
+                            className="d-flex align-items-center justify-content-center rounded-circle me-3"
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                              color: 'white',
+                              flexShrink: 0
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faClock} />
+                          </div>
+                          <h6 className="fw-bold text-dark mb-0 text-start">24/7 Monitoring</h6>
                         </div>
                       </div>
                     </div>
@@ -573,7 +726,6 @@ const PricingPage = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      <ShoppingBag size={16} style={{ color: 'white' }} />
                     </div>
                     <h2 className="fs-2 fw-bold text-dark mb-0">
                       {pricingData.sellers.title}
@@ -628,9 +780,9 @@ const PricingPage = () => {
                             <div key={featureIndex} className="d-flex align-items-center mb-3">
                               <div className="me-3">
                                 {feature.included ? (
-                                  <Check size={16} style={{ color: 'var(--green-color)' }} />
+                                  <FontAwesomeIcon icon={faCheck} style={{ color: 'var(--green-color)', fontSize: '16px' }} />
                                 ) : (
-                                  <X size={16} style={{ color: 'var(--pink-color)' }} />
+                                  <FontAwesomeIcon icon={faTimes} style={{ color: 'var(--pink-color)', fontSize: '16px' }} />
                                 )}
                               </div>
                               <div className="flex-grow-1">
@@ -643,7 +795,7 @@ const PricingPage = () => {
                                   </span>
                                 )}
                                 {feature.note && (
-                                  <Info size={12} className="ms-1 text-muted" />
+                                  <FontAwesomeIcon icon={faInfoCircle} className="ms-1 text-muted" style={{ fontSize: '12px' }} />
                                 )}
                               </div>
                             </div>
@@ -659,7 +811,6 @@ const PricingPage = () => {
                             plan.name === 'Silver' ? handleUpgradeSilver :
                             handleGetGoldAccess
                           }
-                          className="w-100"
                           style={{
                             backgroundColor: plan.name === 'Silver' ? 'var(--orange-color)' : 'var(--black-color)',
                             borderColor: plan.name === 'Silver' ? 'var(--orange-color)' : 'var(--black-color)',
@@ -682,7 +833,7 @@ const PricingPage = () => {
                       {pricingData.sellers.allPlansInclude.map((feature, index) => (
                         <div key={index} className="col-md-4">
                           <div className="d-flex align-items-center mb-2">
-                            <Check size={16} className="me-2" style={{ color: 'var(--green-color)' }} />
+                            <FontAwesomeIcon icon={faCheck} className="me-2" style={{ color: 'var(--green-color)', fontSize: '16px' }} />
                             <span style={{ fontSize: '0.9rem' }}>{feature}</span>
                           </div>
                         </div>

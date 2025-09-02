@@ -38,8 +38,8 @@ const CtaSection = ({
                   icon={primaryButton.icon}
                   onClick={primaryButton.onClick}
                   size="md"
-                  className="w-auto"
-                  style={{ minWidth: '200px' }}
+                  className=""
+                  style={{}}
                 />
               )}
               
@@ -50,11 +50,10 @@ const CtaSection = ({
                   icon={secondaryButton.icon}
                   onClick={secondaryButton.onClick}
                   size="md"
-                  className="w-auto text-white border-white"
+                  className="text-white border-white"
                   style={{
                     color: 'white',
-                    borderColor: 'white',
-                    minWidth: '200px'
+                    borderColor: 'white'
                   }}
                 />
               )}

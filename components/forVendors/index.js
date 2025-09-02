@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRocket, faPhone, faWrench, faShield, faClock, faEye, faUsers, faBuilding, faCheckCircle, faExclamationTriangle, faMoneyBill, faPlay, faCheck, faTimes, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faCirclePlay } from '@fortawesome/free-regular-svg-icons';
 import Slider from 'react-slick';
 import { useEffect, useRef, useState } from 'react';
 
@@ -114,6 +115,9 @@ const ForVendors = () => {
   
   // Book a call modal state
   const [showCallModal, setShowCallModal] = useState(false);
+
+  // Video play state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); 
 
   return (
     <>
@@ -234,9 +238,105 @@ const ForVendors = () => {
             onClick: handleTalkToVendorTeam
           }}
           visualContent={{
-            video: <HeroVideo /> 
+            video: (
+              <div className="position-relative">
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      el.addEventListener('play', () => setIsVideoPlaying(true));
+                      el.addEventListener('pause', () => setIsVideoPlaying(false));
+                      el.addEventListener('ended', () => setIsVideoPlaying(false));
+                    }
+                  }}
+                  className="w-100 h-100"
+                  style={{
+                    borderRadius: '16px',
+                    minHeight: '300px',
+                    objectFit: 'cover'
+                  }}
+                  controls={isVideoPlaying}
+                  poster="/assets/images/blog-1.jpg"
+                >
+                  <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                {!isVideoPlaying && (
+                  <div 
+                    className="position-absolute top-50 start-50 translate-middle"
+                    style={{ zIndex: 10 }}
+                  >
+                    <FontAwesomeIcon 
+                      icon={faCirclePlay} 
+                      className="video-play-icon" 
+                      style={{ 
+                        fontSize: 60, 
+                        color: '#ffffff', 
+                        opacity: 0.9,
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                        cursor: 'pointer'
+                      }} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const video = e.target.closest('.position-relative').querySelector('video');
+                        if (video) {
+                          video.play();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )
           }}
-          mobileVideoContent={<HeroVideo />}
+          mobileVideoContent={(
+            <div className="position-relative">
+              <video
+                ref={(el) => {
+                  if (el) {
+                    el.addEventListener('play', () => setIsVideoPlaying(true));
+                    el.addEventListener('pause', () => setIsVideoPlaying(false));
+                    el.addEventListener('ended', () => setIsVideoPlaying(false));
+                  }
+                }}
+                className="w-100 h-100"
+                style={{
+                  borderRadius: '16px',
+                  minHeight: '250px',
+                  objectFit: 'cover'
+                }}
+                controls={isVideoPlaying}
+                poster="/assets/images/video-img.jpg"
+              >
+                <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              {!isVideoPlaying && (
+                <div 
+                  className="position-absolute top-50 start-50 translate-middle"
+                  style={{ zIndex: 10 }}
+                >
+                  <FontAwesomeIcon 
+                    icon={faCirclePlay} 
+                    className="video-play-icon" 
+                    style={{ 
+                      fontSize: 50, 
+                      color: '#ffffff', 
+                      opacity: 0.9,
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                      cursor: 'pointer'
+                    }} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const video = e.target.closest('.position-relative').querySelector('video');
+                      if (video) {
+                        video.play();
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           layout="split"
           size="medium"
           textAlign="left"
@@ -273,7 +373,14 @@ const ForVendors = () => {
                                 suffix={number.replace(/[0-9]/g, '')} 
                               />
                               <div className="text-muted fw-medium mt-1" style={{ fontSize: '0.9rem' }}>
-                                {remainingText}
+                                {stat.title === 'Business Volume' && remainingText.startsWith('Cr ')
+                                  ? (
+                                    <>
+                                      <span style={{ color: '#0EA5E9', fontWeight: 600 }}>Cr</span>{' '}
+                                      {remainingText.slice(3)}
+                                    </>
+                                  )
+                                  : remainingText}
                               </div>
                             </div>
                           );
@@ -291,7 +398,7 @@ const ForVendors = () => {
               <div className="company-logos-carousel">
                 <Slider {...vendorPageData.carouselSettings}>
                   {vendorPageData.trustSection.psuLogos.map((logo, index) => (
-                    <div key={index} className="px-2">
+                    <div key={index}>
                       <img
                         src={logo}
                         alt=""
@@ -337,13 +444,13 @@ const ForVendors = () => {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                         style={{
-                          width: '64px',
-                          height: '64px',
+                          width: '48px',
+                          height: '48px',
                           background: feature.iconBg,
                           color: 'white'
                         }}
                       >
-                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '24px' }} />
+                        <FontAwesomeIcon icon={feature.icon} style={{ fontSize: '16px' }} />
                       </div>
                       <h5 className="fw-bold text-dark mb-0">{feature.title}</h5>
                     </div>
@@ -353,8 +460,8 @@ const ForVendors = () => {
                       <div 
                         className="d-flex align-items-center justify-content-center rounded-circle me-3"
                         style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '32px',
+                          height: '32px',
                           background: feature.iconBg,
                           color: 'white',
                           flexShrink: 0
@@ -408,7 +515,6 @@ const ForVendors = () => {
             <div className="text-center">
               <Button
                 onClick={handleTalkToVendorTeam}
-                className="w-auto"
                 variant="primary"
                 size="lg"
               >
@@ -435,9 +541,36 @@ const ForVendors = () => {
             {/* Video Player */}
             <div className="row justify-content-center mb-5">
               <div className="col-12">
-                <HeroVideo />
+                <div 
+                  className="video-container"
+                  style={{
+                    position: 'relative',
+                    paddingBottom: '56.25%', // 16:9 aspect ratio
+                    height: 0,
+                    overflow: 'hidden',
+                    maxWidth: '100%',
+                    backgroundColor: '#000',
+                    borderRadius: '16px'
+                  }}
+                >
+                  <iframe
+                    src="https://www.youtube.com/embed/r6yHCHZsWj0?si=k_wbFbUPrl_ZWlbJ"
+                    title="How Workwise Helps You Get More Orders"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      border: 'none',
+                      borderRadius: '16px'
+                    }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
                 <p className="text-center text-white mt-3 mb-0" style={{ opacity: 0.8 }}>
-                  See how suppliers use our platform to grow their business
+                  Powered by AI from IIT Bombay
                 </p>
               </div>
             </div>
@@ -446,7 +579,7 @@ const ForVendors = () => {
              <div className="text-center">
                <Button 
                  onClick={() => setShowRegistrationModal(true)}
-                 className="btn-secondary fw-bold text-white px-4 py-3 w-auto"
+                 className="btn-secondary fw-bold text-white px-4 py-2 w-auto"
                >
                  <FontAwesomeIcon icon={faRocket} className="me-2" />
                  Create Your Free Supplier Account
@@ -483,18 +616,7 @@ const ForVendors = () => {
               ))}
                 </div>
 
-            {/* CTA */}
-            <div className="text-center">
-              <Button
-                onClick={() => window.open('/ai-tools', '_blank')}
-                className="w-auto"
-                variant="outline-primary"
-                size="lg"
-              >
-                <FontAwesomeIcon icon={faEye} style={{ fontSize: '20px' }} />
-                See Tools in Action
-              </Button>
-                  </div>
+
                 </div>
         </section>
 
@@ -556,7 +678,7 @@ const ForVendors = () => {
             {/* CTA */}
             <div className="text-center mt-4">
               <p className="text-muted mb-3">
-                <a href="/pricing" className="text-decoration-none fw-bold">
+                <a href="/pricing?tab=supplier" className="text-decoration-none fw-bold">
                   See Full Comparison →
                 </a>
               </p>
@@ -670,6 +792,8 @@ const ForVendors = () => {
             <BookCall />
           </Modal.Body>
         </Modal>
+
+
       </main>
     </>
   );

@@ -1,7 +1,7 @@
 import { getCities, getCountries, getStates } from "@/services/cms";
 import React, { useEffect, useRef, useState } from "react";
 
-const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselectedState, setselectedCity, setselectedCountry, vendorMetaData, setOpenAuthModal }) => {
+const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselectedState, setselectedCity, setselectedCountry, vendorMetaData }) => {
     const [states, setstates] = useState([]);
     const [statesLoading, setstatesLoading] = useState(false);
     const [inputStateValue, setInputStateValue] = useState("");
@@ -205,9 +205,7 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
 
     // Handle state selection
     const handleStateOptionClick = (state) => {
-        if (!vendorMetaData.logged_In) {
-            setOpenAuthModal(true);
-        } else {
+
             setInputStateValue(state.state_name);
             setselectedState(prev => [...prev, {
                 id: state.id,
@@ -219,14 +217,11 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
             if (stateSelectionRef.current) {
                 stateSelectionRef.current.value = "";
             }
-        }
     };
 
     // Handle city selection
     const handleCityOptionClick = (city) => {
-        if (!vendorMetaData.logged_In) {
-            setOpenAuthModal(true);
-        } else {
+
             const stateItem = states.find((item) => item.id === city.state_id);
             setInputStateValue(stateItem.state_name);
             setInputCityValue(city.city_name);
@@ -237,15 +232,13 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
             setCityDropdownVisible(false);
             if (citySelectionRef.current) {
                 citySelectionRef.current.value = "";
-            }
+            
         }
     };
 
     // Handle country selection
     const handleCountryOptionClick = (country) => {
-        if (!vendorMetaData.logged_In) {
-            setOpenAuthModal(true);
-        } else {
+
             setInputCountryValue(country.country_name);
             setselectedCountry(prev => [...prev, {
                 id: country.id,
@@ -259,7 +252,6 @@ const LocationFilter = ({ selectedState, selectedCity, selectedCountry, setselec
             if (countrySelectionRef.current) {
                 countrySelectionRef.current.value = "";
             }
-        }
     };
 
     useEffect(() => {

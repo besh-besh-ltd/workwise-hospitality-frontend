@@ -2,21 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { getUserDetails } from '@/services/Auth';
 import storageInstance from '@/utils/storageInstance';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  Upload, 
-  Tag, 
-  Download, 
-  FileText, 
-  Brain, 
-  CheckCircle,
-  TrendingUp,
-  HelpCircle,
-  Search,
-  Users,
-  BarChart3,
-  MessageSquare,
-  CreditCard
-} from 'lucide-react';
+  faUpload,
+  faTag,
+  faDownload,
+  faFileAlt,
+  faBrain,
+  faCircleCheck,
+  faArrowTrendUp,
+  faCircleQuestion,
+  faSearch,
+  faUsers,
+  faChartBar,
+  faMessage,
+  faCreditCard
+} from '@fortawesome/free-solid-svg-icons';
 
 // Import components
 import { HeroSection } from '@/components/ui/HeroSection';
@@ -52,7 +53,6 @@ const ModulePage = () => {
         }
       } catch (error) {
         // Silently handle auth errors
-        console.log('Auth check failed:', error);
       } finally {
         setLoading(false);
       }
@@ -83,27 +83,27 @@ const ModulePage = () => {
   // Icon mapping for different modules
   const getFeatureIcons = (moduleType) => {
     const iconMap = {
-      boq: [Upload, Tag, Download],
-      rfq: [FileText, MessageSquare, BarChart3],
-      vendors: [Search, Users, CheckCircle],
-      evaluation: [BarChart3, TrendingUp, Download],
-      negotiation: [MessageSquare, CheckCircle, FileText],
-      payments: [CreditCard, BarChart3, Users]
+      boq: [faUpload, faTag, faDownload],
+      rfq: [faFileAlt, faMessage, faChartBar],
+      vendors: [faSearch, faUsers, faCircleCheck],
+      evaluation: [faChartBar, faArrowTrendUp, faDownload],
+      negotiation: [faMessage, faCircleCheck, faFileAlt],
+      payments: [faCreditCard, faChartBar, faUsers]
     };
-    return iconMap[moduleType] || [Upload, Tag, Download];
+    return iconMap[moduleType] || [faUpload, faTag, faDownload];
   };
 
   // Icon mapping for how it works steps
   const getStepIcons = (moduleType) => {
     const iconMap = {
-      boq: [FileText, Brain, Download],
-      rfq: [FileText, Brain, MessageSquare],
-      vendors: [Search, Upload, Users],
-      evaluation: [FileText, BarChart3, Download],
-      negotiation: [MessageSquare, BarChart3, FileText],
-      payments: [FileText, CheckCircle, CreditCard]
+      boq: [faFileAlt, faBrain, faDownload],
+      rfq: [faFileAlt, faBrain, faMessage],
+      vendors: [faSearch, faUpload, faUsers],
+      evaluation: [faFileAlt, faChartBar, faDownload],
+      negotiation: [faMessage, faChartBar, faFileAlt],
+      payments: [faFileAlt, faCircleCheck, faCreditCard]
     };
-    return iconMap[moduleType] || [FileText, Brain, Download];
+    return iconMap[moduleType] || [faFileAlt, faBrain, faDownload];
   };
 
   const featureIcons = getFeatureIcons(currentModule);
@@ -131,14 +131,14 @@ const ModulePage = () => {
         router.push('/ai-tools/technical-summary'); // technical summary tool
         break;
       case 'negotiation':
-        router.push('/vendor/all'); // find vendor (temporary solution)
+       router.push('/vendor/all');
         break;
       case 'payments':
         // Payments CTA yet to be finalized - for now open contact modal
-        setShowCallModal(true);
+        router.push('/vendor/all');
         break;
       default:
-        console.log(`${moduleData.hero.primaryButton.label} clicked`);
+        // no-op
     }
   };
 
@@ -150,10 +150,89 @@ const ModulePage = () => {
 
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
+      {/* Custom CSS for enhanced shadows */}
+      <style jsx>{`
+        .shadow-lg {
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+          transition: all 0.3s ease;
+        }
+        
+        .shadow-lg:hover {
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+          transform: translateY(-2px);
+        }
+        
+        .rounded-4 {
+          border-radius: 1rem !important;
+        }
+        
+        /* Ensure cards have consistent height */
+        .col-md-4 {
+          display: flex !important;
+        }
+        
+        .col-md-4 > div {
+          width: 100% !important;
+        }
+        
+        /* Enhanced card styling */
+        .card {
+          border: none !important;
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+          height: 100% !important;
+        }
+        
+        .card:hover {
+          background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+        }
+        
+        /* Mobile card sizing fixes */
+        @media (max-width: 768px) {
+          .col-md-4 {
+            margin-bottom: 1rem !important;
+          }
+          
+          .card {
+            min-height: auto !important;
+            height: auto !important;
+          }
+          
+          .card-body {
+            padding: 1.5rem !important;
+          }
+          
+          /* Ensure all cards have consistent height on mobile */
+          .row .col-md-4 {
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .row .col-md-4 > div {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .row .col-md-4 .card {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .row .col-md-4 .card .card-body {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+          }
+        }
+      `}</style>
+      
       {/* Hero Section */}
       <HeroSection
         title={moduleData.hero.title}
         subtitle={moduleData.hero.subtitle}
+        layout="centered"
         primaryButton={{
           ...moduleData.hero.primaryButton,
           onClick: handlePrimaryAction
@@ -177,13 +256,15 @@ const ModulePage = () => {
           
           <div className="row g-4">
             {moduleData.benefits.features.map((feature, index) => (
-              <div key={index} className="col-md-4">
-                <FeatureCard
-                  icon={featureIcons[index]}
-                  iconBgColor={feature.iconBgColor}
-                  iconColor={feature.iconColor}
-                  description={feature.title}
-                />
+              <div key={index} className="col-md-4 d-flex">
+                <div className="shadow-lg rounded-4 w-100">
+                  <FeatureCard
+                    icon={(props) => <FontAwesomeIcon icon={featureIcons[index]} {...props} />}
+                    iconBgColor={feature.iconBgColor}
+                    iconColor={feature.iconColor}
+                    description={feature.title}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -201,9 +282,9 @@ const ModulePage = () => {
           
           <div className="row g-4">
             {moduleData.howItWorks.steps.map((step, index) => (
-              <div key={index} className="col-md-4">
+              <div key={index} className="col-md-4 d-flex">
                 <FeatureCard
-                  icon={stepIcons[index]}
+                  icon={(props) => <FontAwesomeIcon icon={stepIcons[index]} {...props} />}
                   iconBgColor="bg-light"
                   iconColor="text-muted"
                   description={step.title}
@@ -247,7 +328,7 @@ const ModulePage = () => {
                   <div className="d-flex flex-column gap-3">
                     {moduleData.customerSayings.realOutcomes.items.map((item, index) => (
                       <div key={index} className="d-flex align-items-center">
-                        <CheckCircle className="text-success me-3" size={20} />
+                        <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                         <span className="text-muted">{item}</span>
                       </div>
                     ))}
@@ -277,7 +358,7 @@ const ModulePage = () => {
       {/* Final CTA Section */}
       <CtaSection
         title={moduleData.finalCta.title}
-        icon={HelpCircle}
+        icon={(props) => <FontAwesomeIcon icon={faCircleQuestion} {...props} />}
         primaryButton={{
           ...moduleData.finalCta.primaryButton,
           onClick: handlePrimaryAction
@@ -296,7 +377,6 @@ const ModulePage = () => {
             variant={moduleData.hero.primaryButton.variant || 'primary'}
             icon={moduleData.hero.primaryButton.icon || 'none'}
             onClick={handlePrimaryAction}
-            className="w-100"
           />
         </div>
       </div>

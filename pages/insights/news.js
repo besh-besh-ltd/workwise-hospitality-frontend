@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  Download,
-  Mail,
-  ExternalLink,
-  FileText
-} from 'lucide-react';
+import { useRouter } from 'next/router';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDownload, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 
 // Import components
 import { DynamicCard } from '@/components/ui/DynamicCard';
@@ -14,23 +11,31 @@ import { HeroSection } from '@/components/ui/HeroSection';
 import { newsData } from '@/components/constants/newsData';
 
 const NewsPage = () => {
+  const router = useRouter();
   const handleViewArticle = (url) => {
     window.open(url, '_blank');
   };
 
   const handleDownloadPressKit = () => {
-    console.log('Download Press Kit clicked');
+    // Open the global contact/book-a-call modal used across the site
+    const bookCallButton = document.querySelector('.btn-popup-form');
+    if (bookCallButton) {
+      bookCallButton.click();
+      return;
+    }
+    // Fallback: navigate to contact page
+    router.push('/contactus');
   };
 
   const handleMediaContact = () => {
-    console.log('Media Contact clicked');
+    router.push('/contactus');
   };
 
   const [openYear, setOpenYear] = useState(2024);
   // Featured articles (first 2)
   const featuredArticles = newsData.newsCoverage[openYear].slice(0, 2);
-  // Regular articles (rest)
-  const regularArticles = newsData.newsCoverage[openYear].slice(2);
+  // Regular articles (rest) - commented out with coverage section
+  // const regularArticles = newsData.newsCoverage[openYear].slice(2);
 
   return (
     <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
@@ -65,7 +70,7 @@ const NewsPage = () => {
                   category={article.category}
                   image={article.image}
                   secondaryAction={{
-                    label: "Read Article →",
+                    label: "View",
                     color: "var(--orange-color)",
                     showArrow: false
                   }}
@@ -78,9 +83,9 @@ const NewsPage = () => {
       </section>
 
       {/* Yearly Coverage Section with CSS-only dropdown (DOM always visible) */}
+      {/* 
       <section className="py-5" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         <div className="container">
-          {/* Section Header */}
           <div className="mb-4">
             <div className="d-flex align-items-center justify-content-between">
               <h2 className="fs-2 fw-bold text-dark mb-0">Coverage</h2>
@@ -92,7 +97,6 @@ const NewsPage = () => {
             </div>
           </div>
 
-          {/* Regular Articles Grid */}
           <div className={`row g-4 year-content ${openYear === 2024 ? 'expanded' : 'collapsed'}`}>
             {regularArticles.map((article) => (
               <div key={article.id} className="col-md-6 col-lg-4">
@@ -121,6 +125,7 @@ const NewsPage = () => {
           .year-content.expanded { max-height: 4000px; opacity: 1; transition: all .3s ease; }
         `}</style>
       </section>
+      */}
 
       {/* Press Kit & Media Resources Section */}
       <section className="py-5 bg-white">
@@ -144,7 +149,7 @@ const NewsPage = () => {
                     fontWeight: '500'
                   }}
                 >
-                  <Download size={16} className="me-2" />
+                  <FontAwesomeIcon icon={faDownload} className="me-2" style={{ fontSize: '16px' }} />
                   Download Press Kit
                 </button>
                 
@@ -160,7 +165,7 @@ const NewsPage = () => {
                     fontWeight: '500'
                   }}
                 >
-                  <Mail size={16} className="me-2" />
+                  <FontAwesomeIcon icon={faEnvelope} className="me-2" style={{ fontSize: '16px' }} />
                   Media Contact
                 </button>
               </div>

@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '@/components/layout';
-import { 
-  Target, 
-  Zap, 
-  Building, 
-  Wrench, 
-  Settings, 
-  Waves,
-  MapPin,
-  Phone
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCrosshairs, faBolt, faBuilding, faWrench, faGear, faWater, faMapMarkerAlt, faPhone } from '@fortawesome/free-solid-svg-icons';
 
 // Import reusable components
 import { CtaSection } from '@/components/ui/CtaSection';
@@ -17,7 +8,9 @@ import { FeatureCard } from '@/components/ui/FeatureCard';
 import { Dropdown } from '@/components/ui/Dropdown';
 import SuccessStoryModal from '@/components/modal/SuccessStoryModal';
 import { HeroSection } from '@/components/ui/HeroSection';
-
+import BookCall from '@/components/bookCall';
+import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
+import { Modal } from 'react-bootstrap';
 // Import data
 import { successStoriesData } from '@/components/constants/successStoriesData';
 
@@ -28,6 +21,8 @@ const SuccessStoriesPage = () => {
   const [visibleStories, setVisibleStories] = useState(6);
   const [selectedStory, setSelectedStory] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showBookCall, setShowBookCall] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -37,9 +32,8 @@ const SuccessStoriesPage = () => {
     return <div>Loading...</div>;
   }
 
-  const handleBookCall = () => {
-    console.log('Book a Call clicked');
-  };
+  const handleBookCall = () => setShowBookCall(true);
+  const handleBookDemo = () => setShowRegister(true);
 
   const handleLoadMore = () => {
     setVisibleStories(prev => Math.min(prev + 6, successStoriesData.stories.length));
@@ -60,7 +54,7 @@ const SuccessStoriesPage = () => {
   const displayedStories = filteredStories.slice(0, visibleStories);
 
   return (
-    <Layout>
+    <>
       <div className="min-vh-100" style={{ backgroundColor: 'var(--light-grey-color)' }}>
         {/* Hero Section */}
         <HeroSection
@@ -160,10 +154,6 @@ const SuccessStoriesPage = () => {
           ...successStoriesData.cta.primaryButton,
           onClick: handleBookCall
         }}
-        secondaryButton={{
-          ...successStoriesData.cta.secondaryButton,
-          onClick: () => setVisibleStories(successStoriesData.stories.length)
-        }}
       />
 
       {/* Success Story Modal - reduce spacing for mobile */}
@@ -173,8 +163,43 @@ const SuccessStoriesPage = () => {
         story={selectedStory}
         onBookCall={handleBookCall}
       />
+
+      {/* Book a Call Modal */}
+      <Modal
+        show={showBookCall}
+        onHide={() => setShowBookCall(false)}
+        centered
+        backdrop="static"
+        style={{ backdropFilter: "blur(5px)" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="p-4">Contact Us</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <BookCall />
+        </Modal.Body>
+      </Modal>
+
+      {/* Register (Book a Demo) Modal */}
+      <RegisterFormModal
+        show={showRegister}
+        onClose={() => setShowRegister(false)}
+        title="Book a Demo"
+        subtitle="Tell us a bit about you and we'll reach out shortly."
+        fields={[
+          { name: 'fullName', label: 'Full Name', type: 'text', required: true },
+          { name: 'email', label: 'Work Email', type: 'email', required: true },
+          { name: 'company', label: 'Company', type: 'text', required: true },
+          { name: 'phone', label: 'Phone', type: 'text', required: false },
+          { name: 'terms', label: 'I agree to be contacted by Workwise', type: 'checkbox', required: true }
+        ]}
+        onSubmit={async () => {
+          setShowRegister(false);
+          setShowBookCall(true);
+        }}
+      />
       </div>
-    </Layout>
+    </>
   );
 };
 
@@ -183,17 +208,17 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
   const getIcon = () => {
     switch (story.icon) {
       case 'zap':
-        return Zap;
+        return faBolt;
       case 'building':
-        return Building;
+        return faBuilding;
       case 'wrench':
-        return Wrench;
+        return faWrench;
       case 'settings':
-        return Settings;
+        return faGear;
       case 'waves':
-        return Waves;
+        return faWater;
       default:
-        return Target;
+        return faCrosshairs;
     }
   };
 
@@ -233,7 +258,7 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
 
   return (
     <FeatureCard
-      icon={IconComponent}
+      icon={(props) => <FontAwesomeIcon icon={IconComponent} {...props} />}
       iconBgColor="bg-light"
       iconColor={getIconColor()}
       title={story.industry}
@@ -253,7 +278,7 @@ const SuccessStoryCard = ({ story, onReadMore }) => {
 
           {/* Location */}
           <div className="d-flex align-items-center mb-3">
-            <MapPin className="text-muted me-1" size={12} />
+            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: '12px' }} />
             <span className="text-muted small" style={{ fontSize: '0.8rem' }}>{story.location}</span>
           </div>
 

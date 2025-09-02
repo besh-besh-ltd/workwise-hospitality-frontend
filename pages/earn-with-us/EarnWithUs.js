@@ -2,7 +2,7 @@ import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { HeroSection } from '@/components/ui/HeroSection'
 import React, { useEffect, useRef, useState } from 'react'
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
-import { contactUsFormService, registerInterestService } from '@/services/contact';
+import { registerInterestService } from '@/services/contact';
 
 // Import data
 import { earnWithUsData } from '@/components/constants/earnWithUsData';
@@ -12,23 +12,16 @@ import {
   FaVideo, 
   FaFileAlt,
   FaUsers,
-  FaPlay,
-  FaTrendingUp,
-  FaTarget,
-  FaCoins,
-  FaSitemap,
-  FaHome,
-  FaNetworkWired,
   FaUser,
-  FaHardHat,
   FaHeadset,
-  FaBullseye, FaDollarSign, FaCreditCard, FaChartLine,
+  FaDollarSign, FaCreditCard, FaChartLine,
   FaHandshake,
   FaUserPlus,
-  FaLink,
-  FaChartPie
+
 } from 'react-icons/fa';
-import { FaRocket, FaComments } from 'react-icons/fa';
+import { FaRocket} from 'react-icons/fa';
+import { Modal } from 'react-bootstrap';
+import BookCall from '@/components/bookCall';
 
 
 
@@ -413,6 +406,7 @@ const WhoIsThisForComponent = ({ onJoin }) => {
 
 
 const PartnerStatsSection = () => {
+  const [showCallModal, setShowCallModal] = useState(false);
   const AnimatedCounter = ({ targetValue, duration = 1500, suffix = '' }) => {
     const [value, setValue] = useState(0);
     const ref = useRef(null);
@@ -487,11 +481,29 @@ const PartnerStatsSection = () => {
         </div>
 
         <div className="text-center mt-4">
-          <button className="btn btn-primary w-auto px-4 py-3 fw-semibold" style={{ borderRadius: '10px' }}>
+          <button className="btn btn-primary w-auto px-4 py-3 fw-semibold" style={{ borderRadius: '10px' }}
+          onClick={()=>{setShowCallModal(!showCallModal)}}
+          >
             Start Earning Now
           </button>
         </div>
       </div>
+
+            {/* Book a Call Modal */}
+      <Modal
+        show={showCallModal}
+        onHide={() => setShowCallModal(false)}
+        centered
+        backdrop="static"
+        style={{ backdropFilter: "blur(5px)" }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="p-4">Contact Us</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          <BookCall />
+        </Modal.Body>
+      </Modal>
     </section>
   );
 };
@@ -648,13 +660,12 @@ const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
                   boxShadow: '0 4px 12px rgba(122, 119, 119, 0.15)'
                 }}
               >
-                <FaUserPlus className="me-2" size={18} />
                 {earnWithUsData.bottomCta.primaryButton.label}
               </button>
 
               {/* Secondary CTA - Talk to Team */}
               <button 
-                className="btn btn-lg px-5 py-3 fw-semibold d-flex align-items-center"
+                className="btn btn-lg px-5 py-3 fw-semibold w-auto d-flex align-items-center"
                 onClick={onSecondaryClick}
                 style={{ 
                   backgroundColor: 'rgba(255,255,255,0.9)',
@@ -666,7 +677,6 @@ const JoinPartnersCTAComponent = ({ onPrimaryClick, onSecondaryClick }) => {
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                 }}
               >
-                <FaComments className="me-2" size={18} />
                 {earnWithUsData.bottomCta.secondaryButton.label}
               </button>
             </div>
@@ -712,6 +722,7 @@ const EarnWithUs = () => {
     <HeroSection
   title={earnWithUsData.hero.title}
   subtitle={earnWithUsData.hero.subtitle}
+  layout="centered"
   primaryButton={{
     label: earnWithUsData.hero.primaryButton.label,
     variant: earnWithUsData.hero.primaryButton.variant,

@@ -66,10 +66,10 @@ export const successStoriesData = {
       location: "Maharashtra",
       icon: "zap",
       projectValueRange: "₹50L - ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "Procurement for HT panels and cables lacked competitive vendor participation, leading to inflated quotes.",
+      solution: "Used Workwise reverse auction and BOQ normalization to get vendors to compete on a level field.",
+      outcome: "Saved ₹9.4L on final procurement while maintaining technical requirements and delivery commitments.",
+      testimonial: "Reverse auction gave us pricing we thought was impossible - ₹9.4L saved without a single compromise."
     },
     {
       id: 2,
@@ -87,15 +87,15 @@ export const successStoriesData = {
     {
       id: 3,
       industry: "Infrastructure",
-      achievement: "Streamlined BOQ process, saved 8 days on project planning",
+      achievement: "Streamlined the BOQ process, saved 8 days on project planning",
       stakeholderType: "Consultant",
       location: "Delhi NCR",
       icon: "wrench",
       projectValueRange: "₹10L - ₹50L",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "BOQs for multi-disciplinary infrastructure projects were fragmented, leading to weeks of coordination between teams and vendors.",
+      solution: "Implemented Workwise's BOQ simplifier and structured dashboards - BOQs were consolidated and transformed into categorized packages in minutes.",
+      outcome: "Reduced BOQ prep time by 8 days, enabling faster RFQ generation and vendor discussions, improving timeline predictability.",
+      testimonial: "Workwise turned a week-long BOQ nightmare into a 30-minute process - our planning cycle is now ahead, not behind."
     },
     {
       id: 4,
@@ -105,10 +105,10 @@ export const successStoriesData = {
       location: "Mumbai",
       icon: "settings",
       projectValueRange: "Above ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "Despite a strong product offering, the OEM struggled with low enquiry responses due to limited buyer networks.",
+      solution: "Leveraged Workwise's vendor discovery engine to connect the supplier with 30+ pre-qualified buyers across chemical and petrochemical sectors.",
+      outcome: "Response rate increased by 40%, securing competitive RFQs from tier-1 buyers and new business conversions.",
+      testimonial: "Workwise expanded our buyer field overnight and raised our response rate by 40% - business growth we never expected this fast."
     },
     {
       id: 5,
@@ -118,10 +118,10 @@ export const successStoriesData = {
       location: "Karnataka",
       icon: "waves",
       projectValueRange: "₹50L - ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "Manual processing of RFQs, quote consolidation, and PO issuance slowed down project mobilization significantly.",
+      solution: "Introduced Workwise RFQ automation and quote tracking tools - sending RFQs, tracking vendor replies, and generating POs happened in one unified system.",
+      outcome: "Procurement cycle shortened by 12 days - from BOQ upload to vendor approval - accelerating project kickoff.",
+      testimonial: "From weeks to days - Workwise shaved 12 days off our procurement cycle and got construction moving faster than ever."
     },
     {
       id: 6,
@@ -131,10 +131,10 @@ export const successStoriesData = {
       location: "Pune",
       icon: "building",
       projectValueRange: "₹10L - ₹50L",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "HVAC system procurement faced rising vendor costs and limited quotes, leading to budget overruns.",
+      solution: "Ran a reverse auction through Workwise for HVAC packages - multiple vendors bid competitively in real time.",
+      outcome: "Obtained final vendor pricing that was 18% below traditional tender estimates, while maintaining quality standards.",
+      testimonial: "Workwise's auction dropped our HVAC procurement cost by 18% - without compromising on specs. Truly game changing."
     },
     {
       id: 7,
@@ -144,10 +144,10 @@ export const successStoriesData = {
       location: "Gujarat",
       icon: "zap",
       projectValueRange: "Above ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "Procurement across mechanical and instrumentation packages involved email threads, manual Excel comparison, and vendor misalignment.",
+      solution: "Used Workwise to automate BOQ-to-RFQ flow, centralize vendor communication, and enable AI-powered technical evaluation.",
+      outcome: "End-to-end procurement timeline reduced by 60%, with structured vendor comparison and faster technical approvals.",
+      testimonial: "What used to take weeks is now happening in days - Workwise has digitized our entire procurement stack."
     },
     {
       id: 8,
@@ -157,10 +157,10 @@ export const successStoriesData = {
       location: "Maharashtra",
       icon: "settings",
       projectValueRange: "₹50L - ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "The client struggled with price transparency and spec mismatches during procurement of advanced laboratory equipment.",
+      solution: "Ran a reverse auction through Workwise, backed by AI-based technical deviation checker for spec alignment.",
+      outcome: "Finalized a compliant vendor at ₹12L lower cost compared to previous benchmarks.",
+      testimonial: "Workwise brought both clarity and competition - ₹12L saved with zero compromise on specs."
     },
     {
       id: 9,
@@ -170,10 +170,10 @@ export const successStoriesData = {
       location: "Rajasthan",
       icon: "zap",
       projectValueRange: "₹10L - ₹50L",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "For a 50 MW solar park, onboarding new, approved vendors took over a month due to due diligence bottlenecks.",
+      solution: "Used Workwise's verified vendor pool + support team to identify, onboard, and finalize qualified vendors.",
+      outcome: "Vendor onboarding time reduced by 20 days, enabling faster procurement closure and project mobilization.",
+      testimonial: "We saved 3 weeks just on vendor onboarding. That alone made Workwise a no-brainer for our project."
     },
     {
       id: 10,
@@ -183,10 +183,10 @@ export const successStoriesData = {
       location: "Tamil Nadu",
       icon: "building",
       projectValueRange: "Above ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "The OEM was dependent on a narrow vendor base for parts, limiting flexibility and raising risk.",
+      solution: "Leveraged Workwise's discovery engine to connect with alternate suppliers in northern and eastern India.",
+      outcome: "Supplier diversity improved by 35%, enabling better pricing and delivery assurance.",
+      testimonial: "We found quality vendors outside our usual reach - Workwise expanded our base and boosted our resilience."
     },
     {
       id: 11,
@@ -196,10 +196,10 @@ export const successStoriesData = {
       location: "Odisha",
       icon: "wrench",
       projectValueRange: "₹50L - ₹1Cr",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "For a mining infrastructure project, equipment costs were overshooting by 20-25% due to poor vendor response and non-transparent pricing.",
+      solution: "Ran reverse auctions for bulk equipment + enabled structured comparison with normalization.",
+      outcome: "Equipment finalization at 22% lower cost than original quotations, with high-quality vendor shortlist.",
+      testimonial: "22% cost saved. One platform managed our discovery, negotiation, and technical alignment - brilliant."
     },
     {
       id: 12,
@@ -209,10 +209,10 @@ export const successStoriesData = {
       location: "Punjab",
       icon: "settings",
       projectValueRange: "₹10L - ₹50L",
-      challenge: "Finding specialized equipment vendors for rolling mill components was taking weeks with limited industry connections.",
-      solution: "Leveraged Workwise's extensive vendor network and industry-specific search filters to identify qualified suppliers quickly.",
-      outcome: "Reduced vendor discovery time by 15 days, connected with 8 specialized suppliers, improved equipment quality by 25%.",
-      testimonial: "Workwise opened up a whole new network of reliable vendors we never knew existed."
+      challenge: "Manual procurement processes for food processing equipment were causing significant delays in project timelines.",
+      solution: "Implemented Workwise automation tools to streamline the entire procurement workflow from RFQ to PO generation.",
+      outcome: "Procurement cycle time reduced by 45%, enabling faster project implementation and reduced operational overhead.",
+      testimonial: "Workwise automation cut our procurement time nearly in half - we can focus on what matters most now."
     }
   ]
 }; 

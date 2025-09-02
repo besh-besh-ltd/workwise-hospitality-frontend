@@ -1,18 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Rocket,
-  Building,
-  Target,
-  Globe,
-  Users,
-  CheckCircle,
-  Star,
-  Phone,
-  ArrowRight
-} from 'lucide-react';
+import { useRouter } from 'next/router';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRocket, faBuilding, faCrosshairs, faGlobe, faUsers, faCircleCheck, faStar, faPhone, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
 // Import reusable components
-import { Button } from '@/components/ui/Button';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { FeatureCard } from '@/components/ui/FeatureCard';
 import { HeroSection } from '@/components/ui/HeroSection';
@@ -22,6 +13,8 @@ import { ourStoryData } from '@/components/constants/ourStoryData';
 
 const OurStoryPage = () => {
   const [mounted, setMounted] = useState(false);
+  const [showBookCall, setShowBookCall] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -31,32 +24,28 @@ const OurStoryPage = () => {
     return <div>Loading...</div>;
   }
   const handleMeetPeople = () => {
-    console.log('Meet the People Behind Workwise clicked');
+    router.push('/work-with-us/TeamTimeline');
   };
 
-  const handleBookCall = () => {
-    console.log('Book a Call with the Workwise Team clicked');
-  };
+  const handleBookCall = () => setShowBookCall(true);
 
   const handleViewPositions = () => {
-    console.log('View our open positions clicked');
+    router.push('/work-with-us/careers');
   };
 
-  // Team member placeholder image component
-  const TeamMemberImage = ({ name }) => (
-    <div 
-      className="rounded-circle bg-light d-flex align-items-center justify-content-center"
+  // Team member image component
+  const TeamMemberImage = ({ src, name }) => (
+    <img 
+      src={src}
+      alt={name}
+      className="rounded-circle"
       style={{ 
         width: '120px', 
         height: '120px',
-        backgroundColor: '#f8f9fa',
+        objectFit: 'cover',
         border: '2px solid #e9ecef'
       }}
-    >
-      <span className="fw-bold text-muted fs-4">
-        {name.split(' ').map(n => n[0]).join('')}
-      </span>
-    </div>
+    />
   );
 
   // Hero visual placeholder
@@ -66,13 +55,13 @@ const OurStoryPage = () => {
         <div className="bg-white bg-opacity-20 rounded p-4">
           <div className="d-flex align-items-center justify-content-center mb-3">
             <div className="bg-white bg-opacity-30 rounded-circle p-3 me-3">
-              <Users size={24} />
+              <FontAwesomeIcon icon={faUsers} style={{ fontSize: '24px' }} />
             </div>
             <div className="bg-white bg-opacity-30 rounded-circle p-3 me-3">
-              <Building size={24} />
+              <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '24px' }} />
             </div>
             <div className="bg-white bg-opacity-30 rounded-circle p-3">
-              <Target size={24} />
+              <FontAwesomeIcon icon={faCrosshairs} style={{ fontSize: '24px' }} />
             </div>
           </div>
           <p className="mb-0 small">Our Journey from Pain to Platform</p>
@@ -87,7 +76,7 @@ const OurStoryPage = () => {
       <HeroSection
         title={ourStoryData.hero.title}
         subtitle={ourStoryData.hero.subtitle}
-        layout="split"
+        layout="centered"
         size="medium"
         primaryButton={{
           label: ourStoryData.hero.ctaButton.label,
@@ -146,7 +135,7 @@ const OurStoryPage = () => {
             {/* Left Column */}
             <div className="col-md-6">
               <FeatureCard
-                icon={CheckCircle}
+                icon={(props) => <FontAwesomeIcon icon={faCircleCheck} {...props} />}
                 iconBgColor="bg-success"
                 iconColor="text-white"
                 title={ourStoryData.mission.leftColumn.title}
@@ -154,7 +143,7 @@ const OurStoryPage = () => {
                   <div className="d-flex flex-column gap-3">
                     {ourStoryData.mission.leftColumn.benefits.map((benefit, index) => (
                       <div key={index} className="d-flex align-items-center">
-                        <CheckCircle className="text-success me-3" size={20} />
+                        <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                         <span className="text-muted">{benefit}</span>
                       </div>
                     ))}
@@ -167,7 +156,7 @@ const OurStoryPage = () => {
             {/* Right Column */}
             <div className="col-md-6">
               <FeatureCard
-                icon={CheckCircle}
+                icon={(props) => <FontAwesomeIcon icon={faCircleCheck} {...props} />}
                 iconBgColor="bg-success"
                 iconColor="text-white"
                 title={ourStoryData.mission.rightColumn.title}
@@ -175,7 +164,7 @@ const OurStoryPage = () => {
                   <div className="d-flex flex-column gap-3">
                     {ourStoryData.mission.rightColumn.benefits.map((benefit, index) => (
                       <div key={index} className="d-flex align-items-center">
-                        <CheckCircle className="text-success me-3" size={20} />
+                        <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                         <span className="text-muted">{benefit}</span>
                       </div>
                     ))}
@@ -211,7 +200,7 @@ const OurStoryPage = () => {
                 <div className="d-flex flex-column gap-3">
                   {ourStoryData.vision.points.map((point, index) => (
                     <div key={index} className="d-flex align-items-center">
-                      <CheckCircle className="text-success me-3" size={20} />
+                      <FontAwesomeIcon icon={faCircleCheck} className="text-success me-3" style={{ fontSize: '20px' }} />
                       <span className="text-muted">{point}</span>
                     </div>
                   ))}
@@ -313,56 +302,133 @@ const OurStoryPage = () => {
             {ourStoryData.team.title}
           </h2>
 
-          {/* Founder */}
-          <div className="row justify-content-center mb-5">
-            <div className="col-lg-8">
-              <div className="card border-0 shadow-sm">
-                <div className="card-body p-4">
-                  <div className="row align-items-center">
-                    <div className="col-md-3 text-center mb-3 mb-md-0">
-                      <TeamMemberImage name={ourStoryData.team.founder.name} />
-                    </div>
-                    <div className="col-md-9">
-                      <h3 className="fs-3 fw-bold text-dark mb-1">
-                        {ourStoryData.team.founder.name}
-                      </h3>
-                      <p className="text-primary fw-medium mb-3">
-                        {ourStoryData.team.founder.title}
-                      </p>
-                      <blockquote className="fst-italic text-muted mb-3" style={{ fontSize: '1rem' }}>
-                        "{ourStoryData.team.founder.quote}"
-                      </blockquote>
-                      <p className="text-muted mb-0" style={{ fontSize: '0.95rem', lineHeight: '1.6' }}>
-                        {ourStoryData.team.founder.description}
-                      </p>
-                    </div>
+          {/* Team Members Grid - Founder in Middle */}
+          <div className="row g-4 mb-4">
+            {/* First Team Member - Mukul */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[0].image} name={ourStoryData.team.members[0].name} />
                   </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[0].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[0].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[0].description}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Founder - Middle Position - Siddharth */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100" style={{ backgroundColor: '#f8f9fa' }}>
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.founder.image} name={ourStoryData.team.founder.name} />
+                  </div>
+                  <h3 className="fs-3 fw-bold text-dark mb-1">
+                    {ourStoryData.team.founder.name}
+                  </h3>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.founder.title}
+                  </p>
+                  <blockquote className="fst-italic text-muted mb-3" style={{ fontSize: '0.95rem' }}>
+                    "{ourStoryData.team.founder.quote}"
+                  </blockquote>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    With over 15 years in industrial procurement, driving Workwise's vision.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Second Team Member - Ayush */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[1].image} name={ourStoryData.team.members[1].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[1].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[1].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[1].description}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Team Members */}
+          {/* Second Row - Three Team Members */}
           <div className="row g-4 mb-4">
-            {ourStoryData.team.members.map((member, index) => (
-              <div key={index} className="col-md-4">
-                <FeatureCard
-                  icon={Users}
-                  iconBgColor="bg-primary"
-                  iconColor="text-white"
-                  title={member.name}
-                  description={
-                    <div className="text-center">
-                      <p className="text-primary fw-medium mb-3">{member.title}</p>
-                      <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-                        {member.description}
-                      </p>
-                    </div>
-                  }
-                  className="text-center"
-                />
+            {/* Agnij - Left */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[2].image} name={ourStoryData.team.members[2].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[2].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[2].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[2].description}
+                  </p>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Kushal - Center */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[3].image} name={ourStoryData.team.members[3].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[3].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[3].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[3].description}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Vineet - Right */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4 text-center">
+                  <div className="mb-3">
+                    <TeamMemberImage src={ourStoryData.team.members[4].image} name={ourStoryData.team.members[4].name} />
+                  </div>
+                  <h4 className="fs-4 fw-bold text-dark mb-1">
+                    {ourStoryData.team.members[4].name}
+                  </h4>
+                  <p className="text-primary fw-medium mb-3">
+                    {ourStoryData.team.members[4].title}
+                  </p>
+                  <p className="text-muted mb-0" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
+                    {ourStoryData.team.members[4].description}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* CTA Link */}
@@ -372,7 +438,7 @@ const OurStoryPage = () => {
               className="btn btn-link text-primary p-0 border-0"
               style={{ textDecoration: 'none' }}
             >
-              {ourStoryData.team.ctaLink.text} <ArrowRight size={16} />
+              {ourStoryData.team.ctaLink.text} <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
             </button>
           </div>
         </div>
@@ -387,6 +453,23 @@ const OurStoryPage = () => {
           onClick: handleBookCall
         }}
       />
+      {showBookCall && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '600px' }}>
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header border-0 pb-0">
+                <h5 className="modal-title fw-bold">Book a Call</h5>
+                <button type="button" className="btn-close" onClick={() => setShowBookCall(false)} />
+              </div>
+              <div className="modal-body">
+                {/* Reuse global BookCall form */}
+                {/* Lazy require to avoid import cycles if any */}
+                {require('@/components/bookCall').default && React.createElement(require('@/components/bookCall').default)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

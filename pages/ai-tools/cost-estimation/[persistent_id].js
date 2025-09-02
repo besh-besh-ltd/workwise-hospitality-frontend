@@ -1,4 +1,4 @@
-import { getCostEstimationData, getRfqDetails } from "@/services/rfq";
+import { getCostEstimationData } from "@/services/rfq";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
@@ -20,7 +20,7 @@ const EstimationTable = () => {
     if(persistent_id) getEstimatesData();
   }, [persistent_id])
 
-  console.log("XYXX UNDIES:", estimationData)
+  // noop
 
   return <>
       <Head>

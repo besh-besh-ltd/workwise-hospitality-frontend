@@ -3,7 +3,7 @@ export const modulePageData = {
   // BOQ Understanding & Simplification
   boq: {
     hero: {
-      title: "Make Your BOQ Usable in Minutes — No Excel Cleanup Needed",
+      title: "Make Your BOQ Usable in Minutes - No Excel Cleanup Needed",
       subtitle: "Upload any BOQ in Excel or PDF, and get a clean, structured version- ready for procurement.",
       primaryButton: {
         label: "Try BOQ Simplifier",
@@ -41,7 +41,7 @@ export const modulePageData = {
       ]
     },
     howItWorks: {
-      title: "How It Works — Step by Step",
+      title: "How It Works-Step by Step",
       steps: [
         {
           stepNumber: 1,
@@ -154,7 +154,7 @@ export const modulePageData = {
       ]
     },
     howItWorks: {
-      title: "How It Works — Step by Step",
+      title: "How It Works-Step by Step",
       steps: [
         {
           stepNumber: 1,
@@ -195,7 +195,7 @@ export const modulePageData = {
       questions: [
         {
           question: "Can I send RFQs directly via WhatsApp or only email?",
-          answer: "Yes. Workwise supports both WhatsApp and email — no login required for vendors to respond."
+          answer: "Yes. Workwise supports both WhatsApp and email-no login required for vendors to respond."
         },
         {
           question: "Can I target different vendors for different packages in one RFQ?",
@@ -234,7 +234,7 @@ export const modulePageData = {
   vendors: {
     hero: {
       title: "Find the Right Vendors, Without Endless Searching",
-      subtitle: "Access 12,500+ verified vendors, add your own in one click, or let our team do it for you — domestic, international, and hard-to-find.",
+      subtitle: "Access 12,500+ verified vendors, add your own in one click, or let our team do it for you-domestic, international, and hard-to-find.",
       primaryButton: {
         label: "Explore Vendor Network",
         variant: "black",
@@ -263,7 +263,7 @@ export const modulePageData = {
           iconColor: "text-white"
         },
         {
-          title: "Get end-to-end vendor support — from discovery to follow-up and negotiation",
+          title: "Get end-to-end vendor support-from discovery to follow-up and negotiation",
           description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
@@ -271,7 +271,7 @@ export const modulePageData = {
       ]
     },
     howItWorks: {
-      title: "How It Works — Step by Step",
+      title: "How It Works-Step by Step",
       steps: [
         {
           stepNumber: 1,
@@ -280,7 +280,7 @@ export const modulePageData = {
         },
         {
           stepNumber: 2,
-          title: "Add your own vendors — manually or via upload — we onboard them for you",
+          title: "Add your own vendors-manually or via upload-we onboard them for you",
           description: ""
         },
         {
@@ -350,8 +350,8 @@ export const modulePageData = {
   // Technical & Commercial Evaluation
   evaluation: {
     hero: {
-      title: "AI‑Powered Technical & Commercial Evaluation — Faster, Smarter, Fairer",
-      subtitle: "From extracting technical clauses to IS/BIS/ASTM deviation checks, to normalized commercial comparisons — Workwise gives you full clarity in minutes.",
+      title: "AI‑Powered Technical & Commercial Evaluation - Faster, Smarter, and Fairer",
+      subtitle: "From extracting technical clauses to IS/BIS/ASTM deviation checks, to normalized commercial comparisons-Workwise gives you full clarity in minutes.",
       primaryButton: {
         label: "Try Evaluation Module",
         variant: "black",
@@ -388,7 +388,7 @@ export const modulePageData = {
       ]
     },
     howItWorks: {
-      title: "How It Works — Step by Step",
+      title: "How It Works-Step by Step",
       steps: [
         {
           stepNumber: 1,
@@ -497,7 +497,7 @@ export const modulePageData = {
           iconColor: "text-white"
         },
         {
-          title: "Access multiple customizable auction formats — tailored to your project needs.",
+          title: "Access multiple customizable auction formats-tailored to your project needs.",
           description: "",
           iconBgColor: "bg-warning",
           iconColor: "text-white"
@@ -505,7 +505,7 @@ export const modulePageData = {
       ]
     },
     howItWorks: {
-      title: "How It Works — Step by Step",
+      title: "How It Works-Step by Step",
       steps: [
         {
           stepNumber: 1,
@@ -550,7 +550,7 @@ export const modulePageData = {
         },
         {
           question: "How does reverse auction work on Workwise?",
-          answer: "You set the reverse auction start & end date‑time during rfq creation — always after the RFQ quote submission deadline. Once the start time arrives, all vendors who submitted quotes are notified of the current lowest rate. As vendors revise their bids during the auction, every update to the lowest rate triggers instant notifications to all participants, allowing them to respond competitively until the auction closes."
+          answer: "You set the reverse auction start & end date‑time during rfq creation-always after the RFQ quote submission deadline. Once the start time arrives, all vendors who submitted quotes are notified of the current lowest rate. As vendors revise their bids during the auction, every update to the lowest rate triggers instant notifications to all participants, allowing them to respond competitively until the auction closes."
         },
         {
           question: "What is target price setting?",
@@ -588,8 +588,8 @@ export const modulePageData = {
   // PO & Payment Lifecycle Management
   payments: {
     hero: {
-      title: "From Vendor Finalization to Final Payment — All in One Flow",
-      subtitle: "Define PO approval hierarchies, auto‑generate POs, and track every milestone — from dispatches and GRNs to client and supplier payments.",
+      title: "From Vendor Finalization to Final Payment-All in One Flow",
+      subtitle: "Define PO approval hierarchies, auto‑generate POs, and track every milestone-from dispatches and GRNs to client and supplier payments.",
       primaryButton: {
         label: "Try PO Management Module",
         variant: "black",
@@ -626,7 +626,7 @@ export const modulePageData = {
       ]
     },
     howItWorks: {
-      title: "How It Works — Step by Step",
+      title: "How It Works-Step by Step",
       steps: [
         {
           stepNumber: 1,
@@ -683,7 +683,7 @@ export const modulePageData = {
         },
         {
           question: "Does the system track both supplier and client payments?",
-          answer: "Yes. You can track when you need to pay the supplier and when to collect from the client — with reminders for both."
+          answer: "Yes. You can track when you need to pay the supplier and when to collect from the client-with reminders for both."
         }
       ]
     },
@@ -730,12 +730,12 @@ export const benefitsData = {
 
 // How It Works Section Data
 export const howItWorksData = {
-  title: "How It Works — Step by Step",
+  title: "How It Works-Step by Step",
   steps: [
     {
       stepNumber: 1,
       title: "Upload Your BOQ",
-      description: "Excel, PDF, Word — any format accepted. Simply drag and drop or browse to select your file."
+      description: "Excel, PDF, Word-any format accepted. Simply drag and drop or browse to select your file."
     },
     {
       stepNumber: 2,

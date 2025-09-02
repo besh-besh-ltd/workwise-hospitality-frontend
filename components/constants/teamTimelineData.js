@@ -4,78 +4,154 @@ export const teamTimelineData = {
     subtitle: "We're a mix of engineers, operators, and domain experts solving India's toughest procurement problems — one project at a time."
   },
 
-  leadershipTeam: [
-    {
-      id: 1,
-      name: 'Rahul Sharma',
-      title: 'Founder & CEO',
-      titleColor: '#2E5BBA',
-      description: 'IIT Bombay, 11+ years in industrial tech',
-      image: 'https://via.placeholder.com/80x80/4285F4/ffffff?text=RS'
-    },
+  teamBehindWorkwise: [
+
     {
       id: 2,
-      name: 'Vikram Mehta',
-      title: 'Co-Founder & CTO',
-      titleColor: '#41B8A8',
-      description: 'IIT Delhi, Ex-Amazon, 8+ years in tech',
-      image: 'https://via.placeholder.com/80x80/6c757d/ffffff?text=VM'
-    },
-    {
-      id: 3,
-      name: 'Priya Desai',
-      title: 'Co-Founder & COO',
-      titleColor: '#FFA500',
-      description: 'ISB, 9+ years in supply chain management',
-      image: 'https://via.placeholder.com/80x80/dc3545/ffffff?text=PD'
-    }
-  ],
-
-  engineeringTeam: [
-    {
-      id: 1,
-      name: 'Arjun Kumar',
+      name: 'Mukul Jatav',
       title: 'Lead Engineer',
-      description: 'BITS Pilani, ML/AI specialist',
-      image: 'https://via.placeholder.com/80x80/28a745/ffffff?text=AK'
-    },
-    {
-      id: 2,
-      name: 'Rohan Verma',
-      title: 'Backend Developer',
-      description: 'NIT Trichy, 5+ years in cloud architecture',
-      image: 'https://via.placeholder.com/80x80/17a2b8/ffffff?text=RV'
+      linkedin: 'https://www.linkedin.com/in/mukul-jatav/',
+      description: 'IIT Patna',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690886773-b6295594-a49e-4a81-94bd-e1fe2895680d.jpeg'
     },
     {
       id: 3,
-      name: 'Neha Gupta',
-      title: 'Frontend Developer',
-      description: 'IIIT Hyderabad, UX/UI specialist',
-      image: 'https://via.placeholder.com/80x80/e83e8c/ffffff?text=NG'
-    }
-  ],
-
-  productOperationsTeam: [
+      name: 'Kushal Shah',
+      title: 'Backend Developer',
+      linkedin: 'https://www.linkedin.com/in/kushaldevs/',
+      description: 'Multi-disciplinary engineer',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690879254-e4f189bd-9071-43eb-86f8-a9cfe45fd0be.png'
+    },
+    
+    {
+      id: 4,
+      name: 'Vineet Singh',
+      title: 'Software Tester',
+      linkedin: 'https://www.linkedin.com/in/vineet-singh-82a394323/',
+      description: 'Quality assurance expert',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690822965-38b06a10-91b1-4098-b179-7e8e60de6769.jpeg'
+    },
+    {
+      id: 5,
+      name: 'Agnij Dutta',
+      title: 'Senior Fullstack Intern',
+      linkedin: 'https://www.linkedin.com/in/agnij-dutta/',
+      description: 'IIT Madras',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690814505-277ca45e-1ce3-4d31-8f15-60e7aedb4bc9.jpeg'
+    },
+    {
+      id: 6,
+      name: 'Ayush Singh',
+      title: 'DevOps Engineer',
+      linkedin: 'http://linkedin.com/in/ayush-singh-76a477208',
+      description: 'Backbone of Infrastructure',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755691657042-5b73a231-e72e-4de9-8623-819a0bb1292a.jpeg'
+    },
+    {
+      id: 7,
+      name: 'Kanak Naik',
+      title: 'Software Engineer',
+      linkedin: 'https://www.linkedin.com/in/kanaknaik98/',
+      description: 'Mumbai University',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690768142-aa91192f-f49b-420f-b9d3-525475caba69.jpeg'
+    },
+    {
+      id: 8,
+      name: 'Amrita Ganguli',
+      title: 'Vendor Relationship Manager',
+      linkedin: 'https://www.linkedin.com/in/amrita-ganguli-a935261b2/',
+      description: 'West Chester University of Pennsylvania',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690759437-2f3af744-ebb0-4e9b-8e2a-b9f5ffb3d083.jpg'
+    },
+    {
+      id: 9,
+      name: 'Sayanka Sarkar',
+      title: 'Product Team Lead',
+      linkedin: 'https://www.linkedin.com/in/sayanka-sarkar-700392318/',
+      description: 'Product strategy innovator',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690839125-b110d651-e6ad-43a8-b9f6-187ccbd6f7cd.jpeg'
+    },
+    {
+      id: 10,
+      name: 'Indrani Nandi',
+      title: 'Market Research Associate',
+      linkedin: 'https://www.linkedin.com/in/indrani-nandi-a7969318b/',
+      description: 'Market analytics enthusiast',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755692281903-b95894b0-83c5-450e-95bc-37cbce28018c.jpeg'
+    },
+    {
+      id: 11,
+      name: 'Rupsa Tapadar',
+      title: 'Data Quality Analyst',
+      linkedin: 'https://www.linkedin.com/in/rupsa-tapadar-595a1a339/',
+      description: 'Data precision specialist',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690870027-f5f212e2-607a-4192-8bb6-f916fde3f431.jpg'
+    },
     {
       id: 1,
-      name: 'Anjali Reddy',
-      title: 'Product Manager',
-      description: 'IIM Ahmedabad, Ex-Flipkart',
-      image: 'https://via.placeholder.com/80x80/fd7e14/ffffff?text=AR'
+      name: 'Siddharth Kothari',
+      title: 'Founder & CEO',
+      linkedin: 'https://www.linkedin.com/in/siddharth-kothari-94406938/',
+      titleColor: '#2E5BBA',
+      description: 'IIT Bombay',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690894830-4b50f855-7995-4fd5-8b22-bdd6c7166307.jpg'
     },
     {
-      id: 2,
-      name: 'Sameer Joshi',
-      title: 'Operations Manager',
-      description: 'XLRI, 7+ years in supply chain',
-      image: 'https://via.placeholder.com/80x80/20c997/ffffff?text=SJ'
+      id: 12,
+      name: 'Suchorita Choudhury',
+      title: 'Data Analyst',
+      linkedin: 'https://www.linkedin.com/in/suchorita-choudhury-2558bb32a/',
+      description: 'Business intelligence expert',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690861316-51d08607-f5ca-44d4-8703-7eaa1ac304bc.jpg'
     },
     {
-      id: 3,
-      name: 'Meera Shah',
+      id: 13,
+      name: 'Payel Haldar',
       title: 'Customer Success',
-      description: 'MDI Gurgaon, Ex-Microsoft',
-      image: 'https://via.placeholder.com/80x80/6f42c1/ffffff?text=MS'
+      linkedin: 'https://www.linkedin.com/in/payel-haldar-1153b9246/',
+      description: 'Client relationship champion',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690848213-4f3a917f-f5c9-4dd8-a06f-0a48c2c809d3.jpg'
+    },
+    
+    {
+      id: 14,
+      name: 'Chandana Pramanik',
+      title: 'Market Research Associate',
+      linkedin: 'https://www.linkedin.com/in/chandana-pramanik-627b76310/',
+      description: 'Consumer insights researcher',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690807842-6ea5a52c-3cce-4883-9334-3244db409ef2.jpeg'
+    },
+    {
+      id: 15,
+      name: 'Rudra Sankar Bhattacharya',
+      title: 'Market Research Associate',
+      linkedin: 'https://www.linkedin.com/in/rudra-sankar-bhattacharya-2a0368200/',
+      description: 'Strategic research analyst',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690830984-d7aac6a0-db26-4d1f-bdd9-2280f263aaeb.jpg'
+    },
+    {
+      id: 16,
+      name: 'Imran Ansari',
+      title: 'Sales Lead',
+      linkedin: 'https://www.linkedin.com/in/imran-ansari-87b073182',
+      description: 'Revenue growth strategist',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690798567-5035e600-fec1-4310-a217-4b0c2530a4c8.jpeg'
+    },
+    {
+      id: 17,
+      name: 'Roni Karmakar',
+      title: 'Market Research Associate',
+      linkedin: 'https://www.linkedin.com/in/roni-karmakar-692399349/',
+      description: 'IGNOU',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690785216-85661233-4b4a-4747-8a80-8e2270fc2f60.jpg'
+    },
+    {
+      id: 18,
+      name: 'Ayan Majumder',
+      title: 'Market Research Associate',
+      linkedin: 'https://www.linkedin.com/in/ayan-majumder-0000000000/',
+      description: 'IGNOU',
+      image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690774714-ce10bd1d-e6cf-46db-aaa4-1c81e54c049b.jpg'
     }
   ],
 

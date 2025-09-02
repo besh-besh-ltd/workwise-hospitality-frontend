@@ -1,12 +1,13 @@
 import React from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  Calendar,
-  MapPin,
-  ExternalLink,
-  FileText,
-  Users,
-  ArrowRight
-} from 'lucide-react';
+  faCalendar,
+  faMapMarkerAlt,
+  faExternalLinkAlt,
+  faFileAlt,
+  faUsers,
+  faArrowRight
+} from '@fortawesome/free-solid-svg-icons';
 
 const DynamicCard = ({
   // Content
@@ -112,13 +113,13 @@ const DynamicCard = ({
   const getDefaultImagePlaceholder = () => {
     switch (type) {
       case 'news':
-        return { icon: FileText, text: 'Publication Logo' };
+        return { icon: faFileAlt, text: 'Publication Logo' };
       case 'event':
-        return { icon: Calendar, text: 'Event Image' };
+        return { icon: faCalendar, text: 'Event Image' };
       case 'testimonial':
-        return { icon: Users, text: 'Profile Image' };
+        return { icon: faUsers, text: 'Profile Image' };
       default:
-        return { icon: FileText, text: 'Image' };
+        return { icon: faFileAlt, text: 'Image' };
     }
   };
 
@@ -139,7 +140,8 @@ const DynamicCard = ({
           alignItems: 'center',
           justifyContent: 'center',
           borderBottom: imagePosition === 'top' ? '1px solid var(--border-color)' : 'none',
-          borderRight: imagePosition === 'left' ? '1px solid var(--border-color)' : 'none'
+          borderRight: imagePosition === 'left' ? '1px solid var(--border-color)' : 'none',
+          overflow: 'hidden'
         }}
       >
         {image ? (
@@ -149,12 +151,13 @@ const DynamicCard = ({
             style={{ 
               width: '100%', 
               height: '100%', 
-              objectFit: 'cover' 
+              objectFit: 'cover',
+              objectPosition: 'center'
             }}
           />
         ) : (
           <div className="text-center text-muted">
-            <PlaceholderIcon size={size === 'large' ? 64 : size === 'small' ? 32 : 48} />
+            <FontAwesomeIcon icon={PlaceholderIcon} style={{ fontSize: (size === 'large' ? 64 : size === 'small' ? 32 : 48) + 'px' }} />
             <div className={`mt-${size === 'large' ? '3' : '2'}`}>
               {placeholder.text}
             </div>
@@ -173,7 +176,8 @@ const DynamicCard = ({
               fontSize: size === 'large' ? '0.8rem' : '0.75rem',
               fontWeight: '600',
               backgroundColor: getCategoryColor(category || status, type).bg,
-              color: getCategoryColor(category || status, type).text
+              color: getCategoryColor(category || status, type).text,
+              zIndex: 1
             }}
           >
             {category || status}
@@ -192,7 +196,7 @@ const DynamicCard = ({
         <div className="d-flex align-items-center">
           {date && (
             <div className="d-flex align-items-center me-3">
-              <Calendar className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+              <FontAwesomeIcon icon={faCalendar} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
               <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
                 {date}
               </span>
@@ -200,7 +204,7 @@ const DynamicCard = ({
           )}
           {location && (
             <div className="d-flex align-items-center me-3">
-              <MapPin className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+              <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
               <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
                 {venue ? `${location} • ${venue}` : location}
               </span>
@@ -241,7 +245,7 @@ const DynamicCard = ({
       <div className={`d-flex align-items-center ${config.gap}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
         {date && (
           <div className="d-flex align-items-center me-3">
-            <Calendar className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+            <FontAwesomeIcon icon={faCalendar} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
             <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
               {date}
             </span>
@@ -249,7 +253,7 @@ const DynamicCard = ({
         )}
         {location && (
           <div className="d-flex align-items-center">
-            <MapPin className="text-muted me-1" size={size === 'small' ? 10 : 12} />
+            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-muted me-1" style={{ fontSize: (size === 'small' ? 10 : 12) + 'px' }} />
             <span className="text-muted" style={{ fontSize: config.descriptionSize }}>
               {venue ? `${location} • ${venue}` : location}
             </span>
@@ -325,7 +329,7 @@ const DynamicCard = ({
               }
             }}
           >
-            {primaryAction.icon && <primaryAction.icon size={size === 'small' ? 12 : 14} className="me-2" />}
+            {primaryAction.icon && <FontAwesomeIcon icon={primaryAction.icon} className="me-2" style={{ fontSize: (size === 'small' ? 12 : 14) + 'px' }} />}
             {primaryAction.label}
           </button>
         )}
@@ -342,7 +346,7 @@ const DynamicCard = ({
             }}
           >
             {secondaryAction.label}
-            {secondaryAction.showArrow && <ExternalLink size={size === 'small' ? 12 : 14} className="ms-1" />}
+            {secondaryAction.showArrow && <FontAwesomeIcon icon={faExternalLinkAlt} className="ms-1" style={{ fontSize: (size === 'small' ? 12 : 14) + 'px' }} />}
           </button>
         )}
       </div>
@@ -355,14 +359,17 @@ const DynamicCard = ({
       style={{ 
         borderRadius: '8px', 
         overflow: 'hidden',
+        minHeight: '400px',
+        display: 'flex',
+        flexDirection: 'column',
         ...style
       }}
       {...props}
     >
       {imagePosition === 'left' ? (
-        <div className="d-flex">
+        <div className="d-flex h-100">
           {renderImage()}
-          <div className={`card-body ${config.padding} flex-grow-1`}>
+          <div className={`card-body ${config.padding} flex-grow-1 d-flex flex-column`}>
             {renderMetadata()}
             <h5 className="card-title fw-bold text-dark mb-2" style={{ fontSize: config.titleSize, lineHeight: '1.3' }}>
               {title}
@@ -374,17 +381,19 @@ const DynamicCard = ({
             )}
             {renderParticipationTypes()}
             {description && (
-              <p className="text-muted mb-3" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
+              <p className="text-muted mb-3 flex-grow-1" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
                 {description}
               </p>
             )}
-            {renderActions()}
+            <div className="mt-auto">
+              {renderActions()}
+            </div>
           </div>
         </div>
       ) : (
         <>
           {renderImage()}
-          <div className={`card-body ${config.padding}`}>
+          <div className={`card-body ${config.padding} d-flex flex-column h-100`}>
             {type === 'event' ? renderEventMetadata() : type === 'news' ? renderNewsMetadata() : renderMetadata()}
             <h5 className="card-title fw-bold text-dark mb-2" style={{ fontSize: config.titleSize, lineHeight: '1.3' }}>
               {title}
@@ -396,23 +405,25 @@ const DynamicCard = ({
             )}
             {renderParticipationTypes()}
             {description && (
-              <p className="text-muted mb-3" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
+              <p className="text-muted mb-3 flex-grow-1" style={{ fontSize: config.descriptionSize, lineHeight: '1.4' }}>
                 {description}
               </p>
             )}
-            {type === 'news' ? (
-              <div className="d-flex align-items-center justify-content-between">
-                <span className="text-primary" style={{ 
-                  fontSize: config.descriptionSize, 
-                  fontWeight: '500' 
-                }}>
-                  {publisher}
-                </span>
-                {renderActions()}
-              </div>
-            ) : (
-              renderActions()
-            )}
+            <div className="mt-auto">
+              {type === 'news' ? (
+                <div className="d-flex align-items-center justify-content-between">
+                  <span className="text-primary" style={{ 
+                    fontSize: config.descriptionSize, 
+                    fontWeight: '500' 
+                  }}>
+                    {publisher}
+                  </span>
+                  {renderActions()}
+                </div>
+              ) : (
+                renderActions()
+              )}
+            </div>
           </div>
         </>
       )}

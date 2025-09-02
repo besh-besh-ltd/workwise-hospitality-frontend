@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar,
-  MapPin,
-  Search,
-  Clock,
-  Handshake
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendar, faClock } from '@fortawesome/free-solid-svg-icons';
 
-// Import reusable components
-import { Button } from '@/components/ui/Button';
-import { CtaSection } from '@/components/ui/CtaSection';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { RegisterFormModal } from '@/components/ui/RegisterFormModal';
@@ -31,11 +23,6 @@ const EventsPage = () => {
   const handleRegisterInterest = (event) => {
     setSelectedEvent(event);
     setShowModal(true);
-  };
-
-  const handleViewHighlights = (event) => {
-    console.log('View highlights for event:', event);
-    // Here you would typically navigate to event highlights page
   };
 
   const handleFormSubmit = async (formData) => {
@@ -151,9 +138,9 @@ const EventsPage = () => {
 
           {/* Events Grid */}
           {upcomingEvents.length > 0 ? (
-            <div className="row g-4">
+            <div className="row g-4 justify-content-center">
               {upcomingEvents.map((event) => (
-                <div key={event.id} className="col-md-6 col-lg-4">
+                <div key={event.id} className="col-md-6 col-lg-5 col-xl-4">
                   <DynamicCard
                     type="event"
                     size="medium"
@@ -177,7 +164,7 @@ const EventsPage = () => {
           ) : (
             <div className="text-center py-5">
               <div className="mb-3">
-                <Calendar className="text-muted" size={48} />
+                <FontAwesomeIcon icon={faCalendar} className="text-muted" style={{ fontSize: '48px' }} />
               </div>
               <h5 className="text-muted">No upcoming events found</h5>
               <p className="text-muted">Try adjusting your filters to see more events.</p>
@@ -197,9 +184,9 @@ const EventsPage = () => {
 
           {/* Events Grid */}
           {pastEvents.length > 0 ? (
-            <div className="row g-4">
+            <div className="row g-4 justify-content-center">
               {pastEvents.map((event) => (
-                <div key={event.id} className="col-md-6 col-lg-4">
+                <div key={event.id} className="col-md-6 col-lg-5 col-xl-4">
                   <DynamicCard
                     type="event"
                     size="medium"
@@ -211,11 +198,11 @@ const EventsPage = () => {
                     status={event.status}
                     participationTypes={event.participationTypes}
                     image={event.image}
-                    primaryAction={{
-                      label: "View Event Highlights",
-                      variant: "outline"
-                    }}
-                    onPrimaryAction={() => handleViewHighlights(event)}
+                    // primaryAction={{
+                    //   label: "View Event Highlights",
+                    //   variant: "outline"
+                    // }}
+                    // onPrimaryAction={() => handleViewHighlights(event)}
                   />
                 </div>
               ))}
@@ -223,7 +210,7 @@ const EventsPage = () => {
           ) : (
             <div className="text-center py-5">
               <div className="mb-3">
-                <Clock className="text-muted" size={48} />
+                <FontAwesomeIcon icon={faClock} className="text-muted" style={{ fontSize: '48px' }} />
               </div>
               <h5 className="text-muted">No past events found</h5>
               <p className="text-muted">Try adjusting your filters to see more events.</p>

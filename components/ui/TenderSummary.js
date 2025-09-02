@@ -62,12 +62,8 @@ Technical specifications have been thoroughly evaluated for hydrocarbon, reforme
     ]
   };
 
-  const handleRegenerate = async () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      alert('Tender summary regenerated with updated analysis!');
-    }, 3000);
+  const handleDownload = async () => {
+    
   };
 
   if(!summary) {
@@ -107,7 +103,7 @@ Technical specifications have been thoroughly evaluated for hydrocarbon, reforme
                   <button
                      className="d-flex align-items-center justify-content-center minimal-btn btn-primary-minimal"
                     style={{ minWidth: "160px" }}
-                    onClick={handleRegenerate}
+                    onClick={handleDownload}
                     disabled={isGenerating}
                   >
                     {isGenerating ? (
@@ -118,7 +114,7 @@ Technical specifications have been thoroughly evaluated for hydrocarbon, reforme
                     ) : (
                       <>
                         <i className="bi bi-arrow-clockwise me-2"></i>
-                        Regenerate Analysis
+                        Download Document
                       </>
                     )}
                   </button>

@@ -9,7 +9,6 @@ import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import { Button } from "react-bootstrap";
-import "react-tooltip/dist/react-tooltip.css";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -139,7 +138,7 @@ const openModalForVariant = (variantId) => {
         const lowestQuoteDetails = lowest.quote_details[0];
         const lowestQuantity = lowestQuoteDetails.rfq_details.find(spec => spec.title == 'Quantity')?.value || lowestQuoteDetails.quantity;
 
-        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity);
+        l1totaltemp = l1totaltemp + calculateTotal(lowestQuoteDetails, lowestQuantity, normalizeFilter);
         item.quotations.map((q) => {
           if (q.id == lowest.id) {
             q.is_lowest = true;
@@ -1260,7 +1259,7 @@ const openModalForVariant = (variantId) => {
                     )}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       TOTAL
                     </th>
 
@@ -1275,7 +1274,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       FINALIZED VENDOR
                     </th>
 
@@ -1289,7 +1288,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={5} scope="col" className="bggray">
+                    <th colSpan={6} scope="col" className="bggray">
                       LOWEST TOTAL ( L1 Total )
                     </th>
 
@@ -1305,7 +1304,7 @@ const openModalForVariant = (variantId) => {
                   </tr>
 
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Delivery{" "}
                     </th>
 
@@ -1321,7 +1320,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Payment{" "}
                     </th>
 
@@ -1334,7 +1333,7 @@ const openModalForVariant = (variantId) => {
                               content={
                                 item.global_payment_term[0].details
                                   ? item.global_payment_term[0].details
-                                  : "-"
+                                  : ""
                               }
                             />
 
@@ -1357,7 +1356,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Vendor comment{" "}
                     </th>
 
@@ -1378,7 +1377,7 @@ const openModalForVariant = (variantId) => {
                       })}
                   </tr>
                   <tr className="last_row">
-                    <th colSpan={5} scope="col">
+                    <th colSpan={6} scope="col">
                       Attached Files{" "}
                     </th>
 

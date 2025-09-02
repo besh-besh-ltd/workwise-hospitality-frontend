@@ -49,7 +49,7 @@ export const trustSecurityData = {
       id: 3,
       icon: 'check',
       title: 'Role-Based Access',
-      description: 'Set access limits per team member — per module or project'
+      description: 'Set access limits per team member - per module or project'
     },
     {
       id: 4,
@@ -105,7 +105,7 @@ export const trustSecurityData = {
     },
     {
       question: "How does Workwise handle vendor data confidentiality?",
-      answer: "Complete vendor isolation — each vendor sees only its own RFQs and can't access other vendors' data."
+      answer: "Complete vendor isolation - each vendor sees only its own RFQs and can't access other vendors' data."
     },
     {
       question: "Can we audit quote versions?",

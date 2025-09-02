@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlay } from '@fortawesome/free-solid-svg-icons';
-import { FaRobot, FaMicrochip, FaProjectDiagram } from 'react-icons/fa';
+import { FaRobot } from 'react-icons/fa';
 
 const HeroVideo = () => {
   const [videoPlayed, setVideoPlayed] = useState(false);
   const videoRef = useRef(null);
+  const handlePlay = () => {
+    setVideoPlayed(true);
+  };
 
   useEffect(() => {
     if (videoRef.current) {
@@ -13,22 +16,33 @@ const HeroVideo = () => {
     }
   }, []);
 
+  // Ensure playback starts on mobile after user interaction
+  useEffect(() => {
+    if (videoPlayed && videoRef.current) {
+      const maybePromise = videoRef.current.play();
+      if (maybePromise && typeof maybePromise.catch === 'function') {
+        maybePromise.catch(() => {});
+      }
+    }
+  }, [videoPlayed]);
+
   return (
     <div className="position-relative">
       {/* Main Video Container */}
       <div className="d-flex flex-column align-items-center">
         <div className="video-container position-relative">
           {!videoPlayed ? (
-            <div className="thumbnail-container position-relative">
+            <div className="thumbnail-container position-relative" onClick={handlePlay} style={{ cursor: 'pointer' }}>
               <img
                 src="/assets/images/hero-section-thumbnail.png"
                 alt="Video Thumbnail"
                 className="w-100 h-100 rounded-3"
-                style={{ objectFit: "cover" }}
+                style={{ objectFit: "cover", transform: "scale(1)" }}
               />
               <button
                 className="play-button position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center"
-                onClick={() => setVideoPlayed(true)}
+                type="button"
+                onClick={handlePlay}
                 style={{
                   background: "rgba(46, 91, 168, 0.8)",
                   width: "70px",
@@ -40,37 +54,42 @@ const HeroVideo = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  marginTop: "-20px",
+                  marginTop: "0px",
+                  zIndex: "auto"
                 }}
               >
                 <span style={{ marginRight: "-6px", marginBottom: "-5px" }}>
                   <FontAwesomeIcon icon={faPlay} color="white" size="lg" />
                 </span>
               </button>
+              <button
+                type="button"
+                aria-label="Play video"
+                onClick={handlePlay}
+                className="position-absolute top-0 start-0 w-100 h-100"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', zIndex: "auto" }}
+              />
             </div>
           ) : (
             <video
               ref={videoRef}
               src="/videos/hero_video.mp4"
-              autoPlay
               controls
               playsInline
               loop
               preload="auto"
-              className="w-100 h-100 rounded-3"
-              style={{ objectFit: "fill" }}
+              className="w-100 h-99 rounded-3"
+              style={{ objectFit: "contain", transform: "scale(1)" }}
             />
           )}
-        </div>
-
-        {/* AI Attribution Badge */}
-        <div className="d-flex align-items-center gap-2 mt-3">
+          {/* AI Attribution Badge - placed immediately below the video */}
+        <div className="d-flex align-items-center gap-2 justify-content-center mt-2" style={{ lineHeight: 1 }}>
           <FaRobot style={{ color: 'white' }} />
-          <span className="text-white fw-medium small">
-            Powered by AI from IIT Bombay
-          </span>
+          <span className="text-white fw-medium small">Powered by AI from IIT Bombay</span>
+        </div>
         </div>
       </div>
+
 
 
       {/* Background Blur Elements - Adjusted for more room */}
@@ -103,12 +122,12 @@ const HeroVideo = () => {
       <style jsx>{`
         .video-container {
           width: 100%;
-          max-width: 70%;
-          aspect-ratio: 16 / 9;
+          max-width: 100%;
+          aspect-ratio: 4 / 3;
           border-radius: 10px;
           overflow: hidden;
           position: relative;
-          margin: 0 auto;
+          z-index: 2;
         }
 
         .play-button {
@@ -124,14 +143,14 @@ const HeroVideo = () => {
         @media (max-width: 992px) {
           .video-container {
             max-width: 80%;
-            aspect-ratio: 16 / 9 !important;
+            aspect-ratio: 1 / 1 !important;
           }
         }
 
         @media (max-width: 576px) {
           .video-container {
             max-width: 90%;
-            aspect-ratio: 16 / 9 !important;
+            aspect-ratio: 1 / 1 !important;
           }
         }
       `}</style>

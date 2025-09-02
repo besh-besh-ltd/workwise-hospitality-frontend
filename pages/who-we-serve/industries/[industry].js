@@ -14,6 +14,7 @@ import { FaqAccordion } from '@/components/ui/FaqAccordion';
 import { CtaSection } from '@/components/ui/CtaSection';
 import { HeroSection } from '@/components/ui/HeroSection';
 import Layout from '@/components/layout';
+import ContactUsModal from '@/components/modal/contactUsModal';
 import { homepageData } from '@/components/constants/homepageData';
 
 // Import default data (Power). Additional industries can be added to this map.
@@ -263,6 +264,8 @@ const IndustryDynamicPage = () => {
   const key = typeof industry === 'string' ? industry.toLowerCase() : 'power';
   const data = (dataMap && dataMap[key]) || powerData;
 
+  const [showBookCall, setShowBookCall] = React.useState(false);
+
   return (
     <Layout>
       <HeroSection
@@ -271,20 +274,26 @@ const IndustryDynamicPage = () => {
         layout="centered"
         size="medium"
         showVisual={false}
-        primaryButton={{ label: data.hero.buttonLabel, variant: 'black', onClick: () => console.log('Book a Call clicked') }}
+        primaryButton={{ label: data.hero.buttonLabel, variant: 'black', onClick: () => setShowBookCall(true) }}
       />
       <PowerProcurementChallenges title={data.challengesTitle || 'We Understand the Real-World Challenges of Industry Procurement'} challenges={data.challenges} />
       <CapexProjectsServed title={data.projectsTitle || "Capex Projects We've Served in Industry"} projects={data.projects} />
-      <AllDisciplines title={data.disciplinesTitle || 'All Disciplines — One Platform'} disciplines={data.disciplines} />
+      <AllDisciplines title={data.disciplinesTitle || 'All Disciplines - One Platform'} disciplines={data.disciplines} />
       <TestimonialsSection title={data.testimonialsTitle || 'Used in Projects by Companies You Know'} testimonials={data.testimonials} />
       <WorkwiseModules title={data.modulesTitle || 'Top Workwise Modules for Industry Teams'} modules={data.modules} />
       <PowerTeamsFaq className="mt-5" title={data.faqsTitle || 'Questions Teams Ask Us'} faqs={data.faqs} />
       <CtaSection
         title={data.cta.title}
         description={data.cta.description}
-        primaryButton={{ label: data.cta.primaryButton.label, variant: data.cta.primaryButton.variant, onClick: () => console.log('CTA clicked') }}
-        secondaryButton={{ label: data.cta.secondaryButton.label, variant: data.cta.secondaryButton.variant, onClick: () => console.log('CTA secondary') }}
+        primaryButton={{ label: data.cta.primaryButton.label, variant: data.cta.primaryButton.variant, onClick: () => setShowBookCall(true) }}
+        secondaryButton={{ label: data.cta.secondaryButton.label, variant: data.cta.secondaryButton.variant, onClick: () => { window.location.href = '/why-workwise/success-stories'; } }}
         className="mt-4"
+      />
+
+      <ContactUsModal
+        showModal={showBookCall}
+        fromType={'industry'}
+        closeModal={() => setShowBookCall(false)}
       />
     </Layout>
   );

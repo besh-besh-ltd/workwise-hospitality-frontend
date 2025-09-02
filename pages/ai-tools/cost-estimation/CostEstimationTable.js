@@ -23,9 +23,9 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
     const headers = [
       "Sr. No.",
       "Product Name",
-      "Lowest Quote",
+      // "Lowest Quote",
       "Average Quote",
-      "Highest Quote",
+      // "Highest Quote",
       "Service Charge",
       "Additional Charges",
       "Total"
@@ -74,9 +74,9 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
           <tr>
             <th>Sr. No.</th>
             <th style={{ width: 350 }}>Product Name</th>
-            <th>Lowest Quote</th>
+            {/* <th>Lowest Quote</th> */}
             <th>Average Quote</th>
-            <th>Highest Quote</th>
+            {/* <th>Highest Quote</th> */}
             <th>Service Charge</th>
             <th>Additional Charges</th>
             <th>Total</th>
@@ -89,9 +89,9 @@ const CostEstimationTable = ({ fileName, data, persistence }) => {
               <tr key={index}>
                 <td>{index + 1}</td>
                 <td className="fw-semibold fs-6">{row.product_name}</td>
-                <td style={getCellStyle("lowest")}>{row.lowest_price ? `₹${addCommasToNumber(row.lowest_price)}` : '-'}</td>
+                {/* <td style={getCellStyle("lowest")}>{row.lowest_price ? `₹${addCommasToNumber(row.lowest_price)}` : '-'}</td> */}
                 <td style={getCellStyle("average")}>{row.average_price ? `₹${addCommasToNumber(row.average_price)}` : '-'}</td>
-                <td style={getCellStyle("highest")}>{row.highest_price ? `₹${addCommasToNumber(row.highest_price)}` : '-'}</td>
+                {/* <td style={getCellStyle("highest")}>{row.highest_price ? `₹${addCommasToNumber(row.highest_price)}` : '-'}</td> */}
                 <td style={{width: 210}}>
                   <FormControl
                     type="number"

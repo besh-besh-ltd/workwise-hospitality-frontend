@@ -185,7 +185,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your BOQ Has Been Simplified",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Create RFQ from this BOQ"
     },
     outputView: {
@@ -235,7 +235,7 @@ export const aiToolsData = {
     icon: "money-bill",
     buttonText: "Get BOQ Cost Estimate",
     buttonVariant: "warning",
-    note: "Free processing for up to 100 line items",
+    note: "Free processing for 1 project",
     hero: {
       title: "Estimate Project Cost in Minutes - Not Weeks",
       subtitle: "Upload your BOQ and let Workwise AI calculate material cost, service & manpower inputs, and total project estimation with smart logic.",
@@ -281,7 +281,7 @@ export const aiToolsData = {
         },
         {
           step: 3,
-          title: "Get detailed breakdown",
+          title: "Get a detailed breakdown",
           description: "Complete cost estimate with material, service, and manpower breakdown"
         }
       ]
@@ -300,7 +300,7 @@ export const aiToolsData = {
           description: "Total project cost with percentage breakdown"
         }
       ],
-      note: "Only 1 file processed for free",
+      note: "Only 1 project processed for free",
       previewNote: "Preview result online or download with watermark"
     },
     trustSignals: {
@@ -364,7 +364,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your Cost Estimate is Ready",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Get Vendor Quotes in 48 Hours"
     },
     outputView: {
@@ -543,7 +543,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your Tender Summary is Ready",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Create BOQ from this Tender"
     },
     outputView: {
@@ -639,7 +639,7 @@ export const aiToolsData = {
         },
         {
           step: 3,
-          title: "Get simplified summary",
+          title: "Get a simplified summary",
           description: "Clear, actionable insights ready for your team"
         }
       ]
@@ -722,7 +722,7 @@ export const aiToolsData = {
     },
     emailResult: {
       title: "Your Technical Summary is Ready",
-      message: "Powered by Wisely — Your Smart Procurement Assistant",
+      message: "Powered by Wisely - Your Smart Procurement Assistant",
       cta: "Try Full Technical Evaluation"
     },
     outputView: {

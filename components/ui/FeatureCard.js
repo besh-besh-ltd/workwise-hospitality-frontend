@@ -48,12 +48,53 @@ const FeatureCard = React.forwardRef(({
         </div>
 
         {/* Description */}
-        <p className="card-text text-muted">{description}</p>
+        <p className="card-text text-muted mb-0">{description}</p>
 
         <style jsx>{`
           @media (max-width: 576px) {
             .card-body .rounded-circle { width: 40px !important; height: 40px !important; }
             .card-body .rounded-circle svg { width: 18px !important; height: 18px !important; }
+          }
+          
+          /* Ensure consistent card heights on mobile */
+          @media (max-width: 768px) {
+            .card {
+              height: auto !important;
+              min-height: auto !important;
+            }
+            
+            .card-body {
+              padding: 1.5rem !important;
+            }
+            
+            .card-title {
+              font-size: 1.1rem !important;
+              line-height: 1.3 !important;
+            }
+            
+            .card-text {
+              font-size: 0.9rem !important;
+              line-height: 1.4 !important;
+            }
+            
+            /* Ensure proper text wrapping and consistent heights */
+            .card-text {
+              word-wrap: break-word !important;
+              overflow-wrap: break-word !important;
+              hyphens: auto !important;
+            }
+          }
+          
+          /* Ensure consistent heights across all screen sizes */
+          .card {
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          .card-body {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
           }
         `}</style>
       </div>
