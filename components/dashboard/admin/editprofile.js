@@ -24,7 +24,7 @@ const getUserTypeLabel = (userType) => {
     2: "Procurement",
     3: "Seller",
     4: "Other",
-    7: "Company Admin",
+    7: "Admin",
     8: "Management",
     9: "Engineering",
     10: "Finance"
@@ -241,18 +241,18 @@ const EditProfile = () => {
       </Head>
       <section className="buyer-common-header sc-pt-80">
         <div className="container-fluid">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h1 className="heading">Edit profile</h1>
             {userType && (
               <div style={{
                 display: 'inline-block',
                 backgroundColor: '#f3f4f6',
                 color: '#374151',
-                padding: '6px 12px',
-                borderRadius: '20px',
-                fontSize: '14px',
-                fontWeight: '500',
-                border: '1px solid #d1d5db'
+                padding: '10px 20px',
+                borderRadius: '25px',
+                fontSize: '18px',
+                fontWeight: '600',
+                border: '2px solid #d1d5db'
               }}>
                 {getUserTypeLabel(userType)}
               </div>
