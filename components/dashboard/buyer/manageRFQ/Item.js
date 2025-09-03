@@ -153,7 +153,7 @@ const RFQItem = ({ data }) => {
               role="button"
               disabled={isRecievedFromAll || data.status == 2 || data.is_finalized}
               aria-disabled={isRecievedFromAll}
-              style={{ width: "200px", backgroundColor: data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : data.status == 2 ? 'var(--red-color)' : "var(--secondary-color)" }}
+              style={{ width: "200px", backgroundColor: data.status == 2 ? 'var(--red-color)' : data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : "var(--secondary-color)" }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
             >
