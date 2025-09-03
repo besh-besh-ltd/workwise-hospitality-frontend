@@ -378,6 +378,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                         data={clauseItem}
                         userData={currentUserProfile}
                         otherUser={otherUser}
+                        product = {product}
                         token ={token}
                       />
                     }

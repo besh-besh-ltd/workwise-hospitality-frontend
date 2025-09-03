@@ -12,8 +12,10 @@ import { Dropdown } from 'react-bootstrap';
 import Image from 'next/image';
 
 
-const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
+const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
+    
 
+  
     const [buyerClauses, setBuyerClauses] = useState(clauseInfo);
     const [vendorResponse, setVendorResponse] = useState(null);
     const [openModal, setOpenModal] = useState(false);
@@ -24,14 +26,16 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
     const [responseLoading, setResponseLoading] = useState(false);
     const [vendors, setVendors] = useState(null);
     const [selectedVendor, setSelectedVendor] = useState(null);
-    const [summarisedDeviation , setSummarisedDeviation] = useState();
+    // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
     
  
-
     const addToTechnicallyAccepted = async (vendor = null) => {
         const payload = {
+            product :  product?.product_details,
+            rfq_id : rfq_id,
+            vendor :  vendor ? vendor : selectedVendor ? selectedVendor : _selectedVendor,
             vendor_id: vendor ? vendor.vendor_id : selectedVendor ? selectedVendor.vendor_id : _selectedVendor.value,
             rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
             status: 1,
@@ -352,7 +356,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                                 (response) =>
                                   vendor.vendor_id == response.vendor_id
                               );
-
+                              console.log("checking the console for vendor", vendor);
                               return (
                                 <td key={vendor.value} className="col-3">
                                   <div
@@ -415,8 +419,10 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, ve
                             type="Buyer"
                             data={clauseItem}
                             userData={currentUserProfile}
-                            otherUser={selectedVendor.vendor_id}
+                            otherUser={selectedVendor}
                             token="" // only for vendor so that they fetch data when they are not login
+                            product = {product}
+                            rfq_no = {currentRfq}
                           />
                         )}
                         </>

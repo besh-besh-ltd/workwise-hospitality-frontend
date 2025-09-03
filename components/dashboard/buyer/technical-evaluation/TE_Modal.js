@@ -5,13 +5,18 @@ import { addToTA } from "@/services/rfq";
 import FullLoader from "@/components/shared/FullLoader";
 
 
-const TE_Modal = ({ openModal, closeModal, data, vendor_id, getTechEvalResult }) => {
+const TE_Modal = ({ rfq_id ,openModal, closeModal, data, vendor_id, getTechEvalResult }) => {
+
+
+    console.log("chekig the logs here in modal", data);
 
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
 
     const sendFeedback = async () => {
         const payload = {
+            rfq_id : rfq_id,
+            product : data.product_details[0],
             vendor_id: vendor_id,
             rfq_product_tech_evaluation_id: data.tbl_rfq_product_tech_evaluation_id,
             status: 0,

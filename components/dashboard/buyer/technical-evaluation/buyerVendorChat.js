@@ -9,7 +9,7 @@ import FileLink from '@/components/shared/FileLink';
 import FullLoader from '@/components/shared/FullLoader';
 
 
-const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token="" }) => {
+const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token="" ,product , rfq_no}) => {
   const [messages, setMessages] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState(null);
@@ -19,12 +19,14 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
   const latestMessageRef = useRef(null);
   const fileInputRef = useRef(null);
   const [userMap, setUserMap] = useState({}); // userId -> {name, company_name, user_type}
-
+ 
+ 
 
   const handleFileClick = () => {
     fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
   };
 
+  console.log("cjeck the other user" , otherUser);
   const uploadToServer = async (e) => {
     setFileLoading(true)
     try {
@@ -48,7 +50,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
     const payload = {
       clause_id: data.clause_id,
       sender_id: userData.id,
-      receiver_id: otherUser
+      receiver_id: otherUser.vendor_id
     }
     try {
       setLoading(true)
@@ -71,11 +73,17 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
     let payload = {
       clause_id: data.clause_id,
       sender_id: userData.id,
-      receiver_id: otherUser,
+      receiver_id: otherUser.vendor_id,
       text: messageText,
-      file_url: files
-    }
+      file_url: files,
+      product:product,
+      vendor : otherUser,
+      rfq_no : {
+        ...rfq_no,
 
+      }
+    }
+   console.log("chekg the payload before sending", payload);
     setSendButtonLoading(true);
     try {
       const res = await addChatComment(payload);
