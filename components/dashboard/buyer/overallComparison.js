@@ -8,7 +8,7 @@ import { calculateTotal, extractfileName, handleNormalize } from "@/utils/shared
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
-import { Button } from "react-bootstrap";
+import { Button, Badge } from "react-bootstrap";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -24,6 +24,25 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
+
+  // Helper function to check if vendor has missing freight or packaging costs
+  const hasMissingCosts = (vendorId) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
+    if (!data || data.length === 0) return false;
+    
+    return data.some(item => {
+      const vendorQuote = item.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
+      if (!vendorQuote || !vendorQuote.quote_details || vendorQuote.quote_details.length === 0) return false;
+      
+      const quoteDetails = vendorQuote.quote_details[0];
+      const freightPrice = parseFloat(quoteDetails.freight_price) || 0;
+      const packagePrice = parseFloat(quoteDetails.package_price) || 0;
+      
+      return freightPrice === 0 || packagePrice === 0;
+    });
+  };
   
   useEffect(() => {
     handleDownloadQuote();
@@ -388,12 +407,17 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
+                        const missingCosts = hasMissingCosts(item.id);
                         return (
                           <th
                             key={`v_${item.id}`}
                             scope="col"
                             className="all_vendors"
                             rowSpan={2}
+                            style={{
+                              backgroundColor: missingCosts ? "#ff8c00" : "#2d5ba7",
+                              color: "white"
+                            }}
                           >
                             {item.organization_name || item.name}
                           </th>
