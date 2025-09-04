@@ -66,7 +66,7 @@ const ProductDetailsModal = ({ show, onClose, error }) => {
 const ValidationErrorsDisplay = ({ selectedSheet, rfq_id, refetchRFQ, setLoading }) => {
   const [selectedError, setSelectedError] = useState(null);
   const [showProductDetails, setShowProductDetails] = useState(false);
-
+  
   const validationErrors = selectedSheet.validation_errors ?? [];
 
   if (!validationErrors || !Array.isArray(validationErrors)) {
