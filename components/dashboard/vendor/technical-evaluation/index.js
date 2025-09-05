@@ -11,6 +11,26 @@ const VendorTechnicalEvaluation = () => {
     const [loading, setLoading] = useState(false);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [currentRfq, setCurrentRfq] = useState(null);
+    const [otherUser , setotherUser]  = useState(null);
+
+  
+
+   useEffect(() => {
+    if (currentRfq) {
+      // ✅ Create an object with required fields
+      const userObj = {
+        vendor_id: currentRfq.created_by,
+        companyName: currentRfq.company_name,
+        contactName: currentRfq.contact_name,
+        contactNumber: currentRfq.contact_number,
+        rfq_no : currentRfq.rfq_no,
+        rfq_id : currentRfq.id,
+        response_email : currentRfq.response_email
+      };
+
+      setotherUser(userObj);
+    }
+  }, [currentRfq]);
 
 
     // Fetch user details
@@ -105,7 +125,7 @@ const VendorTechnicalEvaluation = () => {
                                                                     type="vendor"
                                                                     rfq_id={rfq_id}
                                                                     currentUserProfile={currentUserProfile}
-                                                                    otherUser={currentRfq.created_by}
+                                                                    otherUser={otherUser}
                                                                     token={token}
                                                                 />
                                                             </div>
