@@ -701,25 +701,13 @@ const generateExcelFile = (api_data) => {
   const infoRow1 = padToCols([
     "Project",
     currentRFQ?.project_name ?? "-",
-    "",
-    "",
     "Bid End Date",
     currentRFQ?.bid_end_date ?? "-",
-    "",
-    "",
-    "RFQ Created",
-    currentRFQ?.created_at ?? currentRFQ?.created_date ?? "-",
   ]);
 
   const infoRow2 = padToCols([
     "Company",
     currentRFQ?.company_name ?? "-",
-    "",
-    "",
-    "RFQ Type",
-    currentRFQ?.rfq_type ?? "-",
-    "",
-    "",
     "Contact",
     currentRFQ?.contact_name ? `${currentRFQ.contact_name} ${currentRFQ.contact_number ? "(" + currentRFQ.contact_number + ")" : ""}` : (currentRFQ?.contact_number ?? "-"),
   ]);
@@ -1027,7 +1015,7 @@ const generateExcelFile = (api_data) => {
   ws[titleAddr].s = {
     font: { bold: true, sz: 20 },
     alignment: { horizontal: "left", vertical: "center" },
-    fill: { fgColor: { rgb: "F2F2F2" } },
+    fill: { fgColor: { rgb: "DDDDDD" } },
   };
 
   // Light highlight for the two info rows
@@ -1037,7 +1025,7 @@ const generateExcelFile = (api_data) => {
       if (!ws[addr]) ws[addr] = {};
       if (!ws[addr].s) ws[addr].s = {};
       ws[addr].s.fill = { fgColor: { rgb: "FFFFFF" } };
-      if (c % 4 === 0) {
+      if (c % 2 === 0) {
         ws[addr].s.font = { bold: true };
       }
     }
