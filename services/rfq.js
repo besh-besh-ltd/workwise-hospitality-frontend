@@ -680,16 +680,19 @@ export const listQueries = (payload, token=null) => {
   });
 };
 
-export const getAllClauses = (rfq_id) => {
+export const getAllClauses = (rfq_id, pageSource) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-clauses/${rfq_id}`);
+      let response = await axiosInstance.get(
+        `/rfq/get-clauses/${rfq_id}?pageSource=${pageSource}`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
     }
   });
 };
+
 
 export const getClausesByRfqProductId = (payload) => {
   return new Promise(async (resolve, reject) => {

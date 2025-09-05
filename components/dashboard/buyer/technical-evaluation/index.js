@@ -102,11 +102,12 @@ useEffect(() => {
 
   const listProducts = async () => {
     try {
-      const res = await getAllClauses(rfq_id);
+      const res = await getAllClauses(rfq_id,"tech_evaluation");
       setClauseInfo(res?.data ?? null);
 
       // Get full RFQ details with products from the detailed API
       const rfqDetailsRes = await getRFQById(rfq_id);
+
       const selectedRfq = Array.isArray(rfqDetailsRes.data) ? rfqDetailsRes.data[0] : rfqDetailsRes.data;
 
       if (!selectedRfq) {
