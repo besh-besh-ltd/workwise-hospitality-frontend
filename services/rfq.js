@@ -336,10 +336,22 @@ export const updateQuotation = (quote_id, payload, token) => {
   });
 };
 
-export const getQuotes = (id, TA_Filter, freightFilter) => {
+export const getQuotes = (id, TA_Filter, freightFilter, rfq_product_id, source) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter || freightFilter ? '?' : ''}${TA_Filter ? 'TA_Vendors=TA' : ''}${TA_Filter && freightFilter ? '&' : ''}${freightFilter ? 'no_freight=true' : ''}`);
+      let response = await axiosInstance.get(
+        `/rfq/get-quotes/${id}${TA_Filter || freightFilter ? "?" : ""}${
+          TA_Filter ? "TA_Vendors=TA" : ""
+        }${TA_Filter && freightFilter ? "&" : ""}${
+          freightFilter ? "no_freight=true" : ""
+        }`,
+        {
+          params: {
+            rfq_product_id,
+            source,
+          },
+        }
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -358,10 +370,22 @@ export const getQuotes = (id, TA_Filter, freightFilter) => {
 //   })
 // }
 
-export const downloadQuotesDetails = (id, TA_Filter, freightFilter) => {
+export const downloadQuotesDetails = (id, TA_Filter, freightFilter, rfq_product_id, source) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/download-quote-results/${id}${TA_Filter || freightFilter ? '?' : ''}${TA_Filter ? 'TA_Vendors=TA' : ''}${TA_Filter && freightFilter ? '&' : ''}${freightFilter ? 'no_freight=true' : ''}`);
+      let response = await axiosInstance.get(
+        `/rfq/download-quote-results/${id}${
+          TA_Filter || freightFilter ? "?" : ""
+        }${TA_Filter ? "TA_Vendors=TA" : ""}${
+          TA_Filter && freightFilter ? "&" : ""
+        }${freightFilter ? "no_freight=true" : ""}`,
+        {
+          params: {
+            rfq_product_id,
+            source,
+          },
+        }
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });

@@ -15,7 +15,7 @@ import { Button } from "react-bootstrap";
  * @Updated Ayush Singh 22 JUNE 2025
  * @updated by mukul 08-08-2025 - normilize total
  */
-const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter }) => {
+const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalizeFilter, rfq_product_id, source }) => {
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
@@ -45,7 +45,7 @@ const openModalForVariant = (variantId) => {
 };
   const handleDownloadQuote = () => {
     setloading(true);
-    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
+    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter, rfq_product_id, source)
       .then((res) => {
         
         const data = normalizeFilter ? handleNormalize(res.data) : res.data;

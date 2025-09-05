@@ -212,7 +212,7 @@ const ApprovalHierarchyPage = () => {
                   {hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 ? (
                     <div className="d-flex gap-3">
                       <Card
-                        style={{ width: "320px", position: "relative" }}
+                        style={{ width: "320px", position: "relative", height: "fit-content" }}
                         className="shadow-sm"
                       >
                         <Card.Body>

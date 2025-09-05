@@ -9,6 +9,7 @@ import POListing from "./POListing";
 import PurchaseOrderDetails from "./PODetails";
 import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
+import RejectRemarksModal from "./RejectRemarksModal";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -24,6 +25,11 @@ const PurchaseOrders = () => {
   const [totalData, setTotalData] = useState(0);
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedPODetail, setSelectedPODetail] = useState({
+    po_id: null,
+    data: null,
+  })
 
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
@@ -94,9 +100,31 @@ const PurchaseOrders = () => {
     }).finally(() => setloading(false));
   };
 
+  const openRejectRemarksModal = (po_id, data) => {
+    setSelectedPODetail({
+      po_id,
+      data,
+    })
+    setShowRejectModal(true);
+  }
+
+  const rejectWithRemarks = async (remarks) => {
+    const res = await handlePOApproval(selectedPODetail.po_id, {...selectedPODetail.data, remarks});
+    if(res) {
+      toast.success(res.message);
+    } else {
+      throw new Error("Something went wrong while making a decision, please try again!")
+    }
+    setShowRejectModal(false);
+  }
+
   const handlePODecision = async (po_id, data) => {
     try {
       setloading(true);
+      if(data.decision == 'rejected') {
+        openRejectRemarksModal(po_id, data);
+        return;
+      }
       const res = await handlePOApproval(po_id, data);
       if(res) {
         toast.success(res.message);
@@ -321,6 +349,8 @@ const PurchaseOrders = () => {
           </div>
         </div>
       </section>
+
+      <RejectRemarksModal show={showRejectModal} onClose={() => setShowRejectModal(false)} onReject={(remarks) => rejectWithRemarks(remarks)}/>
     </>
   );
 };

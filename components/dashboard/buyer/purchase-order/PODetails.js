@@ -18,7 +18,7 @@ import { handleDeleteMilestone, handleDeleteTask, handleGetTasks } from '@/servi
 import CreateTaskModal from './CreateTaskModal';
 import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
-import { addCommasToNumber } from '@/utils/sharedFunctions';
+import { addCommasToNumber, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 
 const statusColors = {
@@ -113,6 +113,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     total_value,
     initiated_by_name,
     created_at,
+    project_id,
     project_details,
     product_details,
     is_approver,
@@ -120,11 +121,13 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     approval_status,
     approval_history = [],
     payment_milestones,
+    quotations,
+    rfq_product_id,
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
-  const [availableBudget, setAvailableBudget] = useState(null);
+  const [budgetInfo, setBudgetInfo] = useState(null);
 
   const [tasks, setTasks] = useState(null);
   const [filters, setFilters] = useState({
@@ -172,6 +175,17 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
     }
   }
 
+  const handleFetchBudget = async () => {
+    try {
+      const res = await getProjectAvailableBudget(project_id);
+      if(res) {
+        setBudgetInfo(res);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   const handleMilestoneEdition = (milestone) => {
     setSelectedMilestone(milestone);
     setShowMilestoneModal(true);
@@ -185,6 +199,10 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
   useEffect(() => {
     handleFetchTasks();
   }, [filters])
+
+  useEffect(() => {
+    handleFetchBudget();
+  }, [])
 
   return (
     <div>
@@ -237,42 +255,58 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       </div>
 
       {/* PO Overview */}
-      <Card className="mb-3 shadow-sm">
-        <Card.Body
-          style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
-        >
-          <div className="row">
-            <div className="col-md-6">
-              <PODetailItem label="Quantity" value={quantity} />
-              <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
-              <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
-              {project_details && (
-                <PODetailItem label="Project Name" value={project_details.name} />
-              )}
-            </div>
-            <div className="col-md-6">
-              <PODetailItem label="Created At" value={formatIST(created_at)} />
-              <PODetailItem label="Initiated By" value={initiated_by_name} />
-              <PODetailItem
-                label="Status"
-                value={status.replace("_", " ").toUpperCase()}
-              />
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
-
-      {/* Product Details */}
-      <div className="mb-4 d-flex gap-3">
-        <Card className="shadow-sm w-100">
-          <Card.Body className="d-flex align-items-center">
-            <BsBoxSeam className="me-3 fs-2 text-primary" />
-            <div>
-              <strong>{product_details?.name}</strong>
-              <div className="text-muted">
-                Product ID: {product_details?.product_id}
+      <div className="d-flex gap-2 align-items-center justify-content-between">
+        <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "70%" }}>
+          <Card.Body
+            style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
+          >
+            <div className="row">
+              <div className="col-md-6">
+                <PODetailItem label="Quantity" value={quantity} />
+                <PODetailItem label="Unit Price" value={`₹ ${addCommasToNumber(unit_price)}`} />
+                <PODetailItem label="Total Value" value={`₹ ${addCommasToNumber(total_value)}`} />
+                {project_details && (
+                  <PODetailItem label="Project Name" value={project_details.name} />
+                )}
+              </div>
+              <div className="col-md-6">
+                <PODetailItem label="Created At" value={formatIST(created_at)} />
+                <PODetailItem label="Initiated By" value={initiated_by_name} />
+                <PODetailItem
+                  label="Status"
+                  value={status.replace("_", " ").toUpperCase()}
+                />
               </div>
             </div>
+          </Card.Body>
+        </Card>
+        <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "30%" }}>
+          <Card.Body
+            style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
+            className='d-flex flex-column'
+          >
+            <PODetailItem label="Total Assigned Budget" value={`₹${formatToINRShort(budgetInfo.total_budget)}`} />
+            <PODetailItem label="Available Budget" value={`₹${formatToINRShort(budgetInfo.available_budget)}`} />
+            <PODetailItem label="PO Value" value={`₹${formatToINRShort(total_value)}`} />
+            <PODetailItem label="Budget if PO approves" value={`₹${formatToINRShort(budgetInfo.available_budget - total_value)}`} />
+          </Card.Body>
+        </Card>
+      </div>
+
+      {/* Product Details */}
+      <div className="mb-3 d-flex gap-3">
+        <Card className="shadow-sm w-100">
+          <Card.Body className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <BsBoxSeam className="me-3 fs-2 text-primary" />
+              <div>
+                <strong>{product_details?.name}</strong>
+                <div className="text-muted">
+                  Product ID: {product_details?.product_id}
+                </div>
+              </div>
+            </div>
+            <Link href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}&rfq_product_id=${rfq_product_id}&source=PO&tab=category`} className="btn p-2 btn-primary">Compare Quotes</Link>
           </Card.Body>
         </Card>
         <Link className='w-100' href={`/vendor/vendor-profile?id=${finalized_vendor_id}`} target='__blank'>
@@ -289,6 +323,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           </Card>
         </Link>
       </div>
+
 
       {/* Approval Timeline */}
       <h5 className="mb-3">

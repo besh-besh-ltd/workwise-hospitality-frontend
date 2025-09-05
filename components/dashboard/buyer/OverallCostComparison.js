@@ -16,7 +16,7 @@ const addCommasToNumber = (num) => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter }) => {
+const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter, rfq_product_id, source }) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
@@ -30,7 +30,7 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
 
   useEffect(() => {
     setLoading(true);
-    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
+    downloadQuotesDetails(rfq_id, TA_Filter, freightFilter, rfq_product_id, source)
       .then((res) => {
         let data = res.data || [];
         

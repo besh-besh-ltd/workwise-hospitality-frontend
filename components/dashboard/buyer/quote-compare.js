@@ -38,7 +38,8 @@ import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
 
 const QuoteCompare = () => {
   const router = useRouter();
-  const { rfq } = router.query;
+  const { rfq, rfq_product_id, source, tab = 'product' } = router.query;
+  console.log("TAB:", tab);
   const [loading, setloading] = useState(false);
   const [quotesLoading, setquotesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -61,9 +62,15 @@ const QuoteCompare = () => {
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
-  const [activeTab, setActiveTab] = useState('product');
+  const [activeTab, setActiveTab] = useState(tab);
   // const [targetPrice , setTargetPrice] = useState(null);
   // const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
+
+  useEffect(() => {
+    if(tab != activeTab) {
+      setActiveTab(tab);
+    }
+  }, [tab]);
 
 
  const [openModalId, setOpenModalId] = useState(null);
@@ -252,7 +259,7 @@ const handleCloseNormalizeModal = () => {
     setquotes([]);
     setTEavailable(false);
 
-    getQuotes(rfq, TA_Filter, freightFilter)
+    getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source)
       .then((res) => {
 
         const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
@@ -1867,6 +1874,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     {activeTab === "category" && (
                       <OverallComparison
                         rfq_id={rfq}
+                        rfq_product_id={rfq_product_id}
+                        source={source}
                         TA_Filter={TA_Filter}
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
@@ -1876,6 +1885,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     {activeTab === "cost" && (
                       <OverallCostComparison
                         rfq_id={rfq}
+                        rfq_product_id={rfq_product_id}
+                        source={source}
                         TA_Filter={TA_Filter}
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
