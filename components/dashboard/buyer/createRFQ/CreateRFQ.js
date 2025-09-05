@@ -37,6 +37,7 @@ import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
 import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 
 const myVendorOptions = [
@@ -121,6 +122,10 @@ const CreateRFQ = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [countryCode , setCountryCode] = useState ([]);
   const [ onecountrycode ,setonecountrycode] = useState("");
+  const [showCreateConfirmModal, setShowCreateConfirmModal] = useState(false);
+  const [pendingFormValues, setPendingFormValues] = useState(null);
+  const [showRemoveProductConfirmModal, setShowRemoveProductConfirmModal] = useState(false);
+  const [pendingProductToRemove, setPendingProductToRemove] = useState(null);
   const [queryMeta, setQueryMeta] = useState({
     draft_id: null,
     sheet_id: null,
@@ -645,7 +650,6 @@ useEffect(() => {
       filters,
       termsChanged,
       termFilesChanged,
-      selectedSheets: selectedSheetsForRFQ,
     };
 
     // Remove country_code if it exists
@@ -689,6 +693,19 @@ useEffect(() => {
         setHasUnsavedChanges(true);
         toast.error("Failed to create RFQ. Please check your form and try again.");
       });
+  };
+
+  const handleCreateConfirm = () => {
+    if (pendingFormValues) {
+      handleCreateRFQ(pendingFormValues);
+      setShowCreateConfirmModal(false);
+      setPendingFormValues(null);
+    }
+  };
+
+  const handleCreateCancel = () => {
+    setShowCreateConfirmModal(false);
+    setPendingFormValues(null);
   };
 
   const getRefinedFilters = () => {
@@ -1129,15 +1146,29 @@ useEffect(() => {
         "You cannot delete all products from RFQ, at least one product is required"
       );
     else {
+      setPendingProductToRemove(product);
+      setShowRemoveProductConfirmModal(true);
+    }
+  };
+
+  const handleRemoveProductConfirm = () => {
+    if (pendingProductToRemove) {
       setUpdatableData((prev) => ({
         ...prev,
         products: {
           ...prev.products,
-          deletable: [...(prev.products?.deletable ?? []), product.id],
+          deletable: [...(prev.products?.deletable ?? []), pendingProductToRemove.id],
         },
       }));
-      setHasUnsavedChanges(true)
+      setHasUnsavedChanges(true);
+      setShowRemoveProductConfirmModal(false);
+      setPendingProductToRemove(null);
     }
+  };
+
+  const handleRemoveProductCancel = () => {
+    setShowRemoveProductConfirmModal(false);
+    setPendingProductToRemove(null);
   };
 
   const handleShowModalWithProduct = (modalKey, product) => {
@@ -2077,7 +2108,8 @@ useEffect(() => {
                                 setFinalRFQValues(values);
                                 setShowRFQModal(true);
                               } else {
-                                handleCreateRFQ(values);
+                                setPendingFormValues(values);
+                                setShowCreateConfirmModal(true);
                               }
                             }
                           }}
@@ -2618,6 +2650,30 @@ useEffect(() => {
         sheets={sheetNameList}
         selectedSheets={selectedSheetsForRFQ}
         setSelectedSheets={setSelectedSheetsForRFQ}
+      />
+
+      {/* Create RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCreateConfirmModal}
+        onClose={handleCreateCancel}
+        onConfirm={handleCreateConfirm}
+        title="Create RFQ"
+        description="Are you sure you want to create this RFQ?\nThis action will send the RFQ to selected vendors and cannot be undone."
+        confirmButtonColor="success"
+        confirmButtonText="Create RFQ"
+        cancelButtonText="Cancel"
+      />
+
+      {/* Remove Product Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showRemoveProductConfirmModal}
+        onClose={handleRemoveProductCancel}
+        onConfirm={handleRemoveProductConfirm}
+        title="Remove Product"
+        description={`Are you sure you want to remove this product from the RFQ?\nThis action will remove the product and all its associated data.`}
+        confirmButtonColor="danger"
+        confirmButtonText="Remove"
+        cancelButtonText="Cancel"
       />
     </>
   );

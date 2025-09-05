@@ -12,6 +12,7 @@ import { IoMdEye } from "react-icons/io";
 import { RxCross2 } from 'react-icons/rx';
 import { toast } from 'react-toastify';
 import Pagination from '@/components/shared/Pagination';
+import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
 const statusVariants = {
   pending_approval: 'warning',
@@ -60,6 +61,9 @@ const formatISTDate = (utcString) => {
 };
 
 const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePODecision, onSelect, onEdit, companyUsers }) => {
+  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
+  const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
+  const [pendingPO, setPendingPO] = useState(null);
   const [filters, setFilters] = useState({
     poNumber: '',
     initiatedBy: '',
@@ -71,6 +75,51 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
   });
 
   const debouncedPONumber = useDebounce(filters.poNumber, 700); // 👈 Debounced PO Number
+
+  const handleApproveClick = (po) => {
+    setPendingPO(po);
+    setShowApproveConfirmModal(true);
+  };
+
+  const handleRejectClick = (po) => {
+    setPendingPO(po);
+    setShowRejectConfirmModal(true);
+  };
+
+  const handleApproveConfirm = async () => {
+    if (pendingPO) {
+      await handlePODecision(pendingPO.id, {
+        decision: "approved",
+      });
+      await getPOData(filters);
+      setShowApproveConfirmModal(false);
+      setPendingPO(null);
+    }
+  };
+
+  const handleRejectConfirm = async () => {
+    if (pendingPO) {
+      await handlePODecision(pendingPO.id, {
+        decision: "rejected",
+      });
+      await refetchPOList({
+        ...filters,
+        poNumber: debouncedPONumber,
+      });
+      setShowRejectConfirmModal(false);
+      setPendingPO(null);
+    }
+  };
+
+  const handleApproveCancel = () => {
+    setShowApproveConfirmModal(false);
+    setPendingPO(null);
+  };
+
+  const handleRejectCancel = () => {
+    setShowRejectConfirmModal(false);
+    setPendingPO(null);
+  };
 
   const resetFilters = () =>
     setFilters({
@@ -244,12 +293,9 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                           <button
                             style={styles.approve}
                             title="Approve this PO"
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              await handlePODecision(po.id, {
-                                decision: "approved",
-                              });
-                              await getPOData(filters);
+                              handleApproveClick(po);
                             }}
                           >
                             <MdCheck />
@@ -257,15 +303,9 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                           <button
                             style={styles.reject}
                             title="Reject this PO"
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              await handlePODecision(po.id, {
-                                decision: "rejected",
-                              });
-                              await refetchPOList({
-                                ...filters,
-                                poNumber: debouncedPONumber,
-                              });
+                              handleRejectClick(po);
                             }}
                           >
                             <RxCross2 />
@@ -322,6 +362,30 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
               totalData={totalData}
             />
           )}
+
+          {/* PO Approve Confirmation Modal */}
+          <ConfirmationModal
+            isOpen={showApproveConfirmModal}
+            onClose={handleApproveCancel}
+            onConfirm={handleApproveConfirm}
+            title="Approve Purchase Order"
+            description={`Are you sure you want to approve PO #${pendingPO?.po_number || 'this purchase order'}?\nThis action will approve the purchase order and notify relevant parties.`}
+            confirmButtonColor="success"
+            confirmButtonText="Approve"
+            cancelButtonText="Cancel"
+          />
+
+          {/* PO Reject Confirmation Modal */}
+          <ConfirmationModal
+            isOpen={showRejectConfirmModal}
+            onClose={handleRejectCancel}
+            onConfirm={handleRejectConfirm}
+            title="Reject Purchase Order"
+            description={`Are you sure you want to reject PO #${pendingPO?.po_number || 'this purchase order'}?\nThis action will reject the purchase order and notify relevant parties.`}
+            confirmButtonColor="danger"
+            confirmButtonText="Reject"
+            cancelButtonText="Cancel"
+          />
     </div>
   );
 };

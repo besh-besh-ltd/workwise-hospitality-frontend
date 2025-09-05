@@ -28,6 +28,7 @@ import OverallCostComparison from './OverallCostComparison';
 import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -44,6 +45,7 @@ const QuoteCompare = () => {
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
@@ -1016,16 +1018,27 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   }
 };
   const handleRFqClose = (e) => {
-    setcloseRFqLoading(true);
     e.preventDefault();
-    closeRFQ(rfq)
-      .then(() => {
-        getRespectiveQuotes();
-        setcloseRFqLoading(false);
-      })
-      .catch((err) => {
-        setcloseRFqLoading(false);
-      });
+    setShowCloseConfirmModal(true);
+  };
+
+  const handleCloseConfirm = async () => {
+    setcloseRFqLoading(true);
+    try {
+      await closeRFQ(rfq);
+      getRespectiveQuotes();
+      toast.success("RFQ closed successfully");
+    } catch (err) {
+      console.error("Error closing RFQ:", err);
+      toast.error("Failed to close RFQ");
+    } finally {
+      setcloseRFqLoading(false);
+      setShowCloseConfirmModal(false);
+    }
+  };
+
+  const handleCloseCancel = () => {
+    setShowCloseConfirmModal(false);
   };
 
   const handleFinalize = (item, proditem) => {
@@ -1894,6 +1907,18 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         show={showNormalizeModal}
         // secondsLeft={normSecondsLeft}
         onClose={handleCloseNormalizeModal}
+      />
+
+      {/* Close RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCloseConfirmModal}
+        onClose={handleCloseCancel}
+        onConfirm={handleCloseConfirm}
+        title="Close RFQ"
+        description={`Are you sure you want to close RFQ #${quotes[0]?.rfq[0]?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        confirmButtonColor="warning"
+        confirmButtonText="Close RFQ"
+        cancelButtonText="Cancel"
       />
     </>
   );

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
-const ViewRFQ = ({ data }) => {
+const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
   console.log("RFQ Data in ViewRFQ:", data);
 
   // Convert status to number for consistent comparison
@@ -490,8 +490,13 @@ const ViewRFQ = ({ data }) => {
                         </Link>
                       )}
                       {rfqStatus === 1 && (
-                        <button type="submit" className="btn btn-secondary">
-                          Mark RFQ as Closed
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={onCloseRFQ}
+                          disabled={closeLoading}
+                        >
+                          {closeLoading ? "Processing..." : "Mark RFQ as Closed"}
                         </button>
                       )}
                       {rfqStatus === 2 && (

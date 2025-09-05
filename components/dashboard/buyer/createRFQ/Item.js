@@ -18,6 +18,7 @@ import { useDispatch } from "react-redux";
 import AddClause from "./AddClause";
 import { addProductToDraft, addProductToExistingRfq, getClausesByRfqProductId } from "@/services/rfq";
 import CommonFormInput from "@/components/shared/CommonFormInput";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const Item = ({
   rfq_id,
@@ -54,6 +55,7 @@ const Item = ({
   const [isModelOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [buyerClauses, setBuyerClauses] = useState(null);
+  const [showRemoveConfirmModal, setShowRemoveConfirmModal] = useState(false);
   const [specs, setSpecs] = useState({
     size: '',
     spec: '',
@@ -183,11 +185,20 @@ const Item = ({
 
   const handleRemoveProduct = (e) => {
     e.stopPropagation();
+    setShowRemoveConfirmModal(true);
+  };
+
+  const handleRemoveConfirm = () => {
     if(handleRemoveProductInEdit)
       handleRemoveProductInEdit(data)
     else
       dispatch(removeRfqProduct(data));
     setHasUnsavedChanges(true);
+    setShowRemoveConfirmModal(false);
+  };
+
+  const handleRemoveCancel = () => {
+    setShowRemoveConfirmModal(false);
   };
 
   const handleAddVarient = async (e) => {
@@ -798,6 +809,18 @@ const Item = ({
             {footer(data)}
           </div>
         )}
+
+        {/* Remove Product Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showRemoveConfirmModal}
+          onClose={handleRemoveCancel}
+          onConfirm={handleRemoveConfirm}
+          title="Remove Product"
+          description={`Are you sure you want to remove this product from the RFQ?\nThis action will remove the product and all its associated data.`}
+          confirmButtonColor="danger"
+          confirmButtonText="Remove"
+          cancelButtonText="Cancel"
+        />
       </Accordion.Body>
     </Accordion.Item>
   );

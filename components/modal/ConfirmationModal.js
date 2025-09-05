@@ -81,9 +81,13 @@ const ConfirmationModal = ({
                         
                         {/* Description */}
                         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                            <p className='text-muted' style={{ fontSize: '16px', lineHeight: '1.5' }}>
-                                {description}
-                            </p>
+                            <p 
+                                className='text-muted' 
+                                style={{ fontSize: '16px', lineHeight: '1.5' }}
+                                dangerouslySetInnerHTML={{ 
+                                    __html: description.replace(/\\n/g, '<br />') 
+                                }}
+                            />
                         </div>
 
                         {/* Buttons */}

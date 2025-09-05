@@ -16,6 +16,7 @@ import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -45,6 +46,7 @@ const SendQuotePageComp = () => {
   const [loading, setloading] = useState(false);
   const [quoteProducts, setquoteProducts] = useState([]);
   const [submitLoading, setsubmitLoading] = useState(false);
+  const [showSubmitQuoteConfirmModal, setShowSubmitQuoteConfirmModal] = useState(false);
 
 
   const [chargesMode, setChargesMode] = useState({
@@ -478,7 +480,10 @@ return { deletedTerms, createdTerms, updatedTerms };
 
 
   const handleSendQuote = () => {
+    setShowSubmitQuoteConfirmModal(true);
+  };
 
+  const handleSubmitQuoteConfirm = () => {
     // return 0
     let payload = {
       rfq_id: rfqDetails.id,
@@ -523,10 +528,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote updated Successfully...!");
+          setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
           setsubmitLoading(false);
+          setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
@@ -570,6 +577,7 @@ return { deletedTerms, createdTerms, updatedTerms };
             (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
         )
       ) {
+        setShowSubmitQuoteConfirmModal(false);
         return toast.error("Some required fields may be missing or in negative")
       }
         
@@ -580,15 +588,21 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote sent Successfully...!");
+          setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
           setsubmitLoading(false);
+          setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
         });
     }
+  };
+
+  const handleSubmitQuoteCancel = () => {
+    setShowSubmitQuoteConfirmModal(false);
   };
 
   const isAvailableForQuote = (item) => {
@@ -2020,6 +2034,18 @@ return { deletedTerms, createdTerms, updatedTerms };
           overrideQuote={overrideQuote}
         />
       )}
+
+      {/* Submit Quote Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showSubmitQuoteConfirmModal}
+        onClose={handleSubmitQuoteCancel}
+        onConfirm={handleSubmitQuoteConfirm}
+        title="Submit Quote"
+        description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer and cannot be undone."
+        confirmButtonColor="success"
+        confirmButtonText="Submit Quote"
+        cancelButtonText="Cancel"
+      />
     </>
   );
 };
