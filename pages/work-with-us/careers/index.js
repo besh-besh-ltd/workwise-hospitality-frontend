@@ -382,7 +382,7 @@ const CareersPage = () => {
                         const { countryCode, ...updatedValues } = { 
                           ...values, 
                           phone: fullMobile,
-                          submitted_from: "careers-application",
+                          submitted_from: "1",
                         };
                         
                         contactUsFormService(updatedValues)
