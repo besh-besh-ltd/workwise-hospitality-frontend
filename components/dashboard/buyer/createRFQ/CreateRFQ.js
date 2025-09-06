@@ -781,6 +781,7 @@ useEffect(() => {
       filters,
       termsChanged,
       termFilesChanged,
+      selectedSheets: selectedSheetsForRFQ,
     };
     try {
       const res = await saveDraft(payload);
