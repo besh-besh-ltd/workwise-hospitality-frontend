@@ -484,6 +484,20 @@ return { deletedTerms, createdTerms, updatedTerms };
   };
 
   const handleSubmitQuoteConfirm = () => {
+    // Validate payment terms - at least one valid row should exist
+    const validPaymentTerms = paymentTermsRows.filter(row => 
+      row && 
+      row.action !== "delete" && 
+      row.type && 
+      row.value != null && 
+      row.value > 0
+    );
+    
+    if (validPaymentTerms.length === 0) {
+      setShowSubmitQuoteConfirmModal(false);
+      return toast.error("At least one valid payment term is required. Please add your payment terms.");
+    }
+
     // return 0
     let payload = {
       rfq_id: rfqDetails.id,
@@ -497,8 +511,37 @@ return { deletedTerms, createdTerms, updatedTerms };
     };
 
     if (alreadyQuoted) {
-
+      // Validate payment terms for update scenario
       const paymentTermsUpdate = getPaymentTermsChanges(paymentTermsRows, originalPaymentTermsListRef.current);
+      const validCreatedTerms = paymentTermsUpdate.createdTerms.filter(row => 
+        row && 
+        row.type && 
+        row.value != null && 
+        row.value > 0
+      );
+      const validUpdatedTerms = paymentTermsUpdate.updatedTerms.filter(row => 
+        row && 
+        row.type && 
+        row.value != null && 
+        row.value > 0
+      );
+      
+      // Check if there are any valid terms after considering deletions
+      const remainingValidTerms = validCreatedTerms.length + validUpdatedTerms.length;
+      const originalValidTerms = originalPaymentTermsListRef.current ? 
+        originalPaymentTermsListRef.current.filter(row => 
+          row && 
+          row.type && 
+          row.value != null && 
+          row.value > 0 &&
+          !paymentTermsUpdate.deletedTerms.includes(row.id)
+        ).length : 0;
+      
+      if (remainingValidTerms + originalValidTerms === 0) {
+        setShowSubmitQuoteConfirmModal(false);
+        return toast.error("At least one valid payment term is required. Please add your payment terms.");
+      }
+
       payload.global_payment_term_list = paymentTermsUpdate;
 
       let quote_id = rfqDetails.quotations[0].id;
@@ -1341,7 +1384,7 @@ return { deletedTerms, createdTerms, updatedTerms };
       {globalPaymentTerms && (
       <>
         <div className="mb-3 d-flex align-items-center justify-content-between">
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
         </div>
         <textarea
           className="form-control mb-3"
@@ -1370,8 +1413,20 @@ return { deletedTerms, createdTerms, updatedTerms };
    <div className="border rounded-3 p-3" >
           <div className="d-flex align-items-center justify-content-between mb-2">
           <div>
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
             <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
+            {paymentTermsRows.filter(row => 
+              row && 
+              row.action !== "delete" && 
+              row.type && 
+              row.value != null && 
+              row.value > 0
+            ).length === 0 && (
+              <>
+                <br />
+                <small className="text-danger">At least one valid payment term is required</small>
+              </>
+            )}
             </div>
 
         <SmartButton
