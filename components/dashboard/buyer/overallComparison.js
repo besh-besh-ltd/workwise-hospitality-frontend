@@ -8,7 +8,7 @@ import { calculateTotal, extractfileName, handleNormalize } from "@/utils/shared
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
-import { Button } from "react-bootstrap";
+import { Badge, Button } from "react-bootstrap";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 

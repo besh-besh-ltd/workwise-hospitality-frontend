@@ -569,6 +569,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           <TE_Modal
             openModal={openModal}
             closeModal={() => setOpenModal(false)}
+            rfq_id = {rfq_id}
             data={product}
             vendor_id={_selectedVendor ? _selectedVendor.value : selectedVendor.value}
             getTechEvalResult={_selectedVendor ? getTechEvalResult : refetch}

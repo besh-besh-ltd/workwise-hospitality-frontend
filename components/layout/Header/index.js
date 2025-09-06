@@ -299,7 +299,7 @@ const websiteMenu = [
     label: "Tools", 
     type: "dropdown",
     options: [
-      { label: "Vendor Inventory", href: "/vendor/all" },
+      { label: "Vendor Discovery", href: "/vendor/all" },
       { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
       { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
       { label: "Tender Summary", href: "/ai-tools/tender-summary" },

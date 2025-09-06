@@ -690,7 +690,7 @@ const ProjectDetailsPage = () => {
       {openEditProject && (
         <DynamicFormModal
           type={"edit-project"}
-          projectData={projectDetails}
+          projectData={project}
           openModal={openEditProject}
           closeModal={() => setOpenEditProject(false)}
           handleEditProject={handleEditProject}

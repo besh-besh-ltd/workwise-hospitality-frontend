@@ -36,6 +36,7 @@ import AddVendorModal from "../editRFQ/AddVendorModal";
 import { BusinessTypes } from "@/utils/constants";
 
 import CreateRFQModal from "./CreateRFQModal";
+import ValidationErrorsDisplay from "./ValidationErrorsDisplay";
 
 
 const myVendorOptions = [
@@ -108,6 +109,7 @@ const CreateRFQ = () => {
   const [isMagicRfq, setIsMagicRfq] = useState(false);
   const [sheetNameList, setSheetNameList] = useState([]);
   const [selectedSheet, setSelectedSheet] = useState(null);
+  const [selectedSheetsForRFQ, setSelectedSheetsForRFQ] = useState([]);
 
   const storeLoading = useSelector((data) => data.storeLoading);
   const rfqDetails = useSelector((data) => data.rfq_id);
@@ -643,6 +645,7 @@ useEffect(() => {
       filters,
       termsChanged,
       termFilesChanged,
+      selectedSheets: selectedSheetsForRFQ,
     };
 
     // Remove country_code if it exists
@@ -653,6 +656,8 @@ useEffect(() => {
     if(selectedSheet && selectedSheet.value) {
       payload.sheet_id = selectedSheet.value;
     }
+
+    setShowRFQModal(false);
 
     createRfq(payload)
       .then((res) => {
@@ -683,7 +688,7 @@ useEffect(() => {
         setMainLoading(false);
         setHasUnsavedChanges(true);
         toast.error("Failed to create RFQ. Please check your form and try again.");
-      }).finally(() => setShowRFQModal(false));
+      });
   };
 
   const getRefinedFilters = () => {
@@ -831,16 +836,14 @@ useEffect(() => {
           const sheetOptions = sheetData.map(sheet => ({
             label: sheet.sheet_name,
             value: sheet.id,
-            is_processed: sheet.is_processed
+            is_processed: sheet.is_processed,
+            validation_errors: sheet.validation_errors,
           }));
           setSheetNameList(sheetOptions);
           
           // Set default selected sheet
           if (sheetData.length > 0) {
-            const defaultSheet = {
-              label: sheetData[0].sheet_name,
-              value: sheetData[0].id
-            };
+            const defaultSheet = sheetOptions[0];
             if(queryMeta.sheet_id) {
               const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
               setSelectedSheet(sheet);
@@ -934,16 +937,14 @@ useEffect(() => {
           if (sheetData && sheetData.length > 0) {
             const sheetOptions = sheetData.map(sheet => ({
               label: sheet.sheet_name,
-              value: sheet.id
+              value: sheet.id,
+              validation_errors: sheet.validation_errors,
             }));
             setSheetNameList(sheetOptions);
             
             // Set default selected sheet
             if (sheetData.length > 0) {
-              const defaultSheet = {
-                label: sheetData[0].sheet_name,
-                value: sheetData[0].id
-              };
+              const defaultSheet = sheetOptions[0];
               if(queryMeta.sheet_id) {
                 const sheet = sheetOptions.find(sheet => sheet.value == queryMeta.sheet_id)
                 setSelectedSheet(sheet);
@@ -1793,6 +1794,10 @@ useEffect(() => {
     }
   }, [selectedSheet, isMagicRfq, draftRfqId, rfqProductsFromStore]);
 
+  useEffect(() => {
+    if (selectedSheet) setSelectedSheetsForRFQ([selectedSheet.value]);
+  }, [selectedSheet]);
+
   return (
     <>
       {(mainLoading || storeLoading) && <Loader />}
@@ -1994,6 +1999,10 @@ useEffect(() => {
                   </div>
 
                   {loading && <Loader />}
+
+                  {sheetNameList && sheetNameList.length > 0 && (
+                    <ValidationErrorsDisplay rfq_id={draft_id} selectedSheet={selectedSheet} refetchRFQ={getDraftInitialData} setLoading={(loading => dispatch(setStoreLoading(loading)))} />
+                  )}
 
                   {/* Terms Checkbox Section */}
                   <div className="create-rfq-con-2 sc-pt-50">
@@ -2631,6 +2640,8 @@ useEffect(() => {
         onHide={() => setShowRFQModal(false)}
         onConfirm={() => handleCreateRFQ(finalRFQValues)}
         sheets={sheetNameList}
+        selectedSheets={selectedSheetsForRFQ}
+        setSelectedSheets={setSelectedSheetsForRFQ}
       />
     </>
   );
