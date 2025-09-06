@@ -69,11 +69,11 @@ const DynamicCard = ({
       gap: 'mb-3'
     },
     large: {
-      imageHeight: 280,
+      imageHeight: 360,
       titleSize: '1.3rem',
       descriptionSize: '1rem',
-      padding: 'p-4',
-      gap: 'mb-4'
+      padding: 'p-3',
+      gap: 'mb-3'
     }
   };
 
@@ -130,12 +130,16 @@ const DynamicCard = ({
   const renderImage = () => {
     if (imagePosition === 'none') return null;
 
+    // For news large cards (Featured Coverage on desktop), use 16:9 container
+    const useWideAspect = type === 'news' && size === 'large' && imagePosition === 'top';
+
     return (
       <div 
         className="position-relative"
         style={{
-          height: config.imageHeight,
-          backgroundColor: 'var(--light-grey-color)',
+          height: useWideAspect ? 360 : config.imageHeight,
+          marginTop: imagePosition === 'top' ? 8 : 0,
+          backgroundColor: useWideAspect ? '#000' : 'var(--light-grey-color)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -151,7 +155,7 @@ const DynamicCard = ({
             style={{ 
               width: '100%', 
               height: '100%', 
-              objectFit: 'cover',
+              objectFit: useWideAspect ? 'cover' : 'cover',
               objectPosition: 'center'
             }}
           />
@@ -359,7 +363,7 @@ const DynamicCard = ({
       style={{ 
         borderRadius: '8px', 
         overflow: 'hidden',
-        minHeight: '400px',
+        minHeight: size === 'large' ? '400px' : '300px',
         display: 'flex',
         flexDirection: 'column',
         ...style
@@ -393,7 +397,7 @@ const DynamicCard = ({
       ) : (
         <>
           {renderImage()}
-          <div className={`card-body ${config.padding} d-flex flex-column h-100`}>
+          <div className={`card-body ${config.padding} d-flex flex-column`}>
             {type === 'event' ? renderEventMetadata() : type === 'news' ? renderNewsMetadata() : renderMetadata()}
             <h5 className="card-title fw-bold text-dark mb-2" style={{ fontSize: config.titleSize, lineHeight: '1.3' }}>
               {title}

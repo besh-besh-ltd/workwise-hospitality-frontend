@@ -27,10 +27,19 @@ const createSitemapIndex = (staticUrls, sitemaps) => `<?xml version="1.0" encodi
   `).join('')}
 </urlset>`;
 
-export default function handler(req, res) {
+function SiteMap() { return null; }
+
+export async function getServerSideProps({ res }) {
   const sitemaps = [
-    { loc: '/api/vendor.xml', lastmod: new Date().toISOString().split('T')[0] }
+    { loc: '/vendor.xml', lastmod: new Date().toISOString().split('T')[0] }
   ];
+
+  const xml = createSitemapIndex(staticUrls, sitemaps);
   res.setHeader('Content-Type', 'application/xml');
-  res.send(createSitemapIndex(staticUrls, sitemaps));
+  res.write(xml);
+  res.end();
+
+  return { props: {} };
 }
+
+export default SiteMap;

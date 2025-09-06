@@ -711,32 +711,10 @@ const clearVendorFilters = () => {
 
   return (
     <>
-      <Head>
-        <title>{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</title>
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "http://schema.org",
-            "@type": "Product",
-            name: getProductTitle(),
-            image: currentSelectedProduct?.image_url || "",
-            description: currentSelectedProduct?.description || "",
-            sku: currentSelectedProduct?.slug,
-            offers: {
-              "@type": "Offer",
-              url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`,
-              availability: "http://schema.org/InStock",
-            },
-          })}
-        </script>
-        <meta
-          property="og:image"
-          content={currentSelectedProduct?.image_url || ""}
-        />
-      </Head>
 
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{getProductTitle() ? `Search Vendors for ${getProductTitle()}` : 'Search Vendors'}</h1>
+          <h1 className="heading">{slug && slug !== 'all' ? `Search Vendors for ${getProductTitle() || search_key || slug}` : 'We Find Trusted Vendors for You'}</h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"

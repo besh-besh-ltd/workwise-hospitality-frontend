@@ -11,6 +11,8 @@ const FeatureCard = React.forwardRef(({
   isStep = false,
   ...props 
 }, ref) => {
+  const circleSize = isStep ? 72 : 48;
+  const iconPx = isStep ? 32 : 24;
   return (
     <div
       className={`card h-100 shadow-sm border-0 ${className || ""}`}
@@ -38,10 +40,10 @@ const FeatureCard = React.forwardRef(({
         <div className="d-flex d-sm-block align-items-center justify-content-center mb-3">
           {Icon && (
             <div
-              className={`rounded-circle d-inline-flex align-items-center justify-content-center me-2 me-sm-0 mb-0 mb-sm-3 ${iconBgColor}`}
-              style={{ width: "48px", height: "48px" }}
+              className={`rounded-circle d-inline-flex align-items-center justify-content-center me-2 me-sm-0 mb-0 mb-sm-3 ${isStep ? 'step-icon' : ''} ${iconBgColor}`}
+              style={{ width: `${circleSize}px`, height: `${circleSize}px` }}
             >
-              <Icon className={iconColor} size={24} />
+              <Icon className={iconColor} style={{ fontSize: `${iconPx}px` }} />
             </div>
           )}
           <h5 className="card-title fw-bold text-dark mb-0 mb-sm-3">{title}</h5>
@@ -54,6 +56,9 @@ const FeatureCard = React.forwardRef(({
           @media (max-width: 576px) {
             .card-body .rounded-circle { width: 40px !important; height: 40px !important; }
             .card-body .rounded-circle svg { width: 18px !important; height: 18px !important; }
+            /* Larger step icons on mobile while keeping layout tight */
+            .card-body .step-icon { width: 56px !important; height: 56px !important; }
+            .card-body .step-icon svg { width: 24px !important; height: 24px !important; }
           }
           
           /* Ensure consistent card heights on mobile */
