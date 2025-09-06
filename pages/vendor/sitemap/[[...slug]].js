@@ -23,10 +23,17 @@ const createUrlset = (urls) => `<?xml version="1.0" encoding="UTF-8"?>
   `).join('')}
 </urlset>`;
 
-export default async function handler(req, res) {
-  let { slug } = req.query; // slug is now an array or undefined
-  if (!slug || slug.length === 0) return res.status(404).end();
-  let baseSlug = slug.join('-').replace(/\.xml$/, '');
+function VendorGeoSitemap() { return null; }
+
+export async function getServerSideProps({ params, res }) {
+  const slug = params?.slug || [];
+  if (!slug.length) {
+    res.statusCode = 404;
+    res.end();
+    return { props: {} };
+  }
+
+  const baseSlug = slug.join('-').replace(/\.xml$/, '');
   const states = await getStates();
   const cities = await getCities();
   const urls = [];
@@ -36,6 +43,12 @@ export default async function handler(req, res) {
       urls.push(`/vendor/${baseSlug}-${encodeURIComponent(city.city_name)}-${encodeURIComponent(state.state_name)}`);
     }
   }
+
+  const xml = createUrlset(urls);
   res.setHeader('Content-Type', 'application/xml');
-  res.send(createUrlset(urls));
-} 
+  res.write(xml);
+  res.end();
+  return { props: {} };
+}
+
+export default VendorGeoSitemap; 
