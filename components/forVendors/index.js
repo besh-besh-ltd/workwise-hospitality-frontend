@@ -255,7 +255,7 @@ const ForVendors = () => {
                     objectFit: 'cover'
                   }}
                   controls={isVideoPlaying}
-                  poster="/assets/images/blog-1.jpg"
+                  poster="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756968514591-7d2ef989-d1e3-4add-9ada-843f8cb571e8.png"
                 >
                   <source src="https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1756739106596-7cd42c7d-7c0d-4d52-81f5-f10db7c06cdd.mp4" type="video/mp4" />
                   Your browser does not support the video tag.

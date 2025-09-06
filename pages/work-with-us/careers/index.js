@@ -235,7 +235,7 @@ const CareersPage = () => {
               {careersData.openPositions.positions.map((position, index) => (
                 <div key={index} className="col-lg-6">
                   <div className="card job-card h-100 border-0 shadow-sm rounded-4">
-                    <div className="card-body p-4">
+                    <div className="card-body p-4 d-flex flex-column h-100">
                       {/* Header */}
                       <div className="d-flex justify-content-between align-items-start mb-3">
                         <div>
@@ -278,20 +278,18 @@ const CareersPage = () => {
                               <span className="text-muted small">{req}</span>
                             </li>
                           ))}
-                          {position.requirements.length > 3 && (
-                            <li className="text-muted small">
-                              +{position.requirements.length - 3} more requirements
-                            </li>
-                          )}
+                          {/* Removed "+N more requirements" line for compactness */}
                         </ul>
                       </div>
 
-                      {/* CTA */}
-                      <Button
-                        label="Apply Now"
-                        variant="primary"
-                        onClick={() => handleApplyNow(position)}
-                      />
+                      {/* CTA aligned to bottom */}
+                      <div className="mt-auto pt-2">
+                        <Button
+                          label="Apply Now"
+                          variant="primary"
+                          onClick={() => handleApplyNow(position)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -368,7 +366,7 @@ const CareersPage = () => {
                         name: "",
                         email: "",
                         phone: "",
-                        subject: "Career Application",
+                        subject: selectedPosition ? selectedPosition.title : "Career Application",
                         comment: "",
                         countryCode: "+91",
                       }}
