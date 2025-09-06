@@ -314,6 +314,16 @@ export const getVendorRfqList = (payload) => {
   });
 };
 
+export const getVendorQuoteStatus = (rfq_id) => { 
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get(`/rfq/get-vendor-quote-status/${rfq_id}`)
+      resolve(response);
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 export const sendQuotation = (payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -336,10 +346,19 @@ export const updateQuotation = (quote_id, payload, token) => {
   });
 };
 
-export const getQuotes = (id, TA_Filter, freightFilter) => {
+export const getQuotes = (id, TA_Filter, freightFilter, pageSource) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter || freightFilter ? '?' : ''}${TA_Filter ? 'TA_Vendors=TA' : ''}${TA_Filter && freightFilter ? '&' : ''}${freightFilter ? 'no_freight=true' : ''}`);
+      const queryParams = new URLSearchParams();
+
+      if (TA_Filter) queryParams.append("TA_Vendors", "TA");
+      if (freightFilter) queryParams.append("no_freight", "true");
+      if (pageSource) queryParams.append("pageSource", pageSource);  // 👈 added here
+
+      let response = await axiosInstance.get(
+        `/rfq/get-quotes/${id}${queryParams.toString() ? "?" + queryParams.toString() : ""}`
+      );
+
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -426,6 +445,11 @@ export const sendSelectiveReminder = (id, vendor_ids) => {
     }
   });
 };
+
+// export const sendFollowUpToBuyer = (payload) =>{
+//   return new Promise(async (resolve , reject) =>{
+//     try {
+// }
 
 export const finalizeQuotation = (payload) => {
   return new Promise(async (resolve, reject) => {

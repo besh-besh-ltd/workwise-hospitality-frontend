@@ -252,7 +252,7 @@ const handleCloseNormalizeModal = () => {
     setquotes([]);
     setTEavailable(false);
 
-    getQuotes(rfq, TA_Filter, freightFilter)
+    getQuotes(rfq, TA_Filter, freightFilter , 'quote_compare')
       .then((res) => {
 
         const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
@@ -1480,10 +1480,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             const key = `${item.product_variant_id}_${item.variant}`;
                             const product_specs =
                               item?.product_details[0]?.rfq_details;
-                            const spec = product_specs.find(
+                            const spec = product_specs?.find(
                               (spec) => spec.title == "Spec"
                             )?.value;
-                            const selling_price = product_specs.find(
+                            const selling_price = product_specs?.find(
                               (spec) => spec.title == "total_price"
                             )?.value;
                             const product_name = item?.product_details.map(

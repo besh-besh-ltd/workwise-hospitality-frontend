@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { getVendorRfqList } from "@/services/rfq";
+import { getVendorQuoteStatus, getVendorRfqList } from "@/services/rfq";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
 import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
+import QuoteStatus from "@/components/modal/QuoteStatus";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -12,6 +13,8 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const [limit, setLimit] = useState(10);
   const [rfqList, setrfqList] = useState([]);
   const [loading, setloading] = useState(false);
+  const [quoteStatus, setQuoteStatus] = useState([]);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     getRFQs();
@@ -69,6 +72,27 @@ const InquiriesReceived = ({ pageType = 0 }) => {
     }
   };
 
+const getQuoteStatus = async (rfq_id) => {
+  try {
+    const quoteStatusResponse = await getVendorQuoteStatus(rfq_id);
+    if (quoteStatusResponse.data && quoteStatusResponse.data.length > 0) {
+      setQuoteStatus(quoteStatusResponse.data);
+    } else {
+      setQuoteStatus([]); // clear if nothing
+    }
+    setShowModal(true); // open modal here
+  } catch (err) {
+    console.error("Error fetching quote status:", err);
+    setQuoteStatus([]);
+    setShowModal(true); // still open modal even if error
+  }
+};
+
+const handleSendMail = async ()=>{
+  console.log("handle button clicked" )
+}
+
+
   return (
     <>
       {pageType == 0 && (
@@ -117,10 +141,12 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                             <th>RFQ Status</th>
                             <th>Action</th>
                             <th>Query</th>
+                            <th>Follow Up</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
+                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                             <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                             <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
                             <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
@@ -150,6 +176,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                               <th>RFQ Status</th>
                               <th>Action</th>
                               <th>Query</th>
+                              <th>Follow Up</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -164,28 +191,33 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                     <td>
                                       {item.timestamp != ""
                                         ? moment(item.timestamp).format(
-                                          "DD/MM/YYYY"
-                                        )
+                                            "DD/MM/YYYY"
+                                          )
                                         : "--"}
                                     </td>
                                     <td>
                                       {item.bid_end_date != ""
                                         ? moment(item.bid_end_date).format(
-                                          "DD/MM/YYYY"
-                                        )
+                                            "DD/MM/YYYY"
+                                          )
                                         : "--"}
                                     </td>
                                     <td>
-                                    {item.rfq_type == "firm"
-                                      ? "Firm"
-                                      : item.rfq_type == "budgetary"
+                                      {item.rfq_type == "firm"
+                                        ? "Firm"
+                                        : item.rfq_type == "budgetary"
                                         ? "Budgetary"
-                                        :"---"}
+                                        : "---"}
                                     </td>
                                     <td>
-                                      {item.quote_status && textCapitalize(item.quote_status)}
+                                      {item.quote_status &&
+                                        textCapitalize(item.quote_status)}
                                     </td>
-                                    <td>{item.reverse_auction === 1 ? "Enabled" : "Disabled"}</td>
+                                    <td>
+                                      {item.reverse_auction === 1
+                                        ? "Enabled"
+                                        : "Disabled"}
+                                    </td>
                                     <td>
                                       {item.status === 1 ? "Open" : "Closed"}
                                     </td>
@@ -193,35 +225,63 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                        // className="page-link"
+                                          // className="page-link"
                                         >
-                                          {checkBidExpired(item.bid_end_date) ? (
-                                            <span className="fw-medium text-decoration-underline">View Quote</span>
-                                          ) : (
-                                            (item.status === 1) ? (
-                                              item.quote_status === "pending" ? (
-                                                <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
-                                              ) : item.quote_status === "sent" ? (
-                                                <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
-                                              ) : (
-                                                <span className="fw-medium text-decoration-underline">View Quote</span>
-                                              )
+                                          {checkBidExpired(
+                                            item.bid_end_date
+                                          ) ? (
+                                            <span className="fw-medium text-decoration-underline">
+                                              View Quote
+                                            </span>
+                                          ) : item.status === 1 ? (
+                                            item.quote_status === "pending" ? (
+                                              <span className="fw-medium text-success text-decoration-underline">
+                                                Send Quote
+                                              </span>
+                                            ) : item.quote_status === "sent" ? (
+                                              <span className="fw-medium text-warning text-decoration-underline">
+                                                Edit Quote
+                                              </span>
                                             ) : (
-                                              <span className="fw-medium text-decoration-underline">View Quote</span>
+                                              <span className="fw-medium text-decoration-underline">
+                                                View Quote
+                                              </span>
                                             )
+                                          ) : (
+                                            <span className="fw-medium text-decoration-underline">
+                                              View Quote
+                                            </span>
                                           )}
-
-
                                         </Link>
+                                      </span>
+                                      {/* 👇 View Status trigger */}
+                                      <span
+                                        className="fw-medium text-decoration-underline"
+                                        onClick={() => getQuoteStatus(item.id)}
+                                      >
+                                        View Status
                                       </span>
                                     </td>
                                     <td>
                                       <Link
                                         href={`/dashboard/vendor/query?rfq_id=${item?.id}&role=vendor`}
-                                        className={`page-link me-2 ${item.unseen_query_count!=0 && "text-danger"}`}
+                                        className={`page-link me-2 ${
+                                          item.unseen_query_count != 0 &&
+                                          "text-danger"
+                                        }`}
                                       >
-                                        {item.unseen_query_count!=0 ? `View Queries (${item.unseen_query_count} New)` : "View Queries"}
+                                        {item.unseen_query_count != 0
+                                          ? `View Queries (${item.unseen_query_count} New)`
+                                          : "View Queries"}
                                       </Link>
+                                    </td>
+                                    <td>
+                                      <button
+                                        className="class"
+                                        onClick={handleSendMail}
+                                      >
+                                        Send Reminder
+                                      </button>
                                     </td>
                                   </tr>
                                 );
@@ -239,6 +299,14 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                   limit={limit}
                   setLimit={setLimit}
                 />
+
+                {/* 👇 Modal - moved outside the loop and table to render only once */}
+                {showModal && (
+                  <QuoteStatus
+                    quoteStatus={quoteStatus}
+                    onClose={() => setShowModal(false)}
+                  />
+                )}
               </div>
             </div>
           </div>
