@@ -20,13 +20,11 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
   const fileInputRef = useRef(null);
   const [userMap, setUserMap] = useState({}); // userId -> {name, company_name, user_type}
  
- 
 
   const handleFileClick = () => {
     fileInputRef.current.click(); // Trigger the file input when the "Attach file" button is clicked
   };
 
-  console.log("cjeck the other user" , otherUser);
   const uploadToServer = async (e) => {
     setFileLoading(true)
     try {
@@ -54,7 +52,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
     }
     try {
       setLoading(true)
-      const res = await fetchChatData(payload);
+      const res = await fetchChatData(payload,token);
       setMessages(res.data);
     } catch (error) {
       console.log(error)
@@ -83,10 +81,10 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
 
       }
     }
-   console.log("chekg the payload before sending", payload);
+   
     setSendButtonLoading(true);
     try {
-      const res = await addChatComment(payload);
+      const res = await addChatComment(payload,token);
       setMessageText("");
       setFiles(null);
       getChatData();
