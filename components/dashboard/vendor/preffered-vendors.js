@@ -46,7 +46,7 @@ const PrefferedVendors = () => {
                   <div className="col-md-4">
                     <div className="action-btm float-end">
                       <span>
-                        <Link href="#" className="btn btn-primary">
+                        <Link href="#" className="btn btn-primary" id="add_preferred_vendor-vendor_actions-preferred_vendors_page">
                           Add Preffered Vendor
                         </Link>
                       </span>

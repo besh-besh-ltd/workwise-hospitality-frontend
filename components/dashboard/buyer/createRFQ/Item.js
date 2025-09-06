@@ -38,6 +38,7 @@ const Item = ({
   vendors,
   fetchVendors,
   updatableData,
+  pageRoute = "create_rfq_page", // Default fallback
 
   // Behavioural Html injection props
   header,
@@ -378,6 +379,7 @@ const Item = ({
           <div className="d-flex gap-3 mr-4 ">
             {/* start: add variant button container */}
             <button
+              id={`remove_product_${rfqProduct?.id}-product_actions-${pageRoute}`}
               className="upload btn btn-danger pt-2 btn-sm"
               style={{ height: "40px", width: "120px" }}
               onClick={handleRemoveProduct}
@@ -388,6 +390,7 @@ const Item = ({
 
             {/* start: remove button container */}
             <button
+              id={`add_variant_${rfqProduct?.id}-product_actions-${pageRoute}`}
               className="upload  btn btn-primary  pt-2 btn-sm"
               style={{ height: "40px", width: "150px" }}
               onClick={handleAddVarient}
@@ -460,6 +463,7 @@ const Item = ({
                 >
                   {
                     <label
+                      id={`upload_tds_${rfqProduct?.id}-file_uploads-${pageRoute}`}
                       className="upload uploadInlineFile d-flex align-items-center"
                       style={{ maxWidth: "100%" }}
                     >
@@ -515,20 +519,21 @@ const Item = ({
                   }}
                 >
                   {
-                    <label
-                      className="upload uploadInlineFile "
-                      style={{ maxWidth: "100%" }}
-                      // style={{ borderBottom: "1px solid rgba(45, 92, 167, 0.59)" }}
-                    >
-                      {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
-                      Upload QAP
-                      <input
-                        type="file"
-                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                        onChange={(e) => uploadToServer(e, "qap_file")}
-                        multiple={true}
-                      />
-                    </label>
+                                                            <label
+                        id={`upload_qap_${rfqProduct?.id}-file_uploads-${pageRoute}`}
+                        className="upload uploadInlineFile "
+                        style={{ maxWidth: "100%" }}
+                        // style={{ borderBottom: "1px solid rgba(45, 92, 167, 0.59)" }}
+                      >
+                        {/* <FontAwesomeIcon icon={faQAP" */}
+                        Upload QAP
+                        <input
+                          type="file"
+                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                          onChange={(e) => uploadToServer(e, "qap_file")}
+                          multiple={true}
+                        />
+                      </label>
                   }
                   {uploadedQapFile &&
                     uploadedQapFile.length > 0 &&
@@ -568,19 +573,20 @@ const Item = ({
                     width: "130px",
                   }}
                 >
-                  <label
-                    className="upload uploadInlineFile"
-                    style={{ maxWidth: "100%" }}
-                  >
-                    {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
-                    Upload Spec
-                    <input
-                      type="file"
-                      accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-                      onChange={(e) => uploadToServer(e, "spec_file")}
-                      multiple={true}
-                    />
-                  </label>
+                                      <label
+                      id={`upload_spec_${rfqProduct?.id}-file_uploads-${pageRoute}`}
+                      className="upload uploadInlineFile"
+                      style={{ maxWidth: "100%" }}
+                    >
+                      {/* <FontAwesomeIcon icon={faFile} className="me-2" /> */}
+                      Upload Spec
+                      <input
+                        type="file"
+                        accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                        onChange={(e) => uploadToServer(e, "spec_file")}
+                        multiple={true}
+                      />
+                    </label>
 
                   {uploadedSpecFile &&
                     uploadedSpecFile.length > 0 &&
@@ -682,6 +688,7 @@ const Item = ({
                   }}
                 >
                   <button
+                    id={`add_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
                     className="upload  btn btn-secondary  "
                     // style={{ height: "40px" }} btn-sm  pt-2
                     onClick={handleOpenModal}
@@ -691,6 +698,7 @@ const Item = ({
 
                   {buyerClauses?.length > 0 && (
                     <button
+                      id={`view_clauses_${rfqProduct?.id}-tech_evaluation-${pageRoute}`}
                       className="upload btn btn-warning text-white pt-2 btn-sm"
                       style={{ height: "40px" }}
                       onClick={handleOpenModal}
@@ -736,6 +744,7 @@ const Item = ({
                   <Link
                     href={`rfq-management-vendor?productid=${rfqProduct.product_id}&variant=${rfqProduct.variant}&id=${rfq_id}&rfq_product_id=${data.id}`}
                     className="btn btn-primary "
+                    id={`view_vendors_${rfqProduct?.id}-vendor_section-${pageRoute}`}
                     // style={{ height: "40px" }}
                   >
                     {/* <FontAwesomeIcon icon={faEye} />{" "} */}
@@ -753,6 +762,7 @@ const Item = ({
                 )}
                 {handleAddVendorInEdit && (
                   <button
+                    id={`add_vendors_${rfqProduct?.id}-vendor_section-${pageRoute}`}
                     onClick={handleAddVendorInEdit}
                     style={{ height: "40px" }}
                     className="upload btn btn-success text-white pt-2 btn-sm"

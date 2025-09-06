@@ -350,12 +350,14 @@ const closeRFQConfirmModal = () => {
               <div className="col-md-12">
                 <div className="tabs-container">
                   <button
+                    id="upload_file-magic_search_tabs-magic_search_page"
                     className={`tab ${tab === "upload-file" ? "active" : ""}`}
                     onClick={() => handleTabChange("upload-file")}
                   >
                     Upload File
                   </button>
                   <button
+                    id="processing_files-magic_search_tabs-magic_search_page"
                     className={`tab ${tab === "processing-files" ? "active" : ""}`}
                     onClick={() => handleTabChange("processing-files")}
                   >
@@ -538,6 +540,7 @@ const closeRFQConfirmModal = () => {
                             <div className="col-5 d-flex">
                               {reviewData ? (
                                 <Button
+                                  id="edit_my_rfq-magic_search_actions-magic_search_page"
                                   variant="secondary"
                                   className="ms-auto border-0"
                                   style={{ width: "180px" }}

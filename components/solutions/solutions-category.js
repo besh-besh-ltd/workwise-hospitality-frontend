@@ -127,6 +127,7 @@ const SolutionsCategory = ({ pageTitle }) => {
                                     <p className="mb-3">We connect you with experienced vendors renowned for their expertise in a wide range of {pageTitle} projects</p>
                                     <Link
                                         href="/vendor/all"
+                                        id="find_vendors_by_products-solution_header-solutions_page"
                                         className="btn btn-secondary border-0 fw-semibold"
                                         style={{ width: "250px" }}
                                     >
@@ -555,6 +556,7 @@ const SolutionsCategory = ({ pageTitle }) => {
                         <Link
                             href="/vendor/all"
                             target="_blank"
+                            id="get_started_now-solutions_conclusion-solutions_page"
                             className="btn btn-primary border-0 fw-semibold"
                             style={{ width: "250px" }}
                         >

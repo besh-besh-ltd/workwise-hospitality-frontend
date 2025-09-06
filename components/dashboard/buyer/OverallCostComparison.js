@@ -234,6 +234,7 @@ const columnSums = useMemo(() => {
                                 padding: 0,
                                 textDecoration: "underline",
                               }}
+                              id={`toggle_breakup_${idx}_${q.created_by}-cost_comparison-overall_cost_comparison_page`}
                             >
                               {isOpen ? "Hide Breakup" : "Show Breakup"}
                             </button>

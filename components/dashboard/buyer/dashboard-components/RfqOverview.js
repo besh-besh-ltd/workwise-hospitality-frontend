@@ -225,6 +225,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     placeholder="Choose Project"
                                     isClearable
                                     noOptionsMessage={() => "No Projects Found"}
+                                    id="choose_project-chart_filters-rfq_overview_page"
                                 />
 
                                 <Select
@@ -242,6 +243,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     className="text-sm w-50"
                                     placeholder="Choose Type"
                                     isClearable={false}
+                                    id="chart_type-chart_filters-rfq_overview_page"
                                 />
 
                                 <Select
@@ -259,6 +261,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                     className="text-sm w-50"
                                     placeholder="Choose Range"
                                     isClearable={false}
+                                    id="date_range-chart_filters-rfq_overview_page"
                                 />
 
                             </div>
@@ -314,6 +317,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                             <Link
                                                 href="/dashboard/buyer/rfq-management?tab=create-rfq"
                                                 className="btn btn-primary border-0 py-2"
+                                                id="create_new_rfq-rfq_actions-rfq_overview_page"
                                             >
                                                 Create New RFQ
                                             </Link>
@@ -350,6 +354,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                             <Link
                                 href="/dashboard/buyer/rfq-management"
                                 style={{ borderColor: "var(--primary-color)" }}
+                                id="view_all_rfqs-rfq_table-rfq_overview_page"
                             >
                                 <FontAwesomeIcon icon={faArrowRight} className="me-2" />
                                 View All
@@ -397,6 +402,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                             <Link
                                                                 href={`/dashboard/buyer/query?rfq_id=${rfq?.id}&role=buyer`}
                                                                 className="position-relative text-sm text-primary border border-primary px-2 py-1 rounded-3"
+                                                                id={`view_queries_${rfq.id}-rfq_table-rfq_overview_page`}
                                                             >
                                                                 View
                                                                 {rfq.unseen_query_count > 0 &&
@@ -420,6 +426,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                                     disabled={isRecievedFromAll}
                                                                     aria-disabled={isRecievedFromAll}
                                                                     style={{ width: "200px", backgroundColor: isRecievedFromAll ? "var(--secondary-color)" : "var(--primary-color)" }}
+                                                                    id={`send_reminder_${rfq.id}-rfq_actions-rfq_overview_page`}
                                                                 >
                                                                     {(reminderMap && reminderMap.get(rfq.id)) ? (
                                                                         <>
@@ -444,6 +451,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                                                 <Link
                                                                     href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${rfq?.id}`}
                                                                     className='position-relative text-sm text-primary border border-primary px-2 py-1 rounded-3'
+                                                                    id={`view_details_${rfq.id}-rfq_table-rfq_overview_page`}
                                                                 >
                                                                     View
                                                                 </Link>
@@ -479,6 +487,7 @@ const RfqOverview = ({ tableRfqData, notificationData, tableLoading }) => {
                                             : `/dashboard/buyer/quote-compare?rfq=${notification.id}`
                                         }
                                         className="notification-card card mb-1"
+                                        id={`notification_${notification.notification_type}_${notification.id}-notifications-rfq_overview_page`}
                                     >
                                         <div className="card-body p-2">
                                             <h3 className="card-title fs-6 fw-semibold my-1">{notification?.notification_type == 'rfq_created'
