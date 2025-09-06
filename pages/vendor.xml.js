@@ -17,12 +17,21 @@ const createSitemapIndex = (sitemaps) => `<?xml version="1.0" encoding="UTF-8"?>
   `).join('')}
 </sitemapindex>`;
 
-export default async function handler(req, res) {
+function VendorSitemapIndex() { return null; }
+
+export async function getServerSideProps({ res }) {
   const slugs = await getProductSlugs();
   const sitemaps = slugs.map(slug => ({
-    loc: `/api/vendor/${slug}.xml`,
+    loc: `/vendor/sitemap/${slug}.xml`,
     lastmod: new Date().toISOString().split('T')[0]
   }));
+
+  const xml = createSitemapIndex(sitemaps);
   res.setHeader('Content-Type', 'application/xml');
-  res.send(createSitemapIndex(sitemaps));
-} 
+  res.write(xml);
+  res.end();
+
+  return { props: {} };
+}
+
+export default VendorSitemapIndex; 

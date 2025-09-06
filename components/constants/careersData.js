@@ -56,100 +56,128 @@ export const careersData = {
     subtitle: "Ready to make a difference? Check out our current openings.",
     positions: [
       {
-        id: "senior-frontend",
-        title: "Senior Frontend Developer",
+        id: "sde1-fullstack-aws-mumbai",
+        title: "SDE-1, Full Stack Developer — AWS",
         department: "Engineering",
-        location: "Mumbai, Hybrid",
+        location: "Mumbai",
         type: "Full-time",
-        experience: "3-6 years",
-        salary: "₹15-25 LPA",
-        description: "Build intuitive, responsive interfaces that make complex procurement workflows simple and elegant.",
+        experience: "1-3 years",
+        description: "Own backend services and APIs in Node.js/PostgreSQL, design scalable systems, and deploy on AWS (Lambda, S3, EC2, EFS, RDS, Fargate, CloudFront, Load Balancer). Set up CI/CD and ship fast in a 0→1 environment.",
         requirements: [
-          "Strong expertise in React.js, Next.js, and modern JavaScript",
-          "Experience with responsive design and mobile-first development",
-          "Knowledge of state management (Redux, Context API)",
-          "Understanding of UI/UX principles and accessibility",
-          "Experience with testing frameworks (Jest, React Testing Library)"
+          "Strong in Node.js and PostgreSQL",
+          "Hands-on with AWS services and deployments",
+          "Good grasp of system design; working knowledge of Next.js & Bootstrap",
+          "CI/CD pipeline setup and maintenance"
         ],
         responsibilities: [
-          "Develop and maintain high-quality, scalable frontend applications",
-          "Collaborate with design and product teams to implement user interfaces",
-          "Optimize applications for maximum speed and scalability",
-          "Mentor junior developers and contribute to technical decisions"
+          "Design, build, and maintain backend services/APIs",
+          "Define data models and optimize database performance",
+          "Architect scalable services and solve performance bottlenecks",
+          "Own AWS infra and CI/CD for rapid delivery"
         ],
-        tags: ["React", "Next.js", "TypeScript", "UI/UX", "Frontend"]
+        tags: ["Node.js", "PostgreSQL", "AWS", "Next.js", "CI/CD"]
       },
       {
-        id: "product-manager",
-        title: "Product Manager",
-        department: "Product",
-        location: "Mumbai, Hybrid",
-        type: "Full-time",
-        experience: "2-5 years",
-        salary: "₹12-20 LPA",
-        description: "Drive product strategy and execution for our AI-powered procurement platform.",
-        requirements: [
-          "Experience in B2B SaaS or enterprise software products",
-          "Strong analytical and problem-solving skills",
-          "Experience with user research and data analysis",
-          "Excellent communication and stakeholder management skills",
-          "Understanding of procurement or industrial processes (bonus)"
-        ],
-        responsibilities: [
-          "Define product vision, strategy, and roadmap",
-          "Gather and analyze user feedback and market insights",
-          "Work closely with engineering and design teams",
-          "Drive product launches and go-to-market strategies"
-        ],
-        tags: ["Product Strategy", "B2B SaaS", "User Research", "Analytics"]
-      },
-      {
-        id: "ai-engineer",
-        title: "AI/ML Engineer",
+        id: "sde1-bengaluru",
+        title: "SDE-1",
         department: "Engineering",
-        location: "Mumbai, Hybrid",
+        location: "Bengaluru",
         type: "Full-time",
-        experience: "2-5 years",
-        salary: "₹18-30 LPA",
-        description: "Build intelligent systems that automate and optimize procurement processes.",
+        experience: "1-3 years",
+        description: "Full stack ownership with Next.js, Node.js, PostgreSQL, and AWS. Ship fast, take risks, and lead features end‑to‑end.",
         requirements: [
-          "Strong background in machine learning and data science",
-          "Experience with Python, TensorFlow/PyTorch, and NLP",
-          "Knowledge of document processing and OCR technologies",
-          "Experience with cloud platforms (AWS, GCP)",
-          "Understanding of procurement domain (bonus)"
+          "Next.js, Node.js, PostgreSQL, AWS",
+          "System design and strong problem solving",
+          "High execution velocity in 0→1 setups"
         ],
         responsibilities: [
-          "Develop and deploy ML models for document processing",
-          "Optimize AI algorithms for performance and accuracy",
-          "Collaborate with product teams to understand requirements",
-          "Stay updated with latest AI/ML research and technologies"
+          "Develop backend services and web features",
+          "Design scalable architecture and resilient systems",
+          "Fix performance issues and mentor juniors"
         ],
-        tags: ["Machine Learning", "Python", "NLP", "AI", "Cloud"]
+        tags: ["Next.js", "Node.js", "PostgreSQL", "AWS", "System Design"]
       },
       {
-        id: "sales-executive",
-        title: "Enterprise Sales Executive",
+        id: "sales-associate-mumbai",
+        title: "Sales Associate",
         department: "Sales",
-        location: "Mumbai, Hybrid",
+        location: "Mumbai",
         type: "Full-time",
-        experience: "3-7 years",
-        salary: "₹8-15 LPA + Commission",
-        description: "Drive revenue growth by acquiring enterprise clients and building long-term relationships.",
+        experience: "2-4 years",
+        description: "Own in‑person enterprise sales across Maharashtra & Gujarat with uncapped revenue share. Build relationships, understand procurement challenges, and close clients.",
         requirements: [
-          "Proven track record in B2B enterprise sales",
-          "Experience in SaaS or technology sales",
-          "Strong networking and relationship-building skills",
-          "Understanding of procurement or industrial sector",
-          "Excellent presentation and negotiation skills"
+          "B2B sales experience (Tier‑1 preferred)",
+          "Strong client communication; Marathi preferred",
+          "Understanding of procurement workflows"
         ],
         responsibilities: [
-          "Identify and qualify enterprise prospects",
-          "Conduct product demonstrations and presentations",
-          "Negotiate contracts and close deals",
-          "Build and maintain client relationships"
+          "Field meetings, discovery, and solution pitching",
+          "Build playbooks with leadership and report pipeline",
+          "Hit targets and grow accounts"
         ],
-        tags: ["B2B Sales", "Enterprise", "SaaS", "Procurement"]
+        tags: ["B2B Sales", "Field Sales", "Procurement", "Enterprise"]
+      },
+      {
+        id: "pre-sales-bengaluru",
+        title: "Pre‑Sales Specialist",
+        department: "Growth",
+        location: "Bengaluru",
+        type: "Full-time",
+        experience: "1-3 years",
+        description: "Own outbound research and qualification to book discovery calls. Build outreach assets and handle early inbound.",
+        requirements: [
+          "Lead research and qualification (BANT)",
+          "Outbound via LinkedIn/Email/WhatsApp/Calls",
+          "Strong copy and stakeholder engagement"
+        ],
+        responsibilities: [
+          "Build target lists and contact decision makers",
+          "Qualify and hand off to sales with full context",
+          "Create templates, decks, FAQs, and log learnings"
+        ],
+        tags: ["Pre‑Sales", "Outbound", "Lead Gen", "B2B"]
+      },
+      {
+        id: "founding-growth-bengaluru",
+        title: "Founding Member, Product Growth",
+        department: "Growth",
+        location: "Bengaluru",
+        type: "Full-time",
+        experience: "2+ years",
+        description: "Full‑stack growth role owning TOFU→BOFU across buyers and paid sellers: content, SEO, webinars, lead magnets, outbound, qualification, and onboarding.",
+        requirements: [
+          "2+ years in marketing, pre‑sales, or GTM",
+          "Strong written copy; hands‑on with AI tools",
+          "Comfortable with Canva/Figma, Sheets, scraping/automation",
+          "Bias for action and switching creative↔analytical tasks"
+        ],
+        responsibilities: [
+          "Own LinkedIn (founder + brand), SEO content, webinars/events",
+          "Build forms/CTAs/landing pages; set up WhatsApp/email nurtures",
+          "Run outbound across LinkedIn/WhatsApp/email/calls and qualify",
+          "Support sales with collateral and product narratives"
+        ],
+        tags: ["Growth", "Content", "SEO", "Outbound", "Pre‑Sales"]
+      },
+      {
+        id: "client-success-mumbai",
+        title: "Client Success Associate",
+        department: "Customer Success",
+        location: "Mumbai",
+        type: "Full-time",
+        experience: "1-3 years",
+        description: "Onboard suppliers, drive RFQ responses, and build long‑term relationships to maximize platform value.",
+        requirements: [
+          "Vendor/supplier management (oil & gas preferred)",
+          "Excellent listening and phone communication",
+          "Strong follow‑ups and organization"
+        ],
+        responsibilities: [
+          "Outreach, onboarding, and education for suppliers",
+          "Monitor/respond to RFQs and improve engagement",
+          "Collect feedback and report performance metrics"
+        ],
+        tags: ["Supplier Success", "Onboarding", "RFQ", "Account Management"]
       }
     ]
   },
@@ -229,10 +257,12 @@ export const careersData = {
         required: true,
         options: [
           "Select a position",
-          "Senior Frontend Developer",
-          "Product Manager", 
-          "AI/ML Engineer",
-          "Enterprise Sales Executive",
+          "SDE-1, Full Stack Developer — AWS (Mumbai)",
+          "SDE-1 (Bengaluru)", 
+          "Sales Associate (Mumbai)",
+          "Pre‑Sales Specialist (Bengaluru)",
+          "Founding Member, Product Growth (Bengaluru)",
+          "Client Success Associate (Mumbai)",
           "Other (specify in message)"
         ]
       },

@@ -5,6 +5,8 @@ const CreateRFQModal = ({
   show,
   onHide,
   sheets = [],
+  selectedSheets,
+  setSelectedSheets,
   onConfirm,
 }) => {
   return (
@@ -27,12 +29,12 @@ const CreateRFQModal = ({
           style={{
             fontWeight: 500,
             marginBottom: "1.5rem",
-            fontSize: "1.25rem",
+            fontSize: "1.1rem",
             color: "#343a40",
           }}
         >
-          Heads Up! This will create a RFQ for only the{" "}
-          <strong>processed</strong> sheet's data
+          Heads Up! This will create a RFQ for only the 
+          selected <strong>processed</strong> sheet's data
         </h4>
 
         <ListGroup variant="flush" className="mb-3">
@@ -54,25 +56,32 @@ const CreateRFQModal = ({
                     marginBottom: "0.8rem",
                   }}
                 >
-                  <div className="d-flex align-items-center">
-                    <i
-                      className={`bi ${
-                        isProcessed
-                          ? "bi-check-circle-fill text-success"
-                          : "bi-x-circle-fill text-danger"
-                      }`}
-                      style={{ fontSize: "1.25rem", marginRight: "0.75rem" }}
-                    ></i>
-                    <span
+                  <div className="d-flex align-items-center gap-2">
+                    {isProcessed && (
+                      <input checked={selectedSheets.includes(sheet.value)} type="checkbox" id={sheet.label} className="form-check-input mt-0" onChange={e => {
+                        if(e.target.checked) {
+                          if(!selectedSheets.includes(sheet.value)) {
+                            setSelectedSheets(prev => [...prev, sheet.value])
+                          }
+                        } else {
+                          if(selectedSheets.includes(sheet.value)) {
+                            setSelectedSheets(prev => prev.filter(_sheet => _sheet != sheet.value))
+                          }
+                        }
+                      }} />
+                    )}
+                    <label
+                      htmlFor={sheet.label}
                       style={{
                         color: isProcessed ? "#198754" : "#dc3545",
                         fontWeight: 600,
                         fontSize: "1rem",
                         opacity: isProcessed ? 1 : 0.8,
+                        marginBottom: 0
                       }}
                     >
                       {sheet.label}
-                    </span>
+                    </label>
                   </div>
                   <Badge
                     bg={isProcessed ? "success" : "danger"}
@@ -89,8 +98,14 @@ const CreateRFQModal = ({
           className="text-muted"
           style={{ fontSize: "1rem", lineHeight: "1.5" }}
         >
+          Select from the <strong>Processed Sheets</strong>, only for which you want to create the RFQ.
+        </p>
+        <p
+          className="text-muted"
+          style={{ fontSize: "1rem", lineHeight: "1.5" }}
+        >
           Upon clicking the <strong>Create RFQ</strong> button, a RFQ will be
-          created with all the details provided in the processed sheets.
+          created with all the details provided in the selected processed sheets.
         </p>
         <p
           className="text-muted"
