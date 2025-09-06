@@ -181,7 +181,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
             />
           </div>
           <div className='mt-auto' style={{marginBottom: 2}}>
-            <button onClick={resetFilters} className='btn btn-outline-primary p-1' style={{maxWidth: 90}}>Clear</button>
+            <button onClick={resetFilters} className='btn btn-outline-primary p-1' style={{maxWidth: 90}} id="clear_filters-po_listing-purchase_order_page">Clear</button>
           </div>
         </div>
       </div>
@@ -251,6 +251,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                               });
                               await getPOData(filters);
                             }}
+                            id={`approve_po_${po.id}-po_actions-po_listing`}
                           >
                             <MdCheck />
                           </button>
@@ -267,6 +268,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                                 poNumber: debouncedPONumber,
                               });
                             }}
+                            id={`reject_po_${po.id}-po_actions-po_listing`}
                           >
                             <RxCross2 />
                           </button>
@@ -277,6 +279,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                           href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
                           className="btn btn-outline-success btn-sm p-2"
                           style={{ width: 150 }}
+                          id={`view_quotes_${po.id}-po_actions-po_listing`}
                         >
                           View Quotes
                         </Link>
@@ -285,6 +288,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                           <button
                             style={styles.primary}
                             title="View This PO"
+                            id={`view_po_${po.id}-po_actions-po_listing`}
                             >
                               <IoMdEye />
                               <small className='ms-1 fw-medium'>View</small>
@@ -299,6 +303,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                               e.stopPropagation();
                               onEdit(po.id);
                             }}
+                            id={`edit_po_${po.id}-po_actions-po_listing`}
                           >
                             <MdEdit />
                           </button>

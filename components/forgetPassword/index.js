@@ -107,7 +107,7 @@ const ForgetPasswordPage = () => {
                                                     </div>
                                                     
         
-                                                    <button type="submit" className="btn btn-secondary">{otp?"Change Password":"Get OTP"}</button>
+                                                    <button type="submit" className="btn btn-secondary" id="change_password_submit-password_form-forget_password_page">{otp?"Change Password":"Get OTP"}</button>
                                                 </div>
                                             </Form>
                                         )}
@@ -128,7 +128,7 @@ const ForgetPasswordPage = () => {
                                                     <FormikField label="Email" type="email" isRequired={true} name="email" touched={touched} errors={errors}/>
                                                 </div>
 
-                                                <button type="submit" className="btn btn-secondary">{otp?"Change Password": "Get OTP"}</button>
+                                                <button type="submit" className="btn btn-secondary" id="get_otp_submit-email_form-forget_password_page">{otp?"Change Password": "Get OTP"}</button>
                                             </div>
                                         </Form>
                                     )}

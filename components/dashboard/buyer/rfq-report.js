@@ -238,6 +238,7 @@ const ProductManagement = () => {
                               onClick={() => {
                                 getProducts();
                               }}
+                              id="generate_rfq_report-filter_actions-rfq_report_page"
                             >
                               Generate Report
                             </button>
@@ -256,6 +257,7 @@ const ProductManagement = () => {
                               onClick={() => {
                                 exportProducts();
                               }}
+                              id="export_rfq_report-filter_actions-rfq_report_page"
                             >
                               Export
                             </Link>

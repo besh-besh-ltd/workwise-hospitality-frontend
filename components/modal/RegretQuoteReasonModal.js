@@ -57,6 +57,7 @@ const RegretQuoteReasonModal = (props) => {
           onClick={props.closeModal}
           className="btn-close"
           aria-label="Close"
+          id="close_regret_quote_modal-modal_header-regret_quote_modal"
         ></button>
       </div>
       <div className="modal-body contact-sec-modal" style={{}}>
@@ -89,7 +90,7 @@ const RegretQuoteReasonModal = (props) => {
                         </div>
                         </div>
                         <div className="d-flex flex-row justify-content-between align-items-center g-6">                    
-                            <button disabled={!isValid} class="btn btn-success btn-sm">Regret Quote</button>
+                            <button disabled={!isValid} class="btn btn-success btn-sm" id="submit_regret_quote-regret_form-regret_quote_modal">Regret Quote</button>
                         </div>
                     </Form>
                 )}

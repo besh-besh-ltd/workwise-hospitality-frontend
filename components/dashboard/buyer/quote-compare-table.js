@@ -202,6 +202,7 @@ const QuoteCompareTable = ({
                               <Dropdown.Item
                                 className=""
                                 href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
+                                id={`negotiate_with_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                               >
                               <FontAwesomeIcon icon={faPhone} className="me-2" />
                                 Negotiate
@@ -211,6 +212,7 @@ const QuoteCompareTable = ({
                             target="_blank"
                             href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
                             className=""
+                            id={`view_vendor_profile_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                           >
                            <FontAwesomeIcon icon={faUser} className="me-2"/> 
                             View Profile
@@ -227,6 +229,7 @@ const QuoteCompareTable = ({
                                   // handleFinalize(item, proditem);
                                 }}
                                 className=""
+                                id={`finalize_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                               >
                                 <FontAwesomeIcon icon={faCheckCircle} className="me-2"/> 
                                 Finalize
@@ -244,6 +247,7 @@ const QuoteCompareTable = ({
                                 });
                               }}
                               className=""
+                              id={`view_quote_history_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                             >
                             <FontAwesomeIcon icon={faHistory} className="me-2" />
                               Quote History
@@ -471,6 +475,7 @@ const QuoteCompareTable = ({
                       "tel: " +
                       lowestQuote[0]?.quote_details?.vendor_details?.mobile
                     }
+                    id="call_lowest_bidder-quote_actions-quote_compare_table"
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </Link>
@@ -493,6 +498,7 @@ const QuoteCompareTable = ({
                     setCurrentItem(lowestQuote);
                     // handleFinalize(lowestQuote, proditem)
                   }}
+                  id="finalize_vendor-quote_actions-quote_compare_table"
                 >
                   Finalize
                 </button>
@@ -518,6 +524,7 @@ const QuoteCompareTable = ({
                     "mailto:" +
                     alreadyFinalized[0]?.finalization?.winning_vendor?.email
                   }
+                  id="email_finalized_vendor-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faEnvelope} />
                 </Link>
@@ -528,6 +535,7 @@ const QuoteCompareTable = ({
                     "tel: " +
                     alreadyFinalized[0]?.finalization?.winning_vendor?.mobile
                   }
+                  id="call_finalized_vendor-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
@@ -537,6 +545,7 @@ const QuoteCompareTable = ({
                   className="btn btn-sm btn-success p-2"
                   style={{ minWidth: "230px", marginLeft: "10px" }}
                   onClick={handleViewFinalizationHistory}
+                  id="view_finalization_history-finalization_actions-quote_compare_table"
                 >
                   Finalization History
                 </button>
@@ -555,6 +564,7 @@ const QuoteCompareTable = ({
                     "mailto:" +
                     alreadyFinalized[0]?.finalization?.finilized_by?.email
                   }
+                  id="email_finalized_by-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faEnvelope} />
                 </Link>
@@ -565,6 +575,7 @@ const QuoteCompareTable = ({
                     "tel: " +
                     alreadyFinalized[0]?.finalization?.finilized_by?.mobile
                   }
+                  id="call_finalized_by-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>

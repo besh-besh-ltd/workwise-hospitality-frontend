@@ -204,6 +204,7 @@ const ProductReview = () => {
                                         `/dashboard/vendor/edit-products-review/${item?.id}`
                                       )
                                     }
+                                    id="edit_product-product_table-product_review_page"
                                   >
                                     Edit
                                   </span>
@@ -262,6 +263,7 @@ const ProductReview = () => {
                       data-bs-toggle="tooltip" data-bs-placement="top"
                       data-bs-custom-class="custom-tooltip"
                       data-bs-title="Select some products to publish."
+                      id="publish_products-product_actions-product_review_page"
                     >
                       Publish
                     </button>

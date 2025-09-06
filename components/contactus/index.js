@@ -324,6 +324,7 @@ const ContactUsPage = () => {
                               </div>
 
                               <button
+                                id="submit_contact_form-contact_form-contact_us_page"
                                 type="submit"
                                 className="btn btn-secondary"
                               >

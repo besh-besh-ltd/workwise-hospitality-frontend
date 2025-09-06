@@ -78,6 +78,7 @@ const BuyerPage = () => {
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h2 className="fs-4 fw-medium mb-0">Summary</h2>
             <button
+              id="download_report-summary_section-buyer_dashboard"
               type="button"
               className="btn btn-primary border-0 py-2"
               style={{ width: "200px" }}

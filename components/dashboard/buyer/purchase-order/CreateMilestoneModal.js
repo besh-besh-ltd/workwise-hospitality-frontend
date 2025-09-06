@@ -215,7 +215,7 @@ const CreateMilestoneModal = ({ show, onClose, onSuccess, companyUsers, selected
         </Modal.Body>
 
         <Modal.Footer>
-          <Button className="p-2" variant="secondary" onClick={onClose}>
+          <Button className="p-2" variant="secondary" onClick={onClose} id="cancel_milestone-milestone_modal-purchase_order_page">
             Cancel
           </Button>
           <Button
@@ -223,6 +223,7 @@ const CreateMilestoneModal = ({ show, onClose, onSuccess, companyUsers, selected
             type="submit"
             variant="primary"
             disabled={loading}
+            id={isEdit ? "update_milestone-milestone_modal-purchase_order_page" : "create_milestone-milestone_modal-purchase_order_page"}
           >
             {loading ? (
               <Spinner animation="border" size="sm" />

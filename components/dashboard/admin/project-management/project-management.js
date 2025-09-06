@@ -126,6 +126,7 @@ const ProjectManagementPage = () => {
                     }
                     width="fit-content"
                     className="p-3"
+                    id="create_new_project-project_actions-project_management_page"
                   />
                 </div>
 
@@ -182,6 +183,7 @@ const ProjectManagementPage = () => {
                                   theme="primary" // "primary" or "secondary"
                                   width="120px"
                                   className="p-1"
+                                  id={`view_project_${project.id}-project_actions-project_management_page`}
                                 />
                               </td>
                             </tr>

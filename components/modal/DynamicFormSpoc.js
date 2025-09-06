@@ -10,7 +10,8 @@ const DynamicFormSpoc = ({
     closeModal,
     handleSpoc,
     handleEditSpoc,
-    countryCode
+    countryCode,
+    pageRoute = "vendor_profile_page" // Default fallback
 }) => {
 
     const codeList = Array.isArray(countryCode) ? countryCode : [];
@@ -223,6 +224,7 @@ const DynamicFormSpoc = ({
                             type="submit"
                             disabled={!isValid}
                             className="btn btn-success btn-sm"
+                            id={`submit_spoc_form-spoc_modal-${pageRoute}`}
                           >
                             Submit
                           </button>
