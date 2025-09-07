@@ -21,6 +21,26 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
   const [products, setProducts] = useState([]);
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
+
+  // Helper function to check if vendor has missing freight or packaging costs for a specific product
+  const hasMissingCosts = (productIdx, vendorId) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
+    if (!products || products.length === 0) return false;
+    
+    const product = products[productIdx];
+    if (!product || !product.quotations) return false;
+    
+    const vendorQuote = product.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
+    if (!vendorQuote || !vendorQuote.quote_details || vendorQuote.quote_details.length === 0) return false;
+    
+    const quoteDetails = vendorQuote.quote_details[0];
+    const freightPrice = parseFloat(quoteDetails.freight_price) || 0;
+    const packagePrice = parseFloat(quoteDetails.package_price) || 0;
+    
+    return freightPrice === 0 || packagePrice === 0;
+  };
   const toggleBreakup = (productIdx, vendorId) => {
     setBreakupOpen(prev => ({
       ...prev,
@@ -182,17 +202,24 @@ const columnSums = useMemo(() => {
                       const delivery = details.delivery_period;
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
+                      const missingCosts = hasMissingCosts(idx, q.created_by);
                       return (
                         <td
                           key={q.created_by}
                           style={{
                             minWidth: 200,
-                            background: isFinalized
+                            background: missingCosts
+                              ? "#ff8c00"
+                              : isFinalized
                               ? "#d4edda"
                               : q.is_lowest
                               ? "#ffe082"
                               : undefined,
-                            color: isFinalized ? "#155724" : undefined,
+                            color: missingCosts 
+                              ? "white" 
+                              : isFinalized 
+                              ? "#155724" 
+                              : undefined,
                             position: "relative",
                             borderRadius: 8,
                             wordBreak: "break-word",
