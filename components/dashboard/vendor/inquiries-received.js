@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { getVendorQuoteStatus, getVendorRfqList } from "@/services/rfq";
+import { getVendorQuoteStatus, getVendorRfqList, sendFollowUpEmail } from "@/services/rfq";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
 import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
 import QuoteStatus from "@/components/modal/QuoteStatus";
+import { toast } from "react-toastify";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -88,9 +89,35 @@ const getQuoteStatus = async (rfq_id) => {
   }
 };
 
-const handleSendMail = async ()=>{
-  console.log("handle button clicked" )
-}
+const handleSendMail = async (item) => {
+  // Build payload
+  const payload = {
+    buyer: {
+      name: item.company_name,
+      email: item.response_email,
+    },
+    vendor: {
+      name: item.products?.[0]?.vendor_details?.[0]?.user_details?.name || "Unknown Vendor",
+    },
+    rfqNumber: item.rfq_no,
+    rfq_id: item.id,
+  };
+
+  try {
+    const response = await sendFollowUpEmail(payload);
+
+    if (response?.status === 1) {
+      toast.success(response.message || "Reminder email sent successfully!");
+    } else {
+      toast.error(response?.message || "Failed to send reminder email.");
+    }
+  } catch (error) {
+    console.error("Error sending reminder email:", error);
+    toast.error("An error occurred while sending the reminder email.");
+  }
+};
+
+
 
 
   return (
@@ -278,7 +305,7 @@ const handleSendMail = async ()=>{
                                     <td>
                                       <button
                                         className="class"
-                                        onClick={handleSendMail}
+                                        onClick={() => handleSendMail(item)}
                                       >
                                         Send Reminder
                                       </button>

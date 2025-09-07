@@ -335,6 +335,17 @@ export const sendQuotation = (payload, token) => {
   });
 };
 
+export const sendFollowUpEmail = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try { 
+      let response = await axiosInstance.post(`/rfq/send-follow-up-emails`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
 export const updateQuotation = (quote_id, payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
