@@ -8,7 +8,6 @@ import { calculateTotal, extractfileName, handleNormalize } from "@/utils/shared
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
-import { Badge, Button } from "react-bootstrap";
 import { Button, Badge } from "react-bootstrap";
 
 /**
