@@ -93,6 +93,7 @@ const ProjectManagement = () => {
                                         className="page-link backBtn btn btn-secondary text-white my-0  "
                                         style={{ maxWidth: "280px" }}
                                         onClick={() => setOpenCreateProject(true)}
+                                        id="create_new_project-project_actions-project_management_page"
                                     >
                                         <FontAwesomeIcon icon={faFolderPlus} className="me-2" />
                                         Create New Project

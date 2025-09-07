@@ -195,12 +195,14 @@ const ApprovalHierarchyPage = () => {
                 <button
                   className={`tab ${tab === "display" ? "active" : ""}`}
                   onClick={() => setTab("display")}
+                  id="display_hierarchy_tab-hierarchy_tabs-approval_hierarchy_page"
                 >
                   Display Hierarchy
                 </button>
                 <button
                   className={`tab ${tab === "create" ? "active" : ""}`}
                   onClick={() => setTab("create")}
+                  id="create_hierarchy_tab-hierarchy_tabs-approval_hierarchy_page"
                 >
                   Create Hierarchy
                 </button>
@@ -255,6 +257,7 @@ const ApprovalHierarchyPage = () => {
                                   <Dropdown.Menu>
                                     <Dropdown.Item
                                       onClick={() => shiftUser(user.id, "left")}
+                                      id={`shift_left_${user.id}-user_actions-approval_hierarchy_page`}
                                     >
                                       Shift Left
                                     </Dropdown.Item>
@@ -262,11 +265,13 @@ const ApprovalHierarchyPage = () => {
                                       onClick={() =>
                                         shiftUser(user.id, "right")
                                       }
+                                      id={`shift_right_${user.id}-user_actions-approval_hierarchy_page`}
                                     >
                                       Shift Right
                                     </Dropdown.Item>
                                     <Dropdown.Item
                                       onClick={() => handleEdit(user)}
+                                      id={`edit_user_${user.id}-user_actions-approval_hierarchy_page`}
                                     >
                                       Edit
                                     </Dropdown.Item>
@@ -315,6 +320,7 @@ const ApprovalHierarchyPage = () => {
                         variant="primary"
                         className="p-2"
                         onClick={() => setTab("create")}
+                        id="create_hierarchy-empty_state-approval_hierarchy_page"
                       >
                         Create Hierarchy
                       </Button>
@@ -326,6 +332,7 @@ const ApprovalHierarchyPage = () => {
                       onClick={handleSaveChanges}
                       variant="primary"
                       className="mt-4 p-2"
+                      id="save_changes-display_hierarchy-approval_hierarchy_page"
                     >
                       {saving ? "Saving..." : "Save Changes"}
                     </Button>
@@ -396,6 +403,7 @@ const ApprovalHierarchyPage = () => {
                       }
                       onClick={handleAddUser}
                       className="mt-1 p-2"
+                      id="add_user-create_hierarchy-approval_hierarchy_page"
                     >
                       Add User
                     </Button>
@@ -439,6 +447,7 @@ const ApprovalHierarchyPage = () => {
                                     active: user.active,
                                   });
                                 }}
+                                id={`edit_user_preview_${user.id}-preview_actions-approval_hierarchy_page`}
                               >
                                 Edit
                               </button>
@@ -453,6 +462,7 @@ const ApprovalHierarchyPage = () => {
                       onClick={async () => {
                         await handleSaveChanges();
                       }}
+                      id={isEdit ? "update_hierarchy-create_hierarchy-approval_hierarchy_page" : "create_hierarchy-create_hierarchy-approval_hierarchy_page"}
                     >
                       {saving ? "Saving..." : isEdit ? "Update Hierarchy" : "Create Hierarchy"}
                     </Button>
@@ -502,10 +512,10 @@ const ApprovalHierarchyPage = () => {
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
-            <Button className="p-2" variant="danger" onClick={deleteUser}>
+            <Button className="p-2" variant="danger" onClick={deleteUser} id="delete_user-edit_modal-approval_hierarchy_page">
               Delete
             </Button>
-            <Button className="p-2" variant="primary" onClick={saveEdit}>
+            <Button className="p-2" variant="primary" onClick={saveEdit} id="save_user_edit-edit_modal-approval_hierarchy_page">
               Save
             </Button>
           </Modal.Footer>

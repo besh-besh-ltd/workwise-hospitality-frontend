@@ -312,6 +312,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Agree")}
                             disabled={vendorResponseSent}
+                            id="agree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Agree
                           </button>
@@ -321,6 +322,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Dont Agree")}
                             disabled={vendorResponseSent}
+                            id="disagree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Dont Agree
                           </button>
@@ -340,6 +342,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                               className="page-link d-block mx-auto"
                               style={{ textDecoration: "none" }}
                               onClick={() => handleAttachFileClick(clauseItem.clause_id)}
+                              id={`upload_file_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                             >
                               <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
                               Upload
@@ -371,6 +374,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                           className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
                           style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
                           onClick={() => toggleChat(clauseItem.clause_id)}
+                          id="explanation_deviation-clause_actions-technical_evaluation_page"
                         >
                           Explanation / Deviation
                         </button>
@@ -400,6 +404,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                 type="button"
                 className="btn btn-secondary border-0"
                 onClick={handleSendAgreement}
+                id="submit_agreement-agreement_actions-technical_evaluation_page"
               >
                 Submit
               </button>

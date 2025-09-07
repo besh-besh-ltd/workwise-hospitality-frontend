@@ -1085,6 +1085,7 @@ Example:
                             <button
                               disabled={!isValid}
                               class="btn btn-success btn-sm"
+                              id={type === "edit-project" ? "update_project-edit_project_modal-project_details_page" : type === "add-vendor" ? "add_vendor-add_vendor_modal-vendor_management_page" : "submit_form-dynamic_form_modal"}
                             >
                               {type === "add-vendor"
                                 ? "Add Vendor"

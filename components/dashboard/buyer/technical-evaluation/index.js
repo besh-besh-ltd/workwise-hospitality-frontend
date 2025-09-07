@@ -185,6 +185,7 @@ useEffect(() => {
                         name="rfq_type"
                         placeholder="Ex. 123456"
                         isClearable
+                        id="search_rfq_no-rfq_list-technical_evaluation_page"
                     />
                 </div>
                 <div className="py-2">
@@ -196,6 +197,7 @@ useEffect(() => {
                         name="project_id"
                         placeholder="Select"
                         isClearable
+                        id="select_project_filter-rfq_list-technical_evaluation_page"
                     />
                 </div>
 
@@ -213,6 +215,7 @@ useEffect(() => {
                           className={
                             item.id === currentRfq?.id ? "text-white" : "text-dark"
                           }
+                          id={`rfq_${item.rfq_no}-rfq_list-technical_evaluation_page`}
                         >
                           RFQ #{item.rfq_no}
                           {item.project_name && item.project_name != "" &&
@@ -364,6 +367,7 @@ useEffect(() => {
                                           }
                                         }}
                                         noOptionsMessage={() => "No vendors responded"}
+                                        id={`select_vendor_${product.id}-vendor_selection-technical_evaluation_page`}
                                       />
                                     </div>
                                   </div>

@@ -1,5 +1,6 @@
-// This file could look similar to your current sitemap generator but only include static pages.
-const EXTERNAL_DATA_URL =  process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://letsworkwise.com';
+import { GetServerSideProps } from 'next';
+
+const EXTERNAL_DATA_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://letsworkwise.com';
 
 const staticUrls = [
   { loc: '/', changefreq: 'daily', priority: 1.0 },
@@ -23,7 +24,21 @@ const createSitemap = (urls) => `<?xml version="1.0" encoding="UTF-8"?>
         </url>`).join('')}
 </urlset>`;
 
-export default function sitemapStaticXml(req, res) {
-  res.setHeader('Content-Type', 'application/xml');
-  res.send(createSitemap(staticUrls));
+function Sitemap() {
+  // This component will never be rendered
+  return null;
 }
+
+export const getServerSideProps = async ({ res }) => {
+  const sitemap = createSitemap(staticUrls);
+
+  res.setHeader('Content-Type', 'text/xml');
+  res.write(sitemap);
+  res.end();
+
+  return {
+    props: {},
+  };
+};
+
+export default Sitemap;

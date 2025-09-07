@@ -26,12 +26,14 @@ const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
         theme={`${currentMode === 'percentage' ? 'primary' : 'light'}`}
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
         label="%"
+        id="percentage_toggle-percentage_absolute_toggle-send_quote_page"
       />
       <SmartButton
         onClick={() => onToggle('absolute')}
         theme={`${currentMode === 'absolute' ? 'primary' : 'light'}`}
         style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
         label="₹"
+        id="absolute_toggle-percentage_absolute_toggle-send_quote_page"
       />
     </div>
   );
@@ -2047,6 +2049,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                         {pageType != "update-quote" &&
 
                           <button
+                            id="regret_quote-quote_actions-send_quote_page"
                             type="submit"
                             className="btn btn-primary"
                             onClick={() => setregretModal(true)}
@@ -2058,6 +2061,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
                         <button
+                          id="send_quote-quote_actions-send_quote_page"
                           type="submit"
                           className="btn btn-secondary float-end"
                           onClick={handleSendQuote}

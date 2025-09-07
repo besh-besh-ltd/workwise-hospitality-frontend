@@ -448,6 +448,7 @@ const ReviewProducts = ({
                                   borderRadius: 6,
                                   border: 0,
                                 }}
+                                id={`toggle_local_filter_${prodKey}-filter_actions-review_products_page`}
                               >
                                 {!!isLocalFilterVisible[prodKey] ? 'X' : '+'}
                               </button>
@@ -1010,6 +1011,7 @@ const ReviewProducts = ({
                                   width: "130px",
                                 }}
                                 onClick={() => removeItem("product", prodItem)}
+                                id={`remove_product_${prodItem.product_id}_${prodItem.variant}-product_actions-review_products_page`}
                               >
                                 <FontAwesomeIcon
                                   icon={faTrash}

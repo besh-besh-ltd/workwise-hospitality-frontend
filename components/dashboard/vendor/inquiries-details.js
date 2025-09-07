@@ -683,6 +683,7 @@ const RfqManagementPreview = () => {
                             href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
                           >
                             <button
+                              id="edit_rfq-rfq_header-inquiries_details_page"
                               type="button"
                               className="btn btn-primary me-2"
                               style={{ width: "auto" }}
@@ -694,6 +695,7 @@ const RfqManagementPreview = () => {
                         )}
 
                         <button
+                          id="view_queries-rfq_header-inquiries_details_page"
                           type="button"
                           className=" btn btn-primary "
                           style={{ width: "180px" }}
@@ -726,6 +728,7 @@ const RfqManagementPreview = () => {
                               href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
                             >
                               <button
+                                id="compare_received_quotes-rfq_header-inquiries_details_page"
                                 type="button"
                                 className="btn btn-secondary "
                                 style={{ width: "270px" }}
@@ -735,6 +738,7 @@ const RfqManagementPreview = () => {
                             </Link>
                           ) : (
                             <button
+                              id="no_quotes_received-rfq_header-inquiries_details_page"
                               type="button"
                               className="btn btn-primary"
                               style={{ width: "230px" }}
@@ -755,6 +759,7 @@ const RfqManagementPreview = () => {
                             item.finalization_status === "You are finalized"
                         ) ? (
                           <button
+                            id="update_your_quote-rfq_header-inquiries_details_page"
                             type="button"
                             className="btn btn-secondary m-0 p-2"
                             style={{ width: "240px" }}

@@ -118,12 +118,14 @@ const RFQItem = ({ data }) => {
             <Link
               href={`/dashboard/buyer/rfq-management-details?type=buyer-view&id=${data?.id}`}
               className="page-link"
+              id={`view_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
             >
               View
             </Link>
             <Link
               href={`/dashboard/buyer/rfq-management-edit?id=${data?.id}`}
               className="page-link"
+              id={`edit_rfq_${data?.id}-rfq_actions-manage_rfq_page`}
             >
               Edit
             </Link>
@@ -137,6 +139,7 @@ const RFQItem = ({ data }) => {
               type="button"
               className="page-link-btn border-0 text-white p-2 my-3 rounded-2"
               style={{ width: "120px", backgroundColor: "var(--primary-color)" }}
+              id={`view_queries_${data?.id}-rfq_actions-manage_rfq_page`}
             >
               Queries 
               {data.unseen_query_count > 0 && <span className="badge text-bg-danger ms-1">{data.unseen_query_count} + </span>}
@@ -156,6 +159,7 @@ const RFQItem = ({ data }) => {
               style={{ width: "200px", backgroundColor: data.status == 2 ? 'var(--red-color)' : data.is_finalized ? "var(--secondary-color)" : (isRecievedFromAll || isHovered) ? "var(--primary-color)" : "var(--secondary-color)" }}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
+              id={`send_reminder_${data?.id}-rfq_actions-manage_rfq_page`}
             >
               {loading ? (
                 <>
