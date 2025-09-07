@@ -51,6 +51,7 @@ const QuoteCompare = () => {
   const [myRFQs, setmyRFQs] = useState([]);
   const [currentRFQ, setcurrentRFQ] = useState(null);
   const [quotes, setquotes] = useState([]);
+  const [originalQuotes, setOriginalQuotes] = useState([]); // Store original data before normalization
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
@@ -256,6 +257,8 @@ const handleCloseNormalizeModal = () => {
 
     getQuotes(rfq, TA_Filter, freightFilter)
       .then((res) => {
+        // Store original data before normalization for highlighting logic
+        setOriginalQuotes(res.data);
 
         const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
 
@@ -1921,6 +1924,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         proditem={item}
                                         handleFinalize={handleFinalize}
                                         quotations={item?.quotations}
+                                        originalQuotations={originalQuotes.find(origItem => origItem.id === item.id)?.quotations || item?.quotations}
                                         quantity={
                                           item?.product_details[0]?.rfq_details
                                             ? item?.product_details[0]
@@ -1938,6 +1942,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         targetPrice={item.latest_target_price}
                                         // targetHistory={targetPriceHistory}
                                         normalizeFilter={normalizeFilter}
+                                        freightFilter={freightFilter}
                                       />
                                     </>
                                   )}

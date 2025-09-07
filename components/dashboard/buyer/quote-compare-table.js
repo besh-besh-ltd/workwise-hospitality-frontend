@@ -16,6 +16,7 @@ import FinalizeHistoryModal from "./FinalizeHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
+  originalQuotations,
   quantity,
   handleFinalize,
   proditem,
@@ -24,13 +25,17 @@ const QuoteCompareTable = ({
   availableBudget,
   targetPrice,
   targetHistory,
-  normalizeFilter
+  normalizeFilter,
+  freightFilter
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
 
   // Helper function to check if vendor has missing freight or packaging costs
   const hasMissingCosts = (item) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
     if (!item) return false;
     
     const freightPrice = parseFloat(item.freight_price) || 0;
@@ -162,7 +167,9 @@ const QuoteCompareTable = ({
                     (spec) => spec.title == "Quantity"
                   )?.value || item.quantity;
 
-                const missingCosts = hasMissingCosts(item);
+                // Find corresponding original quotation for highlighting
+                const originalItem = originalQuotations?.find(origItem => origItem.quote_id === item.quote_id) || item;
+                const missingCosts = hasMissingCosts(originalItem);
                 return (
                   <div
                     className="table-col"

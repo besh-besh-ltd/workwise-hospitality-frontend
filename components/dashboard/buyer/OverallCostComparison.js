@@ -19,6 +19,7 @@ const addCommasToNumber = (num) => {
 const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter }) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [originalProducts, setOriginalProducts] = useState([]); // Store original data before normalization
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
 
@@ -27,9 +28,11 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
     // Don't show highlighting when freight filter is active
     if (freightFilter) return false;
     
-    if (!products || products.length === 0) return false;
+    // Use original data before normalization to check for missing costs
+    const dataToCheck = originalProducts.length > 0 ? originalProducts : products;
+    if (!dataToCheck || dataToCheck.length === 0) return false;
     
-    const product = products[productIdx];
+    const product = dataToCheck[productIdx];
     if (!product || !product.quotations) return false;
     
     const vendorQuote = product.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
@@ -53,6 +56,9 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
         let data = res.data || [];
+        
+        // Store original data before normalization for highlighting logic
+        setOriginalProducts(data);
         
         // If normalize filter is enabled, normalize the quotes
         if(normalizeFilter){

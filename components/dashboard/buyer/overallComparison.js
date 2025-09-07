@@ -19,6 +19,7 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
+  const [originalData, setOriginalData] = useState([]); // Store original data before normalization
   const [l1total, setl1total] = useState(0);
   const [finalizedTotal, setFinalizedTotal] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
@@ -30,9 +31,11 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
     // Don't show highlighting when freight filter is active
     if (freightFilter) return false;
     
-    if (!data || data.length === 0) return false;
+    // Use original data before normalization to check for missing costs
+    const dataToCheck = originalData.length > 0 ? originalData : data;
+    if (!dataToCheck || dataToCheck.length === 0) return false;
     
-    return data.some(item => {
+    return dataToCheck.some(item => {
       const vendorQuote = item.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
       if (!vendorQuote || !vendorQuote.quote_details || vendorQuote.quote_details.length === 0) return false;
       
@@ -66,6 +69,8 @@ const openModalForVariant = (variantId) => {
     setloading(true);
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
+        // Store original data before normalization for highlighting logic
+        setOriginalData(res.data);
         
         const data = normalizeFilter ? handleNormalize(res.data) : res.data;
 
