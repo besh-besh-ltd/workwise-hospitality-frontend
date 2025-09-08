@@ -35,9 +35,12 @@ const QuoteCompareTable = ({
   const hasMissingCosts = (item) => {
     // Don't show highlighting when freight filter is active
     if (freightFilter) return false;
-    
+
     if (!item) return false;
-    
+
+    // Ignore declined/regretted quotes
+    if (item.is_regret == 1 || item?.quote_details?.is_regret == 1) return false;
+
     const freightPrice = parseFloat(item.freight_price) || 0;
     const packagePrice = parseFloat(item.package_price) || 0;
     
@@ -167,9 +170,11 @@ const QuoteCompareTable = ({
                     (spec) => spec.title == "Quantity"
                   )?.value || item.quantity;
 
-                // Find corresponding original quotation for highlighting
+                // Derive missing-costs using original quotations (pre-normalization)
                 const originalItem = originalQuotations?.find(origItem => origItem.quote_id === item.quote_id) || item;
                 const missingCosts = hasMissingCosts(originalItem);
+                const isRegret = item?.quote_details?.is_regret == 1;
+
                 return (
                   <div
                     className="table-col"
@@ -179,14 +184,14 @@ const QuoteCompareTable = ({
                       className="table-si-row table-dark-row "
                       style={{ 
                         overflow: "visible",
-                        backgroundColor: missingCosts ? "#ff8c00" : undefined
+                        backgroundColor: (!isRegret && missingCosts) ? "#ff8c00" : undefined
                       }}
                     >
                       <span
                         className="d-block text-center fw-bold fs-5"
                         style={{ 
                           width: "100%",
-                          color: missingCosts ? "white" : undefined
+                          color: (!isRegret && missingCosts) ? "white" : undefined
                         }}
                       >
                         {item?.quote_details?.vendor_details
