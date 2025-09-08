@@ -252,7 +252,12 @@ const handleSendMail = async (item) => {
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
+<<<<<<< HEAD
                                           // className="page-link"
+=======
+                                        // className="page-link"
+                                        id={`${checkBidExpired(item.bid_end_date) ? "view_quote" : (item.status === 1) ? (item.quote_status === "pending" ? "send_quote" : item.quote_status === "sent" ? "edit_quote" : "view_quote") : "view_quote"}_${item.rfq_no}-rfq_actions-inquiries_received`}
+>>>>>>> 20623a7b0ec0243534aaf2950bde06955b8f1318
                                         >
                                           {checkBidExpired(
                                             item.bid_end_date
@@ -292,10 +297,15 @@ const handleSendMail = async (item) => {
                                     <td>
                                       <Link
                                         href={`/dashboard/vendor/query?rfq_id=${item?.id}&role=vendor`}
+<<<<<<< HEAD
                                         className={`page-link me-2 ${
                                           item.unseen_query_count != 0 &&
                                           "text-danger"
                                         }`}
+=======
+                                        className={`page-link me-2 ${item.unseen_query_count!=0 && "text-danger"}`}
+                                        id={`view_queries_${item.rfq_no}-rfq_actions-inquiries_received`}
+>>>>>>> 20623a7b0ec0243534aaf2950bde06955b8f1318
                                       >
                                         {item.unseen_query_count != 0
                                           ? `View Queries (${item.unseen_query_count} New)`

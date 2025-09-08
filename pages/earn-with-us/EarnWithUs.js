@@ -711,7 +711,7 @@ const EarnWithUs = () => {
       phone: values.phone,
       subject: modalTitle,
       comment: values.message || 'Earn With Us form submission',
-      submitted_from: 'earn-with-us'
+      submitted_from: '1'
     };
     // Hit the alias endpoint that reuses contact-us controller
     await registerInterestService(payload);

@@ -328,10 +328,10 @@ const Subscription = () => {
                       </h2>
                       {item.billing_cycle && item.billing_cycle?.length > 1 && (
                         <div className="d-flex gap-2 mt-4 px-3">
-                        {item.billing_cycle.map(cycle => (
+                        {item.billing_cycle.map((cycle, cycleIndex) => (
                           <button onClick={() => handleBillingCycleChange(item, cycle)} className={`btn btn-outline-secondary btn-sm ${selectedBillingCycles[item.plan_name] == cycle.label ? 'active' : null}`} style={{
                             padding: 8
-                          }}>{cycle.label}</button>
+                          }} id={`billing_cycle_${cycle.label}_${item.plan_name}-subscription_options-subscription_page`} key={cycleIndex}>{cycle.label}</button>
                         ))}
                         </div>
                       )}
@@ -361,6 +361,7 @@ const Subscription = () => {
                             disabled={subscriptionListData.some(subscription => subscription.active)}
                             className="btn btn-primary"
                             onClick={() => handleShowModal(item, activeItem)}
+                            id={`buy_subscription_${item.plan_name}-subscription_actions-subscription_page`}
                           >
                             Buy
                           </button>

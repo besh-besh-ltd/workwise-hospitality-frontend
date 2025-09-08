@@ -30,6 +30,7 @@ import Item from "../createRFQ/Item";
 import { editRfqSchema } from "@/utils/schema";
 import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
 import AddSpecModal from "./AddSpecModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -154,6 +155,8 @@ const EditRFQ = () => {
 
   // Promps a confirmation if any product is going to be deleted
   const [isUpdateConfirm, setIsUpdateConfirm] = useState(false);
+  const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const [pendingFormValues, setPendingFormValues] = useState(null);
 
   // Add a ref to track if terms have been initialized
   const termsInitializedRef = useRef(false);
@@ -883,6 +886,20 @@ const EditRFQ = () => {
     }
   };
 
+  const handleUpdateConfirm = () => {
+    if (pendingFormValues) {
+      handleUpdateRFQ(pendingFormValues);
+      setShowUpdateConfirmModal(false);
+      setPendingFormValues(null);
+    }
+  };
+
+  const handleUpdateCancel = () => {
+    setShowUpdateConfirmModal(false);
+    setPendingFormValues(null);
+  };
+
+
   const handleSelectProduct = (product) => {
     setProductAddData(prev => ({
       ...prev,
@@ -1168,6 +1185,7 @@ const EditRFQ = () => {
                               }));
                             }}
                             className="default-btn"
+                            id={`restore_product_${product.id}-product_actions-edit_rfq_page`}
                           >
                             Restore
                           </button>
@@ -1319,6 +1337,7 @@ const EditRFQ = () => {
           <button 
             className="btn btn-primary mt-3" 
             onClick={() => window.location.reload()}
+            id="reload_page-error_actions-edit_rfq_page"
           >
             Reload Page
           </button>
@@ -1336,6 +1355,7 @@ const EditRFQ = () => {
           <button 
             className="btn btn-primary" 
             onClick={() => window.location.reload()}
+            id="reload_page_loading-error_actions-edit_rfq_page"
           >
             Reload Page
           </button>
@@ -1418,6 +1438,7 @@ const EditRFQ = () => {
                       setHasUnsavedChanges={setHasUnsavedChanges}
                       getDraftInitialData={fetchInitialData}
                       saveDraft={() => {}}
+                      pageRoute="edit_rfq_page"
                       onSpecValueChange={(change) => {
                         setRfqData((prev) => ({
                           ...prev,
@@ -1600,7 +1621,8 @@ const EditRFQ = () => {
         <div className="mb-4 d-flex justify-content-end">
           <button
             onClick={() => setShowAddProductModal(true)}
-            className="btn btn-primary btn-sm">
+            className="btn btn-primary btn-sm"
+            id="add_product-product_actions-edit_rfq_page">
             Add A Product
           </button>
         </div>
@@ -1621,7 +1643,6 @@ const EditRFQ = () => {
             validationSchema={EditRFQSchema}
             enableReinitialize={true}
             onSubmit={(values) => {
-
               const updatedFormData = {
                 ...rfqFormDataFromStore,
                 contact_name: values.contact_name,
@@ -1630,7 +1651,8 @@ const EditRFQ = () => {
                 response_email: values.response_email,
                 bid_end_date: values.bid_end_date,
               };
-              handleUpdateRFQ(updatedFormData);
+              setPendingFormValues(updatedFormData);
+              setShowUpdateConfirmModal(true);
             }}
           >
             {({ values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue }) => (
@@ -2062,6 +2084,7 @@ const EditRFQ = () => {
                           e.preventDefault();
                         }
                       }}
+                      id="update_rfq-rfq_actions-edit_rfq_page"
                     >
                       {storeLoading || loading ? "Updating..." : "Update RFQ"}
                     </button>
@@ -2074,6 +2097,7 @@ const EditRFQ = () => {
                       style={{ height: "fit-content" }} 
                     className="btn btn-danger px-4"
                     onClick={() => router.push("/dashboard/buyer/rfq-management")}
+                    id="cancel_edit-rfq_actions-edit_rfq_page"
                   >
                     Cancel
                     </button>
@@ -2311,6 +2335,19 @@ const EditRFQ = () => {
         onEntry={handleAddSpec}
         updatableData={updatableData}
       />
+
+      {/* Update RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showUpdateConfirmModal}
+        onClose={handleUpdateCancel}
+        onConfirm={handleUpdateConfirm}
+        title="Update RFQ"
+        description="Are you sure you want to update this RFQ?\nThis action will modify the RFQ details and notify relevant vendors."
+        confirmButtonColor="success"
+        confirmButtonText="Update RFQ"
+        cancelButtonText="Cancel"
+      />
+
     </>
   );
 };

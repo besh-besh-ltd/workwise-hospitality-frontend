@@ -259,6 +259,7 @@ const ProductManagement = () => {
                           <Link
                             href="add-products"
                             className="btn btn-secondary d-flex align-items-center justify-content-center "
+                            id="add_single_product-product_management-vendor_product_management_page"
                           >
                             Add Single Product
                           </Link>
@@ -317,6 +318,7 @@ const ProductManagement = () => {
                         </div>
                         <div className="d-flex mt-4 col-md-4">
                           <button
+                            id="upload_xlsx_product_management-page"
                             type="button"
                             className="btn btn-primary mr-2"
                             onClick={() => uploadToServer()}
@@ -325,6 +327,7 @@ const ProductManagement = () => {
                           </button>
                           <div className="d-flex justify-content-end col-md-4">
                             <button
+                              id="cancel_bulk_upload-product_management-page"
                               type="button"
                               className="btn btn-secondary mr-2"
                               onClick={() => {
@@ -382,10 +385,12 @@ const ProductManagement = () => {
                         onChange={(e) =>
                           setSelectedVendor(e ? e.value : "")
                         }
+                        id="approved_by_filter-product_management-vendor_product_management_page"
                       />
 
                       <div className="action-btm ">
                         <button
+                          id="search_products-product_management-page"
                           className="btn btn-primary"
                           onClick={() => {
                             getProducts();
@@ -399,6 +404,7 @@ const ProductManagement = () => {
                     <div className="col-5 d-flex justify-content-end ">
                       <Link
                         href="#"
+                        id="export_products-product_management-vendor_product_management_page"
                         className="btn btn-primary "
                         style={{ width: "35%" }}
                         onClick={() => {
@@ -420,6 +426,7 @@ const ProductManagement = () => {
                               name="select_all_products"
                               value=""
                               onClick={(e) => selectAllProduct(e)}
+                              id="select_all_products-product_table-vendor_product_management_page"
                             />
                             <a>Select all</a>
                           </th>
@@ -443,6 +450,7 @@ const ProductManagement = () => {
                                       checked={item.isChecked}
                                       value=""
                                       onClick={(e) => selectProduct(e, item)}
+                                      id={`select_product_${item.id}-product_table-vendor_product_management_page`}
                                     />
                                   </td>
                                   <td>{item.name}</td>
@@ -470,6 +478,7 @@ const ProductManagement = () => {
                                       role="button"
                                       className="cursor-pointer"
                                       onClick={() => handleUpdateProducts(item)}
+                                      id={`edit_product_${item.id}-product_actions-vendor_product_management_page`}
                                     >
                                       Edit
                                     </span>

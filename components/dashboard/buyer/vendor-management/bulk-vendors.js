@@ -154,7 +154,7 @@ const BulkVendors = () => {
                             <div className="row">
                                 <div className="col-7"></div>
                                 <div className="col-5 d-flex">
-                                    <Button variant="secondary" className="ms-auto border-0" style={{ width: "280px" }} onClick={uploadToServer}>Add Vendors</Button>
+                                    <Button variant="secondary" className="ms-auto border-0" style={{ width: "280px" }} onClick={uploadToServer} id="add_bulk_vendors-vendor_actions-bulk_vendors_page">Add Vendors</Button>
                                 </div>
                             </div>
                         </div>

@@ -19,7 +19,7 @@ const BuyerTechnicalEvaluation = () => {
   const [currentUserProfile, setcurrentUserProfile] = useState(null);
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setcurrentRfq] = useState(null);
-  const [vendorMap, setVendorMap] = useState(null);
+  const [vendorMap, setVendorMap] = useState(new Map());
   const [clauseMap, setClauseMap] = useState(null);
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
@@ -186,6 +186,7 @@ useEffect(() => {
                         name="rfq_type"
                         placeholder="Ex. 123456"
                         isClearable
+                        id="search_rfq_no-rfq_list-technical_evaluation_page"
                     />
                 </div>
                 <div className="py-2">
@@ -197,6 +198,7 @@ useEffect(() => {
                         name="project_id"
                         placeholder="Select"
                         isClearable
+                        id="select_project_filter-rfq_list-technical_evaluation_page"
                     />
                 </div>
 
@@ -214,6 +216,7 @@ useEffect(() => {
                           className={
                             item.id === currentRfq?.id ? "text-white" : "text-dark"
                           }
+                          id={`rfq_${item.rfq_no}-rfq_list-technical_evaluation_page`}
                         >
                           RFQ #{item.rfq_no}
                           {item.project_name && item.project_name != "" &&
@@ -353,8 +356,19 @@ useEffect(() => {
                                         value={productSelectedVendors}
                                         onChange={(selectedOptions) => {
                                           setSelectedVendorsMap(prev => new Map(prev).set(product.id, selectedOptions || []));
+                                          // Also update vendorMap for single vendor selection
+                                          if (selectedOptions && selectedOptions.length > 0) {
+                                            setVendorMap(prev => new Map(prev).set(product.id, selectedOptions[0]));
+                                          } else {
+                                            setVendorMap(prev => {
+                                              const newMap = new Map(prev);
+                                              newMap.delete(product.id);
+                                              return newMap;
+                                            });
+                                          }
                                         }}
                                         noOptionsMessage={() => "No vendors responded"}
+                                        id={`select_vendor_${product.id}-vendor_selection-technical_evaluation_page`}
                                       />
                                     </div>
                                   </div>

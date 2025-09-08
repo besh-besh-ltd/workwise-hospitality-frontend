@@ -20,6 +20,55 @@ const EventsPage = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
+  // Helper: parse various date formats and return the event end-date (Date)
+  const getEventEndDate = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+    const s = dateStr.replace(/\u2013|\u2014/g, '-').trim(); // normalize en/em dashes to '-'
+
+    // Month mapping with common variants
+    const monthMap = {
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, sept: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11,
+    };
+
+    // Patterns we expect:
+    // 1) "11-14 Feb 2025" or "5-7 Mar 2025"
+    let m = s.match(/^(\d{1,2})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/);
+    if (m) {
+      const endDay = parseInt(m[2], 10);
+      const monthKey = m[3].toLowerCase();
+      const year = parseInt(m[4].length === 2 ? `20${m[4]}` : m[4], 10);
+      const month = monthMap[monthKey];
+      if (month === undefined) return null;
+      return new Date(year, month, endDay);
+    }
+
+    // 2) "22-24 Aug 2025" already handled above; 3) single day like "8-Aug-25" or "8 Aug 2025"
+    m = s.match(/^(\d{1,2})[\s-]*([A-Za-z]+)[\s-]*(\d{2,4})$/);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const monthKey = m[2].toLowerCase();
+      const year = parseInt(m[3].length === 2 ? `20${m[3]}` : m[3], 10);
+      const month = monthMap[monthKey];
+      if (month === undefined) return null;
+      return new Date(year, month, day);
+    }
+
+    // Fallback: try Date.parse directly
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   const handleRegisterInterest = (event) => {
     setSelectedEvent(event);
     setShowModal(true);
@@ -33,7 +82,7 @@ const EventsPage = () => {
       phone: formData.phoneNumber,
       subject: selectedEvent ? `Event Registration: ${selectedEvent.name}` : 'Event Updates',
       comment: formData.companyName ? `Company: ${formData.companyName}` : 'Event form submission',
-      submitted_from: 'events'
+      submitted_from: '1'
     };
     await registerInterestService(payload);
     setShowModal(false);
@@ -48,8 +97,17 @@ const EventsPage = () => {
     setSearchTerm(term);
   };
 
+  // Compute status automatically from dates
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const eventsWithComputedStatus = eventsData.events.map((event) => {
+    const endDate = getEventEndDate(event.date);
+    const computedStatus = endDate && endDate < todayStart ? 'Past' : 'Upcoming';
+    return { ...event, status: computedStatus };
+  });
+
   // Filter events based on selected filters and search term
-  const filteredEvents = eventsData.events.filter(event => {
+  const filteredEvents = eventsWithComputedStatus.filter(event => {
     const matchesType = eventType === 'All Events' || 
       (eventType === 'Exhibitions' && event.participationTypes.includes('Exhibitor')) ||
       (eventType === 'Conferences' && event.participationTypes.includes('Speaker')) ||

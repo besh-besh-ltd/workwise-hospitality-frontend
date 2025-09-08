@@ -11,6 +11,7 @@ import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-ico
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { checkBidExpired, extractfileName, formatDate } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
@@ -29,6 +30,7 @@ const RfqManagementPreview = () => {
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
   const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
@@ -190,16 +192,27 @@ const RfqManagementPreview = () => {
   };
 
   const handleRFqClose = (e) => {
-    setcloseRFqLoading(true);
     e.preventDefault();
-    closeRFQ(id)
-      .then(() => {
-        getRFQdetails();
-        setcloseRFqLoading(false);
-      })
-      .catch((err) => {
-        setcloseRFqLoading(false);
-      });
+    setShowCloseConfirmModal(true);
+  };
+
+  const handleCloseConfirm = async () => {
+    setcloseRFqLoading(true);
+    try {
+      await closeRFQ(id);
+      getRFQdetails();
+      toast.success("RFQ closed successfully");
+    } catch (err) {
+      console.error("Error closing RFQ:", err);
+      toast.error("Failed to close RFQ");
+    } finally {
+      setcloseRFqLoading(false);
+      setShowCloseConfirmModal(false);
+    }
+  };
+
+  const handleCloseCancel = () => {
+    setShowCloseConfirmModal(false);
   };
 
   const checkIfQuotationSendIsPossible = useCallback(() => {
@@ -679,6 +692,7 @@ const RfqManagementPreview = () => {
                             href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
                           >
                             <button
+                              id="edit_rfq-rfq_header-inquiries_details_page"
                               type="button"
                               className="btn btn-primary me-2"
                               style={{ width: "auto" }}
@@ -690,6 +704,7 @@ const RfqManagementPreview = () => {
                         )}
 
                         <button
+                          id="view_queries-rfq_header-inquiries_details_page"
                           type="button"
                           className=" btn btn-primary "
                           style={{ width: "180px" }}
@@ -722,6 +737,7 @@ const RfqManagementPreview = () => {
                               href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
                             >
                               <button
+                                id="compare_received_quotes-rfq_header-inquiries_details_page"
                                 type="button"
                                 className="btn btn-secondary "
                                 style={{ width: "270px" }}
@@ -731,6 +747,7 @@ const RfqManagementPreview = () => {
                             </Link>
                           ) : (
                             <button
+                              id="no_quotes_received-rfq_header-inquiries_details_page"
                               type="button"
                               className="btn btn-primary"
                               style={{ width: "230px" }}
@@ -751,6 +768,7 @@ const RfqManagementPreview = () => {
                             item.finalization_status === "You are finalized"
                         ) ? (
                           <button
+                            id="update_your_quote-rfq_header-inquiries_details_page"
                             type="button"
                             className="btn btn-secondary m-0 p-2"
                             style={{ width: "240px" }}
@@ -1779,6 +1797,18 @@ const RfqManagementPreview = () => {
         setOpenAuthModal={setOpenAuthModal}
         activeAuthTab={activeAuthTab}
         setActiveAuthTab={setActiveAuthTab}
+      />
+
+      {/* Close RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCloseConfirmModal}
+        onClose={handleCloseCancel}
+        onConfirm={handleCloseConfirm}
+        title="Close RFQ"
+        description={`Are you sure you want to close RFQ #${rfqDetails?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        confirmButtonColor="warning"
+        confirmButtonText="Close RFQ"
+        cancelButtonText="Cancel"
       />
     </>
   );

@@ -82,7 +82,7 @@ const ChangePasswordPage = () => {
 
                                            
 
-                                            <button type="submit" className="btn btn-secondary">Change Password</button>
+                                            <button type="submit" className="btn btn-secondary" id="change_password_submit-password_form-change_password_page">Change Password</button>
                                         </div>
                                     </Form>
                                 )}

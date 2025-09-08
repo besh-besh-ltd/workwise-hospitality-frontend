@@ -121,40 +121,8 @@ const FoundersTeamComponent = () => {
       <div className="row justify-content-center">
         <div className="col-12">
           
-          {/* Header */}
-          <div className="text-center mb-5">
-            <div className="d-flex align-items-center justify-content-center mb-3">
-              <div 
-                className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  background: 'rgba(108, 117, 125, 0.1)' 
-                }}
-              >
-                <FaUsers className="text-secondary" size={20} />
-              </div>
-              <h2 className="mb-0 fw-bold text-dark" style={{ fontSize: '2rem' }}>
-                Founder & Whole Team
-              </h2>
-            </div>
-            {/* Orange underline */}
-            <div 
-              className="mx-auto"
-              style={{ 
-                width: '60px', 
-                height: '3px', 
-                backgroundColor: '#FFA500',
-                borderRadius: '2px'
-              }}
-            ></div>
-          </div>
-
-          {/* Whole Team Section */}
+          {/* Team Section */}
           <div className="mb-4">
-            <h3 className="mb-4 fw-bold text-dark" style={{ fontSize: '1.5rem' }}>
-              Team behind Workwise
-            </h3>
             <div className="row">
               {teamBehindWorkwise.map((member) => (
                 <TeamCard key={member.id} member={member} />

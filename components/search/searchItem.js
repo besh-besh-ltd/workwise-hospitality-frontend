@@ -26,6 +26,7 @@ const SearchItem = ({
                 type="checkbox"
                 onClick={(e) => addToRFQ(e.target.checked, data)}
                 checked={data.selected}
+                id={`select_vendor_${data.id}-vendor_card-vendor_search_page`}
               />
               {type == "products"
                 ? <span>By {data?.user_detail[0]?.name}</span>
@@ -114,6 +115,7 @@ const SearchItem = ({
                   href={`/vendor/vendor-profile?id=${data.id}`}
                   className="btn btn-primary custom_primary_btn"
                   target="_blank"
+                  id={`view_details_${data.id}-vendor_card-vendor_search_page`}
                 >
                   View Details
                 </Link>
@@ -137,6 +139,7 @@ const SearchItem = ({
                     else
                       setOpenCommonModal(true);
                   }}
+                  id={`contact_info_${data.id}-vendor_card-vendor_search_page`}
                 >
                   Contact Info
                 </Link>

@@ -74,6 +74,7 @@ const TE_Modal = ({ rfq_id ,openModal, closeModal, data, vendor_id, getTechEvalR
                         className="btn btn-secondary border-0 p-2"
                         style={{ width: "120px" }}
                         onClick={() => handleSend()}
+                        id="confirm_rejection-rejection_modal-technical_evaluation_page"
                     >
                         Confirm
                     </button>

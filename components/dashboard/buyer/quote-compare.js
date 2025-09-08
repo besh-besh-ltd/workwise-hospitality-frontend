@@ -28,6 +28,7 @@ import OverallCostComparison from './OverallCostComparison';
 import ReadMore from "@/components/shared/ReadMore";
 import InputModal from "@/components/shared/InputModal";
 import NormalizeInfoModal from "@/components/modal/NormalizeInfoModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -44,11 +45,13 @@ const QuoteCompare = () => {
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [closeRFqLoading, setcloseRFqLoading] = useState(false);
   const [finalizeLoading, setfinalizeLoading] = useState(false);
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
   const [myRFQs, setmyRFQs] = useState([]);
   const [currentRFQ, setcurrentRFQ] = useState(null);
   const [quotes, setquotes] = useState([]);
+  const [originalQuotes, setOriginalQuotes] = useState([]); // Store original data before normalization
   const [l1total, setl1total] = useState(0);
   const [hasMoreQuotes, sethasMoreQuotes] = useState(true);
   const [TA_Filter, setTA_Filter] = useState(false);
@@ -254,6 +257,8 @@ const handleCloseNormalizeModal = () => {
 
     getQuotes(rfq, TA_Filter, freightFilter , 'quote_compare')
       .then((res) => {
+        // Store original data before normalization for highlighting logic
+        setOriginalQuotes(res.data);
 
         const data = normalizeFilter ? normalizeFlatQuotationData(res.data) : res.data;
 
@@ -685,6 +690,40 @@ const generateExcelFile = (api_data) => {
     data.push(temp);
   }
 
+  // ---------------------------------
+  // Add RFQ metadata header (top rows)
+  // ---------------------------------
+  const headerOffset = 3; // number of rows added at the top
+  const totalColumns = data[0]?.length || 0;
+
+  const padToCols = (row) => {
+    const r = Array.isArray(row) ? row.slice() : [];
+    while (r.length < totalColumns) r.push("");
+    return r;
+  };
+
+  const titleText = `RFQ #${currentRFQ?.rfq_no ?? "-"}`;
+  const infoRow1 = padToCols([
+    "Project",
+    currentRFQ?.project_name ?? "-",
+    "Bid End Date",
+    currentRFQ?.bid_end_date ?? "-",
+  ]);
+
+  const infoRow2 = padToCols([
+    "Company",
+    currentRFQ?.company_name ?? "-",
+    "Contact",
+    currentRFQ?.contact_name ? `${currentRFQ.contact_name} ${currentRFQ.contact_number ? "(" + currentRFQ.contact_number + ")" : ""}` : (currentRFQ?.contact_number ?? "-"),
+  ]);
+
+  const titleRow = padToCols([titleText]);
+
+  // Unshift in reverse order to maintain intended order at top
+  data.unshift(infoRow2);
+  data.unshift(infoRow1);
+  data.unshift(titleRow);
+
   const ws = XLSX.utils.aoa_to_sheet(data);
   const width = 25;
   const range = XLSX.utils.decode_range(ws["!ref"]);
@@ -695,8 +734,8 @@ const generateExcelFile = (api_data) => {
     let columnToMergeEnd = allVendors.length * 6 + 3; // Updated for 6 columns per vendor
 
     const mergeRange = {
-      s: { r: api_data.length + 7, c: columnToMergeStart },
-      e: { r: api_data.length + 7, c: columnToMergeEnd },
+      s: { r: headerOffset + api_data.length + 7, c: columnToMergeStart },
+      e: { r: headerOffset + api_data.length + 7, c: columnToMergeEnd },
     };
 
     if (!ws["!merges"]) ws["!merges"] = [];
@@ -729,7 +768,7 @@ const generateExcelFile = (api_data) => {
   }
 
   for (let col = range.s.c; col <= range.e.c; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    const cellAddress = XLSX.utils.encode_cell({ r: headerOffset + 0, c: col });
     if (!ws["!cols"]) ws["!cols"] = [];
     const cell = ws[cellAddress];
 
@@ -749,7 +788,7 @@ const generateExcelFile = (api_data) => {
   }
 
   for (let col = range.s.c; col <= range.e.c; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 1, c: col });
+    const cellAddress = XLSX.utils.encode_cell({ r: headerOffset + 1, c: col });
     if (!ws["!cols"]) ws["!cols"] = [];
     if (col >= 3) {
       const cell = ws[cellAddress];
@@ -765,24 +804,24 @@ const generateExcelFile = (api_data) => {
     let columnToMergeEnd = i + 5; // Updated for 6 columns
 
     const mergeRange = {
-      s: { r: 0, c: columnToMergeStart },
-      e: { r: 0, c: columnToMergeEnd },
+      s: { r: headerOffset + 0, c: columnToMergeStart },
+      e: { r: headerOffset + 0, c: columnToMergeEnd },
     };
     const mergeRangeDelivery = {
-      s: { r: api_data.length + 8, c: columnToMergeStart },
-      e: { r: api_data.length + 8, c: columnToMergeEnd },
+      s: { r: headerOffset + api_data.length + 8, c: columnToMergeStart },
+      e: { r: headerOffset + api_data.length + 8, c: columnToMergeEnd },
     };
     const mergeRangePaymentTerms = {
-      s: { r: api_data.length + 9, c: columnToMergeStart },
-      e: { r: api_data.length + 9, c: columnToMergeEnd },
+      s: { r: headerOffset + api_data.length + 9, c: columnToMergeStart },
+      e: { r: headerOffset + api_data.length + 9, c: columnToMergeEnd },
     };
     const mergeRangeComments = {
-      s: { r: api_data.length + 10, c: columnToMergeStart },
-      e: { r: api_data.length + 10, c: columnToMergeEnd },
+      s: { r: headerOffset + api_data.length + 10, c: columnToMergeStart },
+      e: { r: headerOffset + api_data.length + 10, c: columnToMergeEnd },
     };
     const mergeRangeFiles = {
-      s: { r: api_data.length + 11, c: columnToMergeStart },
-      e: { r: api_data.length + 11, c: columnToMergeEnd },
+      s: { r: headerOffset + api_data.length + 11, c: columnToMergeStart },
+      e: { r: headerOffset + api_data.length + 11, c: columnToMergeEnd },
     };
 
     if (!ws["!merges"]) ws["!merges"] = [];
@@ -794,8 +833,8 @@ const generateExcelFile = (api_data) => {
 
     for (let i = 1; i < maxFileLen; i++) {
       const mergeConfig = {
-        s: { r: api_data.length + 11 + i, c: columnToMergeStart },
-        e: { r: api_data.length + 11 + i, c: columnToMergeEnd },
+        s: { r: headerOffset + api_data.length + 11 + i, c: columnToMergeStart },
+        e: { r: headerOffset + api_data.length + 11 + i, c: columnToMergeEnd },
       };
       if (!ws["!merges"]) ws["!merges"] = [];
       ws["!merges"].push(mergeConfig);
@@ -817,14 +856,14 @@ const generateExcelFile = (api_data) => {
   const columns = 4;
   for (let c = 0; c < columns; c++) {
     const mergeConfig = {
-      s: { r: 0, c },
-      e: { r: 1, c },
+      s: { r: headerOffset + 0, c },
+      e: { r: headerOffset + 1, c },
     };
     ws["!merges"].push(mergeConfig);
   }
   ws["!merges"].push({
-    s: { r: 0, c: range.e.c },
-    e: { r: 1, c: range.e.c },
+    s: { r: headerOffset + 0, c: range.e.c },
+    e: { r: headerOffset + 1, c: range.e.c },
   });
 
   for (let row = range.s.r; row <= range.e.r; row++) {
@@ -832,7 +871,7 @@ const generateExcelFile = (api_data) => {
     const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
     if (!ws[cellAddress]) ws[cellAddress] = {};
     if (!ws[cellAddress].s) ws[cellAddress].s = {};
-    if (row > 1) {
+    if (row > headerOffset + 1) {
       ws[cellAddress].s.alignment = {
         horizontal: "left",
         vertical: "center",
@@ -852,8 +891,8 @@ const generateExcelFile = (api_data) => {
   }
 
   for (
-    let i = 2 + api_data.length + 4;
-    i < 2 + api_data.length + 4 + 6;
+    let i = headerOffset + 2 + api_data.length + 4;
+    i < headerOffset + 2 + api_data.length + 4 + 6;
     i++
   ) {
     const cellAddress = XLSX.utils.encode_cell({ r: i, c: 0 });
@@ -862,18 +901,20 @@ const generateExcelFile = (api_data) => {
     ws[cellAddress].s.font = { bold: true };
   }
 
-  const mergedCellAddresses = ["A1", "A2", "B1", "B2"];
-  mergedCellAddresses.forEach((cellAddress) => {
-    if (!ws[cellAddress]) ws[cellAddress] = {};
-    if (!ws[cellAddress].s) ws[cellAddress].s = {};
-    ws[cellAddress].s.alignment = {
-      vertical: "center",
-      horizontal: "center",
-    };
+  // Center merged column titles for the first two grid rows
+  [
+    XLSX.utils.encode_cell({ r: headerOffset + 0, c: 0 }),
+    XLSX.utils.encode_cell({ r: headerOffset + 1, c: 0 }),
+    XLSX.utils.encode_cell({ r: headerOffset + 0, c: 1 }),
+    XLSX.utils.encode_cell({ r: headerOffset + 1, c: 1 }),
+  ].forEach((addr) => {
+    if (!ws[addr]) ws[addr] = {};
+    if (!ws[addr].s) ws[addr].s = {};
+    ws[addr].s.alignment = { vertical: "center", horizontal: "center" };
   });
 
   for (let col = range.s.c; col <= range.e.c; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    const cellAddress = XLSX.utils.encode_cell({ r: headerOffset + 0, c: col });
     if (!ws[cellAddress]) ws[cellAddress] = {};
     if (!ws[cellAddress].s) ws[cellAddress].s = {};
     ws[cellAddress].s.font = { bold: true };
@@ -884,7 +925,7 @@ const generateExcelFile = (api_data) => {
     };
 
     if (col >= 4 && col < range.e.c) {
-      const cellAddress2 = XLSX.utils.encode_cell({ r: 1, c: col });
+      const cellAddress2 = XLSX.utils.encode_cell({ r: headerOffset + 1, c: col });
       if (!ws[cellAddress2]) ws[cellAddress2] = {};
       if (!ws[cellAddress2].s) ws[cellAddress2].s = {};
       ws[cellAddress2].s.font = { bold: true, sz: 9 };
@@ -907,7 +948,7 @@ const generateExcelFile = (api_data) => {
 
   for (let i = 4; i < allVendors.length * 6 + 4; i += 6) { // Updated for 6 columns
     for (let j = 0; j < api_data.length + 6 + 1; j++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: j, c: i });
+      const cellAddress = XLSX.utils.encode_cell({ r: headerOffset + j, c: i });
       if (!ws[cellAddress]) ws[cellAddress] = {};
       if (!ws[cellAddress].s) ws[cellAddress].s = {};
       ws[cellAddress].s.border = {
@@ -920,14 +961,14 @@ const generateExcelFile = (api_data) => {
   }
 
   for (let col = range.s.c; col <= range.e.c; col++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    const cellAddress = XLSX.utils.encode_cell({ r: headerOffset + 0, c: col });
     if (!ws[cellAddress]) ws[cellAddress] = {};
     if (!ws[cellAddress].s) ws[cellAddress].s = {};
     ws[cellAddress].s.fill = { fgColor: { rgb: "DDDDDD" } };
     ws[cellAddress].s.font = { color: { rgb: "000000" }, sz: 12, bold: true };
   }
 
-  let fileRow = 2 + api_data.length + 9;
+  let fileRow = headerOffset + 2 + api_data.length + 9;
   for (let row_i = fileRow; row_i < fileRow + maxFileLen; row_i++) {
     if (!ws["!rows"]) ws["!rows"] = [];
     ws["!rows"][row_i] = { hpx: 35 };
@@ -967,6 +1008,31 @@ const generateExcelFile = (api_data) => {
         e: { r: fileRow + maxFileLen - 1, c },
       };
       ws["!merges"].push(mergeConfig);
+    }
+  }
+
+  // Merge and style the RFQ title row across all columns
+  if (!ws["!merges"]) ws["!merges"] = [];
+  ws["!merges"].push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalColumns - 1 } });
+  const titleAddr = XLSX.utils.encode_cell({ r: 0, c: 0 });
+  if (!ws[titleAddr]) ws[titleAddr] = { v: titleText };
+  if (!ws[titleAddr].s) ws[titleAddr].s = {};
+  ws[titleAddr].s = {
+    font: { bold: true, sz: 20 },
+    alignment: { horizontal: "left", vertical: "center" },
+    fill: { fgColor: { rgb: "DDDDDD" } },
+  };
+
+  // Light highlight for the two info rows
+  for (let r = 1; r <= 2; r++) {
+    for (let c = 0; c < totalColumns; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws[addr]) ws[addr] = {};
+      if (!ws[addr].s) ws[addr].s = {};
+      ws[addr].s.fill = { fgColor: { rgb: "FFFFFF" } };
+      if (c % 2 === 0) {
+        ws[addr].s.font = { bold: true };
+      }
     }
   }
 
@@ -1016,16 +1082,27 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
   }
 };
   const handleRFqClose = (e) => {
-    setcloseRFqLoading(true);
     e.preventDefault();
-    closeRFQ(rfq)
-      .then(() => {
-        getRespectiveQuotes();
-        setcloseRFqLoading(false);
-      })
-      .catch((err) => {
-        setcloseRFqLoading(false);
-      });
+    setShowCloseConfirmModal(true);
+  };
+
+  const handleCloseConfirm = async () => {
+    setcloseRFqLoading(true);
+    try {
+      await closeRFQ(rfq);
+      getRespectiveQuotes();
+      toast.success("RFQ closed successfully");
+    } catch (err) {
+      console.error("Error closing RFQ:", err);
+      toast.error("Failed to close RFQ");
+    } finally {
+      setcloseRFqLoading(false);
+      setShowCloseConfirmModal(false);
+    }
+  };
+
+  const handleCloseCancel = () => {
+    setShowCloseConfirmModal(false);
   };
 
   const handleFinalize = (item, proditem) => {
@@ -1110,6 +1187,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     onClick={() => {
                       setOpenInputModal(true); // Make sure this matches the state variable name
                     }}
+                    id="negotiation_button-top_actions-compare_quotes_page"
                   >
                     Negotiation
                   </span>
@@ -1124,7 +1202,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                   )}
 
                   {/* Download quote & Close Rfq Buttons */}
-                  <span onClick={handleDownloadQuote}>
+                  <span id="download_quote_actions-quote_compare_page" onClick={handleDownloadQuote}>
                     {" "}
                     {downloadLoading
                       ? "Generating Excel file...."
@@ -1133,7 +1211,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
 
                   <>
                     {quotes[0]?.rfq[0]?.status == 1 && (
-                      <span onClick={handleRFqClose}>
+                      <span id="close_rfq_actions-quote_compare_page" onClick={handleRFqClose}>
                         {closeRFqLoading
                           ? "Processing request..."
                           : "Mark RFQ as Closed"}
@@ -1145,7 +1223,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                       </span>
                     )}
                   </>
-                <span onClick={handleNormalizeClick}>
+                <span onClick={handleNormalizeClick} id="normalize_quotes_button-top_actions-compare_quotes_page">
                   {normalizeFilter ? "Remove Normalize Quotes" : "Normalize Quotes Smartly"}
                 </span>
                 </div>
@@ -1176,6 +1254,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     name="rfq_type"
                     placeholder="Ex. 123456"
                     isClearable
+                    id="search_rfq_no-quotes_received-compare_quotes_page"
                   />
                 </div>
                 <div className="py-2">
@@ -1191,6 +1270,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     name="project_id"
                     placeholder="Select"
                     isClearable
+                    id="select_project_filter-quotes_received-compare_quotes_page"
                   />
                 </div>
                 {!loading && myRFQs && myRFQs.length === 0 ? (
@@ -1213,6 +1293,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             className={`${
                               item.id == rfq ? "text-white" : "text-dark"
                             }`}
+                            id={`rfq_item_${item.rfq_no}-quotes_received-compare_quotes_page`}
                           >
                             RFQ #{item?.rfq_no}
                             {item.project_name && item.project_name != "" && (
@@ -1231,7 +1312,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     {hasMoreQuotes && !loading && myRFQs.length >= 10 && (
                       <Link
                         href="#"
-                        className="d-flex justify-content-end px-3 pe-auto"
+                        id="load_more_rfqs-quote_list-quote_compare_page" className="d-flex justify-content-end px-3 pe-auto"
                         onClick={loadMoreRFQs}
                       >
                         <span className="link-primary">...Load More</span>
@@ -1358,7 +1439,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         zIndex: activeTab === "product" ? 2 : 1,
                         transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab("product")}
+                    onClick={() => setActiveTab('product')}
+                    id="product_tab-quote_tabs-quote_compare_page"
                     >
                       Product Wise Comparison
                     </Link>
@@ -1385,7 +1467,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         zIndex: activeTab === "category" ? 2 : 1,
                         transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab("category")}
+                    onClick={() => setActiveTab('category')}
+                    id="category_tab-quote_tabs-quote_compare_page"
                     >
                       Category wise Comparison
                     </Link>
@@ -1407,7 +1490,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                         zIndex: activeTab === "cost" ? 2 : 1,
                         transition: "background 0.2s, color 0.2s",
                       }}
-                      onClick={() => setActiveTab("cost")}
+                    onClick={() => setActiveTab('cost')}
+                    id="overall_cost_tab-quote_tabs-quote_compare_page"
                     >
                       Overall Cost Comparison
                     </Link>
@@ -1419,10 +1503,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             type="checkbox"
                             role="switch"
                             checked={TA_Filter}
-                            id="TA_check"
+                            id="ta_filter_toggle-quote_tabs-quote_compare_page"
                             onChange={handleTAFilterChange}
                           />
-                          <label className="form-check-label" for="TA_check">
+                          <label className="form-check-label" for="ta_filter_toggle-quote_tabs-quote_compare_page">
                             View Technically Accepted Vendors
                           </label>
                         </div>
@@ -1435,12 +1519,12 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             type="checkbox"
                             role="switch"
                             checked={freightFilter}
-                            id="freight_check"
+                            id="freight_filter_toggle-quote_tabs-quote_compare_page"
                             onChange={handleFreightFilterChange}
                           />
                           <label
                             className="form-check-label"
-                            for="freight_check"
+                            for="freight_filter_toggle-quote_tabs-quote_compare_page"
                           >
                             View quotes without freight
                           </label>
@@ -1525,7 +1609,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                     <div>
                                       <div className="d-flex gap-2">
                                         <Button
-                                          variant="primary"
+                                          id="view_lpr_button-quote_actions-quote_compare_page"
+                                      variant="primary"
                                           size="sm"
                                           className="position-relative p-2 px-2"
                                           onClick={() =>
@@ -1839,6 +1924,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         proditem={item}
                                         handleFinalize={handleFinalize}
                                         quotations={item?.quotations}
+                                        originalQuotations={originalQuotes.find(origItem => origItem.id === item.id)?.quotations || item?.quotations}
                                         quantity={
                                           item?.product_details[0]?.rfq_details
                                             ? item?.product_details[0]
@@ -1856,6 +1942,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                                         targetPrice={item.latest_target_price}
                                         // targetHistory={targetPriceHistory}
                                         normalizeFilter={normalizeFilter}
+                                        freightFilter={freightFilter}
                                       />
                                     </>
                                   )}
@@ -1894,6 +1981,18 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
         show={showNormalizeModal}
         // secondsLeft={normSecondsLeft}
         onClose={handleCloseNormalizeModal}
+      />
+
+      {/* Close RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCloseConfirmModal}
+        onClose={handleCloseCancel}
+        onConfirm={handleCloseConfirm}
+        title="Close RFQ"
+        description={`Are you sure you want to close RFQ #${quotes[0]?.rfq[0]?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        confirmButtonColor="warning"
+        confirmButtonText="Close RFQ"
+        cancelButtonText="Cancel"
       />
     </>
   );

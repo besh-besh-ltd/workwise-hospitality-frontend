@@ -193,6 +193,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         onClick={handleBack}
         className="btn btn-primary p-2 mb-3 px-3"
         style={{ width: "fit-content" }}
+        id="back_button-po_details-purchase_order_page"
       >
         <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
         Back
@@ -217,6 +218,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                 bg={"success"}
                 className="fs-6 px-2 py-1 float-end text-uppercase"
                 style={{ cursor: "pointer" }}
+                id="approve_po-po_approval-po_details"
               >
                 Approve
               </Badge>
@@ -228,6 +230,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                 bg={"danger"}
                 className="fs-6 px-3 py-1 float-end text-uppercase"
                 style={{ cursor: "pointer" }}
+                id="reject_po-po_approval-po_details"
               >
                 Reject
               </Badge>
@@ -350,6 +353,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         <button
           className="minimal-btn"
           onClick={() => setShowMilestoneModal(true)}
+          id="add_milestone-payment_milestones-po_details"
         >
           Add Milestone
         </button>
@@ -419,6 +423,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                               color: "#dc3545",
                             }}
                             onClick={() => handleMilestoneEdition(milestone)}
+                            id={`edit_milestone_${milestone.id}-milestone_actions-po_details`}
                           >
                             <HiPencil size={25} />
                           </button>
@@ -433,6 +438,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                             onClick={() =>
                               handleMilestoneDeletion(milestone.id)
                             }
+                            id={`delete_milestone_${milestone.id}-milestone_actions-po_details`}
                           >
                             <HiOutlineTrash size={25} />
                           </button>
@@ -462,7 +468,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           Status Timeline
         </h5>
 
-        <button className="minimal-btn" onClick={() => setShowTaskModal(true)}>
+        <button className="minimal-btn" onClick={() => setShowTaskModal(true)} id="add_task-status_timeline-po_details">
           Add Task
         </button>
       </div>
@@ -513,6 +519,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                           color: "#dc3545",
                         }}
                         onClick={() => handleTaskEdition(task)}
+                        id={`edit_task_${task.id}-task_actions-po_details`}
                       >
                         <HiPencil size={25} />
                       </button>
@@ -525,6 +532,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                           color: "#dc3545",
                         }}
                         onClick={() => handleTaskDeletion(task.id)}
+                        id={`delete_task_${task.id}-task_actions-po_details`}
                       >
                         <HiOutlineTrash size={25} />
                       </button>

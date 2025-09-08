@@ -270,6 +270,7 @@ const Login = (props) => {
                     onClick={() => {
                       handleChange(setShowPassword(!showPassword));
                     }}
+                    id="toggle_password_visibility-password_field-login_form"
                   >
                     <FontAwesomeIcon icon={showPassword ? faEye : faEyeSlash} />
                   </div>
@@ -284,17 +285,18 @@ const Login = (props) => {
                   href="/forget-password"
                   onClick={() => props.closeModal()}
                   className="for-pass"
+                  id="forgot_password-login_links-login_form"
                 >
                   Forgot Password
                 </Link>
                 <span className="for-new text-right">
                   Are you a new user?&nbsp;
-                  <Link href="#" onClick={() => props.setActiveTab("register")}>
+                  <Link href="#" onClick={() => props.setActiveTab("register")} id="register_here-login_links-login_form">
                     Register here.
                   </Link>
                 </span>
               </div>
-              <button type="submit" className="btn btn-secondary">
+              <button type="submit" className="btn btn-secondary" id="login_submit-login_form-login_form">
                 Login
               </button>
             </Form>
@@ -314,6 +316,7 @@ const Login = (props) => {
                 setloading(true);
                 loginWithGoogle();
               }}
+              id="login_with_google-social_login-login_form"
             >
               <FontAwesomeIcon icon={faGoogle} /> Login with Google
             </button>

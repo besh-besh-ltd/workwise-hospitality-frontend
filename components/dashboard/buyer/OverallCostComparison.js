@@ -19,8 +19,31 @@ const addCommasToNumber = (num) => {
 const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter }) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [originalProducts, setOriginalProducts] = useState([]); // Store original data before normalization
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
+
+  // Helper function to check if vendor has missing freight or packaging costs for a specific product
+  const hasMissingCosts = (productIdx, vendorId) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
+    // Use original data before normalization to check for missing costs
+    const dataToCheck = originalProducts.length > 0 ? originalProducts : products;
+    if (!dataToCheck || dataToCheck.length === 0) return false;
+    
+    const product = dataToCheck[productIdx];
+    if (!product || !product.quotations) return false;
+    
+    const vendorQuote = product.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
+    if (!vendorQuote || !vendorQuote.quote_details || vendorQuote.quote_details.length === 0) return false;
+    
+    const quoteDetails = vendorQuote.quote_details[0];
+    const freightPrice = parseFloat(quoteDetails.freight_price) || 0;
+    const packagePrice = parseFloat(quoteDetails.package_price) || 0;
+    
+    return freightPrice === 0 || packagePrice === 0;
+  };
   const toggleBreakup = (productIdx, vendorId) => {
     setBreakupOpen(prev => ({
       ...prev,
@@ -33,6 +56,9 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter)
       .then((res) => {
         let data = res.data || [];
+        
+        // Store original data before normalization for highlighting logic
+        setOriginalProducts(data);
         
         // If normalize filter is enabled, normalize the quotes
         if(normalizeFilter){
@@ -182,17 +208,24 @@ const columnSums = useMemo(() => {
                       const delivery = details.delivery_period;
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
+                      const missingCosts = hasMissingCosts(idx, q.created_by);
                       return (
                         <td
                           key={q.created_by}
                           style={{
                             minWidth: 200,
-                            background: isFinalized
+                            background: missingCosts
+                              ? "#ff8c00"
+                              : isFinalized
                               ? "#d4edda"
                               : q.is_lowest
                               ? "#ffe082"
                               : undefined,
-                            color: isFinalized ? "#155724" : undefined,
+                            color: missingCosts 
+                              ? "white" 
+                              : isFinalized 
+                              ? "#155724" 
+                              : undefined,
                             position: "relative",
                             borderRadius: 8,
                             wordBreak: "break-word",
@@ -234,6 +267,7 @@ const columnSums = useMemo(() => {
                                 padding: 0,
                                 textDecoration: "underline",
                               }}
+                              id={`toggle_breakup_${idx}_${q.created_by}-cost_comparison-overall_cost_comparison_page`}
                             >
                               {isOpen ? "Hide Breakup" : "Show Breakup"}
                             </button>
