@@ -81,20 +81,11 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
   return (
     <div className="d-flex flex-column h-100">
       <div className="mb-3 border-bottom pb-2 d-flex">
-        <h5 className="me-auto mb-0">{vendor?.company_name ?? "-"}</h5>
-        {role === 'buyer' ?
-          <Link
-            href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.user_id}`}
-            className="p-0 mx-2 d-flex align-items-center"
-            aria-label="View Vendor Profile"
-            target="_blank"
-            rel="noopener noreferrer"
-            id="details_button-query_header-queries_page"
-          >
-            <FontAwesomeIcon icon={faInfoCircle} size="lg" className="me-1" />
-            Details
-          </Link>
-          : null}
+      <h5 className="me-auto mb-0">
+          {isBroadcastMode
+            ? `Send message to ${selectedVendors.length} vendors`
+            : vendor?.company_name ?? "Select a vendor to continue the conversation"}
+        </h5>
       </div>
 
       <div className="chat-messages flex-grow-1 mb-3" style={{ overflowY: "auto" }}>

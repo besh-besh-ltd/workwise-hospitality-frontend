@@ -10,6 +10,7 @@ import BuyerVendorChat from "../../buyer/technical-evaluation/buyerVendorChat";
 import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import Loader from "@/components/shared/Loader";
 import ReadMore from "@/components/shared/ReadMore";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 
 const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token }) => {
@@ -26,6 +27,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   const [loading, setLoading] = useState(false);
   const [responseLoading, setResponseLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
 
   const fileInputRef = useRef(new Map());
 
@@ -155,6 +157,10 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
 
   // Submit the agreement
   const handleSendAgreement = async () => {
+    setShowSubmitConfirmModal(true);
+  };
+
+  const handleSubmitConfirm = async () => {
     const payload = Array.from(agreementMap.entries()).map(([clause_id, value]) => ({
       rfq_id,
       rfq_product_id: product.id,
@@ -169,11 +175,17 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       await addVendorAgreement(payload);
       getBuyerClauses();
       getVendorResponse();
+      setShowSubmitConfirmModal(false);
     } catch (error) {
       console.log(error);
+      setShowSubmitConfirmModal(false);
     } finally {
       setSubmitLoading(false);
     }
+  };
+
+  const handleSubmitCancel = () => {
+    setShowSubmitConfirmModal(false);
   };
 
   // Initial data fetch
@@ -400,6 +412,17 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
           </>}
       </div>
 
+      {/* Submit Technical Evaluation Response Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showSubmitConfirmModal}
+        onClose={handleSubmitCancel}
+        onConfirm={handleSubmitConfirm}
+        title="Submit Technical Evaluation Response"
+        description="Are you sure you want to submit your technical evaluation response?\nThis action will send your response to the buyer and cannot be undone."
+        confirmButtonColor="success"
+        confirmButtonText="Submit Response"
+        cancelButtonText="Cancel"
+      />
 
     </>
   );

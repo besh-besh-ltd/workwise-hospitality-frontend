@@ -16,6 +16,7 @@ import SmartButton from "@/components/shared/SmartButton";
 import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions";
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -47,6 +48,7 @@ const SendQuotePageComp = () => {
   const [loading, setloading] = useState(false);
   const [quoteProducts, setquoteProducts] = useState([]);
   const [submitLoading, setsubmitLoading] = useState(false);
+  const [showSubmitQuoteConfirmModal, setShowSubmitQuoteConfirmModal] = useState(false);
 
 
   const [chargesMode, setChargesMode] = useState({
@@ -480,6 +482,23 @@ return { deletedTerms, createdTerms, updatedTerms };
 
 
   const handleSendQuote = () => {
+    setShowSubmitQuoteConfirmModal(true);
+  };
+
+  const handleSubmitQuoteConfirm = () => {
+    // Validate payment terms - at least one valid row should exist
+    const validPaymentTerms = paymentTermsRows.filter(row => 
+      row && 
+      row.action !== "delete" && 
+      row.type && 
+      row.value != null && 
+      row.value > 0
+    );
+    
+    if (validPaymentTerms.length === 0) {
+      setShowSubmitQuoteConfirmModal(false);
+      return toast.error("At least one valid payment term is required. Please add your payment terms.");
+    }
 
     // return 0
     let payload = {
@@ -494,8 +513,37 @@ return { deletedTerms, createdTerms, updatedTerms };
     };
 
     if (alreadyQuoted) {
-
+      // Validate payment terms for update scenario
       const paymentTermsUpdate = getPaymentTermsChanges(paymentTermsRows, originalPaymentTermsListRef.current);
+      const validCreatedTerms = paymentTermsUpdate.createdTerms.filter(row => 
+        row && 
+        row.type && 
+        row.value != null && 
+        row.value > 0
+      );
+      const validUpdatedTerms = paymentTermsUpdate.updatedTerms.filter(row => 
+        row && 
+        row.type && 
+        row.value != null && 
+        row.value > 0
+      );
+      
+      // Check if there are any valid terms after considering deletions
+      const remainingValidTerms = validCreatedTerms.length + validUpdatedTerms.length;
+      const originalValidTerms = originalPaymentTermsListRef.current ? 
+        originalPaymentTermsListRef.current.filter(row => 
+          row && 
+          row.type && 
+          row.value != null && 
+          row.value > 0 &&
+          !paymentTermsUpdate.deletedTerms.includes(row.id)
+        ).length : 0;
+      
+      if (remainingValidTerms + originalValidTerms === 0) {
+        setShowSubmitQuoteConfirmModal(false);
+        return toast.error("At least one valid payment term is required. Please add your payment terms.");
+      }
+
       payload.global_payment_term_list = paymentTermsUpdate;
 
       let quote_id = rfqDetails.quotations[0].id;
@@ -525,10 +573,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote updated Successfully...!");
+          setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
           setsubmitLoading(false);
+          setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
@@ -572,6 +622,7 @@ return { deletedTerms, createdTerms, updatedTerms };
             (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
         )
       ) {
+        setShowSubmitQuoteConfirmModal(false);
         return toast.error("Some required fields may be missing or in negative")
       }
         
@@ -582,15 +633,21 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote sent Successfully...!");
+          setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
           setsubmitLoading(false);
+          setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
         });
     }
+  };
+
+  const handleSubmitQuoteCancel = () => {
+    setShowSubmitQuoteConfirmModal(false);
   };
 
   const isAvailableForQuote = (item) => {
@@ -1329,7 +1386,7 @@ return { deletedTerms, createdTerms, updatedTerms };
       {globalPaymentTerms && (
       <>
         <div className="mb-3 d-flex align-items-center justify-content-between">
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
         </div>
         <textarea
           className="form-control mb-3"
@@ -1358,8 +1415,20 @@ return { deletedTerms, createdTerms, updatedTerms };
    <div className="border rounded-3 p-3" >
           <div className="d-flex align-items-center justify-content-between mb-2">
           <div>
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms</h3>
+          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
             <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
+            {paymentTermsRows.filter(row => 
+              row && 
+              row.action !== "delete" && 
+              row.type && 
+              row.value != null && 
+              row.value > 0
+            ).length === 0 && (
+              <>
+                <br />
+                <small className="text-danger">At least one valid payment term is required</small>
+              </>
+            )}
             </div>
 
         <SmartButton
@@ -2024,6 +2093,18 @@ return { deletedTerms, createdTerms, updatedTerms };
           overrideQuote={overrideQuote}
         />
       )}
+
+      {/* Submit Quote Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showSubmitQuoteConfirmModal}
+        onClose={handleSubmitQuoteCancel}
+        onConfirm={handleSubmitQuoteConfirm}
+        title="Submit Quote"
+        description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer and cannot be undone."
+        confirmButtonColor="success"
+        confirmButtonText="Submit Quote"
+        cancelButtonText="Cancel"
+      />
     </>
   );
 };
