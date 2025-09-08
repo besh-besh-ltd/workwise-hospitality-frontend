@@ -714,7 +714,35 @@ const clearVendorFilters = () => {
 
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{slug && slug !== 'all' ? `Search Vendors for ${getProductTitle() || search_key || slug}` : 'We Find Trusted Vendors for You'}</h1>
+          <h1 className="heading">
+            {(() => {
+              const toTitle = (val) =>
+                val
+                  ? String(val)
+                      .split('-')
+                      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+                      .join(' ')
+                  : '';
+              if (!slug || slug === 'all') {
+                return 'Discover Verified Vendors for Industrial Procurement';
+              }
+              const parts = String(slug).split('-');
+              let product = '', city = '', state = '';
+              if (parts.length >= 3) {
+                state = parts[parts.length - 1];
+                city = parts[parts.length - 2];
+                product = parts.slice(0, parts.length - 2).join('-');
+                return `Top ${getProductTitle() || toTitle(product)} Vendors & Suppliers Near ${toTitle(city)}, ${toTitle(state)}`;
+              }
+              if (parts.length === 2) {
+                state = parts[1];
+                product = parts[0];
+                return `Top ${getProductTitle() || toTitle(product)} Vendors & Suppliers Near ${toTitle(state)}`;
+              }
+              product = parts[0];
+              return `Top ${getProductTitle() || toTitle(product)} Vendors & Suppliers`;
+            })()}
+          </h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"
