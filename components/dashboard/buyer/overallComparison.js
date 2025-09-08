@@ -1213,7 +1213,9 @@ const openModalForVariant = (variantId) => {
                                             </tr>
                                           </table>
                                         )}
-                                        <p>
+                                        {(() => { const isHighlightedCell = finalizedClass === "is_lowest" || finalizedClass === "is_lowest_not_finalised"; return (
+                                        <>
+                                        <p style={{ color: isHighlightedCell ? "#fff" : undefined }}>
                                           {quote_item?.quote_details?.length >
                                             0 &&
                                           (parseInt(
@@ -1237,10 +1239,11 @@ const openModalForVariant = (variantId) => {
                                           const pp = parseFloat(d?.package_price) || 0;
                                           return !freightFilter && (fp === 0 || pp === 0);
                                         })() : false) && (
-                                          <div className="text-muted" style={{ fontSize: "12px", marginTop: 4, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word" }}>
+                                          <div style={{ fontSize: "12px", marginTop: 4, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
                                             (Quote doesn't include freight and packaging)
                                           </div>
                                         )}
+                                        </> ); })()}
                                       </label>
                                     ) : (
                                       "-"
