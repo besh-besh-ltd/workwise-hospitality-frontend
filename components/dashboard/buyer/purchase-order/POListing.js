@@ -12,6 +12,7 @@ import { IoMdEye } from "react-icons/io";
 import { RxCross2 } from 'react-icons/rx';
 import { toast } from 'react-toastify';
 import Pagination from '@/components/shared/Pagination';
+import POCard from './POCard';
 
 const statusVariants = {
   pending_approval: 'warning',
@@ -59,7 +60,7 @@ const formatISTDate = (utcString) => {
   return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 };
 
-const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePODecision, onSelect, onEdit, companyUsers }) => {
+const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePODecision, onSelect, onEdit, companyUsers, approvalLevel }) => {
   const [filters, setFilters] = useState({
     poNumber: '',
     initiatedBy: '',
@@ -187,130 +188,148 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
       </div>
 
       <div className="table-responsive">
-        <table className="table table-stripped table-hover align-middle">
-          <thead className="table-light">
-            <tr className="text-center">
-              <th>PO Number</th>
-              <th>Status</th>
-              <th>Product</th>
-              <th>Quantity</th>
-              <th>Total Value</th>
-              <th>Initiated By</th>
-              <th>Created At</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {poList.length === 0 ? (
-              <tr>
-                <td colSpan="11" className="text-center text-muted">
-                  No purchase orders found.
-                </td>
+        {approvalLevel == -1 ? (
+          <div className='d-flex flex-column'>
+            {
+              poList.length === 0 ? (
+                <p className="text-center text-muted">
+                    No purchase orders found.
+                  </p>
+              ) : (
+                poList.map(po => {
+                  return (
+                    <POCard po={po} onClick={() => onSelect(po.id)} />
+                  )
+                })
+              )
+            }
+          </div>
+        ) : (
+          <table className="table table-stripped table-hover align-middle">
+            <thead className="table-light">
+              <tr className="text-center">
+                <th>PO Number</th>
+                <th>Status</th>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Total Value</th>
+                <th>Initiated By</th>
+                <th>Created At</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              poList.map((po) => {
-                const isPending = po.status === 'pending_approval';
-                const isCurrentApprover =
-                  po.is_approver;
-                const isCancelled = (po.status === 'cancelled' || po.status === 'rejected');
+            </thead>
+            <tbody>
+              {poList.length === 0 ? (
+                <tr>
+                  <td colSpan="11" className="text-center text-muted">
+                    No purchase orders found.
+                  </td>
+                </tr>
+              ) : (
+                poList.map((po) => {
+                  const isPending = po.status === 'pending_approval';
+                  const isCurrentApprover =
+                    po.is_approver;
+                  const isCancelled = (po.status === 'cancelled' || po.status === 'rejected');
 
-                return (
-                  <tr
-                    key={po.id}
-                    className="text-center"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => onSelect(po.id)}
-                  >
-                    <td className="fs-6">
-                      # <strong>{po.po_number}</strong>
-                    </td>
-                    <td>
-                      <span
-                        className={`badge bg-${
-                          statusVariants[po.status] || "secondary"
-                        } text-capitalize`}
-                      >
-                        {po.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td>{po.product_details.name}</td>
-                    <td>{po.quantity}</td>
-                    <td>₹ {addCommasToNumber(po.total_value)}</td>
-                    <td>{po.initiated_by}</td>
-                    <td>{formatISTDate(po.created_at)}</td>
-                    <td>
-                      {isPending && isCurrentApprover ? (
-                        <div className="d-flex align-items-center justify-content-center">
-                          <button
-                            style={styles.approve}
-                            title="Approve this PO"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await handlePODecision(po.id, {
-                                decision: "approved",
-                              });
-                              await getPOData(filters);
-                            }}
-                          >
-                            <MdCheck />
-                          </button>
-                          <button
-                            style={styles.reject}
-                            title="Reject this PO"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await handlePODecision(po.id, {
-                                decision: "rejected",
-                              });
-                              await refetchPOList({
-                                ...filters,
-                                poNumber: debouncedPONumber,
-                              });
-                            }}
-                          >
-                            <RxCross2 />
-                          </button>
-                        </div>
-                      ) : isCancelled ? (
-                        <Link
-                          onClick={(e) => e.stopPropagation()}
-                          href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
-                          className="btn btn-outline-success btn-sm p-2"
-                          style={{ width: 150 }}
+                  return (
+                    <tr
+                      key={po.id}
+                      className="text-center"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => onSelect(po.id)}
+                    >
+                      <td className="fs-6">
+                        # <strong>{po.po_number}</strong>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge bg-${
+                            statusVariants[po.status] || "secondary"
+                          } text-capitalize`}
                         >
-                          View Quotes
-                        </Link>
-                      ) : !isPending ? (
-                        <div className="d-flex align-items-center justify-content-center">
-                          <button
-                            style={styles.primary}
-                            title="View This PO"
+                          {po.status.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td>{po.product_details.name}</td>
+                      <td>{po.quantity}</td>
+                      <td>₹ {addCommasToNumber(po.total_value)}</td>
+                      <td>{po.initiated_by}</td>
+                      <td>{formatISTDate(po.created_at)}</td>
+                      <td>
+                        {isPending && isCurrentApprover ? (
+                          <div className="d-flex align-items-center justify-content-center">
+                            <button
+                              style={styles.approve}
+                              title="Approve this PO"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await handlePODecision(po.id, {
+                                  decision: "approved",
+                                });
+                                await getPOData(filters);
+                              }}
                             >
-                              <IoMdEye />
-                              <small className='ms-1 fw-medium'>View</small>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="d-flex align-items-center justify-content-center">
-                          <button
-                            style={styles.primary}
-                            title="Edit this PO"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEdit(po.id);
-                            }}
+                              <MdCheck />
+                            </button>
+                            <button
+                              style={styles.reject}
+                              title="Reject this PO"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await handlePODecision(po.id, {
+                                  decision: "rejected",
+                                });
+                                await refetchPOList({
+                                  ...filters,
+                                  poNumber: debouncedPONumber,
+                                });
+                              }}
+                            >
+                              <RxCross2 />
+                            </button>
+                          </div>
+                        ) : isCancelled ? (
+                          <Link
+                            onClick={(e) => e.stopPropagation()}
+                            href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
+                            className="btn btn-outline-success btn-sm p-2"
+                            style={{ width: 150 }}
                           >
-                            <MdEdit />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                            View Quotes
+                          </Link>
+                        ) : !isPending ? (
+                          <div className="d-flex align-items-center justify-content-center">
+                            <button
+                              style={styles.primary}
+                              title="View This PO"
+                              >
+                                <IoMdEye />
+                                <small className='ms-1 fw-medium'>View</small>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="d-flex align-items-center justify-content-center">
+                            <button
+                              style={styles.primary}
+                              title="Edit this PO"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(po.id);
+                              }}
+                            >
+                              <MdEdit />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {poList.length > 0 && (

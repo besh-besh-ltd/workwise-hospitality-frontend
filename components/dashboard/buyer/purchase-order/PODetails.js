@@ -177,6 +177,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
 
   const handleFetchBudget = async () => {
     try {
+      if(!project_id) return;
+      
       const res = await getProjectAvailableBudget(project_id);
       if(res) {
         setBudgetInfo(res);
@@ -256,7 +258,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
 
       {/* PO Overview */}
       <div className="d-flex gap-2 align-items-center justify-content-between">
-        <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "70%" }}>
+        <Card className="mb-3 shadow-sm" style={{ width: "100%" }}>
           <Card.Body
             style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
           >
@@ -280,17 +282,21 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
             </div>
           </Card.Body>
         </Card>
-        <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "30%" }}>
-          <Card.Body
-            style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
-            className='d-flex flex-column'
-          >
-            <PODetailItem label="Total Assigned Budget" value={`₹${formatToINRShort(budgetInfo.total_budget)}`} />
-            <PODetailItem label="Available Budget" value={`₹${formatToINRShort(budgetInfo.available_budget)}`} />
-            <PODetailItem label="PO Value" value={`₹${formatToINRShort(total_value)}`} />
-            <PODetailItem label="Budget if PO approves" value={`₹${formatToINRShort(budgetInfo.available_budget - total_value)}`} />
-          </Card.Body>
-        </Card>
+        {
+          budgetInfo && (
+            <Card className="mb-3 shadow-sm" style={{ width: "100%", maxWidth: "30%" }}>
+              <Card.Body
+                style={{ padding: "0.8rem 1.25rem", paddingBottom: "0.4rem" }}
+                className='d-flex flex-column'
+              >
+                <PODetailItem label="Total Assigned Budget" value={`₹${formatToINRShort(budgetInfo.total_budget)}`} />
+                <PODetailItem label="Available Budget" value={`₹${formatToINRShort(budgetInfo.available_budget)}`} />
+                <PODetailItem label="PO Value" value={`₹${formatToINRShort(total_value)}`} />
+                <PODetailItem label="Budget if PO approves" value={`₹${formatToINRShort(budgetInfo.available_budget - total_value)}`} />
+              </Card.Body>
+            </Card>
+          )
+        }
       </div>
 
       {/* Product Details */}

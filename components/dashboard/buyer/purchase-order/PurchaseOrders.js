@@ -23,6 +23,7 @@ const PurchaseOrders = () => {
   const [selectedproject, setSelectedproject] = useState(null);
   const [poData, setPOData] = useState(null);
   const [totalData, setTotalData] = useState(0);
+  const [approvalLevel, setApprovalLevel] = useState(null);
   const [poDetails, setPODetails] = useState(null);
   const [companyUsers, setCompanyUsers] = useState([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -96,6 +97,7 @@ const PurchaseOrders = () => {
         if(value) {
           setPOData(value.data);
           setTotalData(value.total);
+          setApprovalLevel(value.approval_level);
         }
     }).finally(() => setloading(false));
   };
@@ -321,6 +323,7 @@ const PurchaseOrders = () => {
                         )
                       }
                       companyUsers={companyUsers}
+                      approvalLevel={approvalLevel}
                     />
                   </div>
                 </div>
