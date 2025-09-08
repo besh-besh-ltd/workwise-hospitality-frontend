@@ -16,6 +16,7 @@ import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
 import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import { toast } from "react-toastify";
+import { Collapse } from 'react-bootstrap';
 
 const RfqManagementPreview = () => {
   const router = useRouter();
@@ -45,6 +46,8 @@ const RfqManagementPreview = () => {
   const [activeAuthTab, setActiveAuthTab] = useState("login");
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [isLoggedIn, setisLoggedIn] = useState(false);
+  const [openTerms, setOpenTerms] = useState(false);
+  const [localId, setLocalId] = useState(router.query.id);
 
   useEffect(() => {
     if (id) {
@@ -67,6 +70,12 @@ const RfqManagementPreview = () => {
       setRedirectAfterLogin(null);
     }
   }, [router]);
+
+
+  const handleTermsToggle = (e) => {
+    e.preventDefault(); // Prevent any unintended navigation
+    setOpenTerms(!openTerms);
+  };
 
   // Notify user when RA status changes and allows quote submission again
   useEffect(() => {
@@ -1405,157 +1414,125 @@ const RfqManagementPreview = () => {
 
                           {rfqDetails && rfqDetails?.id && (
                             <div className="col-md-12">
-                              <div className="row terms-conditions">
-                                <div className="col-md-6 ">
-                                  <h4>Terms & Conditions</h4>
-                                  {(!rfqDetails?.terms ||
-                                    rfqDetails?.terms.length === 0) && (
-                                    <p>No predefined terms selected!</p>
-                                  )}
+      <div className="row terms-conditions">
+        <div className="col-md-6">
+          <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+            <h4>Terms & Conditions</h4>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleTermsToggle}
+              aria-controls="terms-collapse"
+              aria-expanded={openTerms}
+            >
+              {openTerms ? "Hide" : "View"} <i className="bi bi-chevron-down"></i>
+            </button>
+          </div>
+          <Collapse in={openTerms}>
+            <div id="terms-collapse" className="mt-3">
+              {(!rfqDetails?.terms || rfqDetails?.terms.length === 0) && (
+                <p>No predefined terms selected!</p>
+              )}
+              {rfqDetails?.terms?.length > 0 && (
+                <ol>
+                  {rfqDetails?.terms?.map((item, index) => {
+                    const termContent =
+                      item.term_content ||
+                      item.name ||
+                      (item.content && item.content[0]?.title);
+                    if (!termContent) return null;
 
-                                  {rfqDetails?.terms?.length > 0 && (
-                                    <ol>
-                                      {rfqDetails?.terms?.map((item, index) => {
-                                        const termContent =
-                                          item.term_content ||
-                                          item.name ||
-                                          (item.content &&
-                                            item.content[0]?.title);
-                                        if (!termContent) return null;
-
-                                        return (
-                                          <li
-                                            key={`term-${item.id || index}`}
-                                            className="mb-2"
-                                          >
-                                            {termContent}
-                                          </li>
-                                        );
-                                      })}
-                                    </ol>
-                                  )}
-                                </div>
-                                <div className="col-md-6">
-                                  {/* winning bid area */}
-                                  {rfqDetails.finalizations &&
-                                    rfqDetails.finalizations.length > 0 && (
-                                      <div className="finalized-details"></div>
-                                    )}
-                                  {/* winning bid area end */}
-                                  {rfqDetails.quotations.length > 0 &&
-                                    rfqDetails.quotations[0].is_regret == 0 && (
-                                      <div className="submitted-quotation">
-                                        <h4>
-                                          You've already submitted a quotation
-                                          on{" "}
-                                          {moment
-                                            .utc(
-                                              rfqDetails?.quotations[0]
-                                                ?.timestamp
-                                            )
-                                            .local()
-                                            .format("hh:mm A - DD/MM/YYYY")}
-                                        </h4>
-
-                                        {rfqDetails.status == 2 ||
-                                        !productleftforbid ||
-                                        quoteDisabled ||
-                                        rfqDetails.products?.every(
-                                          (item) =>
-                                            item.finalization_status ===
-                                              "Another vendor is finalized" ||
-                                            item.finalization_status ===
-                                              "You are finalized"
-                                        ) ? (
-                                          <button
-                                            type="button"
-                                            className={`btn ${
-                                              rfqDetails.status == 2
-                                                ? "btn-danger"
-                                                : wasEndDatePassed &&
-                                                  isReverseAuctionActive
-                                                ? "btn-success"
-                                                : "btn-secondary"
-                                            } m-0 mx-auto mt-2`}
-                                            style={{
-                                              width: "240px",
-                                              opacity: "0.5",
-                                            }}
-                                            disabled={
-                                              quoteDisabled ||
-                                              rfqDetails.status == 2
-                                            }
-                                          >
-                                            <FontAwesomeIcon
-                                              icon={faCircleExclamation}
-                                              className="me-2"
-                                            />
-                                            {rfqDetails.status == 2
-                                              ? "RFQ is Closed"
-                                              : rfqDetails.products?.some(
-                                                  (item) =>
-                                                    item.finalization_status ===
-                                                      "Another vendor is finalized" ||
-                                                    item.finalization_status ===
-                                                      "You are finalized"
-                                                )
-                                              ? rfqDetails.products?.some(
-                                                  (item) =>
-                                                    item.finalization_status ===
-                                                    "You are finalized"
-                                                )
-                                                ? "You are finalized"
-                                                : "Another vendor is finalized"
-                                              : statusMessage ||
-                                                "All Products are Finalized"}
-                                          </button>
-                                        ) : (
-                                          <Link
-                                            className="mx-auto mt-2"
-                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${id}${
-                                              token !== undefined
-                                                ? `&token=${token}`
-                                                : ""
-                                            }&showTechEvalRestrictions=${isReverseAuctionActive}`}
-                                          >
-                                            <button
-                                              type="button"
-                                              className="btn btn-secondary m-0"
-                                              style={{ width: "240px" }}
-                                            >
-                                              <>
-                                                <FontAwesomeIcon
-                                                  icon={faEdit}
-                                                  className="me-2"
-                                                />
-                                                Update Your Quote
-                                              </>
-                                            </button>
-                                          </Link>
-                                        )}
-                                      </div>
-                                    )}
-                                  {rfqDetails.quotations.length > 0 &&
-                                    rfqDetails.quotations[0].is_regret == 1 && (
-                                      <div className="submitted-quotation">
-                                        <h4 className="text-center">
-                                          You've{" "}
-                                          <span style={{ color: "#f00" }}>
-                                            declined
-                                          </span>{" "}
-                                          the RFQ request on{" "}
-                                          {moment(
-                                            rfqDetails?.quotations[0]?.timestamp
-                                          )
-                                            .add(5, "hours")
-                                            .add(30, "minutes")
-                                            .format("DD/MM/YYYY - hh:mm:ss A")}
-                                        </h4>
-                                      </div>
-                                    )}
-                                </div>
-                              </div>
-                            </div>
+                    return (
+                      <li key={`term-${item.id || index}`} className="mb-2">
+                        {termContent}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+          </Collapse>
+        </div>
+        <div className="col-md-6">
+          {rfqDetails.finalizations && rfqDetails.finalizations.length > 0 && (
+            <div className="finalized-details"></div>
+          )}
+          {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret === 0 && (
+            <div className="submitted-quotation">
+              <h4>
+                You've already submitted a quotation on{" "}
+                {moment
+                  .utc(rfqDetails?.quotations[0]?.timestamp)
+                  .local()
+                  .format("hh:mm A - DD/MM/YYYY")}
+              </h4>
+              {rfqDetails.status === 2 ||
+              !productleftforbid ||
+              quoteDisabled ||
+              rfqDetails.products?.every(
+                (item) =>
+                  item.finalization_status === "Another vendor is finalized" ||
+                  item.finalization_status === "You are finalized"
+              ) ? (
+                <button
+                  type="button"
+                  className={`btn ${
+                    rfqDetails.status === 2
+                      ? "btn-danger"
+                      : wasEndDatePassed && isReverseAuctionActive
+                      ? "btn-success"
+                      : "btn-secondary"
+                  } m-0 mx-auto mt-2`}
+                  style={{ width: "240px", opacity: "0.5" }}
+                  disabled={quoteDisabled || rfqDetails.status === 2}
+                >
+                  <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
+                  {rfqDetails.status === 2
+                    ? "RFQ is Closed"
+                    : rfqDetails.products?.some(
+                        (item) =>
+                          item.finalization_status === "Another vendor is finalized" ||
+                          item.finalization_status === "You are finalized"
+                      )
+                    ? rfqDetails.products?.some(
+                        (item) => item.finalization_status === "You are finalized"
+                      )
+                      ? "You are finalized"
+                      : "Another vendor is finalized"
+                    : statusMessage || "All Products are Finalized"}
+                </button>
+              ) : (
+                <Link
+                  className="mx-auto mt-2"
+                  href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId}${
+                    token !== undefined ? `&token=${token}` : ""
+                  }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-secondary m-0"
+                    style={{ width: "240px" }}
+                  >
+                    <FontAwesomeIcon icon={faEdit} className="me-2" />
+                    Update Your Quote
+                  </button>
+                </Link>
+              )}
+            </div>
+          )}
+          {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret === 1 && (
+            <div className="submitted-quotation">
+              <h4 className="text-center">
+                You've <span style={{ color: "#f00" }}>declined</span> the RFQ request on{" "}
+                {moment(rfqDetails?.quotations[0]?.timestamp)
+                  .add(5, "hours")
+                  .add(30, "minutes")
+                  .format("DD/MM/YYYY - hh:mm:ss A")}
+              </h4>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
                           )}
 
                           {rfqDetails.TERM_files &&
