@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { getVendorQuoteStatus, getVendorRfqList, sendFollowUpEmail } from "@/services/rfq";
 import moment from "moment";
@@ -8,6 +8,8 @@ import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
 import QuoteStatus from "@/components/modal/QuoteStatus";
 import { toast } from "react-toastify";
 
+import {  Modal  } from "react-bootstrap";
+
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
   const [totalData, setTotalData] = useState(100);
@@ -16,6 +18,8 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const [loading, setloading] = useState(false);
   const [quoteStatus, setQuoteStatus] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false); // New state for reminder confirmation modal
+  const [selectedItem, setSelectedItem] = useState(null); // To keep track of the item for which reminder is being sent
 
   useEffect(() => {
     getRFQs();
@@ -89,33 +93,48 @@ const getQuoteStatus = async (rfq_id) => {
   }
 };
 
-const handleSendMail = async (item) => {
-  // Build payload
-  const payload = {
-    buyer: {
-      name: item.company_name,
-      email: item.response_email,
-    },
-    vendor: {
-      name: item.products?.[0]?.vendor_details?.[0]?.user_details?.name || "Unknown Vendor",
-    },
-    rfqNumber: item.rfq_no,
-    rfq_id: item.id,
+ const handleSendMail = async (item) => {
+    const payload = {
+      buyer: {
+        name: item.company_name,
+        email: item.response_email,
+      },
+      vendor: {
+        name: item.products?.[0]?.vendor_details?.[0]?.user_details?.name || "Unknown Vendor",
+      },
+      rfqNumber: item.rfq_no,
+      rfq_id: item.id,
+    };
+
+    try {
+      const response = await sendFollowUpEmail(payload);
+      if (response?.status === 1) {
+        toast.success(response.message || "Reminder email sent successfully!");
+      } else if(response?.status === 2) {
+        toast.error(response?.message || "Maximum reminder limit reached.");
+      }
+      else {
+        toast.error(response?.message || "Failed to send reminder email.");
+      }
+    } catch (error) {
+      console.error("Error sending reminder email:", error);
+      toast.error("An error occurred while sending the reminder email.");
+    }
   };
 
-  try {
-    const response = await sendFollowUpEmail(payload);
+  const handleReminderConfirm = () => {
+    // Logic to check reminder limit (simulated here; adjust based on your backend logic)
+   
+    handleSendMail(selectedItem);
+    setShowReminderModal(false);
+    setSelectedItem(null);
+  };
 
-    if (response?.status === 1) {
-      toast.success(response.message || "Reminder email sent successfully!");
-    } else {
-      toast.error(response?.message || "Failed to send reminder email.");
-    }
-  } catch (error) {
-    console.error("Error sending reminder email:", error);
-    toast.error("An error occurred while sending the reminder email.");
-  }
-};
+  const handleReminderClick = (item) => {
+    setSelectedItem(item);
+    setShowReminderModal(true);
+  };
+
 
 
 
@@ -131,11 +150,12 @@ const handleSendMail = async (item) => {
       )}
 
       <section className="vendor-mngt-sec-1 hasFullLoader">
-        <div className={`container-fluid ${pageType == 1 ? 'nopaddingtop' : ''}`} >
+        <div
+          className={`container-fluid ${pageType == 1 ? "nopaddingtop" : ""}`}
+        >
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
-
                 {!loading && rfqList.length == 0 && (
                   <p className="mb-0 text-center">
                     You've not received any inqueries yet.
@@ -145,14 +165,17 @@ const handleSendMail = async (item) => {
                 {/* Content for Manage RFQs tab */}
                 {!loading && rfqList.length > 0 && (
                   <span className="title">
-
-                    {pageType == 0 && <>You have received { totalData } Inquiries</>}
-                    {pageType == 1 && <>{rfqList.length} Latest Received Inquiries </>}
+                    {pageType == 0 && (
+                      <>You have received {totalData} Inquiries</>
+                    )}
+                    {pageType == 1 && (
+                      <>{rfqList.length} Latest Received Inquiries </>
+                    )}
                   </span>
                 )}
 
                 <div className="details-table mb-3">
-                  {loading ?
+                  {loading ? (
                     <div className="table-responsive">
                       <table className="table table-striped border-0 mb-0 ">
                         <thead>
@@ -173,21 +196,82 @@ const handleSendMail = async (item) => {
                         </thead>
                         <tbody>
                           <tr>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
-                    : rfqList.length > 0 && (
+                  ) : (
+                    rfqList.length > 0 && (
                       <div className="table-responsive">
                         <table className="table table-striped border-0 mb-0 ">
                           <thead>
@@ -252,8 +336,20 @@ const handleSendMail = async (item) => {
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                        // className="page-link"
-                                        id={`${checkBidExpired(item.bid_end_date) ? "view_quote" : (item.status === 1) ? (item.quote_status === "pending" ? "send_quote" : item.quote_status === "sent" ? "edit_quote" : "view_quote") : "view_quote"}_${item.rfq_no}-rfq_actions-inquiries_received`}
+                                          // className="page-link"
+                                          id={`${
+                                            checkBidExpired(item.bid_end_date)
+                                              ? "view_quote"
+                                              : item.status === 1
+                                              ? item.quote_status === "pending"
+                                                ? "send_quote"
+                                                : item.quote_status === "sent"
+                                                ? "edit_quote"
+                                                : "view_quote"
+                                              : "view_quote"
+                                          }_${
+                                            item.rfq_no
+                                          }-rfq_actions-inquiries_received`}
                                         >
                                           {checkBidExpired(
                                             item.bid_end_date
@@ -284,16 +380,20 @@ const handleSendMail = async (item) => {
                                       </span>
                                       {/* 👇 View Status trigger */}
                                       <span
-                                        className="fw-medium text-decoration-underline"
-                                        onClick={() => getQuoteStatus(item.id)}
-                                      >
-                                        View Status
-                                      </span>
+                                      className="fw-medium text-primary text-decoration-underline cursor-pointer me-2"
+                                      onClick={() => getQuoteStatus(item.id)}
+                                      style={{ color: "#007bff" }} // Consistent blue color
+                                    >
+                                      View Status
+                                    </span>
                                     </td>
                                     <td>
                                       <Link
                                         href={`/dashboard/vendor/query?rfq_id=${item?.id}&role=vendor`}
-                                        className={`page-link me-2 ${item.unseen_query_count!=0 && "text-danger"}`}
+                                        className={`page-link me-2 ${
+                                          item.unseen_query_count != 0 &&
+                                          "text-danger"
+                                        }`}
                                         id={`view_queries_${item.rfq_no}-rfq_actions-inquiries_received`}
                                       >
                                         {item.unseen_query_count != 0
@@ -303,11 +403,11 @@ const handleSendMail = async (item) => {
                                     </td>
                                     <td>
                                       <button
-                                        className="class"
-                                        onClick={() => handleSendMail(item)}
-                                      >
-                                        Send Reminder
-                                      </button>
+                                    className="btn btn-outline-primary btn-sm"
+                                    onClick={() => handleReminderClick(item)}
+                                  >
+                                    Send Reminder
+                                  </button>
                                     </td>
                                   </tr>
                                 );
@@ -315,7 +415,8 @@ const handleSendMail = async (item) => {
                           </tbody>
                         </table>
                       </div>
-                    )}
+                    )
+                  )}
                 </div>
 
                 <Pagination
@@ -333,6 +434,36 @@ const handleSendMail = async (item) => {
                     onClose={() => setShowModal(false)}
                   />
                 )}
+                {/* Reminder Confirmation Modal */}
+                <Modal
+                  show={showReminderModal}
+                  onHide={() => setShowReminderModal(false)}
+                  centered
+                >
+                  <Modal.Header closeButton>
+                    <Modal.Title>Confirm Reminder</Modal.Title>
+                  </Modal.Header>
+                  <Modal.Body>
+                    <p>
+                      Only 2 reminders can be sent to the buyer. Use this option
+                      wisely. Are you sure you want to send a reminder?
+                    </p>
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setShowReminderModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleReminderConfirm}
+                    >
+                      Confirm
+                    </button>
+                  </Modal.Footer>
+                </Modal>
               </div>
             </div>
           </div>

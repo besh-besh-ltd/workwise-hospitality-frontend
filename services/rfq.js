@@ -475,10 +475,10 @@ export const finalizeQuotation = (payload) => {
 
 
 
-export const updateTargetPrice = ({ productId, vendorIds, targetPrice }) => {
+export const updateTargetPrice = ({ productId, vendorIds, targetPrice , rfq_id}) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post('/rfq/negotiate', { productId, vendorIds, targetPrice });
+      let response = await axiosInstance.post('/rfq/negotiate', { productId, vendorIds, targetPrice , rfq_id});
       resolve(response.data);
     } catch (error) {
       reject(error.response?.data || { message: error.message });

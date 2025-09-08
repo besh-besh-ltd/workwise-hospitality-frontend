@@ -1069,7 +1069,7 @@ const generateExcelFile = (api_data) => {
    
 const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) => {
   try {
-    const result = await updateTargetPrice({productId, vendorIds, targetPrice });
+    const result = await updateTargetPrice({productId, vendorIds, targetPrice , rfq_id : rfq });
     
     if (!result) {
       toast.error("Error updating Target Price");

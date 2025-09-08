@@ -1,9 +1,36 @@
 import React from "react";
 
 const statusMap = {
-  QC: { label: "Quote Compare", icon: "bi-bar-chart-steps", color: "#6f42c1" },
-  TE: { label: "Technical Evaluation", icon: "bi-cpu", color: "#198754" },
-  default: { label: "Status Update", icon: "bi-flag", color: "#0d6efd" }
+  QC: {
+    label: "Under Review",                // better for vendor side
+    icon: "bi-bar-chart-steps",
+    color: "#5A3EC8",                      // Indigo 600 → a deep violet/indigo tone
+    text: "#FFFFFF"                        // White text for contrast
+  },
+  TE: {
+    label: "Technical Evaluation",
+    icon: "bi-cpu",
+    color: "#198754",                      // Green 600 → strong emerald green
+    text: "#FFFFFF"                        // White text for readability
+  },
+  NEG: {
+    label: "Negotiation",
+    icon: "bi-handshake",
+    color: "#D9480F",                      // Orange 600 → vivid burnt orange
+    text: "#FFFFFF"                        // White text for clarity
+  },
+  FIN: {
+    label: "Finalization",
+    icon: "bi-check2-circle",
+    color: "#0FB5A9",                      // Teal 500 → bright turquoise teal
+    text: "#073B3A"                        // Dark teal text for contrast
+  },
+  default: {
+    label: "Status Update",
+    icon: "bi-flag",
+    color: "#0D6EFD",                      // Blue 600 → rich royal blue
+    text: "#FFFFFF"                        // White text for good readability
+  }
 };
 
 const QuoteStatus = ({ quoteStatus, onClose }) => {
