@@ -30,6 +30,7 @@ import Item from "../createRFQ/Item";
 import { editRfqSchema } from "@/utils/schema";
 import { cleanUpdatableData } from "../createRFQ/CreateRFQ";
 import AddSpecModal from "./AddSpecModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 // Add validation schema
 const EditRFQSchema = Yup.object().shape({
@@ -154,6 +155,8 @@ const EditRFQ = () => {
 
   // Promps a confirmation if any product is going to be deleted
   const [isUpdateConfirm, setIsUpdateConfirm] = useState(false);
+  const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const [pendingFormValues, setPendingFormValues] = useState(null);
 
   // Add a ref to track if terms have been initialized
   const termsInitializedRef = useRef(false);
@@ -882,6 +885,20 @@ const EditRFQ = () => {
       toast.error("An error occurred while updating the RFQ: " + (error.message || "Unknown error"));
     }
   };
+
+  const handleUpdateConfirm = () => {
+    if (pendingFormValues) {
+      handleUpdateRFQ(pendingFormValues);
+      setShowUpdateConfirmModal(false);
+      setPendingFormValues(null);
+    }
+  };
+
+  const handleUpdateCancel = () => {
+    setShowUpdateConfirmModal(false);
+    setPendingFormValues(null);
+  };
+
 
   const handleSelectProduct = (product) => {
     setProductAddData(prev => ({
@@ -1626,7 +1643,6 @@ const EditRFQ = () => {
             validationSchema={EditRFQSchema}
             enableReinitialize={true}
             onSubmit={(values) => {
-
               const updatedFormData = {
                 ...rfqFormDataFromStore,
                 contact_name: values.contact_name,
@@ -1635,7 +1651,8 @@ const EditRFQ = () => {
                 response_email: values.response_email,
                 bid_end_date: values.bid_end_date,
               };
-              handleUpdateRFQ(updatedFormData);
+              setPendingFormValues(updatedFormData);
+              setShowUpdateConfirmModal(true);
             }}
           >
             {({ values, errors, touched, handleChange, handleBlur, handleSubmit, setFieldValue }) => (
@@ -2318,6 +2335,19 @@ const EditRFQ = () => {
         onEntry={handleAddSpec}
         updatableData={updatableData}
       />
+
+      {/* Update RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showUpdateConfirmModal}
+        onClose={handleUpdateCancel}
+        onConfirm={handleUpdateConfirm}
+        title="Update RFQ"
+        description="Are you sure you want to update this RFQ?\nThis action will modify the RFQ details and notify relevant vendors."
+        confirmButtonColor="success"
+        confirmButtonText="Update RFQ"
+        cancelButtonText="Cancel"
+      />
+
     </>
   );
 };

@@ -11,6 +11,7 @@ import { faCircleExclamation, faDownload } from "@fortawesome/free-solid-svg-ico
 import moment from "moment";
 import RegretQuoteReasonModal from "@/components/modal/RegretQuoteReasonModal";
 import ReadMore from "@/components/shared/ReadMore";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 import { checkBidExpired, extractfileName, formatDate } from "@/utils/sharedFunctions";
 import { renderFileLink } from "@/utils/elementFunctions";
 import storageInstance from "@/utils/storageInstance";
@@ -28,6 +29,7 @@ const RfqManagementPreview = () => {
   const [productleftforbid, setproductleftforbid] = useState(true);
   const [regretModal, setregretModal] = useState(false);
   const [submitLoading, setsubmitLoading] = useState(false);
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
   const [currentLowest, setCurrentLowest] = useState(null);
   const [quoteDisabled, setQuoteDisabled] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
@@ -181,16 +183,27 @@ const RfqManagementPreview = () => {
   };
 
   const handleRFqClose = (e) => {
-    setcloseRFqLoading(true);
     e.preventDefault();
-    closeRFQ(id)
-      .then(() => {
-        getRFQdetails();
-        setcloseRFqLoading(false);
-      })
-      .catch((err) => {
-        setcloseRFqLoading(false);
-      });
+    setShowCloseConfirmModal(true);
+  };
+
+  const handleCloseConfirm = async () => {
+    setcloseRFqLoading(true);
+    try {
+      await closeRFQ(id);
+      getRFQdetails();
+      toast.success("RFQ closed successfully");
+    } catch (err) {
+      console.error("Error closing RFQ:", err);
+      toast.error("Failed to close RFQ");
+    } finally {
+      setcloseRFqLoading(false);
+      setShowCloseConfirmModal(false);
+    }
+  };
+
+  const handleCloseCancel = () => {
+    setShowCloseConfirmModal(false);
   };
 
   const checkIfQuotationSendIsPossible = useCallback(() => {
@@ -1807,6 +1820,18 @@ const RfqManagementPreview = () => {
         setOpenAuthModal={setOpenAuthModal}
         activeAuthTab={activeAuthTab}
         setActiveAuthTab={setActiveAuthTab}
+      />
+
+      {/* Close RFQ Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCloseConfirmModal}
+        onClose={handleCloseCancel}
+        onConfirm={handleCloseConfirm}
+        title="Close RFQ"
+        description={`Are you sure you want to close RFQ #${rfqDetails?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        confirmButtonColor="warning"
+        confirmButtonText="Close RFQ"
+        cancelButtonText="Cancel"
       />
     </>
   );

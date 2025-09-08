@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
 import { Dropdown } from 'react-bootstrap';
 import Image from 'next/image';
+import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
@@ -26,37 +27,81 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [responseLoading, setResponseLoading] = useState(false);
     const [vendors, setVendors] = useState(null);
     const [selectedVendor, setSelectedVendor] = useState(null);
+    const [showAcceptConfirmModal, setShowAcceptConfirmModal] = useState(false);
+    const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
     
  
     const addToTechnicallyAccepted = async (vendor = null) => {
-        const payload = {
-            product :  product?.product_details,
-            rfq_id : rfq_id,
-            vendor :  vendor ? vendor : selectedVendor ? selectedVendor : _selectedVendor,
-            vendor_id: vendor ? vendor.vendor_id : selectedVendor ? selectedVendor.vendor_id : _selectedVendor.value,
-            rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
-            status: 1,
-            reject_message: null
-        }
+        setShowAcceptConfirmModal(true);
+    }
 
+    const handleAcceptConfirm = async () => {
         try {
+            // Check if we have a valid vendor selected
+            const currentVendor = selectedVendor || _selectedVendor;
+            if (!currentVendor || (!currentVendor.value && !currentVendor.vendor_id)) {
+                toast.error("No vendor selected for technical acceptance");
+                setShowAcceptConfirmModal(false);
+                return;
+            }
+
+            // Check if product has required data
+            if (!product || !product.tbl_rfq_product_tech_evaluation_id) {
+                toast.error("Product data is incomplete for technical acceptance");
+                setShowAcceptConfirmModal(false);
+                return;
+            }
+
+            const payload = {
+                product :  product?.product_details,
+                rfq_id : rfq_id,
+                vendor :  currentVendor,
+                vendor_id: currentVendor.vendor_id || currentVendor.value,
+                rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
+                status: 1,
+                reject_message: null
+            }
+
             setLoading(true)
             const res = await addToTA(payload);
             if (res.status == 1) {
                 console.log("successfully added to TA");
             }
-            selectedVendor && getTechEvalResult();
-            refetch && refetch();
+            
+            // Close modal first to avoid state update issues
+            setShowAcceptConfirmModal(false);
+            
+            // Then update other states
+            if (selectedVendor) {
+                getTechEvalResult();
+            }
+            if (refetch) {
+                refetch();
+            }
             toast.success("Congratulations, this Vendor is technically Accepted!!")
 
         } catch (error) {
-            console.error("Error in the process:", error);
+            toast.error("Failed to accept vendor technically. Please try again.");
+            setShowAcceptConfirmModal(false);
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleAcceptCancel = () => {
+        setShowAcceptConfirmModal(false);
+    }
+
+    const handleRejectConfirm = () => {
+        setShowRejectConfirmModal(false);
+        setOpenModal(true);
+    }
+
+    const handleRejectCancel = () => {
+        setShowRejectConfirmModal(false);
     }
 
     const toggleChat = (clause_id) => {
@@ -123,6 +168,11 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     };
 
     const getTechEvalResult = async () => {
+        if (!_selectedVendor || !_selectedVendor.value) {
+            console.error("No selected vendor for tech evaluation result");
+            return;
+        }
+        
         const payload = {
             rfq_id: parseInt(rfq_id),
             rfq_product_id: product.id,
@@ -478,7 +528,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         type="button"
                                         className="btn btn-danger border-0 p-2"
                                         style={{ width: "255px" }}
-                                        onClick={() => setOpenModal(true)}
+                                        onClick={() => setShowRejectConfirmModal(true)}
                                         id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Not Accepted
@@ -575,6 +625,30 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             getTechEvalResult={_selectedVendor ? getTechEvalResult : refetch}
           />
         )}
+
+        {/* Technical Acceptance Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showAcceptConfirmModal}
+          onClose={handleAcceptCancel}
+          onConfirm={handleAcceptConfirm}
+          title="Technically Accept Vendor"
+          description="Are you sure you want to technically accept this vendor?\nThis action will mark the vendor as technically cleared for this product."
+          confirmButtonColor="success"
+          confirmButtonText="Accept"
+          cancelButtonText="Cancel"
+        />
+
+        {/* Technical Rejection Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showRejectConfirmModal}
+          onClose={handleRejectCancel}
+          onConfirm={handleRejectConfirm}
+          title="Technically Reject Vendor"
+          description="Are you sure you want to technically reject this vendor?\nThis action will mark the vendor as not technically cleared and require a rejection reason."
+          confirmButtonColor="danger"
+          confirmButtonText="Reject"
+          cancelButtonText="Cancel"
+        />
 
         <hr />
       </div>

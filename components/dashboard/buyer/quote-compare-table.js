@@ -16,6 +16,7 @@ import FinalizeHistoryModal from "./FinalizeHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
+  originalQuotations,
   quantity,
   handleFinalize,
   proditem,
@@ -24,10 +25,24 @@ const QuoteCompareTable = ({
   availableBudget,
   targetPrice,
   targetHistory,
-  normalizeFilter
+  normalizeFilter,
+  freightFilter
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
+
+  // Helper function to check if vendor has missing freight or packaging costs
+  const hasMissingCosts = (item) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
+    if (!item) return false;
+    
+    const freightPrice = parseFloat(item.freight_price) || 0;
+    const packagePrice = parseFloat(item.package_price) || 0;
+    
+    return freightPrice === 0 || packagePrice === 0;
+  };
 
   const [currentItem, setCurrentItem] = useState(null);
   const router = useRouter();
@@ -152,6 +167,9 @@ const QuoteCompareTable = ({
                     (spec) => spec.title == "Quantity"
                   )?.value || item.quantity;
 
+                // Find corresponding original quotation for highlighting
+                const originalItem = originalQuotations?.find(origItem => origItem.quote_id === item.quote_id) || item;
+                const missingCosts = hasMissingCosts(originalItem);
                 return (
                   <div
                     className="table-col"
@@ -159,11 +177,17 @@ const QuoteCompareTable = ({
                   >
                     <div
                       className="table-si-row table-dark-row "
-                      style={{ overflow: "visible" }}
+                      style={{ 
+                        overflow: "visible",
+                        backgroundColor: missingCosts ? "#ff8c00" : undefined
+                      }}
                     >
                       <span
                         className="d-block text-center fw-bold fs-5"
-                        style={{ width: "100%" }}
+                        style={{ 
+                          width: "100%",
+                          color: missingCosts ? "white" : undefined
+                        }}
                       >
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||

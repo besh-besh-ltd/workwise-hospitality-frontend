@@ -19,7 +19,7 @@ const BuyerTechnicalEvaluation = () => {
   const [currentUserProfile, setcurrentUserProfile] = useState(null);
   const [rfqList, setRfqList] = useState([]);
   const [currentRfq, setcurrentRfq] = useState(null);
-  const [vendorMap, setVendorMap] = useState(null);
+  const [vendorMap, setVendorMap] = useState(new Map());
   const [clauseMap, setClauseMap] = useState(null);
   const [rfqNo, setRfqNo] =useState(null);
   const [projects, setProjects] = useState(null);
@@ -355,6 +355,16 @@ useEffect(() => {
                                         value={productSelectedVendors}
                                         onChange={(selectedOptions) => {
                                           setSelectedVendorsMap(prev => new Map(prev).set(product.id, selectedOptions || []));
+                                          // Also update vendorMap for single vendor selection
+                                          if (selectedOptions && selectedOptions.length > 0) {
+                                            setVendorMap(prev => new Map(prev).set(product.id, selectedOptions[0]));
+                                          } else {
+                                            setVendorMap(prev => {
+                                              const newMap = new Map(prev);
+                                              newMap.delete(product.id);
+                                              return newMap;
+                                            });
+                                          }
                                         }}
                                         noOptionsMessage={() => "No vendors responded"}
                                         id={`select_vendor_${product.id}-vendor_selection-technical_evaluation_page`}
