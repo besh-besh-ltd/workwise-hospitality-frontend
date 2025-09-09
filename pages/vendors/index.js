@@ -6,7 +6,8 @@ const Vendors = () => {
   return (
     <>
       <Head>
-        <title>Workwise | Preferred Vendors</title>
+        <title>Explore Verified Industrial Vendors | Workwise Vendor Directory</title>
+        <meta name="description" content="Discover top vendors for EPC, infrastructure, and industrial projects. Workwise helps you find verified suppliers and manage vendor relationships easily." />
       </Head>
       <SearchPage title="Preferred Vendors" type="vendors" />
     </>

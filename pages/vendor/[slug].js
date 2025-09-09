@@ -13,43 +13,13 @@ const DynamicProductPage = ({ pageTitle }) => {
     return <div>Loading...</div>;
   }
 
-  // / Meta title and description
-    const metaTitle = slug === 'all' 
-      ? 'Search Vendors | Workwise'
-      : `Top ${textCapitalize(slug)} Manufacturers, Suppliers & Vendors | Workwise`;
-    const metaDescription = slug === 'all'
-      ? 'Search and discover trusted manufacturers and suppliers at Workwise. Your one-stop platform for finding reliable vendors and suppliers.'
-      : `Discover high-quality ${textCapitalize(slug)} from trusted manufacturers and suppliers at Workwise. Your one-stop vendor for premium industrial products and solutions.`;
+  // / Meta title and description are now handled inside SearchPage via existing slug/location parsing
+    const metaTitle = '';
+    const metaDescription = '';
 
   return (
     <>
-      <Head>
-          <title>{metaTitle}</title>
-          <meta name="description" content={metaDescription} />
-
-          <meta property="og:title" content={metaTitle} />
-          <meta property="og:description" content={metaDescription} />
-          <meta property="og:type" content="website" />
-          <meta property="og:url" content={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`} />
-          <meta property="og:site_name" content="Workwise" />
-          
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "http://schema.org",
-              "@type": "WebPage",
-              "name": metaTitle,
-              "description": metaDescription,
-              "url": `${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`,
-              "mainEntity": {
-                "@type": "ItemList",
-                "name": slug === 'all' ? "Vendor Directory" : `${textCapitalize(slug)} Vendors`,
-                "description": slug === 'all' 
-                  ? "Find trusted manufacturers and suppliers across all categories"
-                  : `Find trusted ${textCapitalize(slug)} manufacturers and suppliers`
-              }
-            })}
-          </script>
-      </Head>
+      {/* Meta tags are set inside SearchPage for accuracy based on product/location */}
       <SearchPage title={`We Find Trusted Vendors for You`} type="products" />
     </>
   );
