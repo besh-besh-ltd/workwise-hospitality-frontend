@@ -1588,7 +1588,7 @@ useEffect(() => {
                             ? initialFilterOptions.productMakes[product.id].map(
                                 (item) => ({
                                   label: item.make_name,
-                                  value: item.id,
+                                  value: item.make_name,
                                 })
                               )
                             : []
