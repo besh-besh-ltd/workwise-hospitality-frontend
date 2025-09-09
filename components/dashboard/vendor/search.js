@@ -21,6 +21,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
 import Head from "next/head";
+import { textCapitalize } from "@/utils/sharedFunctions";
 import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
@@ -711,10 +712,60 @@ const clearVendorFilters = () => {
 
   return (
     <>
+      {/* Dynamic SEO for vendor search based on existing parsed slug/location */}
+      <Head>
+        {
+          (() => {
+            const slugStr = typeof slug === 'string' ? slug : '';
+            const rawProduct = getProductTitle() || search_key || slugStr;
+            const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
+            const stateName = selectedState?.[0]?.name;
+            const cityName = selectedCity?.[0]?.name;
+
+            let metaTitle = '';
+            let metaDescription = '';
+
+            if (slugStr === 'all') {
+              metaTitle = 'Explore Verified Industrial Vendors | Workwise Vendor Directory';
+              metaDescription = 'Discover top vendors for EPC, infrastructure, and industrial projects. Workwise helps you find verified suppliers and manage vendor relationships easily.';
+            } else if (productName && cityName && stateName) {
+              metaTitle = `${productName} Vendors Near ${cityName} , ${stateName} | ${productName} Suppliers in ${cityName} , ${stateName} - Workwise`;
+              metaDescription = `Explore trusted ${productName} vendors near ${cityName} , ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+            } else if (productName && stateName) {
+              metaTitle = `${productName} Vendors Near ${stateName} | ${productName} Suppliers in ${stateName} - Workwise`;
+              metaDescription = `Explore trusted ${productName} vendors near ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+            } else if (productName) {
+              metaTitle = `${productName} Vendors | ${productName} Suppliers - Workwise`;
+              metaDescription = `Explore trusted ${productName} vendors. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+            }
+
+            return (
+              <>
+                {metaTitle && <title>{metaTitle}</title>}
+                {metaDescription && <meta name="description" content={metaDescription} />}
+              </>
+            );
+          })()
+        }
+      </Head>
 
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{slug && slug !== 'all' ? `Search Vendors for ${getProductTitle() || search_key || slug}` : 'We Find Trusted Vendors for You'}</h1>
+          <h1 className="heading">
+            {(() => {
+              const slugStr = typeof slug === 'string' ? slug : '';
+              const rawProduct = getProductTitle() || search_key || slugStr;
+              const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
+              const stateName = selectedState?.[0]?.name;
+              const cityName = selectedCity?.[0]?.name;
+
+              if (slugStr === 'all') return 'Discover Verified Vendors for Industrial Procurement';
+              if (productName && cityName && stateName) return `Top ${productName} Vendors & Suppliers Near ${cityName},  ${stateName}`;
+              if (productName && stateName) return `Top ${productName} Vendors & Suppliers Near ${stateName}`;
+              if (productName) return `Top ${productName} Vendors & Suppliers`;
+              return 'Discover Verified Vendors for Industrial Procurement';
+            })()}
+          </h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"
