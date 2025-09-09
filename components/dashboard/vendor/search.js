@@ -734,15 +734,24 @@ const clearVendorFilters = () => {
             } else if (productName && stateName) {
               metaTitle = `${productName} Vendors Near ${stateName} | ${productName} Suppliers in ${stateName} - Workwise`;
               metaDescription = `Explore trusted ${productName} vendors near ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+              console.log(metaTitle, metaDescription);
+              console.log("1");
             } else if (productName) {
               metaTitle = `${productName} Vendors | ${productName} Suppliers - Workwise`;
               metaDescription = `Explore trusted ${productName} vendors. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
             }
+            console.log("2");
+            console.log(metaTitle, metaDescription);
 
             return (
               <>
                 {metaTitle && <title>{metaTitle}</title>}
                 {metaDescription && <meta name="description" content={metaDescription} />}
+                <meta property="og:title" content={metaTitle} />
+                <meta property="og:description" content={metaDescription} />
+                <meta property="og:type" content="website" />
+                <meta property="og:url" content={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`} />
+                <meta property="og:site_name" content="Workwise" />
               </>
             );
           })()
