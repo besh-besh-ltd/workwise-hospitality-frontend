@@ -412,7 +412,6 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
-                        const missingCosts = hasMissingCosts(item.id);
                         return (
                           <th
                             key={`v_${item.id}`}
@@ -420,7 +419,7 @@ const openModalForVariant = (variantId) => {
                             className="all_vendors"
                             rowSpan={2}
                             style={{
-                              backgroundColor: missingCosts ? "#ff8c00" : "#2d5ba7",
+                              backgroundColor: "#2d5ba7",
                               color: "white"
                             }}
                           >
@@ -1214,7 +1213,9 @@ const openModalForVariant = (variantId) => {
                                             </tr>
                                           </table>
                                         )}
-                                        <p>
+                                        {(() => { const isHighlightedCell = finalizedClass === "is_lowest" || finalizedClass === "is_lowest_not_finalised"; return (
+                                        <>
+                                        <p style={{ color: isHighlightedCell ? "#fff" : undefined }}>
                                           {quote_item?.quote_details?.length >
                                             0 &&
                                           (parseInt(
@@ -1230,6 +1231,19 @@ const openModalForVariant = (variantId) => {
                                               )
                                             : "-"}
                                         </p>
+                                        {(originalData.length > 0 ? (() => {
+                                          const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
+                                          const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
+                                          const d = oq?.quote_details?.[0];
+                                          const fp = parseFloat(d?.freight_price) || 0;
+                                          const pp = parseFloat(d?.package_price) || 0;
+                                          return !freightFilter && (fp === 0 || pp === 0);
+                                        })() : false) && (
+                                          <div style={{ fontSize: "12px", marginTop: 4, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
+                                            (Quote doesn't include freight and packaging)
+                                          </div>
+                                        )}
+                                        </> ); })()}
                                       </label>
                                     ) : (
                                       "-"
