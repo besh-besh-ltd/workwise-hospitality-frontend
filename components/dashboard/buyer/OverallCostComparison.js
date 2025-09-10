@@ -214,18 +214,12 @@ const columnSums = useMemo(() => {
                           key={q.created_by}
                           style={{
                             minWidth: 200,
-                            background: missingCosts
-                              ? "#ff8c00"
-                              : isFinalized
+                            background: isFinalized
                               ? "#d4edda"
                               : q.is_lowest
                               ? "#ffe082"
                               : undefined,
-                            color: missingCosts 
-                              ? "white" 
-                              : isFinalized 
-                              ? "#155724" 
-                              : undefined,
+                            color: isFinalized ? "#155724" : undefined,
                             position: "relative",
                             borderRadius: 8,
                             wordBreak: "break-word",
@@ -427,6 +421,22 @@ const columnSums = useMemo(() => {
                               </div>
                             )}
                           </div>
+                          {(() => {
+                            // Build dynamic missing note (non-regret only) from originalProducts
+                            const orig = (originalProducts[idx]?.quotations || []).find(oq => oq.created_by === q.created_by && oq.id != null && oq.is_regret != 1);
+                            if (!orig || freightFilter) return null;
+                            const d = orig?.quote_details?.[0];
+                            const parts = [];
+                            const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                            const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                            if (pp0) parts.push('package');
+                            if (fp0) parts.push('freight');
+                            return parts.length ? (
+                              <div className="text-muted" style={{ fontSize: 14, marginTop: 6 }}>
+                                {`Missing - ${parts.join(', ')}`}
+                              </div>
+                            ) : null;
+                          })()}
                           {item.product_specs?.find(
                             (s) => s.title === "total_price"
                           )?.value && (
