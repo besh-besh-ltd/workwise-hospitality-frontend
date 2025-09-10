@@ -6,6 +6,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import { getCountryCodes } from "@/services/cms";
 
+
+// NOTE - need to remove this as we already have FormikField.js
+
 /** 
  A reusable and flexible form input component built for Formik.
  Supports:

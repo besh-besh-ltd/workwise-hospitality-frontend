@@ -712,52 +712,6 @@ const clearVendorFilters = () => {
 
   return (
     <>
-      {/* Dynamic SEO for vendor search based on existing parsed slug/location */}
-      <Head>
-        {
-          (() => {
-            const slugStr = typeof slug === 'string' ? slug : '';
-            const rawProduct = getProductTitle() || search_key || slugStr;
-            const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
-            const stateName = selectedState?.[0]?.name;
-            const cityName = selectedCity?.[0]?.name;
-
-            let metaTitle = '';
-            let metaDescription = '';
-
-            if (slugStr === 'all') {
-              metaTitle = 'Explore Verified Industrial Vendors | Workwise Vendor Directory';
-              metaDescription = 'Discover top vendors for EPC, infrastructure, and industrial projects. Workwise helps you find verified suppliers and manage vendor relationships easily.';
-            } else if (productName && cityName && stateName) {
-              metaTitle = `${productName} Vendors Near ${cityName} , ${stateName} | ${productName} Suppliers in ${cityName} , ${stateName} - Workwise`;
-              metaDescription = `Explore trusted ${productName} vendors near ${cityName} , ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
-            } else if (productName && stateName) {
-              metaTitle = `${productName} Vendors Near ${stateName} | ${productName} Suppliers in ${stateName} - Workwise`;
-              metaDescription = `Explore trusted ${productName} vendors near ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
-              console.log(metaTitle, metaDescription);
-              console.log("1");
-            } else if (productName) {
-              metaTitle = `${productName} Vendors | ${productName} Suppliers - Workwise`;
-              metaDescription = `Explore trusted ${productName} vendors. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
-            }
-            console.log("2");
-            console.log(metaTitle, metaDescription);
-
-            return (
-              <>
-                {metaTitle && <title>{metaTitle}</title>}
-                {metaDescription && <meta name="description" content={metaDescription} />}
-                <meta property="og:title" content={metaTitle} />
-                <meta property="og:description" content={metaDescription} />
-                <meta property="og:type" content="website" />
-                <meta property="og:url" content={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`} />
-                <meta property="og:site_name" content="Workwise" />
-              </>
-            );
-          })()
-        }
-      </Head>
-
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
           <h1 className="heading">
