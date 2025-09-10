@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const { withSentryConfig } = require("@sentry/nextjs");
+
 const nextConfig = {
  
   reactStrictMode: false,
@@ -34,6 +36,26 @@ const nextConfig = {
       { source: '/sitemap-vendors.xml', destination: '/api/sitemap-vendors.xml' },
     ]
   },
+  // Sentry tunnel to avoid ad-blockers
+  async rewrites() {
+    const base = await (async () => {
+      return [
+        { source: '/sitemap.xml', destination: '/api/sitemap.xml' },
+        { source: '/sitemap-website.xml', destination: '/api/sitemap-website.xml' },
+        { source: '/sitemap-vendors.xml', destination: '/api/sitemap-vendors.xml' },
+      ]
+    })();
+    return [
+      ...base,
+      // Sentry tunnel must point to the project envelope endpoint
+      { source: "/monitoring", destination: "https://o4509989875089409.ingest.us.sentry.io/api/4509989878431744/envelope/" },
+    ];
+  },
 };
 
-module.exports = nextConfig;
+const sentryWebpackPluginOptions = {
+  // Disable automatic source map uploads unless env is set in CI
+  silent: true,
+};
+
+module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions);
