@@ -23,38 +23,66 @@ State_Cities.forEach((st) => {
 
 // ✅ Usage
 const generateMetatitleDesc = (slug = "") => {
-  const slugArr = slug.trim().split("-").filter(Boolean);
+  const slugifyLower = (s) => s?.trim()?.toLowerCase()?.replace(/\s+/g, "-") || "";
+  const toTitle = (s) => textCapitalize((s || "").replace(/-/g, " ").trim());
 
-  let stateName = "";
-  let cityName = "";
+  const slugArr = slug
+    .trim()
+    .split("-")
+    .filter((x) => x !== "");
 
-  // Identify state and city (first match wins)
-  for (const part of slugArr) {
-    const lower = part.trim().toLowerCase();
-    if (!stateName && stateSet.has(lower)) {
-      stateName = lower;
+  // Try to match trailing city/state using 3→2→1 tokens, normalizing spaces
+  const tryMatchFromEnd = (arr, set) => {
+    for (let len = 3; len >= 1; len--) {
+      if (arr.length >= len) {
+        const raw = arr.slice(arr.length - len).join("-");
+        const candidate = slugifyLower(raw);
+        if (set.has(candidate)) {
+          return { match: candidate, consumed: len };
+        }
+      }
     }
-    if (!cityName && citySet.has(lower)) {
-      cityName = lower;
+    return { match: "", consumed: 0 };
+  };
+
+  let remaining = [...slugArr];
+  let stateSlug = "";
+  let citySlug = "";
+
+  // Prefer matching state first from the end; if not found, try city first
+  let res = tryMatchFromEnd(remaining, stateSet);
+  if (res.consumed > 0) {
+    stateSlug = res.match;
+    remaining.splice(remaining.length - res.consumed, res.consumed);
+    res = tryMatchFromEnd(remaining, citySet);
+    if (res.consumed > 0) {
+      citySlug = res.match;
+      remaining.splice(remaining.length - res.consumed, res.consumed);
+    }
+  } else {
+    res = tryMatchFromEnd(remaining, citySet);
+    if (res.consumed > 0) {
+      citySlug = res.match;
+      remaining.splice(remaining.length - res.consumed, res.consumed);
+    }
+    res = tryMatchFromEnd(remaining, stateSet);
+    if (res.consumed > 0) {
+      stateSlug = res.match;
+      remaining.splice(remaining.length - res.consumed, res.consumed);
     }
   }
 
-  // Remove matched state/city from slug
-  const filteredArr = slugArr.filter(
-    (part) =>
-      part.toLowerCase() !== stateName && part.toLowerCase() !== cityName
-  );
-
-  const productName = filteredArr.join(" ").replace(/-/g, " "); // human readable
+  const productSlug = remaining.join("-");
+  const productName = toTitle(productSlug);
+  const stateName = toTitle(stateSlug);
+  const cityName = toTitle(citySlug);
 
   let metaTitle = "Explore Verified Industrial Vendors | Workwise Vendor Directory";
   let metaDescription = "Discover top vendors for EPC, infrastructure, and industrial projects. Workwise helps you find verified suppliers and manage vendor relationships easily.";
 
-  if(productName=='all'){
-    metaTitle = "Explore Verified Industrial Vendors | Workwise Vendor Directory";
-    metaDescription = "Discover top vendors for EPC, infrastructure, and industrial projects. Workwise helps you find verified suppliers and manage vendor relationships easily.";
-  }
-  else if (productName && cityName && stateName) {
+  if (slugifyLower(productSlug) === "all") {
+    // keep defaults
+  } else if (productName && cityName && stateName) {
     metaTitle = `${productName} Vendors Near ${cityName} , ${stateName} | ${productName} Suppliers in ${cityName} , ${stateName} - Workwise`;
     metaDescription = `Explore trusted ${productName} vendors near ${cityName} , ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
   } else if (productName && stateName) {
@@ -63,7 +91,7 @@ const generateMetatitleDesc = (slug = "") => {
   } else if (productName) {
     metaTitle = `${productName} Vendors | ${productName} Suppliers - Workwise`;
     metaDescription = `Explore trusted ${productName} vendors. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
-  } 
+  }
 
   return {
     metaTitle,
