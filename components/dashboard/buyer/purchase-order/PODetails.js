@@ -636,7 +636,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowDeleteMilestoneConfirmModal(false);
         }}
         title={"Delete Milestone"}
-        description={"Are you sure you want to delete this milestone? This action cannot be undone."}
+        description={"Are you sure you want to delete this milestone?"}
         confirmButtonColor="danger"
         confirmButtonText="Delete"
         cancelButtonText="Cancel"
@@ -653,7 +653,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowDeleteTaskConfirmModal(false);
         }}
         title={"Delete Task"}
-        description={"Are you sure you want to delete this task? This action cannot be undone."}
+        description={"Are you sure you want to delete this task?"}
         confirmButtonColor="danger"
         confirmButtonText="Delete"
         cancelButtonText="Cancel"
