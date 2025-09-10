@@ -4,16 +4,35 @@ import { sendQueryMessage } from "@/services/rfq";
 import Link from "next/link";
 import { formatDate } from "@/utils/sharedFunctions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import { faInfoCircle, faLightbulb, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 
 const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutlogintoken, selectedVendors }) => {
   const [messageText, setMessageText] = useState("");
   const [files, setFiles] = useState([]);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const latestMessageRef = useRef(null);
 
   const isBroadcastMode = Array.isArray(selectedVendors) && selectedVendors.length > 1;
+  const isVendor = role === "vendor";
+
+  // Vendor-specific message suggestions
+  const vendorSuggestions = [
+    "Please find attached our TDS (Technical Data Sheet)",
+    "Attached is our QAP (Quality Assurance Plan) for your review",
+    "Here are the specification files for the requested product",
+    "Our proposed delivery timeline is...",
+    "The estimated delivery location would be...",
+    "We can provide technical evaluation samples upon request",
+    "Our product certifications include...",
+    "The MOQ (Minimum Order Quantity) for this product is...",
+    "Please find our pricing breakdown attached",
+    "We can offer the following payment terms...",
+    "Our lead time for this product is approximately...",
+    "We provide the following warranty terms...",
+    "Our product meets the following industry standards..."
+  ];
 
   useEffect(() => {
     if (!isBroadcastMode && latestMessageRef.current) {
@@ -34,6 +53,11 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
 
   const handleRemoveFile = (fileName) => {
     setFiles((prevFiles) => prevFiles.filter((file) => file.name !== fileName));
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setMessageText(prev => prev ? `${prev} ${suggestion}` : suggestion);
+    setShowSuggestions(false);
   };
 
   const handleSendMessage = async () => {
@@ -81,12 +105,65 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
   return (
     <div className="d-flex flex-column h-100">
       <div className="mb-3 border-bottom pb-2 d-flex">
-      <h5 className="me-auto mb-0">
+        <h5 className="me-auto mb-0">
           {isBroadcastMode
             ? `Send message to ${selectedVendors.length} vendors`
             : vendor?.company_name ?? "Select a vendor to continue the conversation"}
         </h5>
+        
+        {/* Suggestion toggle button for vendors only */}
+        {isVendor && !isBroadcastMode && (
+          <button 
+            className="btn btn-outline-info btn-sm"
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            title="Message suggestions"
+          >
+            <FontAwesomeIcon icon={faLightbulb} className="me-1" />
+            Suggestions
+          </button>
+        )}
       </div>
+
+     {/* Suggestions panel for vendors */}
+{isVendor && showSuggestions && (
+  <div className="card border-0 shadow-sm mb-3">
+    <div className="card-header bg-light d-flex justify-content-between align-items-center py-2">
+      <h6 className="mb-0 text-muted small">
+        💡 Helpful suggestions for your response
+      </h6>
+      <button
+        type="button"
+        className="btn btn-sm btn-outline-secondary"
+        onClick={() => setShowSuggestions(false)}
+      >
+        <FontAwesomeIcon icon={faTimes} />
+      </button>
+    </div>
+    <div className="card-body p-2">
+      <div className="d-flex flex-wrap gap-2">
+        {vendorSuggestions.map((suggestion, index) => (
+          <span
+            key={index}
+            role="button"
+            className="badge rounded-pill bg-light text-dark border px-3 py-2 text-start"
+            style={{
+              cursor: "pointer",
+              maxWidth: "250px",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            onClick={() => handleSuggestionClick(suggestion)}
+            title={suggestion}
+          >
+            {suggestion}
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
 
       <div className="chat-messages flex-grow-1 mb-3" style={{ overflowY: "auto" }}>
         {isBroadcastMode ? (
