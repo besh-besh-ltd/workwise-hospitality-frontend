@@ -169,7 +169,7 @@ const MagicSearchPage = () => {
           s3Url: null,
           name: null,
         })
-        setTab('processing-files');
+        handleTabChange('processing-files');
         setShowSimplifyConfirmModal(false);
     };
 
@@ -228,7 +228,7 @@ const uploadToServer = async (processed_file) => {
 const confirmRFQUpload = async () => {
   try {
     // Only switch tab on confirmation
-    setTab("processing-files");
+    handleTabChange("processing-files");
   } catch (error) {
     console.error("Failed to switch tab:", error);
     toast.error("Failed to switch to processing tab.");
@@ -278,7 +278,7 @@ const closeRFQConfirmModal = () => {
   const handleUploadForRFQ = async (webhook) => {
   try {
     setLoading(true);
-    setTab('processing-files')
+    handleTabChange('processing-files')
     // setApiData(response);
   } catch (error) {
     console.error("RFQ Preview fetch failed:", error);
@@ -350,12 +350,14 @@ const closeRFQConfirmModal = () => {
               <div className="col-md-12">
                 <div className="tabs-container">
                   <button
+                    id="upload_file-magic_search_tabs-magic_search_page"
                     className={`tab ${tab === "upload-file" ? "active" : ""}`}
                     onClick={() => handleTabChange("upload-file")}
                   >
                     Upload File
                   </button>
                   <button
+                    id="processing_files-magic_search_tabs-magic_search_page"
                     className={`tab ${tab === "processing-files" ? "active" : ""}`}
                     onClick={() => handleTabChange("processing-files")}
                   >
@@ -538,6 +540,7 @@ const closeRFQConfirmModal = () => {
                             <div className="col-5 d-flex">
                               {reviewData ? (
                                 <Button
+                                  id="edit_my_rfq-magic_search_actions-magic_search_page"
                                   variant="secondary"
                                   className="ms-auto border-0"
                                   style={{ width: "180px" }}

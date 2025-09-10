@@ -120,6 +120,7 @@ const AdminDashboard = () => {
               <Link
                 href="/dashboard/admin/account-management/manage-accounts"
                 className="text-decoration-none"
+                id="manage_accounts-admin_actions-company_admin_dashboard"
               >
                 <div className="detail-con">
                   <div className="detail-con-text">
@@ -136,6 +137,7 @@ const AdminDashboard = () => {
               <Link
                 href="/dashboard/admin/account-management/create-account"
                 className="text-decoration-none"
+                id="create_account-admin_actions-company_admin_dashboard"
               >
                 <div className="detail-con">
                   <div className="detail-con-text">
@@ -152,6 +154,7 @@ const AdminDashboard = () => {
               <Link
                 href="/dashboard/admin/project-management/project-management"
                 className="text-decoration-none"
+                id="project_management-admin_actions-company_admin_dashboard"
               >
                 <div className="detail-con">
                   <div className="detail-con-text">

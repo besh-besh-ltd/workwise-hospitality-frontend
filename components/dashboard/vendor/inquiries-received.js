@@ -194,6 +194,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
                                         // className="page-link"
+                                        id={`${checkBidExpired(item.bid_end_date) ? "view_quote" : (item.status === 1) ? (item.quote_status === "pending" ? "send_quote" : item.quote_status === "sent" ? "edit_quote" : "view_quote") : "view_quote"}_${item.rfq_no}-rfq_actions-inquiries_received`}
                                         >
                                           {checkBidExpired(item.bid_end_date) ? (
                                             <span className="fw-medium text-decoration-underline">View Quote</span>
@@ -219,6 +220,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                       <Link
                                         href={`/dashboard/vendor/query?rfq_id=${item?.id}&role=vendor`}
                                         className={`page-link me-2 ${item.unseen_query_count!=0 && "text-danger"}`}
+                                        id={`view_queries_${item.rfq_no}-rfq_actions-inquiries_received`}
                                       >
                                         {item.unseen_query_count!=0 ? `View Queries (${item.unseen_query_count} New)` : "View Queries"}
                                       </Link>

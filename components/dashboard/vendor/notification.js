@@ -65,11 +65,11 @@ const EditProfile = () => {
               </div>
 
               <div className="notification-action">
-                <button type="submit" className="btn">
+                <button type="submit" className="btn" id="mark_all_as_read-notification_actions-notification_page">
                   Mark All As Read
                 </button>
 
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-primary" id="show_more_notifications-notification_actions-notification_page">
                   Show More
                 </button>
               </div>

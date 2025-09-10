@@ -79,6 +79,7 @@ const handleTabChange = (tabKey) => {
             <div className="col-md-12">
               <div className="tabs-container">
                 <button
+                  id="manage_group_rfq-rfq_tabs-rfq_management_page"
                   className={`tab ${
                     activeTab === "manageRFQs" ? "active" : ""
                   }`}
@@ -87,6 +88,7 @@ const handleTabChange = (tabKey) => {
                   Manage Group RFQ
                 </button>
                 <button
+                  id="create_rfqs-rfq_tabs-rfq_management_page"
                   className={`tab ${
                     activeTab === "createRFQs" ? "active" : ""
                   }`}
@@ -95,6 +97,7 @@ const handleTabChange = (tabKey) => {
                   Create RFQs
                 </button>
                 <button
+                  id="draft_rfqs-rfq_tabs-rfq_management_page"
                   className={`tab ${
                     activeTab === "draftRFQs" ? "active" : ""
                   }`}

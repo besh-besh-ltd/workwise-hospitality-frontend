@@ -106,6 +106,7 @@ const VendorManagement = () => {
                                             <div className="col-md-7 col-lg-5">
                                                 <div className="d-flex">
                                                     <button
+                                                        id="add_single_vendor-vendor_management-vendor_management_page"
                                                         type="button"
                                                         className="btn btn-secondary "
                                                         onClick={() => setOpenAddVendorModal(true)}
@@ -131,6 +132,7 @@ const VendorManagement = () => {
                                                 </div>
                                                 <div className="d-flex mt-4 col-md-4">
                                                     <button
+                                                        id="upload_xlsx_file-vendor_management-vendor_management_page"
                                                         type="button"
                                                         className="btn btn-primary mr-2"
                                                         onClick={() => uploadToServer()}
@@ -139,6 +141,7 @@ const VendorManagement = () => {
                                                     </button>
                                                     <div className="d-flex justify-content-end col-md-4">
                                                         <button
+                                                            id="cancel_bulk_upload-vendor_management-vendor_management_page"
                                                             type="button"
                                                             className="btn btn-secondary mr-2"
                                                             onClick={() => {

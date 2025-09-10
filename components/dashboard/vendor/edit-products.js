@@ -1003,6 +1003,7 @@ const EditProducts = () => {
                                                           remove(index);
                                                         }}
                                                         className="btn btn-primary"
+                                                        id="remove_variation-variations_section-edit_products_page"
                                                       >
                                                         Remove
                                                       </Link>
@@ -1021,6 +1022,7 @@ const EditProducts = () => {
                                               attributeValue: "",
                                             })
                                           }
+                                          id="add_variation_field-variations_section-edit_products_page"
                                         >
                                           Add Field
                                         </button>
@@ -1037,6 +1039,7 @@ const EditProducts = () => {
                       <button
                         type="submit"
                         className=" mt-4 btn btn-secondary"
+                        id="save_product-edit_products_page"
                       >
                         Save
                       </button>

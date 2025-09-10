@@ -49,6 +49,7 @@ const VendorList = ({
     <div className="px-2" style={{ height: "65vh" }}>
       {/* Search Input */}
       <input
+        id="search_username-query_list-queries_page"
         type="text"
         className="form-control mb-3 p-2"
         placeholder="Search by username..."

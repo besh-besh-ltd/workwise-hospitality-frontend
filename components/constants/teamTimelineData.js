@@ -26,7 +26,7 @@ export const teamTimelineData = {
     {
       id: 4,
       name: 'Vineet Singh',
-      title: 'Software Tester',
+      title: 'SDET',
       linkedin: 'https://www.linkedin.com/in/vineet-singh-82a394323/',
       description: 'Quality assurance expert',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690822965-38b06a10-91b1-4098-b179-7e8e60de6769.jpeg'
@@ -50,7 +50,7 @@ export const teamTimelineData = {
     {
       id: 7,
       name: 'Kanak Naik',
-      title: 'Software Engineer',
+      title: 'Regional Head (West)',
       linkedin: 'https://www.linkedin.com/in/kanaknaik98/',
       description: 'Mumbai University',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690768142-aa91192f-f49b-420f-b9d3-525475caba69.jpeg'
@@ -132,7 +132,7 @@ export const teamTimelineData = {
     {
       id: 16,
       name: 'Imran Ansari',
-      title: 'Sales Lead',
+      title: 'Regional Head (North)',
       linkedin: 'https://www.linkedin.com/in/imran-ansari-87b073182',
       description: 'Revenue growth strategist',
       image: 'https://workwise-static-s3.s3.ap-south-1.amazonaws.com/user_document/1755690798567-5035e600-fec1-4310-a217-4b0c2530a4c8.jpeg'

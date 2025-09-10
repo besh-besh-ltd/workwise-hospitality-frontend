@@ -299,7 +299,7 @@ const websiteMenu = [
     label: "Tools", 
     type: "dropdown",
     options: [
-      { label: "Vendor Inventory", href: "/vendor/all" },
+      { label: "Vendor Discovery", href: "/vendor/all" },
       { label: "BOQ Simplifier", href: "/ai-tools/boq-simplification" },
       { label: "Project Cost Estimator", href: "/ai-tools/cost-estimation" },
       { label: "Tender Summary", href: "/ai-tools/tender-summary" },
@@ -654,6 +654,7 @@ const Header = () => {
                           onClick={() => {
                             router.push(`/dashboard/${currentUserType}`);
                           }}
+                          id="my_account-user_menu-header"
                         >
                           <Link href="">
                             {" "}
@@ -661,7 +662,7 @@ const Header = () => {
                             <span>My Account</span>
                           </Link>
                         </li>
-                        <li className="signup" onClick={handleLogout}>
+                        <li className="signup" onClick={handleLogout} id="logout_mobile-user_menu-header">
                           <Link href="">
                             <FontAwesomeIcon icon={faSignOut} />{" "}
                             <span>Logout</span>
@@ -763,7 +764,7 @@ const Header = () => {
                   <nav className="main-menu">
                     <ul>
                       <li className="">
-                        <Link href="" onClick={handleUserIconClick}>
+                        <Link href="" onClick={handleUserIconClick} id="user_icon-user_menu-header">
                           <FontAwesomeIcon icon={faUser} style={{ fontSize: 'calc(1em + 5px)' }} />
                         </Link>
                       </li>
@@ -799,6 +800,7 @@ const Header = () => {
                           <Link
                             href={`/change-password?redirect_url=${window.location.pathname}`}
                             onClick={() => setPopoverVisible(false)}
+                            id="change_password-user_popup-header"
                           >
                             Change Password
                           </Link>

@@ -221,6 +221,7 @@ const RfqManagementVendorPage = () => {
                       className="btn btn-secondary"
                       style={{ width: "200px" }}
                       onClick={saveDraftChanges}
+                      id="save_vendor_changes-vendor_actions-rfq_management_vendor_page"
                     >
                       Save Changes
                     </button>

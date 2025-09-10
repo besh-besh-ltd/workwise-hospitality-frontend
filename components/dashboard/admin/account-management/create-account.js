@@ -201,6 +201,7 @@ const CreateAccountPage = () => {
                                   )
                                 }
                                 disabled={isSubmitting}
+                                id="cancel_create_account-account_actions-create_account_page"
                               >
                                 Cancel
                               </button>
@@ -208,6 +209,7 @@ const CreateAccountPage = () => {
                                 type="submit"
                                 className="btn btn-primary"
                                 disabled={isSubmitting}
+                                id="create_account-account_actions-create_account_page"
                               >
                                 Create Account
                               </button>

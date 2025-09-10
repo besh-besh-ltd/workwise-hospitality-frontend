@@ -27,7 +27,7 @@ const Products = () => {
             placeholder="Search for products"
             className="form-control shadow-sm"
           />
-          <button className="btn btn-primary">
+          <button id="search_products-search_bar-products_page" className="btn btn-primary">
             <i className="fas fa-search"></i> {/* Bootstrap Search Icon */}
           </button>
         </div>
@@ -54,6 +54,7 @@ const Products = () => {
         {!showAll && products.length > 6 && (
           <div className="text-center mt-3">
             <button
+              id="show_more_products-products_list-products_page"
               className="btn btn-primary"
               onClick={() => setShowAll(true)}
             >

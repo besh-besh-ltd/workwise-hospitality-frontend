@@ -68,7 +68,8 @@ const ConfirmationModal = ({
                             onClick={onClose}
                             className="btn-close"
                             aria-label="Close"
-                        ></button>
+                            id="close_confirmation_modal-modal_header-confirmation_modal"
+                    ></button>
                     </div>
                 )}
 
@@ -81,9 +82,13 @@ const ConfirmationModal = ({
                         
                         {/* Description */}
                         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-                            <p className='text-muted' style={{ fontSize: '16px', lineHeight: '1.5' }}>
-                                {description}
-                            </p>
+                            <p 
+                                className='text-muted' 
+                                style={{ fontSize: '16px', lineHeight: '1.5' }}
+                                dangerouslySetInnerHTML={{ 
+                                    __html: description.replace(/\\n/g, '<br />') 
+                                }}
+                            />
                         </div>
 
                         {/* Buttons */}
@@ -92,6 +97,7 @@ const ConfirmationModal = ({
                                 onClick={onClose} 
                                 className="btn btn-outline-secondary px-4 py-2"
                                 style={{ minWidth: '100px' }}
+                                id="cancel_confirmation_modal-modal_body-confirmation_modal"
                             >
                                 {cancelButtonText}
                             </button>
@@ -99,6 +105,7 @@ const ConfirmationModal = ({
                                 onClick={onConfirm} 
                                 className={`btn ${getButtonClass(confirmButtonColor)} px-4 py-2`}
                                 style={{ minWidth: '100px' }}
+                                id="confirm_confirmation_modal-modal_body-confirmation_modal"
                             >
                                 {confirmButtonText}
                             </button>
