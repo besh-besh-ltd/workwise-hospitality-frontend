@@ -604,7 +604,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowApproveConfirmModal(false);
         }}
         title={"Approve Purchase Order"}
-        description={"Are you sure you want to approve this Purchase Order?"}
+        description={`Are you sure you want to approve PO #${po_number || 'this purchase order'}?\nThis action will approve the purchase order and notify relevant parties.`}
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
@@ -619,7 +619,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowRejectConfirmModal(false);
         }}
         title={"Reject Purchase Order"}
-        description={"Are you sure you want to reject this Purchase Order?"}
+        description={`Are you sure you want to reject PO #${po_number || 'this purchase order'}?\nThis action will reject the purchase order and notify relevant parties.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject"
         cancelButtonText="Cancel"
