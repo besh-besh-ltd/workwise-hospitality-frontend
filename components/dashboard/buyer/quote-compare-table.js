@@ -200,7 +200,8 @@ const QuoteCompareTable = ({
                           const orig = originalQuotations?.find(o => o.quote_id === item.quote_id);
                           const isRegret = item?.quote_details?.is_regret == 1;
                           if (!orig || isRegret || freightFilter) return null;
-                          const d = orig?.quote_details;
+                          // prefer nested quote_details[0], else fall back to flat fields on orig
+                          const d = (orig?.quote_details && Array.isArray(orig.quote_details)) ? orig.quote_details[0] : orig;
                           const pp0 = (parseFloat(d?.package_price) || 0) === 0;
                           const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
                           const parts = [];

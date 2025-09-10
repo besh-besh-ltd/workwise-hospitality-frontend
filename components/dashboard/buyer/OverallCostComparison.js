@@ -425,12 +425,12 @@ const columnSums = useMemo(() => {
                             // Build dynamic missing note (non-regret only) from originalProducts
                             const orig = (originalProducts[idx]?.quotations || []).find(oq => oq.created_by === q.created_by && oq.id != null && oq.is_regret != 1);
                             if (!orig || freightFilter) return null;
-                            const d = orig?.quote_details?.[0];
+                            const d = (orig?.quote_details && Array.isArray(orig.quote_details)) ? orig.quote_details[0] : orig;
                             const parts = [];
                             const pp0 = (parseFloat(d?.package_price) || 0) === 0;
                             const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
-                            if (pp0) parts.push('package');
-                            if (fp0) parts.push('freight');
+                            if (pp0) parts.push('Package');
+                            if (fp0) parts.push('Freight');
                             return parts.length ? (
                               <div className="text-muted" style={{ fontSize: 14, marginTop: 6 }}>
                                 {`Missing - ${parts.join(', ')}`}

@@ -1234,7 +1234,7 @@ const openModalForVariant = (variantId) => {
                                         {(originalData.length > 0 ? (() => {
                                           const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
                                           const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
-                                          const d = oq?.quote_details?.[0];
+                                          const d = oq?.quote_details?.[0] ?? oq;
                                           if (!d) return false;
                                           const parts = [];
                                           const pp0 = (parseFloat(d?.package_price) || 0) === 0;
@@ -1243,13 +1243,13 @@ const openModalForVariant = (variantId) => {
                                           if (!freightFilter && fp0) parts.push('Freight');
                                           return parts.length ? parts.join(',') : false;
                                         })() : false) && ((missing => (
-                                          <div style={{ fontSize: "12px", marginTop: 4, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
+                                          <div style={{ fontSize: "12px", marginTop: 6, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
                                             {`Missing - ${missing.replace(',', ', ')}`}
                                           </div>
                                         ))((originalData.length > 0 ? (() => {
                                           const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
                                           const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
-                                          const d = oq?.quote_details?.[0];
+                                          const d = oq?.quote_details?.[0] ?? oq;
                                           const parts = [];
                                           const pp0 = (parseFloat(d?.package_price) || 0) === 0;
                                           const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
