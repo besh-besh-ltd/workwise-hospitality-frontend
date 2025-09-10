@@ -125,44 +125,44 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
       </div>
 
      {/* Suggestions panel for vendors */}
-{isVendor && showSuggestions && (
-  <div className="card border-0 shadow-sm mb-3">
-    <div className="card-header bg-light d-flex justify-content-between align-items-center py-2">
-      <h6 className="mb-0 text-muted small">
-        💡 Helpful suggestions for your response
-      </h6>
-      <button
-        type="button"
-        className="btn btn-sm btn-outline-secondary"
-        onClick={() => setShowSuggestions(false)}
-      >
-        <FontAwesomeIcon icon={faTimes} />
-      </button>
-    </div>
-    <div className="card-body p-2">
-      <div className="d-flex flex-wrap gap-2">
-        {vendorSuggestions.map((suggestion, index) => (
-          <span
-            key={index}
-            role="button"
-            className="badge rounded-pill bg-light text-dark border px-3 py-2 text-start"
-            style={{
-              cursor: "pointer",
-              maxWidth: "250px",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-            onClick={() => handleSuggestionClick(suggestion)}
-            title={suggestion}
-          >
-            {suggestion}
-          </span>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+      {isVendor && showSuggestions && (
+        <div className="card border-0 shadow-sm mb-3">
+          <div className="card-header bg-light d-flex justify-content-between align-items-center py-2">
+            <h6 className="mb-0 text-muted small">
+              💡 Helpful suggestions for your response
+            </h6>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setShowSuggestions(false)}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+          <div className="card-body p-2">
+            <div className="d-flex flex-wrap gap-2">
+              {vendorSuggestions.map((suggestion, index) => (
+                <span
+                  key={index}
+                  role="button"
+                  className="badge rounded-pill bg-light text-dark border px-3 py-2 text-start"
+                  style={{
+                    cursor: "pointer",
+                    maxWidth: "250px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  title={suggestion}
+                >
+                  {suggestion}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
 
       <div className="chat-messages flex-grow-1 mb-3" style={{ overflowY: "auto" }}>

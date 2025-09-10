@@ -262,6 +262,17 @@ export const getRFQById = (id, token, includeVendors = false) => {
   });
 };
 
+export const fetchQuoteHistory = (rfq_product_id) =>{
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get(`/rfq/get-quote-history?variant_id=${rfq_product_id}`)
+      resolve(response.data);
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
+
 export const getVendorsByID = (values) => {
   return new Promise(async (resolve, reject) => {
     try {

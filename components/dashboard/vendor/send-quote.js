@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { extractQuotation, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
+import { extractQuotation, fetchQuoteHistory, getRFQById, sendQuotation, updateQuotation } from "@/services/rfq";
 import PlaceholderLoading from "react-placeholder-loading";
 import Loader from "@/components/shared/Loader";
 import { toast } from "react-toastify";
@@ -17,6 +17,8 @@ import { calculateTotal as sharedCalculateTotal } from "@/utils/sharedFunctions"
 import { QuotesOverrideModal } from "@/components/modal/ExtractedQuotesModal";
 import { IoMdInformationCircleOutline } from "react-icons/io";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
+import QuoteHistoryModal from "@/components/modal/QuoteHistoryModal";
+import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal";
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
@@ -73,6 +75,8 @@ const SendQuotePageComp = () => {
     data: null,
   })
   const [extractingQuotes, setExtractingQuotes] = useState(false);
+const [quoteHistory, setQuoteHistory] = useState(null);
+const [showQuoteHistoryModal, setShowQuoteHistoryModal] = useState(false); //to fetch the quote hitory for a product for vendor page
 
   // structured payment terms rows
 const [paymentTermsRows, setPaymentTermsRows] = useState([
@@ -130,6 +134,17 @@ const originalPaymentTermsListRef = useRef(null);
       };
     });
   }
+
+const openQuoteHistoryModal = async (product_variant_id, index) => {
+  try {
+    const response = await fetchQuoteHistory(product_variant_id);
+    setQuoteHistory(response); // load data
+    setShowQuoteHistoryModal(true); // open modal
+  } catch (error) {
+    console.error("Error fetching quote history:", error);
+  }
+};
+
 
   // Changes by Agnij 2024-07-30 [Add function to check if fields are filled]
   const isAnyFieldFilled = () => {
@@ -1483,6 +1498,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                             </th>
                             <th>Add Documents</th>
                             {alreadyQuoted ? <th>Previous Documents</th> : null}
+                            <th>View History</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2034,6 +2050,15 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           )}
                                       </td>
                                     )}
+                                    <td>
+                                     <button
+                                    type="button"
+                                    className="btn btn-link p-0"
+                                    onClick={() => openQuoteHistoryModal(item.product_id, index)}
+                                  >
+                                    View History
+                                  </button>
+                                    </td>
                                   </tr>
                                 );
                               }
@@ -2105,6 +2130,16 @@ return { deletedTerms, createdTerms, updatedTerms };
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"
       />
+
+      {showQuoteHistoryModal && (
+  <VendorQuoteHistoryModal 
+    showModal={showQuoteHistoryModal}
+    closeModal={() => setShowQuoteHistoryModal(false)}
+    quoteHistory={quoteHistory} 
+    quotehistorydata={quoteHistory?.data} // pass previous_quotes etc.
+  />
+)}
+
     </>
   );
 };
