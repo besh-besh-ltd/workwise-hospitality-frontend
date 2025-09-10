@@ -604,7 +604,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowApproveConfirmModal(false);
         }}
         title={"Approve Purchase Order"}
-        description={"Are you sure you want to approve this Purchase Order?"}
+        description={`Are you sure you want to approve PO #${po_number || 'this purchase order'}?\nThis action will approve the purchase order and notify relevant parties.`}
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
@@ -619,7 +619,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowRejectConfirmModal(false);
         }}
         title={"Reject Purchase Order"}
-        description={"Are you sure you want to reject this Purchase Order?"}
+        description={`Are you sure you want to reject PO #${po_number || 'this purchase order'}?\nThis action will reject the purchase order and notify relevant parties.`}
         confirmButtonColor="danger"
         confirmButtonText="Reject"
         cancelButtonText="Cancel"
@@ -636,7 +636,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowDeleteMilestoneConfirmModal(false);
         }}
         title={"Delete Milestone"}
-        description={"Are you sure you want to delete this milestone? This action cannot be undone."}
+        description={"Are you sure you want to delete this milestone?"}
         confirmButtonColor="danger"
         confirmButtonText="Delete"
         cancelButtonText="Cancel"
@@ -653,7 +653,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           setShowDeleteTaskConfirmModal(false);
         }}
         title={"Delete Task"}
-        description={"Are you sure you want to delete this task? This action cannot be undone."}
+        description={"Are you sure you want to delete this task?"}
         confirmButtonColor="danger"
         confirmButtonText="Delete"
         cancelButtonText="Cancel"

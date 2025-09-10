@@ -183,20 +183,35 @@ const QuoteCompareTable = ({
                     <div
                       className="table-si-row table-dark-row "
                       style={{ 
-                        overflow: "visible",
-                        backgroundColor: (!isRegret && missingCosts) ? "#ff8c00" : undefined
+                        overflow: "visible"
                       }}
                     >
                       <span
                         className="d-block text-center fw-bold fs-5"
                         style={{ 
-                          width: "100%",
-                          color: (!isRegret && missingCosts) ? "white" : undefined
+                          width: "100%"
                         }}
                       >
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||
                           item?.quote_details?.vendor_details?.name}
+                        {(() => {
+                          // build dynamic missing note under the vendor header (non-regret only)
+                          const orig = originalQuotations?.find(o => o.quote_id === item.quote_id);
+                          const isRegret = item?.quote_details?.is_regret == 1;
+                          if (!orig || isRegret || freightFilter) return null;
+                          const d = orig?.quote_details;
+                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                          const parts = [];
+                          if (pp0) parts.push('Package');
+                          if (fp0) parts.push('Freight');
+                          return parts.length ? (
+                            <div style={{ color: '#fff', fontSize: '14px', lineHeight: 1.25, marginTop: 6 }}>
+                              {`Missing - ${parts.join(', ')}`}
+                            </div>
+                          ) : null;
+                        })()}
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (

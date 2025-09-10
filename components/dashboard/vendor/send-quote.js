@@ -2100,7 +2100,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         onClose={handleSubmitQuoteCancel}
         onConfirm={handleSubmitQuoteConfirm}
         title="Submit Quote"
-        description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer and cannot be undone."
+        description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer."
         confirmButtonColor="success"
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"
