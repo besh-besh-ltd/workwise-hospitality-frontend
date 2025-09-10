@@ -1235,14 +1235,28 @@ const openModalForVariant = (variantId) => {
                                           const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
                                           const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
                                           const d = oq?.quote_details?.[0];
-                                          const fp = parseFloat(d?.freight_price) || 0;
-                                          const pp = parseFloat(d?.package_price) || 0;
-                                          return !freightFilter && (fp === 0 || pp === 0);
-                                        })() : false) && (
+                                          if (!d) return false;
+                                          const parts = [];
+                                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                                          if (pp0) parts.push('Package');
+                                          if (!freightFilter && fp0) parts.push('Freight');
+                                          return parts.length ? parts.join(',') : false;
+                                        })() : false) && ((missing => (
                                           <div style={{ fontSize: "12px", marginTop: 4, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
-                                            (Quote doesn't include freight and packaging)
+                                            {`Missing - ${missing.replace(',', ', ')}`}
                                           </div>
-                                        )}
+                                        ))((originalData.length > 0 ? (() => {
+                                          const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
+                                          const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
+                                          const d = oq?.quote_details?.[0];
+                                          const parts = [];
+                                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                                          if (pp0) parts.push('Package');
+                                          if (!freightFilter && fp0) parts.push('Freight');
+                                          return parts.join(',');
+                                        })() : '')) )}
                                         </> ); })()}
                                       </label>
                                     ) : (

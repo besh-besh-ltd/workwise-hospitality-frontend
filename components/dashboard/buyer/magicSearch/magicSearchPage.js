@@ -169,7 +169,7 @@ const MagicSearchPage = () => {
           s3Url: null,
           name: null,
         })
-        setTab('processing-files');
+        handleTabChange('processing-files');
         setShowSimplifyConfirmModal(false);
     };
 
@@ -228,7 +228,7 @@ const uploadToServer = async (processed_file) => {
 const confirmRFQUpload = async () => {
   try {
     // Only switch tab on confirmation
-    setTab("processing-files");
+    handleTabChange("processing-files");
   } catch (error) {
     console.error("Failed to switch tab:", error);
     toast.error("Failed to switch to processing tab.");
@@ -278,7 +278,7 @@ const closeRFQConfirmModal = () => {
   const handleUploadForRFQ = async (webhook) => {
   try {
     setLoading(true);
-    setTab('processing-files')
+    handleTabChange('processing-files')
     // setApiData(response);
   } catch (error) {
     console.error("RFQ Preview fetch failed:", error);
