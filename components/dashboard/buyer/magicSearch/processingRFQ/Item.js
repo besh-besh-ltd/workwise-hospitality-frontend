@@ -191,7 +191,7 @@ const DraftRFQItem = ({ data, index, onViewErrors, handleCreateRFQ }) => {
                 <Button
                   onClick={async () => {
                     console.log("data.download_url:", data.download_url, "data.file_name:", data.file_name)
-                    await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name)
+                    await handleCreateRFQ(getDownloadURL(data.raw_file_url || data.download_url), data.file_name, data.raw_file_url)
                   }}
                   variant="primary"
                   size="sm"
