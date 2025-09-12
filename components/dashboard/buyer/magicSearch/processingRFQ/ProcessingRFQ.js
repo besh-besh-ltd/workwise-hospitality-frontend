@@ -84,8 +84,8 @@ const ProcessingRFQ = ({ handleCreateRFQ }) => {
                     return (
                       <ProcessingRFQItem
                         key={`processing_rfq_item_${item.id}`}
-                        handleCreateRFQ={async (excel_link, file_name) => {
-                          await handleCreateRFQ(excel_link, file_name);
+                        handleCreateRFQ={async (excel_link, file_name, raw_file_url) => {
+                          await handleCreateRFQ(excel_link, file_name, raw_file_url);
                           getAllProcessingRFQs();
                         }}
                         data={item}
