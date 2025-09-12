@@ -114,7 +114,7 @@ const ChatBox = ({ messages, vendor, rfq_id, role, onMessageSent, vendorwithoutl
         {/* Suggestion toggle button for vendors only */}
         {isVendor && !isBroadcastMode && (
           <button 
-            className="btn btn-outline-info btn-sm"
+            className="btn btn-outline btn-sm btn-secondary"
             onClick={() => setShowSuggestions(!showSuggestions)}
             title="Message suggestions"
           >

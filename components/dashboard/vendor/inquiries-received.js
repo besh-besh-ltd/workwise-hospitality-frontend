@@ -447,16 +447,16 @@ const getQuoteStatus = async (rfq_id) => {
                   onHide={() => setShowReminderModal(false)}
                   centered
                 >
-                  <Modal.Header closeButton>
-                    <Modal.Title>Confirm Reminder</Modal.Title>
+                  <Modal.Header closeButton className="px-4 py-3">
+                    <Modal.Title className="fw-semibold">Confirm Reminder</Modal.Title>
                   </Modal.Header>
-                  <Modal.Body>
-                    <p>
+                  <Modal.Body className="px-4 py-3">
+                    <p className="mb-0">
                       Only 2 reminders can be sent to the buyer. Use this option
                       wisely. Are you sure you want to send a reminder?
                     </p>
                   </Modal.Body>
-                  <Modal.Footer>
+                  <Modal.Footer className="px-4 py-3">
                     <button
                       className="btn btn-secondary"
                       onClick={() => setShowReminderModal(false)}
