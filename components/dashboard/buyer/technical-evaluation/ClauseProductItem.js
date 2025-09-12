@@ -35,6 +35,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     
  
     const addToTechnicallyAccepted = async (vendor = null) => {
+        // When triggered from the ellipsis menu, a vendor object is passed.
+        // Ensure that becomes the currently selected vendor so confirmation works.
+        if (vendor) {
+            // Normalise to the shape used elsewhere: { label, value, vendor_id, vendor_name }
+            const normalizedVendor = {
+                label: vendor.label || vendor.vendor_name,
+                value: vendor.value || vendor.vendor_id,
+                vendor_id: vendor.vendor_id || vendor.value,
+                vendor_name: vendor.vendor_name || vendor.label,
+            };
+            setSelectedVendor(normalizedVendor);
+        }
         setShowAcceptConfirmModal(true);
     }
 
