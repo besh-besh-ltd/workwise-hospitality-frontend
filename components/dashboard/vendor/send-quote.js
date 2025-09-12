@@ -1114,412 +1114,546 @@ return { deletedTerms, createdTerms, updatedTerms };
               <div className="col-md-12">
                 <div className="quote-sec-table">
                   <div className="quote-sec-table-top">
+                    {/* RFQ Details Section */}
+                    <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
+                      {rfqDetails?.company_name && (
+                        <div className="text-start">
+                          <strong>RFQ No:</strong>
+                          <div>#{rfqDetails.rfq_no}</div>
+                        </div>
+                      )}
+                      {rfqDetails?.contact_name && (
+                        <div className="text-start">
+                          <strong>Contact Person:</strong>
+                          <div>{rfqDetails.contact_name}</div>
+                        </div>
+                      )}
+                      {rfqDetails?.contact_name && (
+                        <div className="text-start">
+                          <strong>Contact Person:</strong>
+                          <div>{rfqDetails.contact_name}</div>
+                        </div>
+                      )}
+                      {rfqDetails?.response_email && (
+                        <div className="text-start">
+                          <strong>Email:</strong>
+                          <div>{rfqDetails.response_email}</div>
+                        </div>
+                      )}
+                      {rfqDetails?.contact_number && (
+                        <div className="text-start">
+                          <strong>Contact Number:</strong>
+                          <div>{rfqDetails.contact_number}</div>
+                        </div>
+                      )}
+                    </div>
 
-                      {/* RFQ Details Section */}
-                                      <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
-                    {rfqDetails?.company_name && (
-                      <div className="text-start">
-                        <strong>RFQ No:</strong>
-                        <div>#{rfqDetails.rfq_no}</div>
+                    {/* AI file upload start here */}
+                    <div>
+                      <div className="d-flex align-items-center my-3">
+                        <hr className="flex-grow-1" />
+                        <span className="mx-3  fw-semibold">
+                          Smart Quotation Assist - Wisely
+                        </span>
+                        <hr className="flex-grow-1" />
                       </div>
-                    )}
-                    {rfqDetails?.contact_name && (
-                      <div className="text-start">
-                        <strong>Contact Person:</strong>
-                        <div>{rfqDetails.contact_name}</div>
+
+                      <label
+                        className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+                        style={{
+                          background: "#edf0ff",
+                          border: "1px dashed #c9cff8",
+                          cursor: "pointer",
+                          opacity: extractingQuotes ? "0.5" : "1",
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={faWandMagicSparkles}
+                          className="me-2"
+                        />
+                        {extractingQuotes
+                          ? "Extracing quotes from document..."
+                          : "Upload document to extract quotes"}
+                        <input
+                          type="file"
+                          accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                          onChange={(e) => uploadExtractionDocument(e)}
+                          multiple
+                          disabled={extractingQuotes}
+                        />
+                      </label>
+
+                      {/*  start: recently upload files */}
+                      {globalDocumentFiles &&
+                        globalDocumentFiles.length > 0 && (
+                          <div className="row">
+                            <p className="fw-medium mb-1">
+                              New Uploaded Files:
+                            </p>
+                            <div className="d-flex gap-4">
+                              {globalDocumentFiles.map((doc_file) => {
+                                return (
+                                  <p
+                                    key={doc_file}
+                                    href={doc_file}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                                    style={{ maxWidth: 280 }}
+                                    title={"Click here to download the file"}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      removeGlobalFiles(doc_file);
+                                    }}
+                                  >
+                                    <FontAwesomeIcon
+                                      icon={faDownload}
+                                      className="text-primary "
+                                    />
+                                    <span
+                                      className="text-truncate"
+                                      style={{
+                                        maxWidth: 200,
+                                        marginLeft: "10px",
+                                      }}
+                                    >
+                                      {extractfileName(doc_file)}
+                                    </span>
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                      {previousGlobalFiles?.length > 0 && (
+                        <div className=" mb-3">
+                          <p className="fw-medium mb-1">
+                            Previously Uploaded Files:
+                          </p>
+                          <div className="d-flex gap-4 ">
+                            {previousGlobalFiles.map((prev_file) => (
+                              <a
+                                key={prev_file}
+                                href={prev_file}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="badge bg-light border text-primary   text-truncate "
+                                style={{ maxWidth: 280 }}
+                                title={"Click here to download the file"}
+                              >
+                                <FontAwesomeIcon
+                                  icon={faDownload}
+                                  className="text-primary "
+                                />
+                                <span
+                                  className="text-truncate"
+                                  style={{ maxWidth: 200, marginLeft: "10px" }}
+                                >
+                                  {extractfileName(prev_file)}
+                                </span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="d-flex align-items-center my-3">
+                      <hr className="flex-grow-1" />
+                      <span className="mx-3  fw-semibold">
+                        OR send quotation manually
+                      </span>
+                      <hr className="flex-grow-1" />
+                    </div>
+
+                    <div className="row align-items-stretch">
+                      {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
+                      <div className="col-lg-3 col-12 d-flex">
+                        <div className="card border shadow-sm rounded-3 w-100 h-100">
+                          <div className="card-body">
+                            <h3 className="fs-6 fw-semibold mb-3">
+                              Global Costing
+                            </h3>
+
+                            <div className="row g-3 mb-4">
+                              {/* Freight */}
+                              <div className="col-12 col-sm-4">
+                                <label className="form-label">Freight</label>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  min={0}
+                                  value={globalFreight}
+                                  placeholder={
+                                    chargesMode.freight.global === "percentage"
+                                      ? "3%"
+                                      : "₹950"
+                                  }
+                                  onChange={(e) =>
+                                    setglobalFreight(e.target.value || "")
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                />
+                                <div className="mt-2">
+                                  <PercentageAbsoluteToggle
+                                    currentMode={chargesMode.freight.global}
+                                    onToggle={(value) =>
+                                      setChargesMode((prev) => ({
+                                        ...prev,
+                                        freight: {
+                                          ...prev.freight,
+                                          global: value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Packaging */}
+                              <div className="col-12 col-sm-4">
+                                <label className="form-label">Packaging</label>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  min={0}
+                                  value={globalPackaging}
+                                  placeholder={
+                                    chargesMode.package.global === "percentage"
+                                      ? "4%"
+                                      : "₹1450"
+                                  }
+                                  onChange={(e) =>
+                                    setglobalPackaging(e.target.value || "")
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                />
+                                <div className="mt-2">
+                                  <PercentageAbsoluteToggle
+                                    currentMode={chargesMode.package.global}
+                                    onToggle={(value) =>
+                                      setChargesMode((prev) => ({
+                                        ...prev,
+                                        package: {
+                                          ...prev.package,
+                                          global: value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              {/* TAX */}
+                              <div className="col-12 col-sm-4">
+                                <label className="form-label">TAX</label>
+                                <input
+                                  type="number"
+                                  className="form-control"
+                                  min={0}
+                                  value={globalTax}
+                                  placeholder={
+                                    chargesMode.tax.global === "percentage"
+                                      ? "18%"
+                                      : "₹18940"
+                                  }
+                                  onChange={(e) =>
+                                    setglobalTax(e.target.value || "")
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                />
+                                <div className="mt-2">
+                                  <PercentageAbsoluteToggle
+                                    currentMode={chargesMode.tax.global}
+                                    onToggle={(value) =>
+                                      setChargesMode((prev) => ({
+                                        ...prev,
+                                        tax: { ...prev.tax, global: value },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <label
+                              className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
+                              style={{
+                                background: "#edf0ff",
+                                border: "1px dashed #c9cff8",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faFile} className="me-2" />
+                              Upload Quotation Document
+                              <input
+                                type="file"
+                                accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
+                                onChange={(e) => uploadGlobalDocumentFiles(e)}
+                                multiple
+                              />
+                            </label>
+
+                            {/*  start: recently upload files */}
+                            {globalDocumentFiles &&
+                              globalDocumentFiles.length > 0 && (
+                                <div className="row">
+                                  <p className="fw-medium mb-1">
+                                    New Uploaded Files:
+                                  </p>
+                                  <div className="d-flex gap-4">
+                                    {globalDocumentFiles.map((doc_file) => {
+                                      return (
+                                        <p
+                                          key={doc_file}
+                                          href={doc_file}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                                          style={{ maxWidth: 280 }}
+                                          title={
+                                            "Click here to download the file"
+                                          }
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            removeGlobalFiles(doc_file);
+                                          }}
+                                        >
+                                          <FontAwesomeIcon
+                                            icon={faDownload}
+                                            className="text-primary "
+                                          />
+                                          <span
+                                            className="text-truncate"
+                                            style={{
+                                              maxWidth: 200,
+                                              marginLeft: "10px",
+                                            }}
+                                          >
+                                            {extractfileName(doc_file)}
+                                          </span>
+                                        </p>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                            {previousGlobalFiles?.length > 0 && (
+                              <div className=" mb-3">
+                                <p className="fw-medium mb-1">
+                                  Previously Uploaded Files:
+                                </p>
+                                <div className="d-flex gap-4 ">
+                                  {previousGlobalFiles.map((prev_file) => (
+                                    <a
+                                      key={prev_file}
+                                      href={prev_file}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="badge bg-light border text-primary   text-truncate "
+                                      style={{ maxWidth: 280 }}
+                                      title={"Click here to download the file"}
+                                    >
+                                      <FontAwesomeIcon
+                                        icon={faDownload}
+                                        className="text-primary "
+                                      />
+                                      <span
+                                        className="text-truncate"
+                                        style={{
+                                          maxWidth: 200,
+                                          marginLeft: "10px",
+                                        }}
+                                      >
+                                        {extractfileName(prev_file)}
+                                      </span>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    {rfqDetails?.contact_name && (
-                      <div className="text-start">
-                        <strong>Contact Person:</strong>
-                        <div>{rfqDetails.contact_name}</div>
+
+                      {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
+                      <div className="col-lg-4 col-12 d-flex">
+                        <div className="card border shadow-sm rounded-3 w-100 h-100">
+                          <div className="card-body d-flex flex-column">
+                            {globalPaymentTerms && (
+                              <>
+                                <div className="mb-3 d-flex align-items-center justify-content-between">
+                                  <h3 className="fs-6 fw-semibold mb-0">
+                                    Payment Terms{" "}
+                                    <span className="text-danger">*</span>
+                                  </h3>
+                                </div>
+                                <textarea
+                                  className="form-control mb-3"
+                                  rows={3}
+                                  value={globalPaymentTerms}
+                                  placeholder="100% Against Proforma Invoice"
+                                  onChange={(e) =>
+                                    setglobalPaymentTerms(e.target.value)
+                                  }
+                                />
+                              </>
+                            )}
+
+                            <h3 className="fs-6 fw-semibold mb-2">
+                              Global Comment
+                            </h3>
+                            <textarea
+                              className="form-control flex-grow-1"
+                              value={globalComment}
+                              placeholder="Placeholder text for global comment"
+                              onChange={(e) => setglobalComment(e.target.value)}
+                            />
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    {rfqDetails?.response_email && (
-                      <div className="text-start">
-                        <strong>Email:</strong>
-                        <div>{rfqDetails.response_email}</div>
+
+                      {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
+                      <div className="col-lg-5 col-12">
+                        <div className="border rounded-3 p-3">
+                          <div className="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                              <h3 className="fs-6 fw-semibold mb-0">
+                                Payment Terms{" "}
+                                <span className="text-danger">*</span>
+                              </h3>
+                              <small className="text-muted">
+                                amount defined so far:{" "}
+                                {paymentTermsRows.reduce(
+                                  (a, b) => a + (Number(b.value) || 0),
+                                  0
+                                )}
+                                %
+                              </small>
+                              {paymentTermsRows.filter(
+                                (row) =>
+                                  row &&
+                                  row.action !== "delete" &&
+                                  row.type &&
+                                  row.value != null &&
+                                  row.value > 0
+                              ).length === 0 && (
+                                <>
+                                  <br />
+                                  <small className="text-danger">
+                                    At least one valid payment term is required
+                                  </small>
+                                </>
+                              )}
+                            </div>
+
+                            <SmartButton
+                              onClick={() =>
+                                setPaymentTermsRows((prev) => [
+                                  ...(prev || []),
+                                  {
+                                    id: null,
+                                    value: "",
+                                    type: "advance",
+                                    days: "",
+                                    comment: "",
+                                  },
+                                ])
+                              }
+                              theme={"primary"}
+                              style={{
+                                paddingLeft: "0.6rem",
+                                paddingRight: "0.6rem",
+                              }}
+                              label="Add Term"
+                              icon={
+                                <FontAwesomeIcon
+                                  icon={faPlus}
+                                  className="me-1"
+                                />
+                              }
+                            />
+                          </div>
+
+                          <PaymentTermsEditor
+                            value={paymentTermsRows}
+                            onChange={setPaymentTermsRows}
+                          />
+                        </div>
                       </div>
-                    )}
-                    {rfqDetails?.contact_number && (
-                      <div className="text-start">
-                        <strong>Contact Number:</strong>
-                        <div>{rfqDetails.contact_number}</div>
-                      </div>
-                    )}
-                  </div>
-                  
-       
-        {/* AI file upload start here */}
-       <div>
-
-         <div className="d-flex align-items-center my-3">
-           <hr className="flex-grow-1" />
-           <span className="mx-3  fw-semibold">
-         Smart Quotation Assist - Wisely 
-           </span>
-           <hr className="flex-grow-1" />
-         </div>
-
-
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer", opacity: extractingQuotes ? '0.5' : '1' }}
-        >
-          <FontAwesomeIcon icon={faWandMagicSparkles} className="me-2" />
-          {extractingQuotes ? 'Extracing quotes from document...' : 'Upload document to extract quotes'}
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadExtractionDocument(e)}
-            multiple
-            disabled={extractingQuotes}
-          />
-        </label>
-
-           {/*  start: recently upload files */}
-           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-          <div className="row">
-           <p className="fw-medium mb-1">New Uploaded Files:</p>
-            <div className="d-flex gap-4" >
-              {globalDocumentFiles.map((doc_file) => {
-               return (
-                  <p
-                  key={doc_file}
-                  href={doc_file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
-                  style={{ maxWidth: 280 }}
-                  title={"Click here to download the file"}
-                  onClick={(e) => {
-                      e.preventDefault()
-                      removeGlobalFiles(doc_file)
-                    }}
-                >
-                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
-                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
-                   {extractfileName(doc_file)}
-                  </span>
-                </p>
- 
-              )
-            })}
-            </div>
-         </div>
-          )}
-
-        {previousGlobalFiles?.length > 0 && (
-          <div className=" mb-3">
-            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
-            <div className="d-flex gap-4 ">
-              {previousGlobalFiles.map((prev_file) => (
-                <a
-                  key={prev_file}
-                  href={prev_file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-light border text-primary   text-truncate "
-                  style={{ maxWidth: 280 }}
-                  title={"Click here to download the file"}
-                >
-                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
-                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
-                    {extractfileName(prev_file)}
-                  </span>
-                </a>
-              ))}
-
-            </div>
-          </div>
-        )}
-
-       </div>
-       <div className="d-flex align-items-center my-3">
-         <hr className="flex-grow-1" />
-         <span className="mx-3  fw-semibold">
-           OR send quotation manually
-         </span>
-         <hr className="flex-grow-1" />
-       </div> 
-
-
-<div className="row align-items-stretch">
-  {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
-  <div className="col-lg-3 col-12 d-flex">
-    <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body">
-        <h3 className="fs-6 fw-semibold mb-3">Global Costing</h3>
-
-        <div className="row g-3 mb-4">
-          {/* Freight */}
-          <div className="col-12 col-sm-4">
-            <label className="form-label">Freight</label>
-            <input
-              type="number"
-              className="form-control"
-              min={0}
-              value={globalFreight}
-              placeholder={chargesMode.freight.global === "percentage" ? "3%" : "₹950"}
-              onChange={(e) => setglobalFreight(e.target.value || "")}
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-            <div className="mt-2">
-              <PercentageAbsoluteToggle
-                currentMode={chargesMode.freight.global}
-                onToggle={(value) =>
-                  setChargesMode((prev) => ({ ...prev, freight: { ...prev.freight, global: value } }))
-                }
-              />
-            </div>
-          </div>
-
-          {/* Packaging */}
-          <div className="col-12 col-sm-4">
-            <label className="form-label">Packaging</label>
-            <input
-              type="number"
-              className="form-control"
-              min={0}
-              value={globalPackaging}
-              placeholder={chargesMode.package.global === "percentage" ? "4%" : "₹1450"}
-              onChange={(e) => setglobalPackaging(e.target.value || "")}
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-            <div className="mt-2">
-              <PercentageAbsoluteToggle
-                currentMode={chargesMode.package.global}
-                onToggle={(value) =>
-                  setChargesMode((prev) => ({ ...prev, package: { ...prev.package, global: value } }))
-                }
-              />
-            </div>
-          </div>
-
-          {/* TAX */}
-          <div className="col-12 col-sm-4">
-            <label className="form-label">TAX</label>
-            <input
-              type="number"
-              className="form-control"
-              min={0}
-              value={globalTax}
-              placeholder={chargesMode.tax.global === "percentage" ? "18%" : "₹18940"}
-              onChange={(e) => setglobalTax(e.target.value || "")}
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-            <div className="mt-2">
-              <PercentageAbsoluteToggle
-                currentMode={chargesMode.tax.global}
-                onToggle={(value) =>
-                  setChargesMode((prev) => ({ ...prev, tax: { ...prev.tax, global: value } }))
-                }
-              />
-            </div>
-          </div>
-        </div>
-
-        <label
-          className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
-          style={{ background: "#edf0ff", border: "1px dashed #c9cff8", cursor: "pointer" }}
-        >
-          <FontAwesomeIcon icon={faFile} className="me-2" />
-          Upload Quotation Document
-          <input
-            type="file"
-            accept=".pdf, .docx, .doc, .xlsx, .xls, .csv, .png, .jpg, .jpeg"
-            onChange={(e) => uploadGlobalDocumentFiles(e)}
-            multiple
-          />
-        </label>
-
-           {/*  start: recently upload files */}
-           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
-          <div className="row">
-           <p className="fw-medium mb-1">New Uploaded Files:</p>
-            <div className="d-flex gap-4" >
-              {globalDocumentFiles.map((doc_file) => {
-               return (
-                  <p
-                  key={doc_file}
-                  href={doc_file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
-                  style={{ maxWidth: 280 }}
-                  title={"Click here to download the file"}
-                  onClick={(e) => {
-                      e.preventDefault()
-                      removeGlobalFiles(doc_file)
-                    }}
-                >
-                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
-                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
-                   {extractfileName(doc_file)}
-                  </span>
-                </p>
- 
-              )
-            })}
-            </div>
-         </div>
-          )}
-
-        {previousGlobalFiles?.length > 0 && (
-          <div className=" mb-3">
-            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
-            <div className="d-flex gap-4 ">
-              {previousGlobalFiles.map((prev_file) => (
-                <a
-                  key={prev_file}
-                  href={prev_file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="badge bg-light border text-primary   text-truncate "
-                  style={{ maxWidth: 280 }}
-                  title={"Click here to download the file"}
-                >
-                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
-                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
-                    {extractfileName(prev_file)}
-                  </span>
-                </a>
-              ))}
-
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-
-  {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
-  <div className="col-lg-4 col-12 d-flex">
-    <div className="card border shadow-sm rounded-3 w-100 h-100">
-      <div className="card-body d-flex flex-column">
-      
-      {globalPaymentTerms && (
-      <>
-        <div className="mb-3 d-flex align-items-center justify-content-between">
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
-        </div>
-        <textarea
-          className="form-control mb-3"
-          rows={3}
-          value={globalPaymentTerms}
-          placeholder="100% Against Proforma Invoice"
-          onChange={(e) => setglobalPaymentTerms(e.target.value)}
-        />
-        </>
-      )}
-
-        <h3 className="fs-6 fw-semibold mb-2">Global Comment</h3>
-        <textarea
-          className="form-control flex-grow-1"
-        value={globalComment}
-        placeholder="Placeholder text for global comment"
-        onChange={(e) => setglobalComment(e.target.value)}
-      />
-    </div>
-  </div>
-</div>
-
-  {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
-  <div className="col-lg-5 col-12">
-
-   <div className="border rounded-3 p-3" >
-          <div className="d-flex align-items-center justify-content-between mb-2">
-          <div>
-          <h3 className="fs-6 fw-semibold mb-0">Payment Terms <span className="text-danger">*</span></h3>
-            <small className="text-muted">amount defined so far: {paymentTermsRows.reduce((a,b)=>a+(Number(b.value)||0),0)}%</small>
-            {paymentTermsRows.filter(row => 
-              row && 
-              row.action !== "delete" && 
-              row.type && 
-              row.value != null && 
-              row.value > 0
-            ).length === 0 && (
-              <>
-                <br />
-                <small className="text-danger">At least one valid payment term is required</small>
-              </>
-            )}
-            </div>
-
-        <SmartButton
-              onClick={() =>
-                setPaymentTermsRows((prev) => [ ...(prev || []), { id:null,  value: "", type: "advance", days: "", comment:'' } ])
-              }
-        theme={'primary'}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
-        label="Add Term"
-        icon={<FontAwesomeIcon icon={faPlus} className="me-1" />}
-      />
-
-
-          </div>
-
-          <PaymentTermsEditor
-            value={paymentTermsRows}
-            onChange={setPaymentTermsRows}
-          />
-        </div>
-  </div>
-
-</div>
-
-
-
+                    </div>
                   </div>
                   <div className="table-responsive">
                     <div className="table-container">
                       <table className="table">
                         <thead>
                           <tr>
-                            <th>Sl No.</th>
-                            <th>Item</th>
-                            <th>Qty</th>
-                            {/* <th>Unit</th> */}
-                            <th>Base Price</th>
-                            <th>
+                            <th
+                              rowSpan="2"
+                              className="align-middle"
+                              style={{ maxWidth: "40px" }}
+                            >
+                              Sl No.
+                            </th>
+                            <th rowSpan="2" className="align-middle">
+                              Item Details
+                            </th>
+                            <th className="text-center">Base Price</th>
+                            <th
+                              className="text-center"
+                              style={{ width: "40px" }}
+                            >
                               Freight
+                              <br />
+                              {/* <small>₹</small> */}
                             </th>
-                            <th>
+                            <th className="text-center">
                               Packaging
+                              <br />
+                              {/* <small>₹</small> */}
                             </th>
-                            <th>
+                            <th className="text-center">
                               Taxes
+                              <br />
+                              {/* <small>₹</small> */}
                             </th>
-                            <th>Total</th>
-                            {currentLowest ? <th>Current Lowest</th> : null}
-                            <th>Product Specific Comments</th>
-                            <th>
+                            <th className="text-center">Total</th>
+                            {currentLowest ? (
+                              <th rowSpan="2" className="align-middle">
+                                Current Lowest
+                              </th>
+                            ) : null}
+                            <th className="text-center">Specific Comments</th>
+                            <th className="text-center">
                               Delivery Period <small>(In Days)</small>
                             </th>
-                            <th>Add Documents</th>
-                            {alreadyQuoted ? <th>Previous Documents</th> : null}
-                            <th>View History</th>
+                            <th className="text-center">Add Documents</th>
+                            {/* {alreadyQuoted ? (
+                              <th className="text-center">
+                                Previous Documents
+                              </th>
+                            ) : null} */}
                           </tr>
                         </thead>
                         <tbody>
                           {rfqDetails.products &&
                             rfqDetails.products.length > 0 &&
                             rfqDetails.products.map((item, index) => {
-
                               if (isAvailableForQuote(item)) {
                                 // Changes by Agnij 2024-07-29 [Fix tech eval restrictions check]
                                 const techStatus = techEvalStatuses[item.id];
 
                                 // Determine if inputs should be disabled - only during reverse auction for rejected products
-                                const isTechEvalPendingOrRejected = showTechEvalRestrictions &&
-                                                                   techStatus &&
-                                                                   techStatus.has_tech_eval === true &&
-                                                                   techStatus.is_accepted !== true;
-
+                                const isTechEvalPendingOrRejected =
+                                  showTechEvalRestrictions &&
+                                  techStatus &&
+                                  techStatus.has_tech_eval === true &&
+                                  techStatus.is_accepted !== true;
 
                                 return (
                                   <tr
-                                    key={`q_${item.id}_${item.product_id}_${item.variant}}`}
+                                    key={`q_${item.id}_${item.product_id}_${item.variant}`}
                                   >
                                     <td>{index + 1}</td>
                                     <td>
@@ -1532,6 +1666,15 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           "Size"
                                         )}
                                       </p>
+                                      <p className="text-sm mb-1 text-success fw-bold">
+                                        {`${getProductSpecValueByTitle(
+                                          item?.product_specs,
+                                          "Quantity"
+                                        )} - ${getProductSpecValueByTitle(
+                                          item?.product_specs,
+                                          "Unit"
+                                        )}`}
+                                      </p>
                                       {item?.product_specs[1]?.value && (
                                         <ReadMore
                                           content={`- ${getProductSpecValueByTitle(
@@ -1542,15 +1685,26 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           additionalClasses="text-sm"
                                         />
                                       )}
-                                    </td>
-                                    <td>
-                                      {`${getProductSpecValueByTitle(
-                                        item?.product_specs,
-                                        "Quantity"
-                                      )} - ${getProductSpecValueByTitle(
-                                        item?.product_specs,
-                                        "Unit"
-                                      )}`}
+                                      <button
+                                        className="btn minimal-btn mt-2 "
+                                        // style={{"maxWidth":"120px"}}
+                                        onClick={() =>
+                                          openQuoteHistoryModal(
+                                            item.product_id,
+                                            index
+                                          )
+                                        } // Replace with your actual handler function
+                                      >
+                                        Prev Quotes
+                                      </button>
+                                      {isTechEvalPendingOrRejected && (
+                                        <small
+                                          className="d-block text-danger mt-1"
+                                          style={{ fontSize: "0.7rem" }}
+                                        >
+                                          Not accepted
+                                        </small>
+                                      )}
                                     </td>
                                     <td>
                                       <input
@@ -1558,6 +1712,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         name=""
                                         id=""
                                         placeholder="₹"
+                                        style={{ maxWidth: "70px" }}
                                         value={quoteProducts[index].unit_price}
                                         min={0}
                                         onChange={(e) =>
@@ -1586,13 +1741,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-
                                     <td>
                                       <input
                                         type="number"
                                         min={0}
                                         name=""
                                         id=""
+                                        style={{ maxWidth: "70px" }}
                                         placeholder={
                                           chargesMode.freight[item.id] ==
                                           "percentage"
@@ -1651,7 +1806,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             ),
                                             null,
                                             null,
-                                            value,
+                                            value
                                           );
                                         }}
                                       />
@@ -1664,13 +1819,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-
                                     <td>
                                       <input
                                         type="number"
                                         min={0}
                                         name=""
                                         id=""
+                                        style={{ maxWidth: "70px" }}
                                         placeholder={
                                           chargesMode.package[item.id] ==
                                           "percentage"
@@ -1692,7 +1847,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             getProductSpecValueByTitle(
                                               item?.product_specs,
                                               "Quantity"
-                                            ),
+                                            )
                                           )
                                         }
                                         onWheel={(e) => e.target.blur()}
@@ -1743,7 +1898,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-
                                     <td>
                                       <input
                                         type="number"
@@ -1756,6 +1910,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             ? "%"
                                             : "₹"
                                         }
+                                        style={{ maxWidth: "70px" }}
                                         value={quoteProducts[index].tax || ""}
                                         onChange={(e) =>
                                           handleUpdateData(
@@ -1775,9 +1930,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         disabled={isTechEvalPendingOrRejected}
                                       />
                                       <PercentageAbsoluteToggle
-                                        currentMode={
-                                          chargesMode.tax[item.id]
-                                        }
+                                        currentMode={chargesMode.tax[item.id]}
                                         onToggle={(value) => {
                                           setChargesMode((prev) => ({
                                             ...prev,
@@ -1791,8 +1944,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             {
                                               target: {
                                                 value:
-                                                  quoteProducts[index]
-                                                    .tax || 0,
+                                                  quoteProducts[index].tax || 0,
                                               },
                                             },
                                             item.product_id,
@@ -1820,7 +1972,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         </small>
                                       )}
                                     </td>
-
                                     <td>
                                       <input
                                         type="number"
@@ -1829,6 +1980,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         placeholder="₹"
                                         value={quoteProducts[index].total_price}
                                         disabled
+                                        style={{ maxWidth: "80px" }}
                                       />
                                     </td>
                                     {currentLowest ? (
@@ -1893,6 +2045,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             cols="30"
                                             rows="3"
                                             value={quoteProducts[index].comment}
+                                            style={{ maxWidth: "140px" }}
                                             onChange={(e) =>
                                               handleUpdateData(
                                                 item.id,
@@ -1926,7 +2079,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     </td>
                                     <td style={{ width: 250 }}>
                                       <input
-                                        style={{ width: 150 }}
+                                        style={{ maxWidth: "80px" }}
                                         name="delivery_period"
                                         id="delivery_period"
                                         type="number"
@@ -1984,6 +2137,39 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           disabled={isTechEvalPendingOrRejected}
                                         />
                                       </label>
+                                      {alreadyQuoted && (
+                                        <td>
+                                          <div
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: "8px",
+                                              fontSize: "0.85rem",
+                                            }}
+                                          >
+                                            <span
+                                              style={{
+                                                fontWeight: 600,
+                                                color: "#333",
+                                              }}
+                                            >
+                                              Previous Documents:
+                                            </span>
+                                            {quoteProducts[index]
+                                              ?.previous_document_files
+                                              ?.length > 0 ? (
+                                              renderFileLink(
+                                                quoteProducts[index]
+                                                  .previous_document_files
+                                              )
+                                            ) : (
+                                              <span style={{ color: "#888" }}>
+                                                No Files
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+                                      )}
                                       {isTechEvalPendingOrRejected && (
                                         <small
                                           className="d-block text-danger mt-1"
@@ -1993,7 +2179,6 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           accepted)
                                         </small>
                                       )}
-
                                       {quoteProducts[index].document_files &&
                                         quoteProducts[index].document_files
                                           .length > 0 &&
@@ -2037,7 +2222,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           }
                                         )}
                                     </td>
-                                    {alreadyQuoted && (
+                                    {/* {alreadyQuoted && (
                                       <td>
                                         {quoteProducts[index]
                                           .previous_document_files &&
@@ -2049,16 +2234,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                               .previous_document_files
                                           )}
                                       </td>
-                                    )}
-                                    <td>
-                                     <button
-                                    type="button"
-                                    className="btn btn-link p-0"
-                                    onClick={() => openQuoteHistoryModal(item.product_id, index)}
-                                  >
-                                    View History
-                                  </button>
-                                    </td>
+                                    )} */}
                                   </tr>
                                 );
                               }
@@ -2071,8 +2247,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                   <div className="quote-sec-btm">
                     <div className="row">
                       <div className="col-md-6">
-                        {pageType != "update-quote" &&
-
+                        {pageType != "update-quote" && (
                           <button
                             id="regret_quote-quote_actions-send_quote_page"
                             type="submit"
@@ -2081,7 +2256,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                           >
                             Regret Quote
                           </button>
-                        }
+                        )}
                       </div>
                       <div className="col-md-6">
                         {/* Changes by Agnij 2024-07-30 [Disable send quote button when no fields are filled] */}
@@ -2113,7 +2288,9 @@ return { deletedTerms, createdTerms, updatedTerms };
       {extractedQuotes.data && (
         <QuotesOverrideModal
           show={extractedQuotes.show}
-          onClose={() => setExtractedQuotes(prev => ({...prev, show: false}))}
+          onClose={() =>
+            setExtractedQuotes((prev) => ({ ...prev, show: false }))
+          }
           quotes={extractedQuotes.data}
           overrideQuote={overrideQuote}
         />
@@ -2132,14 +2309,13 @@ return { deletedTerms, createdTerms, updatedTerms };
       />
 
       {showQuoteHistoryModal && (
-  <VendorQuoteHistoryModal 
-    showModal={showQuoteHistoryModal}
-    closeModal={() => setShowQuoteHistoryModal(false)}
-    quoteHistory={quoteHistory} 
-    quotehistorydata={quoteHistory?.data} // pass previous_quotes etc.
-  />
-)}
-
+        <VendorQuoteHistoryModal
+          showModal={showQuoteHistoryModal}
+          closeModal={() => setShowQuoteHistoryModal(false)}
+          quoteHistory={quoteHistory}
+          quotehistorydata={quoteHistory?.data} // pass previous_quotes etc.
+        />
+      )}
     </>
   );
 };

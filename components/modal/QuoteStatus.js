@@ -1,39 +1,49 @@
-import React from "react";
+import React, { useState } from "react";
 
 const statusMap = {
   QC: {
-    label: "Under Review",                // better for vendor side
+    label: "Under Review",
     icon: "bi-bar-chart-steps",
-    color: "#5A3EC8",                      // Indigo 600 → a deep violet/indigo tone
-    text: "#FFFFFF"                        // White text for contrast
+    color: "#5A3EC8",
+    text: "#FFFFFF"
   },
   TE: {
     label: "Technical Evaluation",
     icon: "bi-cpu",
-    color: "#198754",                      // Green 600 → strong emerald green
-    text: "#FFFFFF"                        // White text for readability
+    color: "#198754",
+    text: "#FFFFFF"
   },
   NEG: {
     label: "Negotiation",
     icon: "bi-handshake",
-    color: "#D9480F",                      // Orange 600 → vivid burnt orange
-    text: "#FFFFFF"                        // White text for clarity
+    color: "#D9480F",
+    text: "#FFFFFF"
   },
   FIN: {
     label: "Finalization",
     icon: "bi-check2-circle",
-    color: "#0FB5A9",                      // Teal 500 → bright turquoise teal
-    text: "#073B3A"                        // Dark teal text for contrast
+    color: "#0FB5A9",
+    text: "#073B3A"
+  },
+  CLOSED: {
+    label: "RFQ Closed",
+    icon: "bi-lock-fill",
+    color: "#DC3545", // Bootstrap red
+    text: "#FFFFFF"
   },
   default: {
     label: "Status Update",
     icon: "bi-flag",
-    color: "#0D6EFD",                      // Blue 600 → rich royal blue
-    text: "#FFFFFF"                        // White text for good readability
+    color: "#0D6EFD",
+    text: "#FFFFFF"
   }
 };
 
 const QuoteStatus = ({ quoteStatus, onClose }) => {
+  const [isRfqClosed] = useState(quoteStatus.rfqClosed);
+
+  console.log("QuoteStatus Component - isRfqClosed:", isRfqClosed);
+
   return (
     <>
       {/* Modal */}
@@ -61,9 +71,9 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
             </div>
 
             <div className="modal-body px-4 py-4">
-              {quoteStatus.length > 0 ? (
+              {quoteStatus?.data?.length > 0 ? (
                 <div className="timeline">
-                  {quoteStatus.map((q, index) => {
+                  {quoteStatus.data.map((q, index) => {
                     const statusInfo = statusMap[q.current_status] || statusMap.default;
                     return (
                       <div key={q.id} className="timeline-item">
@@ -74,7 +84,7 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                           >
                             <i className={`bi ${statusInfo.icon} text-white fs-6`}></i>
                           </div>
-                          {index < quoteStatus.length - 1 && (
+                          {index < quoteStatus.data.length - 1 && (
                             <div className="timeline-line"></div>
                           )}
                         </div>
@@ -92,6 +102,31 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                       </div>
                     );
                   })}
+
+                  {/* ✅ Add RFQ Closed as last timeline item */}
+                  {isRfqClosed && (
+                    <div className="timeline-item">
+                      <div className="timeline-marker">
+                        <div
+                          className="marker-circle"
+                          style={{ backgroundColor: statusMap.CLOSED.color }}
+                        >
+                          <i className={`bi ${statusMap.CLOSED.icon} text-white fs-6`}></i>
+                        </div>
+                      </div>
+                      <div className="timeline-details">
+                        <span
+                          className="fw-semibold d-block mb-1"
+                          style={{ color: statusMap.CLOSED.color }}
+                        >
+                          {statusMap.CLOSED.label}
+                        </span>
+                        <small className="text-muted">
+                          {new Date().toLocaleString()} {/* Or use closed_at if you have it */}
+                        </small>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-5">

@@ -81,7 +81,7 @@ const getQuoteStatus = async (rfq_id) => {
   try {
     const quoteStatusResponse = await getVendorQuoteStatus(rfq_id);
     if (quoteStatusResponse.data && quoteStatusResponse.data.length > 0) {
-      setQuoteStatus(quoteStatusResponse.data);
+      setQuoteStatus(quoteStatusResponse);
     } else {
       setQuoteStatus([]); // clear if nothing
     }
@@ -330,7 +330,15 @@ const getQuoteStatus = async (rfq_id) => {
                                         : "Disabled"}
                                     </td>
                                     <td>
-                                      {item.status === 1 ? "Open" : "Closed"}
+                                      {/* 👇 View Status trigger */}
+                                      <button
+                                        className="btn btn-link btn-sm p-0 fw-medium text-primary text-decoration-underline"
+                                        onClick={() => getQuoteStatus(item.id)}
+                                        style={{ fontSize: "0.8rem" }}
+                                      >
+                                        <i className="bi bi-eye me-1"></i>
+                                        View Status
+                                      </button>
                                     </td>
                                     <td>
                                       <span>
@@ -378,14 +386,6 @@ const getQuoteStatus = async (rfq_id) => {
                                           )}
                                         </Link>
                                       </span>
-                                      {/* 👇 View Status trigger */}
-                                      <span
-                                      className="fw-medium text-primary text-decoration-underline cursor-pointer me-2"
-                                      onClick={() => getQuoteStatus(item.id)}
-                                      style={{ color: "#007bff" }} // Consistent blue color
-                                    >
-                                      View Status
-                                    </span>
                                     </td>
                                     <td>
                                       <Link
@@ -403,11 +403,18 @@ const getQuoteStatus = async (rfq_id) => {
                                     </td>
                                     <td>
                                       <button
-                                    className="btn btn-outline-primary btn-sm"
-                                    onClick={() => handleReminderClick(item)}
-                                  >
-                                    Send Reminder
-                                  </button>
+                                        className="btn btn-secondary gap-1 px-3 py-1 rounded-pill "
+                                        onClick={() =>
+                                          handleReminderClick(item)
+                                        }
+                                        style={{
+                                          fontSize: "0.8rem",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <i className="bi bi-bell me-1"></i>
+                                        Reminder
+                                      </button>
                                     </td>
                                   </tr>
                                 );

@@ -664,99 +664,95 @@ const RfqManagementPreview = () => {
         <>
           <section className="buyer-common-header sc-pt-80">
             <div className="container-fluid">
-              {enableBuyerView ? (
-                <h1 className="heading">RFQ Management</h1>
-              ) : (
-                <h1 className="heading">
-                  Inquiry from {rfqDetails.company_name}. (RFQ #
-                  {rfqDetails.rfq_no})
-                </h1>
-              )}
-            </div>
-          </section>
-
-          <section className="buyer-rfq-det-sec-1">
-            <div className="container-fluid">
-              <div className="row">
-                <div className="col-md-12">
-                  <div className="manage-rfq-con">
-                    {/* Content for Manage RFQs tab */}
-                    <div className="d-flex justify-content-between align-items-center">
-                      <span className="title mb-0">
-                        RFQ #{rfqDetails.rfq_no} details
+              <div className="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                  {enableBuyerView ? (
+                    <h1 className="heading mb-0">RFQ Management</h1>
+                  ) : (
+                    <h1 className="heading mb-0">
+                      Inquiry from {rfqDetails.company_name} (RFQ #
+                      {rfqDetails.rfq_no})
+                    </h1>
+                  )}
+                </div>
+                <div className="d-flex gap-3">
+                  {/* Queries Button */}
+                  <button
+                    id="view_queries-rfq_header-inquiries_details_page"
+                    type="button"
+                    className="btn btn-primary position-relative"
+                    style={{ minWidth: 140 }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      router.push({
+                        pathname: `/dashboard/${
+                          type === "buyer-view" ? "buyer" : "vendor"
+                        }/query`,
+                        query: {
+                          rfq_id: rfqDetails.id,
+                          role: type === "buyer-view" ? "buyer" : "vendor",
+                          token: token,
+                        },
+                      });
+                    }}
+                  >
+                    Queries
+                    {rfqDetails.unseen_query_count > 0 && (
+                      <span className="bg-danger px-2 rounded ms-2 text-white small position-absolute top-0 end-0 translate-middle">
+                        {rfqDetails.unseen_query_count}+
                       </span>
-
-                      <div>
-                        {type === "buyer-view" && rfqDetails.status === 1 && (
-                          <Link
-                            href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
-                          >
-                            <button
-                              id="edit_rfq-rfq_header-inquiries_details_page"
-                              type="button"
-                              className="btn btn-primary me-2"
-                              style={{ width: "auto" }}
-                            >
-                              <FontAwesomeIcon icon={faEdit} className="me-2" />
-                              Edit RFQ
-                            </button>
-                          </Link>
-                        )}
-
-                        <button
-                          id="view_queries-rfq_header-inquiries_details_page"
-                          type="button"
-                          className=" btn btn-primary "
-                          style={{ width: "180px" }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            router.push({
-                              pathname: `/dashboard/${
-                                type === "buyer-view" ? "buyer" : "vendor"
-                              }/query`,
-                              query: {
-                                rfq_id: rfqDetails.id,
-                                role:
-                                  type === "buyer-view" ? "buyer" : "vendor",
-                                token: token,
-                              },
-                            });
-                          }}
-                        >
-                          Queries
-                          {rfqDetails.unseen_query_count > 0 && (
-                            <span className=" bg-danger px-2 rounded ms-2 ">
-                              {rfqDetails.unseen_query_count} +{" "}
-                            </span>
-                          )}
-                        </button>
-
-                        {type == "buyer-view" &&
-                          (rfqDetails?.is_quotes_present  ? (
-                            <Link
-                              href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
-                            >
-                              <button
-                                id="compare_received_quotes-rfq_header-inquiries_details_page"
-                                type="button"
-                                className="btn btn-secondary "
-                                style={{ width: "270px" }}
-                              >
-                                Compare Received Quotes
-                              </button>
-                            </Link>
-                          ) : (
-                            <button
-                              id="no_quotes_received-rfq_header-inquiries_details_page"
-                              type="button"
-                              className="btn btn-primary"
-                              style={{ width: "230px" }}
-                              disabled
-                            >
-                              No Quotes Received
-                            </button>
-                          ))}
-                        {rfqDetails.status == 1 &&
+                    )}
+                  </button>
+                  {/* Regret Quote Button (conditional rendering example) */}
+                  {!enableBuyerView &&
+                    rfqDetails.quotations.length === 0 &&
+                    productleftforbid && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setregretModal(true);
+                        }}
+                        disabled={
+                          (quoteDisabled &&
+                            statusMessage !== "Reverse Auction is Active") ||
+                          rfqDetails.status == 2 ||
+                          rfqDetails.products?.some(
+                            (item) =>
+                              item.finalization_status ===
+                                "Another vendor is finalized" ||
+                              item.finalization_status === "You are finalized"
+                          )
+                        }
+                      >
+                        Regret Quote
+                      </button>
+                    )}
+                  {/* Send Quote Button / Disabled State */}
+                  {rfqDetails.quotations.length === 0 && (
+                    <button
+                      type="button"
+                      className={`btn ${
+                        isReverseAuctionActive ? "btn-success" : "btn-secondary"
+                      }`}
+                      onClick={goToQuoteCreation}
+                      disabled={
+                        (quoteDisabled &&
+                          statusMessage !== "Reverse Auction is Active") ||
+                        rfqDetails.status == 2 ||
+                        rfqDetails.products?.some(
+                          (item) =>
+                            item.finalization_status ===
+                              "Another vendor is finalized" ||
+                            item.finalization_status === "You are finalized"
+                        )
+                      }
+                    >
+                      {isReverseAuctionActive ? "Send Quote" : statusMessage}
+                    </button>
+                  )}
+                   {rfqDetails.status == 1 &&
                         !rfqDetails?.quotations[0]?.is_regret &&
                         productleftforbid &&
                         isSubmitAble &&
@@ -787,6 +783,137 @@ const RfqManagementPreview = () => {
                             </>
                           </button>
                         ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="buyer-rfq-det-sec-1">
+            <div className="container-fluid">
+              <div className="row">
+                <div className="col-md-12">
+                  {/* RFQ Details Section */}
+                  <div className="bg-light p-3 rounded-2">
+                    <h5 className="fw-bold text-dark">Company Details</h5>
+                    <div className="d-flex flex-wrap justify-content-between gap-6">
+                      {rfqDetails?.company_name && (
+                        <div className="text-start">
+                          <strong>Company Name:</strong>
+                          <div>{rfqDetails.company_name}</div>
+                        </div>
+                      )}
+
+                      {rfqDetails?.response_email && (
+                        <div className="text-start">
+                          <strong>Email:</strong>
+                          <div>{rfqDetails.response_email}</div>
+                        </div>
+                      )}
+
+                      {rfqDetails?.contact_number && (
+                        <div className="text-start">
+                          <strong>Contact Number:</strong>
+                          <div>{rfqDetails.contact_number}</div>
+                        </div>
+                      )}
+
+                      {rfqDetails.reverse_auction == 1 && (
+                        <div className="text-start">
+                          <strong>Reverse Auction:</strong>
+                          <div>
+                            {rfqDetails.reverse_auction == 1
+                              ? "Enabled"
+                              : "Disabled"}
+                          </div>
+                        </div>
+                      )}
+
+                      {rfqDetails?.ra_start_date && (
+                        <div className="text-start">
+                          <strong>Reverse Auction Start:</strong>
+                          <div>
+                            {new Date(
+                              rfqDetails.ra_start_date
+                            ).toLocaleString()}
+                          </div>
+                        </div>
+                      )}
+
+                      {rfqDetails?.ra_end_date && (
+                        <div className="text-start">
+                          <strong>Reverse Auction End:</strong>
+                          <div>
+                            {new Date(rfqDetails.ra_end_date).toLocaleString()}
+                          </div>
+                        </div>
+                      )}
+
+                      {rfqDetails?.bid_end_date && (
+                        <div className="text-start">
+                          <strong>Procurement End Date:</strong>
+                          <div>{rfqDetails.bid_end_date}</div>
+                        </div>
+                      )}
+
+                      {rfqDetails?.location && (
+                        <div className="text-start">
+                          <strong>Delivery Location:</strong>
+                          <div>{rfqDetails.location}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="manage-rfq-con">
+                    {/* Content for Manage RFQs tab */}
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="title mb-0">
+                        RFQ #{rfqDetails.rfq_no} details
+                      </span>
+
+                      <div>
+                        {type === "buyer-view" && rfqDetails.status === 1 && (
+                          <Link
+                            href={`/dashboard/buyer/rfq-management-edit?id=${rfqDetails.id}`}
+                          >
+                            <button
+                              id="edit_rfq-rfq_header-inquiries_details_page"
+                              type="button"
+                              className="btn btn-primary me-2"
+                              style={{ width: "auto" }}
+                            >
+                              <FontAwesomeIcon icon={faEdit} className="me-2" />
+                              Edit RFQ
+                            </button>
+                          </Link>
+                        )}
+
+                        {type == "buyer-view" &&
+                          (rfqDetails?.is_quotes_present ? (
+                            <Link
+                              href={`/dashboard/buyer/quote-compare?rfq=${rfqDetails.id}`}
+                            >
+                              <button
+                                id="compare_received_quotes-rfq_header-inquiries_details_page"
+                                type="button"
+                                className="btn btn-secondary "
+                                style={{ width: "270px" }}
+                              >
+                                Compare Received Quotes
+                              </button>
+                            </Link>
+                          ) : (
+                            <button
+                              id="no_quotes_received-rfq_header-inquiries_details_page"
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ width: "230px" }}
+                              disabled
+                            >
+                              No Quotes Received
+                            </button>
+                          ))}
+                       
                       </div>
                     </div>
 
@@ -811,7 +938,9 @@ const RfqManagementPreview = () => {
                                 <th>Selected vendors</th>
                               ) : null}
                               {<th>Technical Evaluation</th>}
-                              {rfqDetails?.products[0].target_price && (<th>Target Price</th>)}
+                              {rfqDetails?.products?.some(
+                                (product) => product.target_price
+                              ) && <th>Target Price</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -835,6 +964,9 @@ const RfqManagementPreview = () => {
                                     break;
                                 }
                               });
+                              const tech_evaluation_status =
+                                item.tech_evaluation_status?.is_accepted ||
+                                null;
                               return (
                                 <tr
                                   key={`${item?.id}_${item?.product_id}_${item?.variant}`}
@@ -975,10 +1107,11 @@ const RfqManagementPreview = () => {
                                   )}
 
                                   <td>
-                                    {item.tech_evaluation_status.has_tech_eval ? (
+                                    {item.tech_evaluation_status
+                                      ?.has_tech_eval ? (
                                       <a
                                         href={`/dashboard/${
-                                          type == "buyer-view"
+                                          type === "buyer-view"
                                             ? "buyer"
                                             : "vendor"
                                         }/technical-evaluation?rfq_id=${id}&prod_id=${
@@ -993,14 +1126,35 @@ const RfqManagementPreview = () => {
                                           backgroundColor: "lightblue",
                                           color: "darkblue",
                                           textDecoration: "none",
+                                          borderRadius: "5px",
                                         }}
                                       >
-                                        View Evaluation
+                                        {item.tech_evaluation_status
+                                          ?.is_accepted ? (
+                                          <span
+                                            style={{
+                                              color: "darkgreen",
+                                              fontWeight: "600",
+                                            }}
+                                          >
+                                            Technically Accepted
+                                          </span>
+                                        ) : (
+                                          <span
+                                            style={{
+                                              color: "darkorange",
+                                              fontWeight: "600",
+                                            }}
+                                          >
+                                            Pending
+                                          </span>
+                                        )}
                                       </a>
                                     ) : (
                                       "N/A"
                                     )}
                                   </td>
+
                                   {item.target_price && (
                                     <td className="position-relative">
                                       <div className="target-price-badge bg-warning text-dark fw-bold px-3 py-2 rounded shadow-sm border border-warning-subtle">
@@ -1020,7 +1174,7 @@ const RfqManagementPreview = () => {
                         <div className="row">
                           <div className="col-md-12">
                             <div className="row wacomnamepp">
-                              <div className="col-md-3">
+                              {/* <div className="col-md-3">
                                 <div className="form-group mb-2">
                                   <label
                                     htmlFor="comname"
@@ -1090,7 +1244,7 @@ const RfqManagementPreview = () => {
                                     value={`${rfqDetails?.contact_number}`}
                                   />
                                 </div>
-                              </div>
+                              </div> */}
 
                               {type == "buyer-view" &&
                                 rfqDetails?.project_name &&
@@ -1115,7 +1269,7 @@ const RfqManagementPreview = () => {
                                   </div>
                                 )}
 
-                              {rfqDetails?.rfq_type &&
+                              {/* {rfqDetails?.rfq_type &&
                                 rfqDetails?.rfq_type != "" && (
                                   <div className="col-md-3">
                                     <div className="form-group ">
@@ -1135,10 +1289,10 @@ const RfqManagementPreview = () => {
                                       />
                                     </div>
                                   </div>
-                                )}
+                                )} */}
 
                               {/* Changes by Agnij 2025-05-06 [Add Last Purchase Details with proper null handling] */}
-                              {rfqDetails?.last_purchase && (
+                              {/* {rfqDetails?.last_purchase && (
                                 <div className="col-md-12 mt-3">
                                   <h4>Last Purchase Details :</h4>
                                   <div className="last-purchase-details p-3 bg-light rounded mb-3">
@@ -1207,9 +1361,9 @@ const RfqManagementPreview = () => {
                                     </div>
                                   </div>
                                 </div>
-                              )}
+                              )} */}
 
-                              {rfqDetails?.reverse_auction &&
+                              {/* {rfqDetails?.reverse_auction &&
                               rfqDetails?.reverse_auction !== "" ? (
                                 <div className="col-9">
                                   <div className="form-group mt-0">
@@ -1382,9 +1536,9 @@ const RfqManagementPreview = () => {
                                 </div>
                               ) : (
                                 ""
-                              )}
+                              )} */}
 
-                              {rfqDetails?.bid_end_date &&
+                              {/* {rfqDetails?.bid_end_date &&
                                 rfqDetails?.bid_end_date != "" && (
                                   <div className="col-md-3">
                                     <div className="form-group">
@@ -1404,9 +1558,9 @@ const RfqManagementPreview = () => {
                                       />
                                     </div>
                                   </div>
-                                )}
+                                )} */}
 
-                              {rfqDetails?.location &&
+                              {/* {rfqDetails?.location &&
                                 rfqDetails?.location != "" && (
                                   <div className="col-md-6">
                                     <div className="form-group mt-0">
@@ -1426,131 +1580,167 @@ const RfqManagementPreview = () => {
                                       />
                                     </div>
                                   </div>
-                                )}
+                                )} */}
                             </div>
                           </div>
 
                           {rfqDetails && rfqDetails?.id && (
                             <div className="col-md-12">
-      <div className="row terms-conditions">
-        <div className="col-md-6">
-          <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-            <h4>Terms & Conditions</h4>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleTermsToggle}
-              aria-controls="terms-collapse"
-              aria-expanded={openTerms}
-            >
-              {openTerms ? "Hide" : "View"} <i className="bi bi-chevron-down"></i>
-            </button>
-          </div>
-          <Collapse in={openTerms}>
-            <div id="terms-collapse" className="mt-3">
-              {(!rfqDetails?.terms || rfqDetails?.terms.length === 0) && (
-                <p>No predefined terms selected!</p>
-              )}
-              {rfqDetails?.terms?.length > 0 && (
-                <ol>
-                  {rfqDetails?.terms?.map((item, index) => {
-                    const termContent =
-                      item.term_content ||
-                      item.name ||
-                      (item.content && item.content[0]?.title);
-                    if (!termContent) return null;
+                              <div className="row terms-conditions">
+                                <div className="col-md-6">
+                                  <div className="mt-4 pt-3 border-top">
+                                    <h4>Terms & Conditions</h4>
+                                    {(!rfqDetails?.terms ||
+                                      rfqDetails?.terms.length === 0) && (
+                                      <p className="mt-3">
+                                        No predefined terms selected!
+                                      </p>
+                                    )}
+                                    {rfqDetails?.terms?.length > 0 && (
+                                      <ol className="mt-3">
+                                        {rfqDetails.terms.map((item, index) => {
+                                          const termContent =
+                                            item.term_content ||
+                                            item.name ||
+                                            (item.content &&
+                                              item.content[0]?.title);
+                                          if (!termContent) return null;
 
-                    return (
-                      <li key={`term-${item.id || index}`} className="mb-2">
-                        {termContent}
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </div>
-          </Collapse>
-        </div>
-        <div className="col-md-6">
-          {rfqDetails.finalizations && rfqDetails.finalizations.length > 0 && (
-            <div className="finalized-details"></div>
-          )}
-          {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret === 0 && (
-            <div className="submitted-quotation">
-              <h4>
-                You've already submitted a quotation on{" "}
-                {moment
-                  .utc(rfqDetails?.quotations[0]?.timestamp)
-                  .local()
-                  .format("hh:mm A - DD/MM/YYYY")}
-              </h4>
-              {rfqDetails.status === 2 ||
-              !productleftforbid ||
-              quoteDisabled ||
-              rfqDetails.products?.every(
-                (item) =>
-                  item.finalization_status === "Another vendor is finalized" ||
-                  item.finalization_status === "You are finalized"
-              ) ? (
-                <button
-                  type="button"
-                  className={`btn ${
-                    rfqDetails.status === 2
-                      ? "btn-danger"
-                      : wasEndDatePassed && isReverseAuctionActive
-                      ? "btn-success"
-                      : "btn-secondary"
-                  } m-0 mx-auto mt-2`}
-                  style={{ width: "240px", opacity: "0.5" }}
-                  disabled={quoteDisabled || rfqDetails.status === 2}
-                >
-                  <FontAwesomeIcon icon={faCircleExclamation} className="me-2" />
-                  {rfqDetails.status === 2
-                    ? "RFQ is Closed"
-                    : rfqDetails.products?.some(
-                        (item) =>
-                          item.finalization_status === "Another vendor is finalized" ||
-                          item.finalization_status === "You are finalized"
-                      )
-                    ? rfqDetails.products?.some(
-                        (item) => item.finalization_status === "You are finalized"
-                      )
-                      ? "You are finalized"
-                      : "Another vendor is finalized"
-                    : statusMessage || "All Products are Finalized"}
-                </button>
-              ) : (
-                <Link
-                  className="mx-auto mt-2"
-                  href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId}${
-                    token !== undefined ? `&token=${token}` : ""
-                  }&showTechEvalRestrictions=${isReverseAuctionActive}`}
-                >
-                  <button
-                    type="button"
-                    className="btn btn-secondary m-0"
-                    style={{ width: "240px" }}
-                  >
-                    <FontAwesomeIcon icon={faEdit} className="me-2" />
-                    Update Your Quote
-                  </button>
-                </Link>
-              )}
-            </div>
-          )}
-          {rfqDetails.quotations.length > 0 && rfqDetails.quotations[0].is_regret === 1 && (
-            <div className="submitted-quotation">
-              <h4 className="text-center">
-                You've <span style={{ color: "#f00" }}>declined</span> the RFQ request on{" "}
-                {moment(rfqDetails?.quotations[0]?.timestamp)
-                  .add(5, "hours")
-                  .add(30, "minutes")
-                  .format("DD/MM/YYYY - hh:mm:ss A")}
-              </h4>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+                                          return (
+                                            <li
+                                              key={`term-${item.id || index}`}
+                                              className="mb-2"
+                                            >
+                                              {termContent}
+                                            </li>
+                                          );
+                                        })}
+                                      </ol>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="col-md-6">
+                                  {rfqDetails.finalizations &&
+                                    rfqDetails.finalizations.length > 0 && (
+                                      <div className="finalized-details"></div>
+                                    )}
+
+                                  {rfqDetails.quotations.length > 0 &&
+                                    rfqDetails.quotations[0].is_regret ===
+                                      0 && (
+                                      <div className="submitted-quotation">
+                                        <h4>
+                                          You've already submitted a quotation
+                                          on{" "}
+                                          {moment
+                                            .utc(
+                                              rfqDetails?.quotations[0]
+                                                ?.timestamp
+                                            )
+                                            .local()
+                                            .format("hh:mm A - DD/MM/YYYY")}
+                                        </h4>
+
+                                        {rfqDetails.status === 2 ||
+                                        !productleftforbid ||
+                                        quoteDisabled ||
+                                        rfqDetails.products?.every(
+                                          (item) =>
+                                            item.finalization_status ===
+                                              "Another vendor is finalized" ||
+                                            item.finalization_status ===
+                                              "You are finalized"
+                                        ) ? (
+                                          <button
+                                            type="button"
+                                            className={`btn ${
+                                              rfqDetails.status === 2
+                                                ? "btn-danger"
+                                                : wasEndDatePassed &&
+                                                  isReverseAuctionActive
+                                                ? "btn-success"
+                                                : "btn-secondary"
+                                            } m-0 mx-auto mt-2`}
+                                            style={{
+                                              width: "240px",
+                                              opacity: "0.5",
+                                            }}
+                                            disabled={
+                                              quoteDisabled ||
+                                              rfqDetails.status === 2
+                                            }
+                                          >
+                                            <FontAwesomeIcon
+                                              icon={faCircleExclamation}
+                                              className="me-2"
+                                            />
+                                            {rfqDetails.status === 2
+                                              ? "RFQ is Closed"
+                                              : rfqDetails.products?.some(
+                                                  (item) =>
+                                                    item.finalization_status ===
+                                                      "Another vendor is finalized" ||
+                                                    item.finalization_status ===
+                                                      "You are finalized"
+                                                )
+                                              ? rfqDetails.products?.some(
+                                                  (item) =>
+                                                    item.finalization_status ===
+                                                    "You are finalized"
+                                                )
+                                                ? "You are finalized"
+                                                : "Another vendor is finalized"
+                                              : statusMessage ||
+                                                "All Products are Finalized"}
+                                          </button>
+                                        ) : (
+                                          <Link
+                                            className="mx-auto mt-2"
+                                            href={`/dashboard/vendor/send-quote?type=update-quote&id=${localId}${
+                                              token !== undefined
+                                                ? `&token=${token}`
+                                                : ""
+                                            }&showTechEvalRestrictions=${isReverseAuctionActive}`}
+                                          >
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary m-0"
+                                              style={{ width: "240px" }}
+                                            >
+                                              <FontAwesomeIcon
+                                                icon={faEdit}
+                                                className="me-2"
+                                              />
+                                              Update Your Quote
+                                            </button>
+                                          </Link>
+                                        )}
+                                      </div>
+                                    )}
+
+                                  {rfqDetails.quotations.length > 0 &&
+                                    rfqDetails.quotations[0].is_regret ===
+                                      1 && (
+                                      <div className="submitted-quotation">
+                                        <h4 className="text-center">
+                                          You've{" "}
+                                          <span style={{ color: "#f00" }}>
+                                            declined
+                                          </span>{" "}
+                                          the RFQ request on{" "}
+                                          {moment(
+                                            rfqDetails?.quotations[0]?.timestamp
+                                          )
+                                            .add(5, "hours")
+                                            .add(30, "minutes")
+                                            .format("DD/MM/YYYY - hh:mm:ss A")}
+                                        </h4>
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            </div>
                           )}
 
                           {rfqDetails.TERM_files &&
@@ -1629,7 +1819,7 @@ const RfqManagementPreview = () => {
                               )}
                             </>
                           )}
-                          {!enableBuyerView && (
+                          {/* {!enableBuyerView && (
                             <>
                               {quoteDisabled &&
                               statusMessage === "RFQ is Closed" ? (
@@ -1763,7 +1953,7 @@ const RfqManagementPreview = () => {
                                 )
                               )}
                             </>
-                          )}
+                          )} */}
                         </div>
                       </form>
                     </div>
@@ -1805,7 +1995,9 @@ const RfqManagementPreview = () => {
         onClose={handleCloseCancel}
         onConfirm={handleCloseConfirm}
         title="Close RFQ"
-        description={`Are you sure you want to close RFQ #${rfqDetails?.rfq_no || 'this RFQ'}?\nOnce closed, vendors will no longer be able to submit quotes.`}
+        description={`Are you sure you want to close RFQ #${
+          rfqDetails?.rfq_no || "this RFQ"
+        }?\nOnce closed, vendors will no longer be able to submit quotes.`}
         confirmButtonColor="warning"
         confirmButtonText="Close RFQ"
         cancelButtonText="Cancel"
