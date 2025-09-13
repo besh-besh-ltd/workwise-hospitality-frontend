@@ -201,6 +201,11 @@ const uploadToServer = async (processed_file, raw_url) => {
     console.log("FILE DATA:", fileData);
     const persistJob = await persistMagicSearchJob(curFileName, 'rfq', raw_url || fileData.s3Url);
     const webhook = persistJob.webhook;
+    
+    if(!webhook) {
+      setShowRFQConfirmModal(true);
+      return toast.info("The BOQ is already under processing, please head to the list of files tab to view more!")
+    }
 
     const startResponse = await getBOQexcelToJsonAI(curFile, webhook);
 
