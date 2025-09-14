@@ -58,6 +58,7 @@ const MagicSearchPage = () => {
     };
 
     const handleUploadRawFile = async (type) => {
+      setLoading(true);
       try {
         const res = await handleUploadFile(type == 'boq-to-rfq' ? fileData.file : simplifyFileData.file);
         if(res && res.data) {
@@ -70,6 +71,8 @@ const MagicSearchPage = () => {
       } catch (error) {
         console.error(error);
         toast.error(error.message ?? "Something went wrong while uploading file")
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -177,7 +180,7 @@ const MagicSearchPage = () => {
         setShowSimplifyConfirmModal(false);
     };
 
-const uploadToServer = async (processed_file) => {
+const uploadToServer = async (processed_file, raw_url) => {
   if (!fileData.file && !processed_file) {
     toast.error("Please select a file!");
     return;
@@ -196,8 +199,13 @@ const uploadToServer = async (processed_file) => {
 
     // Step 1: Start async task and get task_id
     console.log("FILE DATA:", fileData);
-    const persistJob = await persistMagicSearchJob(curFileName, 'rfq', fileData.s3Url);
+    const persistJob = await persistMagicSearchJob(curFileName, 'rfq', raw_url || fileData.s3Url);
     const webhook = persistJob.webhook;
+    
+    if(!webhook) {
+      setShowRFQConfirmModal(true);
+      return toast.info("The BOQ is already under processing, please head to the list of files tab to view more!")
+    }
 
     const startResponse = await getBOQexcelToJsonAI(curFile, webhook);
 
@@ -288,7 +296,7 @@ const closeRFQConfirmModal = () => {
   }
 };
 
-    const handleRFQCreateFromProcessedFile = async (excel_link, file_name) => {
+    const handleRFQCreateFromProcessedFile = async (excel_link, file_name, raw_file_url) => {
       try {
         if(process.env.NEXT_PUBLIC_ENV == "production" && !excel_link.includes("https")) {
           excel_link = excel_link.replace("http", "https")
@@ -305,7 +313,7 @@ const closeRFQConfirmModal = () => {
         // Create a File instance
         const file = new File([blob], filename, { type: blob.type });
 
-        await uploadToServer(file);
+        await uploadToServer(file, raw_file_url);
       } catch (err) {
         console.error("Download or upload failed:", err);
         toast.error("Failed to download and upload file");
@@ -436,7 +444,7 @@ const closeRFQConfirmModal = () => {
                                     <Button 
                                       variant="success" 
                                       onClick={handleSimplifyUpload} 
-                                      disabled={simplifyUploading || !simplifyFileData.file}
+                                      disabled={loading || simplifyUploading || !simplifyFileData.file}
                                       className="px-4 w-100"
                                     >
                                       <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />

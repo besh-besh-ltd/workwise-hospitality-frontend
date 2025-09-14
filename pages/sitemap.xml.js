@@ -31,7 +31,7 @@ function SiteMap() { return null; }
 
 export async function getServerSideProps({ res }) {
   const sitemaps = [
-    { loc: '/vendor.xml', lastmod: new Date().toISOString().split('T')[0] }
+    { loc: '/vendors.xml', lastmod: new Date().toISOString().split('T')[0] }
   ];
 
   const xml = createSitemapIndex(staticUrls, sitemaps);
