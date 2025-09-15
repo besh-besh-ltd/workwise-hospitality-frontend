@@ -4,15 +4,18 @@ import {
   deleteSpoc,
   getProfile,
   getProfileDocuments,
+  getProfileReviews,
   getVendorApproveList,
   handleChangeProfilePicture,
   handleUploadFiles,
+  publishVendorReviews,
   updateProfile,
   updatecompany,
+  uploadVendorDocument,
 } from "@/services/Auth";
 import { Field, Form, Formik } from "formik";
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { EditCompanyDetails } from "@/utils/schema";
 import { components } from "react-select";
@@ -54,7 +57,7 @@ const EditProfile = () => {
   const [selectedCity, setselectedCity] = useState("");
 
   const [userDetails, setUserDetails] = useState(null);
-  const [userDocuments, setUserDocuments] = useState(null);
+  // const [userDocuments, setUserDocuments] = useState(null);
   const [vendorApproveList, setVendorApproveList] = useState([]);
   const [selectedVendorApproveList, setSelectedVendorApproveList] = useState(
     []
@@ -76,6 +79,34 @@ const EditProfile = () => {
   const [onecountrycode , setonecountrycode] = useState("");
   const [extractedCountryCode , setextractedCountryCode] = useState("");
   const [userType, setUserType] = useState(null);
+
+
+  const [selectedCertificationFiles, setSelectedCertificationFiles] = useState([]);
+const [selectedCertificationFilesReset, setSelectedCertificationFilesReset] = useState(false);
+const [certificationText, setCertificationText] = useState("");
+
+const [selectedProductImageFiles, setSelectedProductImageFiles] = useState([]);
+const [selectedProductImageFilesReset, setSelectedProductImageFilesReset] = useState(false);
+
+const [selectedProductVideoFiles, setSelectedProductVideoFiles] = useState([]);
+const [selectedProductVideoFilesReset, setSelectedProductVideoFilesReset] = useState(false);
+
+// Payment Terms states
+const [paymentTerms, setPaymentTerms] = useState(""); // text input value
+const [selectedPaymentTermsFiles, setSelectedPaymentTermsFiles] = useState([]); // uploaded files
+const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useState(false); // reset trigger
+
+//Revies cards to be displayed
+ const [reviews, setReviews] = useState([]);
+  const [selectedReviews, setSelectedReviews] = useState([]);
+
+
+
+const [userDocuments, setUserDocuments] = useState({
+  certifications: null,
+  product_images: null,
+  product_videos: null
+});
 
   // User type mapping utility
   const getUserTypeLabel = (userType) => {
@@ -152,6 +183,7 @@ const EditProfile = () => {
     getProfileDetails();
     getProfileDocument();
     fetchCountryCodes();
+    loadProfileReviews();
    
   }, []);
   
@@ -408,6 +440,92 @@ const EditProfile = () => {
       });
   };
 
+  const loadProfileReviews = async () => {
+    try {
+      const res = await getProfileReviews();
+      if (res && res.length > 0) {
+        setReviews(res);
+      } else {
+        setReviewsToShow([]);
+      }
+    } catch (error) {
+      console.error("Error fetching profile reviews:", error);
+      setReviewsToShow([]);
+    }
+  };
+
+    // Toggle review selection
+  const toggleReview = (review_id) => {
+    setSelectedReviews((prev) =>
+      prev.includes(review_id)
+        ? prev.filter((id) => id !== review_id)
+        : [...prev, review_id]
+    );
+  };
+
+  // Publish selected reviews
+  const handlePublish = async () => {
+    if (selectedReviews.length === 0) return alert("Select reviews to publish");
+    console.log("selected reviews can you hep me here", selectedReviews);
+    try {
+      await publishVendorReviews(selectedReviews);
+
+      // Reload after publishing
+      await loadProfileReviews();
+      setSelectedReviews([]);
+    } catch (err) {
+      console.error("Error publishing reviews:", err);
+    }
+  };
+
+const resetMap = {
+  certification: setSelectedCertificationFilesReset,
+  product_image: setSelectedProductImageFilesReset,
+  product_video: setSelectedProductVideoFilesReset,
+  payment_terms: setSelectedPaymentTermsFilesReset,  // ✅ add this
+};
+
+
+const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "") => {
+  setMainLoading(true);
+
+  // For payment_terms → do not send doc_type or files
+  if (type === "payment_terms") {
+    uploadVendorDocument(files, type, "", payment_terms)
+      .then((res) => {
+        setMainLoading(false);
+        getProfileDocument();
+        toast("Payment terms saved successfully");
+      })
+      .catch((err) => {
+        console.error("Upload error:", err);
+        setMainLoading(false);
+        toast.error("Failed to save payment terms");
+      });
+    return;
+  }
+
+  // Normal upload flow
+  uploadVendorDocument(files, type, extraText, payment_terms)
+    .then((res) => {
+      setMainLoading(false);
+      getProfileDocument();
+
+      if (resetMap[type]) {
+        resetMap[type](true);
+        setTimeout(() => resetMap[type](false), 1000);
+      }
+
+      toast("File has been successfully uploaded");
+    })
+    .catch((err) => {
+      console.error("Upload error:", err);
+      setMainLoading(false);
+      toast.error("File upload failed");
+    });
+};
+
+
   const handleSpoc = (values, resetForm) => {
     setCreateLoading(true);
     setOpenAddSpoc(false);
@@ -477,19 +595,27 @@ const EditProfile = () => {
       {createLoading && <Loader />}
       <section className="vendor-common-header sc-pt-80">
         <div className="container-fluid">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <h1 className="heading">Edit profile</h1>
             {userType && (
-              <div style={{
-                display: 'inline-block',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '10px 20px',
-                borderRadius: '25px',
-                fontSize: '18px',
-                fontWeight: '600',
-                border: '2px solid #d1d5db'
-              }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  backgroundColor: "#f3f4f6",
+                  color: "#374151",
+                  padding: "10px 20px",
+                  borderRadius: "25px",
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  border: "2px solid #d1d5db",
+                }}
+              >
                 {getUserTypeLabel(userType)}
               </div>
             )}
@@ -585,89 +711,89 @@ const EditProfile = () => {
                             </div>
                           </div>
 
-                            <div className="col-md-6">
-                              <div className="form-group">
-                                <label>Mobile</label>
-                                <div className="d-flex align-items-center">
-                                  {/* Country Code Dropdown */}
-                                  <Field
-                                    as="select"
-                                    name="countryCode"
-                                    className="form-control me-2 p-2"
-                                    style={{
-                                      width: "30%",
-                                      minHeight: "54px",
-                                      borderTopRightRadius: "0",
-                                      borderBottomRightRadius: "0",
-                                    }}
-                                    value={onecountrycode}
-                                    onChange={(e) =>
-                                      setonecountrycode(e.target.value)
-                                    }
+                          <div className="col-md-6">
+                            <div className="form-group">
+                              <label>Mobile</label>
+                              <div className="d-flex align-items-center">
+                                {/* Country Code Dropdown */}
+                                <Field
+                                  as="select"
+                                  name="countryCode"
+                                  className="form-control me-2 p-2"
+                                  style={{
+                                    width: "30%",
+                                    minHeight: "54px",
+                                    borderTopRightRadius: "0",
+                                    borderBottomRightRadius: "0",
+                                  }}
+                                  value={onecountrycode}
+                                  onChange={(e) =>
+                                    setonecountrycode(e.target.value)
+                                  }
+                                >
+                                  <option
+                                    value={selectedCountryCode?.phone_code}
                                   >
+                                    {selectedCountryCode?.country_code} (
+                                    {selectedCountryCode?.phone_code})
+                                  </option>
+                                  {countryCode.map((country) => (
                                     <option
-                                      value={selectedCountryCode?.phone_code}
+                                      key={country.id}
+                                      value={country.phone_code}
                                     >
-                                      {selectedCountryCode?.country_code} (
-                                      {selectedCountryCode?.phone_code})
+                                      {country.country_code} (
+                                      {country.phone_code})
                                     </option>
-                                    {countryCode.map((country) => (
-                                      <option
-                                        key={country.id}
-                                        value={country.phone_code}
-                                      >
-                                        {country.country_code} (
-                                        {country.phone_code})
-                                      </option>
-                                    ))}
-                                  </Field>
+                                  ))}
+                                </Field>
 
-                                  {/* Mobile Number Input */}
-                                  <div style={{ flexGrow: 1 }}>
-                                    <Field
-                                      type="text"
-                                      name="mobile"
-                                      className={`form-control ${
-                                        touched.mobile && errors.mobile
-                                          ? "is-invalid"
-                                          : ""
-                                      }`}
-                                      placeholder="Ex. 9123456789"
-                                      style={{
-                                        width: "100%",
-                                        minHeight: "54px",
-                                        borderTopLeftRadius: "0",
-                                        borderBottomLeftRadius: "0",
-                                      }}
-                                    />
-                                    {touched.mobile && errors.mobile && (
-                                      <div className="invalid-feedback">
-                                        {errors.mobile}
-                                      </div>
-                                    )}
+                                {/* Mobile Number Input */}
+                                <div style={{ flexGrow: 1 }}>
+                                  <Field
+                                    type="text"
+                                    name="mobile"
+                                    className={`form-control ${
+                                      touched.mobile && errors.mobile
+                                        ? "is-invalid"
+                                        : ""
+                                    }`}
+                                    placeholder="Ex. 9123456789"
+                                    style={{
+                                      width: "100%",
+                                      minHeight: "54px",
+                                      borderTopLeftRadius: "0",
+                                      borderBottomLeftRadius: "0",
+                                    }}
+                                  />
+                                  {touched.mobile && errors.mobile && (
+                                    <div className="invalid-feedback">
+                                      {errors.mobile}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Company Information */}
                     <div className="vendor-edit-sec-form">
                       <span className="title">Company information</span>
                       <div className="contact-form">
                         <div className="row">
-                            <div className="col-md-6">
+                          <div className="col-md-6">
                             <div className="form-group">
-                                <FormikField
+                              <FormikField
                                 label="Organization Name"
                                 placeholder="Ex. ABC Company Ltd"
-                                  isRequired={true}
+                                isRequired={true}
                                 name="organization_name"
-                                  touched={touched}
-                                  errors={errors}
-                                />
-                              </div>
+                                touched={touched}
+                                errors={errors}
+                              />
+                            </div>
                           </div>
 
                           <div className="col-md-6">
@@ -738,9 +864,9 @@ const EditProfile = () => {
                                 <option value={0}>Select State</option>
                                 {states &&
                                   states.map((item) => (
-                                      <option key={item.id} value={item.id}>
-                                        {item.state_name}
-                                      </option>
+                                    <option key={item.id} value={item.id}>
+                                      {item.state_name}
+                                    </option>
                                   ))}
                               </select>
                             </div>
@@ -759,18 +885,17 @@ const EditProfile = () => {
                                   <option value={0}>Select City</option>
                                   {cities &&
                                     cities.map((item) => (
-                                        <option key={item.id} value={item.id}>
-                                          {item.city_name}
-                                        </option>
+                                      <option key={item.id} value={item.id}>
+                                        {item.city_name}
+                                      </option>
                                     ))}
                                 </select>
-                        </div>
-                      </div>
-                    </div>
+                              </div>
+                            </div>
+                          </div>
 
                           <div className="col-md-6">
                             <div className="form-group">
-
                               <FormikField
                                 label="Website"
                                 placeholder="Ex. https://www.example.com"
@@ -790,23 +915,29 @@ const EditProfile = () => {
                                 isMulti
                                 name="nature_of_business"
                                 options={businessOptions}
-                                value={businessOptions.filter(option => 
-                                  values?.nature_of_business?.split(',').includes(option.value)
+                                value={businessOptions.filter((option) =>
+                                  values?.nature_of_business
+                                    ?.split(",")
+                                    .includes(option.value)
                                 )}
                                 onChange={(selectedOptions) => {
-                                  const selectedValues = selectedOptions 
-                                    ? selectedOptions.map(option => option.value).join(',')
-                                    : '';
-                                  setFieldValue('nature_of_business', selectedValues);
+                                  const selectedValues = selectedOptions
+                                    ? selectedOptions
+                                        .map((option) => option.value)
+                                        .join(",")
+                                    : "";
+                                  setFieldValue(
+                                    "nature_of_business",
+                                    selectedValues
+                                  );
                                 }}
                                 components={{ DropdownIndicator }}
                                 placeholder="Select Nature of Business"
                                 styles={{
                                   control: (provided) => ({
                                     ...provided,
-                                    minHeight: '54px',
+                                    minHeight: "54px",
                                   }),
-
                                 }}
                               />
                             </div>
@@ -887,7 +1018,7 @@ const EditProfile = () => {
                         </div>
                       </div>
                     </div>
-
+                    {/* About Us Business Section */}
                     <div className="vendor-edit-sec-form">
                       <span className="title">About Your Business</span>
                       <div className="contact-form">
@@ -908,107 +1039,6 @@ const EditProfile = () => {
                       </div>
                     </div>
 
-                    <div className="vendor-edit-sec-form">
-                      <span className="title">Brochure</span>
-
-                      <div className="contact-form">
-                        <div className="row">
-                          <UploadFiles
-                            noLabel="true"
-                            accept=".png, .jpg, .jpeg, .gif"
-                            upload={setSelectedBrochureFiles}
-                            reset={selectedBrochureFilesReset}
-                            preview={
-                              userDocuments?.brochure
-                                ? userDocuments.brochure
-                                : null
-                            }
-                          />
-                        </div>
-                        {selectedBrochureFiles.length > 0 && (
-                          <button
-                            id="upload_brochure-documents_section-vendor_edit_profile_page"
-                            className="btn btn-secondary edit-profile"
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleUploadFile(
-                                selectedBrochureFiles,
-                                "brochure"
-                              );
-                            }}
-                          >
-                            Upload
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="vendor-edit-sec-form">
-                      <span className="title">Documents</span>
-
-                      <div className="contact-form">
-                        <div className="row">
-                          <UploadFiles
-                            accept=".png, .jpg, .jpeg, .gif, .pdf"
-                            upload={setSelectedDocumentsFiles}
-                            reset={selectedDocumentsFilesReset}
-                            preview={
-                              userDocuments?.documents
-                                ? userDocuments.documents
-                                : null
-                            }
-                          />
-                        </div>
-                        {selectedDocumentsFiles.length > 0 && (
-                          <button
-                            id="upload_documents-documents_section-vendor_edit_profile_page"
-                            className="btn btn-secondary edit-profile"
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleUploadFile(
-                                selectedDocumentsFiles,
-                                "documents"
-                              );
-                            }}
-                          >
-                            Upload
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="vendor-edit-sec-form">
-                      <span className="title">Past Track Record (PTR)</span>
-
-                      <div className="contact-form">
-                        <div className="row">
-                          <UploadFiles
-                            accept=".png, .jpg, .jpeg, .gif, .pdf"
-                            upload={setSelectedPTRFiles}
-                            reset={selectedPTRFilesReset}
-                            preview={
-                              userDocuments?.ptr ? userDocuments.ptr : null
-                            }
-                          />
-                        </div>
-                        {selectedPTRFiles.length > 0 && (
-                          <button
-                            id="upload_ptr-documents_section-vendor_edit_profile_page"
-                            className="btn btn-secondary edit-profile"
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleUploadFile(selectedPTRFiles, "ptr");
-                            }}
-                          >
-                            Upload
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
                     <button
                       id="save_changes-edit_profile-vendor_edit_profile_page"
                       type="submit"
@@ -1016,6 +1046,214 @@ const EditProfile = () => {
                     >
                       Save
                     </button>
+
+                    {/* Certifications Section */}
+                    <div className="vendor-edit-sec-form">
+                      <span className="title">Certifications</span>
+
+                      <div className="contact-form">
+                        <div className="row">
+                          <UploadFiles
+                            accept=".png, .jpg, .jpeg, .gif, .pdf"
+                            upload={setSelectedCertificationFiles}
+                            reset={selectedCertificationFilesReset}
+                            preview={userDocuments?.certifications || null}
+                          />
+                        </div>
+
+                        {/* Extra text input for certification */}
+                        <input
+                          type="text"
+                          className="form-control mt-2"
+                          placeholder="Enter certification details"
+                          value={certificationText}
+                          onChange={(e) => setCertificationText(e.target.value)}
+                        />
+
+                        {selectedCertificationFiles.length > 0 && (
+                          <button
+                            id="upload_certification-documents_section-vendor_edit_profile_page"
+                            className="btn btn-secondary edit-profile mt-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleVendorUploadFile(
+                                selectedCertificationFiles,
+                                "certification",
+                                certificationText
+                              );
+                            }}
+                          >
+                            Save Certification
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Product Images Section */}
+                    <div className="vendor-edit-sec-form">
+                      <span className="title">Product Images</span>
+
+                      <div className="contact-form">
+                        <div className="row">
+                          <UploadFiles
+                            accept=".png, .jpg, .jpeg, .gif"
+                            upload={setSelectedProductImageFiles}
+                            reset={selectedProductImageFilesReset}
+                            preview={userDocuments?.product_images || null}
+                          />
+                        </div>
+                        {selectedProductImageFiles.length > 0 && (
+                          <button
+                            id="upload_product-images-documents_section-vendor_edit_profile_page"
+                            className="btn btn-secondary edit-profile mt-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleVendorUploadFile(
+                                selectedProductImageFiles,
+                                "product_image"
+                              );
+                            }}
+                          >
+                            Upload
+                          </button>
+                        )}
+
+                        
+                      </div>
+
+                    </div>
+                    
+
+                    {/* Product Videos Section */}
+                    <div className="vendor-edit-sec-form">
+                      <span className="title">Product Videos</span>
+
+                      <div className="contact-form">
+                        <div className="row">
+                          <UploadFiles
+                            accept="video/mp4, video/mkv, video/avi, video/mov"
+                            upload={setSelectedProductVideoFiles}
+                            reset={selectedProductVideoFilesReset}
+                            preview={userDocuments?.product_videos || null}
+                          />
+                        </div>
+                        {selectedProductVideoFiles.length > 0 && (
+                          <button
+                            id="upload_product-videos-documents_section-vendor_edit_profile_page"
+                            className="btn btn-secondary edit-profile mt-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleVendorUploadFile(
+                                selectedProductVideoFiles,
+                                "product_video"
+                              );
+                            }}
+                          >
+                            Upload
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Payment Terms Section */}
+                    <div className="vendor-edit-sec-form">
+                      <span className="title">Payment Terms</span>
+
+                      <div className="contact-form">
+                        <div className="row">
+                          <UploadFiles
+                            accept=".png, .jpg, .jpeg, .gif, .pdf"
+                            upload={setSelectedPaymentTermsFiles}
+                            reset={selectedPaymentTermsFilesReset}
+                            preview={userDocuments?.payment_terms || null}
+                          />
+                        </div>
+
+                        {/* Text input for terms */}
+                        <input
+                          type="text"
+                          className="form-control mt-2"
+                          placeholder="Enter payment terms"
+                          value={paymentTerms}
+                          onChange={(e) => setPaymentTerms(e.target.value)}
+                        />
+
+                        {(selectedPaymentTermsFiles.length > 0 ||
+                          paymentTerms) && (
+                          <button
+                            id="upload_payment-terms_section-vendor_edit_profile_page"
+                            className="btn btn-secondary edit-profile mt-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleVendorUploadFile(
+                                selectedPaymentTermsFiles,
+                                "payment_terms",
+                                "", // extra text_content (if needed separately)
+                                paymentTerms // actual payment terms
+                              );
+                            }}
+                          >
+                            Save Payment Terms
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Review toggle section*/}
+                    <div className="container mt-4">
+                      <h4>Vendor Reviews</h4>
+
+                      <div className="row">
+                        {reviews.map((review) => (
+                          <div key={review.review_id} className="col-md-4 mb-3">
+                            <div
+                              className={`card ${
+                                selectedReviews.includes(review.review_id)
+                                  ? "border-primary"
+                                  : ""
+                              }`}
+                              style={{ cursor: "pointer" }}
+                              onClick={() => toggleReview(review.review_id)}
+                            >
+                              <div className="card-body">
+                                <h5 className="card-title">
+                                  {review.user_name}
+                                </h5>
+                                <h6 className="card-subtitle mb-2 text-muted">
+                                  {review.email}
+                                </h6>
+                                <p className="card-text">
+                                  Rating: {review.rating}
+                                </p>
+                                <p className="card-text">
+                                  {review.description || "No description"}
+                                </p>
+                                <p className="card-text">
+                                  <small className="text-muted">
+                                    {review.review_date}
+                                  </small>
+                                </p>
+                                {selectedReviews.includes(review.review_id) && (
+                                  <span className="badge bg-primary">
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button
+                        className="btn btn-success mt-3"
+                        onClick={handlePublish}
+                        disabled={selectedReviews.length === 0}
+                      >
+                        Publish Selected Reviews
+                      </button>
+                    </div>
+
+                   
                   </Form>
                 )}
               </Formik>
@@ -1058,19 +1296,27 @@ const EditProfile = () => {
                               vendorSpoc.map((spoc, index) => {
                                 const getStatusBadgeClass = (status) => {
                                   switch (status) {
-                                    case 0: return 'badge bg-danger';
-                                    case 1: return 'badge bg-success';
-                                    case 2: return 'badge bg-warning';
-                                    default: return 'badge bg-secondary';
+                                    case 0:
+                                      return "badge bg-danger";
+                                    case 1:
+                                      return "badge bg-success";
+                                    case 2:
+                                      return "badge bg-warning";
+                                    default:
+                                      return "badge bg-secondary";
                                   }
                                 };
-                                
+
                                 const getStatusText = (status) => {
                                   switch (status) {
-                                    case 0: return 'Disapproved';
-                                    case 1: return 'Approved';
-                                    case 2: return 'Pending';
-                                    default: return 'Unknown';
+                                    case 0:
+                                      return "Disapproved";
+                                    case 1:
+                                      return "Approved";
+                                    case 2:
+                                      return "Pending";
+                                    default:
+                                      return "Unknown";
                                   }
                                 };
 
@@ -1083,7 +1329,11 @@ const EditProfile = () => {
                                       <td>{spoc.email}</td>
                                       <td>{spoc.mobile}</td>
                                       <td>
-                                        <span className={getStatusBadgeClass(spoc.status)}>
+                                        <span
+                                          className={getStatusBadgeClass(
+                                            spoc.status
+                                          )}
+                                        >
                                           {getStatusText(spoc.status)}
                                         </span>
                                       </td>

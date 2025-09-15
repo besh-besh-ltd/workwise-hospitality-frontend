@@ -97,6 +97,31 @@ export const updateProfile = (values, user_id) => {
 	});
 };
 
+export const getProfileReviews = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosInstance.get(`/users/get-vendor-profile-reviews`);
+      resolve(response.data); // resolve with actual data
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+
+export const publishVendorReviews = (reviewIds) => {
+  return new Promise(async (resolve, reject) => {
+	try {
+	const response = await axiosInstance.post(`/users/publish-profile-reviews`, { review_ids: reviewIds });
+	resolve(response.data); // resolve with actual data
+	} catch (error) {
+	reject({ message: error });
+	}	
+	  });
+};
+
+
+
 export const updatecompany = (values, user_id) => {
 	return new Promise(async (resolve, reject) => {
 		try {
@@ -210,6 +235,26 @@ export const handleUploadFiles = (files, type) => {
 		}
 	});
 };
+
+
+export const uploadVendorDocument = async (files, type, text_content = "",payment_terms) => {
+  const payload = new FormData();
+
+  files.forEach((file) => {
+    payload.append("file", file, file.name);
+  });
+
+  payload.append("doc_type", type);
+  if (text_content) payload.append("text_content", text_content);
+
+  if (payment_terms) payload.append("payment_terms", payment_terms);
+
+  return axiosFormData.post(
+    `${process.env.NEXT_PUBLIC_API_URL}/users/enhance-vendor-profile`,
+    payload
+  );
+};
+
 
 export const getProfileDocuments = () => {
 	return new Promise(async (resolve, reject) => {
