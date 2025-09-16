@@ -709,7 +709,7 @@ const RfqManagementPreview = () => {
                     productleftforbid && (
                       <button
                         type="button"
-                        className="btn btn-primary"
+                        className="btn btn-danger"
                         onClick={(e) => {
                           e.preventDefault();
                           setregretModal(true);
