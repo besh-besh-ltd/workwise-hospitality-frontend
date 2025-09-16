@@ -1,6 +1,7 @@
 import axiosInstance from "@/lib/axios";
 import axiosFormData from "@/lib/axiosFormData";
 import storageInstance from "@/utils/storageInstance";
+import { resolve } from "styled-jsx/css";
 
 export const BookaCall = (values) => {
 	return new Promise(async (resolve, reject) => {
@@ -342,6 +343,17 @@ export const editSpoc = (payload,spocId) => {
             reject({ message: error });
         }
     });
+  }
+
+  export const vendorProfileDocuments = () =>{
+	return new Promise (async (resolve , reject) =>{
+		try {
+			let response  =  await axiosInstance.get(`users/get-vendor-profile-documents`);
+			resolve(response);
+		} catch (error) {
+			reject({message : error})
+		}
+	})
   }
 
   export const addSpoc = (payload) => {

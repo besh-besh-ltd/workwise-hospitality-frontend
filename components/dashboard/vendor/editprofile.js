@@ -12,6 +12,7 @@ import {
   updateProfile,
   updatecompany,
   uploadVendorDocument,
+  vendorProfileDocuments,
 } from "@/services/Auth";
 import { Field, Form, Formik } from "formik";
 import Image from "next/image";
@@ -100,6 +101,13 @@ const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useS
  const [reviews, setReviews] = useState([]);
   const [selectedReviews, setSelectedReviews] = useState([]);
 
+  const [vendorProfileData, setVendorProfileData] = useState({
+  certifications: [],
+  product_images: [],
+  product_videos: [],
+  payment_terms: [],
+});
+
 
 
 const [userDocuments, setUserDocuments] = useState({
@@ -184,8 +192,19 @@ const [userDocuments, setUserDocuments] = useState({
     getProfileDocument();
     fetchCountryCodes();
     loadProfileReviews();
+    fetchProfileDocuments();
    
   }, []);
+
+  // Add this to see what's being passed to UploadFiles
+useEffect(() => {
+  console.log('UploadFiles preview data:', {
+    certifications: vendorProfileData.certifications,
+    product_images: vendorProfileData.product_images,
+    product_videos: vendorProfileData.product_videos,
+    payment_terms: vendorProfileData.payment_terms
+  });
+}, [vendorProfileData]);
   
   const fetchCountryCodes = () => {
     getCountryCodes()
@@ -585,6 +604,76 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
         getProfileDetails();
       });
   };
+
+
+
+const fetchProfileDocuments = async () => {
+  try {
+    const res = await vendorProfileDocuments();
+    
+    // Check if response has data and it's an array
+    if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+      console.log('Raw data from API:', res.data); // Debug log
+      
+      // Group by file_type with better error handling
+      const grouped = res.data.reduce(
+        (acc, doc) => {
+          // Ensure doc exists and has file_type property
+          if (!doc || !doc.file_type) {
+            console.warn('Document missing file_type:', doc);
+            return acc;
+          }
+          
+          const fileType = doc.file_type.toLowerCase().trim(); // Normalize the file_type
+          
+          switch (fileType) {
+            case "certification":
+              acc.certifications.push(doc);
+              break;
+            case "product_image":
+              acc.product_images.push(doc);
+              break;
+            case "product_video":
+              acc.product_videos.push(doc);
+              break;
+            case "payment_terms":
+              acc.payment_terms.push(doc);
+              break;
+            default:
+              console.warn('Unknown file_type:', fileType, doc);
+          }
+          return acc;
+        },
+        { 
+          certifications: [], 
+          product_images: [], 
+          product_videos: [], 
+          payment_terms: [] 
+        }
+      );
+
+      console.log('Grouped data:', grouped); // Debug log
+      setVendorProfileData(grouped);
+    } else {
+      console.log('No data found, setting empty arrays');
+      setVendorProfileData({
+        certifications: [],
+        product_images: [],
+        product_videos: [],
+        payment_terms: []
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching profile documents:', error);
+    // Set empty data on error
+    setVendorProfileData({
+      certifications: [],
+      product_images: [],
+      product_videos: [],
+      payment_terms: []
+    });
+  }
+};
 
   const selectedCountryCode = countryCode.find(
     (item) => item.phone_code === extractedCountryCode
@@ -1049,7 +1138,10 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
 
                     {/* Certifications Section */}
                     <div className="vendor-edit-sec-form">
-                      <span className="title">Certifications</span>
+                      <span className="title">
+                        Certifications (
+                        {vendorProfileData.certifications.length}/5)
+                      </span>
 
                       <div className="contact-form">
                         <div className="row">
@@ -1057,11 +1149,10 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
                             accept=".png, .jpg, .jpeg, .gif, .pdf"
                             upload={setSelectedCertificationFiles}
                             reset={selectedCertificationFilesReset}
-                            preview={userDocuments?.certifications || null}
+                            preview={vendorProfileData.certifications} // Pre-filled from API
+                            maxFiles={5} // optional limit
                           />
                         </div>
-
-                        {/* Extra text input for certification */}
                         <input
                           type="text"
                           className="form-control mt-2"
@@ -1069,10 +1160,8 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
                           value={certificationText}
                           onChange={(e) => setCertificationText(e.target.value)}
                         />
-
                         {selectedCertificationFiles.length > 0 && (
                           <button
-                            id="upload_certification-documents_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile mt-2"
                             onClick={(e) => {
                               e.preventDefault();
@@ -1091,20 +1180,22 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
 
                     {/* Product Images Section */}
                     <div className="vendor-edit-sec-form">
-                      <span className="title">Product Images</span>
-
+                      <span className="title">
+                        Product Images (
+                        {vendorProfileData.product_images.length}/10)
+                      </span>
                       <div className="contact-form">
                         <div className="row">
                           <UploadFiles
                             accept=".png, .jpg, .jpeg, .gif"
                             upload={setSelectedProductImageFiles}
                             reset={selectedProductImageFilesReset}
-                            preview={userDocuments?.product_images || null}
+                            preview={vendorProfileData.product_images} // Pre-filled from API
+                            maxFiles={10}
                           />
                         </div>
                         {selectedProductImageFiles.length > 0 && (
                           <button
-                            id="upload_product-images-documents_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile mt-2"
                             onClick={(e) => {
                               e.preventDefault();
@@ -1117,29 +1208,27 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
                             Upload
                           </button>
                         )}
-
-                        
                       </div>
-
                     </div>
-                    
 
                     {/* Product Videos Section */}
                     <div className="vendor-edit-sec-form">
-                      <span className="title">Product Videos</span>
-
+                      <span className="title">
+                        Product Videos (
+                        {vendorProfileData.product_videos.length}/3)
+                      </span>
                       <div className="contact-form">
                         <div className="row">
                           <UploadFiles
                             accept="video/mp4, video/mkv, video/avi, video/mov"
                             upload={setSelectedProductVideoFiles}
                             reset={selectedProductVideoFilesReset}
-                            preview={userDocuments?.product_videos || null}
+                            preview={vendorProfileData.product_videos} // Pre-filled from API
+                            maxFiles={3}
                           />
                         </div>
                         {selectedProductVideoFiles.length > 0 && (
                           <button
-                            id="upload_product-videos-documents_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile mt-2"
                             onClick={(e) => {
                               e.preventDefault();
@@ -1158,18 +1247,15 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
                     {/* Payment Terms Section */}
                     <div className="vendor-edit-sec-form">
                       <span className="title">Payment Terms</span>
-
                       <div className="contact-form">
                         <div className="row">
                           <UploadFiles
                             accept=".png, .jpg, .jpeg, .gif, .pdf"
                             upload={setSelectedPaymentTermsFiles}
                             reset={selectedPaymentTermsFilesReset}
-                            preview={userDocuments?.payment_terms || null}
+                            preview={vendorProfileData.payment_terms} // Pre-filled from API
                           />
                         </div>
-
-                        {/* Text input for terms */}
                         <input
                           type="text"
                           className="form-control mt-2"
@@ -1177,19 +1263,17 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
                           value={paymentTerms}
                           onChange={(e) => setPaymentTerms(e.target.value)}
                         />
-
                         {(selectedPaymentTermsFiles.length > 0 ||
                           paymentTerms) && (
                           <button
-                            id="upload_payment-terms_section-vendor_edit_profile_page"
                             className="btn btn-secondary edit-profile mt-2"
                             onClick={(e) => {
                               e.preventDefault();
                               handleVendorUploadFile(
                                 selectedPaymentTermsFiles,
                                 "payment_terms",
-                                "", // extra text_content (if needed separately)
-                                paymentTerms // actual payment terms
+                                "",
+                                paymentTerms
                               );
                             }}
                           >
@@ -1252,8 +1336,6 @@ const handleVendorUploadFile = (files, type, extraText = "", payment_terms = "")
                         Publish Selected Reviews
                       </button>
                     </div>
-
-                   
                   </Form>
                 )}
               </Formik>
