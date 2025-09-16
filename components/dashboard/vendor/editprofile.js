@@ -91,6 +91,8 @@ const [selectedProductImageFilesReset, setSelectedProductImageFilesReset] = useS
 
 const [selectedProductVideoFiles, setSelectedProductVideoFiles] = useState([]);
 const [selectedProductVideoFilesReset, setSelectedProductVideoFilesReset] = useState(false);
+const [selectedProjectDocument , setselectedProjectDocument] = useState([]);
+const [selectedProjectDocumentreset , setselectedProjectDocumentreset] = useState(false);
 
 // Payment Terms states
 const [paymentTerms, setPaymentTerms] = useState(""); // text input value
@@ -106,6 +108,7 @@ const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useS
   product_images: [],
   product_videos: [],
   payment_terms: [],
+  project_document : []
 });
 
 
@@ -113,7 +116,9 @@ const [selectedPaymentTermsFilesReset, setSelectedPaymentTermsFilesReset] = useS
 const [userDocuments, setUserDocuments] = useState({
   certifications: null,
   product_images: null,
-  product_videos: null
+  product_videos: null,
+  payment_terms : null ,
+  project_document : null
 });
 
   // User type mapping utility
@@ -196,15 +201,7 @@ const [userDocuments, setUserDocuments] = useState({
    
   }, []);
 
-  // Add this to see what's being passed to UploadFiles
-useEffect(() => {
-  console.log('UploadFiles preview data:', {
-    certifications: vendorProfileData.certifications,
-    product_images: vendorProfileData.product_images,
-    product_videos: vendorProfileData.product_videos,
-    payment_terms: vendorProfileData.payment_terms
-  });
-}, [vendorProfileData]);
+
   
   const fetchCountryCodes = () => {
     getCountryCodes()
@@ -485,7 +482,6 @@ useEffect(() => {
   // Publish selected reviews
   const handlePublish = async () => {
     if (selectedReviews.length === 0) return alert("Select reviews to publish");
-    console.log("selected reviews can you hep me here", selectedReviews);
     try {
       await publishVendorReviews(selectedReviews);
 
@@ -501,7 +497,8 @@ const resetMap = {
   certification: setSelectedCertificationFilesReset,
   product_image: setSelectedProductImageFilesReset,
   product_video: setSelectedProductVideoFilesReset,
-  payment_terms: setSelectedPaymentTermsFilesReset,  // ✅ add this
+  payment_terms: setSelectedPaymentTermsFilesReset,
+  project_document :  setSelectedPaymentTermsFilesReset  // ✅ add this
 };
 
 
@@ -639,6 +636,8 @@ const fetchProfileDocuments = async () => {
             case "payment_terms":
               acc.payment_terms.push(doc);
               break;
+            case "project_document":
+              acc.project_document.push(doc);
             default:
               console.warn('Unknown file_type:', fileType, doc);
           }
@@ -648,19 +647,18 @@ const fetchProfileDocuments = async () => {
           certifications: [], 
           product_images: [], 
           product_videos: [], 
-          payment_terms: [] 
+          payment_terms: [] ,
+          project_document : []
         }
       );
-
-      console.log('Grouped data:', grouped); // Debug log
       setVendorProfileData(grouped);
     } else {
-      console.log('No data found, setting empty arrays');
       setVendorProfileData({
         certifications: [],
         product_images: [],
         product_videos: [],
-        payment_terms: []
+        payment_terms: [],
+        project_document : []
       });
     }
   } catch (error) {
@@ -670,7 +668,8 @@ const fetchProfileDocuments = async () => {
       certifications: [],
       product_images: [],
       product_videos: [],
-      payment_terms: []
+      payment_terms: [],
+      project_document : []
     });
   }
 };
@@ -1283,58 +1282,111 @@ const fetchProfileDocuments = async () => {
                       </div>
                     </div>
 
-                    {/* Review toggle section*/}
-                    <div className="container mt-4">
-                      <h4>Vendor Reviews</h4>
+                    {/* Product Videos Section */}
+                    <div className="vendor-edit-sec-form">
+                      <span className="title">
+                        Project Document (
+                        {vendorProfileData.project_document.length}/3)
+                      </span>
+                      <div className="contact-form">
+                        <div className="row">
+                          <UploadFiles
+                            accept=".png, .jpg, .jpeg, .gif, .pdf"
+                            upload={setselectedProjectDocument}
+                            reset={selectedProjectDocumentreset}
+                            preview={vendorProfileData.project_document} // Pre-filled from API
+                            maxFiles={3}
+                          />
+                        </div>
+                        {selectedProjectDocument.length > 0 && (
+                          <button
+                            className="btn btn-secondary edit-profile mt-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleVendorUploadFile(
+                                selectedProjectDocument,
+                                "project_document"
+                              );
+                            }}
+                          >
+                            Upload
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                      <div className="row">
-                        {reviews.map((review) => (
-                          <div key={review.review_id} className="col-md-4 mb-3">
+                    {/* Vendor Reviews Section */}
+                    <div className="vendor-edit-sec-form mt-4">
+                      <span className="title">
+                        Vendor Reviews ({reviews.length})
+                      </span>
+
+                      <div className="contact-form">
+                        <div className="row">
+                          {reviews.map((review) => (
                             <div
-                              className={`card ${
-                                selectedReviews.includes(review.review_id)
-                                  ? "border-primary"
-                                  : ""
-                              }`}
-                              style={{ cursor: "pointer" }}
-                              onClick={() => toggleReview(review.review_id)}
+                              key={review.review_id}
+                              className="col-md-4 mb-3"
                             >
-                              <div className="card-body">
-                                <h5 className="card-title">
-                                  {review.user_name}
-                                </h5>
-                                <h6 className="card-subtitle mb-2 text-muted">
-                                  {review.email}
-                                </h6>
-                                <p className="card-text">
-                                  Rating: {review.rating}
-                                </p>
-                                <p className="card-text">
-                                  {review.description || "No description"}
-                                </p>
-                                <p className="card-text">
-                                  <small className="text-muted">
-                                    {review.review_date}
-                                  </small>
-                                </p>
-                                {selectedReviews.includes(review.review_id) && (
-                                  <span className="badge bg-primary">
-                                    Selected
-                                  </span>
-                                )}
+                              <div
+                                className={`card shadow-sm h-100 ${
+                                  selectedReviews.includes(review.review_id)
+                                    ? "border border-primary"
+                                    : "border-0"
+                                }`}
+                                style={{
+                                  cursor: "pointer",
+                                  transition: "0.3s",
+                                }}
+                                onClick={() => toggleReview(review.review_id)}
+                              >
+                                <div className="card-body">
+                                  <h5 className="card-title mb-1">
+                                    {review.user_name}
+                                  </h5>
+                                  <h6 className="card-subtitle mb-2 text-muted">
+                                    {review.email}
+                                  </h6>
+
+                                  <p className="card-text mb-1">
+                                    ⭐ {review.rating}
+                                  </p>
+                                  <p className="card-text small text-muted">
+                                    {review.description ||
+                                      "No description provided"}
+                                  </p>
+                                  <p className="card-text">
+                                    <small className="text-muted">
+                                      {review.review_date}
+                                    </small>
+                                  </p>
+
+                                  {selectedReviews.includes(
+                                    review.review_id
+                                  ) && (
+                                    <span className="badge bg-primary">
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
 
-                      <button
-                        className="btn btn-success mt-3"
-                        onClick={handlePublish}
-                        disabled={selectedReviews.length === 0}
-                      >
-                        Publish Selected Reviews
-                      </button>
+                        {selectedReviews.length > 0 && (
+                          <button
+                            className="btn btn-secondary edit-profile mt-2"
+                            style  = {{"minWidth" : "240px"}}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handlePublish();
+                            }}
+                          >
+                            Publish Selected Reviews
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </Form>
                 )}
