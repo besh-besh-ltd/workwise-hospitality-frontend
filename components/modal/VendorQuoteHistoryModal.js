@@ -13,7 +13,6 @@ import {
   faComment,
   faRupeeSign
 } from "@fortawesome/free-solid-svg-icons";
-import Vendor from "../dashboard/vendor";
 
 const VendorQuoteHistoryModal = (props) => {
   const { showModal, closeModal, quoteHistory } = props;
@@ -73,23 +72,28 @@ const VendorQuoteHistoryModal = (props) => {
         },
       }}
     >
-      {/* Header */}
+      {/* Header with Product Name */}
       <div
-        className={`modal-header-sticky bg-primary text-white`}
+        className="modal-header-sticky bg-primary text-white p-4"
         style={{
-          padding: "1.5rem 2rem",
+          backgroundColor: '#2E5BA8',
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: "flex-start",
           borderTopLeftRadius: "16px",
           borderTopRightRadius: "16px",
         }}
       >
-        <div className="d-flex align-items-center">
-          <FontAwesomeIcon icon={faFileAlt} className="me-3" size="lg" />
-          <h3 className="mb-0" style={{ fontWeight: 600 }}>
-            Quote History
-          </h3>
+        <div className="d-flex flex-column">
+          <div className="d-flex align-items-center mb-2">
+            <FontAwesomeIcon icon={faFileAlt} className="me-3" size="lg" />
+            <h3 className="mb-0" style={{ fontWeight: 600 }}>
+              Quote History
+            </h3>
+          </div>
+          <h5 className="mb-0 text-light fw-normal">
+            {productDetails.product_name}
+          </h5>
         </div>
         <button
           onClick={closeModal}
@@ -103,216 +107,148 @@ const VendorQuoteHistoryModal = (props) => {
         className="modal-body-custom p-4"
         style={{
           overflowY: "auto",
-          maxHeight: "calc(90vh - 100px)",
+          maxHeight: "calc(90vh - 120px)",
         }}
       >
-        {/* Product Info Card */}
-        <div
-          className="product-info-card"
-          style={{
-            background: "white",
-            borderRadius: "12px",
-            padding: "1.5rem",
-            marginBottom: "1.5rem",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          <div className="d-flex justify-content-between align-items-center flex-wrap">
-            <div>
-              <h5
-                style={{
-                  color: "#4f46e5",
-                  marginBottom: "0.5rem",
-                  fontWeight: 600,
-                }}
-              >
-                {productDetails.product_name}
-              </h5>
-              <p className="text-muted mb-0">RFQ #: {productDetails.rfq_no}</p>
-            </div>
-            {/* <div className="d-flex mt-2 mt-md-0">
-              <div className="me-3">
-                <small className="text-muted d-block">Quantity</small>
-                <span style={{ fontWeight: 600 }}>
-                  {productDetails.quantity}
-                </span>
-              </div>
-              <div>
-                <small className="text-muted d-block">Variant</small>
-                <span style={{ fontWeight: 600 }}>
-                  {productDetails.variant || "Standard"}
-                </span>
-              </div>
-            </div> */}
-          </div>
-        </div>
-
         {/* Quote History Table */}
         <div
-          className="table-container"
+          className="table-container bg-white rounded shadow-sm"
           style={{
-            background: "white",
-            borderRadius: "12px",
             overflow: "hidden",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
           }}
         >
           <div className="table-responsive">
             <table className="table table-hover mb-0">
-              <thead
-  style={{
-    background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
-  }}
->
-  <tr>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>#</th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faTag} className="me-2" />
-        Base Price
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faBox} className="me-2" />
-        Packaging
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faShippingFast} className="me-2" />
-        Freight
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faReceipt} className="me-2" />
-        GST
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faRupeeSign} className="me-2" />
-        Total
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faCalendarAlt} className="me-2" />
-        Delivery
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faComment} className="me-2" />
-        Comments
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faUser} className="me-2" />
-        Buyer
-      </div>
-    </th>
-    <th style={{ padding: "1rem", fontWeight: 600 }}>
-      <div className="d-flex align-items-center">
-        <FontAwesomeIcon icon={faCalendarAlt} className="me-2" />
-        Date & Time
-      </div>
-    </th>
-  </tr>
-</thead>
+              <thead className="bg-secondary text-dark">
+                <tr>
+                  <th className="p-3 fw-semibold">#</th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faTag} className="me-2" />
+                      Base Price
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faBox} className="me-2" />
+                      Packaging
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faShippingFast} className="me-2" />
+                      Freight
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faReceipt} className="me-2" />
+                      GST
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faRupeeSign} className="me-2" />
+                      Total
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faCalendarAlt} className="me-2" />
+                      Delivery
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faComment} className="me-2" />
+                      Comments
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faUser} className="me-2" />
+                      Buyer
+                    </div>
+                  </th>
+                  <th className="p-3 fw-semibold">
+                    <div className="d-flex align-items-center">
+                      <FontAwesomeIcon icon={faCalendarAlt} className="me-2" />
+                      Date & Time
+                    </div>
+                  </th>
+                </tr>
+              </thead>
 
               <tbody>
                 {quoteHistory.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    style={{ borderBottom: "1px solid #e2e8f0" }}
-                  >
-                    <td style={{ padding: "1rem", fontWeight: 500 }}>
-                      {index + 1}
-                    </td>
-                    <td style={{ padding: "1rem" }}>
-                      <span className="price-tag">
+                  <tr key={item.id} className="border-bottom">
+                    <td className="p-3 fw-medium">{index + 1}</td>
+                    <td className="p-3">
+                      <span className="badge bg-light text-dark fs-6">
                         ₹{item.unit_price ?? "-"}
                       </span>
                     </td>
-                    <td style={{ padding: "1rem" }}>
+                    <td className="p-3">
                       {item.package_price ? (
-                        <>
-                          <span className="value">{item.package_price}</span>
-                          <span className="unit">
+                        <span className="d-inline-flex align-items-center">
+                          <span className="fw-medium me-1">{item.package_price}</span>
+                          <small className="text-muted">
                             {item.package_mode === "percentage" ? "%" : "₹"}
-                          </span>
-                        </>
+                          </small>
+                        </span>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td style={{ padding: "1rem" }}>
+                    <td className="p-3">
                       {item.freight_price ? (
-                        <>
-                          <span className="value">{item.freight_price}</span>
-                          <span className="unit">
+                        <span className="d-inline-flex align-items-center">
+                          <span className="fw-medium me-1">{item.freight_price}</span>
+                          <small className="text-muted">
                             {item.freight_mode === "percentage" ? "%" : "₹"}
-                          </span>
-                        </>
+                          </small>
+                        </span>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td style={{ padding: "1rem" }}>
+                    <td className="p-3">
                       {item.tax ? (
-                        <>
-                          <span className="value">{item.tax}</span>
-                          <span className="unit">
+                        <span className="d-inline-flex align-items-center">
+                          <span className="fw-medium me-1">{item.tax}</span>
+                          <small className="text-muted">
                             {item.tax_mode === "percentage" ? "%" : "₹"}
-                          </span>
-                        </>
+                          </small>
+                        </span>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td
-                      style={{
-                        padding: "1rem",
-                        fontWeight: 600,
-                        color: "#059669",
-                      }}
-                    >
+                    <td className="p-3 fw-bold text-success">
                       ₹{item.total_price ?? "-"}
                     </td>
-                    <td style={{ padding: "1rem" }}>
+                    <td className="p-3">
                       {item.delivery_period ? (
-                        <span className="delivery-badge">
+                        <span className="badge bg-success bg-opacity-10 text-success">
                           {item.delivery_period} days
                         </span>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td style={{ padding: "1rem", maxWidth: "200px" }}>
+                    <td className="p-3" style={{ maxWidth: "200px" }}>
                       {item.comment ? (
-                        <div className="comment-text" title={item.comment}>
-                          {item.comment.length > 30
-                            ? `${item.comment.substring(0, 30)}...`
-                            : item.comment}
+                        <div className="text-truncate" title={item.comment}>
+                          {item.comment}
                         </div>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td style={{ padding: "1rem" }}>
-                      <span className="buyer-name">{item.buyer_name}</span>
+                    <td className="p-3">
+                      <span className="fw-medium text-primary">{item.buyer_name}</span>
                     </td>
-                    <td
-                      style={{
-                        padding: "1rem",
-                        color: "#64748b",
-                        fontSize: "0.9rem",
-                        minWidth:" 150px"
-                      }}
-                    >
+                    <td className="p-3 text-muted small" style={{ minWidth: "150px" }}>
                       {item.timestamp
                         ? formatTimestampToIST(item.timestamp)
                         : "-"}
@@ -326,24 +262,14 @@ const VendorQuoteHistoryModal = (props) => {
 
         {/* Summary */}
         {quoteHistory.length > 0 && (
-          <div
-            className="summary-card mt-3"
-            style={{
-              background: "white",
-              borderRadius: "12px",
-              padding: "1rem 1.5rem",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <span className="text-muted">Total Quotes: </span>
-                <span className="fw-bold">{quoteHistory.length}</span>
-              </div>
-              <div>
-                <span className="text-muted">Latest Quote: </span>
-                <span className="fw-bold">₹{quoteHistory[0].total_price}</span>
-              </div>
+          <div className="bg-light rounded p-3 mt-3 d-flex justify-content-between align-items-center">
+            <div>
+              <span className="text-muted">Total Quotes: </span>
+              <span className="fw-bold">{quoteHistory.length}</span>
+            </div>
+            <div>
+              <span className="text-muted">Latest Quote: </span>
+              <span className="fw-bold text-success">₹{quoteHistory[0].total_price}</span>
             </div>
           </div>
         )}
@@ -356,46 +282,8 @@ const VendorQuoteHistoryModal = (props) => {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           }
           
-          .price-tag {
-            background: #f1f5f9;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            color: #1e293b;
-          }
-          
-          .value {
-            font-weight: 500;
-            margin-right: 2px;
-          }
-          
-          .unit {
-            font-size: 0.8rem;
-            color: #64748b;
-          }
-          
-          .delivery-badge {
-            background: #dcfce7;
-            color: #166534;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 500;
-          }
-          
-          .comment-text {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          
-          .buyer-name {
-            font-weight: 500;
-            color: #4f46e5;
-          }
-          
           .table-hover tbody tr:hover {
-            background-color: #f8fafc;
+            background-color: rgba(13, 110, 253, 0.05) !important;
           }
           
           .btn-close-white:focus {

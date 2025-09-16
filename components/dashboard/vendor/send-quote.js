@@ -1706,6 +1706,12 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     <td style={{ minWidth: "160px" }}>
                                       {/* Base Price */}
                                       <div className="mb-2">
+                                        <small
+                                          className="d-block fw-bold"
+                                          style={{ fontSize: "0.9rem" }}
+                                        >
+                                          Base Price
+                                        </small>
                                         <input
                                           type="number"
                                           name=""
@@ -1733,12 +1739,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           onWheel={(e) => e.target.blur()}
                                           disabled={isTechEvalPendingOrRejected}
                                         />
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.7rem" }}
-                                        >
-                                          Base Price
-                                        </small>
+                                        
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -1750,13 +1751,19 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </div>
 
                                       {/* Freight */}
-                                      <div>
+                                      <div> 
+                                        <small
+                                          className="d-block fw-bold"
+                                          style={{ fontSize: "0.9rem" , marginTop : "64px" }}
+                                        >
+                                          Freight
+                                        </small>
                                         <input
                                           type="number"
                                           min={0}
                                           name=""
                                           id=""
-                                          style={{ maxWidth: "140px" , marginTop : "52px"}}
+                                          style={{ maxWidth: "140px"}}
                                           placeholder={
                                             chargesMode.freight[item.id] ===
                                             "percentage"
@@ -1819,12 +1826,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             );
                                           }}
                                         />
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.7rem" }}
-                                        >
-                                          Freight
-                                        </small>
+                                       
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -1839,6 +1841,12 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     <td style={{ minWidth: "180px" }}>
                                       {/* Packaging */}
                                       <div className="mb-3">
+                                        <small
+                                          className="d-block fw-bold"
+                                          style={{ fontSize: "0.9rem" }}
+                                        >
+                                          Packaging
+                                        </small>
                                         <input
                                           type="number"
                                           min={0}
@@ -1908,12 +1916,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             );
                                           }}
                                         />
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.7rem" }}
-                                        >
-                                          Packaging
-                                        </small>
+                                        
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -1926,6 +1929,12 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                                       {/* Taxes */}
                                       <div>
+                                        <small
+                                          className="d-block fw-bold"
+                                          style={{ fontSize: ".9rem" }}
+                                        >
+                                          Taxes
+                                        </small>
                                         <input
                                           type="number"
                                           min={0}
@@ -1991,12 +2000,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             );
                                           }}
                                         />
-                                        <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: "0.7rem" }}
-                                        >
-                                          Taxes
-                                        </small>
+                                        
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -2081,7 +2085,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             cols="30"
                                             rows="3"
                                             value={quoteProducts[index].comment}
-                                            style={{ maxWidth: "140px" }}
+                                            style={{ maxWidth: "180px" , minHeight : "120px" }}
                                             onChange={(e) =>
                                               handleUpdateData(
                                                 item.id,
