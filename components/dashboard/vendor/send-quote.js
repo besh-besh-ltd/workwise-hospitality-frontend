@@ -983,7 +983,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                             <th>Taxes</th>
                             <th>Total</th>
                             <th>Vendor Comments</th>
-                            <th style={{"maxWidth" : "100px"}}>Delivery Period</th>
+                            <th style={{ maxWidth: "100px" }}>
+                              Delivery Period
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1267,8 +1269,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                     </div>
 
                     <div className="row align-items-stretch">
-                      {/* ========== COLUMN 1: Global Costing + Quote Document ========== */}
-                      <div className="col-lg-3 col-12 d-flex">
+                      {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
+                      <div className="col-lg-7 col-12 d-flex">
                         <div className="card border shadow-sm rounded-3 w-100 h-100">
                           <div className="card-body">
                             <h3 className="fs-6 fw-semibold mb-3">
@@ -1376,6 +1378,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               </div>
                             </div>
 
+                            {/* Upload Quotation Document */}
                             <label
                               className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
                               style={{
@@ -1394,7 +1397,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               />
                             </label>
 
-                            {/*  start: recently upload files */}
+                            {/* Uploaded Files */}
                             {globalDocumentFiles &&
                               globalDocumentFiles.length > 0 && (
                                 <div className="row">
@@ -1402,62 +1405,55 @@ return { deletedTerms, createdTerms, updatedTerms };
                                     New Uploaded Files:
                                   </p>
                                   <div className="d-flex gap-4">
-                                    {globalDocumentFiles.map((doc_file) => {
-                                      return (
-                                        <p
-                                          key={doc_file}
-                                          href={doc_file}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="badge bg-light border text-primary   text-truncate cursor-pointer "
-                                          style={{ maxWidth: 280 }}
-                                          title={
-                                            "Click here to download the file"
-                                          }
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            removeGlobalFiles(doc_file);
+                                    {globalDocumentFiles.map((doc_file) => (
+                                      <p
+                                        key={doc_file}
+                                        className="badge bg-light border text-primary text-truncate cursor-pointer"
+                                        style={{ maxWidth: 280 }}
+                                        title="Click here to remove file"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          removeGlobalFiles(doc_file);
+                                        }}
+                                      >
+                                        <FontAwesomeIcon
+                                          icon={faDownload}
+                                          className="text-primary"
+                                        />
+                                        <span
+                                          className="text-truncate"
+                                          style={{
+                                            maxWidth: 200,
+                                            marginLeft: "10px",
                                           }}
                                         >
-                                          <FontAwesomeIcon
-                                            icon={faDownload}
-                                            className="text-primary "
-                                          />
-                                          <span
-                                            className="text-truncate"
-                                            style={{
-                                              maxWidth: 200,
-                                              marginLeft: "10px",
-                                            }}
-                                          >
-                                            {extractfileName(doc_file)}
-                                          </span>
-                                        </p>
-                                      );
-                                    })}
+                                          {extractfileName(doc_file)}
+                                        </span>
+                                      </p>
+                                    ))}
                                   </div>
                                 </div>
                               )}
 
                             {previousGlobalFiles?.length > 0 && (
-                              <div className=" mb-3">
+                              <div className="mb-3">
                                 <p className="fw-medium mb-1">
                                   Previously Uploaded Files:
                                 </p>
-                                <div className="d-flex gap-4 ">
+                                <div className="d-flex gap-4">
                                   {previousGlobalFiles.map((prev_file) => (
                                     <a
                                       key={prev_file}
                                       href={prev_file}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="badge bg-light border text-primary   text-truncate "
+                                      className="badge bg-light border text-primary text-truncate"
                                       style={{ maxWidth: 280 }}
-                                      title={"Click here to download the file"}
+                                      title="Click here to download the file"
                                     >
                                       <FontAwesomeIcon
                                         icon={faDownload}
-                                        className="text-primary "
+                                        className="text-primary"
                                       />
                                       <span
                                         className="text-truncate"
@@ -1473,12 +1469,24 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 </div>
                               </div>
                             )}
+
+                            {/* Global Comment moved here */}
+                            <h3 className="fs-6 fw-semibold mb-2">
+                              Global Comment
+                            </h3>
+                            <textarea
+                              className="form-control"
+                              rows={3}
+                              value={globalComment}
+                              placeholder="Placeholder text for global comment"
+                              onChange={(e) => setglobalComment(e.target.value)}
+                            />
                           </div>
                         </div>
                       </div>
 
-                      {/* ========== COLUMN 2: Payment Terms (summary) + Global Comment ========== */}
-                      <div className="col-lg-4 col-12 d-flex">
+                      {/* ========== COLUMN 2: Payment Terms Only ========== */}
+                      {/* <div className="col-lg-5 col-12 d-flex">
                         <div className="card border shadow-sm rounded-3 w-100 h-100">
                           <div className="card-body d-flex flex-column">
                             {globalPaymentTerms && (
@@ -1490,7 +1498,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                   </h3>
                                 </div>
                                 <textarea
-                                  className="form-control mb-3"
+                                  className="form-control flex-grow-1"
                                   rows={3}
                                   value={globalPaymentTerms}
                                   placeholder="100% Against Proforma Invoice"
@@ -1500,19 +1508,9 @@ return { deletedTerms, createdTerms, updatedTerms };
                                 />
                               </>
                             )}
-
-                            <h3 className="fs-6 fw-semibold mb-2">
-                              Global Comment
-                            </h3>
-                            <textarea
-                              className="form-control flex-grow-1"
-                              value={globalComment}
-                              placeholder="Placeholder text for global comment"
-                              onChange={(e) => setglobalComment(e.target.value)}
-                            />
                           </div>
                         </div>
-                      </div>
+                      </div> */}
 
                       {/* ========== COLUMN 3: Payment Terms Breakdown (editor) ========== */}
                       <div className="col-lg-5 col-12">
@@ -1683,7 +1681,8 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         />
                                       )}
                                       <button
-                                        className="minimal-btn bg-success mt-2 "
+                                        className="minimal-btn "
+                                        style={{marginTop : "auto"}}
                                         // style={{"maxWidth":"120px"}}
                                         onClick={() =>
                                           openQuoteHistoryModal(
@@ -1739,7 +1738,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           onWheel={(e) => e.target.blur()}
                                           disabled={isTechEvalPendingOrRejected}
                                         />
-                                        
+
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -1751,10 +1750,13 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </div>
 
                                       {/* Freight */}
-                                      <div> 
+                                      <div>
                                         <small
                                           className="d-block fw-bold"
-                                          style={{ fontSize: "0.9rem" , marginTop : "64px" }}
+                                          style={{
+                                            fontSize: "0.9rem",
+                                            marginTop: "64px",
+                                          }}
                                         >
                                           Freight
                                         </small>
@@ -1763,7 +1765,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           min={0}
                                           name=""
                                           id=""
-                                          style={{ maxWidth: "140px"}}
+                                          style={{ maxWidth: "140px" }}
                                           placeholder={
                                             chargesMode.freight[item.id] ===
                                             "percentage"
@@ -1826,7 +1828,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             );
                                           }}
                                         />
-                                       
+
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -1916,7 +1918,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             );
                                           }}
                                         />
-                                        
+
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -2000,7 +2002,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             );
                                           }}
                                         />
-                                        
+
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -2085,7 +2087,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                             cols="30"
                                             rows="3"
                                             value={quoteProducts[index].comment}
-                                            style={{ maxWidth: "180px" , minHeight : "120px" }}
+                                            style={{
+                                              maxWidth: "180px",
+                                              minHeight: "120px",
+                                            }}
                                             onChange={(e) =>
                                               handleUpdateData(
                                                 item.id,
