@@ -63,11 +63,13 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
                 Quote Status
               </h5>
               <button
-                type="button"
-                className="btn-close"
-                onClick={onClose}
-                aria-label="Close"
-              ></button>
+  type="button"
+  className="btn-close"
+  style={{ marginRight: "-5px" }} // pull it slightly inward
+  onClick={onClose}
+  aria-label="Close"
+></button>
+
             </div>
 
             <div className="modal-body px-4 py-4">
@@ -156,6 +158,15 @@ const QuoteStatus = ({ quoteStatus, onClose }) => {
       <div className="modal-backdrop fade show" onClick={onClose}></div>
 
       <style jsx>{`
+        .modal-content {
+  overflow: visible !important; /* prevents cropping */
+}
+
+.modal-header .btn-close {
+  position: relative;
+  z-index: 5; /* keeps it above rounded corners */
+}
+
         .timeline {
           position: relative;
           margin-left: 10px;
