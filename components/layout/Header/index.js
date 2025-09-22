@@ -310,7 +310,7 @@ const websiteMenu = [
     label: "Insights & Resources", 
     type: "dropdown",
     options: [
-      { label: "Blogs", href: "https://blog.letsworkwise.com/", external: true },
+      { label: "Blogs", href: "https://letsworkwise.com/blog/", external: true },
       { label: "Events", href: "/insights/events" },
       { label: "Procurement Guide for Project & Purchase Managers", href: "/insights/procurement-guide" },
       { label: "AI in Procurement - Use Cases", href: "javascript:void(0)", upcoming: true },
