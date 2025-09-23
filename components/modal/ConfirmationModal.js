@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Modal from "react-modal";
 
 const ConfirmationModal = ({
@@ -31,6 +31,24 @@ const ConfirmationModal = ({
         }
     };
 
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setIsProcessing(false);
+        }
+    }, [isOpen]);
+
+    const handleConfirmClick = async () => {
+        if (isProcessing) return;
+        setIsProcessing(true);
+        try {
+            await onConfirm?.();
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     return (
         <div className=''>
             <Modal
@@ -39,6 +57,8 @@ const ConfirmationModal = ({
                 ariaHideApp={false}
                 contentLabel="Confirmation Modal"
                 className="contact-modal contact-modal-new"
+                shouldCloseOnOverlayClick={!isProcessing}
+                shouldCloseOnEsc={!isProcessing}
                 style={{
                     overlay: {
                         backgroundColor: "rgba(0, 0, 0, 0.75)",
@@ -69,6 +89,7 @@ const ConfirmationModal = ({
                             className="btn-close"
                             aria-label="Close"
                             id="close_confirmation_modal-modal_header-confirmation_modal"
+                            disabled={isProcessing}
                     ></button>
                     </div>
                 )}
@@ -98,15 +119,20 @@ const ConfirmationModal = ({
                                 className="btn btn-outline-secondary px-4 py-2"
                                 style={{ minWidth: '100px' }}
                                 id="cancel_confirmation_modal-modal_body-confirmation_modal"
+                                disabled={isProcessing}
                             >
                                 {cancelButtonText}
                             </button>
                             <button 
-                                onClick={onConfirm} 
+                                onClick={handleConfirmClick} 
                                 className={`btn ${getButtonClass(confirmButtonColor)} px-4 py-2`}
                                 style={{ minWidth: '100px' }}
                                 id="confirm_confirmation_modal-modal_body-confirmation_modal"
+                                disabled={isProcessing}
                             >
+                                {isProcessing && (
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                )}
                                 {confirmButtonText}
                             </button>
                         </div>

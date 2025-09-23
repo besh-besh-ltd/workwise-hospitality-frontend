@@ -711,10 +711,10 @@ const generateExcelFile = (api_data) => {
   ]);
 
   const infoRow2 = padToCols([
-    "Company",
-    currentRFQ?.company_name ?? "-",
+    "POC For RFQ",
+    currentRFQ?.contact_name ?? "-",
     "Contact",
-    currentRFQ?.contact_name ? `${currentRFQ.contact_name} ${currentRFQ.contact_number ? "(" + currentRFQ.contact_number + ")" : ""}` : (currentRFQ?.contact_number ?? "-"),
+    currentRFQ?.contact_number ?? "-",
   ]);
 
   const titleRow = padToCols([titleText]);

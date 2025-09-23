@@ -35,6 +35,18 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     
  
     const addToTechnicallyAccepted = async (vendor = null) => {
+        // When triggered from the ellipsis menu, a vendor object is passed.
+        // Ensure that becomes the currently selected vendor so confirmation works.
+        if (vendor) {
+            // Normalise to the shape used elsewhere: { label, value, vendor_id, vendor_name }
+            const normalizedVendor = {
+                label: vendor.label || vendor.vendor_name,
+                value: vendor.value || vendor.vendor_id,
+                vendor_id: vendor.vendor_id || vendor.value,
+                vendor_name: vendor.vendor_name || vendor.label,
+            };
+            setSelectedVendor(normalizedVendor);
+        }
         setShowAcceptConfirmModal(true);
     }
 
@@ -632,7 +644,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           onClose={handleAcceptCancel}
           onConfirm={handleAcceptConfirm}
           title="Technically Accept Vendor"
-          description="Are you sure you want to technically accept this vendor?\nThis action will mark the vendor as technically cleared for this product."
+          description="Are you sure you want to technically accept this vendor?\nThis action will mark the vendor as technically accepted for this product."
           confirmButtonColor="success"
           confirmButtonText="Accept"
           cancelButtonText="Cancel"
@@ -644,7 +656,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
           onClose={handleRejectCancel}
           onConfirm={handleRejectConfirm}
           title="Technically Reject Vendor"
-          description="Are you sure you want to technically reject this vendor?\nThis action will mark the vendor as not technically cleared and require a rejection reason."
+          description="Are you sure you want to technically reject this vendor?\nThis action will mark the vendor as not technically accepted and require a rejection reason."
           confirmButtonColor="danger"
           confirmButtonText="Reject"
           cancelButtonText="Cancel"

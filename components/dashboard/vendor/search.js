@@ -21,6 +21,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
 import Head from "next/head";
+import { textCapitalize } from "@/utils/sharedFunctions";
 import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
@@ -711,10 +712,23 @@ const clearVendorFilters = () => {
 
   return (
     <>
-
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{slug && slug !== 'all' ? `Search Vendors for ${getProductTitle() || search_key || slug}` : 'We Find Trusted Vendors for You'}</h1>
+          <h1 className="heading">
+            {(() => {
+              const slugStr = typeof slug === 'string' ? slug : '';
+              const rawProduct = getProductTitle() || search_key || slugStr;
+              const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
+              const stateName = selectedState?.[0]?.name;
+              const cityName = selectedCity?.[0]?.name;
+
+              if (slugStr === 'all') return 'Discover Verified Vendors for Industrial Procurement';
+              if (productName && cityName && stateName) return `Top ${productName} Vendors & Suppliers Near ${cityName},  ${stateName}`;
+              if (productName && stateName) return `Top ${productName} Vendors & Suppliers Near ${stateName}`;
+              if (productName) return `Top ${productName} Vendors & Suppliers`;
+              return 'Discover Verified Vendors for Industrial Procurement';
+            })()}
+          </h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"

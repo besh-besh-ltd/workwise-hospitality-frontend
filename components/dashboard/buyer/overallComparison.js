@@ -412,7 +412,6 @@ const openModalForVariant = (variantId) => {
                     {allvendors &&
                       allvendors.length > 0 &&
                       allvendors.map((item) => {
-                        const missingCosts = hasMissingCosts(item.id);
                         return (
                           <th
                             key={`v_${item.id}`}
@@ -420,7 +419,7 @@ const openModalForVariant = (variantId) => {
                             className="all_vendors"
                             rowSpan={2}
                             style={{
-                              backgroundColor: missingCosts ? "#ff8c00" : "#2d5ba7",
+                              backgroundColor: "#2d5ba7",
                               color: "white"
                             }}
                           >
@@ -1214,7 +1213,9 @@ const openModalForVariant = (variantId) => {
                                             </tr>
                                           </table>
                                         )}
-                                        <p>
+                                        {(() => { const isHighlightedCell = finalizedClass === "is_lowest" || finalizedClass === "is_lowest_not_finalised"; return (
+                                        <>
+                                        <p style={{ color: isHighlightedCell ? "#fff" : undefined }}>
                                           {quote_item?.quote_details?.length >
                                             0 &&
                                           (parseInt(
@@ -1230,6 +1231,33 @@ const openModalForVariant = (variantId) => {
                                               )
                                             : "-"}
                                         </p>
+                                        {(originalData.length > 0 ? (() => {
+                                          const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
+                                          const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
+                                          const d = oq?.quote_details?.[0] ?? oq;
+                                          if (!d) return false;
+                                          const parts = [];
+                                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                                          if (pp0) parts.push('Package');
+                                          if (!freightFilter && fp0) parts.push('Freight');
+                                          return parts.length ? parts.join(',') : false;
+                                        })() : false) && ((missing => (
+                                          <div style={{ fontSize: "12px", marginTop: 6, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
+                                            {`Missing - ${missing.replace(',', ', ')}`}
+                                          </div>
+                                        ))((originalData.length > 0 ? (() => {
+                                          const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
+                                          const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
+                                          const d = oq?.quote_details?.[0] ?? oq;
+                                          const parts = [];
+                                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                                          if (pp0) parts.push('Package');
+                                          if (!freightFilter && fp0) parts.push('Freight');
+                                          return parts.join(',');
+                                        })() : '')) )}
+                                        </> ); })()}
                                       </label>
                                     ) : (
                                       "-"

@@ -501,6 +501,7 @@ return { deletedTerms, createdTerms, updatedTerms };
   };
 
   const handleSubmitQuoteConfirm = () => {
+    setShowSubmitQuoteConfirmModal(false);
     // Validate payment terms - at least one valid row should exist
     const validPaymentTerms = paymentTermsRows.filter(row => 
       row && 
@@ -511,7 +512,6 @@ return { deletedTerms, createdTerms, updatedTerms };
     );
     
     if (validPaymentTerms.length === 0) {
-      setShowSubmitQuoteConfirmModal(false);
       return toast.error("At least one valid payment term is required. Please add your payment terms.");
     }
 
@@ -555,7 +555,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         ).length : 0;
       
       if (remainingValidTerms + originalValidTerms === 0) {
-        setShowSubmitQuoteConfirmModal(false);
+        // setShowSubmitQuoteConfirmModal(false);
         return toast.error("At least one valid payment term is required. Please add your payment terms.");
       }
 
@@ -588,12 +588,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote updated Successfully...!");
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
           setsubmitLoading(false);
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
@@ -637,7 +637,7 @@ return { deletedTerms, createdTerms, updatedTerms };
             (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
         )
       ) {
-        setShowSubmitQuoteConfirmModal(false);
+        // setShowSubmitQuoteConfirmModal(false);
         return toast.error("Some required fields may be missing or in negative")
       }
         
@@ -648,12 +648,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote sent Successfully...!");
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
           setsubmitLoading(false);
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
@@ -1116,49 +1116,52 @@ return { deletedTerms, createdTerms, updatedTerms };
               <div className="col-md-12">
                 <div className="quote-sec-table">
                   <div className="quote-sec-table-top">
-                    {/* RFQ Details Section */}
-                    <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
-                      {rfqDetails?.company_name && (
-                        <div className="text-start">
-                          <strong>RFQ No:</strong>
-                          <div>#{rfqDetails.rfq_no}</div>
-                        </div>
-                      )}
-                      {rfqDetails?.contact_name && (
-                        <div className="text-start">
-                          <strong>Contact Person:</strong>
-                          <div>{rfqDetails.contact_name}</div>
-                        </div>
-                      )}
-                      {rfqDetails?.contact_name && (
-                        <div className="text-start">
-                          <strong>Contact Person:</strong>
-                          <div>{rfqDetails.contact_name}</div>
-                        </div>
-                      )}
-                      {rfqDetails?.response_email && (
-                        <div className="text-start">
-                          <strong>Email:</strong>
-                          <div>{rfqDetails.response_email}</div>
-                        </div>
-                      )}
-                      {rfqDetails?.contact_number && (
-                        <div className="text-start">
-                          <strong>Contact Number:</strong>
-                          <div>{rfqDetails.contact_number}</div>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* AI file upload start here */}
-                    <div>
-                      <div className="d-flex align-items-center my-3">
-                        <hr className="flex-grow-1" />
-                        <span className="mx-3  fw-semibold">
-                          Smart Quotation Assist - Wisely
-                        </span>
-                        <hr className="flex-grow-1" />
+                      {/* RFQ Details Section */}
+                                      <div className="d-flex flex-wrap justify-content-between gap-4 mb-3 bg-light p-3 rounded-2">
+                    {rfqDetails?.company_name && (
+                      <div className="text-start">
+                        <strong>RFQ No:</strong>
+                        <div>#{rfqDetails.rfq_no}</div>
                       </div>
+                    )}
+                    {rfqDetails?.contact_name && (
+                      <div className="text-start">
+                        <strong>Contact Person:</strong>
+                        <div>{rfqDetails.contact_name}</div>
+                      </div>
+                    )}
+                    {rfqDetails?.contact_name && (
+                      <div className="text-start">
+                        <strong>Contact Person:</strong>
+                        <div>{rfqDetails.contact_name}</div>
+                      </div>
+                    )}
+                    {rfqDetails?.response_email && (
+                      <div className="text-start">
+                        <strong>Email:</strong>
+                        <div>{rfqDetails.response_email}</div>
+                      </div>
+                    )}
+                    {rfqDetails?.contact_number && (
+                      <div className="text-start">
+                        <strong>Contact Number:</strong>
+                        <div>{rfqDetails.contact_number}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+       
+        {/* AI file upload start here */}
+       <div>
+
+         <div className="d-flex align-items-center my-3">
+           <hr className="flex-grow-1" />
+           <span className="mx-3  fw-semibold">
+         Smart Quotation Assist - Wisely 
+           </span>
+           <hr className="flex-grow-1" />
+         </div>
 
                       <label
                         className="upload uploadInlineFile d-flex align-items-center justify-content-center rounded-2 mb-3 py-2"
@@ -1228,45 +1231,39 @@ return { deletedTerms, createdTerms, updatedTerms };
                           </div>
                         )}
 
-                      {previousGlobalFiles?.length > 0 && (
-                        <div className=" mb-3">
-                          <p className="fw-medium mb-1">
-                            Previously Uploaded Files:
-                          </p>
-                          <div className="d-flex gap-4 ">
-                            {previousGlobalFiles.map((prev_file) => (
-                              <a
-                                key={prev_file}
-                                href={prev_file}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="badge bg-light border text-primary   text-truncate "
-                                style={{ maxWidth: 280 }}
-                                title={"Click here to download the file"}
-                              >
-                                <FontAwesomeIcon
-                                  icon={faDownload}
-                                  className="text-primary "
-                                />
-                                <span
-                                  className="text-truncate"
-                                  style={{ maxWidth: 200, marginLeft: "10px" }}
-                                >
-                                  {extractfileName(prev_file)}
-                                </span>
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="d-flex align-items-center my-3">
-                      <hr className="flex-grow-1" />
-                      <span className="mx-3  fw-semibold">
-                        OR send quotation manually
-                      </span>
-                      <hr className="flex-grow-1" />
-                    </div>
+        {previousGlobalFiles?.length > 0 && (
+          <div className=" mb-3">
+            <p className="fw-medium mb-1">Previously Uploaded Files:</p>
+            <div className="d-flex gap-4 ">
+              {previousGlobalFiles.map((prev_file) => (
+                <a
+                  key={prev_file}
+                  href={prev_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                    {extractfileName(prev_file)}
+                  </span>
+                </a>
+              ))}
+
+            </div>
+          </div>
+        )}
+
+       </div>
+       <div className="d-flex align-items-center my-3">
+         <hr className="flex-grow-1" />
+         <span className="mx-3  fw-semibold">
+           OR send quotation manually
+         </span>
+         <hr className="flex-grow-1" />
+       </div> 
 
                     <div className="row align-items-stretch">
                       {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
@@ -2347,7 +2344,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         onClose={handleSubmitQuoteCancel}
         onConfirm={handleSubmitQuoteConfirm}
         title="Submit Quote"
-        description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer and cannot be undone."
+        description="Are you sure you want to submit this quote?\nThis action will send your quote to the buyer."
         confirmButtonColor="success"
         confirmButtonText="Submit Quote"
         cancelButtonText="Cancel"

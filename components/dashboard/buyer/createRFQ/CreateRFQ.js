@@ -1588,7 +1588,7 @@ useEffect(() => {
                             ? initialFilterOptions.productMakes[product.id].map(
                                 (item) => ({
                                   label: item.make_name,
-                                  value: item.id,
+                                  value: item.make_name,
                                 })
                               )
                             : []
@@ -2683,7 +2683,7 @@ useEffect(() => {
         onClose={handleCreateCancel}
         onConfirm={handleCreateConfirm}
         title="Create RFQ"
-        description="Are you sure you want to create this RFQ?\nThis action will send the RFQ to selected vendors and cannot be undone."
+        description="Are you sure you want to create this RFQ?\nThis action will send the RFQ to selected vendors."
         confirmButtonColor="success"
         confirmButtonText="Create RFQ"
         cancelButtonText="Cancel"
