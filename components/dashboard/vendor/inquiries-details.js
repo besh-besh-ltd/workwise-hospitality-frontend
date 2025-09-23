@@ -752,37 +752,37 @@ const RfqManagementPreview = () => {
                       {isReverseAuctionActive ? "Send Quote" : statusMessage}
                     </button>
                   )}
-                   {rfqDetails.status == 1 &&
-                        !rfqDetails?.quotations[0]?.is_regret &&
-                        productleftforbid &&
-                        isSubmitAble &&
-                        rfqDetails.quotations?.length > 0 &&
-                        !rfqDetails.products?.some(
-                          (item) =>
-                            item.finalization_status ===
-                              "Another vendor is finalized" ||
-                            item.finalization_status === "You are finalized"
-                        ) ? (
-                          <button
-                            id="update_your_quote-rfq_header-inquiries_details_page"
-                            type="button"
-                            className="btn btn-secondary m-0 p-2"
-                            style={{ width: "240px" }}
-                            onClick={() => {
-                              // Changes by Agnij 2025-05-05 [Pass update parameter]
-                              router.push(
-                                `/dashboard/vendor/send-quote?type=update-quote&id=${id}${
-                                  token !== undefined ? `&token=${token}` : ""
-                                }&showTechEvalRestrictions=${isReverseAuctionActive}`
-                              );
-                            }}
-                          >
-                            <>
-                              <FontAwesomeIcon icon={faEdit} className="me-2" />
-                              Update Your Quote
-                            </>
-                          </button>
-                        ) : null}
+                  {rfqDetails.status == 1 &&
+                  !rfqDetails?.quotations[0]?.is_regret &&
+                  productleftforbid &&
+                  isSubmitAble &&
+                  rfqDetails.quotations?.length > 0 &&
+                  !rfqDetails.products?.some(
+                    (item) =>
+                      item.finalization_status ===
+                        "Another vendor is finalized" ||
+                      item.finalization_status === "You are finalized"
+                  ) ? (
+                    <button
+                      id="update_your_quote-rfq_header-inquiries_details_page"
+                      type="button"
+                      className="btn btn-secondary m-0 p-2"
+                      style={{ width: "240px" }}
+                      onClick={() => {
+                        // Changes by Agnij 2025-05-05 [Pass update parameter]
+                        router.push(
+                          `/dashboard/vendor/send-quote?type=update-quote&id=${id}${
+                            token !== undefined ? `&token=${token}` : ""
+                          }&showTechEvalRestrictions=${isReverseAuctionActive}`
+                        );
+                      }}
+                    >
+                      <>
+                        <FontAwesomeIcon icon={faEdit} className="me-2" />
+                        Update Your Quote
+                      </>
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -794,31 +794,31 @@ const RfqManagementPreview = () => {
                 <div className="col-md-12">
                   {/* RFQ Details Section */}
                   <div className="bg-light p-3 rounded-2">
-                    <h5 className="fw-bold text-dark">Company Details</h5>
-                    <div className="d-flex flex-wrap justify-content-between gap-6">
+                    <h5 className="fw-bold text-dark mb-3">Company Details</h5>
+                    <div className="row g-3">
                       {rfqDetails?.company_name && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Company Name:</strong>
                           <div>{rfqDetails.company_name}</div>
                         </div>
                       )}
 
                       {rfqDetails?.response_email && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Email:</strong>
                           <div>{rfqDetails.response_email}</div>
                         </div>
                       )}
 
                       {rfqDetails?.contact_number && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Contact Number:</strong>
                           <div>{rfqDetails.contact_number}</div>
                         </div>
                       )}
 
                       {rfqDetails.reverse_auction == 1 && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Reverse Auction:</strong>
                           <div>
                             {rfqDetails.reverse_auction == 1
@@ -829,7 +829,7 @@ const RfqManagementPreview = () => {
                       )}
 
                       {rfqDetails?.ra_start_date && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Reverse Auction Start:</strong>
                           <div>
                             {new Date(
@@ -840,7 +840,7 @@ const RfqManagementPreview = () => {
                       )}
 
                       {rfqDetails?.ra_end_date && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Reverse Auction End:</strong>
                           <div>
                             {new Date(rfqDetails.ra_end_date).toLocaleString()}
@@ -849,14 +849,14 @@ const RfqManagementPreview = () => {
                       )}
 
                       {rfqDetails?.bid_end_date && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Procurement End Date:</strong>
                           <div>{rfqDetails.bid_end_date}</div>
                         </div>
                       )}
 
                       {rfqDetails?.location && (
-                        <div className="text-start">
+                        <div className="col-md-3 col-sm-6">
                           <strong>Delivery Location:</strong>
                           <div>{rfqDetails.location}</div>
                         </div>
@@ -913,7 +913,6 @@ const RfqManagementPreview = () => {
                               No Quotes Received
                             </button>
                           ))}
-                       
                       </div>
                     </div>
 

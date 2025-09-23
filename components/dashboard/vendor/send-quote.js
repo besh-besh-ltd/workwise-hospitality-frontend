@@ -1189,7 +1189,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                       </label>
 
                       {/*  start: recently upload files */}
-                      {globalDocumentFiles &&
+                      {/* {globalDocumentFiles &&
                         globalDocumentFiles.length > 0 && (
                           <div className="row">
                             <p className="fw-medium mb-1">
@@ -1229,7 +1229,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                               })}
                             </div>
                           </div>
-                        )}
+                        )} */}
 
         {previousGlobalFiles?.length > 0 && (
           <div className=" mb-3">
