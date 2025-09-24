@@ -255,7 +255,7 @@ const handleCloseNormalizeModal = () => {
     setquotes([]);
     setTEavailable(false);
 
-    getQuotes(rfq, TA_Filter, freightFilter)
+    getQuotes(rfq, TA_Filter, freightFilter , 'quote_compare')
       .then((res) => {
         // Store original data before normalization for highlighting logic
         setOriginalQuotes(res.data);
@@ -1069,7 +1069,7 @@ const generateExcelFile = (api_data) => {
    
 const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) => {
   try {
-    const result = await updateTargetPrice({productId, vendorIds, targetPrice });
+    const result = await updateTargetPrice({productId, vendorIds, targetPrice , rfq_id : rfq });
     
     if (!result) {
       toast.error("Error updating Target Price");
@@ -1564,10 +1564,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             const key = `${item.product_variant_id}_${item.variant}`;
                             const product_specs =
                               item?.product_details[0]?.rfq_details;
-                            const spec = product_specs.find(
+                            const spec = product_specs?.find(
                               (spec) => spec.title == "Spec"
                             )?.value;
-                            const selling_price = product_specs.find(
+                            const selling_price = product_specs?.find(
                               (spec) => spec.title == "total_price"
                             )?.value;
                             const product_name = item?.product_details.map(

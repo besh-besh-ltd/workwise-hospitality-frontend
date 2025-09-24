@@ -262,6 +262,17 @@ export const getRFQById = (id, token, includeVendors = false) => {
   });
 };
 
+export const fetchQuoteHistory = (rfq_product_id) =>{
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get(`/rfq/get-quote-history?variant_id=${rfq_product_id}`)
+      resolve(response.data);
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
+
 export const getVendorsByID = (values) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -314,10 +325,31 @@ export const getVendorRfqList = (payload) => {
   });
 };
 
+export const getVendorQuoteStatus = (rfq_id) => { 
+  return new Promise(async (resolve , reject) =>{
+    try {
+      let response = await axiosInstance.get(`/rfq/get-vendor-quote-status/${rfq_id}`)
+      resolve(response);
+    } catch (error) {
+      reject({message : error})
+    }
+  })
+}
 export const sendQuotation = (payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
       let response = await axiosInstance.post(`/rfq/quote/create${token !== undefined ? `?token=${token}` : ''}`, payload);
+      resolve(response);
+    } catch (error) {
+      reject({ message: error });
+    }
+  });
+};
+
+export const sendFollowUpEmail = (payload) => {
+  return new Promise(async (resolve, reject) => {
+    try { 
+      let response = await axiosInstance.post(`/rfq/send-follow-up-emails`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -336,10 +368,19 @@ export const updateQuotation = (quote_id, payload, token) => {
   });
 };
 
-export const getQuotes = (id, TA_Filter, freightFilter) => {
+export const getQuotes = (id, TA_Filter, freightFilter, pageSource) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-quotes/${id}${TA_Filter || freightFilter ? '?' : ''}${TA_Filter ? 'TA_Vendors=TA' : ''}${TA_Filter && freightFilter ? '&' : ''}${freightFilter ? 'no_freight=true' : ''}`);
+      const queryParams = new URLSearchParams();
+
+      if (TA_Filter) queryParams.append("TA_Vendors", "TA");
+      if (freightFilter) queryParams.append("no_freight", "true");
+      if (pageSource) queryParams.append("pageSource", pageSource);  // 👈 added here
+
+      let response = await axiosInstance.get(
+        `/rfq/get-quotes/${id}${queryParams.toString() ? "?" + queryParams.toString() : ""}`
+      );
+
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -427,6 +468,11 @@ export const sendSelectiveReminder = (id, vendor_ids) => {
   });
 };
 
+// export const sendFollowUpToBuyer = (payload) =>{
+//   return new Promise(async (resolve , reject) =>{
+//     try {
+// }
+
 export const finalizeQuotation = (payload) => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -440,10 +486,10 @@ export const finalizeQuotation = (payload) => {
 
 
 
-export const updateTargetPrice = ({ productId, vendorIds, targetPrice }) => {
+export const updateTargetPrice = ({ productId, vendorIds, targetPrice , rfq_id}) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post('/rfq/negotiate', { productId, vendorIds, targetPrice });
+      let response = await axiosInstance.post('/rfq/negotiate', { productId, vendorIds, targetPrice , rfq_id});
       resolve(response.data);
     } catch (error) {
       reject(error.response?.data || { message: error.message });
@@ -680,16 +726,19 @@ export const listQueries = (payload, token=null) => {
   });
 };
 
-export const getAllClauses = (rfq_id) => {
+export const getAllClauses = (rfq_id, pageSource) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.get(`/rfq/get-clauses/${rfq_id}`);
+      let response = await axiosInstance.get(
+        `/rfq/get-clauses/${rfq_id}?pageSource=${pageSource}`
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
     }
   });
 };
+
 
 export const getClausesByRfqProductId = (payload) => {
   return new Promise(async (resolve, reject) => {
