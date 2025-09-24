@@ -1110,14 +1110,14 @@ return { deletedTerms, createdTerms, updatedTerms };
                     )}
                     {rfqDetails?.contact_name && (
                       <div className="text-start">
-                        <strong>Contact Person:</strong>
-                        <div>{rfqDetails.contact_name}</div>
+                        <strong>Company Name:</strong>
+                        <div>{rfqDetails?.company_name || ''}</div>
                       </div>
                     )}
                     {rfqDetails?.contact_name && (
                       <div className="text-start">
                         <strong>Contact Person:</strong>
-                        <div>{rfqDetails.contact_name}</div>
+                        <div>{rfqDetails?.contact_name || ""}</div>
                       </div>
                     )}
                     {rfqDetails?.response_email && (
