@@ -100,7 +100,7 @@ const elipsisToLimit = (text, limit = 45) => {
   return text.length > limit ? text.slice(0, limit).concat('...') : text;
 }
 
-const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODetails, companyUsers }) => {
+const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handleBack, refetchPODetails, companyUsers }) => {
   const {
     id,
     rfq_id,
@@ -236,6 +236,22 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         </div>
         <div className="d-flex gap-2 flex-column">
           <POStatusBadge status={status} />
+          {status === 'draft' && (
+            <div className="d-flex gap-1 justify-content-between">
+              <Badge
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  await handleInitiatePO(id);
+                  await refetchPODetails();
+                }}
+                bg={"success"}
+                className="fs-6 px-2 py-1 float-end text-uppercase"
+                style={{ cursor: "pointer" }}
+              >
+                Initiate
+              </Badge>
+            </div>
+          )}
           {is_approver && (
             <div className="d-flex gap-1 justify-content-between">
               <Badge
@@ -311,9 +327,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
             <div className="d-flex align-items-center">
               <BsBoxSeam className="me-3 fs-2 text-primary" />
               <div>
-                <strong>{product_details?.name}</strong>
+                <strong>{product_details.map(p => p.name).join(", ")}</strong>
                 <div className="text-muted">
-                  Product ID: {product_details?.product_id}
+                  Product ID(s): {product_details.map(p => p.product_id).join(",")}
                 </div>
               </div>
             </div>
@@ -344,9 +360,9 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
       <Card className="mb-4">
         <Card.Body className="d-flex flex-column gap-3">
           <TimelineItem
-            title={"Initiated"}
+            title={status == 'draft' ? 'Drafted' : 'Initiated'}
             name={initiated_by_name}
-            icon={<BsCheckCircleFill className="text-primary" size={25} />}
+            icon={<BsCheckCircleFill className={status == 'draft' ? 'text-secondary' : "text-primary"} size={25} />}
             time={formatIST(created_at)}
           />
           {approval_history.map((entry, index) => (
@@ -373,7 +389,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
               remarks={entry.remarks}
             />
           ))}
-          {approval_status.status == "pending" && (
+          {approval_status?.status == "pending" && (
             <TimelineItem
               title={"Action Pending"}
               name={approval_status.current_approver_name}

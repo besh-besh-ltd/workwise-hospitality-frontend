@@ -4,7 +4,7 @@ import { Calendar, User, Package, Building, Eye, CheckCircle, Upload, AlertTrian
 import { addCommasToNumber } from '@/utils/sharedFunctions';
 import Link from 'next/link';
 
-const POCard = ({ po, onClick }) => {
+const POCard = ({ po, onClick, initiatePO }) => {
   // Status color mapping
   const getStatusColor = (status) => {
     const statusMap = {
@@ -24,7 +24,8 @@ const POCard = ({ po, onClick }) => {
       'dispatched': 'Dispatched', 
       'in_progress': 'In Progress',
       'overdue': 'Overdue',
-      'invoice_pending': 'Invoice Pending'
+      'invoice_pending': 'Invoice Pending',
+      'draft': 'Draft'
     };
     return statusTextMap[status.toLowerCase()] || status;
   };
@@ -133,9 +134,11 @@ const POCard = ({ po, onClick }) => {
                 </div>
                 <div className="d-flex gap-4">
                   <div className="mb-3">
-                    <div className="fw-semibold text-dark mb-1">Product</div>
-                    <div className="text-muted">
-                      {po.product_details.name} ({po.quantity})
+                    <div className="fw-semibold text-dark mb-1">Product(s)</div>
+                    <div className="text-muted d-flex flex-column">
+                      {po.product_details.map(p => (
+                        <span>{p.name}</span>
+                      ))}
                     </div>
                   </div>
 
@@ -202,6 +205,12 @@ const POCard = ({ po, onClick }) => {
           <Col md={3}>
             <div className="d-flex flex-column align-items-end">
               {getActionButton()}
+
+              {po.status === 'draft' && (
+                <button onClick={initiatePO} className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>
+                  Initiate this PO
+                </button>
+              )}
 
               {po.status.toLowerCase() === "overdue" && (
                 <button className="btn btn-success btn-sm p-2 px-4 mb-2" style={{width: "250px"}}>

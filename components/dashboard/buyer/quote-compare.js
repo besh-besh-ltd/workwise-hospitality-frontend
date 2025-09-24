@@ -1112,13 +1112,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     setShowCloseConfirmModal(false);
   };
 
-  const handleFinalize = (item, proditem) => {
+  const handleFinalize = (item, proditem, existingPOId) => {
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
 
     const poRequiredPayload = {
       project_id: proditem.rfq[0].project_id,
       total_value: item.total_price,
+      existing_po_id: existingPOId,
       product_info: {
         rfq_product_id: proditem.id,
         quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Select from "react-select";
 import Link from "next/link";
 import { getRfqs } from "@/services/rfq";
-import { getPoData, getPoDetails, handlePOApproval } from "@/services/po";
+import { getPoData, getPoDetails, handlePOApproval, handlePOInitialization } from "@/services/po";
 import { useRouter } from "next/router";
 import { getProjectList } from "@/services/project";
 import POListing from "./POListing";
@@ -128,6 +128,23 @@ const PurchaseOrders = () => {
         return;
       }
       const res = await handlePOApproval(po_id, data);
+      if(res) {
+        toast.success(res.message);
+      } else {
+        throw new Error("Something went wrong while making a decision, please try again!")
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
+    } finally {
+      setloading(false);
+    }
+  }
+
+  const handleInitiatePO = async (po_id) => {
+    try {
+      setloading(true);
+      const res = await handlePOInitialization(po_id);
       if(res) {
         toast.success(res.message);
       } else {
@@ -315,6 +332,7 @@ const PurchaseOrders = () => {
                       rfq_id={rfq}
                       refetchPOList={getPOData}
                       handlePODecision={handlePODecision}
+                      handleInitiatePO={handleInitiatePO}
                       onSelect={(po_id) =>
                         router.push(
                           `/dashboard/buyer/purchase-order/?rfq=${rfq}&po=${po_id}`
@@ -338,6 +356,7 @@ const PurchaseOrders = () => {
                       data={poDetails}
                       handlePODecision={handlePODecision}
                       refetchPODetails={getPODetails}
+                      handleInitiatePO={handleInitiatePO}
                       handleBack={() => {
                         setPODetails(null);
                         router.push(
