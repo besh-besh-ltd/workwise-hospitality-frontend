@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import ReadMore from '@/components/shared/ReadMore';
 import { Dropdown } from 'react-bootstrap';
 import Image from 'next/image';
+import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
 
 const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, currentRfq ,  vendors : _vendors, refetch, selectedVendor : _selectedVendor = null, selectedVendors }) => {
@@ -26,37 +27,93 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     const [responseLoading, setResponseLoading] = useState(false);
     const [vendors, setVendors] = useState(null);
     const [selectedVendor, setSelectedVendor] = useState(null);
+    const [showAcceptConfirmModal, setShowAcceptConfirmModal] = useState(false);
+    const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
     // const [summarisedDeviation , setSummarisedDeviation] = useState();
     // const [updatedClauseInfoSummary , setUpdatedClauseInfoSummary] = useState(null);
     const tableRef = useRef(null);
     
  
     const addToTechnicallyAccepted = async (vendor = null) => {
-        const payload = {
-            product :  product?.product_details,
-            rfq_id : rfq_id,
-            vendor :  vendor ? vendor : selectedVendor ? selectedVendor : _selectedVendor,
-            vendor_id: vendor ? vendor.vendor_id : selectedVendor ? selectedVendor.vendor_id : _selectedVendor.value,
-            rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
-            status: 1,
-            reject_message: null
+        // When triggered from the ellipsis menu, a vendor object is passed.
+        // Ensure that becomes the currently selected vendor so confirmation works.
+        if (vendor) {
+            // Normalise to the shape used elsewhere: { label, value, vendor_id, vendor_name }
+            const normalizedVendor = {
+                label: vendor.label || vendor.vendor_name,
+                value: vendor.value || vendor.vendor_id,
+                vendor_id: vendor.vendor_id || vendor.value,
+                vendor_name: vendor.vendor_name || vendor.label,
+            };
+            setSelectedVendor(normalizedVendor);
         }
+        setShowAcceptConfirmModal(true);
+    }
 
+    const handleAcceptConfirm = async () => {
         try {
+            // Check if we have a valid vendor selected
+            const currentVendor = selectedVendor || _selectedVendor;
+            if (!currentVendor || (!currentVendor.value && !currentVendor.vendor_id)) {
+                toast.error("No vendor selected for technical acceptance");
+                setShowAcceptConfirmModal(false);
+                return;
+            }
+
+            // Check if product has required data
+            if (!product || !product.tbl_rfq_product_tech_evaluation_id) {
+                toast.error("Product data is incomplete for technical acceptance");
+                setShowAcceptConfirmModal(false);
+                return;
+            }
+
+            const payload = {
+                product :  product?.product_details,
+                rfq_id : rfq_id,
+                vendor :  currentVendor,
+                vendor_id: currentVendor.vendor_id || currentVendor.value,
+                rfq_product_tech_evaluation_id: product.tbl_rfq_product_tech_evaluation_id,
+                status: 1,
+                reject_message: null
+            }
+
             setLoading(true)
             const res = await addToTA(payload);
             if (res.status == 1) {
                 console.log("successfully added to TA");
             }
-            selectedVendor && getTechEvalResult();
-            refetch && refetch();
+            
+            // Close modal first to avoid state update issues
+            setShowAcceptConfirmModal(false);
+            
+            // Then update other states
+            if (selectedVendor) {
+                getTechEvalResult();
+            }
+            if (refetch) {
+                refetch();
+            }
             toast.success("Congratulations, this Vendor is technically Accepted!!")
 
         } catch (error) {
-            console.error("Error in the process:", error);
+            toast.error("Failed to accept vendor technically. Please try again.");
+            setShowAcceptConfirmModal(false);
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleAcceptCancel = () => {
+        setShowAcceptConfirmModal(false);
+    }
+
+    const handleRejectConfirm = () => {
+        setShowRejectConfirmModal(false);
+        setOpenModal(true);
+    }
+
+    const handleRejectCancel = () => {
+        setShowRejectConfirmModal(false);
     }
 
     const toggleChat = (clause_id) => {
@@ -123,6 +180,11 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
     };
 
     const getTechEvalResult = async () => {
+        if (!_selectedVendor || !_selectedVendor.value) {
+            console.error("No selected vendor for tech evaluation result");
+            return;
+        }
+        
         const payload = {
             rfq_id: parseInt(rfq_id),
             rfq_product_id: product.id,
@@ -280,12 +342,14 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                     <Dropdown.Menu>
                                       <Dropdown.Item
                                         href={`/dashboard/buyer/query?rfq_id=${rfq_id}&role=buyer`}
+                                        id={`talk_with_vendor_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
                                       >
                                         Talk with vendor
                                       </Dropdown.Item>
                                       <Dropdown.Item
                                         target="_blank"
                                         href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${vendor.vendor_id}`}
+                                        id={`view_vendor_profile_${vendor.vendor_id}-vendor_actions-technical_evaluation_page`}
                                       >
                                         View Profile
                                       </Dropdown.Item>
@@ -296,6 +360,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                             onClick={() =>
                                               addToTechnicallyAccepted(vendor)
                                             }
+                                            id={`accept_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
                                           >
                                             Accept
                                           </Dropdown.Item>
@@ -309,6 +374,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                               });
                                               setOpenModal(true);
                                             }}
+                                            id={`reject_vendor_${vendor.vendor_id}-vendor_evaluation-technical_evaluation_page`}
                                           >
                                             Reject
                                           </Dropdown.Item>
@@ -398,6 +464,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         toggleChat(clauseItem.clause_id);
                                         setSelectedVendor(vendor);
                                       }}
+                                      id={`view_deviation_${clauseItem.clause_id}_${vendor.vendor_id}-deviation_actions-technical_evaluation_page`}
                                     >
                                      Deviation
                                     </button>
@@ -465,6 +532,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         className="btn btn-secondary border-0 p-2"
                                         style={{ width: "220px", marginRight: 10 }}
                                         onClick={() => addToTechnicallyAccepted()}
+                                        id="technically_accept_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Accepted
                                     </button>
@@ -472,7 +540,8 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                         type="button"
                                         className="btn btn-danger border-0 p-2"
                                         style={{ width: "255px" }}
-                                        onClick={() => setOpenModal(true)}
+                                        onClick={() => setShowRejectConfirmModal(true)}
+                                        id="technically_reject_vendor-vendor_evaluation-technical_evaluation_page"
                                     >
                                         Technically Not Accepted
                                     </button>
@@ -533,6 +602,7 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
                                                     className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
                                                     style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
                                                     onClick={() => toggleChat(clauseItem.clause_id)}
+                                                    id={`explanation_deviation_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                                                 >
                                                     Explanation / Deviation
                                                 </button>
@@ -567,6 +637,30 @@ const ClauseProductItem = ({ rfq_id, product, currentUserProfile, clauseInfo, cu
             getTechEvalResult={_selectedVendor ? getTechEvalResult : refetch}
           />
         )}
+
+        {/* Technical Acceptance Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showAcceptConfirmModal}
+          onClose={handleAcceptCancel}
+          onConfirm={handleAcceptConfirm}
+          title="Technically Accept Vendor"
+          description="Are you sure you want to technically accept this vendor?\nThis action will mark the vendor as technically accepted for this product."
+          confirmButtonColor="success"
+          confirmButtonText="Accept"
+          cancelButtonText="Cancel"
+        />
+
+        {/* Technical Rejection Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showRejectConfirmModal}
+          onClose={handleRejectCancel}
+          onConfirm={handleRejectConfirm}
+          title="Technically Reject Vendor"
+          description="Are you sure you want to technically reject this vendor?\nThis action will mark the vendor as not technically accepted and require a rejection reason."
+          confirmButtonColor="danger"
+          confirmButtonText="Reject"
+          cancelButtonText="Cancel"
+        />
 
         <hr />
       </div>

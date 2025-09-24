@@ -3,6 +3,101 @@ import SearchPage from "@/components/dashboard/vendor/search";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { textCapitalize } from "@/utils/sharedFunctions";
+import { State_Cities } from "@/utils/constants";
+
+// Precompute state slugs
+const stateSet = new Set(
+  State_Cities.map((st) =>
+    st.state_name?.trim()?.toLowerCase()?.replace(/\s+/g, "-")
+  )
+);
+
+// Precompute city slugs
+const citySet = new Set();
+State_Cities.forEach((st) => {
+  st.cities.forEach((c) => {
+    const citySlug = c?.name?.trim()?.toLowerCase()?.replace(/\s+/g, "-");
+    citySet.add(citySlug);
+  });
+});
+
+// ✅ Usage
+const generateMetatitleDesc = (slug = "") => {
+  const slugifyLower = (s) => s?.trim()?.toLowerCase()?.replace(/\s+/g, "-") || "";
+  const toTitle = (s) => textCapitalize((s || "").replace(/-/g, " ").trim());
+
+  const slugArr = slug
+    .trim()
+    .split("-")
+    .filter((x) => x !== "");
+
+  // Try to match trailing city/state using 3→2→1 tokens, normalizing spaces
+  const tryMatchFromEnd = (arr, set) => {
+    for (let len = 3; len >= 1; len--) {
+      if (arr.length >= len) {
+        const raw = arr.slice(arr.length - len).join("-");
+        const candidate = slugifyLower(raw);
+        if (set.has(candidate)) {
+          return { match: candidate, consumed: len };
+        }
+      }
+    }
+    return { match: "", consumed: 0 };
+  };
+
+  let remaining = [...slugArr];
+  let stateSlug = "";
+  let citySlug = "";
+
+  // Prefer matching state first from the end; if not found, try city first
+  let res = tryMatchFromEnd(remaining, stateSet);
+  if (res.consumed > 0) {
+    stateSlug = res.match;
+    remaining.splice(remaining.length - res.consumed, res.consumed);
+    res = tryMatchFromEnd(remaining, citySet);
+    if (res.consumed > 0) {
+      citySlug = res.match;
+      remaining.splice(remaining.length - res.consumed, res.consumed);
+    }
+  } else {
+    res = tryMatchFromEnd(remaining, citySet);
+    if (res.consumed > 0) {
+      citySlug = res.match;
+      remaining.splice(remaining.length - res.consumed, res.consumed);
+    }
+    res = tryMatchFromEnd(remaining, stateSet);
+    if (res.consumed > 0) {
+      stateSlug = res.match;
+      remaining.splice(remaining.length - res.consumed, res.consumed);
+    }
+  }
+
+  const productSlug = remaining.join("-");
+  const productName = toTitle(productSlug);
+  const stateName = toTitle(stateSlug);
+  const cityName = toTitle(citySlug);
+
+  let metaTitle = "Explore Verified Industrial Vendors | Workwise Vendor Directory";
+  let metaDescription = "Discover top vendors for EPC, infrastructure, and industrial projects. Workwise helps you find verified suppliers and manage vendor relationships easily.";
+
+  if (slugifyLower(productSlug) === "all") {
+    // keep defaults
+  } else if (productName && cityName && stateName) {
+    metaTitle = `${productName} Vendors Near ${cityName} , ${stateName} | ${productName} Suppliers in ${cityName} , ${stateName} - Workwise`;
+    metaDescription = `Explore trusted ${productName} vendors near ${cityName} , ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+  } else if (productName && stateName) {
+    metaTitle = `${productName} Vendors Near ${stateName} | ${productName} Suppliers in ${stateName} - Workwise`;
+    metaDescription = `Explore trusted ${productName} vendors near ${stateName}. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+  } else if (productName) {
+    metaTitle = `${productName} Vendors | ${productName} Suppliers - Workwise`;
+    metaDescription = `Explore trusted ${productName} vendors. Efficient sourcing, verified quality, and seamless vendor onboarding through Workwise.`;
+  }
+
+  return {
+    metaTitle,
+    metaDescription,
+  };
+};
 
 const DynamicProductPage = ({ pageTitle }) => {
   const router = useRouter();
@@ -13,43 +108,23 @@ const DynamicProductPage = ({ pageTitle }) => {
     return <div>Loading...</div>;
   }
 
-  // / Meta title and description
-    const metaTitle = slug === 'all' 
-      ? 'Search Vendors | Workwise'
-      : `Top ${textCapitalize(slug)} Manufacturers, Suppliers & Vendors | Workwise`;
-    const metaDescription = slug === 'all'
-      ? 'Search and discover trusted manufacturers and suppliers at Workwise. Your one-stop platform for finding reliable vendors and suppliers.'
-      : `Discover high-quality ${textCapitalize(slug)} from trusted manufacturers and suppliers at Workwise. Your one-stop vendor for premium industrial products and solutions.`;
+  const metaData = generateMetatitleDesc(slug);
 
   return (
     <>
-      <Head>
-          <title>{metaTitle}</title>
-          <meta name="description" content={metaDescription} />
-
-          <meta property="og:title" content={metaTitle} />
-          <meta property="og:description" content={metaDescription} />
-          <meta property="og:type" content="website" />
-          <meta property="og:url" content={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`} />
-          <meta property="og:site_name" content="Workwise" />
-          
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "http://schema.org",
-              "@type": "WebPage",
-              "name": metaTitle,
-              "description": metaDescription,
-              "url": `${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`,
-              "mainEntity": {
-                "@type": "ItemList",
-                "name": slug === 'all' ? "Vendor Directory" : `${textCapitalize(slug)} Vendors`,
-                "description": slug === 'all' 
-                  ? "Find trusted manufacturers and suppliers across all categories"
-                  : `Find trusted ${textCapitalize(slug)} manufacturers and suppliers`
-              }
-            })}
-          </script>
-      </Head>
+    <Head>
+      <title>{metaData?.metaTitle}</title>
+      <meta name="description" content={metaData?.metaDescription} />
+      <meta property="og:title" content={metaData?.metaTitle} />
+      <meta property="og:description" content={metaData?.metaDescription} />
+      <meta property="og:type" content="website" />
+      <meta
+        property="og:url"
+        content={`${process.env.NEXT_PUBLIC_FRONTEND_URL}/vendor/${slug}`}
+      />
+      <meta property="og:site_name" content="Workwise" />
+    </Head>
+      {/* Meta tags are set inside SearchPage for accuracy based on product/location */}
       <SearchPage title={`We Find Trusted Vendors for You`} type="products" />
     </>
   );

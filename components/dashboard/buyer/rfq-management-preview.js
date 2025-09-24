@@ -488,10 +488,10 @@ const RfqManagementPreview = () => {
                           </ol>
                         </div>
                       </div>
-                      <button type="submit" className="btn btn-primary">
+                      <button type="submit" className="btn btn-primary" id="create_rfq_primary-rfq_actions-rfq_management_preview_page">
                         Create RFQ
                       </button>
-                      <button type="submit" className="btn btn-secondary">
+                      <button type="submit" className="btn btn-secondary" id="create_rfq_secondary-rfq_actions-rfq_management_preview_page">
                         Create RFQ
                       </button>
                     </div>

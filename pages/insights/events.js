@@ -82,7 +82,7 @@ const EventsPage = () => {
       phone: formData.phoneNumber,
       subject: selectedEvent ? `Event Registration: ${selectedEvent.name}` : 'Event Updates',
       comment: formData.companyName ? `Company: ${formData.companyName}` : 'Event form submission',
-      submitted_from: 'events'
+      submitted_from: '1'
     };
     await registerInterestService(payload);
     setShowModal(false);

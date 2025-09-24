@@ -8,7 +8,7 @@ import { calculateTotal, extractfileName, handleNormalize } from "@/utils/shared
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
-import { Badge, Button } from "react-bootstrap";
+import { Button, Badge } from "react-bootstrap";
 
 /**
  * @note We have left the View LPR button to be displayed even if the Previous quotes are not there which needs to be corrected later 
@@ -19,11 +19,33 @@ const OverallComparison = ({ rfq_id, TA_Filter, freightFilter, RFQ_no, normalize
   const [loading, setloading] = useState(false);
   const [allvendors, setallvendors] = useState(null);
   const [data, setdata] = useState([]);
+  const [originalData, setOriginalData] = useState([]); // Store original data before normalization
   const [l1total, setl1total] = useState(0);
   const [finalizedTotal, setFinalizedTotal] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState(null);
   const [breakupStates, setBreakupStates] = useState({});
   const [openModals, setOpenModals] = useState({});
+
+  // Helper function to check if vendor has missing freight or packaging costs
+  const hasMissingCosts = (vendorId) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
+    // Use original data before normalization to check for missing costs
+    const dataToCheck = originalData.length > 0 ? originalData : data;
+    if (!dataToCheck || dataToCheck.length === 0) return false;
+    
+    return dataToCheck.some(item => {
+      const vendorQuote = item.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
+      if (!vendorQuote || !vendorQuote.quote_details || vendorQuote.quote_details.length === 0) return false;
+      
+      const quoteDetails = vendorQuote.quote_details[0];
+      const freightPrice = parseFloat(quoteDetails.freight_price) || 0;
+      const packagePrice = parseFloat(quoteDetails.package_price) || 0;
+      
+      return freightPrice === 0 || packagePrice === 0;
+    });
+  };
   
   useEffect(() => {
     handleDownloadQuote();
@@ -47,6 +69,8 @@ const openModalForVariant = (variantId) => {
     setloading(true);
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter, rfq_product_id, source)
       .then((res) => {
+        // Store original data before normalization for highlighting logic
+        setOriginalData(res.data);
         
         const data = normalizeFilter ? handleNormalize(res.data) : res.data;
 
@@ -394,6 +418,10 @@ const openModalForVariant = (variantId) => {
                             scope="col"
                             className="all_vendors"
                             rowSpan={2}
+                            style={{
+                              backgroundColor: "#2d5ba7",
+                              color: "white"
+                            }}
                           >
                             {item.organization_name || item.name}
                           </th>
@@ -801,6 +829,7 @@ const openModalForVariant = (variantId) => {
                                   variant="link"
                                   size="sm"
                                   onClick={() => openModalForVariant(key)}
+                                    id={`view_lpr_history_${key}-lpr_section-overall_comparison_page`}
                                 >
                                   View LPR History
                                 </Button>
@@ -815,6 +844,7 @@ const openModalForVariant = (variantId) => {
                                   variant="link"
                                   size="sm"
                                   onClick={() => openModalForVariant(key)}
+                                  id={`view_lpr_history_${key}_no_lpr-lpr_section-overall_comparison_page`}
                                 >
                                   View LPR History
                                 </Button>
@@ -1183,7 +1213,9 @@ const openModalForVariant = (variantId) => {
                                             </tr>
                                           </table>
                                         )}
-                                        <p>
+                                        {(() => { const isHighlightedCell = finalizedClass === "is_lowest" || finalizedClass === "is_lowest_not_finalised"; return (
+                                        <>
+                                        <p style={{ color: isHighlightedCell ? "#fff" : undefined }}>
                                           {quote_item?.quote_details?.length >
                                             0 &&
                                           (parseInt(
@@ -1199,6 +1231,33 @@ const openModalForVariant = (variantId) => {
                                               )
                                             : "-"}
                                         </p>
+                                        {(originalData.length > 0 ? (() => {
+                                          const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
+                                          const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
+                                          const d = oq?.quote_details?.[0] ?? oq;
+                                          if (!d) return false;
+                                          const parts = [];
+                                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                                          if (pp0) parts.push('Package');
+                                          if (!freightFilter && fp0) parts.push('Freight');
+                                          return parts.length ? parts.join(',') : false;
+                                        })() : false) && ((missing => (
+                                          <div style={{ fontSize: "12px", marginTop: 6, lineHeight: 1.2, whiteSpace: "normal", wordBreak: "break-word", color: isHighlightedCell ? "#fff" : undefined }}>
+                                            {`Missing - ${missing.replace(',', ', ')}`}
+                                          </div>
+                                        ))((originalData.length > 0 ? (() => {
+                                          const prod = originalData.find(p => p.product_variant_id === item.product_variant_id && p.variant === item.variant);
+                                          const oq = prod?.quotations?.find(q => q.created_by === quote_item.created_by && q.id != null && q.is_regret != 1);
+                                          const d = oq?.quote_details?.[0] ?? oq;
+                                          const parts = [];
+                                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                                          if (pp0) parts.push('Package');
+                                          if (!freightFilter && fp0) parts.push('Freight');
+                                          return parts.join(',');
+                                        })() : '')) )}
+                                        </> ); })()}
                                       </label>
                                     ) : (
                                       "-"

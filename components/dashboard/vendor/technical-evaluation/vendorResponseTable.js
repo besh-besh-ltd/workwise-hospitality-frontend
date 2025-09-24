@@ -10,6 +10,7 @@ import BuyerVendorChat from "../../buyer/technical-evaluation/buyerVendorChat";
 import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import Loader from "@/components/shared/Loader";
 import ReadMore from "@/components/shared/ReadMore";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 
 const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, token }) => {
@@ -26,6 +27,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
   const [loading, setLoading] = useState(false);
   const [responseLoading, setResponseLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
 
   const fileInputRef = useRef(new Map());
 
@@ -155,6 +157,10 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
 
   // Submit the agreement
   const handleSendAgreement = async () => {
+    setShowSubmitConfirmModal(true);
+  };
+
+  const handleSubmitConfirm = async () => {
     const payload = Array.from(agreementMap.entries()).map(([clause_id, value]) => ({
       rfq_id,
       rfq_product_id: product.id,
@@ -169,11 +175,17 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
       await addVendorAgreement(payload);
       getBuyerClauses();
       getVendorResponse();
+      setShowSubmitConfirmModal(false);
     } catch (error) {
       console.log(error);
+      setShowSubmitConfirmModal(false);
     } finally {
       setSubmitLoading(false);
     }
+  };
+
+  const handleSubmitCancel = () => {
+    setShowSubmitConfirmModal(false);
   };
 
   // Initial data fetch
@@ -300,6 +312,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Agree")}
                             disabled={vendorResponseSent}
+                            id="agree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Agree
                           </button>
@@ -309,6 +322,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                             style={{ fontSize: "13px" }}
                             onClick={() => handleAgreementChange(clauseItem.clause_id, "I Dont Agree")}
                             disabled={vendorResponseSent}
+                            id="disagree_clause-clause_actions-technical_evaluation_page"
                           >
                             I Dont Agree
                           </button>
@@ -328,6 +342,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                               className="page-link d-block mx-auto"
                               style={{ textDecoration: "none" }}
                               onClick={() => handleAttachFileClick(clauseItem.clause_id)}
+                              id={`upload_file_${clauseItem.clause_id}-clause_actions-technical_evaluation_page`}
                             >
                               <FontAwesomeIcon icon={faCloudArrowUp} className="me-2" />
                               Upload
@@ -359,6 +374,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                           className="d-flex justify-content-center align-items-center border-0 p-1 rounded-2"
                           style={{ width: "100px", backgroundColor: "var(--primary-color)", color: "#ffffff", fontSize: "13px" }}
                           onClick={() => toggleChat(clauseItem.clause_id)}
+                          id="explanation_deviation-clause_actions-technical_evaluation_page"
                         >
                           Explanation / Deviation
                         </button>
@@ -388,6 +404,7 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
                 type="button"
                 className="btn btn-secondary border-0"
                 onClick={handleSendAgreement}
+                id="submit_agreement-agreement_actions-technical_evaluation_page"
               >
                 Submit
               </button>
@@ -395,6 +412,17 @@ const VendorResponseTable = ({ rfq_id, product, currentUserProfile, otherUser, t
           </>}
       </div>
 
+      {/* Submit Technical Evaluation Response Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showSubmitConfirmModal}
+        onClose={handleSubmitCancel}
+        onConfirm={handleSubmitConfirm}
+        title="Submit Technical Evaluation Response"
+        description="Are you sure you want to submit your technical evaluation response?\nThis action will send your response to the buyer."
+        confirmButtonColor="success"
+        confirmButtonText="Submit Response"
+        cancelButtonText="Cancel"
+      />
 
     </>
   );

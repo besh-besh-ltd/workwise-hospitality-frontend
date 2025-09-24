@@ -78,6 +78,7 @@ export default function BookCall() {
         </p>
 
         <Button
+          id="call_now-book_call_modal-homepage"
           variant="primary"
           size="sm"
           className="w-50 mb-2 d-block d-md-none d-lg-none"
@@ -127,6 +128,7 @@ export default function BookCall() {
       </Form.Group>
       
       <Button
+        id="request_call_back-book_call_modal-homepage"
         style={{
           marginTop: '12px',
           width: '100%',

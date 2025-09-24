@@ -53,12 +53,12 @@ const SubscriptionModal = (props) => {
                     }
                     <div className="d-flex flex-row justify-content-between align-items-center g-6">
                         <input type="text" value={couponCode} disabled={appliedCouponData && appliedCouponData?.length > 0 ? true : false} className="form-control me-3 w-75" placeholder="coupon code" onChange={handleCpuponCode}/>
-                        <button onClick={applyCouponToPlan} disabled={appliedCouponData && appliedCouponData?.length > 0 ? true : false} type="button" class="btn btn-outline-success btn-sm">{appliedCouponData && appliedCouponData?.length > 0 ? `Coupon Applied` : `Apply Coupon`}</button>
+                        <button onClick={applyCouponToPlan} disabled={appliedCouponData && appliedCouponData?.length > 0 ? true : false} type="button" class="btn btn-outline-success btn-sm" id="apply_coupon-coupon_section-subscription_modal">{appliedCouponData && appliedCouponData?.length > 0 ? `Coupon Applied` : `Apply Coupon`}</button>
                     </div>
                 </div>
             </Modal.Body>
             <Modal.Footer>
-                <Button variant="primary" onClick={proceedToBuy}>
+                <Button variant="primary" onClick={proceedToBuy} id="proceed_subscription-subscription_actions-subscription_modal">
                     Proceed
                 </Button>
             </Modal.Footer>

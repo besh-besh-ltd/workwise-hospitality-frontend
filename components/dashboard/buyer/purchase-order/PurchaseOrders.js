@@ -227,6 +227,7 @@ const PurchaseOrders = () => {
                     name="rfq_type"
                     placeholder="Ex. 123456"
                     isClearable
+                    id="search_rfq_no-rfq_selection-purchase_order_page"
                   />
                 </div>
                 <div className="py-2">
@@ -241,6 +242,7 @@ const PurchaseOrders = () => {
                     name="project_id"
                     placeholder="Select"
                     isClearable
+                    id="select_project_filter-rfq_selection-purchase_order_page"
                   />
                 </div>
                 {!rfqLoading && myRFQs && myRFQs.length === 0 ? (
@@ -263,6 +265,7 @@ const PurchaseOrders = () => {
                             className={`${
                               item.id == rfq ? "text-white" : "text-dark"
                             }`}
+                            id={`rfq_item_${item.rfq_no}-rfq_selection-purchase_order_page`}
                           >
                             RFQ #{item?.rfq_no}
                             {item.project_name && item.project_name != "" && (

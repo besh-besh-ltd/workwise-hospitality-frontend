@@ -52,6 +52,7 @@ const AuthModal = (props) => {
           onClick={props.closeModal}
           className="btn-close"
           aria-label="Close"
+          id="close_auth_modal-modal_header-auth_modal"
         ></button>
       </div>
       <div className="modal-body" style={{}}>
@@ -59,13 +60,14 @@ const AuthModal = (props) => {
           <button
             onClick={() => props.setActiveTab("login")}
             className={props.activeTab === "login" ? "active" : ""}
+            id="login_tab-auth_tabs-auth_modal"
           >
             Login
           </button>
           <button
-          id="book-a-call-auth-modal-option"
             onClick={() => props.setActiveTab("register")}
             className={props.activeTab === "register" ? "active" : ""}
+            id="book_call_tab-auth_tabs-auth_modal"
           >
             Book A Call
           </button>

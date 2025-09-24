@@ -16,6 +16,7 @@ import FinalizeHistoryModal from "./FinalizeHistoryModal";
 
 const QuoteCompareTable = ({
   quotations,
+  originalQuotations,
   quantity,
   handleFinalize,
   proditem,
@@ -24,10 +25,27 @@ const QuoteCompareTable = ({
   availableBudget,
   targetPrice,
   targetHistory,
-  normalizeFilter
+  normalizeFilter,
+  freightFilter
 }) => {
   // Common state to manage all the modals in the whole component
   const [activeModal, setActiveModal] = useState(null);
+
+  // Helper function to check if vendor has missing freight or packaging costs
+  const hasMissingCosts = (item) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+
+    if (!item) return false;
+
+    // Ignore declined/regretted quotes
+    if (item.is_regret == 1 || item?.quote_details?.is_regret == 1) return false;
+
+    const freightPrice = parseFloat(item.freight_price) || 0;
+    const packagePrice = parseFloat(item.package_price) || 0;
+    
+    return freightPrice === 0 || packagePrice === 0;
+  };
 
   const [currentItem, setCurrentItem] = useState(null);
   const router = useRouter();
@@ -152,6 +170,11 @@ const QuoteCompareTable = ({
                     (spec) => spec.title == "Quantity"
                   )?.value || item.quantity;
 
+                // Derive missing-costs using original quotations (pre-normalization)
+                const originalItem = originalQuotations?.find(origItem => origItem.quote_id === item.quote_id) || item;
+                const missingCosts = hasMissingCosts(originalItem);
+                const isRegret = item?.quote_details?.is_regret == 1;
+
                 return (
                   <div
                     className="table-col"
@@ -159,15 +182,37 @@ const QuoteCompareTable = ({
                   >
                     <div
                       className="table-si-row table-dark-row "
-                      style={{ overflow: "visible" }}
+                      style={{ 
+                        overflow: "visible"
+                      }}
                     >
                       <span
                         className="d-block text-center fw-bold fs-5"
-                        style={{ width: "100%" }}
+                        style={{ 
+                          width: "100%"
+                        }}
                       >
                         {item?.quote_details?.vendor_details
                           ?.organization_name ||
                           item?.quote_details?.vendor_details?.name}
+                        {(() => {
+                          // build dynamic missing note under the vendor header (non-regret only)
+                          const orig = originalQuotations?.find(o => o.quote_id === item.quote_id);
+                          const isRegret = item?.quote_details?.is_regret == 1;
+                          if (!orig || isRegret || freightFilter) return null;
+                          // prefer nested quote_details[0], else fall back to flat fields on orig
+                          const d = (orig?.quote_details && Array.isArray(orig.quote_details)) ? orig.quote_details[0] : orig;
+                          const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                          const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                          const parts = [];
+                          if (pp0) parts.push('Package');
+                          if (fp0) parts.push('Freight');
+                          return parts.length ? (
+                            <div style={{ color: '#fff', fontSize: '14px', lineHeight: 1.25, marginTop: 6 }}>
+                              {`Missing - ${parts.join(', ')}`}
+                            </div>
+                          ) : null;
+                        })()}
                       </span>
 
                       {item?.quote_details?.is_regret == 1 && (
@@ -202,6 +247,7 @@ const QuoteCompareTable = ({
                               <Dropdown.Item
                                 className=""
                                 href={`/dashboard/buyer/query?rfq_id=${rfq}&role=buyer`}
+                                id={`negotiate_with_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                               >
                               <FontAwesomeIcon icon={faPhone} className="me-2" />
                                 Negotiate
@@ -211,6 +257,7 @@ const QuoteCompareTable = ({
                             target="_blank"
                             href={`/dashboard/buyer/rfq-management-vendor/vendor-profile?id=${item?.quote_details?.vendor_details?.id}`}
                             className=""
+                            id={`view_vendor_profile_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                           >
                            <FontAwesomeIcon icon={faUser} className="me-2"/> 
                             View Profile
@@ -227,6 +274,7 @@ const QuoteCompareTable = ({
                                   // handleFinalize(item, proditem);
                                 }}
                                 className=""
+                                id={`finalize_vendor_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                               >
                                 <FontAwesomeIcon icon={faCheckCircle} className="me-2"/> 
                                 Finalize
@@ -244,6 +292,7 @@ const QuoteCompareTable = ({
                                 });
                               }}
                               className=""
+                              id={`view_quote_history_${item.quote_details.created_by}-vendor_actions-quote_compare_table`}
                             >
                             <FontAwesomeIcon icon={faHistory} className="me-2" />
                               Quote History
@@ -471,6 +520,7 @@ const QuoteCompareTable = ({
                       "tel: " +
                       lowestQuote[0]?.quote_details?.vendor_details?.mobile
                     }
+                    id="call_lowest_bidder-quote_actions-quote_compare_table"
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </Link>
@@ -493,6 +543,7 @@ const QuoteCompareTable = ({
                     setCurrentItem(lowestQuote);
                     // handleFinalize(lowestQuote, proditem)
                   }}
+                  id="finalize_vendor-quote_actions-quote_compare_table"
                 >
                   Finalize
                 </button>
@@ -518,6 +569,7 @@ const QuoteCompareTable = ({
                     "mailto:" +
                     alreadyFinalized[0]?.finalization?.winning_vendor?.email
                   }
+                  id="email_finalized_vendor-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faEnvelope} />
                 </Link>
@@ -528,6 +580,7 @@ const QuoteCompareTable = ({
                     "tel: " +
                     alreadyFinalized[0]?.finalization?.winning_vendor?.mobile
                   }
+                  id="call_finalized_vendor-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>
@@ -537,6 +590,7 @@ const QuoteCompareTable = ({
                   className="btn btn-sm btn-success p-2"
                   style={{ minWidth: "230px", marginLeft: "10px" }}
                   onClick={handleViewFinalizationHistory}
+                  id="view_finalization_history-finalization_actions-quote_compare_table"
                 >
                   Finalization History
                 </button>
@@ -555,6 +609,7 @@ const QuoteCompareTable = ({
                     "mailto:" +
                     alreadyFinalized[0]?.finalization?.finilized_by?.email
                   }
+                  id="email_finalized_by-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faEnvelope} />
                 </Link>
@@ -565,6 +620,7 @@ const QuoteCompareTable = ({
                     "tel: " +
                     alreadyFinalized[0]?.finalization?.finilized_by?.mobile
                   }
+                  id="call_finalized_by-finalization_actions-quote_compare_table"
                 >
                   <FontAwesomeIcon icon={faPhone} />
                 </Link>

@@ -21,6 +21,7 @@ import LoginContainer from "@/components/AuthContainer/LoginContainer";
 import LocationFilter from "@/components/shared/LocationFilter";
 import storageInstance from "@/utils/storageInstance";
 import Head from "next/head";
+import { textCapitalize } from "@/utils/sharedFunctions";
 import { debounce } from "lodash";
 import Select from 'react-select';
 import axiosInstance from "@/lib/axios";
@@ -711,13 +712,27 @@ const clearVendorFilters = () => {
 
   return (
     <>
-
       <section className="vendor-common-header sc-pt-80" aria-label="header">
         <div className="container-fluid  text-center">
-          <h1 className="heading">{slug && slug !== 'all' ? `Search Vendors for ${getProductTitle() || search_key || slug}` : 'We Find Trusted Vendors for You'}</h1>
+          <h1 className="heading">
+            {(() => {
+              const slugStr = typeof slug === 'string' ? slug : '';
+              const rawProduct = getProductTitle() || search_key || slugStr;
+              const productName = textCapitalize((rawProduct || '').replace(/-/g, ' ').trim());
+              const stateName = selectedState?.[0]?.name;
+              const cityName = selectedCity?.[0]?.name;
+
+              if (slugStr === 'all') return 'Discover Verified Vendors for Industrial Procurement';
+              if (productName && cityName && stateName) return `Top ${productName} Vendors & Suppliers Near ${cityName},  ${stateName}`;
+              if (productName && stateName) return `Top ${productName} Vendors & Suppliers Near ${stateName}`;
+              if (productName) return `Top ${productName} Vendors & Suppliers`;
+              return 'Discover Verified Vendors for Industrial Procurement';
+            })()}
+          </h1>
           <div className="d-flex justify-content-end">
             <Link
               href="/dashboard/buyer/boq-automation"
+              id="generate_rfq_from_boq-vendor_header-vendor_search_page"
               className="page-link backBtn btn btn-secondary text-white px-2 "
               style={{ minWidth: "280px" }}
               onClick={(e) => {
@@ -758,7 +773,7 @@ const clearVendorFilters = () => {
                         className="no-clear"
                         type="text"
                         name="search"
-                        id="search"
+                        id="search_vendors-search_bar-vendor_search_page"
                         placeholder="Ex. Flanges"
                         onChange={handleSearchChange}
                         onFocus={handleSearchChange}
@@ -817,18 +832,19 @@ const clearVendorFilters = () => {
                                       <ul>
                                         {suggestions.map((item, index) => {
                                           return (
-                                            <li
-                                              key={`mp_${index}`}
-                                              className="ps-2"
-                                              onClick={() =>
-                                                handleAutocompleteClick(item)
-                                              }
-                                              title={
-                                                item?.unified_name
-                                                  ? `${item.unified_name}`
-                                                  : `${item.variant_name}`
-                                              }
-                                            >
+                                                                                    <li
+                                          key={`mp_${index}`}
+                                          className="ps-2"
+                                          onClick={() =>
+                                            handleAutocompleteClick(item)
+                                          }
+                                          title={
+                                            item?.unified_name
+                                              ? `${item.unified_name}`
+                                              : `${item.variant_name}`
+                                          }
+                                          id={`product_list_item_${item.product_id || index}-product_list-vendor_search_page`}
+                                        >
                                               <div>
                                                 <h3>
                                                   {item.variant_name ??
@@ -866,6 +882,7 @@ const clearVendorFilters = () => {
                                                 )
                                               }
                                               title={`${item.category_name}`}
+                                              id={`category_list_item_${item.category_id}-category_list-vendor_search_page`}
                                             >
                                               <i>
                                                 <FontAwesomeIcon
@@ -1027,6 +1044,7 @@ const clearVendorFilters = () => {
                         className="form-control"
                         placeholder="Search vendors"
                         onChange={(e) => setVendorName(e.target.value)}
+                        id="search_vendor_name-filters-vendor_search_page"
                       />
                     </div>
                   )}
@@ -1039,7 +1057,7 @@ const clearVendorFilters = () => {
                       <div>
                         <select
                           name="product_make"
-                          id="product_make"
+                          id="product_make_filter-filters-vendor_search_page"
                           value={
                             selectedMakes.length > 0 ? selectedMakes[0].id : ""
                           }
@@ -1125,7 +1143,7 @@ const clearVendorFilters = () => {
                     <div>
                       <select
                         name="vendors"
-                        id="vendors"
+                        id="my_vendors_filter-filters-vendor_search_page"
                         value={myVendorType ? myVendorType.value : ""}
                         onChange={(e) => {
                           if (
@@ -1284,7 +1302,7 @@ const clearVendorFilters = () => {
                     <div>
                       <select
                         name="prevWorkedWith"
-                        id="prevWorkedWith"
+                        id="previously_worked_filter-filters-vendor_search_page"
                         value={prevWorkedWith}
                         onChange={(e) => {
                           if (
@@ -1430,6 +1448,7 @@ const clearVendorFilters = () => {
                             <input
                               type="checkbox"
                               onClick={(e) => handleBulkAllSelect(e, vendors)}
+                              id="select_all_vendors-vendor_list-vendor_search_page"
                             />
                             <span>Select all vendors</span>
                           </label>
@@ -1441,6 +1460,7 @@ const clearVendorFilters = () => {
                           {/* Add Vendors to RFQ Button */}
                           {bulkRFQVendors.length > 0 && (
                             <Link
+                              id="add_vendors_to_rfq-vendor_actions-vendor_search_page"
                               style={{ minWidth: "230px" }}
                               href="#"
                               className={`btn btn-primary ${
@@ -1459,6 +1479,7 @@ const clearVendorFilters = () => {
                             vendorMetaData.logged_In &&
                             vendorMetaData.subscription && (
                               <Link
+                                id="view_current_rfq-vendor_actions-vendor_search_page"
                                 href={
                                   !!queryMeta.rfq_id && queryMeta.rfq_id != null
                                     ? `/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${
@@ -1527,6 +1548,7 @@ const clearVendorFilters = () => {
                           !vendorMetaData?.subscription) && (
                           <div className="container text-center my-4 ">
                             <button
+                              id="register_view_vendors-vendor_redirect-vendor_search_page"
                               type="button"
                               className="btn btn-primary w-50"
                               onClick={handleRedirect}

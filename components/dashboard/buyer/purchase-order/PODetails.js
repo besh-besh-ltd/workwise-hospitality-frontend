@@ -20,6 +20,7 @@ import Pagination from '@/components/shared/Pagination';
 import { getProjectAvailableBudget } from '@/services/project';
 import { addCommasToNumber, formatToINRShort } from '@/utils/sharedFunctions';
 import Link from 'next/link';
+import ConfirmationModal from '@/components/modal/ConfirmationModal';
 
 const statusColors = {
   draft: 'secondary',
@@ -137,6 +138,13 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
   const [selectedTask, setSelectedTask] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
+  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
+  const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
+  const [showDeleteMilestoneConfirmModal, setShowDeleteMilestoneConfirmModal] = useState(false);
+  const [showDeleteTaskConfirmModal, setShowDeleteTaskConfirmModal] = useState(false);
+  const [deleteMilestoneId, setDeleteMilestoneId] = useState(null);
+  const [deleteTaskId, setDeleteTaskId] = useState(null);
+
   const handleMilestoneDeletion = async (id) => {
     try {
       const res = await handleDeleteMilestone(id);
@@ -213,6 +221,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         onClick={handleBack}
         className="btn btn-primary p-2 mb-3 px-3"
         style={{ width: "fit-content" }}
+        id="back_button-po_details-purchase_order_page"
       >
         <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
         Back
@@ -230,24 +239,20 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           {is_approver && (
             <div className="d-flex gap-1 justify-content-between">
               <Badge
-                onClick={async () => {
-                  await handlePODecision(id, { decision: "approved" });
-                  await refetchPODetails();
-                }}
+                onClick={() => setShowApproveConfirmModal(true)}
                 bg={"success"}
                 className="fs-6 px-2 py-1 float-end text-uppercase"
                 style={{ cursor: "pointer" }}
+                id="approve_po-po_approval-po_details"
               >
                 Approve
               </Badge>
               <Badge
-                onClick={async () => {
-                  await handlePODecision(id, { decision: "rejected" });
-                  await refetchPODetails();
-                }}
+                onClick={() => setShowRejectConfirmModal(true)}
                 bg={"danger"}
                 className="fs-6 px-3 py-1 float-end text-uppercase"
                 style={{ cursor: "pointer" }}
+                id="reject_po-po_approval-po_details"
               >
                 Reject
               </Badge>
@@ -391,6 +396,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         <button
           className="minimal-btn"
           onClick={() => setShowMilestoneModal(true)}
+          id="add_milestone-payment_milestones-po_details"
         >
           Add Milestone
         </button>
@@ -460,6 +466,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                               color: "#dc3545",
                             }}
                             onClick={() => handleMilestoneEdition(milestone)}
+                            id={`edit_milestone_${milestone.id}-milestone_actions-po_details`}
                           >
                             <HiPencil size={25} />
                           </button>
@@ -471,9 +478,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                               borderColor: "#f5b5b5",
                               color: "#dc3545",
                             }}
-                            onClick={() =>
-                              handleMilestoneDeletion(milestone.id)
-                            }
+                            onClick={() => {
+                              setDeleteMilestoneId(milestone.id);
+                              setShowDeleteMilestoneConfirmModal(true);
+                            }}
+                            id={`delete_milestone_${milestone.id}-milestone_actions-po_details`}
                           >
                             <HiOutlineTrash size={25} />
                           </button>
@@ -503,7 +512,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
           Status Timeline
         </h5>
 
-        <button className="minimal-btn" onClick={() => setShowTaskModal(true)}>
+        <button className="minimal-btn" onClick={() => setShowTaskModal(true)} id="add_task-status_timeline-po_details">
           Add Task
         </button>
       </div>
@@ -554,6 +563,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                           color: "#dc3545",
                         }}
                         onClick={() => handleTaskEdition(task)}
+                        id={`edit_task_${task.id}-task_actions-po_details`}
                       >
                         <HiPencil size={25} />
                       </button>
@@ -565,7 +575,11 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
                           borderColor: "#f5b5b5",
                           color: "#dc3545",
                         }}
-                        onClick={() => handleTaskDeletion(task.id)}
+                        onClick={() => {
+                          setDeleteTaskId(task.id);
+                          setShowDeleteTaskConfirmModal(true);
+                        }}
+                        id={`delete_task_${task.id}-task_actions-po_details`}
                       >
                         <HiOutlineTrash size={25} />
                       </button>
@@ -620,6 +634,70 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleBack, refetchPODet
         onSuccess={async () => await handleFetchTasks()}
         rfqId={rfq_id}
         poId={id}
+      />
+
+      <ConfirmationModal
+        isOpen={showApproveConfirmModal}
+        onClose={() => setShowApproveConfirmModal(false)}
+        onConfirm={async () => {
+          await handlePODecision(id, { decision: 'approved' });
+          await refetchPODetails();
+          setShowApproveConfirmModal(false);
+        }}
+        title={"Approve Purchase Order"}
+        description={`Are you sure you want to approve PO #${po_number || 'this purchase order'}?\nThis action will approve the purchase order and notify relevant parties.`}
+        confirmButtonColor="success"
+        confirmButtonText="Approve"
+        cancelButtonText="Cancel"
+      />
+
+      <ConfirmationModal
+        isOpen={showRejectConfirmModal}
+        onClose={() => setShowRejectConfirmModal(false)}
+        onConfirm={async () => {
+          await handlePODecision(id, { decision: 'rejected' });
+          await refetchPODetails();
+          setShowRejectConfirmModal(false);
+        }}
+        title={"Reject Purchase Order"}
+        description={`Are you sure you want to reject PO #${po_number || 'this purchase order'}?\nThis action will reject the purchase order and notify relevant parties.`}
+        confirmButtonColor="danger"
+        confirmButtonText="Reject"
+        cancelButtonText="Cancel"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteMilestoneConfirmModal}
+        onClose={() => setShowDeleteMilestoneConfirmModal(false)}
+        onConfirm={async () => {
+          if (deleteMilestoneId) {
+            await handleMilestoneDeletion(deleteMilestoneId);
+          }
+          setDeleteMilestoneId(null);
+          setShowDeleteMilestoneConfirmModal(false);
+        }}
+        title={"Delete Milestone"}
+        description={"Are you sure you want to delete this milestone?"}
+        confirmButtonColor="danger"
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteTaskConfirmModal}
+        onClose={() => setShowDeleteTaskConfirmModal(false)}
+        onConfirm={async () => {
+          if (deleteTaskId) {
+            await handleTaskDeletion(deleteTaskId);
+          }
+          setDeleteTaskId(null);
+          setShowDeleteTaskConfirmModal(false);
+        }}
+        title={"Delete Task"}
+        description={"Are you sure you want to delete this task?"}
+        confirmButtonColor="danger"
+        confirmButtonText="Delete"
+        cancelButtonText="Cancel"
       />
     </div>
   );

@@ -19,8 +19,31 @@ const addCommasToNumber = (num) => {
 const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilter, rfq_product_id, source }) => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [originalProducts, setOriginalProducts] = useState([]); // Store original data before normalization
   const [breakupOpen, setBreakupOpen] = useState({}); // key: `${productIdx}_${vendorId}`
   const [maxVendors, setMaxVendors] = useState(0);
+
+  // Helper function to check if vendor has missing freight or packaging costs for a specific product
+  const hasMissingCosts = (productIdx, vendorId) => {
+    // Don't show highlighting when freight filter is active
+    if (freightFilter) return false;
+    
+    // Use original data before normalization to check for missing costs
+    const dataToCheck = originalProducts.length > 0 ? originalProducts : products;
+    if (!dataToCheck || dataToCheck.length === 0) return false;
+    
+    const product = dataToCheck[productIdx];
+    if (!product || !product.quotations) return false;
+    
+    const vendorQuote = product.quotations.find(q => q.created_by === vendorId && q.id != null && q.is_regret != 1);
+    if (!vendorQuote || !vendorQuote.quote_details || vendorQuote.quote_details.length === 0) return false;
+    
+    const quoteDetails = vendorQuote.quote_details[0];
+    const freightPrice = parseFloat(quoteDetails.freight_price) || 0;
+    const packagePrice = parseFloat(quoteDetails.package_price) || 0;
+    
+    return freightPrice === 0 || packagePrice === 0;
+  };
   const toggleBreakup = (productIdx, vendorId) => {
     setBreakupOpen(prev => ({
       ...prev,
@@ -33,6 +56,9 @@ const OverallCostComparison = ({ rfq_id, TA_Filter, freightFilter, normalizeFilt
     downloadQuotesDetails(rfq_id, TA_Filter, freightFilter, rfq_product_id, source)
       .then((res) => {
         let data = res.data || [];
+        
+        // Store original data before normalization for highlighting logic
+        setOriginalProducts(data);
         
         // If normalize filter is enabled, normalize the quotes
         if(normalizeFilter){
@@ -182,6 +208,7 @@ const columnSums = useMemo(() => {
                       const delivery = details.delivery_period;
                       const docFile = details.document_files && details.document_files[0] && details.document_files[0].file_url;
                       const comment = details.comment;
+                      const missingCosts = hasMissingCosts(idx, q.created_by);
                       return (
                         <td
                           key={q.created_by}
@@ -234,6 +261,7 @@ const columnSums = useMemo(() => {
                                 padding: 0,
                                 textDecoration: "underline",
                               }}
+                              id={`toggle_breakup_${idx}_${q.created_by}-cost_comparison-overall_cost_comparison_page`}
                             >
                               {isOpen ? "Hide Breakup" : "Show Breakup"}
                             </button>
@@ -393,6 +421,22 @@ const columnSums = useMemo(() => {
                               </div>
                             )}
                           </div>
+                          {(() => {
+                            // Build dynamic missing note (non-regret only) from originalProducts
+                            const orig = (originalProducts[idx]?.quotations || []).find(oq => oq.created_by === q.created_by && oq.id != null && oq.is_regret != 1);
+                            if (!orig || freightFilter) return null;
+                            const d = (orig?.quote_details && Array.isArray(orig.quote_details)) ? orig.quote_details[0] : orig;
+                            const parts = [];
+                            const pp0 = (parseFloat(d?.package_price) || 0) === 0;
+                            const fp0 = (parseFloat(d?.freight_price) || 0) === 0;
+                            if (pp0) parts.push('Package');
+                            if (fp0) parts.push('Freight');
+                            return parts.length ? (
+                              <div className="text-muted" style={{ fontSize: 14, marginTop: 6 }}>
+                                {`Missing - ${parts.join(', ')}`}
+                              </div>
+                            ) : null;
+                          })()}
                           {item.product_specs?.find(
                             (s) => s.title === "total_price"
                           )?.value && (

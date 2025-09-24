@@ -804,10 +804,10 @@ export const removeClause = (clause_id) => {
   });
 };
 
-export const fetchChatData = (payload) => {
+export const fetchChatData = (payload , token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/get-tech-comments`, payload);
+      let response = await axiosInstance.post(`/rfq/get-tech-comments?token=${token}`, payload);
       resolve(response);
     } catch (error) {
       reject({ message: error });
@@ -815,16 +815,20 @@ export const fetchChatData = (payload) => {
   });
 };
 
-export const addChatComment = (payload) => {
+export const addChatComment = (payload, token) => {
   return new Promise(async (resolve, reject) => {
     try {
-      let response = await axiosInstance.post(`/rfq/add-tech-comment`, payload);
+      let response = await axiosInstance.post(
+        `/rfq/add-tech-comment?token=${token}`,
+        payload
+      );
       resolve(response);
     } catch (error) {
       reject({ message: error });
     }
   });
 };
+
 
 export const fetchVendorSelectionOption = (payload) => {
   return new Promise(async (resolve, reject) => {

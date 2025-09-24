@@ -476,6 +476,7 @@ const VendorProfile = () => {
                       </>
                     ) : (
                       <button
+                        id="signup_contact_info-company_info-vendor_profile"
                         type="button"
                         className="w-100 btn btn-secondary border-0 my-3"
                         onClick={() => {
@@ -534,6 +535,7 @@ const VendorProfile = () => {
                       <h2 className="title mb-0">Vendor SPOC Details</h2>
                       {isBuyer && (
                         <button
+                          id="add_spoc-vendor_spoc_section-vendor_profile"
                           className="btn btn-primary"
                           onClick={() => setOpenAddSpoc(true)}
                           disabled={createLoading}
@@ -617,7 +619,7 @@ const VendorProfile = () => {
                         >
                         </textarea>
                         <div className="d-flex justify-content-center">
-                          <button type="button" onClick={submitReview} className="page-link btn btn-primary me-0" > Submit Now </button>
+                          <button id="submit_review-rating_review_section-vendor_profile" type="button" onClick={submitReview} className="page-link btn btn-primary me-0" > Submit Now </button>
                         </div>
                       </div>
 
@@ -707,6 +709,7 @@ const VendorProfile = () => {
             handleSpoc={handleBuyerAddSpoc}
             handleEditSpoc={() => {}}
             countryCode={countryCode}
+            pageRoute="vendor_profile_page"
           />
         )}
       </section>

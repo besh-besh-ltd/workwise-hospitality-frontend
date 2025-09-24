@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
-const ViewRFQ = ({ data }) => {
+const ViewRFQ = ({ data, onCloseRFQ, closeLoading }) => {
   console.log("RFQ Data in ViewRFQ:", data);
 
   // Convert status to number for consistent comparison
@@ -24,7 +24,41 @@ const ViewRFQ = ({ data }) => {
             <div className="col-md-12">
               <div className="manage-rfq-con">
                 {/* Content for Manage RFQs tab */}
-                <span className="title">RFQ #{data.rfq_no} details</span>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <span className="title">RFQ #{data.rfq_no} details</span>
+                  
+                  <div className="d-flex gap-2">
+                    <Link
+                      href={`/dashboard/buyer/query?rfq_id=${data.rfq_no}&role=buyer`}
+                      className="btn btn-primary"
+                      id="queries_button-rfq_header-view_rfq_page"
+                    >
+                      Queries
+                    </Link>
+                    <Link
+                      href={`/dashboard/buyer/quote-compare?rfq_id=${data.rfq_no}`}
+                      className="btn btn-primary"
+                      id="compare_quotes_button-rfq_header-view_rfq_page"
+                    >
+                      Compare Quotes
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      disabled
+                      id="no_quotes_received-rfq_header-view_rfq_page"
+                    >
+                      No Quotes Received
+                    </button>
+                    <Link
+                      href={`/dashboard/buyer/technical-evaluation?rfq_id=${data.rfq_no}`}
+                      className="btn btn-info"
+                      id="technical_evaluation-rfq_header-view_rfq_page"
+                    >
+                      Technical Evaluation
+                    </Link>
+                  </div>
+                </div>
 
                 <div className="details-table">
                   <div className="table-responsive">
@@ -84,10 +118,10 @@ const ViewRFQ = ({ data }) => {
 
                           <td>
                             <div>
-                              <span>
+                              <span id="view_tds_file_1-file_actions-view_rfq_page">
                                 <FontAwesomeIcon icon={faEye} />
                               </span>
-                              <span>
+                              <span id="download_tds_file_1-file_actions-view_rfq_page">
                                 <Image
                                   src="/assets/images/download-icon.png"
                                   alt="Workwise"
@@ -100,10 +134,10 @@ const ViewRFQ = ({ data }) => {
                           </td>
                           <td>
                             <div>
-                              <span>
+                              <span id="view_qap_file_1-file_actions-view_rfq_page">
                                 <FontAwesomeIcon icon={faEye} />
                               </span>
-                              <span>
+                              <span id="download_qap_file_1-file_actions-view_rfq_page">
                                 <Image
                                   src="/assets/images/download-icon.png"
                                   alt="Workwise"
@@ -120,6 +154,7 @@ const ViewRFQ = ({ data }) => {
                               <Link
                                 href="rfq-management-vendor"
                                 className="page-link"
+                                id="view_selected_vendors_1-vendor_section-view_rfq_page"
                               >
                                 View
                               </Link>
@@ -363,6 +398,7 @@ const ViewRFQ = ({ data }) => {
                               <Link
                                 href="rfq-management-vendor"
                                 className="page-link"
+                                id="view_selected_vendors_3-vendor_section-view_rfq_page"
                               >
                                 View
                               </Link>
@@ -449,7 +485,16 @@ const ViewRFQ = ({ data }) => {
                     </div>
                     <div className="row">
                       <div className="col-md-8">
-                        <h4>Terms & Conditions</h4>
+                        <div className="d-flex justify-content-between align-items-center">
+                          <h4>Terms & Conditions</h4>
+                          <Link
+                            href="#"
+                            className="btn btn-sm btn-outline-primary"
+                            id="view_terms_conditions_file-terms_section-view_rfq_page"
+                          >
+                            View T&C File
+                          </Link>
+                        </div>
 
                         <ol>
                           <li>
@@ -485,17 +530,24 @@ const ViewRFQ = ({ data }) => {
                         <Link 
                           href={`/dashboard/buyer/edit-rfq/${data.rfq_no}`} 
                           className="btn btn-primary"
+                          id="edit_rfq-rfq_actions-view_rfq_page"
                         >
                           Edit RFQ
                         </Link>
                       )}
                       {rfqStatus === 1 && (
-                        <button type="submit" className="btn btn-secondary">
-                          Mark RFQ as Closed
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary" 
+                          id="close_rfq-rfq_actions-view_rfq_page"
+                          onClick={onCloseRFQ}
+                          disabled={closeLoading}
+                        >
+                          {closeLoading ? "Processing..." : "Mark RFQ as Closed"}
                         </button>
                       )}
                       {rfqStatus === 2 && (
-                        <button type="button" className="btn btn-danger" disabled>
+                        <button type="button" className="btn btn-danger" disabled id="rfq_closed-rfq_status-view_rfq_page">
                           RFQ is Closed
                         </button>
                       )}

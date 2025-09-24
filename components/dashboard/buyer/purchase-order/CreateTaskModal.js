@@ -124,10 +124,10 @@ const CreateTaskModal = ({ show, onClose, onSuccess, selectedTask, isEdit, rfqId
         </Modal.Body>
 
         <Modal.Footer>
-          <Button className='p-2' variant="secondary" onClick={onClose}>
+          <Button className='p-2' variant="secondary" onClick={onClose} id="cancel_task-task_modal-purchase_order_page">
             Cancel
           </Button>
-          <Button className='p-2' type="submit" variant="primary" disabled={loading}>
+          <Button className='p-2' type="submit" variant="primary" disabled={loading} id={isEdit ? "update_task-task_modal-purchase_order_page" : "create_task-task_modal-purchase_order_page"}>
             {loading ? <Spinner animation="border" size="sm" /> : isEdit ? 'Update Task' : 'Create Task'}
           </Button>
         </Modal.Footer>

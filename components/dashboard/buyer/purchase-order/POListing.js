@@ -12,6 +12,7 @@ import { IoMdEye } from "react-icons/io";
 import { RxCross2 } from 'react-icons/rx';
 import { toast } from 'react-toastify';
 import Pagination from '@/components/shared/Pagination';
+import ConfirmationModal from '@/components/modal/ConfirmationModal';
 import POCard from './POCard';
 
 const statusVariants = {
@@ -61,6 +62,9 @@ const formatISTDate = (utcString) => {
 };
 
 const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePODecision, onSelect, onEdit, companyUsers, approvalLevel }) => {
+  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
+  const [showRejectConfirmModal, setShowRejectConfirmModal] = useState(false);
+  const [pendingPO, setPendingPO] = useState(null);
   const [filters, setFilters] = useState({
     poNumber: '',
     initiatedBy: '',
@@ -72,6 +76,51 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
   });
 
   const debouncedPONumber = useDebounce(filters.poNumber, 700); // 👈 Debounced PO Number
+
+  const handleApproveClick = (po) => {
+    setPendingPO(po);
+    setShowApproveConfirmModal(true);
+  };
+
+  const handleRejectClick = (po) => {
+    setPendingPO(po);
+    setShowRejectConfirmModal(true);
+  };
+
+  const handleApproveConfirm = async () => {
+    if (pendingPO) {
+      await handlePODecision(pendingPO.id, {
+        decision: "approved",
+      });
+      await getPOData(filters);
+      setShowApproveConfirmModal(false);
+      setPendingPO(null);
+    }
+  };
+
+  const handleRejectConfirm = async () => {
+    if (pendingPO) {
+      await handlePODecision(pendingPO.id, {
+        decision: "rejected",
+      });
+      await refetchPOList({
+        ...filters,
+        poNumber: debouncedPONumber,
+      });
+      setShowRejectConfirmModal(false);
+      setPendingPO(null);
+    }
+  };
+
+  const handleApproveCancel = () => {
+    setShowApproveConfirmModal(false);
+    setPendingPO(null);
+  };
+
+  const handleRejectCancel = () => {
+    setShowRejectConfirmModal(false);
+    setPendingPO(null);
+  };
 
   const resetFilters = () =>
     setFilters({
@@ -182,7 +231,7 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
             />
           </div>
           <div className='mt-auto' style={{marginBottom: 2}}>
-            <button onClick={resetFilters} className='btn btn-outline-primary p-1' style={{maxWidth: 90}}>Clear</button>
+            <button onClick={resetFilters} className='btn btn-outline-primary p-1' style={{maxWidth: 90}} id="clear_filters-po_listing-purchase_order_page">Clear</button>
           </div>
         </div>
       </div>
@@ -232,104 +281,99 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
                     po.is_approver;
                   const isCancelled = (po.status === 'cancelled' || po.status === 'rejected');
 
-                  return (
-                    <tr
-                      key={po.id}
-                      className="text-center"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => onSelect(po.id)}
-                    >
-                      <td className="fs-6">
-                        # <strong>{po.po_number}</strong>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge bg-${
-                            statusVariants[po.status] || "secondary"
-                          } text-capitalize`}
-                        >
-                          {po.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td>{po.product_details.name}</td>
-                      <td>{po.quantity}</td>
-                      <td>₹ {addCommasToNumber(po.total_value)}</td>
-                      <td>{po.initiated_by}</td>
-                      <td>{formatISTDate(po.created_at)}</td>
-                      <td>
-                        {isPending && isCurrentApprover ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.approve}
-                              title="Approve this PO"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                await handlePODecision(po.id, {
-                                  decision: "approved",
-                                });
-                                await getPOData(filters);
-                              }}
-                            >
-                              <MdCheck />
-                            </button>
-                            <button
-                              style={styles.reject}
-                              title="Reject this PO"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                await handlePODecision(po.id, {
-                                  decision: "rejected",
-                                });
-                                await refetchPOList({
-                                  ...filters,
-                                  poNumber: debouncedPONumber,
-                                });
-                              }}
-                            >
-                              <RxCross2 />
-                            </button>
-                          </div>
-                        ) : isCancelled ? (
-                          <Link
-                            onClick={(e) => e.stopPropagation()}
-                            href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
-                            className="btn btn-outline-success btn-sm p-2"
-                            style={{ width: 150 }}
+                return (
+                  <tr
+                    key={po.id}
+                    className="text-center"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => onSelect(po.id)}
+                  >
+                    <td className="fs-6">
+                      # <strong>{po.po_number}</strong>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge bg-${
+                          statusVariants[po.status] || "secondary"
+                        } text-capitalize`}
+                      >
+                        {po.status.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td>{po.product_details.name}</td>
+                    <td>{po.quantity}</td>
+                    <td>₹ {addCommasToNumber(po.total_value)}</td>
+                    <td>{po.initiated_by}</td>
+                    <td>{formatISTDate(po.created_at)}</td>
+                    <td>
+                      {isPending && isCurrentApprover ? (
+                        <div className="d-flex align-items-center justify-content-center">
+                          <button
+                            style={styles.approve}
+                            title="Approve this PO"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApproveClick(po);
+                            }}
+                            id={`approve_po_${po.id}-po_actions-po_listing`}
                           >
-                            View Quotes
-                          </Link>
-                        ) : !isPending ? (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.primary}
-                              title="View This PO"
-                              >
-                                <IoMdEye />
-                                <small className='ms-1 fw-medium'>View</small>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="d-flex align-items-center justify-content-center">
-                            <button
-                              style={styles.primary}
-                              title="Edit this PO"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(po.id);
-                              }}
+                            <MdCheck />
+                          </button>
+                          <button
+                            style={styles.reject}
+                            title="Reject this PO"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRejectClick(po);
+                            }}
+                            id={`reject_po_${po.id}-po_actions-po_listing`}
+                          >
+                            <RxCross2 />
+                          </button>
+                        </div>
+                      ) : isCancelled ? (
+                        <Link
+                          onClick={(e) => e.stopPropagation()}
+                          href={`/dashboard/buyer/quote-compare?rfq=${rfq_id}`}
+                          className="btn btn-outline-success btn-sm p-2"
+                          style={{ width: 150 }}
+                          id={`view_quotes_${po.id}-po_actions-po_listing`}
+                        >
+                          View Quotes
+                        </Link>
+                      ) : !isPending ? (
+                        <div className="d-flex align-items-center justify-content-center">
+                          <button
+                            style={styles.primary}
+                            title="View This PO"
+                            id={`view_po_${po.id}-po_actions-po_listing`}
                             >
-                              <MdEdit />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        )}
+                              <IoMdEye />
+                              <small className='ms-1 fw-medium'>View</small>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="d-flex align-items-center justify-content-center">
+                          <button
+                            style={styles.primary}
+                            title="Edit this PO"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(po.id);
+                            }}
+                            id={`edit_po_${po.id}-po_actions-po_listing`}
+                          >
+                            <MdEdit />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
       {poList.length > 0 && (
@@ -341,6 +385,30 @@ const POListing = ({ poList = [], totalData = 0, refetchPOList, rfq_id, handlePO
               totalData={totalData}
             />
           )}
+
+          {/* PO Approve Confirmation Modal */}
+          <ConfirmationModal
+            isOpen={showApproveConfirmModal}
+            onClose={handleApproveCancel}
+            onConfirm={handleApproveConfirm}
+            title="Approve Purchase Order"
+            description={`Are you sure you want to approve PO #${pendingPO?.po_number || 'this purchase order'}?\nThis action will approve the purchase order and notify relevant parties.`}
+            confirmButtonColor="success"
+            confirmButtonText="Approve"
+            cancelButtonText="Cancel"
+          />
+
+          {/* PO Reject Confirmation Modal */}
+          <ConfirmationModal
+            isOpen={showRejectConfirmModal}
+            onClose={handleRejectCancel}
+            onConfirm={handleRejectConfirm}
+            title="Reject Purchase Order"
+            description={`Are you sure you want to reject PO #${pendingPO?.po_number || 'this purchase order'}?\nThis action will reject the purchase order and notify relevant parties.`}
+            confirmButtonColor="danger"
+            confirmButtonText="Reject"
+            cancelButtonText="Cancel"
+          />
     </div>
   );
 };

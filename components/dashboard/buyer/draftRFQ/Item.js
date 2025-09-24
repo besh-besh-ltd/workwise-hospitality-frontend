@@ -118,14 +118,16 @@ const DraftRFQItem = ({ data , refetch }) => {
               href={`/dashboard/buyer/rfq-management?tab=create-rfq&draft_id=${data?.id}`}
               className="btn btn-sm btn-primary"
               style={{ width: "100px", padding: "9px 0" }}
+              id={`edit_draft_rfq_${data?.id}-draft_actions-draft_rfq_page`}
             >
               Edit
             </Link>
 
             <Button
               className="btn btn-sm bg-danger border-0 text-white"
-              style={{ width: "100px", padding: "9px 0" }}
+              style={{ width: "100px", padding: "0" }}
               onClick={() => openDeleteModal(data?.id)}
+              id={`delete_draft_rfq_${data?.id}-draft_actions-draft_rfq_page`}
             >
               Delete
             </Button>
