@@ -319,7 +319,13 @@ const POListing = ({
                           {po.status.replace("_", " ")}
                         </span>
                       </td>
-                      <td>{po.product_details.name}</td>
+                      <td>
+                        <div className="d-flex flex-column">
+                          {po.product_details.map(p => (
+                            <span>{p.name}</span>
+                          ))}
+                        </div>
+                      </td>
                       <td>{po.quantity}</td>
                       <td>₹ {addCommasToNumber(po.total_value)}</td>
                       <td>{po.initiated_by}</td>

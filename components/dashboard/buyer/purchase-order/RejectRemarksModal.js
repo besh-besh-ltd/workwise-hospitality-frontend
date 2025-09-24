@@ -24,7 +24,7 @@ export default function RejectRemarksModal({ show, onClose, onReject }) {
     >
       <Modal.Body>
         <Form.Group controlId="rejectReason">
-          <Form.Label className="fw-semibold">Reject reason</Form.Label>
+          <Form.Label className="fs-5 fw-semibold">Reject reason</Form.Label>
           <Form.Control
             as="textarea"
             rows={6}
@@ -39,7 +39,7 @@ export default function RejectRemarksModal({ show, onClose, onReject }) {
       </Modal.Body>
 
       <Modal.Footer className="border-0">
-        <Button variant="outline-secondary" onClick={onClose}>
+        <Button variant="outline-secondary" onClick={onClose} className="p-2">
           Cancel
         </Button>
         <Button
@@ -47,6 +47,7 @@ export default function RejectRemarksModal({ show, onClose, onReject }) {
           onClick={handleReject}
           disabled={reason.trim().length === 0}
           title={reason.trim().length === 0 ? "Enter a reject reason" : "Reject PO"}
+          className="p-2"
         >
           Reject PO
         </Button>

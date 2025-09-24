@@ -368,7 +368,7 @@ export const updateQuotation = (quote_id, payload, token) => {
   });
 };
 
-export const getQuotes = (id, TA_Filter, freightFilter, pageSource, rfq_product_id, source) => {
+export const getQuotes = (id, TA_Filter, freightFilter, rfq_product_id, source, pageSource) => {
   return new Promise(async (resolve, reject) => {
     try {
       const queryParams = new URLSearchParams();
