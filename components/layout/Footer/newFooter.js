@@ -126,7 +126,7 @@ const Footer = () => {
               <h6 className="text-white fw-bold mb-3">Resources</h6>
               <ul className="list-unstyled mb-0">
                 <li className="mb-2">
-                  <a href="https://blog.letsworkwise.com" className="text-decoration-none" style={{ color: '#bbb' }}>
+                  <a href="https://letsworkwise.com/blog/" className="text-decoration-none" style={{ color: '#bbb' }}>
                     Blog
                   </a>
                 </li>

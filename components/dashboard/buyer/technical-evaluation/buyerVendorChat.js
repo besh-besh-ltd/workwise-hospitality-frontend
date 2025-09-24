@@ -48,7 +48,7 @@ const BuyerVendorChat = ({ showChat, closeChat, data, userData, otherUser, token
     const payload = {
       clause_id: data.clause_id,
       sender_id: userData.id,
-      receiver_id: otherUser.vendor_id
+      receiver_id: otherUser?.vendor_id || otherUser
     }
     try {
       setLoading(true)

@@ -1,35 +1,10 @@
-import axios from "axios";
+// pages/vendors/sitemap/[[...slug]].js
+import { pipeline } from 'stream/promises'; // For streaming the response
+import fetch from 'node-fetch'; // Ensure node-fetch is installed for streaming support
 
-const EXTERNAL_DATA_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://letsworkwise.com';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.letsworkwise.com/api/v1';
-
-const getProducts = async () => {
-  const res = await axios.get(`${API_URL}/seo/products/slug`);
-  return Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
-};
-
-const getStates = async () => {
-  const res = await axios.get(`${API_URL}/general/states`);
-  return Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
-};
-
-const getCities = async () => {
-  const res = await axios.get(`${API_URL}/general/cities`);
-  return Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
-};
-
-const createSitemap = (urls) => `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  ${urls.map(url => `
-    <url>
-      <loc>${`${EXTERNAL_DATA_URL}${url.loc}`}</loc>
-      <changefreq>${url.changefreq}</changefreq>
-      <priority>${url.priority}</priority>
-    </url>
-  `).join('')}
-</urlset>`;
-
-function VendorsSitemap() { }
+function VendorsSitemap() {
+  return null; // No UI rendering needed
+}
 
 export const getServerSideProps = async ({ params, res }) => {
   const slug = params?.slug || [];
@@ -50,54 +25,42 @@ export const getServerSideProps = async ({ params, res }) => {
     return { props: {} };
   }
 
-  const linksPerFile = 50000;
-  const [products, states, cities] = await Promise.all([
-    getProducts(),
-    getStates(),
-    getCities()
-  ]);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.letsworkwise.com/api/v1';
+  
+  try {
+    // Fetch the API response with streaming enabled
+    const apiRes = await fetch(`${API_URL}/seo/vendors/sitemap?page=${pageNumber}&limit=1000`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/xml',
+        'Accept-Encoding': 'gzip, deflate, br', // Enable compression
+      },
+    });
 
-  // Flattened sequence: for each product, one URL for each state, then for each city of that state
-  const urls = [];
-  const startIndex = (pageNumber - 1) * linksPerFile;
-  const endIndex = pageNumber * linksPerFile;
-  let globalIndex = 0;
-
-  for (const productSlug of products) {
-    // product + state
-    for (const state of states) {
-      if (globalIndex >= startIndex && globalIndex < endIndex) {
-        urls.push({
-          loc: `/vendor/${productSlug}-${encodeURIComponent(state.state_name)}`,
-          changefreq: 'weekly',
-          priority: 0.5
-        });
-      }
-      globalIndex++;
-
-      // product + city + state
-      for (const city of cities.filter(c => c.state_id === state.id)) {
-        if (globalIndex >= startIndex && globalIndex < endIndex) {
-          urls.push({
-            loc: `/vendor/${productSlug}-${encodeURIComponent(city.city_name)}-${encodeURIComponent(state.state_name)}`,
-            changefreq: 'weekly',
-            priority: 0.5
-          });
-        }
-        globalIndex++;
-        if (globalIndex >= endIndex && urls.length >= linksPerFile) break;
-      }
-      if (globalIndex >= endIndex && urls.length >= linksPerFile) break;
+    // Check if the response is OK
+    if (!apiRes.ok) {
+      res.statusCode = apiRes.status;
+      res.end();
+      return { props: {} };
     }
-    if (globalIndex >= endIndex && urls.length >= linksPerFile) break;
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600'); // Cache for 1 hour
+
+    // Pipe the API response stream directly to the Next.js response
+    await pipeline(apiRes.body, res);
+
+    // No need to call res.end() as pipeline handles it
+    return { props: {} };
+  } catch (error) {
+    console.error('Error streaming sitemap:', error);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.end();
+    }
+    return { props: {} };
   }
-
-  const sitemap = createSitemap(urls);
-  res.setHeader('Content-Type', 'application/xml');
-  res.write(sitemap);
-  res.end();
-
-  return { props: {} };
 };
 
 export default VendorsSitemap;
