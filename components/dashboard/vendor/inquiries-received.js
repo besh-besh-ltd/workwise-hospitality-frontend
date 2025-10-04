@@ -332,7 +332,7 @@ const getQuoteStatus = async (rfq_id) => {
                                     <td>
                                       {/* 👇 View Status trigger */}
                                       <button
-                                        className="btn btn-link btn-sm p-0 fw-medium text-primary text-decoration-underline"
+                                        className="minimal-btn bg-transparent btn-link btn-sm p-0 fw-medium text-primary text-decoration-underline"
                                         onClick={() => getQuoteStatus(item.id)}
                                         style={{ fontSize: "0.8rem" }}
                                       >

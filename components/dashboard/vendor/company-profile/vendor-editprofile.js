@@ -558,6 +558,7 @@ const VendorProfile = () => {
                     </h3>
 
                     {[
+                      "project_document",
                       "product_image",
                       "product_video",
                       "certification",
@@ -570,6 +571,7 @@ const VendorProfile = () => {
                       if (documents.length === 0) return null;
 
                       const sectionTitles = {
+                        project_document : "Projects Completed",
                         product_image: "Product Images",
                         product_video: "Product Videos",
                         certification: "Certifications",
@@ -577,6 +579,7 @@ const VendorProfile = () => {
                       };
 
                       const sectionIcons = {
+                        project_document : "bi-folder2-open",
                         product_image: "bi-images",
                         product_video: "bi-play-btn",
                         certification: "bi-award",

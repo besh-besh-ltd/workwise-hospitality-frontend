@@ -22,24 +22,39 @@ import VendorQuoteHistoryModal from "@/components/modal/VendorQuoteHistoryModal"
 
 const PercentageAbsoluteToggle = ({ currentMode, onToggle, size = "sm" }) => {
   return (
-    <div className="mt-2 d-flex gap-2" role="group">
+    <div className="mt-2 d-flex " role="group" style={{marginBottom : "16px"}} >
       <SmartButton
         onClick={() => onToggle('percentage')}
-        theme={`${currentMode === 'percentage' ? 'primary' : 'light'}`}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        theme={currentMode === 'percentage' ? 'primary' : 'light'}
+        style={{ 
+          paddingLeft: "0.6rem", 
+          paddingRight: "0.6rem",
+          borderTopRightRadius: 0,
+          borderBottomRightRadius: 0,
+          minHeight : "40px",
+          marginBottom: "10px"
+        }}
         label="%"
         id="percentage_toggle-percentage_absolute_toggle-send_quote_page"
       />
       <SmartButton
         onClick={() => onToggle('absolute')}
-        theme={`${currentMode === 'absolute' ? 'primary' : 'light'}`}
-        style={{ paddingLeft: "0.6rem", paddingRight: "0.6rem" }}
+        theme={currentMode === 'absolute' ? 'primary' : 'light'}
+        style={{ 
+          paddingLeft: "0.6rem", 
+          paddingRight: "0.6rem",
+          borderTopLeftRadius: 0,
+          borderBottomLeftRadius: 0,
+          minHeight : "40px",
+          marginBottom: "10px"
+        }}
         label="₹"
         id="absolute_toggle-percentage_absolute_toggle-send_quote_page"
       />
     </div>
   );
 };
+
 
 const SendQuotePageComp = () => {
   const router = useRouter();
@@ -501,7 +516,6 @@ return { deletedTerms, createdTerms, updatedTerms };
   };
 
   const handleSubmitQuoteConfirm = () => {
-    setShowSubmitQuoteConfirmModal(false);
     // Validate payment terms - at least one valid row should exist
     const validPaymentTerms = paymentTermsRows.filter(row => 
       row && 
@@ -512,6 +526,7 @@ return { deletedTerms, createdTerms, updatedTerms };
     );
     
     if (validPaymentTerms.length === 0) {
+      setShowSubmitQuoteConfirmModal(false);
       return toast.error("At least one valid payment term is required. Please add your payment terms.");
     }
 
@@ -555,7 +570,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         ).length : 0;
       
       if (remainingValidTerms + originalValidTerms === 0) {
-        // setShowSubmitQuoteConfirmModal(false);
+        setShowSubmitQuoteConfirmModal(false);
         return toast.error("At least one valid payment term is required. Please add your payment terms.");
       }
 
@@ -588,12 +603,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote updated Successfully...!");
-          // setShowSubmitQuoteConfirmModal(false);
+          setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
           setsubmitLoading(false);
-          // setShowSubmitQuoteConfirmModal(false);
+          setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
@@ -637,7 +652,7 @@ return { deletedTerms, createdTerms, updatedTerms };
             (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
         )
       ) {
-        // setShowSubmitQuoteConfirmModal(false);
+        setShowSubmitQuoteConfirmModal(false);
         return toast.error("Some required fields may be missing or in negative")
       }
         
@@ -648,12 +663,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote sent Successfully...!");
-          // setShowSubmitQuoteConfirmModal(false);
+          setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
           setsubmitLoading(false);
-          // setShowSubmitQuoteConfirmModal(false);
+          setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
@@ -1154,6 +1169,7 @@ return { deletedTerms, createdTerms, updatedTerms };
        
         {/* AI file upload start here */}
        <div>
+       <div>
 
          <div className="d-flex align-items-center my-3">
            <hr className="flex-grow-1" />
@@ -1230,6 +1246,37 @@ return { deletedTerms, createdTerms, updatedTerms };
                             </div>
                           </div>
                         )} */}
+           {/*  start: recently upload files */}
+           {globalDocumentFiles && globalDocumentFiles.length > 0 && (
+          <div className="row">
+           <p className="fw-medium mb-1">New Uploaded Files:</p>
+            <div className="d-flex gap-4" >
+              {globalDocumentFiles.map((doc_file) => {
+               return (
+                  <p
+                  key={doc_file}
+                  href={doc_file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge bg-light border text-primary   text-truncate cursor-pointer "
+                  style={{ maxWidth: 280 }}
+                  title={"Click here to download the file"}
+                  onClick={(e) => {
+                      e.preventDefault()
+                      removeGlobalFiles(doc_file)
+                    }}
+                >
+                  <FontAwesomeIcon icon={faDownload} className="text-primary " />
+                  <span className="text-truncate" style={{ maxWidth: 200, marginLeft: '10px' }}>
+                   {extractfileName(doc_file)}
+                  </span>
+                </p>
+ 
+              )
+            })}
+            </div>
+         </div>
+          )}
 
         {previousGlobalFiles?.length > 0 && (
           <div className=" mb-3">
@@ -1264,6 +1311,7 @@ return { deletedTerms, createdTerms, updatedTerms };
          </span>
          <hr className="flex-grow-1" />
        </div> 
+
 
                     <div className="row align-items-stretch">
                       {/* ========== COLUMN 1: Global Costing + Quote Document + Global Comment ========== */}
@@ -1679,7 +1727,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       )}
                                       <button
                                         className="minimal-btn "
-                                        style={{marginTop : "auto"}}
+                                        style={{ marginTop: "auto" }}
                                         // style={{"maxWidth":"120px"}}
                                         onClick={() =>
                                           openQuoteHistoryModal(
@@ -1704,7 +1752,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       <div className="mb-2">
                                         <small
                                           className="d-block fw-bold"
-                                          style={{ fontSize: "0.9rem" }}
+                                          style={{ fontSize: "0.9rem" , marginBottom : "10px" }}
                                         >
                                           Base Price
                                         </small>
@@ -1713,7 +1761,7 @@ return { deletedTerms, createdTerms, updatedTerms };
                                           name=""
                                           id=""
                                           placeholder="₹"
-                                          style={{ maxWidth: "140px" }}
+                                          style={{ minWidth: "150px" }}
                                           value={
                                             quoteProducts[index].unit_price
                                           }
@@ -1747,85 +1795,93 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </div>
 
                                       {/* Freight */}
-                                      <div>
+                                      <div className="mt-2">
+                                        {/* Label */}
                                         <small
                                           className="d-block fw-bold"
-                                          style={{
-                                            fontSize: "0.9rem",
-                                            marginTop: "64px",
-                                          }}
+                                          style={{ fontSize: "0.9rem" }}
                                         >
                                           Freight
                                         </small>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          name=""
-                                          id=""
-                                          style={{ maxWidth: "140px" }}
-                                          placeholder={
-                                            chargesMode.freight[item.id] ===
-                                            "percentage"
-                                              ? "%"
-                                              : "₹"
-                                          }
-                                          value={
-                                            quoteProducts[index]
-                                              .freight_price || ""
-                                          }
-                                          onChange={(e) =>
-                                            handleUpdateData(
-                                              item.id,
-                                              e,
-                                              item.product_id,
-                                              item.variant,
-                                              "freight_price",
-                                              "",
-                                              getProductSpecValueByTitle(
-                                                item?.product_specs,
-                                                "Quantity"
-                                              )
-                                            )
-                                          }
-                                          onWheel={(e) => e.target.blur()}
-                                          disabled={isTechEvalPendingOrRejected}
-                                        />
-                                        <PercentageAbsoluteToggle
-                                          currentMode={
-                                            chargesMode.freight[item.id]
-                                          }
-                                          onToggle={(value) => {
-                                            setChargesMode((prev) => ({
-                                              ...prev,
-                                              freight: {
-                                                ...prev.freight,
-                                                [item.id]: value,
-                                              },
-                                            }));
-                                            handleUpdateData(
-                                              item.id,
-                                              {
-                                                target: {
-                                                  value:
-                                                    quoteProducts[index]
-                                                      .freight_price || 0,
-                                                },
-                                              },
-                                              item.product_id,
-                                              item.variant,
-                                              "freight_price",
-                                              "",
-                                              getProductSpecValueByTitle(
-                                                item?.product_specs,
-                                                "Quantity"
-                                              ),
-                                              null,
-                                              null,
-                                              value
-                                            );
-                                          }}
-                                        />
 
+                                        {/* Input + Toggle */}
+                                        <div className="d-flex align-items-center">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            style={{
+                                              width: "80px",
+                                              marginRight: "8px",
+                                              marginTop: "-18px",
+                                            }}
+                                            placeholder={
+                                              chargesMode.freight[item.id] ===
+                                              "percentage"
+                                                ? "%"
+                                                : "₹"
+                                            }
+                                            value={
+                                              quoteProducts[index]
+                                                .freight_price || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "freight_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                )
+                                              )
+                                            }
+                                            onWheel={(e) => e.target.blur()}
+                                            disabled={
+                                              isTechEvalPendingOrRejected
+                                            }
+                                          />
+
+                                          <PercentageAbsoluteToggle
+                                            currentMode={
+                                              chargesMode.freight[item.id]
+                                            }
+                                            onToggle={(value) => {
+                                              setChargesMode((prev) => ({
+                                                ...prev,
+                                                freight: {
+                                                  ...prev.freight,
+                                                  [item.id]: value,
+                                                },
+                                              }));
+                                              handleUpdateData(
+                                                item.id,
+                                                {
+                                                  target: {
+                                                    value:
+                                                      quoteProducts[index]
+                                                        .freight_price || 0,
+                                                  },
+                                                },
+                                                item.product_id,
+                                                item.variant,
+                                                "freight_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                ),
+                                                null,
+                                                null,
+                                                value
+                                              );
+                                            }}
+                                          />
+                                        </div>
+
+                                        {/* Error message */}
                                         {isTechEvalPendingOrRejected && (
                                           <small
                                             className="d-block text-danger mt-1"
@@ -1839,82 +1895,90 @@ return { deletedTerms, createdTerms, updatedTerms };
 
                                     <td style={{ minWidth: "180px" }}>
                                       {/* Packaging */}
-                                      <div className="mb-3">
+                                      <div className="mb-3" style={{maxHeight : "48px"}}>
                                         <small
-                                          className="d-block fw-bold"
+                                          className="d-block fw-bold "
                                           style={{ fontSize: "0.9rem" }}
                                         >
                                           Packaging
                                         </small>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          name=""
-                                          id=""
-                                          style={{ maxWidth: "140px" }}
-                                          placeholder={
-                                            chargesMode.package[item.id] ===
-                                            "percentage"
-                                              ? "%"
-                                              : "₹"
-                                          }
-                                          value={
-                                            quoteProducts[index]
-                                              .package_price || ""
-                                          }
-                                          onChange={(e) =>
-                                            handleUpdateData(
-                                              item.id,
-                                              e,
-                                              item.product_id,
-                                              item.variant,
-                                              "package_price",
-                                              "",
-                                              getProductSpecValueByTitle(
-                                                item?.product_specs,
-                                                "Quantity"
+
+                                        <div className="d-flex align-items-center ">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            style={{
+                                              width: "80px",
+                                              marginRight: "8px",
+                                              marginTop: "-18px",
+                                            }}
+                                            placeholder={
+                                              chargesMode.package[item.id] ===
+                                              "percentage"
+                                                ? "%"
+                                                : "₹"
+                                            }
+                                            value={
+                                              quoteProducts[index]
+                                                .package_price || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "package_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                )
                                               )
-                                            )
-                                          }
-                                          onWheel={(e) => e.target.blur()}
-                                          disabled={isTechEvalPendingOrRejected}
-                                        />
-                                        <PercentageAbsoluteToggle
-                                          currentMode={
-                                            chargesMode.package[item.id]
-                                          }
-                                          onToggle={(value) => {
-                                            setChargesMode((prev) => ({
-                                              ...prev,
-                                              package: {
-                                                ...prev.package,
-                                                [item.id]: value,
-                                              },
-                                            }));
-                                            handleUpdateData(
-                                              item.id,
-                                              {
-                                                target: {
-                                                  value:
-                                                    quoteProducts[index]
-                                                      .package_price || 0,
+                                            }
+                                            onWheel={(e) => e.target.blur()}
+                                            disabled={
+                                              isTechEvalPendingOrRejected
+                                            }
+                                          />
+
+                                          <PercentageAbsoluteToggle
+                                            currentMode={
+                                              chargesMode.package[item.id]
+                                            }
+                                            onToggle={(value) => {
+                                              setChargesMode((prev) => ({
+                                                ...prev,
+                                                package: {
+                                                  ...prev.package,
+                                                  [item.id]: value,
                                                 },
-                                              },
-                                              item.product_id,
-                                              item.variant,
-                                              "package_price",
-                                              "",
-                                              getProductSpecValueByTitle(
-                                                item?.product_specs,
-                                                "Quantity"
-                                              ),
-                                              null,
-                                              null,
-                                              undefined,
-                                              value
-                                            );
-                                          }}
-                                        />
+                                              }));
+                                              handleUpdateData(
+                                                item.id,
+                                                {
+                                                  target: {
+                                                    value:
+                                                      quoteProducts[index]
+                                                        .package_price || 0,
+                                                  },
+                                                },
+                                                item.product_id,
+                                                item.variant,
+                                                "package_price",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                ),
+                                                null,
+                                                null,
+                                                undefined,
+                                                value
+                                              );
+                                            }}
+                                          />
+                                        </div>
 
                                         {isTechEvalPendingOrRejected && (
                                           <small
@@ -1927,78 +1991,90 @@ return { deletedTerms, createdTerms, updatedTerms };
                                       </div>
 
                                       {/* Taxes */}
-                                      <div>
+                                      <div className="mt-8" style={{marginTop : "32px"}}>
                                         <small
-                                          className="d-block fw-bold"
-                                          style={{ fontSize: ".9rem" }}
+                                          className="d-block fw-bold mb-1"
+                                          style={{ fontSize: "0.9rem", }}
                                         >
                                           Taxes
                                         </small>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          name=""
-                                          id=""
-                                          style={{ maxWidth: "140px" }}
-                                          placeholder={
-                                            chargesMode.tax[item.id] ===
-                                            "percentage"
-                                              ? "%"
-                                              : "₹"
-                                          }
-                                          value={quoteProducts[index].tax || ""}
-                                          onChange={(e) =>
-                                            handleUpdateData(
-                                              item.id,
-                                              e,
-                                              item.product_id,
-                                              item.variant,
-                                              "tax",
-                                              "",
-                                              getProductSpecValueByTitle(
-                                                item?.product_specs,
-                                                "Quantity"
+
+                                        <div className="d-flex align-items-center">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            style={{
+                                              width: "80px",
+                                              marginRight: "8px",
+                                              marginTop: "-24px",
+                                            }}
+                                            placeholder={
+                                              chargesMode.tax[item.id] ===
+                                              "percentage"
+                                                ? "%"
+                                                : "₹"
+                                            }
+                                            value={
+                                              quoteProducts[index].tax || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleUpdateData(
+                                                item.id,
+                                                e,
+                                                item.product_id,
+                                                item.variant,
+                                                "tax",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                )
                                               )
-                                            )
-                                          }
-                                          onWheel={(e) => e.target.blur()}
-                                          disabled={isTechEvalPendingOrRejected}
-                                        />
-                                        <PercentageAbsoluteToggle
-                                          currentMode={chargesMode.tax[item.id]}
-                                          onToggle={(value) => {
-                                            setChargesMode((prev) => ({
-                                              ...prev,
-                                              tax: {
-                                                ...prev.tax,
-                                                [item.id]: value,
-                                              },
-                                            }));
-                                            handleUpdateData(
-                                              item.id,
-                                              {
-                                                target: {
-                                                  value:
-                                                    quoteProducts[index].tax ||
-                                                    0,
+                                            }
+                                            onWheel={(e) => e.target.blur()}
+                                            disabled={
+                                              isTechEvalPendingOrRejected
+                                            }
+                                          />
+
+                                          <PercentageAbsoluteToggle
+                                            currentMode={
+                                              chargesMode.tax[item.id]
+                                            }
+                                            onToggle={(value) => {
+                                              setChargesMode((prev) => ({
+                                                ...prev,
+                                                tax: {
+                                                  ...prev.tax,
+                                                  [item.id]: value,
                                                 },
-                                              },
-                                              item.product_id,
-                                              item.variant,
-                                              "tax",
-                                              "",
-                                              getProductSpecValueByTitle(
-                                                item?.product_specs,
-                                                "Quantity"
-                                              ),
-                                              null,
-                                              null,
-                                              undefined,
-                                              undefined,
-                                              value
-                                            );
-                                          }}
-                                        />
+                                              }));
+                                              handleUpdateData(
+                                                item.id,
+                                                {
+                                                  target: {
+                                                    value:
+                                                      quoteProducts[index]
+                                                        .tax || 0,
+                                                  },
+                                                },
+                                                item.product_id,
+                                                item.variant,
+                                                "tax",
+                                                "",
+                                                getProductSpecValueByTitle(
+                                                  item?.product_specs,
+                                                  "Quantity"
+                                                ),
+                                                null,
+                                                null,
+                                                undefined,
+                                                undefined,
+                                                value
+                                              );
+                                            }}
+                                          />
+                                        </div>
 
                                         {isTechEvalPendingOrRejected && (
                                           <small
@@ -2019,7 +2095,10 @@ return { deletedTerms, createdTerms, updatedTerms };
                                         placeholder="₹"
                                         value={quoteProducts[index].total_price}
                                         disabled
-                                        style={{ maxWidth: "120px" }}
+                                        style={{
+                                          maxWidth: "120px",
+                                          marginTop: "22px",
+                                        }}
                                       />
                                     </td>
                                     {currentLowest ? (
@@ -2318,6 +2397,7 @@ return { deletedTerms, createdTerms, updatedTerms };
               </div>
             </div>
           </div>
+          </div>
         </section>
       )}
       <RegretQuoteReasonModal
@@ -2505,5 +2585,4 @@ const PaymentTermsEditor = ({ value, onChange }) => {
     </div>
   );
 };
-
 
