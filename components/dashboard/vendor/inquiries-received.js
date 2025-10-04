@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { getVendorRfqList } from "@/services/rfq";
+import { getVendorQuoteStatus, getVendorRfqList, sendFollowUpEmail } from "@/services/rfq";
 import moment from "moment";
 import Pagination from "@/components/shared/Pagination";
 import PlaceholderLoading from "react-placeholder-loading";
 import { checkBidExpired, textCapitalize } from "@/utils/sharedFunctions";
+import QuoteStatus from "@/components/modal/QuoteStatus";
+import { toast } from "react-toastify";
+
+import {  Modal  } from "react-bootstrap";
 
 const InquiriesReceived = ({ pageType = 0 }) => {
   const [page, setpage] = useState(1);
@@ -12,6 +16,10 @@ const InquiriesReceived = ({ pageType = 0 }) => {
   const [limit, setLimit] = useState(10);
   const [rfqList, setrfqList] = useState([]);
   const [loading, setloading] = useState(false);
+  const [quoteStatus, setQuoteStatus] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false); // New state for reminder confirmation modal
+  const [selectedItem, setSelectedItem] = useState(null); // To keep track of the item for which reminder is being sent
 
   useEffect(() => {
     getRFQs();
@@ -69,6 +77,68 @@ const InquiriesReceived = ({ pageType = 0 }) => {
     }
   };
 
+const getQuoteStatus = async (rfq_id) => {
+  try {
+    const quoteStatusResponse = await getVendorQuoteStatus(rfq_id);
+    if (quoteStatusResponse.data && quoteStatusResponse.data.length > 0) {
+      setQuoteStatus(quoteStatusResponse);
+    } else {
+      setQuoteStatus([]); // clear if nothing
+    }
+    setShowModal(true); // open modal here
+  } catch (err) {
+    console.error("Error fetching quote status:", err);
+    setQuoteStatus([]);
+    setShowModal(true); // still open modal even if error
+  }
+};
+
+ const handleSendMail = async (item) => {
+    const payload = {
+      buyer: {
+        name: item.company_name,
+        email: item.response_email,
+      },
+      vendor: {
+        name: item.products?.[0]?.vendor_details?.[0]?.user_details?.name || "Unknown Vendor",
+      },
+      rfqNumber: item.rfq_no,
+      rfq_id: item.id,
+    };
+
+    try {
+      const response = await sendFollowUpEmail(payload);
+      if (response?.status === 1) {
+        toast.success(response.message || "Reminder email sent successfully!");
+      } else if(response?.status === 2) {
+        toast.error(response?.message || "Maximum reminder limit reached.");
+      }
+      else {
+        toast.error(response?.message || "Failed to send reminder email.");
+      }
+    } catch (error) {
+      console.error("Error sending reminder email:", error);
+      toast.error("An error occurred while sending the reminder email.");
+    }
+  };
+
+  const handleReminderConfirm = () => {
+    // Logic to check reminder limit (simulated here; adjust based on your backend logic)
+   
+    handleSendMail(selectedItem);
+    setShowReminderModal(false);
+    setSelectedItem(null);
+  };
+
+  const handleReminderClick = (item) => {
+    setSelectedItem(item);
+    setShowReminderModal(true);
+  };
+
+
+
+
+
   return (
     <>
       {pageType == 0 && (
@@ -80,11 +150,12 @@ const InquiriesReceived = ({ pageType = 0 }) => {
       )}
 
       <section className="vendor-mngt-sec-1 hasFullLoader">
-        <div className={`container-fluid ${pageType == 1 ? 'nopaddingtop' : ''}`} >
+        <div
+          className={`container-fluid ${pageType == 1 ? "nopaddingtop" : ""}`}
+        >
           <div className="row">
             <div className="col-md-12">
               <div className="vendor-mngt-con">
-
                 {!loading && rfqList.length == 0 && (
                   <p className="mb-0 text-center">
                     You've not received any inqueries yet.
@@ -94,14 +165,17 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                 {/* Content for Manage RFQs tab */}
                 {!loading && rfqList.length > 0 && (
                   <span className="title">
-
-                    {pageType == 0 && <>You have received { totalData } Inquiries</>}
-                    {pageType == 1 && <>{rfqList.length} Latest Received Inquiries </>}
+                    {pageType == 0 && (
+                      <>You have received {totalData} Inquiries</>
+                    )}
+                    {pageType == 1 && (
+                      <>{rfqList.length} Latest Received Inquiries </>
+                    )}
                   </span>
                 )}
 
                 <div className="details-table mb-3">
-                  {loading ?
+                  {loading ? (
                     <div className="table-responsive">
                       <table className="table table-striped border-0 mb-0 ">
                         <thead>
@@ -117,24 +191,87 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                             <th>RFQ Status</th>
                             <th>Action</th>
                             <th>Query</th>
+                            <th>Follow Up</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
-                            <td><PlaceholderLoading shape="rect" width={100} height={50} /></td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
+                            <td>
+                              <PlaceholderLoading
+                                shape="rect"
+                                width={100}
+                                height={50}
+                              />
+                            </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
-                    : rfqList.length > 0 && (
+                  ) : (
+                    rfqList.length > 0 && (
                       <div className="table-responsive">
                         <table className="table table-striped border-0 mb-0 ">
                           <thead>
@@ -150,6 +287,7 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                               <th>RFQ Status</th>
                               <th>Action</th>
                               <th>Query</th>
+                              <th>Follow Up</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -164,66 +302,119 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                                     <td>
                                       {item.timestamp != ""
                                         ? moment(item.timestamp).format(
-                                          "DD/MM/YYYY"
-                                        )
+                                            "DD/MM/YYYY"
+                                          )
                                         : "--"}
                                     </td>
                                     <td>
                                       {item.bid_end_date != ""
                                         ? moment(item.bid_end_date).format(
-                                          "DD/MM/YYYY"
-                                        )
+                                            "DD/MM/YYYY"
+                                          )
                                         : "--"}
                                     </td>
                                     <td>
-                                    {item.rfq_type == "firm"
-                                      ? "Firm"
-                                      : item.rfq_type == "budgetary"
+                                      {item.rfq_type == "firm"
+                                        ? "Firm"
+                                        : item.rfq_type == "budgetary"
                                         ? "Budgetary"
-                                        :"---"}
+                                        : "---"}
                                     </td>
                                     <td>
-                                      {item.quote_status && textCapitalize(item.quote_status)}
+                                      {item.quote_status &&
+                                        textCapitalize(item.quote_status)}
                                     </td>
-                                    <td>{item.reverse_auction === 1 ? "Enabled" : "Disabled"}</td>
                                     <td>
-                                      {item.status === 1 ? "Open" : "Closed"}
+                                      {item.reverse_auction === 1
+                                        ? "Enabled"
+                                        : "Disabled"}
+                                    </td>
+                                    <td>
+                                      {/* 👇 View Status trigger */}
+                                      <button
+                                        className="minimal-btn bg-transparent btn-link btn-sm p-0 fw-medium text-primary text-decoration-underline"
+                                        onClick={() => getQuoteStatus(item.id)}
+                                        style={{ fontSize: "0.8rem" }}
+                                      >
+                                        <i className="bi bi-eye me-1"></i>
+                                        View Status
+                                      </button>
                                     </td>
                                     <td>
                                       <span>
                                         <Link
                                           href={`/dashboard/vendor/inquiries-details?id=${item.id}`}
-                                        // className="page-link"
-                                        id={`${checkBidExpired(item.bid_end_date) ? "view_quote" : (item.status === 1) ? (item.quote_status === "pending" ? "send_quote" : item.quote_status === "sent" ? "edit_quote" : "view_quote") : "view_quote"}_${item.rfq_no}-rfq_actions-inquiries_received`}
+                                          // className="page-link"
+                                          id={`${
+                                            checkBidExpired(item.bid_end_date)
+                                              ? "view_quote"
+                                              : item.status === 1
+                                              ? item.quote_status === "pending"
+                                                ? "send_quote"
+                                                : item.quote_status === "sent"
+                                                ? "edit_quote"
+                                                : "view_quote"
+                                              : "view_quote"
+                                          }_${
+                                            item.rfq_no
+                                          }-rfq_actions-inquiries_received`}
                                         >
-                                          {checkBidExpired(item.bid_end_date) ? (
-                                            <span className="fw-medium text-decoration-underline">View Quote</span>
-                                          ) : (
-                                            (item.status === 1) ? (
-                                              item.quote_status === "pending" ? (
-                                                <span className="fw-medium text-success text-decoration-underline">Send Quote</span>
-                                              ) : item.quote_status === "sent" ? (
-                                                <span className="fw-medium text-warning text-decoration-underline">Edit Quote</span>
-                                              ) : (
-                                                <span className="fw-medium text-decoration-underline">View Quote</span>
-                                              )
+                                          {checkBidExpired(
+                                            item.bid_end_date
+                                          ) ? (
+                                            <span className="fw-medium text-decoration-underline">
+                                              View Quote
+                                            </span>
+                                          ) : item.status === 1 ? (
+                                            item.quote_status === "pending" ? (
+                                              <span className="fw-medium text-success text-decoration-underline">
+                                                Send Quote
+                                              </span>
+                                            ) : item.quote_status === "sent" ? (
+                                              <span className="fw-medium text-warning text-decoration-underline">
+                                                Edit Quote
+                                              </span>
                                             ) : (
-                                              <span className="fw-medium text-decoration-underline">View Quote</span>
+                                              <span className="fw-medium text-decoration-underline">
+                                                View Quote
+                                              </span>
                                             )
+                                          ) : (
+                                            <span className="fw-medium text-decoration-underline">
+                                              View Quote
+                                            </span>
                                           )}
-
-
                                         </Link>
                                       </span>
                                     </td>
                                     <td>
                                       <Link
                                         href={`/dashboard/vendor/query?rfq_id=${item?.id}&role=vendor`}
-                                        className={`page-link me-2 ${item.unseen_query_count!=0 && "text-danger"}`}
+                                        className={`page-link me-2 ${
+                                          item.unseen_query_count != 0 &&
+                                          "text-danger"
+                                        }`}
                                         id={`view_queries_${item.rfq_no}-rfq_actions-inquiries_received`}
                                       >
-                                        {item.unseen_query_count!=0 ? `View Queries (${item.unseen_query_count} New)` : "View Queries"}
+                                        {item.unseen_query_count != 0
+                                          ? `View Queries (${item.unseen_query_count} New)`
+                                          : "View Queries"}
                                       </Link>
+                                    </td>
+                                    <td>
+                                      <button
+                                        className="btn btn-secondary gap-1 px-3 py-1 rounded-pill "
+                                        onClick={() =>
+                                          handleReminderClick(item)
+                                        }
+                                        style={{
+                                          fontSize: "0.8rem",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <i className="bi bi-bell me-1"></i>
+                                        Reminder
+                                      </button>
                                     </td>
                                   </tr>
                                 );
@@ -231,7 +422,8 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                           </tbody>
                         </table>
                       </div>
-                    )}
+                    )
+                  )}
                 </div>
 
                 <Pagination
@@ -241,6 +433,44 @@ const InquiriesReceived = ({ pageType = 0 }) => {
                   limit={limit}
                   setLimit={setLimit}
                 />
+
+                {/* 👇 Modal - moved outside the loop and table to render only once */}
+                {showModal && (
+                  <QuoteStatus
+                    quoteStatus={quoteStatus}
+                    onClose={() => setShowModal(false)}
+                  />
+                )}
+                {/* Reminder Confirmation Modal */}
+                <Modal
+                  show={showReminderModal}
+                  onHide={() => setShowReminderModal(false)}
+                  centered
+                >
+                  <Modal.Header closeButton className="px-4 py-3">
+                    <Modal.Title className="fw-semibold">Confirm Reminder</Modal.Title>
+                  </Modal.Header>
+                  <Modal.Body className="px-4 py-3">
+                    <p className="mb-0">
+                      Only 2 reminders can be sent to the buyer. Use this option
+                      wisely. Are you sure you want to send a reminder?
+                    </p>
+                  </Modal.Body>
+                  <Modal.Footer className="px-4 py-3">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setShowReminderModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleReminderConfirm}
+                    >
+                      Confirm
+                    </button>
+                  </Modal.Footer>
+                </Modal>
               </div>
             </div>
           </div>

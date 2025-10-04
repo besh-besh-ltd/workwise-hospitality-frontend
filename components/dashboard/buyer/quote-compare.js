@@ -39,7 +39,8 @@ import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const QuoteCompare = () => {
   const router = useRouter();
-  const { rfq } = router.query;
+  const { rfq, rfq_product_id, source, tab = 'product' } = router.query;
+  console.log("TAB:", tab);
   const [loading, setloading] = useState(false);
   const [quotesLoading, setquotesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -64,9 +65,15 @@ const QuoteCompare = () => {
   const [openModals, setOpenModals] = useState({});
   const [availableBudget, setAvailableBudget] = useState(null);
   // Add new state for active tab
-  const [activeTab, setActiveTab] = useState('product');
+  const [activeTab, setActiveTab] = useState(tab);
   // const [targetPrice , setTargetPrice] = useState(null);
   // const [targetPriceHistory ,  settargetPriceHistory] = useState([]);
+
+  useEffect(() => {
+    if(tab != activeTab) {
+      setActiveTab(tab);
+    }
+  }, [tab]);
 
 
  const [openModalId, setOpenModalId] = useState(null);
@@ -255,7 +262,7 @@ const handleCloseNormalizeModal = () => {
     setquotes([]);
     setTEavailable(false);
 
-    getQuotes(rfq, TA_Filter, freightFilter)
+    getQuotes(rfq, TA_Filter, freightFilter, rfq_product_id, source , 'quote_compare')
       .then((res) => {
         // Store original data before normalization for highlighting logic
         setOriginalQuotes(res.data);
@@ -1069,7 +1076,7 @@ const generateExcelFile = (api_data) => {
    
 const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) => {
   try {
-    const result = await updateTargetPrice({productId, vendorIds, targetPrice });
+    const result = await updateTargetPrice({productId, vendorIds, targetPrice , rfq_id : rfq });
     
     if (!result) {
       toast.error("Error updating Target Price");
@@ -1105,13 +1112,14 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
     setShowCloseConfirmModal(false);
   };
 
-  const handleFinalize = (item, proditem) => {
+  const handleFinalize = (item, proditem, existingPOId) => {
     setfinalizeLoading(true);
     const specs = proditem.product_details[0].rfq_details;
 
     const poRequiredPayload = {
       project_id: proditem.rfq[0].project_id,
       total_value: item.total_price,
+      existing_po_id: existingPOId,
       product_info: {
         rfq_product_id: proditem.id,
         quantity: specs.find(spec => spec.title == 'Quantity')?.value ?? -1,
@@ -1125,7 +1133,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       rfq_no: proditem.rfq[0].rfq_no,
       product_variant_id: proditem.product_variant_id,
       vendor_id: item.quote_details.created_by,
-      quote_id: item.quote_id,
+      quote_id: item.quote_item_id,
       variant: proditem.variant,
       ...poRequiredPayload
     };
@@ -1564,10 +1572,10 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                             const key = `${item.product_variant_id}_${item.variant}`;
                             const product_specs =
                               item?.product_details[0]?.rfq_details;
-                            const spec = product_specs.find(
+                            const spec = product_specs?.find(
                               (spec) => spec.title == "Spec"
                             )?.value;
-                            const selling_price = product_specs.find(
+                            const selling_price = product_specs?.find(
                               (spec) => spec.title == "total_price"
                             )?.value;
                             const product_name = item?.product_details.map(
@@ -1954,6 +1962,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     {activeTab === "category" && (
                       <OverallComparison
                         rfq_id={rfq}
+                        rfq_product_id={rfq_product_id}
+                        source={source}
                         TA_Filter={TA_Filter}
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
@@ -1963,6 +1973,8 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
                     {activeTab === "cost" && (
                       <OverallCostComparison
                         rfq_id={rfq}
+                        rfq_product_id={rfq_product_id}
+                        source={source}
                         TA_Filter={TA_Filter}
                         normalizeFilter={normalizeFilter}
                         freightFilter={freightFilter}
