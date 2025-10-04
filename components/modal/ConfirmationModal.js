@@ -10,7 +10,8 @@ const ConfirmationModal = ({
     confirmButtonColor = "danger",
     confirmButtonText = "Confirm",
     cancelButtonText = "Cancel",
-    showCloseButton = false
+    showCloseButton = false,
+    customFooter = null,
 }) => {
     const getButtonClass = (color) => {
         switch (color) {
@@ -111,6 +112,8 @@ const ConfirmationModal = ({
                                 }}
                             />
                         </div>
+
+                        {customFooter}
 
                         {/* Buttons */}
                         <div className='d-flex justify-content-center gap-3 mt-4'>
