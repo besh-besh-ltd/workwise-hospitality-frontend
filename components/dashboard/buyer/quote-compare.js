@@ -1133,7 +1133,7 @@ const handleSubmitTargetPrice = async ({ productId, vendorIds, targetPrice }) =>
       rfq_no: proditem.rfq[0].rfq_no,
       product_variant_id: proditem.product_variant_id,
       vendor_id: item.quote_details.created_by,
-      quote_id: item.quote_id,
+      quote_id: item.quote_item_id,
       variant: proditem.variant,
       ...poRequiredPayload
     };

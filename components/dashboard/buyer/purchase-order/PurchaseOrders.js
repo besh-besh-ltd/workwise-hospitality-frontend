@@ -10,6 +10,7 @@ import PurchaseOrderDetails from "./PODetails";
 import { toast } from "react-toastify";
 import { getCompanyUsers } from "@/services/Auth";
 import RejectRemarksModal from "./RejectRemarksModal";
+import ConfirmationModal from "@/components/modal/ConfirmationModal";
 
 const PurchaseOrders = () => {
   const router = useRouter();
@@ -31,6 +32,10 @@ const PurchaseOrders = () => {
     po_id: null,
     data: null,
   })
+  const [initiatePOModal, setInitiatePOModal] = useState({
+    selectedPO: null,
+    showModal: false
+  });
 
   const [page, setpage] = useState(1);
   const [limit, setlimit] = useState(100);
@@ -142,9 +147,17 @@ const PurchaseOrders = () => {
   }
 
   const handleInitiatePO = async (po_id) => {
+   setInitiatePOModal({
+    showModal: true,
+    selectedPO: po_id,
+   }) 
+  }
+
+  const confirmInitiatePO = async () => {
     try {
       setloading(true);
-      const res = await handlePOInitialization(po_id);
+      const res = await handlePOInitialization(initiatePOModal.selectedPO);
+      getPOData(poMeta);
       if(res) {
         toast.success(res.message);
       } else {
@@ -155,6 +168,10 @@ const PurchaseOrders = () => {
       toast.error(error.message ?? 'Something went wrong while making a decision, please try again!')
     } finally {
       setloading(false);
+      setInitiatePOModal({
+        showModal: false,
+        selectedPO: null
+      })
     }
   }
 
@@ -376,6 +393,19 @@ const PurchaseOrders = () => {
       </section>
 
       <RejectRemarksModal show={showRejectModal} onClose={() => setShowRejectModal(false)} onReject={(remarks) => rejectWithRemarks(remarks)}/>
+      <ConfirmationModal
+        isOpen={initiatePOModal.showModal}
+        onClose={() => setInitiatePOModal({
+          showModal: false,
+          selectedPO: null
+        })}
+        onConfirm={confirmInitiatePO}
+        title="Initiate this PO"
+        description={`Are you sure you want to initiate this PO? Once initiated this action cannot be reversed!`}
+        confirmButtonColor="warning"
+        confirmButtonText="Initiate PO"
+        cancelButtonText="Cancel"
+      />
     </>
   );
 };

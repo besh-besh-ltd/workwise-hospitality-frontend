@@ -6,6 +6,8 @@ import React, { useEffect, useState } from "react";
 import { MdNotificationsNone, MdEdit, MdCheck } from "react-icons/md";
 import { IoMdEye } from "react-icons/io";
 import { RxCross2 } from "react-icons/rx";
+import { BsFilePdf } from "react-icons/bs";
+import { FiDownload, FiExternalLink } from "react-icons/fi";
 import { toast } from "react-toastify";
 import Pagination from "@/components/shared/Pagination";
 import ConfirmationModal from "@/components/modal/ConfirmationModal";
@@ -100,7 +102,10 @@ const POListing = ({
       await handlePODecision(pendingPO.id, {
         decision: "approved",
       });
-      await getPOData(filters);
+      await refetchPOList({
+        ...filters,
+        poNumber: debouncedPONumber,
+      });
       setShowApproveConfirmModal(false);
       setPendingPO(null);
     }
@@ -128,6 +133,44 @@ const POListing = ({
   const handleRejectCancel = () => {
     setShowRejectConfirmModal(false);
     setPendingPO(null);
+  };
+
+  const POReviewCompact = (poData) => {
+    if(!poData) return null;
+
+    const pdfUrl = poData.poPdfUrl;
+    const fileName = `PO_${poData.po_number}.pdf`;
+
+    return (
+      <div className="card border-0">
+        <div className="card-body">
+          <div className="flex align-items-center gap-2">
+            <div>
+              <BsFilePdf size={32} className="text-danger" />
+            </div>
+            <div className="mt-1">
+              <div className="fw-semibold">{fileName}</div>
+              <small className="text-muted">Purchase Order Document</small>
+            </div>
+            <div className="mt-2">
+              <a 
+                className="btn p-2 btn-outline-secondary"
+                href={pdfUrl}
+                target="__blank"
+              >
+                View
+                <FiExternalLink className="ms-1" size={12} />
+              </a>
+            </div>
+          </div>
+          <div className="mt-2">
+            <small className="text-muted">
+              Click to preview the formal PO document that will be emailed to the vendor.
+            </small>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const resetFilters = () =>
@@ -435,6 +478,7 @@ const POListing = ({
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
+        customFooter={POReviewCompact(pendingPO)}
       />
 
       {/* PO Reject Confirmation Modal */}

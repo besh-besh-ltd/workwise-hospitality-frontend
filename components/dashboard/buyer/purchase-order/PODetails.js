@@ -8,6 +8,8 @@ import {
 import { BsBoxSeam, BsPerson, BsExclamationCircleFill, BsCheckCircleFill, BsXCircleFill } from 'react-icons/bs';
 import { FiPaperclip } from "react-icons/fi";
 import { HiOutlineTrash, HiPencil } from "react-icons/hi";
+import { BsFilePdf } from "react-icons/bs";
+import { FiDownload, FiExternalLink } from "react-icons/fi";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
@@ -124,6 +126,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
     payment_milestones,
     quotations,
     rfq_product_id,
+    poPdfUrl
   } = data;
 
   const [selectedMilestone, setSelectedMilestone] = useState(null);
@@ -195,6 +198,44 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
       console.error(error);
     }
   }
+
+  const POReviewCompact = (poData) => {
+      if(!poData) return null;
+  
+      const pdfUrl = poData.poPdfUrl;
+      const fileName = `PO_${poData.po_number}.pdf`;
+  
+      return (
+        <div className="card border-0">
+          <div className="card-body">
+            <div className="flex align-items-center gap-2">
+              <div>
+                <BsFilePdf size={32} className="text-danger" />
+              </div>
+              <div className="mt-1">
+                <div className="fw-semibold">{fileName}</div>
+                <small className="text-muted">Purchase Order Document</small>
+              </div>
+              <div className="mt-2">
+                <a 
+                  className="btn p-2 btn-outline-secondary"
+                  href={pdfUrl}
+                  target="__blank"
+                >
+                  View
+                  <FiExternalLink className="ms-1" size={12} />
+                </a>
+              </div>
+            </div>
+            <div className="mt-2">
+              <small className="text-muted">
+                Click to preview the formal PO document that will be emailed to the vendor.
+              </small>
+            </div>
+          </div>
+        </div>
+      );
+    };
 
   const handleMilestoneEdition = (milestone) => {
     setSelectedMilestone(milestone);
@@ -665,6 +706,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
+        customFooter={POReviewCompact(poPdfUrl)}
       />
 
       <ConfirmationModal
