@@ -281,9 +281,9 @@ const ApprovalHierarchyPage = () => {
                   <h4 className="mb-3 fw-medium">Purchase Order Hierarchy</h4>
                   {hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 ? (
                     <div className="d-flex gap-3">
-                      {getFinalApproverLayout(hierarchy)}
+                      {/* {getFinalApproverLayout(hierarchy)} */}
 
-                      <div class="vr mx-2"></div>
+                      {/* <div class="vr mx-2"></div> */}
 
                       <div className="d-flex flex-wrap gap-3">
                         {hierarchy
