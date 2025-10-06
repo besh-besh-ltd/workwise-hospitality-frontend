@@ -516,6 +516,10 @@ return { deletedTerms, createdTerms, updatedTerms };
   };
 
   const handleSubmitQuoteConfirm = () => {
+
+    
+    setShowSubmitQuoteConfirmModal(false);
+
     // Validate payment terms - at least one valid row should exist
     const validPaymentTerms = paymentTermsRows.filter(row => 
       row && 
@@ -526,7 +530,6 @@ return { deletedTerms, createdTerms, updatedTerms };
     );
     
     if (validPaymentTerms.length === 0) {
-      setShowSubmitQuoteConfirmModal(false);
       return toast.error("At least one valid payment term is required. Please add your payment terms.");
     }
 
@@ -570,7 +573,7 @@ return { deletedTerms, createdTerms, updatedTerms };
         ).length : 0;
       
       if (remainingValidTerms + originalValidTerms === 0) {
-        setShowSubmitQuoteConfirmModal(false);
+        // setShowSubmitQuoteConfirmModal(false);
         return toast.error("At least one valid payment term is required. Please add your payment terms.");
       }
 
@@ -603,12 +606,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote updated Successfully...!");
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((error) => {
           setsubmitLoading(false);
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = error.response?.data?.message || "Unable to update quote. Please try again.";
           toast.error(errorMessage);
@@ -652,7 +655,7 @@ return { deletedTerms, createdTerms, updatedTerms };
             (!!product.delivery_period && (parseInt(product.delivery_period) || 0) <= 0)
         )
       ) {
-        setShowSubmitQuoteConfirmModal(false);
+        // setShowSubmitQuoteConfirmModal(false);
         return toast.error("Some required fields may be missing or in negative")
       }
         
@@ -663,12 +666,12 @@ return { deletedTerms, createdTerms, updatedTerms };
         .then((res) => {
           setsubmitLoading(false);
           toast.success("Quote sent Successfully...!");
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           router.push(`/dashboard/vendor/inquiries-details?id=${id}${token !== undefined ? `&token=${token}` : ''}`);
         })
         .catch((err) => {
           setsubmitLoading(false);
-          setShowSubmitQuoteConfirmModal(false);
+          // setShowSubmitQuoteConfirmModal(false);
           // Display error message from backend
           const errorMessage = err.response?.data?.message || "Unable to send quote. Please try again.";
           toast.error(errorMessage);
