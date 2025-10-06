@@ -655,16 +655,18 @@ const QuoteCompareTable = ({
       <FinalizeVendorModal
         show={activeModal == 'finalize'}
         onHide={() => setActiveModal(null)}
-        onConfirm={() => {
-          handleFinalize(currentItem, proditem);
+        onConfirm={(existingPOId) => {
+          handleFinalize(currentItem, proditem, existingPOId);
           setActiveModal(null)
         }}
         vendorName={
           currentItem?.quote_details?.vendor_details?.organization_name ||
           currentItem?.quote_details?.vendor_details?.name
         }
+        vendorDetails={currentItem?.quote_details?.vendor_details}
+        rfqId={rfq}
         quotedPrice={currentItem?.total_price}
-        productName={proditem?.product_details?.[0].product_name}
+        productDetails={proditem?.product_details}
         alreadyFinalized={alreadyFinalized}
         availableBudget={availableBudget}
       />
