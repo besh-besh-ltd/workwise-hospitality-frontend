@@ -201,6 +201,8 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
 
   const POReviewCompact = (poData) => {
       if(!poData) return null;
+
+      console.log("PO DATA:", poData);
   
       const pdfUrl = poData.poPdfUrl;
       const fileName = `PO_${poData.po_number}.pdf`;
@@ -706,7 +708,7 @@ const PurchaseOrderDetails = ({ data, handlePODecision, handleInitiatePO, handle
         confirmButtonColor="success"
         confirmButtonText="Approve"
         cancelButtonText="Cancel"
-        customFooter={POReviewCompact(poPdfUrl)}
+        customFooter={POReviewCompact(data)}
       />
 
       <ConfirmationModal

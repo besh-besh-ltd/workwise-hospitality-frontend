@@ -138,6 +138,8 @@ const POListing = ({
   const POReviewCompact = (poData) => {
     if(!poData) return null;
 
+    console.log("PO DATA:", poData);
+    
     const pdfUrl = poData.poPdfUrl;
     const fileName = `PO_${poData.po_number}.pdf`;
 
